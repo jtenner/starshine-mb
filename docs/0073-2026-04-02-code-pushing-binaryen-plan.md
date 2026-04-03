@@ -465,6 +465,35 @@
   GC churn”; the direct native lane is now much closer to the compare-signoff
   threshold, and the next meaningful question is what the full replay looks
   like.
+- The next perf tranche stayed in whole-function setup rather than parity
+  widening. `code-pushing` now pulls cached effect node masks directly from
+  [`HotAnalysisCache`](../src/ir/analysis_cache.mbt), allocates real
+  `CpSummaryCache` bitsets lazily instead of eagerly for every live node,
+  precomputes dropped-owner/global scans once per function, and carries the
+  reachable-prefix start index directly instead of rescanning from region start
+  on each guarded move. Those changes moved the direct native debug-artifact
+  path from the `7.1s` band down into the `4.7s` to `5.1s` band, while traced
+  local runs dropped `analysis:effects` to about `0.25s` and
+  `pass:code-pushing` to about `2.44s-2.62s`.
+- The next whole-second cut then came from a stronger traversal disqualifier.
+  `code-pushing` now rejects functions and nested regions unless they contain
+  an SFA `LocalSet` root with a cheap movable value before a later `If` or
+  conditional pushpoint root, memoizes that by region holder, and reuses the
+  same region cache during the actual rewrite walk. That pushed the same direct
+  native debug-artifact path down again from `5.072s` to `4.205s` and then
+  `3.604s`, while traced `pass:code-pushing` dropped from `2469578 us` to
+  `1731189 us` and then `1290492 us`. The biggest unchanged parser outliers
+  were effectively removed too: `Func 3617` fell from `337161 us` to `574 us`,
+  `Func 1558` from `254285 us` to `410 us`, and `Func 1530` from `197051 us`
+  to `242 us`.
+- That changes the next performance question again. The remaining largest
+  pass-local hotspot is now the real mutating `Func 1816` at about `187021 us`,
+  with the next unchanged pass hotspot `Func 1678` at about `75809 us`, while
+  hot lift is often back to dominating whole-artifact wall time on large
+  unchanged functions. So the next decision is no longer “find another obvious
+  GC churn source”; it is whether to keep squeezing those remaining
+  `code-pushing` families or to take the permission-gated full compare replay
+  and see how much of the remaining artifact budget is parity-only.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the
   special walk to zero-result `Block` roots only, both regressed the existing

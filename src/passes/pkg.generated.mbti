@@ -88,6 +88,8 @@ pub fn pass_require_cfg(HotPassContext, @ir.HotFunc) -> @ir.HotCfg
 
 pub fn pass_require_dom(HotPassContext, @ir.HotFunc) -> @ir.HotDominators
 
+pub fn pass_require_effect_node_masks(HotPassContext, @ir.HotFunc) -> Array[@ir.EffectMask]
+
 pub fn pass_require_effects(HotPassContext, @ir.HotFunc) -> @ir.HotEffectsSummary
 
 pub fn pass_require_liveness(HotPassContext, @ir.HotFunc) -> @ir.HotLiveness
@@ -318,4 +320,3 @@ type HotTupleOptimizationRootSlot derive(Eq, Show, @debug.Debug)
 // Type aliases
 
 // Traits
-

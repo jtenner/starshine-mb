@@ -38,7 +38,6 @@ priv struct CpSummaryCache {
   summaries : Array[CpEffectSummary]
   explicit_exit_ready : Array[Bool]
   explicit_exit_values : Array[Bool]
-  dropped_region_owner_ready : Array[Bool]
   dropped_region_owner_values : Array[Int]
   nonvoid_block_root_guard_ready : Array[Bool]
   nonvoid_block_root_guard_values : Array[Bool]
@@ -58,6 +57,21 @@ priv struct CpBlockOwnerExitSummary {
   mut has_owner_exit : Bool
   mut has_dropped_owner_exit : Bool
   mut has_unsafe_explicit_exit : Bool
+}
+
+///|
+priv struct CpFuncStaticScan {
+  global_count : Int
+  dropped_region_owner_values : Array[Int]
+}
+
+///|
+priv struct CpTraversalGateScan {
+  node_masks : Array[@ir.EffectMask]
+  subtree_unremovable_ready : Array[Bool]
+  subtree_unremovable_values : Array[Bool]
+  region_candidate_ready : Array[Bool]
+  region_candidate_values : Array[Bool]
 }
 
 ///|
@@ -188,28 +202,10 @@ fn cp_barrier_merge_root_summary(
 }
 
 ///|
-fn cp_max_global_index(func : @ir.HotFunc, live_nodes : Array[Bool]) -> Int {
-  let mut max_idx = -1
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !live_nodes[node_id] {
-      continue
-    }
-    let node = @ir.hot_node_get(func, node_id)
-    match node.op {
-      @ir.HotOp::GlobalGet | @ir.HotOp::GlobalSet =>
-        if node.imm0 > max_idx {
-          max_idx = node.imm0
-        }
-      _ => ()
-    }
-  }
-  max_idx + 1
-}
-
-///|
 fn cp_new_summary_cache(
   func : @ir.HotFunc,
-  effects? : @ir.HotEffectsSummary? = None,
+  static_scan? : CpFuncStaticScan? = None,
+  node_masks? : Array[@ir.EffectMask]? = None,
 ) -> CpSummaryCache {
   let node_count = @ir.hot_node_count(func)
   let live_nodes = Array::make(node_count, true)
@@ -218,31 +214,33 @@ fn cp_new_summary_cache(
       live_nodes[free_id] = false
     }
   }
+  let static_scan = match static_scan {
+    Some(static_scan) => static_scan
+    None => cp_prepare_func_static_scan(func)
+  }
   let local_count = @ir.hot_local_count(func)
-  let global_count = cp_max_global_index(func, live_nodes)
-  let effects = match effects {
-    Some(effects) => effects
-    None => @ir.cache_get_or_build_effects(@ir.HotAnalysisCache::new(), func)
+  let global_count = static_scan.global_count
+  let node_masks = match node_masks {
+    Some(node_masks) => node_masks
+    None =>
+      @ir.cache_get_or_build_effect_node_masks(
+        @ir.HotAnalysisCache::new(),
+        func,
+      )
   }
   let ready = Array::make(node_count, false)
-  let summaries : Array[CpEffectSummary] = []
-  for idx = 0; idx < node_count; idx = idx + 1 {
-    let _ = idx
-    summaries.push(cp_empty_effect_summary(local_count, global_count))
-  }
-  let region_cache_len = node_count + 1
+  let summaries = Array::make(node_count, cp_empty_effect_summary(0, 0))
   {
     local_count,
     global_count,
-    node_masks: effects.node_masks,
+    node_masks,
     live_nodes,
     owner_exit_active_marks: Array::make(node_count, false),
     ready,
     summaries,
     explicit_exit_ready: Array::make(node_count, false),
     explicit_exit_values: Array::make(node_count, false),
-    dropped_region_owner_ready: Array::make(region_cache_len, false),
-    dropped_region_owner_values: Array::make(region_cache_len, -1),
+    dropped_region_owner_values: static_scan.dropped_region_owner_values,
     nonvoid_block_root_guard_ready: Array::make(node_count, false),
     nonvoid_block_root_guard_values: Array::make(node_count, false),
   }
@@ -485,7 +483,7 @@ fn cp_func_has_candidate_shape(func : @ir.HotFunc) -> Bool {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
-    let node = @ir.hot_node_get(func, node_id)
+    let node = func.nodes[node_id]
     match node.op {
       @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
         if node.imm0 >= param_count {
@@ -504,6 +502,248 @@ fn cp_func_has_candidate_shape(func : @ir.HotFunc) -> Bool {
     }
   }
   false
+}
+
+///|
+fn cp_prepare_func_static_scan(func : @ir.HotFunc) -> CpFuncStaticScan {
+  let node_count = @ir.hot_node_count(func)
+  let dropped_region_owner_values = Array::make(node_count + 1, -1)
+  let mut max_global_idx = -1
+  for node_id = 0; node_id < node_count; node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = func.nodes[node_id]
+    match node.op {
+      @ir.HotOp::GlobalGet | @ir.HotOp::GlobalSet =>
+        if node.imm0 > max_global_idx {
+          max_global_idx = node.imm0
+        }
+      @ir.HotOp::Drop =>
+        if node.child_count > 0 {
+          let holder_id = func.children[node.child_base]
+          let cache_slot = holder_id + 1
+          if holder_id >= 0 && cache_slot < dropped_region_owner_values.length() {
+            dropped_region_owner_values[cache_slot] = holder_id
+          }
+        }
+      _ => ()
+    }
+  }
+  { global_count: max_global_idx + 1, dropped_region_owner_values }
+}
+
+///|
+fn cp_new_traversal_gate_scan(
+  func : @ir.HotFunc,
+  node_masks : Array[@ir.EffectMask],
+) -> CpTraversalGateScan {
+  let node_count = @ir.hot_node_count(func)
+  {
+    node_masks,
+    subtree_unremovable_ready: Array::make(node_count, false),
+    subtree_unremovable_values: Array::make(node_count, false),
+    region_candidate_ready: Array::make(node_count + 1, false),
+    region_candidate_values: Array::make(node_count + 1, false),
+  }
+}
+
+///|
+fn cp_node_has_unremovable_value_effects_cheap(
+  scan : CpTraversalGateScan,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if scan.subtree_unremovable_ready[node_id] {
+    return scan.subtree_unremovable_values[node_id]
+  }
+  let node = func.nodes[node_id]
+  let blocked_mask = @ir.EFFECT_MASK_CONTROL |
+    @ir.EFFECT_MASK_CALL |
+    @ir.EFFECT_MASK_THROW |
+    @ir.EFFECT_MASK_TRAP |
+    @ir.EFFECT_MASK_MEMORY_WRITE |
+    @ir.EFFECT_MASK_TABLE_WRITE
+  let mut blocked = (scan.node_masks[node_id] & blocked_mask) != 0U
+  if !blocked {
+    match node.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee | @ir.HotOp::GlobalSet =>
+        blocked = true
+      _ => ()
+    }
+  }
+  if !blocked {
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      if cp_node_has_unremovable_value_effects_cheap(
+          scan,
+          func,
+          func.children[node.child_base + slot],
+        ) {
+        blocked = true
+        break
+      }
+    }
+  }
+  scan.subtree_unremovable_ready[node_id] = true
+  scan.subtree_unremovable_values[node_id] = blocked
+  blocked
+}
+
+///|
+fn cp_root_has_cheap_traversal_candidate(
+  infos : Array[CpLocalInfo],
+  scan : CpTraversalGateScan,
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Bool {
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return false
+  }
+  let node = func.nodes[root_id]
+  match node.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if node.imm0 < 0 || node.imm0 >= infos.length() || !infos[node.imm0].sfa {
+    return false
+  }
+  if node.child_count == 0 {
+    return true
+  }
+  !cp_node_has_unremovable_value_effects_cheap(
+    scan,
+    func,
+    func.children[node.child_base],
+  )
+}
+
+///|
+fn cp_node_nested_regions_have_traversal_candidate(
+  func : @ir.HotFunc,
+  node_id : Int,
+  infos : Array[CpLocalInfo],
+  scan : CpTraversalGateScan,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match func.nodes[node_id].op {
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, node_id) == 0 {
+        false
+      } else {
+        cp_node_nested_regions_have_traversal_candidate(
+          func,
+          @ir.hot_child_get(func, node_id, 0),
+          infos,
+          scan,
+        )
+      }
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      cp_region_has_traversal_candidate(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        infos,
+        scan,
+      )
+    @ir.HotOp::If =>
+      if cp_region_has_traversal_candidate(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+          infos,
+          scan,
+        ) {
+        true
+      } else {
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(else_ref) =>
+            cp_region_has_traversal_candidate(func, else_ref, infos, scan)
+          None => false
+        }
+      }
+    @ir.HotOp::Try =>
+      if cp_region_has_traversal_candidate(
+          func,
+          @ir.hot_region_body_ref(func, node_id),
+          infos,
+          scan,
+        ) {
+        true
+      } else {
+        match @ir.hot_region_catch_ref(func, node_id) {
+          Some(catch_ref) =>
+            cp_region_has_traversal_candidate(func, catch_ref, infos, scan)
+          None => false
+        }
+      }
+    @ir.HotOp::TryTable =>
+      cp_region_has_traversal_candidate(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        infos,
+        scan,
+      ) ||
+      cp_region_has_traversal_candidate(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+        infos,
+        scan,
+      )
+    _ => false
+  }
+}
+
+///|
+fn cp_region_has_traversal_candidate(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  infos : Array[CpLocalInfo],
+  scan : CpTraversalGateScan,
+) -> Bool {
+  let cache_slot = region_ref.holder + 1
+  if cache_slot >= 0 &&
+    cache_slot < scan.region_candidate_ready.length() &&
+    scan.region_candidate_ready[cache_slot] {
+    return scan.region_candidate_values[cache_slot]
+  }
+  let mut saw_later_target = false
+  let mut has_candidate = false
+  let mut idx = @ir.hot_region_root_count(func, region_ref) - 1
+  while idx >= 0 {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if cp_node_nested_regions_have_traversal_candidate(
+        func, root_id, infos, scan,
+      ) {
+      has_candidate = true
+      break
+    }
+    if saw_later_target &&
+      cp_root_has_cheap_traversal_candidate(infos, scan, func, root_id) {
+      has_candidate = true
+      break
+    }
+    if cp_root_is_pushpoint(func, root_id) {
+      saw_later_target = true
+    }
+    idx = idx - 1
+  }
+  if cache_slot >= 0 && cache_slot < scan.region_candidate_ready.length() {
+    scan.region_candidate_ready[cache_slot] = true
+    scan.region_candidate_values[cache_slot] = has_candidate
+  }
+  has_candidate
+}
+
+///|
+fn cp_func_has_traversal_candidate(
+  func : @ir.HotFunc,
+  infos : Array[CpLocalInfo],
+  scan : CpTraversalGateScan,
+) -> Bool {
+  cp_region_has_traversal_candidate(func, @ir.HotRegionRef::root(), infos, scan)
 }
 
 ///|
@@ -661,25 +901,6 @@ fn cp_root_is_unconditional_terminal_explicit_exit(
 }
 
 ///|
-fn cp_region_last_unconditional_terminal_root_idx(
-  cache : CpSummaryCache,
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-  target_idx : Int,
-) -> Int {
-  let mut last = -1
-  let mut idx = 0
-  while idx < @ir.hot_region_root_count(func, region_ref) && idx <= target_idx {
-    let root_id = @ir.hot_region_get(func, region_ref, idx)
-    if cp_root_is_unconditional_terminal_explicit_exit(cache, func, root_id) {
-      last = idx
-    }
-    idx = idx + 1
-  }
-  last
-}
-
-///|
 fn cp_active_owners_contains(
   active_owners : Array[Int],
   owner_id : Int,
@@ -703,35 +924,11 @@ fn cp_dropped_region_owner_id(
     None => return None
   }
   let cache_slot = holder_id + 1
-  if cache_slot >= 0 &&
-    cache_slot < cache.dropped_region_owner_ready.length() &&
-    cache.dropped_region_owner_ready[cache_slot] {
+  if cache_slot >= 0 && cache_slot < cache.dropped_region_owner_values.length() {
     let cached = cache.dropped_region_owner_values[cache_slot]
     return if cached >= 0 { Some(cached) } else { None }
   }
-  let mut dropped_owner : Int? = None
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !cp_node_is_live(cache, node_id) {
-      continue
-    }
-    match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::Drop =>
-        if @ir.hot_child_count(func, node_id) > 0 &&
-          @ir.hot_child_get(func, node_id, 0) == holder_id {
-          dropped_owner = Some(holder_id)
-          break
-        }
-      _ => ()
-    }
-  }
-  if cache_slot >= 0 && cache_slot < cache.dropped_region_owner_ready.length() {
-    cache.dropped_region_owner_ready[cache_slot] = true
-    cache.dropped_region_owner_values[cache_slot] = match dropped_owner {
-      Some(owner_id) => owner_id
-      None => -1
-    }
-  }
-  dropped_owner
+  None
 }
 
 ///|
@@ -1102,6 +1299,7 @@ fn cp_nonvoid_prefix_has_explicit_exit_guard(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
+  prefix_start_idx : Int,
   target_idx : Int,
 ) -> Bool {
   let dropped_region_owner_id = match
@@ -1109,11 +1307,9 @@ fn cp_nonvoid_prefix_has_explicit_exit_guard(
     Some(owner_id) => owner_id
     None => -1
   }
-  let mut idx = cp_region_last_unconditional_terminal_root_idx(
-      cache, func, region_ref, target_idx,
-    ) +
-    1
-  while idx < @ir.hot_region_root_count(func, region_ref) && idx <= target_idx {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let mut idx = prefix_start_idx
+  while idx < root_count && idx <= target_idx {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
     let root_node = @ir.hot_node_get(func, root_id)
     let root_summary = cp_effect_summary_for_node(cache, func, root_id)
@@ -1537,6 +1733,7 @@ fn cp_try_push_to_pushpoint(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   target_idx : Int,
+  reachable_prefix_start_idx : Int,
   infos : Array[CpLocalInfo],
   cache : CpSummaryCache,
 ) -> Bool {
@@ -1546,7 +1743,7 @@ fn cp_try_push_to_pushpoint(
   let root_count = @ir.hot_region_root_count(func, region_ref)
   if cp_region_has_nonvoid_result(func, region_ref) &&
     cp_nonvoid_prefix_has_explicit_exit_guard(
-      cache, func, region_ref, target_idx,
+      cache, func, region_ref, reachable_prefix_start_idx, target_idx,
     ) {
     return false
   }
@@ -1665,6 +1862,7 @@ fn cp_try_rewrite_nested_regions(
   node_id : Int,
   infos : Array[CpLocalInfo],
   cache : CpSummaryCache,
+  traversal_scan : CpTraversalGateScan,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1680,6 +1878,7 @@ fn cp_try_rewrite_nested_regions(
           @ir.hot_child_get(func, node_id, 0),
           infos,
           cache,
+          traversal_scan,
         )
       }
     @ir.HotOp::Block | @ir.HotOp::Loop =>
@@ -1689,6 +1888,7 @@ fn cp_try_rewrite_nested_regions(
         @ir.hot_region_body_ref(func, node_id),
         infos,
         cache,
+        traversal_scan,
       )
     @ir.HotOp::If =>
       if cp_try_rewrite_region(
@@ -1697,12 +1897,15 @@ fn cp_try_rewrite_nested_regions(
           @ir.hot_region_then_ref(func, node_id),
           infos,
           cache,
+          traversal_scan,
         ) {
         true
       } else {
         match @ir.hot_region_else_ref(func, node_id) {
           Some(else_ref) =>
-            cp_try_rewrite_region(ctx, func, else_ref, infos, cache)
+            cp_try_rewrite_region(
+              ctx, func, else_ref, infos, cache, traversal_scan,
+            )
           None => false
         }
       }
@@ -1713,12 +1916,15 @@ fn cp_try_rewrite_nested_regions(
           @ir.hot_region_body_ref(func, node_id),
           infos,
           cache,
+          traversal_scan,
         ) {
         true
       } else {
         match @ir.hot_region_catch_ref(func, node_id) {
           Some(catch_ref) =>
-            cp_try_rewrite_region(ctx, func, catch_ref, infos, cache)
+            cp_try_rewrite_region(
+              ctx, func, catch_ref, infos, cache, traversal_scan,
+            )
           None => false
         }
       }
@@ -1729,6 +1935,7 @@ fn cp_try_rewrite_nested_regions(
         @ir.hot_region_body_ref(func, node_id),
         infos,
         cache,
+        traversal_scan,
       ) ||
       cp_try_rewrite_region(
         ctx,
@@ -1736,6 +1943,7 @@ fn cp_try_rewrite_nested_regions(
         @ir.hot_region_catch_list_ref(func, node_id),
         infos,
         cache,
+        traversal_scan,
       )
     _ => false
   }
@@ -1748,20 +1956,33 @@ fn cp_try_rewrite_region(
   region_ref : @ir.HotRegionRef,
   infos : Array[CpLocalInfo],
   cache : CpSummaryCache,
+  traversal_scan : CpTraversalGateScan,
 ) -> Bool {
+  if !cp_region_has_traversal_candidate(func, region_ref, infos, traversal_scan) {
+    return false
+  }
+  let root_count = @ir.hot_region_root_count(func, region_ref)
   let mut idx = 0
-  while idx < @ir.hot_region_root_count(func, region_ref) {
+  let mut reachable_prefix_start_idx = 0
+  while idx < root_count {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
     if cp_try_sink_into_if(ctx, func, region_ref, idx, infos, cache) ||
-      cp_try_push_to_pushpoint(ctx, func, region_ref, idx, infos, cache) {
+      cp_try_push_to_pushpoint(
+        ctx, func, region_ref, idx, reachable_prefix_start_idx, infos, cache,
+      ) {
       return true
     }
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
       idx = idx + 1
       continue
     }
-    if cp_try_rewrite_nested_regions(ctx, func, root_id, infos, cache) {
+    if cp_try_rewrite_nested_regions(
+        ctx, func, root_id, infos, cache, traversal_scan,
+      ) {
       return true
+    }
+    if cp_root_is_unconditional_terminal_explicit_exit(cache, func, root_id) {
+      reachable_prefix_start_idx = idx + 1
     }
     idx = idx + 1
   }
@@ -1770,17 +1991,37 @@ fn cp_try_rewrite_region(
 
 ///|
 fn code_pushing_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
-  if @ir.hot_local_count(func) == 0 || !cp_func_has_candidate_shape(func) {
+  if @ir.hot_local_count(func) == 0 {
     return HotPassResult::unchanged()
   }
+  if !cp_func_has_candidate_shape(func) {
+    return HotPassResult::unchanged()
+  }
+  let static_scan = cp_prepare_func_static_scan(func)
   let mut changed = false
   while true {
     let infos = cp_analyze_locals(func)
     if !cp_infos_have_sfa_local(infos) {
       break
     }
-    let cache = cp_new_summary_cache(func, effects=Some(pass_require_effects(ctx, func)))
-    if !cp_try_rewrite_region(ctx, func, @ir.HotRegionRef::root(), infos, cache) {
+    let node_masks = pass_require_effect_node_masks(ctx, func)
+    let traversal_scan = cp_new_traversal_gate_scan(func, node_masks)
+    if !cp_func_has_traversal_candidate(func, infos, traversal_scan) {
+      break
+    }
+    let cache = cp_new_summary_cache(
+      func,
+      static_scan=Some(static_scan),
+      node_masks=Some(node_masks),
+    )
+    if !cp_try_rewrite_region(
+        ctx,
+        func,
+        @ir.HotRegionRef::root(),
+        infos,
+        cache,
+        traversal_scan,
+      ) {
       break
     }
     changed = true

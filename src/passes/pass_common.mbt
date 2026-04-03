@@ -235,6 +235,36 @@ pub fn pass_require_effects(
 }
 
 ///|
+pub fn pass_require_effect_node_masks(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Array[@ir.EffectMask] {
+  let revision = @ir.hot_revision_current(func)
+  let masks_current = match ctx.cache.effect_node_masks {
+    Some(entry) => entry.built_at_revision == revision
+    None => false
+  }
+  let effects_current = match ctx.cache.effects {
+    Some(entry) => entry.built_at_revision == revision
+    None => false
+  }
+  if masks_current || effects_current {
+    return @ir.cache_get_or_build_effect_node_masks(ctx.cache, func)
+  }
+  let start_us = perf_start_timer_opt(ctx.perf, "analysis:effects")
+  let node_masks = @ir.cache_get_or_build_effect_node_masks(ctx.cache, func)
+  perf_stop_timer_opt(ctx.perf, "analysis:effects", start_us)
+  match ctx.perf {
+    Some(perf) => {
+      perf_count_dataflow_build(perf, "effects")
+      perf_count_traversal_visit(perf, count=@ir.hot_node_count(func))
+    }
+    None => ()
+  }
+  node_masks
+}
+
+///|
 pub fn pass_require_ssa(
   ctx : HotPassContext,
   func : @ir.HotFunc,
