@@ -423,6 +423,12 @@
   real-carrier family is still not enough by itself to reproduce the invalid
   module. The remaining unsafe ingredient is still beyond that local tail
   pattern and those extraction steps.
+- The nearest failing step for that crossed-gap ladder is now pinned too. Once
+  the extracted real crossed-gap carrier makes the parent `err` block
+  result-producing, HOT verify hits the same `InvalidBranchArity(_, _, 0, 1)`
+  as the older zero-result family. So this newer branch still lands on the same
+  final cliff; it just takes the larger parent-`err` result rewrite to get
+  there.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the
   special walk to zero-result `Block` roots only, both regressed the existing
