@@ -453,6 +453,18 @@
   earlier `< 1s or >= 50% of Binaryen where possible` guardrail on the same
   order of magnitude, even though the full compare replay still needs to be
   rerun.
+- After the shared effects-cache cut, the next cheap structural win was
+  function-level rejection. `code-pushing` was still paying for local analysis,
+  summary-cache setup, and region traversal on functions with no possible
+  candidate shape. A new linear live-node pre-scan now bails out before any
+  summary-cache work when a function has no non-param `local.set`/`local.tee`
+  and no pushpoint op at all, and a second gate exits before region rewriting
+  when local analysis finds no SFA locals. That pushed the native
+  debug-artifact path down again from the `8.4s` band to `7.100s` and `7.109s`,
+  both with valid output. So the remaining work is no longer just “cut obvious
+  GC churn”; the direct native lane is now much closer to the compare-signoff
+  threshold, and the next meaningful question is what the full replay looks
+  like.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the
   special walk to zero-result `Block` roots only, both regressed the existing

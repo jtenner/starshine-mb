@@ -467,6 +467,46 @@ pub fn cp_analyze_locals(func : @ir.HotFunc) -> Array[CpLocalInfo] {
 }
 
 ///|
+fn cp_infos_have_sfa_local(infos : Array[CpLocalInfo]) -> Bool {
+  for info in infos {
+    if info.sfa {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn cp_func_has_candidate_shape(func : @ir.HotFunc) -> Bool {
+  let param_count = @ir.hot_param_count(func)
+  let mut saw_nonparam_set = false
+  let mut saw_pushpoint = false
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+        if node.imm0 >= param_count {
+          saw_nonparam_set = true
+        }
+      @ir.HotOp::If
+      | @ir.HotOp::BrIf
+      | @ir.HotOp::BrOnNull
+      | @ir.HotOp::BrOnNonNull
+      | @ir.HotOp::BrOnCast
+      | @ir.HotOp::BrOnCastFail => saw_pushpoint = true
+      _ => ()
+    }
+    if saw_nonparam_set && saw_pushpoint {
+      return true
+    }
+  }
+  false
+}
+
+///|
 pub fn cp_node_reads_local(
   func : @ir.HotFunc,
   node_id : Int,
@@ -1730,9 +1770,15 @@ fn cp_try_rewrite_region(
 
 ///|
 fn code_pushing_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
+  if @ir.hot_local_count(func) == 0 || !cp_func_has_candidate_shape(func) {
+    return HotPassResult::unchanged()
+  }
   let mut changed = false
   while true {
     let infos = cp_analyze_locals(func)
+    if !cp_infos_have_sfa_local(infos) {
+      break
+    }
     let cache = cp_new_summary_cache(func, effects=Some(pass_require_effects(ctx, func)))
     if !cp_try_rewrite_region(ctx, func, @ir.HotRegionRef::root(), infos, cache) {
       break
