@@ -25,6 +25,39 @@ pub fn simplify_locals_summary() -> String {
 }
 
 ///|
+priv struct SimplifyLocalsDetachedControlOwner {
+  replacement_id : Int
+  detached_id : Int
+}
+
+///|
+fn simplify_locals_rehome_detached_control_owners(
+  func : @ir.HotFunc,
+  owners : Array[SimplifyLocalsDetachedControlOwner],
+) -> Unit {
+  for owner in owners {
+    if owner.replacement_id < 0 ||
+      !@ir.hot_node_is_live(func, owner.replacement_id) {
+      continue
+    }
+    if owner.detached_id < 0 || !@ir.hot_node_is_live(func, owner.detached_id) {
+      continue
+    }
+    let detached = @ir.hot_node_get(func, owner.detached_id)
+    let label_id = match detached.op {
+      @ir.HotOp::Block
+      | @ir.HotOp::Loop
+      | @ir.HotOp::If
+      | @ir.HotOp::Try
+      | @ir.HotOp::TryTable =>
+        @ir.hot_control_node_label(func, owner.detached_id)
+      _ => continue
+    }
+    @ir.hot_label_owner_set(func, label_id, owner.replacement_id)
+  }
+}
+
+///|
 fn simplify_locals_delete_detached_nodes(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -89,6 +122,7 @@ fn simplify_locals_run(
   let ssa = pass_require_ssa(ctx, func)
   let dead_nodes : Array[Int] = []
   let detached_tee_nodes : Array[Int] = []
+  let detached_control_owners : Array[SimplifyLocalsDetachedControlOwner] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -109,6 +143,10 @@ fn simplify_locals_run(
             let child_id = @ir.hot_child_get(func, node_id, 0)
             if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
               detached_tee_nodes.push(child_id)
+              detached_control_owners.push({
+                replacement_id: node_id,
+                detached_id: child_id,
+              })
             }
           }
           _ => ()
@@ -121,6 +159,7 @@ fn simplify_locals_run(
     return HotPassResult::unchanged()
   }
   @ir.ssa_remove_dead_local_defs(func, dead_nodes)
+  simplify_locals_rehome_detached_control_owners(func, detached_control_owners)
   @ir.cache_invalidate_all(ctx.cache)
   simplify_locals_delete_detached_nodes(ctx, func, detached_tee_nodes)
   pass_mark_mutated(ctx, func)

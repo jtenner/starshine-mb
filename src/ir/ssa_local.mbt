@@ -177,11 +177,13 @@ fn ssa_local_visit_block(
 ///|
 fn ssa_local_normal_predecessors(
   cfg : HotCfg,
+  dom : HotDominators,
   block_id : BlockId,
 ) -> Array[BlockId] {
   let preds : Array[BlockId] = []
   for pred in cfg_predecessor_edges(cfg, block_id) {
-    if pred.kind == CfgEdgeKind::ExceptionalEdge {
+    if pred.kind == CfgEdgeKind::ExceptionalEdge ||
+      !dom_dominates(dom, dom.entry_block, pred.block) {
       continue
     }
     preds.push(pred.block)
@@ -190,10 +192,28 @@ fn ssa_local_normal_predecessors(
 }
 
 ///|
-fn ssa_local_sort_phi_inputs(cfg : HotCfg, ssa : HotLocalSsa) -> Unit {
+fn ssa_local_phi_alignment_abort(
+  ssa : HotLocalSsa,
+  block_id : BlockId,
+  phi_id : PhiId,
+  preds : Array[BlockId],
+  current : Array[HotSsaPhiInput],
+) -> Unit {
+  let phi = ssa.phis[phi_id]
+  abort(
+    "ssa phi inputs must align with normal-flow predecessors: block=\{block_id} phi=\{phi_id} phi_block=\{phi.block} local=\{phi.local_id} preds=\{preds} inputs=\{current}",
+  )
+}
+
+///|
+fn ssa_local_sort_phi_inputs(
+  cfg : HotCfg,
+  dom : HotDominators,
+  ssa : HotLocalSsa,
+) -> Unit {
   let pred_order = Array::make(cfg_block_count(cfg), -1)
   for block_id = 0; block_id < ssa.block_phis.length(); block_id = block_id + 1 {
-    let preds = ssa_local_normal_predecessors(cfg, block_id)
+    let preds = ssa_local_normal_predecessors(cfg, dom, block_id)
     for predecessor in preds {
       pred_order[predecessor] = -1
     }
@@ -215,14 +235,14 @@ fn ssa_local_sort_phi_inputs(cfg : HotCfg, ssa : HotLocalSsa) -> Unit {
           -1
         }
         if idx < 0 || idx >= ordered.length() || filled[idx] {
-          abort("ssa phi inputs must align with normal-flow predecessors")
+          ssa_local_phi_alignment_abort(ssa, block_id, phi_id, preds, current)
         }
         ordered[idx] = input
         filled[idx] = true
       }
       for is_filled in filled {
         if !is_filled {
-          abort("ssa phi inputs must align with normal-flow predecessors")
+          ssa_local_phi_alignment_abort(ssa, block_id, phi_id, preds, current)
         }
       }
       ssa.phi_inputs[phi_id] = ordered
@@ -301,7 +321,7 @@ pub fn ssa_build_local(
   }
 
   ssa_local_visit_block(func, cfg, dom, ssa, cfg_entry_block(cfg), local_stacks)
-  ssa_local_sort_phi_inputs(cfg, ssa)
+  ssa_local_sort_phi_inputs(cfg, dom, ssa)
   ssa
 }
 

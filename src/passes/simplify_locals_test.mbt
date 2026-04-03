@@ -74,3 +74,48 @@ test "simplify-locals keeps shared tee children that remain referenced" {
 
   assert_true(@ir.hot_node_is_live(func, shared))
 }
+
+///|
+test "simplify-locals rehomes dead tee control labels before cleanup" {
+  let func = @ir.HotFunc::new(
+    locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
+  )
+  let carried_block = @ir.hot_build_block(
+    func,
+    @lib.BlockType::val_type(@lib.ValType::i32()),
+    [@ir.hot_build_const_i32(func, @lib.I32(1))],
+  )
+  let carried_label = @ir.hot_control_node_label(func, carried_block)
+  let tee = @ir.hot_build_local_tee(func, 0, carried_block)
+  let drop_tee = @ir.hot_build_drop(func, tee)
+  @ir.hot_root_append(func, drop_tee)
+  @ir.hot_root_append(func, @ir.hot_build_const_i32(func, @lib.I32(7)))
+  let ctx = HotPassContext::new(
+    simplify_locals_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected simplify-locals dead-tee control success, got \{err}")
+  }
+
+  match @ir.hot_node_get(func, tee).op {
+    @ir.HotOp::Block => ()
+    other => fail("expected tee slot to become a block, got \{other}")
+  }
+  assert_eq(@ir.hot_control_node_label(func, tee), carried_label)
+  assert_eq(@ir.hot_label_owner(func, carried_label), tee)
+  assert_false(@ir.hot_node_is_live(func, carried_block))
+  match @ir.hot_verify_core(func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected simplify-locals dead-tee control verify success, got \{err}",
+      )
+  }
+}

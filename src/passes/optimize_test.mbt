@@ -90,7 +90,9 @@ test "run_hot_pipeline keeps tuple-optimization as a no-op on scalar-only input"
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
-      fail("expected scalar-only tuple-optimization module to validate, got \{err}")
+      fail(
+        "expected scalar-only tuple-optimization module to validate, got \{err}",
+      )
   }
   match optimized.code_sec {
     Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr(instrs))])) => {
@@ -102,8 +104,25 @@ test "run_hot_pipeline keeps tuple-optimization as a no-op on scalar-only input"
       ])
     }
     other =>
-      fail("expected scalar-only tuple-optimization single-function output, got \{other}")
+      fail(
+        "expected scalar-only tuple-optimization single-function output, got \{other}",
+      )
   }
+}
+
+///|
+test "tuple-optimization exact preset slot remains unavailable while its neighbors are removed" {
+  assert_false(tuple_optimization_exact_slot_prereqs_ready())
+  assert_false(
+    optimize_preset_passes(HotPipelineOptions::new()).contains(
+      "tuple-optimization",
+    ),
+  )
+  assert_false(
+    shrink_preset_passes(HotPipelineOptions::new()).contains(
+      "tuple-optimization",
+    ),
+  )
 }
 
 ///|

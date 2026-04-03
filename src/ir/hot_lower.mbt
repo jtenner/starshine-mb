@@ -1216,6 +1216,119 @@ fn hot_lower_impl_shift_positive_branch_depths(
 }
 
 ///|
+fn hot_lower_impl_expand_branch_depth_above(
+  li : LabelIdx,
+  min_depth : Int,
+) -> LabelIdx {
+  let depth = hot_lower_impl_decoded_label_depth(li)
+  if depth > min_depth {
+    LabelIdx::new((depth + 1).reinterpret_as_uint())
+  } else {
+    li
+  }
+}
+
+///|
+fn hot_lower_impl_expand_catch_depth_above(
+  catch_ : Catch,
+  min_depth : Int,
+) -> Catch {
+  match catch_ {
+    Catch(tag, li) =>
+      Catch::new(tag, hot_lower_impl_expand_branch_depth_above(li, min_depth))
+    CatchRef(tag, li) =>
+      Catch::ref_(tag, hot_lower_impl_expand_branch_depth_above(li, min_depth))
+    CatchAll(li) =>
+      Catch::all(hot_lower_impl_expand_branch_depth_above(li, min_depth))
+    CatchAllRef(li) =>
+      Catch::all_ref(hot_lower_impl_expand_branch_depth_above(li, min_depth))
+  }
+}
+
+///|
+fn hot_lower_impl_expand_branch_depths_above_instr(
+  instr : Instruction,
+  min_depth : Int,
+) -> Instruction {
+  match instr {
+    Br(li) =>
+      Instruction::br(hot_lower_impl_expand_branch_depth_above(li, min_depth))
+    BrIf(li) =>
+      Instruction::br_if(
+        hot_lower_impl_expand_branch_depth_above(li, min_depth),
+      )
+    BrTable(labels, fallback) => {
+      let shifted : Array[LabelIdx] = []
+      for li in labels {
+        shifted.push(hot_lower_impl_expand_branch_depth_above(li, min_depth))
+      }
+      Instruction::br_table(
+        shifted,
+        hot_lower_impl_expand_branch_depth_above(fallback, min_depth),
+      )
+    }
+    BrOnNull(li) =>
+      Instruction::br_on_null(
+        hot_lower_impl_expand_branch_depth_above(li, min_depth),
+      )
+    BrOnNonNull(li) =>
+      Instruction::br_on_non_null(
+        hot_lower_impl_expand_branch_depth_above(li, min_depth),
+      )
+    Block(bt, Expr(body)) =>
+      Instruction::block(
+        bt,
+        Expr::new(hot_lower_impl_expand_branch_depths_above(body, min_depth)),
+      )
+    Loop(bt, Expr(body)) =>
+      Instruction::loop_(
+        bt,
+        Expr::new(hot_lower_impl_expand_branch_depths_above(body, min_depth)),
+      )
+    If(bt, then_, else_) =>
+      Instruction::if_(
+        bt,
+        hot_lower_impl_expand_branch_depths_above(then_, min_depth),
+        match else_ {
+          Some(else_body) =>
+            Some(
+              hot_lower_impl_expand_branch_depths_above(else_body, min_depth),
+            )
+          None => None
+        },
+      )
+    TryTable(bt, catches, Expr(body)) => {
+      let shifted_catches : Array[Catch] = []
+      for catch_ in catches {
+        shifted_catches.push(
+          hot_lower_impl_expand_catch_depth_above(catch_, min_depth),
+        )
+      }
+      Instruction::try_table(
+        bt,
+        shifted_catches,
+        Expr::new(hot_lower_impl_expand_branch_depths_above(body, min_depth)),
+      )
+    }
+    _ => instr
+  }
+}
+
+///|
+fn hot_lower_impl_expand_branch_depths_above(
+  body : Array[Instruction],
+  min_depth : Int,
+) -> Array[Instruction] {
+  let shifted : Array[Instruction] = []
+  for instr in body {
+    shifted.push(
+      hot_lower_impl_expand_branch_depths_above_instr(instr, min_depth),
+    )
+  }
+  shifted
+}
+
+///|
 fn hot_lower_impl_has_control_transfer(instr : Instruction) -> Bool {
   match instr {
     Block(_, _)
@@ -1511,7 +1624,6 @@ fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
     }
   }
   match body[body.length() - 1] {
-    Br(li) if hot_lower_impl_decoded_label_depth(li) == 1 => ()
     Return => ()
     _ => return None
   }
@@ -1519,12 +1631,22 @@ fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
   for i = 0; i < body.length() - 2; i = i + 1 {
     rewritten.push(body[i])
   }
-  let append_unreachable = match body[body.length() - 1] {
-    Br(_) => true
-    _ => false
-  }
+  let append_unreachable = false
   match body[body.length() - 2] {
-    If(inner_bt, then_, Some(else_)) if inner_bt != @lib.BlockType::void_() =>
+    If(inner_bt, then_, Some(else_)) if inner_bt != @lib.BlockType::void_() => {
+      if body.length() > 2 {
+        match
+          (
+            hot_lower_impl_body_terminal_branch_depth(then_),
+            hot_lower_impl_body_terminal_branch_depth(else_),
+          ) {
+          (Some(then_depth), Some(else_depth)) if then_depth != else_depth =>
+            return None
+          (Some(_), None) => return None
+          (None, Some(_)) => return None
+          _ => ()
+        }
+      }
       match
         hot_lower_impl_try_sink_terminal_exit_into_arm(
           then_,
@@ -1553,55 +1675,16 @@ fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
           }
         None => None
       }
+    }
     _ => None
   }
 }
 
 ///|
 fn hot_lower_impl_try_voidify_terminal_return_if_forwarder(
-  body : Array[Instruction],
+  _body : Array[Instruction],
 ) -> Array[Instruction]? {
-  if body.length() < 2 {
-    return None
-  }
-  match body[body.length() - 1] {
-    Return => ()
-    _ => return None
-  }
-  let rewritten : Array[Instruction] = []
-  for i = 0; i < body.length() - 2; i = i + 1 {
-    rewritten.push(body[i])
-  }
-  match body[body.length() - 2] {
-    If(inner_bt, then_, Some(else_)) if inner_bt != @lib.BlockType::void_() =>
-      match
-        hot_lower_impl_try_sink_terminal_exit_into_arm(
-          then_,
-          Instruction::return_(),
-        ) {
-        Some(rewritten_then) =>
-          match
-            hot_lower_impl_try_sink_terminal_exit_into_arm(
-              else_,
-              Instruction::return_(),
-            ) {
-            Some(rewritten_else) => {
-              rewritten.push(
-                Instruction::if_(
-                  @lib.BlockType::void_(),
-                  rewritten_then,
-                  Some(rewritten_else),
-                ),
-              )
-              rewritten.push(Instruction::unreachable_())
-              Some(rewritten)
-            }
-            None => None
-          }
-        None => None
-      }
-    _ => None
-  }
+  None
 }
 
 ///|
@@ -2010,6 +2093,53 @@ fn hot_lower_impl_try_fix_split_payload_wrapper_with_tail(
 }
 
 ///|
+fn hot_lower_impl_try_fix_direct_mixed_depth_payload_wrapper_with_tail(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Array[Instruction]? {
+  match bt {
+    VoidBlockType => return None
+    _ => ()
+  }
+  match body {
+    [Block(VoidBlockType, Expr(inner_body)), payload] if !hot_lower_impl_has_control_transfer(
+        payload,
+      ) =>
+      if inner_body.length() == 0 {
+        None
+      } else {
+        let tail_idx = inner_body.length() - 1
+        let if_idx = match inner_body[tail_idx] {
+          Unreachable if tail_idx > 0 => tail_idx - 1
+          _ => tail_idx
+        }
+        match inner_body[if_idx] {
+          If(VoidBlockType, then_, Some(else_)) =>
+            match
+              (
+                hot_lower_impl_body_terminal_branch_depth(then_),
+                hot_lower_impl_body_terminal_branch_depth(else_),
+              ) {
+              (Some(1), Some(2)) | (Some(2), Some(1)) =>
+                Some([
+                  Instruction::block(
+                    @lib.BlockType::void_(),
+                    Expr::new(
+                      hot_lower_impl_expand_branch_depths_above(inner_body, 1),
+                    ),
+                  ),
+                  payload,
+                ])
+              _ => None
+            }
+          _ => None
+        }
+      }
+    _ => None
+  }
+}
+
+///|
 fn hot_lower_impl_canonicalize_instr(instr : Instruction) -> Instruction {
   match instr {
     Block(bt, Expr(body)) =>
@@ -2063,6 +2193,13 @@ fn hot_lower_impl_canonicalize_block_body(
     None => ()
   }
   match hot_lower_impl_try_pack_split_if_payload_forwarder(bt, canonical) {
+    Some(rewritten) => return rewritten
+    None => ()
+  }
+  match
+    hot_lower_impl_try_fix_direct_mixed_depth_payload_wrapper_with_tail(
+      bt, canonical,
+    ) {
     Some(rewritten) => return rewritten
     None => ()
   }
@@ -2158,6 +2295,35 @@ fn hot_lower_impl_can_inline_value_wrapper(
 }
 
 ///|
+fn hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  let stripped : Array[Instruction] = []
+  let mut i = 0
+  while i < body.length() {
+    match body[i] {
+      Nop => {
+        i = i + 1
+        continue
+      }
+      LocalTee(local_) if i + 1 < body.length() =>
+        match body[i + 1] {
+          Drop => {
+            stripped.push(Instruction::local_set(local_))
+            i = i + 2
+            continue
+          }
+          _ => ()
+        }
+      _ => ()
+    }
+    stripped.push(body[i])
+    i = i + 1
+  }
+  stripped
+}
+
+///|
 fn hot_lower_impl_canonicalize_body(
   body : Array[Instruction],
 ) -> Array[Instruction] {
@@ -2245,6 +2411,9 @@ fn hot_lower_impl_canonicalize_body(
       canonical_instr => canonical.push(canonical_instr)
     }
   }
+  let canonical = hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
+    canonical,
+  )
   let canonical = match
     hot_lower_impl_try_voidify_terminal_return_if_forwarder(canonical) {
     Some(rewritten) => rewritten
@@ -2255,7 +2424,9 @@ fn hot_lower_impl_canonicalize_body(
     Some(rewritten) => rewritten
     None => canonical
   }
-  hot_lower_impl_trim_redundant_unreachable_tail(canonical)
+  hot_lower_impl_trim_redundant_unreachable_tail(
+    hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(canonical),
+  )
 }
 
 ///|
@@ -2280,6 +2451,40 @@ fn hot_lower_impl_stackify_struct_set_value_tail_start(
 }
 
 ///|
+fn hot_lower_impl_instr_has_later_local_get(
+  instr : Instruction,
+  local_ : LocalIdx,
+) -> Bool {
+  match instr {
+    LocalGet(found) => found == local_
+    Block(_, Expr(body)) | Loop(_, Expr(body)) =>
+      hot_lower_impl_body_has_later_local_get(body, 0, local_)
+    If(_, then_, Some(else_)) =>
+      hot_lower_impl_body_has_later_local_get(then_, 0, local_) ||
+      hot_lower_impl_body_has_later_local_get(else_, 0, local_)
+    If(_, then_, None) =>
+      hot_lower_impl_body_has_later_local_get(then_, 0, local_)
+    TryTable(_, _, Expr(body)) =>
+      hot_lower_impl_body_has_later_local_get(body, 0, local_)
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_body_has_later_local_get(
+  body : Array[Instruction],
+  start_idx : Int,
+  local_ : LocalIdx,
+) -> Bool {
+  for idx = start_idx; idx < body.length(); idx = idx + 1 {
+    if hot_lower_impl_instr_has_later_local_get(body[idx], local_) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
   func : HotFunc,
   body : Array[Instruction],
@@ -2298,7 +2503,12 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                   LocalGet(source_local) =>
                     match body[idx + 2] {
                       LocalSet(target_local) | LocalTee(target_local) =>
-                        if source_local != target_local {
+                        if source_local != target_local &&
+                          !hot_lower_impl_body_has_later_local_get(
+                            body,
+                            idx + 3,
+                            source_local,
+                          ) {
                           match target_local {
                             LocalIdx(raw_local) => {
                               let local_id = raw_local.reinterpret_as_int()

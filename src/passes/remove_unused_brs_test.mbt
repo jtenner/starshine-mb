@@ -1529,6 +1529,50 @@ test "remove-unused-brs voidifies nested branch-exit ifs inside local.set payloa
 }
 
 ///|
+test "remove-unused-brs preserves mixed-depth local.set carrier ladders with trailing local.get tails" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block $outer (local.set 2 (block $carry (result i32) (block $inner (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (br $inner)) (else (local.set 2 (i32.const 9)) (br $outer))) unreachable) (local.get 1))) (local.get 2) return) (i32.const 0)))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected mixed-depth local.set carrier ladder to survive remove-unused-brs, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves mixed-depth tail-return if ladders with outer local.set tails" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i64 i32 i32) (block $outer (block $inner (local.get 0) (if (result i32) (then (i32.const 7) (local.set 3) (br $inner)) (else (i64.const 9) (local.set 2) (br $outer))) return) (local.get 1) (local.set 4) (local.get 4) return) (i32.const 0)))",
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected mixed-depth tail-return if ladder to survive remove-unused-brs, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(local.set (Local 4))"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs voidifies result ifs whose arms only return under drop" {
   let optimized = match
     pass_test_run_pipeline(

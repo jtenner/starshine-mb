@@ -2212,9 +2212,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
               if then_aliases[local_id] == else_aliases[local_id] {
                 continue
               }
-              merged_aliases[local_id] = run_hot_pipeline_raw_fresh_local(
-                params, locals, local_id, extra_local_types,
-              )
+              merged_aliases[local_id] = if local_id < params.length() {
+                canonical_aliases[local_id]
+              } else {
+                run_hot_pipeline_raw_fresh_local(
+                  params, locals, local_id, extra_local_types,
+                )
+              }
             }
             finalized_then = run_hot_pipeline_raw_append_alias_merge_copies(
               finalized_then,
@@ -2373,7 +2377,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         )
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
-        if aliases[local_id] == canonical_aliases[local_id] &&
+        if local_id < params.length() {
+          aliases[local_id] = canonical_aliases[local_id]
+          initialized[local_id] = true
+          rewritten.push(
+            @lib.Instruction::local_set(canonical_aliases[local_id]),
+          )
+        } else if aliases[local_id] == canonical_aliases[local_id] &&
           run_hot_pipeline_raw_instrs_have_later_local_read(
             instrs,
             idx + 1,
@@ -2399,7 +2409,13 @@ fn run_hot_pipeline_raw_rewrite_instrs(
       }
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
-        if aliases[local_id] == canonical_aliases[local_id] &&
+        if local_id < params.length() {
+          aliases[local_id] = canonical_aliases[local_id]
+          initialized[local_id] = true
+          rewritten.push(
+            @lib.Instruction::local_tee(canonical_aliases[local_id]),
+          )
+        } else if aliases[local_id] == canonical_aliases[local_id] &&
           run_hot_pipeline_raw_instrs_have_later_local_read(
             instrs,
             idx + 1,
@@ -2510,7 +2526,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
         )
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
-        if local_aliases[local_id] == canonical_aliases[local_id] &&
+        if local_id < params.length() {
+          initialized_locals[local_id] = true
+          local_aliases[local_id] = canonical_aliases[local_id]
+          rewritten_instrs.push(
+            @lib.Instruction::local_set(canonical_aliases[local_id]),
+          )
+        } else if local_aliases[local_id] == canonical_aliases[local_id] &&
           run_hot_pipeline_raw_instrs_have_later_local_read(
             instrs,
             idx + 1,
@@ -2541,7 +2563,13 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
       }
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
-        if local_aliases[local_id] == canonical_aliases[local_id] &&
+        if local_id < params.length() {
+          initialized_locals[local_id] = true
+          local_aliases[local_id] = canonical_aliases[local_id]
+          rewritten_instrs.push(
+            @lib.Instruction::local_tee(canonical_aliases[local_id]),
+          )
+        } else if local_aliases[local_id] == canonical_aliases[local_id] &&
           run_hot_pipeline_raw_instrs_have_later_local_read(
             instrs,
             idx + 1,

@@ -321,7 +321,7 @@ test "hot lower peels split payload wrappers with void-if and trailing roots" {
 }
 
 ///|
-test "hot lower peels carried payload forwarders with trailing values" {
+test "hot lower preserves typed carried payload forwarders with trailing values" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32) (result i32) (local i32) (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 1 (i32.const 1)) (br $block10 (if (result i32) (local.get 0) (then (local.set 1 (i32.const 7)) (br $block8)) (else (local.set 1 (i32.const 9)) (br $block9))))) (local.get 1)))))))",
   )
@@ -340,13 +340,13 @@ test "hot lower peels carried payload forwarders with trailing values" {
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
   assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
-  assert_false(pretty.contains("(br $block10"), msg=pretty)
+  assert_true(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
-test "hot lower peels carried payload forwarders with trailing stores and returns" {
+test "hot lower preserves typed carried payload forwarders with trailing stores and returns" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (memory 1) (func (param i32) (result i32) (local i32 i32) (local.set 1 (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 2 (i32.const 1)) (br $block10 (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (br $block8)) (else (local.set 2 (i32.const 9)) (br $block9))))) (local.get 2)))) (i32.store align=1 (i32.const 0) (local.get 2)) (i32.store align=1 (i32.const 4) (local.get 2)) (return (local.get 2)))) (i32.const 0)))",
   )
@@ -368,9 +368,9 @@ test "hot lower peels carried payload forwarders with trailing stores and return
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
   assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
-  assert_false(pretty.contains("(br $block10"), msg=pretty)
+  assert_true(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
@@ -429,7 +429,60 @@ test "hot lower repacks flattened parent-exit payloads under child wrappers" {
 }
 
 ///|
-test "hot lower voidifies result if forwarders that feed return" {
+test "hot lower repacks split parent-exit payload wrappers with a two-root prefix carrier" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit1 (block $exit0 (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $exit0)) (else (local.set 2 (i32.const 9)) (br $exit1))) unreachable) (br $outer (local.get 2))))))",
+  )
+  let lowered = hot_lower_func(fixture.hot_func)
+  assert_eq(
+    lowered,
+    @lib.Func::new(
+      @lib.Locals::from_types([@lib.ValType::i32()]),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::block(
+                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.Expr::new([
+                    @lib.Instruction::block(
+                      @lib.BlockType::void_(),
+                      @lib.Expr::new([
+                        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                        @lib.Instruction::if_(
+                          @lib.BlockType::void_(),
+                          [
+                            @lib.Instruction::i32_const(@lib.I32(7)),
+                            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                          ],
+                          Some([
+                            @lib.Instruction::i32_const(@lib.I32(9)),
+                            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                            @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                          ]),
+                        ),
+                        @lib.Instruction::unreachable_(),
+                      ]),
+                    ),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                  ]),
+                ),
+                @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  )
+}
+
+///|
+test "hot lower preserves typed result if forwarders that feed return" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32) (result i32) (block $block (result i32) (block $block1 (return (if (result i32) (local.get 0) (then (i32.const 7) (br $block)) (else (i32.const 9) (br $block1))))) (i32.const 11))))",
   )
@@ -448,12 +501,15 @@ test "hot lower voidifies result if forwarders that feed return" {
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_false(pretty.contains("(return\n    (if (result i32)"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_true(
+    pretty.contains("(if (result i32)") || pretty.contains("(if I32"),
+    msg=pretty,
+  )
 }
 
 ///|
-test "hot lower voidifies result if forwarders that feed return after prefix blocks" {
+test "hot lower preserves typed result if forwarders that feed return after prefix blocks" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32) (result i32) (block (block $prefix (br $prefix)) (return (if (result i32) (local.get 0) (then (i32.const 7) (return)) (else (i32.const 9) (return)))))))",
   )
@@ -472,8 +528,11 @@ test "hot lower voidifies result if forwarders that feed return after prefix blo
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_false(pretty.contains("(return\n    (if (result i32)"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_true(
+    pretty.contains("(if (result i32)") || pretty.contains("(if I32"),
+    msg=pretty,
+  )
 }
 
 ///|
@@ -597,47 +656,30 @@ test "hot lower peels final typed wrappers with void prefix and local.get tail" 
 }
 
 ///|
-test "hot lower peels final typed wrappers with void prefix and same-typed value block tail" {
+test "hot lower preserves final typed wrappers with void prefix and same-typed value block tail" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (block (result i32) (block $block5 (local.get 0) drop (br $block5)) (block $block7 (result i32) (block $block6 (br $block7 (if (result i32) (local.get 0) (then (i32.const 7) (br $block6)) (else (i32.const 9) (br $block7)))))))))",
   )
   let lowered = hot_lower_func(fixture.hot_func)
-  assert_eq(
-    lowered,
-    @lib.Func::new(
-      @lib.Locals::from_types([]),
-      @lib.Expr::new([
-        @lib.Instruction::block(
-          @lib.BlockType::void_(),
-          @lib.Expr::new([
-            @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-            @lib.Instruction::drop(),
-            @lib.Instruction::br(@lib.LabelIdx::new(0U)),
-          ]),
-        ),
-        @lib.Instruction::block(
-          @lib.BlockType::val_type(@lib.ValType::i32()),
-          @lib.Expr::new([
-            @lib.Instruction::block(
-              @lib.BlockType::void_(),
-              @lib.Expr::new([
-                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-                @lib.Instruction::if_(
-                  @lib.BlockType::void_(),
-                  [@lib.Instruction::br(@lib.LabelIdx::new(1U))],
-                  Some([
-                    @lib.Instruction::i32_const(@lib.I32(9)),
-                    @lib.Instruction::br(@lib.LabelIdx::new(2U)),
-                  ]),
-                ),
-                @lib.Instruction::unreachable_(),
-              ]),
-            ),
-          ]),
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
         ),
       ]),
-    ),
-  )
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_true(pretty.contains("(if I32"), msg=pretty)
+  assert_true(pretty.contains("(block I32"), msg=pretty)
 }
 
 ///|
@@ -1443,7 +1485,7 @@ test "hot lower canonicalizes tail if forwarders into void if plus unreachable" 
 }
 
 ///|
-test "hot lower canonicalizes nested local.set payload forwarders from compare shape" {
+test "hot lower preserves typed nested local.set payload forwarders from compare shape" {
   let source =
     #|(module
     #|  (func (param i32) (result i32) (local i32)
@@ -1485,13 +1527,13 @@ test "hot lower canonicalizes nested local.set payload forwarders from compare s
     .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
   assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
-  assert_false(pretty.contains("(if I32"), msg=pretty)
+  assert_true(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
-test "hot lower canonicalizes prefix-heavy nested local.set payload forwarders from compare shape" {
+test "hot lower preserves typed prefix-heavy nested local.set payload forwarders from compare shape" {
   let source =
     #|(module
     #|  (func (param i32 i32 i32) (result i32) (local i32 i32)
@@ -1537,9 +1579,9 @@ test "hot lower canonicalizes prefix-heavy nested local.set payload forwarders f
     .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
   assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
-  assert_false(pretty.contains("(if I32"), msg=pretty)
+  assert_true(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
@@ -1626,6 +1668,19 @@ test "hot lower repacks prefix-heavy split local.set carry blocks" {
 }
 
 ///|
+test "hot lower preserves mixed-depth result if escapes without inserting a typed carrier" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i64 i32 i32) (block $outer (block $inner (local.get 0) (if (result i32) (then (i32.const 7) (local.set 3) (br $inner)) (else (i64.const 9) (local.set 2) (br $outer))) return) (local.get 1) (local.set 4) (local.get 4) return) (i32.const 0)))",
+  )
+  let validated = ir_test_assert_verify_and_lower(fixture)
+  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
+
+  assert_true(pretty.contains("(local.set (Local 4))"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 1))"), msg=pretty)
+  assert_false(pretty.contains("(block (I32)"), msg=pretty)
+}
+
+///|
 test "hot lower peels nested br payload blocks with unreachable child payloads" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))",
@@ -1688,6 +1743,49 @@ test "hot lower does not reintroduce dead drops after non-fallthrough block exit
           @lib.Instruction::br(@lib.LabelIdx::new(0U)),
         ]),
       ),
+    ]),
+  )
+}
+
+///|
+test "hot lower collapses dead local.tee roots into local.set" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+  ])
+  let hot = hot_lift_body(body, HotLocals::new(locals=[@lib.ValType::i32()]))
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(locals, lowered_body) = lowered
+
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  assert_eq(
+    lowered_body,
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    ]),
+  )
+}
+
+///|
+test "hot lower strips redundant nop roots during canonicalization" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::nop(),
+  ])
+  let hot = hot_lift_body(body, HotLocals::new(param_count=1))
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(locals, lowered_body) = lowered
+
+  assert_eq(locals, @lib.Locals::from_types([]))
+  assert_eq(
+    lowered_body,
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
     ]),
   )
 }
@@ -2704,6 +2802,33 @@ test "hot lower preserves early local.tee bridges before later sibling local.set
       @lib.Instruction::drop(),
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
     ]),
+  )
+}
+
+///|
+test "hot lower keeps wrapped prefix local.get carriers when they are read again later" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([@lib.Instruction::unreachable_()]),
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+  ])
+  let hot = hot_lift_body(
+    body,
+    HotLocals::new(locals=[@lib.ValType::i32(), @lib.ValType::i32()]),
+    body_result_type=@lib.BlockType::void_(),
+  )
+
+  assert_eq(
+    hot_lower_func(hot),
+    @lib.Func::new(
+      @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+      body,
+    ),
   )
 }
 

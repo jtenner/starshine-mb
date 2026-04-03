@@ -157,3 +157,20 @@ test "ssa local build records local tee defs for later reads" {
   assert_eq(ssa_value_origin(ssa, tee_value), ssa_local_tee_def(tee))
   assert_eq(ssa_value_for_local_get(ssa, read), tee_value)
 }
+
+///|
+test "ssa local build ignores unreachable predecessor blocks in branch-carry ladders" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (memory 1) (func (param i32) (result i32) local.get 0) (func (param i32 i32) (result i32) (local i32) local.get 0 call 0 local.get 1 call 0 i32.eq if loop local.get 0 call 0 local.get 2 i32.gt_s if local.get 0 local.get 2 i32.const 1 i32.shl i32.add i32.load16_u offset=8 local.get 1 local.get 2 i32.const 1 i32.shl i32.add i32.load16_u offset=8 i32.eq if local.get 2 i32.const 1 i32.add local.set 2 br 2 else i32.const 0 return end unreachable else i32.const 1 return end unreachable end unreachable else i32.const 0 return end unreachable))",
+    code_idx=1,
+  )
+
+  let cfg = cfg_build(fixture.hot_func)
+  let dom = dom_build(cfg)
+  let use_def = use_def_build(fixture.hot_func, cfg=Some(cfg))
+  let liveness = liveness_build(cfg, use_def)
+  let ssa = ssa_build_local(fixture.hot_func, cfg, dom, liveness, use_def)
+
+  assert_true(cfg_block_count(cfg) > 1)
+  assert_true(ssa.entry_defs.length() > 0)
+}

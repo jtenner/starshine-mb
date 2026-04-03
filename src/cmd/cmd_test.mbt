@@ -1821,6 +1821,106 @@ test "run_cmd_with_adapter accepts tuple-optimization" {
 }
 
 ///|
+test "run_cmd_with_adapter tuple-optimization preserves host tee repro locals through output module" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32) i32.const 1 drop i32.const 10000 local.set 3 i32.const 42 local.get 3 call 0 local.set 2 local.set 1 local.tee 0 local.get 1 local.get 2 call 1))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-tee.wasm"] },
+    file_exists=fn(path) { path == "tuple-tee.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-tee.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      ["--tuple-optimization", "--out", "out.wasm", "tuple-tee.wasm"],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected tuple-optimization host-tee repro failure: \{e}")
+  }
+  assert_eq(writes.length(), 1)
+  let out = decode_module_bytes(writes[0].1)
+  let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(
+    pretty.contains(
+      "(local.tee (Local 0))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
+    ),
+    msg=pretty,
+  )
+  assert_false(
+    pretty.contains(
+      "(local.get (Local 4))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
+test "run_cmd_with_adapter tuple-optimization rewrites tuple-extract host tee compare repro through scalar lane reuse" {
+  let wasm = bytes_from_ints([
+    0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x01, 0x14, 0x03, 0x60, 0x02,
+    0x7F, 0x7F, 0x03, 0x7F, 0x7F, 0x7F, 0x60, 0x03, 0x7F, 0x7F, 0x7F, 0x01, 0x7F,
+    0x60, 0x00, 0x01, 0x7F, 0x02, 0x17, 0x02, 0x03, 0x65, 0x6E, 0x76, 0x04, 0x74,
+    0x72, 0x69, 0x6D, 0x00, 0x00, 0x03, 0x65, 0x6E, 0x76, 0x04, 0x73, 0x68, 0x6F,
+    0x77, 0x00, 0x01, 0x03, 0x02, 0x01, 0x02, 0x0A, 0x30, 0x01, 0x2E, 0x01, 0x09,
+    0x7F, 0x41, 0x2A, 0x41, 0x90, 0xCE, 0x00, 0x10, 0x00, 0x21, 0x06, 0x21, 0x05,
+    0x22, 0x04, 0x21, 0x08, 0x20, 0x05, 0x21, 0x07, 0x20, 0x06, 0x21, 0x03, 0x20,
+    0x07, 0x21, 0x02, 0x20, 0x08, 0x22, 0x01, 0x20, 0x02, 0x20, 0x03, 0x10, 0x01,
+    0x21, 0x00, 0x20, 0x00, 0x0B,
+  ])
+  let input_mod = decode_module_bytes(wasm)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-extract-tee.wasm"] },
+    file_exists=fn(path) { path == "tuple-extract-tee.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-extract-tee.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      ["--tuple-optimization", "--out", "out.wasm", "tuple-extract-tee.wasm"],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected tuple-optimization tuple-extract host-tee repro failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let out = decode_module_bytes(writes[0].1)
+  let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_not_eq(pretty, input_mod.pretty_print_func(@lib.FuncIdx::new(2U)))
+  assert_true(pretty.contains("(block I32"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 8))"), msg=pretty)
+  assert_false(pretty.contains("drop(local.tee"), msg=pretty)
+  assert_true(pretty.contains("(local.tee (Local 4))"), msg=pretty)
+}
+
+///|
 #cfg(target="native")
 test "run_cmd_with_adapter validates ssa-nomerge on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
@@ -4675,6 +4775,51 @@ test "run_cmd reports dead-code-elimination native default-io blocker on debug a
     }
     None =>
       fail("expected invalid final-function dump at \{invalid_func_dump_path}")
+  }
+
+  native_remove_if_exists(output_path)
+  native_remove_if_exists(invalid_dump_path)
+  native_remove_if_exists(invalid_func_dump_path)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd validates early remove-unused-brs optimize-prefix on debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = native_tmp_file("rub-prefix-native-default-io-output")
+  let invalid_dump_path = "/tmp/starshine-invalid-final.wasm"
+  let invalid_func_dump_path = "/tmp/starshine-invalid-final-func.txt"
+  native_remove_if_exists(output_path)
+  native_remove_if_exists(invalid_dump_path)
+  native_remove_if_exists(invalid_func_dump_path)
+
+  match
+    run_cmd([
+      "--memory-packing", "--once-reduction", "--global-refining", "--global-struct-inference",
+      "--ssa-nomerge", "--dead-code-elimination", "--remove-unused-names", "--remove-unused-brs",
+      "-O4z", "--out", output_path, input_path,
+    ]) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected native default-io optimize-prefix replay to validate, got \{err}",
+      )
+  }
+  match native_read_bytes(output_path) {
+    Some(bytes) => ignore(decode_module_bytes(bytes))
+    None => fail("expected optimized output at \{output_path}")
+  }
+  match native_read_bytes(invalid_dump_path) {
+    Some(_) =>
+      fail("did not expect invalid final-module dump at \{invalid_dump_path}")
+    None => ()
+  }
+  match native_read_bytes(invalid_func_dump_path) {
+    Some(_) =>
+      fail(
+        "did not expect invalid final-function dump at \{invalid_func_dump_path}",
+      )
+    None => ()
   }
 
   native_remove_if_exists(output_path)

@@ -279,7 +279,18 @@ pub fn pass_registry_category(name : String) -> HotPassRegistryCategory? {
 }
 
 ///|
+pub fn tuple_optimization_exact_slot_prereqs_ready() -> Bool {
+  pass_registry_category("code-pushing") ==
+  Some(HotPassRegistryCategory::hot_pass()) &&
+  pass_registry_category("simplify-locals-no-structure") ==
+  Some(HotPassRegistryCategory::hot_pass())
+}
+
+///|
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
+  // Keep tuple-optimization off the public presets until its exact Binaryen
+  // slot is representable in-tree. The explicit pass surface stays active.
+  ignore(tuple_optimization_exact_slot_prereqs_ready())
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
@@ -291,6 +302,7 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
 
 ///|
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
+  ignore(tuple_optimization_exact_slot_prereqs_ready())
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
