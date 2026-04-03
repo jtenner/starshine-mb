@@ -57,6 +57,95 @@ fn tuple_optimization_assert_local_traffic(
 }
 
 ///|
+fn tuple_optimization_assert_tuple_make_root_carrier(
+  func : @ir.HotFunc,
+  carrier_local : Int,
+  expected_local_count : Int,
+  remat_lane_locals : Array[Int],
+  source_lane_locals : Array[Int],
+) -> Unit {
+  if @ir.hot_local_count(func) != expected_local_count {
+    abort(
+      "unexpected local count for tuple.make root carrier \{carrier_local}: \{@ir.hot_local_count(func)} vs \{expected_local_count}",
+    )
+  }
+
+  let mut copy_root = -1
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    let root = @ir.hot_root_get(func, root_idx)
+    if @ir.hot_node_get(func, root).op.to_string() == "LocalSet" &&
+      @ir.hot_node_get(func, root).imm0 == carrier_local {
+      copy_root = root
+      break
+    }
+  }
+  if copy_root < 0 {
+    abort(
+      "expected rewritten tuple.make root carrier for local \{carrier_local}",
+    )
+  }
+
+  let copy_value = @ir.hot_child_get(func, copy_root, 0)
+  if @ir.hot_node_get(func, copy_value).op.to_string() != "Block" ||
+    @ir.hot_node_result_arity(func, copy_value) != 1 {
+    abort(
+      "expected tuple.make root carrier \{carrier_local} to wrap a typed block",
+    )
+  }
+
+  let copy_body = @ir.hot_region_body_ref(func, copy_value)
+  if @ir.hot_region_root_count(func, copy_body) != 3 {
+    abort(
+      "expected tuple.make root carrier \{carrier_local} to keep exactly three body roots",
+    )
+  }
+
+  let lane2 = @ir.hot_region_get(func, copy_body, 0)
+  let lane1 = @ir.hot_region_get(func, copy_body, 1)
+  let lane0 = @ir.hot_region_get(func, copy_body, 2)
+  if @ir.hot_node_get(func, lane2).op.to_string() != "LocalSet" ||
+    @ir.hot_node_get(func, lane2).imm0 != remat_lane_locals[2] {
+    abort("expected tuple.make root carrier \{carrier_local} lane2 remat")
+  }
+  if @ir.hot_node_get(func, lane1).op.to_string() != "LocalSet" ||
+    @ir.hot_node_get(func, lane1).imm0 != remat_lane_locals[1] {
+    abort("expected tuple.make root carrier \{carrier_local} lane1 remat")
+  }
+
+  let lane2_value = @ir.hot_child_get(func, lane2, 0)
+  let lane1_value = @ir.hot_child_get(func, lane1, 0)
+  if @ir.hot_node_get(func, lane2_value).op.to_string() != "TupleMake" ||
+    @ir.hot_node_get(func, lane1_value).op.to_string() != "TupleMake" ||
+    @ir.hot_node_get(func, lane0).op.to_string() != "TupleMake" {
+    abort(
+      "expected tuple.make root carrier \{carrier_local} to share a synthetic producer",
+    )
+  }
+  if lane2_value != lane1_value || lane1_value != lane0 {
+    abort(
+      "expected tuple.make root carrier \{carrier_local} to reuse one producer node",
+    )
+  }
+  if @ir.hot_node_result_arity(func, lane0) != source_lane_locals.length() ||
+    @ir.hot_child_count(func, lane0) != source_lane_locals.length() {
+    abort(
+      "expected tuple.make root carrier \{carrier_local} to preserve source arity",
+    )
+  }
+  for lane_idx = 0
+      lane_idx < source_lane_locals.length()
+      lane_idx = lane_idx + 1 {
+    let child = @ir.hot_child_get(func, lane0, lane_idx)
+    if @ir.hot_node_get(func, child).op.to_string() != "LocalGet" ||
+      @ir.hot_node_get(func, child).imm0 != source_lane_locals[lane_idx] {
+      abort(
+        "expected tuple.make root carrier \{carrier_local} child \{lane_idx} to read source lane \{source_lane_locals[lane_idx]}",
+      )
+    }
+  }
+}
+
+///|
 test "tuple-optimization no-op screen rejects scalar-only functions" {
   let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (func (result i32) i32.const 7))",
@@ -442,44 +531,27 @@ test "tuple-optimization rewrite scalarizes single-use exact copy groups from a 
   let fixture = tuple_optimization_test_rewrite(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 11 local.set 9 local.set 10 local.get 9 local.get 10 local.get 11 call 1))",
   )
-  let func = fixture.hot_func
+  tuple_optimization_assert_tuple_make_root_carrier(
+    fixture.hot_func,
+    10,
+    12,
+    [10, 9, 11],
+    [8, 7, 6],
+  )
+}
 
-  let mut copy_root = -1
-  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
-    let root = @ir.hot_root_get(func, root_idx)
-    if @ir.hot_node_get(func, root).op.to_string() == "LocalSet" &&
-      @ir.hot_node_get(func, root).imm0 == 10 {
-      copy_root = root
-      break
-    }
-  }
-  if copy_root < 0 {
-    abort("expected rewritten single-use exact copy root carrier for local 10")
-  }
-
-  let copy_value = @ir.hot_child_get(func, copy_root, 0)
-  assert_eq(@ir.hot_node_get(func, copy_value).op.to_string(), "Block")
-  assert_eq(@ir.hot_node_result_arity(func, copy_value), 1)
-
-  let copy_body = @ir.hot_region_body_ref(func, copy_value)
-  assert_eq(@ir.hot_region_root_count(func, copy_body), 3)
-
-  let lane2 = @ir.hot_region_get(func, copy_body, 0)
-  let lane1 = @ir.hot_region_get(func, copy_body, 1)
-  let lane0 = @ir.hot_region_get(func, copy_body, 2)
-  assert_eq(@ir.hot_node_get(func, lane2).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, lane2).imm0, 11)
-  assert_eq(@ir.hot_node_get(func, lane1).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, lane1).imm0, 9)
-  assert_eq(@ir.hot_node_get(func, lane0).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, lane0).imm0, 8)
-
-  let lane2_value = @ir.hot_child_get(func, lane2, 0)
-  let lane1_value = @ir.hot_child_get(func, lane1, 0)
-  assert_eq(@ir.hot_node_get(func, lane2_value).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, lane2_value).imm0, 6)
-  assert_eq(@ir.hot_node_get(func, lane1_value).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, lane1_value).imm0, 7)
+///|
+test "tuple-optimization rewrite stages lane-ordered scrambled exact copy groups through a synthetic tuple.make carrier" {
+  let fixture = tuple_optimization_test_rewrite(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 11 local.set 9 local.set 10 local.get 10 local.get 9 local.get 11 call 1))",
+  )
+  tuple_optimization_assert_tuple_make_root_carrier(
+    fixture.hot_func,
+    10,
+    12,
+    [10, 9, 11],
+    [8, 7, 6],
+  )
 }
 
 ///|
@@ -487,44 +559,27 @@ test "tuple-optimization rewrite scalarizes overlapping exact copy groups from a
   let fixture = tuple_optimization_test_rewrite(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 6 local.set 10 local.set 9 local.get 9 local.get 10 local.get 6 call 1))",
   )
-  let func = fixture.hot_func
+  tuple_optimization_assert_tuple_make_root_carrier(
+    fixture.hot_func,
+    9,
+    11,
+    [9, 10, 6],
+    [8, 7, 6],
+  )
+}
 
-  let mut copy_root = -1
-  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
-    let root = @ir.hot_root_get(func, root_idx)
-    if @ir.hot_node_get(func, root).op.to_string() == "LocalSet" &&
-      @ir.hot_node_get(func, root).imm0 == 9 {
-      copy_root = root
-      break
-    }
-  }
-  if copy_root < 0 {
-    abort("expected rewritten overlapping exact copy root carrier for local 9")
-  }
-
-  let copy_value = @ir.hot_child_get(func, copy_root, 0)
-  assert_eq(@ir.hot_node_get(func, copy_value).op.to_string(), "Block")
-  assert_eq(@ir.hot_node_result_arity(func, copy_value), 1)
-
-  let copy_body = @ir.hot_region_body_ref(func, copy_value)
-  assert_eq(@ir.hot_region_root_count(func, copy_body), 3)
-
-  let lane2 = @ir.hot_region_get(func, copy_body, 0)
-  let lane1 = @ir.hot_region_get(func, copy_body, 1)
-  let lane0 = @ir.hot_region_get(func, copy_body, 2)
-  assert_eq(@ir.hot_node_get(func, lane2).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, lane2).imm0, 6)
-  assert_eq(@ir.hot_node_get(func, lane1).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, lane1).imm0, 10)
-  assert_eq(@ir.hot_node_get(func, lane0).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, lane0).imm0, 8)
-
-  let lane2_value = @ir.hot_child_get(func, lane2, 0)
-  let lane1_value = @ir.hot_child_get(func, lane1, 0)
-  assert_eq(@ir.hot_node_get(func, lane2_value).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, lane2_value).imm0, 6)
-  assert_eq(@ir.hot_node_get(func, lane1_value).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, lane1_value).imm0, 7)
+///|
+test "tuple-optimization rewrite stages overlapping exact copy groups through a synthetic tuple.make carrier" {
+  let fixture = tuple_optimization_test_rewrite(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 6 local.set 10 local.set 9 local.get 9 local.get 10 local.get 6 call 1))",
+  )
+  tuple_optimization_assert_tuple_make_root_carrier(
+    fixture.hot_func,
+    9,
+    11,
+    [9, 10, 6],
+    [8, 7, 6],
+  )
 }
 
 ///|

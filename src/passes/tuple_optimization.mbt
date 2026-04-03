@@ -1168,6 +1168,21 @@ fn tuple_optimization_group_host_lane(
 }
 
 ///|
+fn tuple_optimization_lane_locals_are_strictly_increasing(
+  lane_locals : Array[Int],
+) -> Bool {
+  if lane_locals.length() <= 1 {
+    return true
+  }
+  for lane_idx = 1; lane_idx < lane_locals.length(); lane_idx = lane_idx + 1 {
+    if lane_locals[lane_idx - 1] >= lane_locals[lane_idx] {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn tuple_optimization_group_needs_dedicated_split_locals(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
@@ -1753,29 +1768,42 @@ fn tuple_optimization_build_source_root_carrier_replacement(
   if carrier_lane < 0 || carrier_lane >= group.lane_locals.length() {
     abort("tuple-optimization synthetic source carrier lane must stay in range")
   }
+  tuple_optimization_build_root_carrier_replacement_from_producer(
+    func,
+    group.producer,
+    group.lane_locals,
+    carrier_lane,
+  )
+}
+
+///|
+fn tuple_optimization_build_root_carrier_replacement_from_producer(
+  func : @ir.HotFunc,
+  producer : Int,
+  lane_locals : Array[Int],
+  carrier_lane : Int,
+) -> Int {
+  if carrier_lane < 0 || carrier_lane >= lane_locals.length() {
+    abort("tuple-optimization synthetic root carrier lane must stay in range")
+  }
   let body : Array[Int] = []
-  for lane_idx = group.lane_locals.length() - 1
+  for lane_idx = lane_locals.length() - 1
       lane_idx >= 0
       lane_idx = lane_idx - 1 {
     if lane_idx == carrier_lane {
       continue
     }
-    body.push(
-      @ir.hot_build_local_set(func, group.lane_locals[lane_idx], group.producer),
-    )
+    body.push(@ir.hot_build_local_set(func, lane_locals[lane_idx], producer))
   }
   @ir.hot_build_local_set(
     func,
-    group.lane_locals[carrier_lane],
+    lane_locals[carrier_lane],
     @ir.hot_build_block(
       func,
       @lib.BlockType::val_type(
-        tuple_optimization_require_local_type(
-          func,
-          group.lane_locals[carrier_lane],
-        ),
+        tuple_optimization_require_local_type(func, lane_locals[carrier_lane]),
       ),
-      body + [group.producer],
+      body + [producer],
     ),
   )
 }
@@ -1792,6 +1820,23 @@ fn tuple_optimization_build_copy_root_carrier_replacement(
   }
   if group.lane_locals.length() != source_split_locals.length() {
     abort("tuple-optimization synthetic copy carriers must preserve arity")
+  }
+  if !tuple_optimization_lane_locals_are_strictly_increasing(group.lane_locals) {
+    let values : Array[Int] = []
+    let result_types : Array[@lib.ValType] = []
+    for lane_idx = 0
+        lane_idx < source_split_locals.length()
+        lane_idx = lane_idx + 1 {
+      let local_id = source_split_locals[lane_idx]
+      values.push(@ir.hot_build_local_get(func, local_id))
+      result_types.push(tuple_optimization_require_local_type(func, local_id))
+    }
+    return tuple_optimization_build_root_carrier_replacement_from_producer(
+      func,
+      @ir.hot_build_tuple_make(func, result_types, values),
+      group.lane_locals,
+      carrier_lane,
+    )
   }
   let body : Array[Int] = []
   for lane_idx = group.lane_locals.length() - 1
