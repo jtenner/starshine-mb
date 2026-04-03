@@ -387,6 +387,17 @@
   direct native-binary replay of `--code-pushing` on
   `tests/node/dist/starshine-debug-wasi.wasm` still had not finished after
   roughly a minute in local timing checks.
+- A follow-on direct-read probe stays green too: the recursive summary walk now
+  reads `func.nodes` and `func.children` directly in its hottest paths, the
+  branch classifier no longer reloads branch targets through
+  `hot_branch_target(...)` once it already has the node, and the branch-target
+  note helper is flattened into the `Br` / `BrTable` summary loop. That did not
+  change the basic outcome yet. After rebuilding the native release `src/cmd`
+  binary, a clean local sample still had `--code-pushing` running after about
+  `28s`, and the live stack still sits inside
+  `cp_collect_block_owner_exit_summary_for_branch` /
+  `cp_collect_block_owner_exit_summary_for_region`. So the accessor wrappers are
+  no longer the main story; the recursive owner-exit walk itself is.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the
   special walk to zero-result `Block` roots only, both regressed the existing
