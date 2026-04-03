@@ -334,16 +334,14 @@
   runtime recovers from the earlier regression.
 - The smaller compare lane is no longer hand-wavy either. A new 100-case
   `gen-valid` pass-fuzz replay now finishes at
-  `/home/jtenner/Projects/starshine-mb-code-pushing/.tmp/pass-fuzz-code-pushing-check-50d`
-  with `100/100` compared cases, `98` normalized matches, `0` validation
-  failures, `0` command failures, and `2` remaining mismatches. Along the way
-  it exposed and then cleared two local gaps:
-  `code-pushing` was treating `LocalTee` as invisible to SFA analysis, and it
-  was treating control-only roots plus dead-set motion too permissively in the
-  small dead-local cases. Those are now covered directly in
-  `src/passes/code_pushing_test.mbt`, and the remaining small mismatches have
-  narrowed to later-placement deltas in saved failure dirs `case-000026` and
-  `case-000044`.
+  `/home/jtenner/Projects/starshine-mb-code-pushing/.tmp/pass-fuzz-code-pushing-post-arity`
+  with `100/100` compared cases, `100` normalized matches, `0` validation
+  failures, `0` command failures, and `0` mismatches. Along the way it exposed
+  and then cleared three local gaps: `code-pushing` was treating `LocalTee` as
+  invisible to SFA analysis, it was scanning dead-set motion against the whole
+  prefix instead of the actual crossed gap, and it was conservatively blocking
+  dead-set motion across local-only gap roots that Binaryen still moves across.
+  Those cases are now covered directly in `src/passes/code_pushing_test.mbt`.
 - That dropped-result predecessor shape is now reflected in the pass too. The
   current non-void fence ignores earlier explicit exits under `Drop` roots, and
   the real debug-artifact compare stayed valid with that change. The new replay
@@ -383,20 +381,21 @@
   holders directly, the branch-target path no longer copies `BrTable` target
   arrays or allocates a closure, and the dropped-owner value is threaded
   through the hot branch-target note path as a raw sentinel `Int` instead of an
-  `Int?`. Those changes keep the tree green and move the samples around, but a
-  direct native-binary replay of `--code-pushing` on
-  `tests/node/dist/starshine-debug-wasi.wasm` still had not finished after
-  roughly a minute in local timing checks.
+  `Int?`. Later trims now cache per-region explicit-exit root lists, replace the
+  root-region and node non-void checks with exact type-tag tests that avoid
+  copying result arrays, and read `func.nodes[node_id]` directly inside
+  `cp_collect_block_owner_exit_summary`. Those changes keep the tree green and
+  move the samples around, but a direct native-binary replay of `--code-pushing`
+  on `tests/node/dist/starshine-debug-wasi.wasm` still had not finished after a
+  local run that was terminated at `68.659s`.
 - A follow-on direct-read probe stays green too: the recursive summary walk now
   reads `func.nodes` and `func.children` directly in its hottest paths, the
   branch classifier no longer reloads branch targets through
   `hot_branch_target(...)` once it already has the node, and the branch-target
   note helper is flattened into the `Br` / `BrTable` summary loop. That did not
-  change the basic outcome yet. After rebuilding the native release `src/cmd`
-  binary, a clean local sample still had `--code-pushing` running after about
-  `28s`, and the live stack still sits inside
-  `cp_collect_block_owner_exit_summary_for_branch` /
-  `cp_collect_block_owner_exit_summary_for_region`. So the accessor wrappers are
+  change the basic outcome yet. After the later dead-gap and arity fixes, live
+  stacks still sit inside `cp_collect_block_owner_exit_summary` /
+  `cp_collect_block_owner_exit_summary_for_region`, so the accessor wrappers are
   no longer the main story; the recursive owner-exit walk itself is.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the

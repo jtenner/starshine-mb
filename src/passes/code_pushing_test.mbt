@@ -404,6 +404,82 @@ test "code-pushing moves a dead local.set past a later void if" {
 }
 
 ///|
+test "code-pushing moves a dead local.set past an unrelated param local.set and later void if" {
+  let source =
+    #|(module
+    #|  (func (param f64) (result f32)
+    #|    (local i32)
+    #|    (local f32)
+    #|    (local i64)
+    #|    (if (i32.const 0)
+    #|      (then
+    #|        nop)
+    #|      (else
+    #|        nop))
+    #|    (i32.const 326)
+    #|    (local.set 1)
+    #|    (f64.const 2)
+    #|    (local.set 0)
+    #|    (if (i32.const 0)
+    #|      (then
+    #|        nop)
+    #|      (else
+    #|        nop))
+    #|    (local.get 2)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "If", "LocalSet(0)", "If", "LocalSet(1)", "LocalGet(2)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing moves a dead local.set across local-only roots when no later read needs it" {
+  let source =
+    #|(module
+    #|  (func (param i64) (result f32)
+    #|    (local f32)
+    #|    (local f64)
+    #|    (local f64)
+    #|    nop
+    #|    (f64.const 22)
+    #|    (local.set 3)
+    #|    (drop
+    #|      (local.tee 2
+    #|        (f64.const 24)))
+    #|    (if (i32.const 0)
+    #|      (then
+    #|        nop)
+    #|      (else
+    #|        nop))
+    #|    (if (i32.const 0)
+    #|      (then
+    #|        nop)
+    #|      (else
+    #|        nop))
+    #|    (f32.const 65)
+    #|    (local.set 1)
+    #|    (local.get 1)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "Nop", "Drop", "If", "If", "LocalSet(3)", "LocalSet(1)", "LocalGet(1)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing does not move a local.set when a later local.tee rewrites it" {
   let source =
     #|(module

@@ -36,6 +36,8 @@ priv struct CpSummaryCache {
   summaries : Array[CpEffectSummary]
   explicit_exit_ready : Array[Bool]
   explicit_exit_values : Array[Bool]
+  region_explicit_exit_roots_ready : Array[Bool]
+  region_explicit_exit_roots_values : Array[Array[Int]]
   dropped_region_owner_ready : Array[Bool]
   dropped_region_owner_values : Array[Int]
   nonvoid_block_root_guard_ready : Array[Bool]
@@ -230,6 +232,8 @@ fn cp_new_summary_cache(func : @ir.HotFunc) -> CpSummaryCache {
     summaries,
     explicit_exit_ready: Array::make(node_count, false),
     explicit_exit_values: Array::make(node_count, false),
+    region_explicit_exit_roots_ready: Array::make(region_cache_len, false),
+    region_explicit_exit_roots_values: Array::make(region_cache_len, []),
     dropped_region_owner_ready: Array::make(region_cache_len, false),
     dropped_region_owner_values: Array::make(region_cache_len, -1),
     nonvoid_block_root_guard_ready: Array::make(node_count, false),
@@ -808,7 +812,7 @@ fn cp_collect_block_owner_exit_summary(
   if !cp_node_has_explicit_exit(cache, func, node_id) {
     return
   }
-  let node = @ir.hot_node_get(func, node_id)
+  let node = func.nodes[node_id]
   match node.op {
     @ir.HotOp::Br
     | @ir.HotOp::BrIf
@@ -940,45 +944,48 @@ fn cp_collect_block_owner_exit_summary_for_region(
   dropped_region_owner_id : Int,
   summary : CpBlockOwnerExitSummary,
 ) -> Unit {
-  if region_holder == -1 {
-    for root_id in func.roots {
-      cp_collect_block_owner_exit_summary(
-        cache, func, root_id, owner_id, active_owner_marks, dropped_region_owner_id,
-        summary,
-      )
-      if summary.has_unsafe_explicit_exit {
-        return
+  let cache_slot = region_holder + 1
+  if !cache.region_explicit_exit_roots_ready[cache_slot] {
+    let roots : Array[Int] = []
+    if region_holder == -1 {
+      for root_id in func.roots {
+        if cp_node_has_explicit_exit(cache, func, root_id) {
+          roots.push(root_id)
+        }
+      }
+    } else {
+      let node = func.nodes[region_holder]
+      let body_base = match node.op {
+        @ir.HotOp::Loop => {
+          let label_id = @ir.hot_control_node_label(func, region_holder)
+          if label_id < 0 {
+            0
+          } else {
+            @ir.hot_label_branch_arity(func, label_id)
+          }
+        }
+        _ => 0
+      }
+      let mut slot = body_base
+      while slot < node.child_count {
+        let root_id = func.children[node.child_base + slot]
+        if cp_node_has_explicit_exit(cache, func, root_id) {
+          roots.push(root_id)
+        }
+        slot = slot + 1
       }
     }
-    return
+    cache.region_explicit_exit_roots_ready[cache_slot] = true
+    cache.region_explicit_exit_roots_values[cache_slot] = roots
   }
-  let node = func.nodes[region_holder]
-  let body_base = match node.op {
-    @ir.HotOp::Loop => {
-      let label_id = @ir.hot_control_node_label(func, region_holder)
-      if label_id < 0 {
-        0
-      } else {
-        @ir.hot_label_branch_arity(func, label_id)
-      }
-    }
-    _ => 0
-  }
-  let mut slot = body_base
-  while slot < node.child_count {
+  for root_id in cache.region_explicit_exit_roots_values[cache_slot] {
     cp_collect_block_owner_exit_summary(
-      cache,
-      func,
-      func.children[node.child_base + slot],
-      owner_id,
-      active_owner_marks,
-      dropped_region_owner_id,
+      cache, func, root_id, owner_id, active_owner_marks, dropped_region_owner_id,
       summary,
     )
     if summary.has_unsafe_explicit_exit {
       return
     }
-    slot = slot + 1
   }
 }
 
@@ -1336,27 +1343,60 @@ fn cp_root_is_trivial_dead_move_gap(
 }
 
 ///|
-fn cp_region_dead_move_prefix_is_trivial(
-  infos : Array[CpLocalInfo],
+fn cp_summary_conflicts_with_dead_move_gap(
+  moving : CpEffectSummary,
+  gap : CpEffectSummary,
+) -> Bool {
+  let blocked_mask = @ir.EFFECT_MASK_CALL |
+    @ir.EFFECT_MASK_THROW |
+    @ir.EFFECT_MASK_TRAP |
+    @ir.EFFECT_MASK_MEMORY_WRITE |
+    @ir.EFFECT_MASK_TABLE_WRITE
+  if (gap.mask & blocked_mask) != 0U {
+    return true
+  }
+  if cp_bitset_any(gap.global_reads) || cp_bitset_any(gap.global_writes) {
+    return true
+  }
+  if cp_bitset_overlaps(moving.local_writes, gap.local_reads) ||
+    cp_bitset_overlaps(moving.local_writes, gap.local_writes) ||
+    cp_bitset_overlaps(moving.local_reads, gap.local_writes) {
+    return true
+  }
+  if cp_bitset_overlaps(moving.global_writes, gap.global_reads) ||
+    cp_bitset_overlaps(moving.global_writes, gap.global_writes) ||
+    cp_bitset_overlaps(moving.global_reads, gap.global_writes) {
+    return true
+  }
+  if (moving.mask & @ir.EFFECT_MASK_MEMORY_READ) != 0U &&
+    (gap.mask & (@ir.EFFECT_MASK_MEMORY_WRITE | @ir.EFFECT_MASK_TRAP)) != 0U {
+    return true
+  }
+  if (moving.mask & @ir.EFFECT_MASK_TABLE_READ) != 0U &&
+    (gap.mask & @ir.EFFECT_MASK_TABLE_WRITE) != 0U {
+    return true
+  }
+  false
+}
+
+///|
+fn cp_region_dead_move_gap_is_safe(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   source_idx : Int,
   target_idx : Int,
+  moving_summary : CpEffectSummary,
 ) -> Bool {
-  let mut idx = 0
+  let mut idx = source_idx + 1
   while idx < target_idx {
-    if idx == source_idx {
-      idx = idx + 1
-      continue
-    }
     let root_id = @ir.hot_region_get(func, region_ref, idx)
-    match cp_root_pushable_local(infos, cache, func, root_id) {
-      Some(_) => ()
-      None =>
-        if !cp_root_is_trivial_dead_move_gap(cache, func, root_id) {
-          return false
-        }
+    if !cp_root_is_trivial_dead_move_gap(cache, func, root_id) &&
+      cp_summary_conflicts_with_dead_move_gap(
+        moving_summary,
+        cp_effect_summary_for_node(cache, func, root_id),
+      ) {
+      return false
     }
     idx = idx + 1
   }
@@ -1387,6 +1427,37 @@ fn cp_region_has_terminal_last_live_root(
     idx = idx - 1
   }
   false
+}
+
+///|
+fn cp_type_has_nonvoid_result(func : @ir.HotFunc, type_id : Int) -> Bool {
+  match @ir.hot_type_get(func, type_id) {
+    @ir.HotTypeInfo::VoidType => false
+    @ir.HotTypeInfo::BlockResult(block_type) =>
+      match block_type {
+        @lib.VoidBlockType => false
+        _ => true
+      }
+    @ir.HotTypeInfo::BlockResultResolved(_, values)
+    | @ir.HotTypeInfo::Results(values) => !values.is_empty()
+    @ir.HotTypeInfo::Value(_) => true
+  }
+}
+
+///|
+fn cp_node_has_nonvoid_result(func : @ir.HotFunc, node_id : Int) -> Bool {
+  cp_type_has_nonvoid_result(func, @ir.hot_node_type(func, node_id))
+}
+
+///|
+fn cp_region_has_nonvoid_result(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  if region_ref.holder < 0 {
+    return cp_type_has_nonvoid_result(func, @ir.hot_body_result_type(func))
+  }
+  @ir.hot_region_result_arity(func, region_ref) != 0
 }
 
 ///|
@@ -1478,7 +1549,7 @@ fn cp_try_sink_into_if(
     Some(if_id) => if_id
     None => return false
   }
-  if @ir.hot_node_result_arity(func, if_id) != 0 {
+  if cp_node_has_nonvoid_result(func, if_id) {
     return false
   }
   let barrier = cp_new_barrier_summary(cache.local_count, cache.global_count)
@@ -1544,14 +1615,15 @@ fn cp_try_push_to_pushpoint(
     return false
   }
   let roots = cp_region_roots_copy(func, region_ref)
-  if @ir.hot_region_result_arity(func, region_ref) != 0 &&
+  if cp_region_has_nonvoid_result(func, region_ref) &&
     cp_nonvoid_prefix_has_explicit_exit_guard(
       cache, func, region_ref, target_idx,
     ) {
     return false
   }
-  match cp_root_if_pushpoint_id(func, roots[target_idx]) {
-    Some(if_id) if @ir.hot_node_result_arity(func, if_id) != 0 => return false
+  let target_if_id = cp_root_if_pushpoint_id(func, roots[target_idx])
+  match target_if_id {
+    Some(if_id) if cp_node_has_nonvoid_result(func, if_id) => return false
     _ => ()
   }
   if !cp_root_is_pushpoint(func, roots[target_idx]) {
@@ -1574,9 +1646,9 @@ fn cp_try_push_to_pushpoint(
         if cp_summary_conflicts_with_barrier(root_summary, barrier) {
           false
         } else {
-          match cp_root_if_pushpoint_id(func, roots[target_idx]) {
+          match target_if_id {
             Some(if_id) =>
-              if @ir.hot_node_result_arity(func, if_id) == 0 &&
+              if !cp_node_has_nonvoid_result(func, if_id) &&
                 !cp_summary_reads_local(pushpoint_summary, local_id) &&
                 !cp_summary_writes_local(pushpoint_summary, local_id) {
                 let has_later_read = cp_region_reads_local_after_index(
@@ -1589,8 +1661,8 @@ fn cp_try_push_to_pushpoint(
                 if has_later_read {
                   move_after_target[scan] = true
                   true
-                } else if cp_region_dead_move_prefix_is_trivial(
-                    infos, cache, func, region_ref, scan, target_idx,
+                } else if cp_region_dead_move_gap_is_safe(
+                    cache, func, region_ref, scan, target_idx, root_summary,
                   ) {
                   move_after_target[scan] = true
                   true
