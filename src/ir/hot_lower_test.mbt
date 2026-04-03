@@ -301,7 +301,7 @@ test "hot lower peels split payload wrappers with void-if and trailing roots" {
 }
 
 ///|
-test "hot lower preserves typed carried payload forwarders with trailing values" {
+test "hot lower preserves carried payload forwarders with trailing values" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32) (result i32) (local i32) (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 1 (i32.const 1)) (br $block10 (if (result i32) (local.get 0) (then (local.set 1 (i32.const 7)) (br $block8)) (else (local.set 1 (i32.const 9)) (br $block9))))) (local.get 1)))))))",
   )
@@ -326,7 +326,7 @@ test "hot lower preserves typed carried payload forwarders with trailing values"
 }
 
 ///|
-test "hot lower preserves typed carried payload forwarders with trailing stores and returns" {
+test "hot lower preserves carried payload forwarders with trailing stores and returns" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (memory 1) (func (param i32) (result i32) (local i32 i32) (local.set 1 (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 2 (i32.const 1)) (br $block10 (if (result i32) (local.get 0) (then (local.set 2 (i32.const 7)) (br $block8)) (else (local.set 2 (i32.const 9)) (br $block9))))) (local.get 2)))) (i32.store align=1 (i32.const 0) (local.get 2)) (i32.store align=1 (i32.const 4) (local.get 2)) (return (local.get 2)))) (i32.const 0)))",
   )
@@ -641,7 +641,57 @@ test "hot lower peels final typed wrappers with void prefix and local.get tail" 
 }
 
 ///|
-test "hot lower preserves final typed wrappers with void prefix and same-typed value block tail" {
+test "hot lower preserves final typed wrappers when the prefix has mixed if exits" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (block $exit (result i32)
+    #|      (block $side
+    #|        (br $exit
+    #|          (block $carry (result i32)
+    #|            (block $inner
+    #|              (br $carry
+    #|                (if (result i32)
+    #|                  (local.get 0)
+    #|                  (then
+    #|                    (local.set 1
+    #|                      (local.get 1))
+    #|                    (br $inner))
+    #|                  (else
+    #|                    (local.set 0
+    #|                      (i32.const 3))
+    #|                    (br $side)))))
+    #|            (local.get 1))))
+    #|      (i32.const 7)))))
+  let module_ = match @wast.wast_to_binary_module(source) {
+    Ok(module_) => module_
+    Err(err) => fail("expected module to parse, got \{err}")
+  }
+  let hot = hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let lowered = hot_lower_func(hot)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+
+  assert_true(pretty.contains("(if I32"), msg=pretty)
+  assert_true(pretty.contains("(block I32"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "hot lower preserves final typed wrappers with same-typed branch-payload tails" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (block (result i32) (block $block5 (local.get 0) drop (br $block5)) (block $block7 (result i32) (block $block6 (br $block7 (if (result i32) (local.get 0) (then (i32.const 7) (br $block6)) (else (i32.const 9) (br $block7)))))))))",
   )
@@ -662,9 +712,9 @@ test "hot lower preserves final typed wrappers with void prefix and same-typed v
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
-  assert_false(pretty.contains("unreachable"), msg=pretty)
   assert_true(pretty.contains("(if I32"), msg=pretty)
-  assert_true(pretty.contains("(block I32"), msg=pretty)
+  assert_false(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(if Void"), msg=pretty)
 }
 
 ///|
@@ -1491,7 +1541,7 @@ test "hot lower canonicalizes tail if forwarders into void if plus unreachable" 
 }
 
 ///|
-test "hot lower preserves typed nested local.set payload forwarders from compare shape" {
+test "hot lower preserves nested local.set payload forwarders from compare shape" {
   let source =
     #|(module
     #|  (func (param i32) (result i32) (local i32)
@@ -1533,13 +1583,13 @@ test "hot lower preserves typed nested local.set payload forwarders from compare
     .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if I32"), msg=pretty)
   assert_false(pretty.contains("unreachable"), msg=pretty)
   assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
-  assert_true(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
-test "hot lower preserves typed prefix-heavy nested local.set payload forwarders from compare shape" {
+test "hot lower preserves prefix-heavy nested local.set payload forwarders from compare shape" {
   let source =
     #|(module
     #|  (func (param i32 i32 i32) (result i32) (local i32 i32)
@@ -1585,9 +1635,9 @@ test "hot lower preserves typed prefix-heavy nested local.set payload forwarders
     .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if I32"), msg=pretty)
   assert_false(pretty.contains("unreachable"), msg=pretty)
   assert_false(pretty.contains("(block $block11 (result i32)"), msg=pretty)
-  assert_true(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|

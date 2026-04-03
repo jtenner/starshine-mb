@@ -1635,6 +1635,7 @@ fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
     }
   }
   match body[body.length() - 1] {
+    Br(li) if hot_lower_impl_decoded_label_depth(li) == 1 => return None
     Return => ()
     _ => return None
   }
@@ -2240,7 +2241,10 @@ fn hot_lower_impl_canonicalize_body(
           _ =>
             match inner_body {
               [Block(VoidBlockType, Expr(prefix_body)), LocalGet(_)] =>
-                if !hot_lower_impl_body_targets_removed_label(prefix_body, 1) {
+                if !hot_lower_impl_body_targets_removed_label(prefix_body, 1) &&
+                  !hot_lower_impl_needs_explicit_unreachable_after_peeled_prefix(
+                    prefix_body,
+                  ) {
                   let peeled_prefix : Array[Instruction] = []
                   for prefix_instr in prefix_body {
                     peeled_prefix.push(prefix_instr)

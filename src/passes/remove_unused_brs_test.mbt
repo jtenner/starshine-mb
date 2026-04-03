@@ -228,6 +228,44 @@ test "remove-unused-brs rewrites reorder-safe condition ladders into select" {
 }
 
 ///|
+test "remove-unused-brs rewrites call-conditioned value ifs under branch conditions into select" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $cond (param i32) (result i32) (local.get 0)) (func (param i32 i32) (result i32) (if (if (result i32) (call $cond (local.get 0)) (then (i32.eqz (local.get 1))) (else (i32.const 0))) (then (return (i32.const 1)))) (i32.const 2)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs call-conditioned ladder select success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites returned condition ladders with pre-calls into select" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $cond (param i32) (result i32) (local.get 0)) (func $touch (param i32)) (func $ret (param i32) (result i32) (local.get 0)) (func (param i32 i32 i32) (result i32) (call $touch (local.get 0)) (if (if (result i32) (call $cond (local.get 0)) (then (i32.eqz (local.get 1))) (else (i32.const 0))) (then (call $touch (local.get 0)) (return (call $ret (local.get 2))))) (drop (i32.const 0)) (i32.const 2)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs returned condition ladder select success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("select"), msg=pretty)
+  assert_false(pretty.contains("(if (I32)"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites pure local.get ifs into select" {
   let optimized = match
     pass_test_run_pipeline(
@@ -443,6 +481,176 @@ test "remove-unused-brs rewrites branch-exit ifs nested in dropped multi-value b
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("(if"), msg=pretty)
   assert_true(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs restructures one-arm return ifs with nonfallthrough suffixes into else arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (block $exit (if (local.get 0) (then (return))) (drop (i32.const 9)) (br $exit))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs one-arm return restructure success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("else"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs restructures loop-body one-arm return ifs with nonfallthrough suffixes into else arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32 i32) (loop $loop (if (local.get 0) (then (return))) (local.set 1 (local.get 2)) (local.set 2 (i32.add (local.get 1) (i32.const 1))) (br $loop)) unreachable))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs loop-body one-arm return restructure success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("else"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rotates void block wrappers around single loop bodies" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (block $exit (loop $loop (local.set 1 (i32.add (local.get 1) (i32.const -1))) (br_if $exit (i32.eqz (local.get 1))) (drop (i32.const 0)) (br $loop))) (i32.const 7)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs single-loop block rotation success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let root = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Loop => ()
+    _ =>
+      fail("expected rotated root loop, got \{@ir.hot_node_get(func, root).op}")
+  }
+  let loop_body = @ir.hot_region_body_ref(func, root)
+  let inner = @ir.hot_region_get(func, loop_body, 0)
+  match @ir.hot_node_get(func, inner).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected rotated inner block, got \{@ir.hot_node_get(func, inner).op}",
+      )
+  }
+}
+
+///|
+test "remove-unused-brs keeps single-loop block wrappers when the loop body has nested value control" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (block $exit (loop $loop (drop (block (result i32) (if (result i32) (local.get 0) (then (return (i32.const 1))) (else (i32.const 2))))) (br $loop))) (i32.const 7)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs nested value-control block preservation success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let root = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected preserved root block, got \{@ir.hot_node_get(func, root).op}",
+      )
+  }
+}
+
+///|
+test "remove-unused-brs rewrites result-block br_if prefixes into one-arm payload ifs" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (block $exit (result i32) (block $inner (br_if $inner (local.get 0)) (br $exit (local.get 1))) (i32.const 9))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs result-block payload prefix rewrite success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_body = @ir.hot_region_body_ref(func, outer)
+  let first = @ir.hot_region_get(func, outer_body, 0)
+  match @ir.hot_node_get(func, first).op {
+    @ir.HotOp::If => ()
+    _ =>
+      fail(
+        "expected rewritten prefix if, got \{@ir.hot_node_get(func, first).op}",
+      )
+  }
+  let then_ref = @ir.hot_region_then_ref(func, first)
+  let then_root = @ir.hot_region_get(func, then_ref, 0)
+  match @ir.hot_node_get(func, then_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected preserved inner block wrapper, got \{@ir.hot_node_get(func, then_root).op}",
+      )
+  }
+}
+
+///|
+test "remove-unused-brs keeps branch-payload result wrappers around br_if prefixes" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (block $exit (result i32) (block $side (br $exit (block $carry (result i32) (block $inner (br_if $inner (local.get 0)) (br $carry (local.get 1))) (i32.const 9)))) (unreachable))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs branch-payload prefix wrapper preservation success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_body = @ir.hot_region_body_ref(func, outer)
+  let first = @ir.hot_region_get(func, outer_body, 0)
+  match @ir.hot_node_get(func, first).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected preserved branch-payload wrapper block, got \{@ir.hot_node_get(func, first).op}",
+      )
+  }
+  let second = @ir.hot_region_get(func, outer_body, 1)
+  match @ir.hot_node_get(func, second).op {
+    @ir.HotOp::Unreachable => ()
+    _ =>
+      fail(
+        "expected preserved unreachable tail, got \{@ir.hot_node_get(func, second).op}",
+      )
+  }
 }
 
 ///|
