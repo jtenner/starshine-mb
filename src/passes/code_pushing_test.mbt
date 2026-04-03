@@ -832,6 +832,45 @@ test "code-pushing rewrites past an earlier dropped result-carrying block root" 
 }
 
 ///|
+test "code-pushing rewrites past an earlier self-contained block root" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    (block $prefix
+    #|      (block $carry (result i32)
+    #|        (block $work
+    #|          (if (local.get 0)
+    #|            (then
+    #|              (br $work))
+    #|            (else
+    #|              (br $carry (i32.const 0))))
+    #|          unreachable)
+    #|        (i32.const 1))
+    #|      drop)
+    #|    (local.get 1)
+    #|    (local.set 2)
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 3)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 3))))
+    #|    (local.get 2))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "Block", "LocalSet(3)", "If", "LocalSet(2)", "LocalGet(2)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing does not rewrite a parent-exit payload-carry shape" {
   let source = "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))"
   let func = code_pushing_test_run_hot(source)

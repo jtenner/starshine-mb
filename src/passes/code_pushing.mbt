@@ -503,6 +503,181 @@ fn cp_node_has_explicit_exit(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn cp_active_owners_contains(
+  active_owners : Array[Int],
+  owner_id : Int,
+) -> Bool {
+  for active_owner_id in active_owners {
+    if active_owner_id == owner_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn cp_branch_exits_block_owner(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  active_owners : Array[Int],
+  node_id : Int,
+) -> Bool {
+  let targets : Array[Int] = []
+  match @ir.hot_branch_target(func, node_id) {
+    Some(label_id) => targets.push(label_id)
+    None => ()
+  }
+  for label_id in @ir.hot_branch_table_targets_for_node(func, node_id) {
+    targets.push(label_id)
+  }
+  if targets.is_empty() {
+    return false
+  }
+  for label_id in targets {
+    let target_owner_id = @ir.hot_label_owner(func, label_id)
+    if target_owner_id != owner_id &&
+      cp_active_owners_contains(active_owners, target_owner_id) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn cp_region_has_block_exiting_explicit_exit(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  owner_id : Int,
+  active_owners : Array[Int],
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if cp_subtree_has_block_exiting_explicit_exit(
+        func, root_id, owner_id, active_owners,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn cp_subtree_has_block_exiting_explicit_exit(
+  func : @ir.HotFunc,
+  node_id : Int,
+  owner_id : Int,
+  active_owners : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail =>
+      return cp_branch_exits_block_owner(func, owner_id, active_owners, node_id)
+    @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Delegate => return true
+    @ir.HotOp::Unreachable => return false
+    _ => ()
+  }
+  let pushes_owner = match node.op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => false
+  }
+  if pushes_owner {
+    active_owners.push(node_id)
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if cp_subtree_has_block_exiting_explicit_exit(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+        owner_id,
+        active_owners,
+      ) {
+      if pushes_owner {
+        ignore(active_owners.pop())
+      }
+      return true
+    }
+  }
+  let exits_owner = match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      cp_region_has_block_exiting_explicit_exit(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        owner_id,
+        active_owners,
+      )
+    @ir.HotOp::If => {
+      let then_exits_owner = cp_region_has_block_exiting_explicit_exit(
+        func,
+        @ir.hot_region_then_ref(func, node_id),
+        owner_id,
+        active_owners,
+      )
+      let else_exits_owner = match @ir.hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          cp_region_has_block_exiting_explicit_exit(
+            func, region_ref, owner_id, active_owners,
+          )
+        None => false
+      }
+      then_exits_owner || else_exits_owner
+    }
+    @ir.HotOp::Try => {
+      let body_exits_owner = cp_region_has_block_exiting_explicit_exit(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        owner_id,
+        active_owners,
+      )
+      let catch_exits_owner = match @ir.hot_region_catch_ref(func, node_id) {
+        Some(region_ref) =>
+          cp_region_has_block_exiting_explicit_exit(
+            func, region_ref, owner_id, active_owners,
+          )
+        None => false
+      }
+      body_exits_owner || catch_exits_owner
+    }
+    @ir.HotOp::TryTable =>
+      cp_region_has_block_exiting_explicit_exit(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+        owner_id,
+        active_owners,
+      ) ||
+      cp_region_has_block_exiting_explicit_exit(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+        owner_id,
+        active_owners,
+      )
+    _ => false
+  }
+  if pushes_owner {
+    ignore(active_owners.pop())
+  }
+  exits_owner
+}
+
+///|
 fn cp_nonvoid_prefix_has_explicit_exit_guard(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -511,11 +686,16 @@ fn cp_nonvoid_prefix_has_explicit_exit_guard(
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) && idx <= target_idx {
     let root_id = @ir.hot_region_get(func, region_ref, idx)
-    if cp_node_has_explicit_exit(func, root_id) {
-      match @ir.hot_node_get(func, root_id).op {
-        @ir.HotOp::Drop => ()
-        _ => return true
-      }
+    let root_node = @ir.hot_node_get(func, root_id)
+    match root_node.op {
+      @ir.HotOp::Drop => ()
+      @ir.HotOp::Block =>
+        if cp_subtree_has_block_exiting_explicit_exit(func, root_id, root_id, [
+            root_id,
+          ]) {
+          return true
+        }
+      _ => if cp_node_has_explicit_exit(func, root_id) { return true }
     }
     idx = idx + 1
   }

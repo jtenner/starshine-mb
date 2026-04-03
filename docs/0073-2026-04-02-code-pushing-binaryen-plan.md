@@ -277,6 +277,25 @@
   rolled back because it also weakened the known-unsafe zero-result and
   split-carry blockers. So the next pass change still needs a narrower notion
   than "earlier root has no escaping explicit exits".
+- That narrower self-contained `Block`-root rule is now landed in the pass
+  too. The current non-void fence still ignores earlier `Drop` roots outright,
+  and it now also ignores earlier `Block` roots when every explicit exit inside
+  that block stays within nested labels owned by the same block. Escaping exits
+  from the block still block the sink. The fresh real-artifact replay
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-109759` stayed
+  valid with that refinement and improved Starshine runtime versus
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-92230` (`9754.809
+  ms` pass vs `10745.351 ms`; `12203.915 ms` total vs `13345.644 ms`).
+- That refinement did not move the earliest parity family though. The first
+  normalized WAT mismatch is still the same `19348` `local.set $20` case, with
+  later early gaps still around `48981`, `61077`, `72008`, and the larger
+  structural family near `105624`.
+- Inspection of the remaining `19348` function now suggests the non-void fence
+  is probably no longer the immediate blocker there. In the corresponding live
+  `func $67` slice, `local $20` still appears as multiple `local.set`,
+  `local.get`, and later `local.tee` sites, so the next reduction likely needs
+  to explain how Binaryen sinks that non-SFA-looking local-set or prove a
+  narrower Starshine local-analysis rule instead.
 - That dropped-result predecessor shape is now reflected in the pass too. The
   current non-void fence ignores earlier explicit exits under `Drop` roots, and
   the real debug-artifact compare stayed valid with that change. The new replay
