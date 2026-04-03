@@ -1870,25 +1870,25 @@ test "run_cmd_with_adapter tuple-optimization preserves host tee repro locals th
 }
 
 ///|
-test "run_cmd_with_adapter tuple-optimization rewrites tuple-extract host tee compare repro through scalar lane reuse" {
-  let wasm = bytes_from_ints([
-    0x00, 0x61, 0x73, 0x6D, 0x01, 0x00, 0x00, 0x00, 0x01, 0x14, 0x03, 0x60, 0x02,
-    0x7F, 0x7F, 0x03, 0x7F, 0x7F, 0x7F, 0x60, 0x03, 0x7F, 0x7F, 0x7F, 0x01, 0x7F,
-    0x60, 0x00, 0x01, 0x7F, 0x02, 0x17, 0x02, 0x03, 0x65, 0x6E, 0x76, 0x04, 0x74,
-    0x72, 0x69, 0x6D, 0x00, 0x00, 0x03, 0x65, 0x6E, 0x76, 0x04, 0x73, 0x68, 0x6F,
-    0x77, 0x00, 0x01, 0x03, 0x02, 0x01, 0x02, 0x0A, 0x30, 0x01, 0x2E, 0x01, 0x09,
-    0x7F, 0x41, 0x2A, 0x41, 0x90, 0xCE, 0x00, 0x10, 0x00, 0x21, 0x06, 0x21, 0x05,
-    0x22, 0x04, 0x21, 0x08, 0x20, 0x05, 0x21, 0x07, 0x20, 0x06, 0x21, 0x03, 0x20,
-    0x07, 0x21, 0x02, 0x20, 0x08, 0x22, 0x01, 0x20, 0x02, 0x20, 0x03, 0x10, 0x01,
-    0x21, 0x00, 0x20, 0x00, 0x0B,
-  ])
-  let input_mod = decode_module_bytes(wasm)
+test "run_cmd_with_adapter tuple-optimization rewrites scrambled tuple copy carriers through a typed multivalue carrier" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 11 local.set 9 local.set 10 local.get 10 local.get 9 local.get 11 call 1))",
+      filename="tuple-scrambled-copy-order.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected scrambled tuple copy carrier fixture parse failure: \{err}",
+      )
+  }
+  let wasm = encode_module_bytes(input_mod)
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
-    list_candidates=fn() { ["tuple-extract-tee.wasm"] },
-    file_exists=fn(path) { path == "tuple-extract-tee.wasm" },
+    list_candidates=fn() { ["tuple-scrambled-copy-order.wasm"] },
+    file_exists=fn(path) { path == "tuple-scrambled-copy-order.wasm" },
     read_file=fn(path) {
-      if path == "tuple-extract-tee.wasm" {
+      if path == "tuple-scrambled-copy-order.wasm" {
         Ok(wasm)
       } else {
         Err("missing fixture")
@@ -1901,23 +1901,31 @@ test "run_cmd_with_adapter tuple-optimization rewrites tuple-extract host tee co
   )
   match
     run_cmd_with_adapter(
-      ["--tuple-optimization", "--out", "out.wasm", "tuple-extract-tee.wasm"],
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-scrambled-copy-order.wasm",
+      ],
       io,
     ) {
     Ok(_) => ()
     Err(e) =>
       fail(
-        "unexpected tuple-optimization tuple-extract host-tee repro failure: \{e}",
+        "unexpected tuple-optimization scrambled tuple copy carrier failure: \{e}",
       )
   }
   assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_not_eq(pretty, input_mod.pretty_print_func(@lib.FuncIdx::new(2U)))
-  assert_true(pretty.contains("(block I32"), msg=pretty)
+  match out.type_sec {
+    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 4)
+    None => fail("expected scrambled tuple copy carrier output type sec")
+  }
+  assert_true(pretty.contains("(block (Type 3)"), msg=pretty)
   assert_true(pretty.contains("(local.set (Local 8))"), msg=pretty)
-  assert_false(pretty.contains("drop(local.tee"), msg=pretty)
-  assert_true(pretty.contains("(local.tee (Local 4))"), msg=pretty)
+  assert_false(
+    pretty.contains("(local.set (Local 14))(local.get (Local 6))"),
+    msg=pretty,
+  )
 }
 
 ///|

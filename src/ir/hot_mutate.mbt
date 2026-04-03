@@ -584,6 +584,46 @@ pub fn hot_control_demote_if_to_block(
 }
 
 ///|
+pub fn hot_tuple_make_promote_to_block(
+  func : HotFunc,
+  tuple_make_id : NodeId,
+  block_type : BlockType,
+) -> Unit {
+  hot_mutate_require_live_node(
+    func, tuple_make_id, "hot_tuple_make_promote_to_block",
+  )
+  let node = hot_node_get(func, tuple_make_id)
+  if node.op != HotOp::TupleMake {
+    abort("hot_tuple_make_promote_to_block requires a tuple.make node")
+  }
+  let results = hot_type_results(func, node.ty)
+  if results.length() <= 1 {
+    abort("hot_tuple_make_promote_to_block requires a multi-result tuple.make")
+  }
+  let ty = match block_type {
+    TypeIdxBlockType(_) =>
+      hot_type_intern_resolved_block_result(func, block_type, results)
+    _ => hot_type_intern_block_result(func, block_type)
+  }
+  let label_id = hot_label_alloc(
+    func,
+    HotLabelKind::BlockLabel,
+    ty,
+    tuple_make_id,
+    results.length(),
+  )
+  func.nodes[tuple_make_id] = {
+    ..node,
+    op: HotOp::Block,
+    ty,
+    flags: hot_default_flags_for_op(HotOp::Block),
+    imm0: label_id,
+    imm1: 0,
+  }
+  hot_revision_bump(func)
+}
+
+///|
 pub fn hot_node_get(func : HotFunc, id : NodeId) -> HotNode {
   hot_mutate_require_live_node(func, id, "hot node_get")
   func.nodes[id]

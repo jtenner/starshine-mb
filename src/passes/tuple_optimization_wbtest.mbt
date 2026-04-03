@@ -604,6 +604,46 @@ test "tuple-optimization analysis links overlapping exact copy groups from a hos
 }
 
 ///|
+test "tuple-optimization rewrite stages nested branch-exit source roots through a tuple carrier" {
+  let source =
+    #|(module
+    #|  (type (func (result i32 i32 i32)))
+    #|  (func (type 0) (result i32 i32 i32)
+    #|    (i32.const 10)
+    #|    (i32.const 20)
+    #|    (i32.const 30))
+    #|  (func (param i32) (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    (block $exit (result i32)
+    #|      (if
+    #|        (local.get 0)
+    #|        (then
+    #|          (call 0)
+    #|          (local.set 4)
+    #|          (local.set 3)
+    #|          (local.set 2)
+    #|          (local.set 7 (local.get 4))
+    #|          (local.set 6 (local.get 3))
+    #|          (local.set 1 (local.get 2))
+    #|          (local.set 5 (local.get 7))
+    #|          (local.set 0 (local.get 6))
+    #|          (br $exit (local.get 5))))
+    #|      (i32.const 99))))
+  let optimized = match pass_test_run_pipeline(source, ["tuple-optimization"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected nested branch-exit tuple-optimization success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains(
+      "(call (Func 0))(local.set (Local 11))(local.set (Local 10))(local.set (Local 9))(block I32 (block (Type 0) (local.get (Local 9))(local.get (Local 10))(local.get (Local 11))(end))(local.set (Local 4))(local.set (Local 3))(end))(local.set (Local 2))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 test "tuple-optimization pipeline lowers nested scalar result spill bridges without tuple extracts" {
   let optimized = match
     pass_test_run_pipeline(

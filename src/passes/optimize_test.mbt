@@ -111,6 +111,98 @@ test "run_hot_pipeline keeps tuple-optimization as a no-op on scalar-only input"
 }
 
 ///|
+test "run_hot_pipeline lowers scrambled tuple copy carriers through a typed multivalue block" {
+  let input = pass_test_module_from_wat(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 11 local.set 9 local.set 10 local.get 10 local.get 9 local.get 11 call 1))",
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["tuple-optimization"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected scrambled tuple-optimization pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected scrambled tuple-optimization module to validate, got \{err}",
+      )
+  }
+  match optimized.type_sec {
+    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 4)
+    None => fail("expected scrambled tuple-optimization output type sec")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("(block (Type 3)"), msg=pretty)
+  assert_false(
+    pretty.contains("(local.set (Local 14))(local.get (Local 6))"),
+    msg=pretty,
+  )
+}
+
+///|
+test "run_hot_pipeline stages nested branch-exit triple-result roots through split locals under tuple-optimization" {
+  let source =
+    #|(module
+    #|  (type (func (result i32 i32 i32)))
+    #|  (func (type 0) (result i32 i32 i32)
+    #|    (i32.const 10)
+    #|    (i32.const 20)
+    #|    (i32.const 30))
+    #|  (func (param i32) (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    (block $exit (result i32)
+    #|      (if
+    #|        (local.get 0)
+    #|        (then
+    #|          (call 0)
+    #|          (local.set 4)
+    #|          (local.set 3)
+    #|          (local.set 2)
+    #|          (local.set 7 (local.get 4))
+    #|          (local.set 6 (local.get 3))
+    #|          (local.set 1 (local.get 2))
+    #|          (local.set 5 (local.get 7))
+    #|          (local.set 0 (local.get 6))
+    #|          (br $exit (local.get 5))))
+    #|      (i32.const 99))))
+  let input = match
+    @wast.wast_to_binary_module(
+      source,
+      filename="tuple-temp-copy-stability.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("unexpected tuple temp copy stability fixture parse failure: \{err}")
+  }
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["tuple-optimization"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected tuple-optimization temp-copy pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tuple-optimization temp-copy module to validate, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(
+    pretty.contains(
+      "(call (Func 0))(local.set (Local 11))(local.set (Local 10))(local.set (Local 9))(block I32 (block (Type 0) (local.get (Local 9))(local.get (Local 10))(local.get (Local 11))(end))(local.set (Local 4))(local.set (Local 3))(end))(local.set (Local 2))",
+    ),
+    msg=pretty,
+  )
+  assert_false(
+    pretty.contains(
+      "(call (Func 0))(local.set (Local 4))(local.set (Local 3))(local.set (Local 2))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 test "tuple-optimization exact preset slot remains unavailable while its neighbors are removed" {
   assert_false(tuple_optimization_exact_slot_prereqs_ready())
   assert_false(

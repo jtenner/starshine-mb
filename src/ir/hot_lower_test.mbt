@@ -2508,6 +2508,78 @@ test "hot lower preserves branchy triple-result bridges after removing leading n
 }
 
 ///|
+test "hot lower roundtrips branch-exit triple-result temp copy chains" {
+  let source =
+    #|(module
+    #|  (type (func (result i32 i32 i32)))
+    #|  (func (type 0) (result i32 i32 i32)
+    #|    (i32.const 10)
+    #|    (i32.const 20)
+    #|    (i32.const 30))
+    #|  (func (param i32) (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    (block $exit (result i32)
+    #|      (if
+    #|        (local.get 0)
+    #|        (then
+    #|          (call 0)
+    #|          (local.set 4)
+    #|          (local.set 3)
+    #|          (local.set 2)
+    #|          (local.set 7 (local.get 4))
+    #|          (local.set 6 (local.get 3))
+    #|          (local.set 1 (local.get 2))
+    #|          (local.set 5 (local.get 7))
+    #|          (local.set 0 (local.get 6))
+    #|          (br $exit (local.get 5))))
+    #|      (i32.const 99))))
+  let module_ = match @wast.wast_to_binary_module(source) {
+    Ok(module_) => module_
+    Err(err) => fail("expected module to parse, got \{err}")
+  }
+  let hot = hot_lift_func(module_, @lib.FuncIdx::new(1U))
+  let lowered = hot_lower_func(hot)
+  let expected = module_.pretty_print_defined_func(1U)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [
+              @lib.ValType::i32(),
+              @lib.ValType::i32(),
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(
+      @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(1U)]),
+    )
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([]),
+          @lib.Expr::new([
+            @lib.Instruction::i32_const(@lib.I32(10)),
+            @lib.Instruction::i32_const(@lib.I32(20)),
+            @lib.Instruction::i32_const(@lib.I32(30)),
+          ]),
+        ),
+        lowered,
+      ]),
+    )
+    .pretty_print_func(@lib.FuncIdx::new(1U))
+
+  assert_eq(pretty, expected)
+}
+
+///|
 test "hot lower preserves typed loop bridge roots after removing leading nop from loop body" {
   let body = @lib.Expr::new([
     @lib.Instruction::i32_const(@lib.I32(10)),

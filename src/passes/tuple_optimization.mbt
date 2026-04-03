@@ -1213,7 +1213,11 @@ fn tuple_optimization_group_needs_dedicated_split_locals(
               }
           }
       }
-    None => false
+    None =>
+      match tuple_optimization_pick_no_host_root_carrier_slot(func, group) {
+        Some(slot) => slot.region_ref != @ir.HotRegionRef::root()
+        None => false
+      }
   }
 }
 
@@ -1746,15 +1750,15 @@ fn tuple_optimization_build_copy_root_anchor_replacement(
 }
 
 ///|
-fn tuple_optimization_pick_no_host_root_carrier_lane(
+fn tuple_optimization_pick_no_host_root_carrier_slot(
   func : @ir.HotFunc,
   group : HotTupleOptimizationGroup,
-) -> Int? {
+) -> HotTupleOptimizationRootSlot? {
   if group.producer < 0 || group.lane_locals.is_empty() {
     return None
   }
   match tuple_optimization_find_root_slot(func, group.defining_nodes[0], 0) {
-    Some(_) => Some(0)
+    Some(slot) => Some(slot)
     None => None
   }
 }
@@ -1773,6 +1777,52 @@ fn tuple_optimization_build_source_root_carrier_replacement(
     group.producer,
     group.lane_locals,
     carrier_lane,
+  )
+}
+
+///|
+fn tuple_optimization_build_source_nested_root_tuple_carrier_replacement(
+  func : @ir.HotFunc,
+  group : HotTupleOptimizationGroup,
+  split_locals : Array[Int],
+  carrier_lane : Int,
+) -> Int {
+  if carrier_lane < 0 || carrier_lane >= group.lane_locals.length() {
+    abort(
+      "tuple-optimization synthetic nested source carrier lane must stay in range",
+    )
+  }
+  if split_locals.length() != group.lane_locals.length() {
+    abort(
+      "tuple-optimization nested source root tuple carriers must preserve arity",
+    )
+  }
+  let prefix : Array[Int] = []
+  for lane_idx = split_locals.length() - 1
+      lane_idx >= 0
+      lane_idx = lane_idx - 1 {
+    prefix.push(
+      @ir.hot_build_local_set(func, split_locals[lane_idx], group.producer),
+    )
+  }
+  let values : Array[Int] = []
+  let result_types : Array[@lib.ValType] = []
+  for local_id in split_locals {
+    values.push(@ir.hot_build_local_get(func, local_id))
+    result_types.push(tuple_optimization_require_local_type(func, local_id))
+  }
+  @ir.hot_build_block(
+    func,
+    @lib.BlockType::void_(),
+    prefix +
+    [
+      tuple_optimization_build_root_carrier_replacement_from_producer(
+        func,
+        @ir.hot_build_tuple_make(func, result_types, values),
+        group.lane_locals,
+        carrier_lane,
+      ),
+    ],
   )
 }
 
@@ -1879,9 +1929,21 @@ fn tuple_optimization_rewrite_group_defs(
   source_split_locals? : Array[Int]? = None,
 ) -> Unit {
   let actual_host_lane = tuple_optimization_group_host_lane(group)
-  let synthetic_carrier_lane = match actual_host_lane {
-    None => tuple_optimization_pick_no_host_root_carrier_lane(func, group)
+  let no_host_root_carrier_slot = match actual_host_lane {
+    None => tuple_optimization_pick_no_host_root_carrier_slot(func, group)
     Some(_) => None
+  }
+  let synthetic_carrier_lane = match actual_host_lane {
+    None =>
+      match no_host_root_carrier_slot {
+        Some(slot) => Some(slot.lane_idx)
+        None => None
+      }
+    Some(_) => None
+  }
+  let synthetic_carrier_needs_tuple = match no_host_root_carrier_slot {
+    Some(slot) => slot.region_ref != @ir.HotRegionRef::root()
+    None => false
   }
   let primary_lane = match actual_host_lane {
     Some(host_lane) => host_lane
@@ -1969,9 +2031,15 @@ fn tuple_optimization_rewrite_group_defs(
         None =>
           match synthetic_carrier_lane {
             Some(carrier_lane) =>
-              tuple_optimization_build_source_root_carrier_replacement(
-                func, group, carrier_lane,
-              )
+              if synthetic_carrier_needs_tuple {
+                tuple_optimization_build_source_nested_root_tuple_carrier_replacement(
+                  func, group, split_locals, carrier_lane,
+                )
+              } else {
+                tuple_optimization_build_source_root_carrier_replacement(
+                  func, group, carrier_lane,
+                )
+              }
             None =>
               tuple_optimization_build_source_host_replacement(
                 func, group, split_locals,

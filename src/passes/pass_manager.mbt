@@ -1363,6 +1363,12 @@ priv struct HotPipelineModuleState {
 }
 
 ///|
+priv struct HotPipelineLowerState {
+  mut next_type_sec : @lib.TypeSec?
+  mut type_sec_changed : Bool
+}
+
+///|
 fn run_hot_pipeline_require_module_ctx(
   mod_ : @lib.Module,
   module_state : HotPipelineModuleState,
@@ -1380,6 +1386,126 @@ fn run_hot_pipeline_require_module_ctx(
       module_state.module_ctx = Some(module_ctx)
       module_ctx
     }
+  }
+}
+
+///|
+fn run_hot_pipeline_lower_type_sec_flat_count(type_sec : @lib.TypeSec?) -> Int {
+  let mut count = 0
+  match type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(_) => count += 1
+          @lib.GroupRecType(group) => count += group.length()
+        }
+      }
+    None => ()
+  }
+  count
+}
+
+///|
+fn run_hot_pipeline_lower_find_block_result_type_idx(
+  type_sec : @lib.TypeSec?,
+  results : Array[@lib.ValType],
+) -> @lib.TypeIdx? {
+  let mut flat_idx = 0
+  match type_sec {
+    Some(@lib.TypeSec(rec_types)) =>
+      for rec_type in rec_types {
+        match rec_type {
+          @lib.SingleRecType(subtype) => {
+            match subtype.get_comptype() {
+              @lib.FuncCompType(params, candidate_results) =>
+                if params.is_empty() && candidate_results == results {
+                  return Some(@lib.TypeIdx::new(flat_idx.reinterpret_as_uint()))
+                }
+              _ => ()
+            }
+            flat_idx += 1
+          }
+          @lib.GroupRecType(group) =>
+            for subtype in group {
+              match subtype.get_comptype() {
+                @lib.FuncCompType(params, candidate_results) =>
+                  if params.is_empty() && candidate_results == results {
+                    return Some(
+                      @lib.TypeIdx::new(flat_idx.reinterpret_as_uint()),
+                    )
+                  }
+                _ => ()
+              }
+              flat_idx += 1
+            }
+        }
+      }
+    None => ()
+  }
+  None
+}
+
+///|
+fn run_hot_pipeline_lower_intern_block_result_type_idx(
+  lower_state : HotPipelineLowerState,
+  results : Array[@lib.ValType],
+) -> @lib.TypeIdx {
+  match
+    run_hot_pipeline_lower_find_block_result_type_idx(
+      lower_state.next_type_sec,
+      results,
+    ) {
+    Some(type_idx) => type_idx
+    None => {
+      let next_flat_idx = run_hot_pipeline_lower_type_sec_flat_count(
+        lower_state.next_type_sec,
+      )
+      let next_rec_types : Array[@lib.RecType] = []
+      match lower_state.next_type_sec {
+        Some(@lib.TypeSec(rec_types)) =>
+          for rec_type in rec_types {
+            next_rec_types.push(rec_type)
+          }
+        None => ()
+      }
+      next_rec_types.push(
+        @lib.RecType::new(
+          @lib.SubType::comp_type(@lib.CompType::func([], results)),
+        ),
+      )
+      lower_state.next_type_sec = Some(@lib.TypeSec::new(next_rec_types))
+      lower_state.type_sec_changed = true
+      @lib.TypeIdx::new(next_flat_idx.reinterpret_as_uint())
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_prepare_tuple_make_lowering(
+  func : @ir.HotFunc,
+  lower_state : HotPipelineLowerState,
+) -> Unit {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    if node.op.to_string() != "TupleMake" {
+      continue
+    }
+    let results = @ir.hot_type_results(func, node.ty)
+    if results.length() <= 1 {
+      continue
+    }
+    @ir.hot_tuple_make_promote_to_block(
+      func,
+      node_id,
+      @lib.BlockType::type_idx(
+        run_hot_pipeline_lower_intern_block_result_type_idx(
+          lower_state, results,
+        ),
+      ),
+    )
   }
 }
 
@@ -2890,6 +3016,7 @@ fn run_hot_pipeline_func(
   func_idx : @lib.FuncIdx,
   descriptor : @ir.HotPassDescriptor,
   module_state : HotPipelineModuleState,
+  lower_state : HotPipelineLowerState,
   options : HotPipelineOptions,
 ) -> Result[HotPipelineFuncResult, String] {
   match
@@ -3430,6 +3557,7 @@ fn run_hot_pipeline_func(
           "verify:before-lower",
         ) {
         Ok(_) => {
+          run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
           let lower_start_us = perf_start_timer_opt(options.perf, "lower")
           let lowered = @ir.hot_lower_func(func)
           perf_stop_timer_opt(options.perf, "lower", lower_start_us)
@@ -3443,6 +3571,7 @@ fn run_hot_pipeline_func(
         Err(err) => Err(err)
       }
     HotPipelineVerifyPolicy::FinalModuleOnly => {
+      run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
       let lower_start_us = perf_start_timer_opt(options.perf, "lower")
       let lowered = @ir.hot_lower_func_unverified(func)
       perf_stop_timer_opt(options.perf, "lower", lower_start_us)
@@ -3743,6 +3872,7 @@ fn run_hot_pipeline_apply_hot_pass(
     return Ok(mod_)
   }
   let module_state = { module_ctx: None }
+  let mut current_mod = mod_
   let imported_func_count = run_hot_pipeline_imported_func_count(mod_)
   let next_code_sec = match mod_.code_sec {
     Some(@lib.CodeSec(defs)) => {
@@ -3754,12 +3884,21 @@ fn run_hot_pipeline_apply_hot_pass(
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
+        let lower_state = {
+          next_type_sec: current_mod.type_sec,
+          type_sec_changed: false,
+        }
         let result = match
           run_hot_pipeline_func(
-            mod_, func_idx, descriptor, module_state, options,
+            current_mod, func_idx, descriptor, module_state, lower_state, options,
           ) {
           Ok(result) => result
           Err(err) => return Err("func[\{func_idx}]: \{err}")
+        }
+        let validation_mod = if lower_state.type_sec_changed {
+          current_mod.with_type_sec(lower_state.next_type_sec.unwrap())
+        } else {
+          current_mod
         }
         let skip_invalid_lower_reason : String? = if result.unchanged_original {
           None
@@ -3771,7 +3910,7 @@ fn run_hot_pipeline_apply_hot_pass(
           } else {
             match
               run_hot_pipeline_precompute_writeback_validation_error(
-                mod_,
+                validation_mod,
                 code_idx,
                 result.func,
               ) {
@@ -3795,7 +3934,7 @@ fn run_hot_pipeline_apply_hot_pass(
           } else {
             match
               run_hot_pipeline_precompute_writeback_validation_error(
-                mod_,
+                validation_mod,
                 code_idx,
                 result.func,
               ) {
@@ -3834,6 +3973,9 @@ fn run_hot_pipeline_apply_hot_pass(
             payload="func=\{func_idx} reason=\{skip_invalid_lower_reason.unwrap()}",
           )
           continue
+        }
+        if lower_state.type_sec_changed {
+          current_mod = validation_mod
         }
         if result.trace_skip_raw {
           if descriptor.name == "heap-store-optimization" &&
@@ -3898,8 +4040,8 @@ fn run_hot_pipeline_apply_hot_pass(
   Ok(
     match next_code_sec {
       Some(code_sec) =>
-        run_hot_pipeline_drop_label_names(mod_.with_code_sec(code_sec))
-      None => mod_
+        run_hot_pipeline_drop_label_names(current_mod.with_code_sec(code_sec))
+      None => current_mod
     },
   )
 }
