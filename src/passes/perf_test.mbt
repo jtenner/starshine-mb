@@ -1074,6 +1074,78 @@ fn perf_test_make_simplify_locals_straight_line_builder_module() -> String {
 }
 
 ///|
+fn perf_test_make_simplify_locals_lane_builder_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"array_length\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"check_range\" (func (param i32 i32 i32)))\n",
+  )
+  out.write_string("  (memory 1)\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 48 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  let mut lane_idx = 0
+  while lane_idx < 16 {
+    let tmp_local = lane_idx + 1
+    let arr_local = 17 + lane_idx * 2
+    let idx_local = arr_local + 1
+    out.write_string("    local.get 0\n")
+    out.write_string("    i32.const ")
+    out.write_string(lane_idx.to_string())
+    out.write_string("\n")
+    out.write_string("    local.set ")
+    out.write_string(idx_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.set ")
+    out.write_string(arr_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.get ")
+    out.write_string(idx_local.to_string())
+    out.write_string("\n")
+    out.write_string("    i32.const 0\n")
+    out.write_string("    local.get ")
+    out.write_string(arr_local.to_string())
+    out.write_string("\n")
+    out.write_string("    call 0\n")
+    out.write_string("    i32.const 1\n")
+    out.write_string("    i32.sub\n")
+    out.write_string("    call 1\n")
+    out.write_string("    local.get ")
+    out.write_string(arr_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.get ")
+    out.write_string(idx_local.to_string())
+    out.write_string("\n")
+    out.write_string("    i32.add\n")
+    out.write_string("    i32.load8_u offset=8\n")
+    out.write_string("    local.set ")
+    out.write_string(tmp_local.to_string())
+    out.write_string("\n")
+    lane_idx = lane_idx + 1
+  }
+  out.write_string("    local.get 1\n")
+  let mut tmp_local = 2
+  while tmp_local <= 16 {
+    out.write_string("    local.get ")
+    out.write_string(tmp_local.to_string())
+    out.write_string("\n")
+    out.write_string("    i32.add\n")
+    tmp_local = tmp_local + 1
+  }
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_simplify_locals_decode_structured_call_module() -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -4361,6 +4433,39 @@ test "simplify-locals rewrites giant straight-line adjacent tees without hot lif
   assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
   assert_eq(perf_test_count_occurrences(pretty, "local.set"), 0, msg=pretty)
   assert_true(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
+test "simplify-locals rewrites straight-line lane builders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_lane_builder_module()
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected straight-line lane builder simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=straight-line-lane-builder",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+  assert_eq(perf_test_count_occurrences(pretty, "local.tee"), 16, msg=pretty)
+  assert_false(pretty.contains("nop"), msg=pretty)
 }
 
 ///|

@@ -12,7 +12,7 @@
 
 ## v0.1.0 Active Slice
 
-### Binaryen no-DWARF default optimize pathway parity (`version_129`, `-O` / `-Os`)
+### Binaryen no-DWARF default optimize pathway parity (`wasm-opt version 125`, `-O` / `-Os`)
 
 Goal
 - Rebuild the full Binaryen no-DWARF default optimize path used by `tests/node/dist/starshine-debug-wasi.wasm`, including the nested rerun shape inside optimizing global passes.
@@ -21,8 +21,7 @@ Why
 - The current public Starshine optimize preset is materially smaller than Binaryen's real no-DWARF path for the MoonBit debug artifact. Without an explicit per-pass backlog, pass work can land out of order and still miss preset parity.
 
 Deliverables
-- Keep the living no-DWARF pathway page in [docs/wiki/binaryen/no-dwarf-default-optimize-path.md](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/no-dwarf-default-optimize-path.md#L1) as the canonical orientation document, and use the archived research note [0066](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L40) for detailed line-anchored pass notes until dedicated per-pass docs exist.
-- Use Binaryen `version_129` source as the current upstream oracle for new pass research; the local workspace `wasm-opt` binary is still `version_125`, so command-based parity runs must be labeled accordingly until the toolchain is upgraded.
+- Keep [0066 top-level path](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L40) as the canonical no-DWARF order document until dedicated per-pass docs exist.
 - Land every unique pass in the observed pathway and replay repeated cleanup slots where Binaryen repeats them.
 - Add edge-case and regression coverage beside each implementing file and parity checks against Binaryen's MoonBit debug artifact output.
 
@@ -33,14 +32,14 @@ Required APIs
 - `tests/node/dist/starshine-debug-wasi.wasm` as the canonical compare input.
 
 Invariants
-- Preserve the pre/function/post phase split from [0066#L40](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L40).
-- Preserve nested reruns from [0066#L97](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L97).
+- Preserve the pre/function/post phase split from [0066#L40](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L40).
+- Preserve nested reruns from [0066#L97](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L97).
 - Preserve GC, multivalue, and string feature gates for this artifact.
 - Do not collapse repeated cleanup slots into one occurrence unless the divergence is documented first.
 
 Dependencies
-- [0066 scope and current behavior](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L1)
-- [0066 source anchors](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L23)
+- [0066 scope and current behavior](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L1)
+- [0066 source anchors](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L23)
 
 Exit Criteria
 - Every unique pass below has research, implementation slices, edge/regression coverage, and MoonBit debug-artifact parity evidence.
@@ -55,7 +54,7 @@ Suggested Tests
 
 Observed unique-pass order
 - `DFE -> RUME -> MP -> OR -> GR -> GSI -> SSA -> DCE -> RUN -> RUB -> OI -> HSO -> PLS -> PC -> CP -> TO -> SLNS -> VQ -> RL -> H2L -> OC -> LS -> CL -> LCSE -> SL -> CF -> MB -> RSE -> DAE -> INL -> DIE -> SGO -> SG -> RG -> DIR`
-- Canonical ordered path and nested-shape notes live at [0066#L42](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L42) and [0066#L97](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L97).
+- Canonical ordered path and nested-shape notes live at [0066#L42](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L42) and [0066#L97](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L97).
 
 #### RUME - Remove Unused Module Elements
 1. Canonical correctness landed.
@@ -66,7 +65,7 @@ Observed unique-pass order
      - Command-failure classification from `.tmp/pass-fuzz-rume-rerun`: Starshine decode/validation failures accounted for `5/14` cases, split into four `DecodeAt(InvalidLimits, ...)` cases (`000007`, `000055`, `000091`, `000099`) and one final-module validation failure `Invalid range for limits` (`000073`). Binaryen parser failures accounted for `9/14` cases, split into six `invalid type index` cases (`000009`, `000021`, `000031`, `000047`, `000079`, `000095`), one `Recursion groups of size zero not supported` case (`000029`), and two `invalid wasm type: -64` cases (`000081`, `000083`). These are fuzz-coverage blockers rather than RUME semantic mismatches, but they now persist cleanly for follow-up instead of aborting the run.
      - Post-fix replay status: the saved imported-element mismatch corpus and `.tmp/pass-fuzz-rume-rerun/failures/case-000077-wasm-smith` now match Binaryen under the rebuilt native `cmd` binary. Fresh post-fix compare evidence is `500/500` normalized matches on `.tmp/pass-fuzz-rume-postfix-genvalid` and `71/71` normalized matches with `0` mismatches on `.tmp/pass-fuzz-rume-postfix-smith-rerun` before the run hit `20` command failures.
      - Remaining blocker after semantic cleanup: the post-fix `wasm-smith` command-failure corpus is now coverage-only work. After landing explicit shared-memory support, the memory64 validator fix, extended-const arithmetic validation, the imported-table `nullref` elem cleanup, and the live-table `nullfuncref` retention fix, `.tmp/pass-fuzz-rume-live-nullfuncref-rerun` reached `165/165` normalized matches with `0` mismatches before the `20`-failure cutoff. Starshine contributes no command failures in that slice. The remaining `20/20` failure slots are Binaryen-side parser or canonicalization blockers: fourteen `invalid type index` cases (`000009`, `000021`, `000024`, `000031`, `000047`, `000050`, `000052`, `000054`, `000056`, `000079`, `000095`, `000124`, `000141`, `000143`), one `Recursion groups of size zero not supported` case (`000029`), two `invalid wasm type: -64` cases (`000081`, `000083`), and three later parser failures at `000162`, `000167`, and `000185`.
-     - Doc: [0066#L148](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L148)
+     - Doc: [0066#L148](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L148)
 2. Do work.
    - Keep the landed direct pass stable while tightening Binaryen parity; do not widen the public preset order until the exact replay slots are available.
    - Imported module-element removal is now fixed: RUME drops unused imported memories, tables, globals, and tags, keeps imported parents only when active elem/data segments still initialize them, and remaps surviving imports through exports and name sections instead of preserving `import_sec` verbatim.
@@ -97,20 +96,20 @@ Observed unique-pass order
      - Current blocker: the full repo test suite is green again (`moon test` => `1929/1929`), so this is no longer an active red-test blocker. The remaining work is to refresh exact artifact-backed evidence for the still-risky payload-forwarder families and only reopen this slice if new ordered-prefix replay or focused `hot_lower` regressions show those shapes drifting from the intended typed-block and `unreachable` contracts. The latest stack-fix slice is now in-tree too: hot lowering no longer under-emits repeated shared operand nodes, with focused live repros for both the minimal shared-operand underflow and a loop-carried nested value-`if` / later-`drop` shape. The remaining work is replay proof on the large artifact, not another known reduced hot-lower red test.
      - Required APIs: `src/ir/hot_lower.mbt` payload packing and label-depth remap logic, `src/ir/hot_query.mbt` / `src/ir/hot_region_edit.mbt` helpers where needed for canonical shape detection, and pass tests that assert lowered WAT rather than only HOT structure.
      - Invariants: preserve explicit `unreachable` when a value-typed wrapper is voidified after a non-fallthrough inner exit; do not wrap parent-exit payloads in extra typed blocks; keep branch label targets stable when peeling nested payload blocks; do not regress the currently-green IR2 analysis overlays or lift/verify contracts.
-     - Dependencies: [0059 architecture rules](/home/jtenner/Projects/starshine-mb/docs/0059-2026-03-24-ir2-architecture-rules.md), [0060 CFG contract](/home/jtenner/Projects/starshine-mb/docs/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md), [0065 IR2 execution plan](/home/jtenner/Projects/starshine-mb/docs/0065-2026-03-24-ir2-execution-plan.md), and the returned-ladder shape research in [0070](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md) and [0071](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md).
+     - Dependencies: [0059 architecture rules](/home/jtenner/Projects/starshine-mb/docs/0059-2026-03-24-ir2-architecture-rules.md), [0060 CFG contract](/home/jtenner/Projects/starshine-mb/docs/0060-2026-03-24-cfg-contract-and-block-boundary-rules.md), [0065 IR2 execution plan](/home/jtenner/Projects/starshine-mb/docs/0065-2026-03-24-ir2-execution-plan.md), and the returned-ladder shape research in [0070](/home/jtenner/Projects/starshine-mb/docs/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md) and [0071](/home/jtenner/Projects/starshine-mb/docs/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md).
      - Exit Criteria: the 6 current `src/ir/hot_lower_test.mbt` failures are green, no extra `moon test` regressions are introduced in `src/passes`, and the lowered forms for the listed fixtures match the intended typed-block / `unreachable` contracts.
      - Suggested Tests: `moon test src/ir`, `moon test src/passes`, and full `moon test`.
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
+   - Research exactly how it works with a document: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [DCE]001 - Binaryen-Shape Cleanup Hardening - Close the remaining parity gaps in the existing DCE pass so it matches Binaryen's structured dead-result and unreachable cleanup rules.
      - Deliverables: audit current Starshine behavior against the documented Binaryen shape; fix any trap, type, or structured-region mismatches; keep mutation invalidation honest.
-     - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
+     - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
    - [DCE]002 - Prefix Regression and Artifact Replay - Lock the corrected DCE behavior into focused tests and rerun the MoonBit debug-artifact compare harness.
      - Deliverables: add red/green regressions for dead results, unreachable tails, and imported calls; replay `--dce` parity on the artifact; document any intentional remaining divergence.
     - Status: focused DCE regressions plus the earlier hot-lift/effects fixes are landed, and the suite is green again (`moon test` => `1929/1929`). A HOT-based live repro still locks the reduced typed-loop carrier hazard in DCE, and the later lowering-side stack bug behind the stale `Func 1730` checkpoint is now fixed in `hot_lower`: shared HOT operands are re-emitted correctly instead of being skipped by `node_id` reuse. The exact artifact path is now covered too by a native `cmd` regression that runs `--dead-code-elimination` on `tests/node/dist/starshine-debug-wasi.wasm` through `run_cmd_with_adapter` and validates the output module in-memory. The pure-drop oracle family is fixed, and the refreshed pass-fuzz evidence is now green at both `.tmp/pass-fuzz-dce-genvalid-50-after-pure-drop-fix` (`50/50`) and `.tmp/pass-fuzz-dce-genvalid-1000-after-pure-drop-fix` (`1000/1000`), both with `0` mismatches, `0` command failures, and `0` validation failures. Repo-side DCE correctness is no longer blocked on saved `gen-valid` mismatches; the remaining DCE work is runtime budget and valid-baseline ordered-prefix proof in `[DCE]003`.
     - Reproduce the refreshed corpus: `bun scripts/pass-fuzz-compare.ts --pass dead-code-elimination --generator gen-valid --count 1000 --max-failures 20 --out-dir .tmp/pass-fuzz-dce-genvalid-1000-after-pure-drop-fix`
-     - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
+     - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
    - [DCE]003 - Runtime Budget and Oracle Refresh - Close the remaining DCE speed gap and refresh parity evidence on a valid baseline/oracle path.
      - Deliverables: rerun single-pass and ordered-prefix DCE parity on a valid baseline artifact or refreshed oracle; measure Starshine and Binaryen on the same artifact after the final-tail fix; remove the remaining quadratic / GC-heavy work in final-root cleanup and post-SSA replay until DCE is at least `>= 50%` of Binaryen wall time.
      - Current blocker: the old baseline-validation note is stale. `moon run src/cmd -- --dead-code-elimination --out /tmp/dce-self-opt-out.wasm tests/node/dist/starshine-debug-wasi.wasm` now exits `0`, so the checked-in artifact itself is a valid baseline for DCE replay. The current blocker is native-path divergence: `_build/native/release/build/cmd/cmd.exe --dead-code-elimination --out /tmp/dce-self-opt-release-out.wasm tests/node/dist/starshine-debug-wasi.wasm` fails final validation with `stack underflow` in `(Func 1730)`, which is the same failure now tripping `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --dead-code-elimination` before Binaryen runs. Native embedded callers were also missing the stack-soft-limit raise that `main` already had; sharing that runtime prep through `run_cmd_with_adapter` removes the earlier native decode `SIGSEGV` and turns the new direct native-default-I/O artifact regression into the same clean `OptimizeFailed("final module validate ... (Func 1730)")` blocker. The dump artifacts now exist on that path too, and `/tmp/starshine-invalid-final-func.txt` is written as UTF-8 instead of UTF-16-with-NULs. The repo-side correctness gate is green in source-mode and fuzz-mode; the remaining blocker is reducing and fixing the dumped native DCE / lowering divergence before meaningful runtime or ordered-prefix parity numbers can be trusted.
@@ -120,7 +119,7 @@ Observed unique-pass order
      - Reproduce the native-default-I/O blocker directly in-test: `moon test --target native --package jtenner/starshine/cmd --file cmd_test.mbt --filter 'run_cmd reports dead-code-elimination native default-io blocker on debug artifact'`
      - Reproduce broader native-release instability: `moon test --target native --release --package jtenner/starshine/cmd --file cmd_test.mbt`
      - Inspect the dumped invalid module after a native failure: `wasm-tools validate /tmp/starshine-invalid-final.wasm` and `wasm-tools print /tmp/starshine-invalid-final.wasm`
-     - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
+     - Doc: [0066#L178](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L178)
    - [BIN]001 - Iterative Expr Decoder - Replace the current recursive binary expression decoder with an explicit worklist / stack machine so deeply nested valid wasm does not depend on native call-stack budget.
      - Goal: make `decode_expr_with_depth` and the instruction decoder robust on large artifact inputs without requiring `setrlimit`-style runtime setup.
      - Why: native `run_cmd` originally crashed in recursive `decode_instruction_with_depth` / `decode_expr_with_depth` frames on the checked-in DCE artifact until the CLI started raising the process stack limit before decode. That workaround unblocks current investigation, but the decoder strategy is still fragile and should not rely on platform stack size.
@@ -134,15 +133,15 @@ Observed unique-pass order
 4. Test against binaryen.
    - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
-   - For reduced or artifact-backed stable-boundary signoff, prefer `--binaryen-nop-until-stable <max> --require-binaryen-nop-converged`; documented non-converging multivalue-call writeback from [0074](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md) is not a `reorder-locals` sorter blocker.
+   - For reduced or artifact-backed stable-boundary signoff, prefer `--binaryen-nop-until-stable <max> --require-binaryen-nop-converged`; documented non-converging multivalue-call writeback from [0074](/home/jtenner/Projects/starshine-mb-reorder-locals/docs/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md) is not a `reorder-locals` sorter blocker.
 
 #### RUB - Remove Unused Brs
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L188](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L188)
+   - Research exactly how it works with a document: [0066#L188](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L188)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [RUB]001 - Branch Liveness and Structured Repair - Port the branch-pruning logic that removes dead branch traffic while preserving valid structured control flow.
      - Deliverables: compute dead target edges and forwarding opportunities; repair block signatures and branch values; preserve trap and effect ordering.
-     - Doc: [0066#L188](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L188)
+     - Doc: [0066#L188](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L188)
    - [RUB]002 - Multi-Slot Cleanup and Artifact Compare - Replay the pass in each Binaryen slot and confirm later `merge-blocks` opportunities match the reference output.
      - Deliverables: add early, mid, and late slot coverage; write regressions for branch-value and typed-block cases; compare the pass on the MoonBit debug artifact.
      - Current blocker: the scheduler gap, old serial verifier failures, and the earlier artifact-backed correctness blockers are fixed; the remaining work is now concentrated in explicit-pass type-order noise plus later unchanged runtime families whose traces still need pass-vs-lift separation.
@@ -182,17 +181,17 @@ Observed unique-pass order
 
 #### PC - Precompute
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L208](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L208)
+   - Research exactly how it works with a document: [0066#L208](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L208)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [PC]001 - Constant Folding Surface - Audit the exact constant, tuple, and local-evaluable fragments Binaryen folds in the top-level `precompute` slots for `-O` / `-Os`.
      - Deliverables: map foldable op families; preserve trap behavior and feature typing; note the difference between top-level `precompute` and nested `precompute-propagate`.
      - Status: initial exact-const integer fold core now includes constant-`if` folding, `precompute` is wired as an active hot pass in both modeled slots, guarded writeback still skips the known invalid carry-wrapper lower shape instead of emitting bad wasm, the repaired `gen-valid` lane is green through `.tmp/pass-fuzz-pc-genvalid-10000` (`10000/10000`, `0` mismatches), native `cmd` has a checked-in debug-artifact replay regression for `--precompute`, and the old false `writeback-validate:invalid function index` wall is fixed by validating rewritten bodies against the full module environment instead of isolating them from their real call targets.
      - Current blocker: direct compare still differs on the debug artifact, but the remaining gap is now much narrower and looks real. Fresh evidence is `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-459440`: canonical wasm and normalized WAT still differ, Starshine remains over budget (`12304.719 ms` wall, `2164.450 ms` pass) versus Binaryen (`601.615 ms` wall, `116.189 ms` pass), and traced native `--precompute --debug-serial-passes` replay is down to `14` skipped functions instead of the old `1189` false-invalid-index skips. The remaining skip set is concentrated in one `stack underflow` case (`Func 1950`) plus the existing `invalid-escape-carrier` family (`Func 1882`, `Func 2132`-`2145`), so follow-up work should reduce those real lower-shape blockers rather than revisiting module-context validation.
-     - Doc: [0066#L208](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L208)
+     - Doc: [0066#L208](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L208)
    - [PC]002 - Early/Late Slot Regression and Artifact Parity - Harden the pass for both top-level slots and compare the resulting folds against Binaryen on the debug artifact.
      - Deliverables: add regressions for early and late folding opportunities; verify interaction with surrounding cleanup passes; replay `--precompute` parity on the artifact.
      - Current focus: keep the new native debug-artifact replay regression green, use `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-459440` plus traced native `--precompute` runs to reduce the remaining `stack underflow` / `invalid-escape-carrier` skips, and then revisit runtime once canonical parity is closer; the fuzz parity gate for `precompute` itself is already green.
-     - Doc: [0066#L208](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L208)
+     - Doc: [0066#L208](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L208)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -202,14 +201,14 @@ Observed unique-pass order
 
 #### CP - Code Pushing
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L213](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L213)
+   - Research exactly how it works with a document: [0066#L213](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L213)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [CP]001 - Motion Safety Rules - Port Binaryen's code-motion rules for pushing work deeper into control flow without duplicating invalid side effects.
      - Deliverables: encode effect and trap guards for movable expressions; preserve control dependence and size heuristics; define the bailout cases clearly.
-     - Doc: [0066#L213](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L213)
+     - Doc: [0066#L213](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L213)
    - [CP]002 - Rewrite Coverage and Artifact Validation - Implement the move and test it against branchy, trap-sensitive fixtures plus the MoonBit debug artifact.
      - Deliverables: add regressions for duplicated work, traps, and branch-local constants; wire the pass into the early slot; compare Starshine and Binaryen pass output.
-     - Doc: [0066#L213](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L213)
+     - Doc: [0066#L213](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L213)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -219,9 +218,9 @@ Observed unique-pass order
 
 #### TO - Tuple Optimization
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0076#L1](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L1)
-   - Current conclusion: Binaryen's pass is a conservative tuple-local lowering pass, but the first Starshine port should be HOT-native because current HOT lift already models most relevant raw-wasm shapes as shared multi-result producers plus scalar spill locals instead of explicit tuple AST nodes.
-2. Slice gameplan in `agent-todo.md` and determine deliverables.
+	   - Research exactly how it works with a document: [0076#L1](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L1)
+	   - Current conclusion: Binaryen's pass is a conservative tuple-local lowering pass, but the first Starshine port should be HOT-native because current HOT lift already models most relevant raw-wasm shapes as shared multi-result producers plus scalar spill locals instead of explicit tuple AST nodes.
+	2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [TO]005 - Exact Slot Gate And Oracle Proof - Keep `tuple-optimization` active on the explicit hot-pass surface, but finish the Binaryen-matching preset slot, feature gate, and parity proof in a follow-up slice.
      - Goal: prove the pass in the intended early Binaryen slot without perturbing the preserved preset order until the exact slot is available.
      - Why: the explicit pass surface is now landed, but the implementation is still incomplete until the optimizer presets can schedule the pass behind the correct multivalue gate between the documented neighboring phases.
@@ -241,10 +240,10 @@ Observed unique-pass order
      - Required APIs: `src/passes/optimize.mbt` preset surface; `bun scripts/pass-fuzz-compare.ts`; `bun scripts/self-optimize-compare.ts`.
      - Invariants: preserve Binaryen's multivalue-only gate; preserve the exact early slot ordering; do not bundle explicit HOT tuple pseudo-op roundtrip support into this slice unless the HOT-native port proves insufficient first.
      - Dependencies: the landed explicit pass surface plus the candidate-analysis and good-component rewrite helpers in `src/passes/tuple_optimization.mbt`; [0076#L36](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L36), [0076#L212](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L212), [0076#L255](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L255)
-     - Exit criteria: the pass reaches the real preset slot with feature-off tests green, `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 ...` is acceptable, and artifact compare evidence exists for `--tuple-optimization`.
-     - Suggested tests: `moon test src/passes`, `moon test src/cmd`, `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 --max-failures 20 --out-dir .tmp/pass-fuzz-tuple-optimization`, and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --tuple-optimization`.
-     - Doc: [0076#L255](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L255)
-3. Do work.
+	     - Exit criteria: the pass reaches the real preset slot with feature-off tests green, `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 ...` is acceptable, and artifact compare evidence exists for `--tuple-optimization`.
+	     - Suggested tests: `moon test src/passes`, `moon test src/cmd`, `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 --max-failures 20 --out-dir .tmp/pass-fuzz-tuple-optimization`, and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --tuple-optimization`.
+	     - Doc: [0076#L255](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md#L255)
+	3. Do work.
    - Continue in dependency order from the landed local-growth helper, candidate analysis, good-component rewrite, and explicit pass activation: exact-slot scheduling and parity proof are next.
    - Keep the first keepable implementation HOT-native; do not widen the scope to explicit HOT tuple pseudo-op lift/lower support unless the HOT-native rewrite proves insufficient on real parity cases.
    - Do not perturb the preserved preset ordering until the exact Binaryen slot can be represented directly in-tree.
@@ -255,14 +254,14 @@ Observed unique-pass order
 
 #### SLNS - Simplify Locals No-Structure
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L223](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L223)
+   - Research exactly how it works with a document: [0066#L223](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L223)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [SLNS]001 - Early Local Simplification Core - Port the local-traffic reductions Binaryen runs before it is willing to reshape structure.
      - Deliverables: simplify sets, gets, and dead locals without creating new structured returns; preserve later coalescing opportunities; integrate with current local analyses.
-     - Doc: [0066#L223](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L223)
+     - Doc: [0066#L223](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L223)
    - [SLNS]002 - Early-Slot Regression and Artifact Proof - Lock the no-structure contract into tests and compare the early local-cleanup prefix against Binaryen.
      - Deliverables: add regressions for tee-like traffic and tuple scratch locals; confirm structure is intentionally preserved; replay parity for the pass on the debug artifact.
-     - Doc: [0066#L223](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L223)
+     - Doc: [0066#L223](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L223)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -272,14 +271,14 @@ Observed unique-pass order
 
 #### VQ - Vacuum
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L228](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L228)
+   - Research exactly how it works with a document: [0066#L228](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L228)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [VQ]001 - Cleanup Semantics Audit - Audit the existing vacuum pass against Binaryen's repeated garbage-collection role after earlier rewrites.
      - Deliverables: confirm which empty blocks, nops, and detached residue Binaryen drops; preserve typed block correctness; tighten any mismatches in the current pass.
-     - Doc: [0066#L228](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L228)
+     - Doc: [0066#L228](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L228)
    - [VQ]002 - Repeated-Slot Regression Matrix - Add pipeline coverage that proves all four vacuum slots remain valid as surrounding passes land.
      - Deliverables: write regressions around empty structures and detached nodes; verify slot ordering in the public preset; replay pass parity against Binaryen on the artifact.
-     - Doc: [0066#L228](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L228)
+     - Doc: [0066#L228](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L228)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -289,18 +288,18 @@ Observed unique-pass order
 
 #### RL - Reorder Locals
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0073](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
+   - Research exactly how it works with a document: [0073](/home/jtenner/Projects/starshine-mb-reorder-locals/docs/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [RL]001 - Exact Access Counter and Remap Core - Port Binaryen's frequency-based local reindexer as a module pass over defined functions.
      - Deliverables: count `local.get`, `local.set`, and `local.tee` exactly like Binaryen; keep parameters fixed; sort body locals by descending access count with first-access tie-breaks; drop only zero-access body locals; prepare reusable old-to-new and new-to-old remap helpers.
-     - Doc: [0073](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
+     - Doc: [0073](/home/jtenner/Projects/starshine-mb-reorder-locals/docs/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
    - [RL]002 - Boundary Metadata Rewrite and Validation - Apply the remap to Starshine's boundary function form and keep encoded metadata correct.
      - Deliverables: rewrite nested `Expr` local indices; rebuild grouped body-local runs; rewrite `NameSec.local_names` for changed defined functions only; preserve imported-function local-name entries; clear stale `raw_name_sec_payload`; add focused regressions for no-op preservation, name rewriting, and dead-write-only locals staying live for this pass.
-     - Doc: [0073](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
+     - Doc: [0073](/home/jtenner/Projects/starshine-mb-reorder-locals/docs/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
    - [RL]003 - Registry Wiring, Honest Slot Placement, and Artifact Compare - Expose the pass publicly and only add Binaryen-aligned scheduler slots when surrounding pass availability makes that truthful.
      - Deliverables: move `reorder-locals` from boundary-only to module-pass status; add CLI and pipeline coverage for the explicit pass flag; decide which current preset slot wiring is honest before `simplify-locals-nostructure`, `local-subtyping`, and `coalesce-locals` land; compare `--reorder-locals` output and any later ordered replay against Binaryen on the debug artifact.
-     - Doc: [0073](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
-    - Status: RL001 and RL002 are now landed in-tree, and the explicit-pass portion of RL003 is landed too: `src/passes/reorder_locals.mbt` exists, the registry classifies `reorder-locals` as an active module pass, focused pipeline/CLI coverage is in place, `scripts/lib/pass-fuzz-compare-task.ts` now accepts `--reorder-locals`, preset exclusion is now locked by regression coverage so the current partial `optimize` / `shrink` pipelines do not claim Binaryen-adjacent `reorder-locals` slots before `simplify-locals-nostructure`, `local-subtyping`, and `coalesce-locals` land, and `scripts/lib/self-optimize-compare-task.ts` now supports explicit Binaryen no-pass preprocessing via `--binaryen-nop-roundtrips <n>`, `--binaryen-nop-until-stable <max>`, and the new `--require-binaryen-nop-converged` signoff guard. Fresh parity evidence is green on the full `gen-valid` lane at `.tmp/pass-fuzz-reorder-locals-genvalid-10000` (`10000/10000` compared, `10000/10000` normalized matches, `0` mismatches, `0` validation failures, `0` command failures). The mixed-generator lane at `.tmp/pass-fuzz-reorder-locals-10000` currently stops at the `20`-failure cap after `289` successful matches, but all `20` failures are Binaryen-side command failures (`17` `invalid type index`, `1` `Recursion groups of size zero not supported`, `2` `invalid wasm type: -64`), not Starshine mismatches. The current blocker is no longer the raw sorter: Binaryen `version_129/src/passes/ReorderLocals.cpp` matches the Starshine access-count/first-use algorithm, and in-tree regression coverage now includes a Binaryen-materialized carrier fixture plus the trailing-dead-local no-rewrite regression to lock that raw behavior. The sorter itself also picked up a larger hot-path win before any deeper boundary work: defined-function params are cached from raw module metadata, only accessed body locals are sorted, the scan records touched body locals directly, stable accessed-index bodies skip recursive rewrite, name-map rewrites skip their resort when the remap stays monotonic, nested `Expr` rewrites now mutate instruction arrays in place instead of allocating replacement arrays, rebuilt locals now emit `LocalRun`s directly instead of bouncing through a transient reordered type array, the remaining array-build helpers are preallocated where the capacity is known, and local flattening now expands runs directly instead of going through the iterator adapter. On repeated full-artifact replays with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals`, Starshine's pass-time moved from the earlier `176.364 ms` sample down first into a `166.266-173.189 ms` range, then into a roughly `151.211-155.709 ms` range, then into a `140.078-150.027 ms` range, then into a roughly `131.081-139.564 ms` range, and now into a roughly `121.286-133.330 ms` range. The remaining red artifact compare is a representation boundary problem, and [0074](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md) now pins the exact cause in Binaryen source: the extra locals come from multivalue call packaging in `wasm-ir-builder.cpp` plus tuple/scratch-local expansion in `wasm-stack.cpp`, not from `ReorderLocals.cpp`. Even the tiny multivalue repro is rewritten by `wasm-opt` with no passes from `14` to `19` body locals before `reorder-locals` runs, Binaryen emits `24` locals when `--reorder-locals` writes that `19`-local fixture back out, and rerunning Binaryen on its own output grows the same repro again to `29` locals. The blocker is now narrower than "multivalue generally": the triple-result block-only fixture now has an explicit measured stable boundary through the compare tool itself (`bun scripts/self-optimize-compare.ts /tmp/rl-grow-block3.wasm --binaryen-nop-until-stable 5 --require-binaryen-nop-converged --reorder-locals` => `Binaryen no-pass roundtrips: 3`, `converged: yes`, canonical and normalized parity both green), but triple-result calls still do not converge. Both `bun scripts/self-optimize-compare.ts /tmp/rl-grow-call3.wasm --binaryen-nop-until-stable 5 --reorder-locals` and `bun scripts/self-optimize-compare.ts /tmp/rl-grow-internal-call3.wasm --binaryen-nop-until-stable 5 --reorder-locals` stop at the max with `Binaryen no-pass converged: no`, and both remain canonically and normalized red even after starting from the fifth Binaryen no-pass writeback. The full debug artifact now shows the same thing with the real pipeline: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals` reports `Binaryen no-pass roundtrips: 5`, `converged: no`, and both canonical and normalized parity still red, while the guarded signoff form with `--require-binaryen-nop-converged` fails immediately before compare. That makes the remaining question mostly a policy one: port Binaryen's multivalue call writeback/materialization layer as a broader compatibility goal, or stop treating that boundary layer as required `reorder-locals` work.
+     - Doc: [0073](/home/jtenner/Projects/starshine-mb-reorder-locals/docs/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
+    - Status: RL001 and RL002 are now landed in-tree, and the explicit-pass portion of RL003 is landed too: `src/passes/reorder_locals.mbt` exists, the registry classifies `reorder-locals` as an active module pass, focused pipeline/CLI coverage is in place, `scripts/lib/pass-fuzz-compare-task.ts` now accepts `--reorder-locals`, preset exclusion is now locked by regression coverage so the current partial `optimize` / `shrink` pipelines do not claim Binaryen-adjacent `reorder-locals` slots before `simplify-locals-nostructure`, `local-subtyping`, and `coalesce-locals` land, and `scripts/lib/self-optimize-compare-task.ts` now supports explicit Binaryen no-pass preprocessing via `--binaryen-nop-roundtrips <n>`, `--binaryen-nop-until-stable <max>`, and the new `--require-binaryen-nop-converged` signoff guard. Fresh parity evidence is green on the full `gen-valid` lane at `.tmp/pass-fuzz-reorder-locals-genvalid-10000` (`10000/10000` compared, `10000/10000` normalized matches, `0` mismatches, `0` validation failures, `0` command failures). The mixed-generator lane at `.tmp/pass-fuzz-reorder-locals-10000` currently stops at the `20`-failure cap after `289` successful matches, but all `20` failures are Binaryen-side command failures (`17` `invalid type index`, `1` `Recursion groups of size zero not supported`, `2` `invalid wasm type: -64`), not Starshine mismatches. The current blocker is no longer the raw sorter: Binaryen `version_125/src/passes/ReorderLocals.cpp` matches the Starshine access-count/first-use algorithm, and in-tree regression coverage now includes a Binaryen-materialized carrier fixture plus the trailing-dead-local no-rewrite regression to lock that raw behavior. The sorter itself also picked up a larger hot-path win before any deeper boundary work: defined-function params are cached from raw module metadata, only accessed body locals are sorted, the scan records touched body locals directly, stable accessed-index bodies skip recursive rewrite, name-map rewrites skip their resort when the remap stays monotonic, nested `Expr` rewrites now mutate instruction arrays in place instead of allocating replacement arrays, rebuilt locals now emit `LocalRun`s directly instead of bouncing through a transient reordered type array, the remaining array-build helpers are preallocated where the capacity is known, and local flattening now expands runs directly instead of going through the iterator adapter. On repeated full-artifact replays with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals`, Starshine's pass-time moved from the earlier `176.364 ms` sample down first into a `166.266-173.189 ms` range, then into a roughly `151.211-155.709 ms` range, then into a `140.078-150.027 ms` range, then into a roughly `131.081-139.564 ms` range, and now into a roughly `121.286-133.330 ms` range. The remaining red artifact compare is a representation boundary problem, and [0074](/home/jtenner/Projects/starshine-mb-reorder-locals/docs/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md) now pins the exact cause in Binaryen source: the extra locals come from multivalue call packaging in `wasm-ir-builder.cpp` plus tuple/scratch-local expansion in `wasm-stack.cpp`, not from `ReorderLocals.cpp`. Even the tiny multivalue repro is rewritten by `wasm-opt` with no passes from `14` to `19` body locals before `reorder-locals` runs, Binaryen emits `24` locals when `--reorder-locals` writes that `19`-local fixture back out, and rerunning Binaryen on its own output grows the same repro again to `29` locals. The blocker is now narrower than "multivalue generally": the triple-result block-only fixture now has an explicit measured stable boundary through the compare tool itself (`bun scripts/self-optimize-compare.ts /tmp/rl-grow-block3.wasm --binaryen-nop-until-stable 5 --require-binaryen-nop-converged --reorder-locals` => `Binaryen no-pass roundtrips: 3`, `converged: yes`, canonical and normalized parity both green), but triple-result calls still do not converge. Both `bun scripts/self-optimize-compare.ts /tmp/rl-grow-call3.wasm --binaryen-nop-until-stable 5 --reorder-locals` and `bun scripts/self-optimize-compare.ts /tmp/rl-grow-internal-call3.wasm --binaryen-nop-until-stable 5 --reorder-locals` stop at the max with `Binaryen no-pass converged: no`, and both remain canonically and normalized red even after starting from the fifth Binaryen no-pass writeback. The full debug artifact now shows the same thing with the real pipeline: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --reorder-locals` reports `Binaryen no-pass roundtrips: 5`, `converged: no`, and both canonical and normalized parity still red, while the guarded signoff form with `--require-binaryen-nop-converged` fails immediately before compare. That makes the remaining question mostly a policy one: port Binaryen's multivalue call writeback/materialization layer as a broader compatibility goal, or stop treating that boundary layer as required `reorder-locals` work.
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -310,16 +309,16 @@ Observed unique-pass order
 
 #### H2L - Heap2Local
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0075](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md)
+   - Research exactly how it works with a document: [0075](/home/jtenner/Projects/starshine-mb-heap2local/docs/0075-2026-04-03-heap2local-binaryen-comparison.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [H2L]001 - Escape and Alias Eligibility - Build the GC-localization analysis that proves heap traffic can be rewritten into locals without alias leaks.
      - Deliverables: track allocation lifetimes, reads, writes, and escaping refs; preserve aliasing correctness; document unsupported object shapes explicitly.
-    - Status: the active slice now covers exclusive struct-localization through direct owners, local-copy chains, direct `local.tee` owners, simple block-result flow, `ref.as_non_null`, successful `ref.cast` through widened tee-backed locals, direct `ref.eq` folds against fresh struct allocations, descriptor-bearing `ref.get_desc` consumes on fresh `struct.new_desc` / `struct.new_default_desc`, constant-size array lowering for `array.new_default`, `array.new`, and `array.new_fixed`, direct array `ref.test`, and the parameter-backed mixed-provenance bailout. The primary parity suite in `src/passes/heap2local_primary_test.mbt` from [0075](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md) is now fully green in-tree.
-     - Doc: [0075](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md)
+    - Status: the active slice now covers exclusive struct-localization through direct owners, local-copy chains, direct `local.tee` owners, simple block-result flow, `ref.as_non_null`, successful `ref.cast` through widened tee-backed locals, direct `ref.eq` folds against fresh struct allocations, descriptor-bearing `ref.get_desc` consumes on fresh `struct.new_desc` / `struct.new_default_desc`, constant-size array lowering for `array.new_default`, `array.new`, and `array.new_fixed`, direct array `ref.test`, and the parameter-backed mixed-provenance bailout. The primary parity suite in `src/passes/heap2local_primary_test.mbt` from [0075](/home/jtenner/Projects/starshine-mb-heap2local/docs/0075-2026-04-03-heap2local-binaryen-comparison.md) is now fully green in-tree.
+     - Doc: [0075](/home/jtenner/Projects/starshine-mb-heap2local/docs/0075-2026-04-03-heap2local-binaryen-comparison.md)
     - [H2L]002 - Localization Rewrite and Artifact Validation - Rewrite eligible heap accesses to locals and validate the result on focused GC fixtures and the debug artifact.
       - Deliverables: add regressions for escaping objects and partial field coverage; prove the pass only runs in the GC mid-function slot; compare against Binaryen output.
     - Current blocker: the in-tree parity suite is green, `heap2local` now matches Binaryen on a `10000`-case `gen-valid` compare run, and a `1000`-case mixed-generator sample found no mismatches or Starshine validation failures but did hit Binaryen wasm-smith parser rejects. Remaining follow-up is Binaryen's non-nullable-local / refinalization fixups plus the wider missing-pass neighborhood (`optimize-casts`, `local-subtyping`, `coalesce-locals`, `local-cse`) needed for full no-DWARF parity.
-      - Doc: [0075](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md)
+      - Doc: [0075](/home/jtenner/Projects/starshine-mb-heap2local/docs/0075-2026-04-03-heap2local-binaryen-comparison.md)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -329,14 +328,14 @@ Observed unique-pass order
 
 #### OC - Optimize Casts
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L243](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L243)
+   - Research exactly how it works with a document: [0066#L243](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L243)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [OC]001 - Cast Tightening Rules - Port the GC cast simplifications Binaryen runs after `heap2local` when subtype facts are strongest.
      - Deliverables: encode ref.cast, ref.test, nullability, and subtype simplifications; preserve trap and exact-type semantics; integrate with current type helpers.
-     - Doc: [0066#L243](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L243)
+     - Doc: [0066#L243](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L243)
    - [OC]002 - GC Regression Matrix and Artifact Compare - Add focused GC cast regressions and verify the pass output matches Binaryen on the MoonBit artifact.
      - Deliverables: cover exact refs, nullability, and escaping values; confirm the pass stays after `heap2local`; run `--optimize-casts` parity against Binaryen.
-     - Doc: [0066#L243](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L243)
+     - Doc: [0066#L243](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L243)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -346,14 +345,14 @@ Observed unique-pass order
 
 #### LS - Local Subtyping
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L248](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L248)
+   - Research exactly how it works with a document: [0066#L248](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L248)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [LS]001 - Local Type Narrowing Core - Port the local-subtyping rewrite that narrows GC local types before coalescing widens them again.
      - Deliverables: compute safe narrower local types from uses and defs; preserve multivalue and tuple-local behavior; keep later coalescing constraints explicit.
-     - Doc: [0066#L248](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L248)
+     - Doc: [0066#L248](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L248)
    - [LS]002 - Ordering Tests and Artifact Proof - Lock the required `optimize-casts -> local-subtyping -> coalesce-locals` order into tests and compare the pass against Binaryen.
      - Deliverables: add regressions for local narrowing before coalescing; verify scheduler order; replay `--local-subtyping` parity on the MoonBit artifact.
-     - Doc: [0066#L248](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L248)
+     - Doc: [0066#L248](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L248)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -363,14 +362,14 @@ Observed unique-pass order
 
 #### CL - Coalesce Locals
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L253](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L253)
+   - Research exactly how it works with a document: [0066#L253](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L253)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [CL]001 - Compatibility and Lifetime Analysis - Port Binaryen's local-coalescing compatibility test so only safe local lifetimes are merged.
      - Deliverables: compute live-range overlap and type compatibility; preserve tuple scratch and GC subtype constraints; define which locals are never coalesced.
-     - Doc: [0066#L253](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L253)
+     - Doc: [0066#L253](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L253)
    - [CL]002 - Dual-Slot Rewrite, Reorder Interaction, and Artifact Parity - Implement the merge, keep `reorder-locals` interactions stable, and compare the pass output against Binaryen.
      - Deliverables: add regressions for double-slot coalescing and reordered indices; validate with surrounding `simplify-locals` and `reorder-locals`; replay parity on the debug artifact.
-     - Doc: [0066#L253](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L253)
+     - Doc: [0066#L253](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L253)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -380,14 +379,14 @@ Observed unique-pass order
 
 #### LCSE - Local CSE
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L258](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L258)
+   - Research exactly how it works with a document: [0066#L258](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L258)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [LCSE]001 - Local Expression Equivalence - Port the expression-equivalence rules Binaryen uses to reuse local computations after coalescing has simplified traffic.
      - Deliverables: define effect-safe equivalence classes for local computations; preserve trap ordering and GC side effects; integrate with current effects analysis.
-     - Doc: [0066#L258](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L258)
+     - Doc: [0066#L258](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L258)
    - [LCSE]002 - Mid-Pipeline Regression and Artifact Compare - Add focused CSE regressions and confirm the pass output matches Binaryen on the MoonBit artifact.
      - Deliverables: cover repeated loads, locals, and effect barriers; verify the pass stays in the mid-function slot; replay `--local-cse` parity against Binaryen.
-     - Doc: [0066#L258](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L258)
+     - Doc: [0066#L258](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L258)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -397,16 +396,16 @@ Observed unique-pass order
 
 #### SL - Simplify Locals
 1. Research exact functionality in document.
-   - Research exactly how it works with the simplify-locals pass folder and archived note: [simplify-locals index](./docs/wiki/binaryen/passes/simplify-locals/index.md), [Binaryen strategy](./docs/wiki/binaryen/passes/simplify-locals/binaryen-strategy.md), and [0076 archived research note](./docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
+   - Research exactly how it works with a document: [0073](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/docs/0073-2026-04-01-simplify-locals-binaryen-research-plan.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [SL]004 - Slot Validation and Artifact Replay - Lock the completed pass into the late slot and prove parity against Binaryen on both focused and large-artifact lanes.
      - Deliverables: add focused regressions for late-slot cleanup plus surrounding `vacuum` / `reorder-locals` behavior; verify scheduler placement; run pass-fuzz parity and `--simplify-locals` artifact compare.
-     - Current blocker: the late-slot regression work is in-tree and the focused Binaryen lanes are green. [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt) locks `reorder-locals` as boundary-only, [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt) locks the modeled late `simplify-locals` slot plus `simplify-locals -> vacuum` cleanup, [`src/passes/simplify_locals_test.mbt`](./src/passes/simplify_locals_test.mbt) covers the captured-source-local ordering guard plus the large-local equivalent-cleanup bailout, [`src/passes/simplify_locals_wbtest.mbt`](./src/passes/simplify_locals_wbtest.mbt) now locks sparse pending local-effect footprints for sinkables plus the dense sinkable bulk-clear gate, [`src/passes/pass_manager_wbtest.mbt`](./src/passes/pass_manager_wbtest.mbt) locks the native artifact raw reasons for `Func 1409`, `1410`, `1411`, `1949`, `1950`, `2053`, `262`, `4238`, `4239`, `473`, `570`, and `571`, and [`src/passes/perf_test.mbt`](./src/passes/perf_test.mbt) covers the raw ladder or pure-call-tail escapes plus the widened structured call-heavy, validator-shaped, parser-shaped, local-churn, transformer-shaped, transformer-catch, small-loop, stringview-trim-loop, straight-line builder, straight-line adjacent-tee, no-local-write, decode-shaped, and branchy-decode skips. Oracle evidence stays green at `.tmp/pass-fuzz-sl-genvalid-10000-sl004` (`10000/10000`, `0` mismatches) and the refreshed post-perf smoke lane `.tmp/simplify-locals-perf-smoke` (`100/100`, `0` mismatches). Runtime is materially better: raw simplify-locals now bypasses hot lift for the giant multivalue ladder or pure-call-tail families, the validator and decoder structured call-heavy walkers, the small structured binary decode or encode helpers, the branchy structured decode fanout, the compact string-view trim loop pair, the large `ModuleTransformer.walk_opt_catch...` family, the loop-heavy validator family, the parser-shaped local-churn family, the transformer `ModuleTransformer.apply_action_opt...` family, the small-loop call-heavy trio, the giant low-call local-churn body, the multivalue parser or result ladders, the giant straight-line adjacent-tee constructor, the straight-line builder no-op `Func 262`, and broad no-local-write no-op bodies in the current artifact replay; large local-count functions still skip the late equivalent-copy cleanup entirely; detached-node cleanup no longer pays `hot_delete_node`'s whole-function unreferenced scan once simplify-locals has already proven the node detached; pending sinkable local effects are now tracked as sparse local-id lists with reusable scratch stamps instead of full local-count bit vectors, with dense barrier clears bulk-zeroing the aggregate counters instead of walking every active sinkable effect; and the raw simplify-locals dispatcher now computes gate stats once per function instead of rescanning the same body for every heuristic. The old `Func 409` traced replay wall is gone, and the compact-loop gate bug is understood: raw gate `locals_count` excludes params, so the real `StringView.trim_* .inner` artifact functions only matched after retuning that bound to the actual `34` or `35` local counts. Fresh traced native replays now show `Func 4238` and `4239` on `skip-raw reason=stringview-trim-loop-churn` and `Func 1409`, `1410`, and `1411` on `skip-raw reason=transformer-catch-structured-call-heavy`; warmed 30-second runs now land at `1507044us` and `1459188us`, and the remaining residue is led by `Func 1884`, `validate.typecheck_if` (`Func 1058`), `ModuleTransformer.walk_opt_subtype_default` (`Func 1274`), and `cli.split_normalized_path` (`Func 1842`). `Func 1884` is no longer an unchanged-scan candidate: it is a real straight-line mutation consisting of sixteen repeated lane-load blocks, so the next correctness-safe work is a narrow raw rewrite or hot-pass reduction there, not another blind unchanged skip. The native pass suite still SIGSEGVs before the native artifact whitebox tests can act as a reliable gate, so the direct native CLI replay remains the source of truth for this blocker. The next work is deciding whether to shave the remaining straight-line SIMD residue before the local compare or parity lane, or to stop and run the still-unrun local artifact compare now that the unchanged transformer walkers are out of the hot path.
+    - Current blocker: the late-slot regression work is in-tree and the focused Binaryen lanes are green. `src/passes/registry_test.mbt` locks `reorder-locals` as boundary-only, `src/passes/optimize_test.mbt` locks the modeled late `simplify-locals` slot plus `simplify-locals -> vacuum` cleanup, `src/passes/simplify_locals_test.mbt` covers the captured-source-local ordering guard plus the large-local equivalent-cleanup bailout, `src/passes/simplify_locals_wbtest.mbt` now locks sparse pending local-effect footprints for sinkables plus the dense sinkable bulk-clear gate, `src/passes/pass_manager_wbtest.mbt` locks the native artifact raw reasons for `Func 1409`, `1410`, `1411`, `1884`, `1949`, `1950`, `2053`, `262`, `4238`, `4239`, `473`, `570`, and `571`, and `src/passes/perf_test.mbt` covers the raw ladder / pure-call-tail escapes plus the widened structured call-heavy, validator-shaped, parser-shaped, local-churn, transformer-shaped, transformer-catch, small-loop, stringview-trim-loop, straight-line builder, straight-line lane-builder, straight-line adjacent-tee, no-local-write, decode-shaped, and branchy-decode skips. Oracle evidence stays green at `.tmp/pass-fuzz-sl-genvalid-10000-sl004` (`10000/10000`, `0` mismatches) and the refreshed post-perf smoke lane `.tmp/simplify-locals-perf-smoke` (`100/100`, `0` mismatches). Runtime is materially better: raw simplify-locals now bypasses hot lift for the giant multivalue ladder / pure-call-tail families, the validator and decoder structured call-heavy walkers (`Func 298`, `640`, `871`, `901`, `951`, `1103`, `1795`, `1906`, `1921`, `2129`, `3529`), the small structured binary decode/encode helpers (`Func 1950`, `2053`), the branchy structured decode fanout (`Func 1949`), the compact string-view trim loop pair (`Func 4238`, `4239`), the large `ModuleTransformer.walk_opt_catch...` family (`Func 1409`, `1410`, `1411`), the loop-heavy validator family (`Func 1106`, `1114`), the parser-shaped local-churn family (`Func 3802`, `3810`), the transformer `ModuleTransformer.apply_action_opt...` family (`Func 1582`, `1588`, `1647`-`1678`, `1685` and siblings), the small-loop call-heavy trio (`Func 3794`, `3885`, `3895`), the giant low-call local-churn body (`Func 3722`), the multivalue parser/result ladders (`Func 353`, `370`, `381`, `409`, `414`, `3764`), the giant straight-line adjacent-tee constructor (`Func 473`), the straight-line builder no-op `Func 262`, the straight-line lane-builder rewrite family now led by `Func 1884`, and broad no-local-write no-op bodies including `Func 570`, `571`, and `1678` traced functions in the current artifact replay; large local-count functions still skip the late equivalent-copy cleanup entirely; detached-node cleanup no longer pays `hot_delete_node`'s whole-function unreferenced scan once simplify-locals has already proven the node detached; pending sinkable local effects are now tracked as sparse local-id lists with reusable scratch stamps instead of full local-count bit vectors, with dense barrier clears bulk-zeroing the aggregate counters instead of walking every active sinkable effect; and the raw simplify-locals dispatcher now computes gate stats once per function instead of rescanning the same body for every heuristic. The old `Func 409` traced replay wall is gone, `Func 1884` now lands on `skip-raw reason=straight-line-lane-builder`, and the compact-loop gate bug is understood: raw gate `locals_count` excludes params, so the real `StringView.trim_* .inner` artifact functions only matched after retuning that bound to the actual `34` / `35` local counts. Fresh traced native replays now show `Func 4238` and `4239` on `skip-raw reason=stringview-trim-loop-churn`, `Func 1409` / `1410` / `1411` on `skip-raw reason=transformer-catch-structured-call-heavy`, and `Func 1884` on `skip-raw reason=straight-line-lane-builder`; warmed 30-second runs now land at `1472805us` and `1464356us`, and the remaining residue is led by `SourceLocRepr.parse` (`Func 4499`), `ModuleTransformer.walk_opt_subtype_default` (`Func 1274`), `validate.typecheck_if` (`Func 1058`), and `json.ParseContext.lex_zero` (`Func 3769`). The native pass suite still SIGSEGVs before the `#cfg(target="native")` artifact whitebox tests can act as a reliable gate, so the direct native CLI replay remains the source of truth for this blocker. The next work is deciding whether to shave the new small straight-line / parser / validator residue cluster (`Func 4499`, `1274`, `1058`, `3769`) before the sibling compare/parity lane, or to stop and run the still-unrun sibling artifact compare now that the unchanged transformer walkers and the old SIMD lane-builder hotspot are out of the hot path.
      - Reproduce focused oracle lane: `bun scripts/pass-fuzz-compare.ts --pass simplify-locals --generator gen-valid --count 10000 --min-compared 10000 --max-failures 20 --out-dir .tmp/pass-fuzz-sl-genvalid-10000-sl004`
      - Reproduce post-perf smoke lane: `bun scripts/pass-fuzz-compare.ts --pass simplify-locals --generator gen-valid --count 100 --min-compared 100 --max-failures 20 --out-dir .tmp/simplify-locals-perf-smoke`
-     - Reproduce 30s traced runtime checkpoint: `timeout 30s env STARSHINE_TRACING=pass _build/native/release/build/cmd/cmd.exe --simplify-locals --out /tmp/sl-artifact-trace-30s-current.raw.wasm tests/node/dist/starshine-debug-wasi.wasm > /tmp/sl-artifact-trace-30s-current.log 2>&1`
-     - Reproduce debug-artifact runtime blocker: `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --simplify-locals`
-     - Doc: [Starshine strategy](./docs/wiki/binaryen/passes/simplify-locals/starshine-hot-ir-strategy.md) and [0076 archived research note](./docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
+    - Reproduce 30s traced runtime checkpoint: `timeout 30s env STARSHINE_TRACING=pass _build/native/release/build/cmd/cmd.exe --simplify-locals --out /home/jtenner/sl-artifact-trace-30s-current.raw.wasm /home/jtenner/Projects/starshine-mb/tests/node/dist/starshine-debug-wasi.wasm > /home/jtenner/sl-artifact-trace-30s-current.log 2>&1`
+     - Reproduce sibling-artifact runtime blocker: `bun scripts/self-optimize-compare.ts /home/jtenner/Projects/starshine-mb/tests/node/dist/starshine-debug-wasi.wasm --simplify-locals`
+     - Doc: [0073](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/docs/0073-2026-04-01-simplify-locals-binaryen-research-plan.md)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -416,14 +415,14 @@ Observed unique-pass order
 
 #### CF - Code Folding
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L268](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L268)
+   - Research exactly how it works with a document: [0066#L268](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L268)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [CF]001 - Region Equivalence and Fold Safety - Port the region-merging rules Binaryen uses to fold duplicate code late in the function pipeline.
      - Deliverables: define structural equality for candidate code regions; preserve labels, branch targets, and tuple typing; reject folds that would disturb later cleanup.
-     - Doc: [0066#L268](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L268)
+     - Doc: [0066#L268](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L268)
    - [CF]002 - Late-Slot Regression and Artifact Compare - Add duplicate-region regressions and confirm the folded output matches Binaryen on the MoonBit artifact.
      - Deliverables: cover repeated blocks, typed values, and branchy regions; verify the pass remains late in the pipeline; replay `--code-folding` parity against Binaryen.
-     - Doc: [0066#L268](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L268)
+     - Doc: [0066#L268](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L268)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -433,14 +432,14 @@ Observed unique-pass order
 
 #### MB - Merge Blocks
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L273](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L273)
+   - Research exactly how it works with a document: [0066#L273](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L273)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [MB]001 - Typed Block Merge Rules - Port Binaryen's block-flattening rules that merge nested blocks without breaking branch or result typing.
      - Deliverables: encode which block nesting patterns can collapse; preserve branch values and typed block signatures; keep the pass compatible with repeated late cleanup.
-     - Doc: [0066#L273](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L273)
+     - Doc: [0066#L273](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L273)
    - [MB]002 - Dual-Slot Replay and Artifact Validation - Run the pass in both Binaryen slots and validate the resulting branch-cleanup opportunities against the reference output.
      - Deliverables: add regressions for typed block merging and repeated-slot cleanup; verify order with `remove-unused-brs`; replay `--merge-blocks` parity on the debug artifact.
-     - Doc: [0066#L273](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L273)
+     - Doc: [0066#L273](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L273)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -450,14 +449,14 @@ Observed unique-pass order
 
 #### RSE - Redundant Set Elimination
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L278](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L278)
+   - Research exactly how it works with a document: [0066#L278](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L278)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [RSE]001 - Redundant Write Detection - Port the late-pipeline write-elimination logic that removes provably redundant sets after coalescing and peephole cleanup.
      - Deliverables: identify overwritten sets with no intervening observable read; preserve traps and side effects; integrate with current liveness and effects helpers.
-     - Doc: [0066#L278](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L278)
+     - Doc: [0066#L278](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L278)
    - [RSE]002 - Final-Cleanup Regression and Artifact Proof - Add focused set-elimination regressions and confirm the pass output matches Binaryen before the final `vacuum`.
      - Deliverables: cover locals, globals, and GC field writes where applicable; verify scheduler order with the final cleanup slot; compare `--rse` output against Binaryen on the artifact.
-     - Doc: [0066#L278](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L278)
+     - Doc: [0066#L278](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L278)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -467,14 +466,14 @@ Observed unique-pass order
 
 #### DAE - Dead Argument Elimination Optimizing
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L283](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L283)
+   - Research exactly how it works with a document: [0066#L283](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L283)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [DAE]001 - Call-Graph Pruning and Touched-Function Tracking - Port Binaryen's optimizing dead-argument elimination and record exactly which functions need nested cleanup reruns.
      - Deliverables: remove dead call parameters safely across direct users; localize call targets where Binaryen does; track the touched-function set for the nested rerun helper.
-     - Doc: [0066#L283](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L283)
+     - Doc: [0066#L283](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L283)
    - [DAE]002 - Nested Post-Inlining Cleanup and Artifact Compare - Recreate the `optimizeAfterInlining` subpipeline and validate both the top-level and nested output against Binaryen.
      - Deliverables: prepend `precompute-propagate` before rerunning the default function pipeline on touched functions; add nested-run scheduler tests; compare `--dae-optimizing` output on the debug artifact.
-     - Doc: [0066#L283](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L283)
+     - Doc: [0066#L283](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L283)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -484,14 +483,14 @@ Observed unique-pass order
 
 #### INL - Inlining Optimizing
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L288](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L288)
+   - Research exactly how it works with a document: [0066#L288](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L288)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [INL]001 - Heuristics, Rewrite, and Touched-Function Set - Port Binaryen's optimizing inliner and keep the touched-function filter that drives nested cleanup reruns.
      - Deliverables: implement Binaryen-like inlining heuristics for `-O` / `-Os`; rewrite callsites and remove now-dead functions; capture the exact set of mutated functions for the nested runner.
-     - Doc: [0066#L288](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L288)
+     - Doc: [0066#L288](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L288)
    - [INL]002 - Nested Useful-Passes Replay and Artifact Parity - Recreate `addUsefulPassesAfterInlining` and prove both the inline rewrite and nested cleanup match Binaryen on the debug artifact.
      - Deliverables: prepend `precompute-propagate`, rerun the default function pipeline on touched functions, and add nested-run tests; compare `--inlining-optimizing` output against Binaryen.
-     - Doc: [0066#L288](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L288)
+     - Doc: [0066#L288](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L288)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -501,14 +500,14 @@ Observed unique-pass order
 
 #### DIE - Duplicate Import Elimination
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L293](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L293)
+   - Research exactly how it works with a document: [0066#L293](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L293)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [DIE]001 - Import Identity and Merge Safety - Define the exact module/name/type identity checks required before duplicate imports can be merged.
      - Deliverables: compare import module, field, and external type exactly; preserve externally observable ordering where required; build a replacement map for merged import indices.
-     - Doc: [0066#L293](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L293)
+     - Doc: [0066#L293](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L293)
    - [DIE]002 - Index Rewrite and Artifact Validation - Rewrite all users of merged imports and validate the late post-pass cleanup result against Binaryen.
      - Deliverables: patch function/table/global/memory import users consistently; add regressions for import-boundary corner cases; compare `--duplicate-import-elimination` output on the artifact.
-     - Doc: [0066#L293](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L293)
+     - Doc: [0066#L293](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L293)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -518,14 +517,14 @@ Observed unique-pass order
 
 #### SGO - Simplify Globals Optimizing
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L298](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L298)
+   - Research exactly how it works with a document: [0066#L298](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L298)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [SGO]001 - Constant-Global Rewrite and Mutation Tracking - Port the constant-global replacement and dead `global.set` removal flow while tracking every mutated function.
      - Deliverables: replace constant global reads safely; remove dead writes without violating ordering; maintain the exact touched-function set for nested reruns.
-     - Doc: [0066#L298](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L298)
+     - Doc: [0066#L298](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L298)
    - [SGO]002 - Nested Default-Function Rerun and Artifact Compare - Recreate the per-function rerun of `addDefaultFunctionOptimizationPasses()` and validate the result against Binaryen.
      - Deliverables: rerun the default function pipeline without the `precompute-propagate` prefix; add nested-run scheduler tests; compare `--simplify-globals-optimizing` output on the debug artifact.
-     - Doc: [0066#L298](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L298)
+     - Doc: [0066#L298](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L298)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -535,14 +534,14 @@ Observed unique-pass order
 
 #### SG - String Gathering
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L303](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L303)
+   - Research exactly how it works with a document: [0066#L303](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L303)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [SG]001 - String Collection and Canonicalization Rules - Port the string-gathering transformation that runs immediately before `reorder-globals` on string-enabled modules.
      - Deliverables: collect the string data Binaryen hoists or canonicalizes; preserve string feature semantics and global users; define unsupported string layouts explicitly.
-     - Doc: [0066#L303](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L303)
+     - Doc: [0066#L303](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L303)
    - [SG]002 - Feature Gate, Global Order, and Artifact Parity - Validate the pass only runs when strings are enabled and confirm the resulting global layout matches Binaryen.
      - Deliverables: add feature-gated scheduler tests and focused string regressions; verify interaction with `reorder-globals`; compare `--string-gathering` output on the debug artifact.
-     - Doc: [0066#L303](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L303)
+     - Doc: [0066#L303](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L303)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -644,14 +643,14 @@ Suggested Tests
 
 #### RG - Reorder Globals
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L308](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L308)
+   - Research exactly how it works with a document: [0066#L308](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L308)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [RG]001 - Global Cost Model and Reindexing - Port Binaryen's global reordering criteria and compute a safe remap after late global cleanup and string gathering.
      - Deliverables: define the reordering cost model; preserve externally visible boundaries and section invariants; prepare a reusable global-index remapper.
-     - Doc: [0066#L308](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L308)
+     - Doc: [0066#L308](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L308)
    - [RG]002 - Late-Postpass Validation and Artifact Compare - Apply the global reorder, lock the resulting section rewrites into tests, and compare the output against Binaryen.
      - Deliverables: add regressions for reordered globals with string users and exports; verify the pass stays after `string-gathering`; replay `--reorder-globals` parity on the artifact.
-     - Doc: [0066#L308](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L308)
+     - Doc: [0066#L308](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L308)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
@@ -661,14 +660,14 @@ Suggested Tests
 
 #### DIR - Directize
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L313](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L313)
+   - Research exactly how it works with a document: [0066#L313](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L313)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [DIR]001 - Indirect-to-Direct Eligibility - Port Binaryen's final-pass logic for converting eligible indirect calls into direct calls without violating table behavior.
      - Deliverables: identify call targets that are uniquely resolvable; preserve table semantics, imports, and dynamic behavior; document the bailout cases that remain indirect.
-     - Doc: [0066#L313](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L313)
+     - Doc: [0066#L313](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L313)
    - [DIR]002 - Call Rewrite, Boundary Regressions, and Artifact Proof - Rewrite eligible callsites, test boundary cases, and confirm the final pass output matches Binaryen on the debug artifact.
      - Deliverables: patch call instructions and dependent signatures safely; add regressions for mixed direct/indirect call tables; compare `--directize` output on the artifact.
-     - Doc: [0066#L313](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L313)
+     - Doc: [0066#L313](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L313)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.

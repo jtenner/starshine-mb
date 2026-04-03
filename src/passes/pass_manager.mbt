@@ -2065,6 +2065,30 @@ fn run_hot_pipeline_raw_simplify_locals_should_rewrite_straight_line_adjacent_lo
 
 ///|
 #cfg(target="native")
+fn run_hot_pipeline_raw_simplify_locals_should_rewrite_straight_line_lane_builder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  !stats.has_structured_control &&
+  stats.locals_count >= 48 &&
+  stats.locals_count <= 64 &&
+  stats.instr_count >= 240 &&
+  stats.instr_count <= 384 &&
+  stats.if_count == 0 &&
+  stats.block_count == 0 &&
+  stats.loop_count == 0 &&
+  stats.local_set_count >= 48 &&
+  stats.local_set_count <= 64 &&
+  stats.local_get_count >= 80 &&
+  stats.local_get_count <= 128 &&
+  stats.call_count >= 32 &&
+  stats.call_count <= 40 &&
+  stats.return_count == 0
+}
+
+///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_structured_pure_call_tails(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -2392,6 +2416,145 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_local_tees(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_match_lane_builder_block(
+  instrs : Array[@lib.Instruction],
+  start : Int,
+) -> (
+  @lib.LocalIdx,
+  @lib.I32,
+  @lib.LocalIdx,
+  @lib.Instruction,
+  @lib.Instruction,
+  @lib.MemArg,
+  @lib.LocalIdx,
+)? {
+  if start + 15 >= instrs.length() {
+    return None
+  }
+  match
+    (
+      instrs[start],
+      instrs[start + 1],
+      instrs[start + 2],
+      instrs[start + 3],
+      instrs[start + 4],
+      instrs[start + 5],
+      instrs[start + 6],
+      instrs[start + 7],
+      instrs[start + 8],
+      instrs[start + 9],
+      instrs[start + 10],
+      instrs[start + 11],
+      instrs[start + 12],
+      instrs[start + 13],
+      instrs[start + 14],
+      instrs[start + 15],
+    ) {
+    (
+      @lib.LocalGet(@lib.LocalIdx(source_raw)),
+      @lib.I32Const(lane_value),
+      @lib.LocalSet(@lib.LocalIdx(idx_raw)),
+      @lib.LocalSet(@lib.LocalIdx(arr_raw)),
+      @lib.LocalGet(@lib.LocalIdx(check_idx_raw)),
+      @lib.I32Const(@lib.I32(lower_bound)),
+      @lib.LocalGet(@lib.LocalIdx(check_arr_raw)),
+      array_length_call,
+      @lib.I32Const(@lib.I32(upper_delta)),
+      @lib.I32Sub,
+      check_range_call,
+      @lib.LocalGet(@lib.LocalIdx(load_arr_raw)),
+      @lib.LocalGet(@lib.LocalIdx(load_idx_raw)),
+      @lib.I32Add,
+      @lib.I32Load8U(load_memarg),
+      @lib.LocalSet(@lib.LocalIdx(tmp_raw)),
+    ) =>
+      if idx_raw == check_idx_raw &&
+        idx_raw == load_idx_raw &&
+        arr_raw == check_arr_raw &&
+        arr_raw == load_arr_raw &&
+        lower_bound == 0 &&
+        upper_delta == 1 &&
+        source_raw != idx_raw &&
+        source_raw != arr_raw &&
+        run_hot_pipeline_raw_simplify_locals_instr_is_call_like(
+          array_length_call,
+        ) &&
+        run_hot_pipeline_raw_simplify_locals_instr_is_call_like(
+          check_range_call,
+        ) &&
+        !run_hot_pipeline_raw_instrs_have_later_local_read(
+          instrs,
+          start + 16,
+          arr_raw.reinterpret_as_int(),
+        ) {
+        Some(
+          (
+            @lib.LocalIdx::new(source_raw),
+            lane_value,
+            @lib.LocalIdx::new(idx_raw),
+            array_length_call,
+            check_range_call,
+            load_memarg,
+            @lib.LocalIdx::new(tmp_raw),
+          ),
+        )
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_straight_line_lane_builder(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut idx = 0
+  let mut rewrite_count = 0
+  while idx < instrs.length() {
+    let mut rewritten_here = false
+    match
+      run_hot_pipeline_raw_simplify_locals_match_lane_builder_block(instrs, idx) {
+      Some(
+        (
+          source_local,
+          lane_value,
+          idx_local,
+          array_length_call,
+          check_range_call,
+          load_memarg,
+          tmp_local,
+        )
+      ) => {
+        rewritten.push(@lib.Instruction::i32_const(lane_value))
+        rewritten.push(@lib.Instruction::local_tee(idx_local))
+        rewritten.push(@lib.Instruction::i32_const(0))
+        rewritten.push(@lib.Instruction::local_get(source_local))
+        rewritten.push(array_length_call)
+        rewritten.push(@lib.Instruction::i32_const(1))
+        rewritten.push(@lib.Instruction::i32_sub())
+        rewritten.push(check_range_call)
+        rewritten.push(@lib.Instruction::local_get(source_local))
+        rewritten.push(@lib.Instruction::local_get(idx_local))
+        rewritten.push(@lib.Instruction::i32_add())
+        rewritten.push(@lib.Instruction::i32_load8u(load_memarg))
+        rewritten.push(@lib.Instruction::local_set(tmp_local))
+        rewrite_count = rewrite_count + 1
+        idx = idx + 16
+        rewritten_here = true
+      }
+      None => ()
+    }
+    if !rewritten_here {
+      rewritten.push(instrs[idx])
+      idx = idx + 1
+    }
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_try_rewrite_tail(
   instrs : Array[@lib.Instruction],
   env : @validate.Env,
@@ -2560,6 +2723,21 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.local_get_count >= stats.local_set_count * 64 &&
     stats.call_count >= 768 &&
     stats.return_count <= 1
+  let should_rewrite_straight_line_lane_builder = !stats.has_structured_control &&
+    stats.locals_count >= 48 &&
+    stats.locals_count <= 64 &&
+    stats.instr_count >= 240 &&
+    stats.instr_count <= 384 &&
+    stats.if_count == 0 &&
+    stats.block_count == 0 &&
+    stats.loop_count == 0 &&
+    stats.local_set_count >= 48 &&
+    stats.local_set_count <= 64 &&
+    stats.local_get_count >= 80 &&
+    stats.local_get_count <= 128 &&
+    stats.call_count >= 32 &&
+    stats.call_count <= 40 &&
+    stats.return_count == 0
   let should_rewrite_pure_call_tails = !stats.has_structured_control &&
     stats.locals_count >= 32 &&
     stats.instr_count >= 128 &&
@@ -2836,6 +3014,19 @@ fn run_hot_pipeline_raw_simplify_locals(
     if rewrite_count > 0 {
       return Some({
         reason: "straight-line-adjacent-local-tee",
+        func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+  }
+  if !should_rewrite_ladder && should_rewrite_straight_line_lane_builder {
+    let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_straight_line_lane_builder(
+      instrs,
+    )
+    if rewrite_count > 0 {
+      return Some({
+        reason: "straight-line-lane-builder",
         func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
         unchanged_original: false,
         trace_skip_raw: true,

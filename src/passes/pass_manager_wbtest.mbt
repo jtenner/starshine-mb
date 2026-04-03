@@ -747,6 +747,39 @@ test "raw simplify-locals gate accepts debug artifact Func 473" {
 
 ///|
 #cfg(target="native")
+test "raw simplify-locals rewrites lane-builder debug artifact Func 1884" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(1884U)
+  let pipeline_result = match
+    run_hot_pipeline_func(
+      mod_,
+      func_idx,
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      { module_ctx: None },
+      HotPipelineOptions::new(),
+    ) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected simplify-locals hot pipeline success, got \{err}")
+  }
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="reason=\{pipeline_result.reason}",
+  )
+  assert_false(pipeline_result.unchanged_original)
+  assert_eq(pipeline_result.reason, "straight-line-lane-builder")
+}
+
+///|
+#cfg(target="native")
 test "raw simplify-locals rewrites structured debug artifact Func 225" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
