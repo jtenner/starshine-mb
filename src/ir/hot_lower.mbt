@@ -1946,16 +1946,25 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
               if then_depth == 1 || else_depth == 1 {
                 match (rebuild_result_arm(then_), rebuild_result_arm(else_)) {
                   (Some(rewritten_then), Some(rewritten_else)) =>
-                    return Some(
-                      prefix +
-                      [
-                        Instruction::if_(
-                          bt,
-                          rewritten_then,
-                          Some(rewritten_else),
+                    return Some([
+                      Instruction::block(
+                        @lib.BlockType::void_(),
+                        Expr::new(
+                          hot_lower_impl_append_explicit_unreachable(
+                            prefix +
+                            [
+                              Instruction::if_(
+                                bt,
+                                rewritten_then,
+                                Some(rewritten_else),
+                              ),
+                              Instruction::br(LabelIdx::new(1U)),
+                            ],
+                          ),
                         ),
-                      ],
-                    )
+                      ),
+                      Instruction::local_get(carried_local),
+                    ])
                   _ => ()
                 }
               } else if then_depth != else_depth {
