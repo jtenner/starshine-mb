@@ -155,6 +155,23 @@ test "body local append helper returns the next local id and bumps revision" {
 }
 
 ///|
+test "detached node deletion fast path records tombstones without immediate free-list reuse" {
+  let func = HotFunc::new()
+  let deleted = hot_build_nop(func)
+  let survivor = hot_build_unreachable(func)
+
+  hot_root_append(func, survivor)
+  let rev0 = hot_revision_current(func)
+  hot_delete_detached_node(func, deleted)
+  assert_eq(hot_revision_current(func), rev0 + 1)
+  assert_false(hot_node_is_live(func, deleted))
+  assert_true(hot_node_is_live(func, survivor))
+
+  let next = hot_build_unreachable(func)
+  assert_eq(next, 2)
+}
+
+///|
 test "label owner helper rehomes built control labels to replacement node ids" {
   let func = HotFunc::new()
   let temp_block = hot_build_block(func, @lib.BlockType::void_(), [

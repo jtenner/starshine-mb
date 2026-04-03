@@ -162,6 +162,25 @@ test "simplify-locals does not sink captured local values past later writes" {
 }
 
 ///|
+test "simplify-locals keeps pending sinks across unrelated local traffic" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32 i32) i32.const 5 local.set 2 local.get 0 drop local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected unrelated-local simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("I32(5)"), msg=pretty)
+}
+
+///|
 test "simplify-locals canonicalizes equivalent copies across adjacent blocks" {
   let optimized = match
     pass_test_run_pipeline(

@@ -211,6 +211,1085 @@ fn perf_test_make_structured_return_ladder_module(repetitions : Int) -> String {
 }
 
 ///|
+fn perf_test_make_simplify_locals_multivalue_tail_ladder_module(
+  repetitions : Int,
+) -> String {
+  let expr = StringBuilder::new()
+  expr.write_string("(i32.const 0) (local.get 0)")
+  let mut i = repetitions - 1
+  while i >= 0 {
+    let set_local = i + 2
+    let next = StringBuilder::new()
+    next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
+    next.write_string(i.to_string())
+    next.write_string(")) (then (local.get 0) (call 0) (local.set ")
+    next.write_string(set_local.to_string())
+    next.write_string(") (i32.const 1) (local.get ")
+    next.write_string(set_local.to_string())
+    next.write_string(")) (else ")
+    next.write_string(expr.to_string())
+    next.write_string("))")
+    expr.reset()
+    expr.write_string(next.to_string())
+    i = i - 1
+  }
+
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"id\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32 i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions + 64 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n    ")
+  out.write_string(expr.to_string())
+  out.write_string(")\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_multivalue_status_tail_ladder_module(
+  repetitions : Int,
+) -> String {
+  let expr = StringBuilder::new()
+  expr.write_string("(i32.const 0) (local.get 0)")
+  let mut i = repetitions - 1
+  while i >= 0 {
+    let set_local = i + 2
+    let status = if i % 2 == 0 { 0 } else { 1 }
+    let next = StringBuilder::new()
+    next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
+    next.write_string(i.to_string())
+    next.write_string(")) (then (local.get 0) (call 0) (local.set ")
+    next.write_string(set_local.to_string())
+    next.write_string(") (i32.const ")
+    next.write_string(status.to_string())
+    next.write_string(") (local.get ")
+    next.write_string(set_local.to_string())
+    next.write_string(") return) (else ")
+    next.write_string(expr.to_string())
+    next.write_string("))")
+    expr.reset()
+    expr.write_string(next.to_string())
+    i = i - 1
+  }
+
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"id\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32 i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions + 64 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n    ")
+  out.write_string(expr.to_string())
+  out.write_string(")\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_sparse_multivalue_status_tail_ladder_module(
+  repetitions : Int,
+) -> String {
+  let expr = StringBuilder::new()
+  expr.write_string("(i32.const 0) (local.get 0)")
+  let mut i = repetitions - 1
+  while i >= 0 {
+    let set_local = i + 2
+    let scratch_local = repetitions + i + 18
+    let status = if i % 2 == 0 { 0 } else { 1 }
+    let next = StringBuilder::new()
+    next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
+    next.write_string(i.to_string())
+    next.write_string(")) (then ")
+    if i % 3 == 0 {
+      next.write_string("(local.get 0) (call 0) (local.set ")
+      next.write_string(set_local.to_string())
+      next.write_string(") (i32.const ")
+      next.write_string(status.to_string())
+      next.write_string(") (local.get ")
+      next.write_string(set_local.to_string())
+      next.write_string(") return")
+    } else {
+      next.write_string("(local.get 0) (call 0) (local.set ")
+      next.write_string(scratch_local.to_string())
+      next.write_string(") (local.get ")
+      next.write_string(scratch_local.to_string())
+      next.write_string(") drop (i32.const ")
+      next.write_string(status.to_string())
+      next.write_string(") (local.get 0) return")
+    }
+    next.write_string(") (else ")
+    next.write_string(expr.to_string())
+    next.write_string("))")
+    expr.reset()
+    expr.write_string(next.to_string())
+    i = i - 1
+  }
+
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"id\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32 i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions * 2 + 96 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n    ")
+  out.write_string(expr.to_string())
+  out.write_string(")\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_multivalue_call_ladder_module(
+  repetitions : Int,
+) -> String {
+  let expr = StringBuilder::new()
+  expr.write_string("(i32.const 0) (local.get 0)")
+  let mut i = repetitions - 1
+  while i >= 0 {
+    let touched_local = i * 3 + 2
+    let merged_local = i * 3 + 3
+    let spilled_local = i * 3 + 4
+    let next = StringBuilder::new()
+    next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
+    next.write_string(i.to_string())
+    next.write_string(")) (then ")
+    next.write_string("(local.get 0) (call 0) (local.set ")
+    next.write_string(touched_local.to_string())
+    next.write_string(") (local.get ")
+    next.write_string(touched_local.to_string())
+    next.write_string(") (local.get 1) (call 1) (local.set ")
+    next.write_string(merged_local.to_string())
+    next.write_string(") (local.get ")
+    next.write_string(merged_local.to_string())
+    next.write_string(") (local.get 0) (local.get 1) (call 2) (local.set ")
+    next.write_string(spilled_local.to_string())
+    next.write_string(") (local.get ")
+    next.write_string(spilled_local.to_string())
+    next.write_string(") drop (i32.const 1) (local.get ")
+    next.write_string(spilled_local.to_string())
+    next.write_string(")) (else ")
+    next.write_string(expr.to_string())
+    next.write_string("))")
+    expr.reset()
+    expr.write_string(next.to_string())
+    i = i - 1
+  }
+
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"sink3\" (func (param i32 i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32 i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions * 3 + 64 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n    ")
+  out.write_string(expr.to_string())
+  out.write_string(")\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_flat_dense_multivalue_call_ladder_module(
+  repetitions : Int,
+) -> String {
+  let expr = StringBuilder::new()
+  expr.write_string("(i32.const 0) (local.get 0)")
+  let mut i = repetitions - 1
+  while i >= 0 {
+    let touched_local = i * 4 + 2
+    let merged_local = i * 4 + 3
+    let spilled_local = i * 4 + 4
+    let scratch_local = i * 4 + 5
+    let next = StringBuilder::new()
+    next.write_string("(if (result i32 i32) (i32.eq (local.get 1) (i32.const ")
+    next.write_string(i.to_string())
+    next.write_string(")) (then ")
+    next.write_string("(local.get 0) (call 0) (local.set ")
+    next.write_string(touched_local.to_string())
+    next.write_string(") (local.get ")
+    next.write_string(touched_local.to_string())
+    next.write_string(") (local.get 1) (call 1) (local.set ")
+    next.write_string(merged_local.to_string())
+    next.write_string(") (local.get ")
+    next.write_string(merged_local.to_string())
+    next.write_string(") (local.get 0) (local.get 1) (call 2) (local.set ")
+    next.write_string(spilled_local.to_string())
+    next.write_string(") (local.get ")
+    next.write_string(spilled_local.to_string())
+    next.write_string(") drop (local.get 0) (local.set ")
+    next.write_string(scratch_local.to_string())
+    next.write_string(") (local.get ")
+    next.write_string(scratch_local.to_string())
+    next.write_string(") drop (i32.const 1) (local.get ")
+    next.write_string(spilled_local.to_string())
+    next.write_string(")) (else ")
+    next.write_string(expr.to_string())
+    next.write_string("))")
+    expr.reset()
+    expr.write_string(next.to_string())
+    i = i - 1
+  }
+
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"sink3\" (func (param i32 i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32 i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions * 4 + 64 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n    ")
+  out.write_string(expr.to_string())
+  out.write_string(")\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_straight_line_copy_call_tail_module(
+  repetitions : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (import \"env\" \"touch\" (func (param i32)))\n")
+  out.write_string(
+    "  (import \"env\" \"sink\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions + 16 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < repetitions {
+    let target_local = i + 1
+    if i % 2 == 0 {
+      out.write_string("    local.get 0\n")
+    } else {
+      out.write_string("    i32.const ")
+      out.write_string((1000 + i).to_string())
+      out.write_string("\n")
+    }
+    out.write_string("    local.set ")
+    out.write_string(target_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.get 0\n")
+    out.write_string("    call 0\n")
+    out.write_string("    local.get 0\n")
+    out.write_string("    local.get ")
+    out.write_string(target_local.to_string())
+    out.write_string("\n")
+    out.write_string("    call 1\n")
+    out.write_string("    drop\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_structured_copy_call_tail_module(
+  repetitions : Int,
+) -> String {
+  let expr = StringBuilder::new()
+  expr.write_string("(i32.const 0)")
+  let mut i = repetitions - 1
+  while i >= 0 {
+    let target_local = i + 2
+    let next = StringBuilder::new()
+    next.write_string("(if (result i32) (i32.eq (local.get 1) (i32.const ")
+    next.write_string(i.to_string())
+    next.write_string(")) (then ")
+    if i % 2 == 0 {
+      next.write_string("(local.get 0)")
+    } else {
+      next.write_string("(i32.const ")
+      next.write_string((2000 + i).to_string())
+      next.write_string(")")
+    }
+    next.write_string(" (local.set ")
+    next.write_string(target_local.to_string())
+    next.write_string(") (local.get 0) (call 0) (local.get 0) (local.get ")
+    next.write_string(target_local.to_string())
+    next.write_string(") (call 1) drop (i32.const 1)) (else ")
+    next.write_string(expr.to_string())
+    next.write_string("))")
+    expr.reset()
+    expr.write_string(next.to_string())
+    i = i - 1
+  }
+
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (import \"env\" \"touch\" (func (param i32)))\n")
+  out.write_string(
+    "  (import \"env\" \"sink\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions + 64 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n    ")
+  out.write_string(expr.to_string())
+  out.write_string(")\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_large_equivalent_module(
+  repetitions : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions * 3 + 8 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    local.set 1\n")
+  let mut i = 0
+  while i < repetitions {
+    let copy_local = i * 3 + 2
+    let spill_local = i * 3 + 3
+    let merge_local = i * 3 + 4
+    out.write_string("    block\n")
+    out.write_string("      local.get 0\n")
+    out.write_string("      if\n")
+    out.write_string("        block\n")
+    out.write_string("          local.get 1\n")
+    out.write_string("          local.set ")
+    out.write_string(copy_local.to_string())
+    out.write_string("\n")
+    out.write_string("        end\n")
+    out.write_string("        block\n")
+    out.write_string("          local.get ")
+    out.write_string(copy_local.to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(merge_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(merge_local.to_string())
+    out.write_string("\n")
+    out.write_string("        drop\n")
+    out.write_string("      else\n")
+    out.write_string("        block\n")
+    out.write_string("          local.get 1\n")
+    out.write_string("          local.set ")
+    out.write_string(copy_local.to_string())
+    out.write_string("\n")
+    out.write_string("        end\n")
+    out.write_string("        block\n")
+    out.write_string("          local.get ")
+    out.write_string(copy_local.to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(merge_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(merge_local.to_string())
+    out.write_string("\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 1)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_structured_call_heavy_module(
+  repetitions : Int,
+  base_locals : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"sink3\" (func (param i32 i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions * 4 + base_locals {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < repetitions {
+    let touched_local = i * 4 + 4
+    let merged_local = i * 4 + 5
+    let spilled_local = i * 4 + 6
+    out.write_string("    local.get 0\n")
+    out.write_string("    i32.const ")
+    out.write_string(i.to_string())
+    out.write_string("\n")
+    out.write_string("    i32.eq\n")
+    out.write_string("    if\n")
+    out.write_string("      local.get 0\n")
+    out.write_string("      call 0\n")
+    out.write_string("      local.set ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("      local.get 1\n")
+    out.write_string("      local.get ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("      call 1\n")
+    out.write_string("      local.set ")
+    out.write_string(merged_local.to_string())
+    out.write_string("\n")
+    out.write_string("      local.get ")
+    out.write_string(merged_local.to_string())
+    out.write_string("\n")
+    out.write_string("      local.get 1\n")
+    out.write_string("      local.get 0\n")
+    out.write_string("      call 2\n")
+    out.write_string("      local.set ")
+    out.write_string(spilled_local.to_string())
+    out.write_string("\n")
+    out.write_string("      local.get ")
+    out.write_string(spilled_local.to_string())
+    out.write_string("\n")
+    out.write_string("      return\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 1)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_giant_structured_call_heavy_module(
+  repetitions : Int,
+) -> String {
+  perf_test_make_simplify_locals_structured_call_heavy_module(repetitions, 960)
+}
+
+///|
+fn perf_test_make_simplify_locals_large_structured_call_heavy_module(
+  repetitions : Int,
+) -> String {
+  perf_test_make_simplify_locals_structured_call_heavy_module(repetitions, 64)
+}
+
+///|
+fn perf_test_make_simplify_locals_transformer_structured_call_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 92 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  let mut group = 0
+  while group < 8 {
+    out.write_string("    block\n")
+    let mut inner = 0
+    while inner < 3 {
+      let i = group * 3 + inner
+      let touched_local = 2 + i * 3
+      let merged_local = 3 + i * 3
+      let spilled_local = 4 + i * 3
+      if inner == 1 {
+        out.write_string("      block\n")
+      }
+      out.write_string("        local.get 0\n")
+      out.write_string("        i32.const ")
+      out.write_string(i.to_string())
+      out.write_string("\n")
+      out.write_string("        i32.eq\n")
+      out.write_string("        if\n")
+      out.write_string("          local.get 0\n")
+      out.write_string("          call 0\n")
+      out.write_string("          local.tee ")
+      out.write_string(touched_local.to_string())
+      out.write_string("\n")
+      out.write_string("          drop\n")
+      out.write_string("          local.get 1\n")
+      out.write_string("          local.get ")
+      out.write_string(touched_local.to_string())
+      out.write_string("\n")
+      out.write_string("          call 1\n")
+      out.write_string("          local.set ")
+      out.write_string(merged_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.get ")
+      out.write_string(merged_local.to_string())
+      out.write_string("\n")
+      if i % 2 == 0 {
+        out.write_string("          local.set ")
+        out.write_string(spilled_local.to_string())
+        out.write_string("\n")
+        out.write_string("          local.get ")
+        out.write_string(spilled_local.to_string())
+        out.write_string("\n")
+        out.write_string("          drop\n")
+      } else {
+        out.write_string("          drop\n")
+      }
+      out.write_string("          local.get 1\n")
+      out.write_string("          drop\n")
+      out.write_string("        end\n")
+      if inner == 2 {
+        out.write_string("      end\n")
+      }
+      inner = inner + 1
+    }
+    out.write_string("    end\n")
+    group = group + 1
+  }
+  out.write_string("    local.get 1)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_small_loop_call_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 84 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  let mut loop_group = 0
+  while loop_group < 2 {
+    out.write_string("    loop\n")
+    let mut inner = 0
+    while inner < 7 {
+      let i = loop_group * 7 + inner
+      let a = 1 + i * 6
+      let b = 2 + i * 6
+      let c = 3 + i * 6
+      let d = 4 + i * 6
+      let e = 5 + i * 6
+      let f = 6 + i * 6
+      out.write_string("      local.get 0\n")
+      out.write_string("      i32.const ")
+      out.write_string(i.to_string())
+      out.write_string("\n")
+      out.write_string("      i32.eq\n")
+      out.write_string("      if\n")
+      out.write_string("        local.get 0\n")
+      out.write_string("        call 0\n")
+      out.write_string("        local.set ")
+      out.write_string(a.to_string())
+      out.write_string("\n")
+      out.write_string("        local.get ")
+      out.write_string(a.to_string())
+      out.write_string("\n")
+      out.write_string("        local.set ")
+      out.write_string(b.to_string())
+      out.write_string("\n")
+      out.write_string("        local.get ")
+      out.write_string(b.to_string())
+      out.write_string("\n")
+      out.write_string("        local.get 0\n")
+      out.write_string("        call 1\n")
+      out.write_string("        local.set ")
+      out.write_string(c.to_string())
+      out.write_string("\n")
+      out.write_string("        local.get ")
+      out.write_string(c.to_string())
+      out.write_string("\n")
+      out.write_string("        local.set ")
+      out.write_string(d.to_string())
+      out.write_string("\n")
+      out.write_string("        local.get ")
+      out.write_string(d.to_string())
+      out.write_string("\n")
+      out.write_string("        local.set ")
+      out.write_string(e.to_string())
+      out.write_string("\n")
+      out.write_string("        local.get ")
+      out.write_string(e.to_string())
+      out.write_string("\n")
+      out.write_string("        local.set ")
+      out.write_string(f.to_string())
+      out.write_string("\n")
+      out.write_string("        local.get ")
+      out.write_string(f.to_string())
+      out.write_string("\n")
+      out.write_string("        drop\n")
+      out.write_string("      end\n")
+      inner = inner + 1
+    }
+    out.write_string("    end\n")
+    loop_group = loop_group + 1
+  }
+  out.write_string("    local.get 0)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_loop_heavy_validator_call_module(
+  repetitions : Int,
+  base_locals : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"sink3\" (func (param i32 i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions * 4 + base_locals {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < repetitions {
+    let touched_local = i * 4 + 4
+    let merged_local = i * 4 + 5
+    let spilled_local = i * 4 + 6
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        i32.const ")
+    out.write_string(i.to_string())
+    out.write_string("\n")
+    out.write_string("        i32.eq\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call 0\n")
+    out.write_string("          local.set ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get 1\n")
+    out.write_string("          local.get ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("          call 1\n")
+    out.write_string("          local.set ")
+    out.write_string(merged_local.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(merged_local.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get 1\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call 2\n")
+    out.write_string("          local.set ")
+    out.write_string(spilled_local.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(spilled_local.to_string())
+    out.write_string("\n")
+    out.write_string("          return\n")
+    out.write_string("        end\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 1)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_parserish_call_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"sink3\" (func (param i32 i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 308 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    loop\n")
+  let mut group = 0
+  while group < 6 {
+    out.write_string("      block\n")
+    let mut inner = 0
+    while inner < 4 {
+      let i = group * 4 + inner
+      let touched_local = i * 4 + 4
+      let copied_local = i * 4 + 5
+      let merged_local = i * 4 + 6
+      let spilled_local = i * 4 + 7
+      out.write_string("        local.get 0\n")
+      out.write_string("        i32.const ")
+      out.write_string(i.to_string())
+      out.write_string("\n")
+      out.write_string("        i32.eq\n")
+      out.write_string("        if\n")
+      out.write_string("          local.get 0\n")
+      out.write_string("          call 0\n")
+      out.write_string("          local.set ")
+      out.write_string(touched_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.get ")
+      out.write_string(touched_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.set ")
+      out.write_string(copied_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.get 1\n")
+      out.write_string("          local.get ")
+      out.write_string(copied_local.to_string())
+      out.write_string("\n")
+      out.write_string("          call 1\n")
+      out.write_string("          local.set ")
+      out.write_string(merged_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.get ")
+      out.write_string(merged_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.set ")
+      out.write_string(spilled_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.get ")
+      out.write_string(spilled_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.get 1\n")
+      out.write_string("          local.get 0\n")
+      out.write_string("          call 2\n")
+      out.write_string("          local.set ")
+      out.write_string(spilled_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.get ")
+      out.write_string(spilled_local.to_string())
+      out.write_string("\n")
+      out.write_string("          i32.const 1\n")
+      out.write_string("          i32.add\n")
+      out.write_string("          local.set ")
+      out.write_string(copied_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.get ")
+      out.write_string(copied_local.to_string())
+      out.write_string("\n")
+      out.write_string("          i32.const 1\n")
+      out.write_string("          i32.sub\n")
+      out.write_string("          return\n")
+      out.write_string("        end\n")
+      inner = inner + 1
+    }
+    out.write_string("      end\n")
+    group = group + 1
+  }
+  out.write_string("    end\n")
+  out.write_string("    local.get 1)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_parserish_two_loop_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"sink3\" (func (param i32 i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 344 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    loop\n")
+  out.write_string("      loop\n")
+  let mut group = 0
+  while group < 7 {
+    out.write_string("        block\n")
+    let mut inner = 0
+    while inner < 4 {
+      let i = group * 4 + inner
+      let touched_local = i * 4 + 4
+      let copied_local = i * 4 + 5
+      let merged_local = i * 4 + 6
+      let spilled_local = i * 4 + 7
+      out.write_string("          local.get 0\n")
+      out.write_string("          i32.const ")
+      out.write_string(i.to_string())
+      out.write_string("\n")
+      out.write_string("          i32.eq\n")
+      out.write_string("          if\n")
+      out.write_string("            local.get 0\n")
+      out.write_string("            call 0\n")
+      out.write_string("            local.set ")
+      out.write_string(touched_local.to_string())
+      out.write_string("\n")
+      out.write_string("            local.get ")
+      out.write_string(touched_local.to_string())
+      out.write_string("\n")
+      out.write_string("            local.set ")
+      out.write_string(copied_local.to_string())
+      out.write_string("\n")
+      out.write_string("            local.get 1\n")
+      out.write_string("            local.get ")
+      out.write_string(copied_local.to_string())
+      out.write_string("\n")
+      out.write_string("            call 1\n")
+      out.write_string("            local.set ")
+      out.write_string(merged_local.to_string())
+      out.write_string("\n")
+      out.write_string("            local.get ")
+      out.write_string(merged_local.to_string())
+      out.write_string("\n")
+      out.write_string("            local.set ")
+      out.write_string(spilled_local.to_string())
+      out.write_string("\n")
+      out.write_string("            local.get ")
+      out.write_string(spilled_local.to_string())
+      out.write_string("\n")
+      out.write_string("            local.get 1\n")
+      out.write_string("            local.get 0\n")
+      out.write_string("            call 2\n")
+      out.write_string("            local.set ")
+      out.write_string(spilled_local.to_string())
+      out.write_string("\n")
+      out.write_string("            local.get ")
+      out.write_string(spilled_local.to_string())
+      out.write_string("\n")
+      out.write_string("            i32.const 1\n")
+      out.write_string("            i32.add\n")
+      out.write_string("            local.set ")
+      out.write_string(copied_local.to_string())
+      out.write_string("\n")
+      out.write_string("            local.get ")
+      out.write_string(copied_local.to_string())
+      out.write_string("\n")
+      out.write_string("            i32.const 1\n")
+      out.write_string("            i32.sub\n")
+      out.write_string("            return\n")
+      out.write_string("          end\n")
+      inner = inner + 1
+    }
+    out.write_string("        end\n")
+    group = group + 1
+  }
+  out.write_string("      end\n")
+  out.write_string("    end\n")
+  out.write_string("    local.get 1)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_giant_structured_local_churn_module(
+  repetitions : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions * 7 + 640 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    call 0\n")
+  out.write_string("    local.set 600\n")
+  let mut i = 0
+  while i < repetitions {
+    let start_local = i * 7 + 8
+    let end_local = i * 7 + 9
+    let span_local = i * 7 + 10
+    let tee_local = i * 7 + 11
+    let merge_local = i * 7 + 12
+    let spill_local = i * 7 + 13
+    let call_local = i * 7 + 14
+    out.write_string("    block\n")
+    out.write_string("      local.get 1\n")
+    out.write_string("      local.set ")
+    out.write_string(start_local.to_string())
+    out.write_string("\n")
+    out.write_string("      local.get 0\n")
+    out.write_string("      local.set ")
+    out.write_string(end_local.to_string())
+    out.write_string("\n")
+    out.write_string("      local.get ")
+    out.write_string(end_local.to_string())
+    out.write_string("\n")
+    out.write_string("      local.get ")
+    out.write_string(start_local.to_string())
+    out.write_string("\n")
+    out.write_string("      i32.sub\n")
+    out.write_string("      local.tee ")
+    out.write_string(span_local.to_string())
+    out.write_string("\n")
+    out.write_string("      i32.const ")
+    out.write_string((i % 11).to_string())
+    out.write_string("\n")
+    out.write_string("      i32.ge_s\n")
+    out.write_string("      if\n")
+    out.write_string("        local.get ")
+    out.write_string(end_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.tee ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(merge_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(merge_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(span_local.to_string())
+    out.write_string("\n")
+    out.write_string("        i32.add\n")
+    out.write_string("        local.set ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    out.write_string("        drop\n")
+    if i % 3 == 0 {
+      out.write_string("        local.get 0\n")
+      out.write_string("        call 0\n")
+      out.write_string("        local.set ")
+      out.write_string(call_local.to_string())
+      out.write_string("\n")
+      out.write_string("        local.get ")
+      out.write_string(call_local.to_string())
+      out.write_string("\n")
+      out.write_string("        drop\n")
+    }
+    out.write_string("      else\n")
+    out.write_string("        br 0\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 600)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_structured_return_ladder_with_condition_child_if_module(
   repetitions : Int,
 ) -> String {
@@ -2493,6 +3572,785 @@ test "remove-unused-brs skips moderate control ladders without hot lift" {
     text.contains("perf:timer name=pass:remove-unused-brs"),
     msg=text,
   )
+}
+
+///|
+test "simplify-locals rewrites multivalue tail ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_multivalue_tail_ladder_module(72)
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected multivalue tail ladder simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=multivalue-tail-local-get-ladder",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"))
+  assert_false(
+    pretty.contains(
+      "(local.set (Local 2))(i32.const I32(1))(local.get (Local 2))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals rewrites multivalue status tail ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_multivalue_status_tail_ladder_module(
+    48,
+  )
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected multivalue status tail ladder simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=multivalue-tail-local-get-ladder",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"))
+  assert_false(
+    pretty.contains(
+      "(local.set (Local 2))(i32.const I32(0))(local.get (Local 2))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals rewrites small multivalue status tail ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_multivalue_status_tail_ladder_module(
+    12,
+  )
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected small multivalue status tail ladder simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=multivalue-tail-local-get-ladder",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"))
+  assert_false(
+    pretty.contains(
+      "(local.set (Local 2))(i32.const I32(0))(local.get (Local 2))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals rewrites sparse multivalue status tail ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_sparse_multivalue_status_tail_ladder_module(
+    15,
+  )
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected sparse multivalue status tail ladder simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=multivalue-tail-local-get-ladder",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"))
+  assert_false(
+    pretty.contains(
+      "(local.set (Local 2))(i32.const I32(0))(local.get (Local 2))return",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals skips multivalue call-heavy ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_multivalue_call_ladder_module(16)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected multivalue call-heavy ladder simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=multivalue-call-heavy-ladder",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips flat dense multivalue call-heavy ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_flat_dense_multivalue_call_ladder_module(
+    32,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected flat dense multivalue call-heavy ladder simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=multivalue-call-heavy-ladder",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals rewrites straight-line pure call tails without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_straight_line_copy_call_tail_module(
+    96,
+  )
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected straight-line call tail simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=straight-line-pure-copy-call-tail",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"))
+  assert_eq(perf_test_count_occurrences(pretty, "local.set"), 0, msg=pretty)
+}
+
+///|
+test "simplify-locals rewrites structured pure call tails without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_structured_copy_call_tail_module(
+    96,
+  )
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected structured call tail simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=structured-pure-copy-call-tail",
+    ),
+  )
+  assert_false(text.contains("perf:timer name=lift"))
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"))
+  assert_eq(perf_test_count_occurrences(pretty, "local.set"), 0, msg=pretty)
+}
+
+///|
+test "simplify-locals skips equivalent cleanup on giant structured copy webs" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_large_equivalent_module(96)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected giant equivalent simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("perf:timer name=lift"), msg=text)
+  assert_true(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+  assert_false(text.contains("pass[simplify-locals]:skip-raw"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=detail:simplify-locals:equivalent-cleanup"),
+    msg=text,
+  )
+  assert_false(
+    text.contains("perf:timer name=detail:simplify-locals:late-dead-cleanup"),
+    msg=text,
+  )
+}
+
+///|
+test "simplify-locals skips equivalent cleanup on large structured copy webs" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_large_equivalent_module(32)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected large equivalent simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("perf:timer name=lift"), msg=text)
+  assert_true(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+  assert_false(text.contains("pass[simplify-locals]:skip-raw"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=detail:simplify-locals:equivalent-cleanup"),
+    msg=text,
+  )
+  assert_false(
+    text.contains("perf:timer name=detail:simplify-locals:late-dead-cleanup"),
+    msg=text,
+  )
+}
+
+///|
+test "simplify-locals skips giant structured call-heavy validators without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_giant_structured_call_heavy_module(
+    96,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected giant structured call-heavy simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=giant-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips large structured call-heavy walkers without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_large_structured_call_heavy_module(
+    96,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected large structured call-heavy simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=giant-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips medium structured call-heavy decoders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_structured_call_heavy_module(
+    88, 16,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected medium structured call-heavy simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=giant-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips smaller structured call-heavy decoders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_structured_call_heavy_module(
+    84, 16,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected smaller structured call-heavy simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=giant-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips medium structured call-heavy reducers without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_structured_call_heavy_module(
+    48, 64,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected medium structured reducer simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=medium-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips compact structured call-heavy printers without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_structured_call_heavy_module(44, 1)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected compact structured printer simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=medium-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips transformer-shaped structured call walkers without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_transformer_structured_call_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected transformer-shaped simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=transformer-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips small-loop call-heavy kernels without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_small_loop_call_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) => fail("expected small-loop simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains("pass[simplify-locals]:skip-raw reason=small-loop-call-heavy"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips loop-heavy validator call walkers without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_loop_heavy_validator_call_module(
+    64, 96,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected loop-heavy validator simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips compact loop-heavy call walkers without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_loop_heavy_validator_call_module(
+    28, 64,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected compact loop-heavy simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=loop-heavy-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips medium loop-heavy call walkers without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_loop_heavy_validator_call_module(
+    40, 96,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected medium loop-heavy simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=loop-heavy-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips parser-shaped local churn without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_parserish_call_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected parser-shaped simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=parser-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips two-loop parser-shaped local churn without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_parserish_two_loop_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected two-loop parser-shaped simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=parser-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips giant structured local churn without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_giant_structured_local_churn_module(
+    96,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected giant structured local churn simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=giant-structured-local-churn",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
 }
 
 ///|

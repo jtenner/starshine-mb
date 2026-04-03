@@ -775,9 +775,7 @@ fn hot_mutate_assert_unreferenced(func : HotFunc, id : NodeId) -> Unit {
 }
 
 ///|
-pub fn hot_delete_node(func : HotFunc, id : NodeId) -> Unit {
-  hot_mutate_require_live_node(func, id, "hot_delete_node")
-  hot_mutate_assert_unreferenced(func, id)
+fn hot_delete_node_finalize(func : HotFunc, id : NodeId) -> Unit {
   func.nodes[id] = {
     op: HotOp::Nop,
     ty: hot_type_void(func),
@@ -792,4 +790,17 @@ pub fn hot_delete_node(func : HotFunc, id : NodeId) -> Unit {
     func.deleted_nodes[id] = true
   }
   hot_revision_bump(func)
+}
+
+///|
+pub fn hot_delete_detached_node(func : HotFunc, id : NodeId) -> Unit {
+  hot_mutate_require_live_node(func, id, "hot_delete_detached_node")
+  hot_delete_node_finalize(func, id)
+}
+
+///|
+pub fn hot_delete_node(func : HotFunc, id : NodeId) -> Unit {
+  hot_mutate_require_live_node(func, id, "hot_delete_node")
+  hot_mutate_assert_unreferenced(func, id)
+  hot_delete_node_finalize(func, id)
 }

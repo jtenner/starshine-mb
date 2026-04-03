@@ -1387,6 +1387,975 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate
 }
 
 ///|
+priv struct RawSimplifyLocalsShape {
+  mut if_count : Int
+  mut block_count : Int
+  mut loop_count : Int
+  mut local_set_count : Int
+  mut local_get_count : Int
+  mut call_count : Int
+  mut return_count : Int
+  mut exact_tail_count : Int
+}
+
+///|
+priv struct RawSimplifyLocalsGateStats {
+  locals_count : Int
+  instr_count : Int
+  has_structured_control : Bool
+  if_count : Int
+  block_count : Int
+  loop_count : Int
+  local_set_count : Int
+  local_get_count : Int
+  call_count : Int
+  return_count : Int
+  exact_tail_count : Int
+}
+
+///|
+fn RawSimplifyLocalsShape::new() -> RawSimplifyLocalsShape {
+  {
+    if_count: 0,
+    block_count: 0,
+    loop_count: 0,
+    local_set_count: 0,
+    local_get_count: 0,
+    call_count: 0,
+    return_count: 0,
+    exact_tail_count: 0,
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_match_tail_local_get(
+  instrs : Array[@lib.Instruction],
+) -> (Int, @lib.I32, Bool)? {
+  let len = instrs.length()
+  if len < 3 {
+    return None
+  }
+  let tail_has_return = match instrs[len - 1] {
+    @lib.Return => true
+    _ => false
+  }
+  if tail_has_return && len < 4 {
+    return None
+  }
+  let get_idx = if tail_has_return { len - 2 } else { len - 1 }
+  let const_idx = get_idx - 1
+  let set_idx = get_idx - 2
+  match (instrs[set_idx], instrs[const_idx], instrs[get_idx]) {
+    (@lib.LocalSet(local_id), @lib.I32Const(status), @lib.LocalGet(get_local_id)
+    ) if local_id == get_local_id => Some((set_idx, status, tail_has_return))
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_scan_shape(
+  instrs : Array[@lib.Instruction],
+  shape : RawSimplifyLocalsShape,
+) -> Unit {
+  match run_hot_pipeline_raw_simplify_locals_match_tail_local_get(instrs) {
+    Some(_) => shape.exact_tail_count = shape.exact_tail_count + 1
+    None => ()
+  }
+  for instr in instrs {
+    match instr {
+      @lib.If(_, then_body, else_body) => {
+        shape.if_count = shape.if_count + 1
+        run_hot_pipeline_raw_simplify_locals_scan_shape(then_body, shape)
+        match else_body {
+          Some(else_body) =>
+            run_hot_pipeline_raw_simplify_locals_scan_shape(else_body, shape)
+          None => ()
+        }
+      }
+      @lib.Block(_, @lib.Expr(body)) => {
+        shape.block_count = shape.block_count + 1
+        run_hot_pipeline_raw_simplify_locals_scan_shape(body, shape)
+      }
+      @lib.Loop(_, @lib.Expr(body)) => {
+        shape.loop_count = shape.loop_count + 1
+        run_hot_pipeline_raw_simplify_locals_scan_shape(body, shape)
+      }
+      @lib.TryTable(_, _, @lib.Expr(body)) => {
+        shape.block_count = shape.block_count + 1
+        run_hot_pipeline_raw_simplify_locals_scan_shape(body, shape)
+      }
+      @lib.LocalSet(_) => shape.local_set_count = shape.local_set_count + 1
+      @lib.LocalGet(_) => shape.local_get_count = shape.local_get_count + 1
+      @lib.Call(_)
+      | @lib.CallIndirect(_, _)
+      | @lib.CallRef(_)
+      | @lib.ReturnCall(_)
+      | @lib.ReturnCallIndirect(_, _)
+      | @lib.ReturnCallRef(_) => shape.call_count = shape.call_count + 1
+      @lib.Return => shape.return_count = shape.return_count + 1
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_gate_stats(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> RawSimplifyLocalsGateStats {
+  let (_, has_structured_control, _, _, _, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  let shape = RawSimplifyLocalsShape::new()
+  run_hot_pipeline_raw_simplify_locals_scan_shape(instrs, shape)
+  {
+    locals_count: locals.length(),
+    instr_count,
+    has_structured_control,
+    if_count: shape.if_count,
+    block_count: shape.block_count,
+    loop_count: shape.loop_count,
+    local_set_count: shape.local_set_count,
+    local_get_count: shape.local_get_count,
+    call_count: shape.call_count,
+    return_count: shape.return_count,
+    exact_tail_count: shape.exact_tail_count,
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_rewrite_ladder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  if stats.locals_count < 16 || stats.locals_count > 512 {
+    return false
+  }
+  if !stats.has_structured_control || stats.instr_count > 12000 {
+    return false
+  }
+  let large_ladder = stats.locals_count >= 48 &&
+    stats.instr_count >= 160 &&
+    stats.if_count >= 16 &&
+    stats.local_set_count >= 16 &&
+    stats.local_get_count >= 32 &&
+    stats.exact_tail_count >= 12 &&
+    stats.exact_tail_count * 4 + 16 >= stats.if_count &&
+    stats.return_count <= stats.exact_tail_count + 8
+  let small_ladder = stats.locals_count >= 16 &&
+    stats.instr_count >= 80 &&
+    stats.if_count >= 8 &&
+    stats.local_set_count >= 8 &&
+    stats.local_get_count >= 16 &&
+    stats.exact_tail_count >= 4 &&
+    stats.exact_tail_count * 2 + 4 >= stats.if_count &&
+    stats.return_count <= stats.exact_tail_count + 4
+  let sparse_ladder = stats.locals_count >= 16 &&
+    stats.instr_count >= 80 &&
+    stats.if_count >= 12 &&
+    stats.local_set_count >= 10 &&
+    stats.local_get_count >= 24 &&
+    stats.call_count >= stats.if_count &&
+    stats.exact_tail_count >= 5 &&
+    stats.exact_tail_count * 3 + 1 >= stats.if_count &&
+    stats.return_count <= stats.if_count
+  large_ladder || small_ladder || sparse_ladder
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_func(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 1500 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 2000
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 352 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 256 &&
+  stats.if_count >= 80 &&
+  stats.local_set_count >= 176 &&
+  stats.local_get_count >= 384 &&
+  stats.call_count >= 240
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_skip_validator_structured_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 256 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 256 &&
+  stats.if_count >= 48 &&
+  stats.block_count >= 32 &&
+  stats.loop_count >= 4 &&
+  stats.local_set_count >= 128 &&
+  stats.local_get_count >= 384 &&
+  stats.call_count >= 192
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_skip_parser_structured_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 96 &&
+  stats.locals_count <= 352 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 160 &&
+  stats.if_count >= 16 &&
+  stats.if_count <= 64 &&
+  stats.block_count >= 4 &&
+  stats.block_count <= 20 &&
+  stats.loop_count <= 2 &&
+  stats.local_set_count >= 80 &&
+  stats.local_get_count >= 220 &&
+  stats.call_count >= 64 &&
+  stats.call_count <= 128 &&
+  stats.return_count <= stats.if_count
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_skip_transformer_structured_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 84 &&
+  stats.locals_count <= 96 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 160 &&
+  stats.if_count >= 18 &&
+  stats.if_count <= 28 &&
+  stats.block_count >= 12 &&
+  stats.block_count <= 20 &&
+  stats.loop_count == 0 &&
+  stats.local_set_count >= 32 &&
+  stats.local_set_count <= 48 &&
+  stats.local_get_count >= 140 &&
+  stats.local_get_count <= 180 &&
+  stats.call_count >= 48 &&
+  stats.call_count <= 64 &&
+  stats.return_count <= 8
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_skip_small_loop_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 80 &&
+  stats.locals_count <= 90 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 160 &&
+  stats.if_count >= 12 &&
+  stats.if_count <= 20 &&
+  stats.block_count == 0 &&
+  stats.loop_count == 2 &&
+  stats.local_set_count >= 72 &&
+  stats.local_set_count <= 84 &&
+  stats.local_get_count >= 100 &&
+  stats.local_get_count <= 192 &&
+  stats.call_count >= 24 &&
+  stats.call_count <= 48 &&
+  stats.return_count <= 4
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_skip_medium_structured_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 176 &&
+  stats.locals_count <= 320 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 224 &&
+  stats.if_count >= 24 &&
+  stats.if_count <= 96 &&
+  stats.loop_count <= 3 &&
+  stats.local_set_count >= 96 &&
+  stats.local_get_count >= 256 &&
+  stats.call_count >= 128 &&
+  stats.call_count <= 224 &&
+  stats.return_count <= stats.if_count
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_skip_loop_heavy_structured_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 176 &&
+  stats.locals_count <= 320 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 256 &&
+  stats.if_count >= 28 &&
+  stats.if_count <= 80 &&
+  stats.block_count >= 8 &&
+  stats.loop_count >= 4 &&
+  stats.local_set_count >= 80 &&
+  stats.local_get_count >= 200 &&
+  stats.call_count >= 80 &&
+  stats.call_count <= 224 &&
+  stats.return_count <= stats.if_count
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_local_churn(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 600 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 1500 &&
+  stats.if_count >= 96 &&
+  stats.local_set_count >= 384 &&
+  stats.local_get_count >= 768 &&
+  stats.call_count >= 16 &&
+  stats.call_count <= 96 &&
+  stats.return_count <= 4
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+  options : HotPipelineOptions,
+) -> Bool {
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+    Some(@lib.FuncType(_, results)) =>
+      results.length() == 2 &&
+      results[0] == @lib.ValType::i32() &&
+      results[1] == @lib.ValType::i32()
+    None => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_skip_multivalue_call_ladder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  let sparse_call_ladder = stats.locals_count >= 16 &&
+    stats.locals_count <= 512 &&
+    stats.has_structured_control &&
+    stats.exact_tail_count == 0 &&
+    stats.instr_count >= 160 &&
+    stats.if_count >= 12 &&
+    stats.loop_count <= 2 &&
+    stats.local_set_count >= 6 &&
+    stats.local_get_count >= 48 &&
+    stats.local_get_count >= stats.local_set_count * 3 &&
+    stats.call_count >= 24 &&
+    stats.call_count >= stats.if_count &&
+    stats.return_count <= stats.if_count + 12
+  let compact_call_ladder = stats.locals_count >= 32 &&
+    stats.locals_count <= 64 &&
+    stats.has_structured_control &&
+    stats.exact_tail_count == 0 &&
+    stats.instr_count >= 192 &&
+    stats.if_count >= 10 &&
+    stats.if_count <= 24 &&
+    stats.block_count <= 2 &&
+    stats.loop_count == 0 &&
+    stats.local_set_count >= 12 &&
+    stats.local_get_count >= 64 &&
+    stats.local_get_count >= stats.local_set_count * 5 &&
+    stats.call_count >= 32 &&
+    stats.call_count >= stats.if_count * 3 &&
+    stats.return_count <= 4
+  let flat_dense_call_ladder = stats.locals_count >= 96 &&
+    stats.locals_count <= 192 &&
+    stats.has_structured_control &&
+    stats.exact_tail_count == 0 &&
+    stats.instr_count >= 480 &&
+    stats.if_count >= 32 &&
+    stats.block_count == 0 &&
+    stats.loop_count == 0 &&
+    stats.local_set_count >= 48 &&
+    stats.local_get_count >= 160 &&
+    stats.local_get_count >= stats.local_set_count * 2 + 32 &&
+    stats.call_count >= 48 &&
+    stats.call_count >= stats.if_count + 16 &&
+    stats.return_count <= stats.if_count
+  let loop_rich_call_ladder = stats.locals_count >= 160 &&
+    stats.locals_count <= 256 &&
+    stats.has_structured_control &&
+    stats.exact_tail_count == 0 &&
+    stats.instr_count >= 1000 &&
+    stats.if_count >= 48 &&
+    stats.block_count <= 4 &&
+    stats.loop_count <= 4 &&
+    stats.local_set_count >= 96 &&
+    stats.local_get_count >= 384 &&
+    stats.local_get_count >= stats.local_set_count * 3 + 64 &&
+    stats.call_count >= 192 &&
+    stats.call_count >= stats.if_count * 4 &&
+    stats.return_count <= stats.if_count
+  sparse_call_ladder ||
+  compact_call_ladder ||
+  flat_dense_call_ladder ||
+  loop_rich_call_ladder
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_rewrite_pure_call_tails(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  !stats.has_structured_control &&
+  stats.locals_count >= 32 &&
+  stats.instr_count >= 128 &&
+  stats.local_set_count >= 16 &&
+  stats.local_get_count >= 32
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_should_rewrite_structured_pure_call_tails(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.has_structured_control &&
+  stats.locals_count >= 128 &&
+  stats.instr_count >= 256 &&
+  stats.local_set_count >= 24 &&
+  stats.local_get_count >= 48
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_func_env(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_ctx : @ir.HotModuleContext,
+  locals : @lib.Locals,
+) -> @validate.Env {
+  match @ir.hot_module_resolve_func_type(module_ctx, func_idx) {
+    Some(@lib.FuncType(params, results)) => {
+      let all_locals = @lib.Locals::from_types(params)
+      all_locals.append(locals)
+      @validate.Env::new()
+      .with_module(mod_)
+      .with_locals(all_locals)
+      .with_return_type(Some(results))
+    }
+    None =>
+      abort(
+        "hot pipeline raw simplify-locals rewrite requires the function type to resolve",
+      )
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_take_value_suffix(
+  instrs : Array[@lib.Instruction],
+  count : Int,
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
+  if count <= 0 {
+    return (instrs.copy(), [])
+  }
+  let mut start = instrs.length() - 1
+  while start >= 0 {
+    let suffix : Array[@lib.Instruction] = []
+    for idx = start; idx < instrs.length(); idx = idx + 1 {
+      suffix.push(instrs[idx])
+    }
+    let init_state = @validate.make_state(env, [])
+    match @validate.Typecheck::typecheck(@lib.Expr::new(suffix), init_state) {
+      Ok(state) =>
+        if state.reachable &&
+          state.escape == @validate.tc_escape_none() &&
+          state.stack.length() == count {
+          let head : Array[@lib.Instruction] = []
+          for idx = 0; idx < start; idx = idx + 1 {
+            head.push(instrs[idx])
+          }
+          return (head, suffix)
+        }
+      Err(_) => ()
+    }
+    start = start - 1
+  }
+  (instrs.copy(), [])
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.I32Const(_)
+    | @lib.I64Const(_)
+    | @lib.F32Const(_)
+    | @lib.F64Const(_)
+    | @lib.LocalGet(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_instr_source_local(
+  instr : @lib.Instruction,
+) -> Int? {
+  match instr {
+    @lib.LocalGet(@lib.LocalIdx(raw)) => Some(raw.reinterpret_as_int())
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_instr_is_call_like(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Call(_) | @lib.CallIndirect(_, _) | @lib.CallRef(_) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_instr_is_structured(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Block(_, @lib.Expr(_))
+    | @lib.Loop(_, @lib.Expr(_))
+    | @lib.If(_, _, _)
+    | @lib.TryTable(_, _, @lib.Expr(_)) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Return
+    | @lib.ReturnCall(_)
+    | @lib.ReturnCallIndirect(_, _)
+    | @lib.ReturnCallRef(_)
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Unreachable
+    | @lib.Br(_)
+    | @lib.BrIf(_)
+    | @lib.BrTable(_, _) => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_instr_writes_local(
+  instr : @lib.Instruction,
+  local_id : Int,
+) -> Bool {
+  match instr {
+    @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) =>
+      raw.reinterpret_as_int() == local_id
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut idx = 0
+  let mut rewrite_count = 0
+  while idx < instrs.length() {
+    let mut rewritten_here = false
+    if idx + 3 < instrs.length() &&
+      run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
+        instrs[idx],
+      ) {
+      match instrs[idx + 1] {
+        @lib.LocalSet(@lib.LocalIdx(target_raw)) => {
+          let target_local = target_raw.reinterpret_as_int()
+          let producer_source = run_hot_pipeline_raw_simplify_locals_instr_source_local(
+            instrs[idx],
+          )
+          let mut use_idx = idx + 2
+          let mut blocked = false
+          let mut found_use = false
+          while use_idx + 1 < instrs.length() && !blocked && !found_use {
+            let instr = instrs[use_idx]
+            if run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
+              run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(
+                instr,
+              ) {
+              blocked = true
+            } else if run_hot_pipeline_raw_simplify_locals_instr_writes_local(
+                instr, target_local,
+              ) {
+              blocked = true
+            } else {
+              match producer_source {
+                Some(source_local) =>
+                  if run_hot_pipeline_raw_simplify_locals_instr_writes_local(
+                      instr, source_local,
+                    ) {
+                    blocked = true
+                  }
+                None => ()
+              }
+            }
+            if !blocked {
+              match instr {
+                @lib.LocalGet(@lib.LocalIdx(raw)) =>
+                  if raw.reinterpret_as_int() == target_local {
+                    if run_hot_pipeline_raw_simplify_locals_instr_is_call_like(
+                        instrs[use_idx + 1],
+                      ) &&
+                      !run_hot_pipeline_raw_instrs_have_later_local_read(
+                        instrs,
+                        use_idx + 2,
+                        target_local,
+                      ) {
+                      found_use = true
+                    } else {
+                      blocked = true
+                    }
+                  }
+                _ => ()
+              }
+            }
+            if !blocked && !found_use {
+              use_idx = use_idx + 1
+            }
+          }
+          if found_use {
+            for middle_idx = idx + 2
+                middle_idx < use_idx
+                middle_idx = middle_idx + 1 {
+              rewritten.push(instrs[middle_idx])
+            }
+            rewritten.push(instrs[idx])
+            rewrite_count = rewrite_count + 1
+            idx = use_idx + 1
+            rewritten_here = true
+          }
+        }
+        _ => ()
+      }
+    }
+    if !rewritten_here {
+      rewritten.push(instrs[idx])
+      idx = idx + 1
+    }
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_try_rewrite_tail(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Int) {
+  match run_hot_pipeline_raw_simplify_locals_match_tail_local_get(instrs) {
+    Some((set_idx, status, tail_has_return)) => {
+      let producer_instrs : Array[@lib.Instruction] = []
+      for idx = 0; idx < set_idx; idx = idx + 1 {
+        producer_instrs.push(instrs[idx])
+      }
+      let (head, suffix) = run_hot_pipeline_raw_simplify_locals_take_value_suffix(
+        producer_instrs, 1, env,
+      )
+      if suffix.length() == 0 {
+        return (instrs, 0)
+      }
+      let rewritten : Array[@lib.Instruction] = []
+      for instr in head {
+        rewritten.push(instr)
+      }
+      rewritten.push(@lib.Instruction::i32_const(status))
+      for instr in suffix {
+        rewritten.push(instr)
+      }
+      if tail_has_return {
+        rewritten.push(@lib.Instruction::return_())
+      }
+      (rewritten, 1)
+    }
+    None => (instrs, 0)
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
+          then_body, env,
+        )
+        rewrite_count = rewrite_count + then_rewrites
+        let rewritten_else = match else_body {
+          Some(else_body) => {
+            let (rewritten_else, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
+              else_body, env,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        normalized.push(
+          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
+        )
+      }
+      _ => normalized.push(instr)
+    }
+  }
+  let (pure_call_tail_rewritten, pure_call_tail_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
+    normalized,
+  )
+  let (rewritten, tail_rewrites) = run_hot_pipeline_raw_simplify_locals_try_rewrite_tail(
+    pure_call_tail_rewritten, env,
+  )
+  (rewritten, rewrite_count + pure_call_tail_rewrites + tail_rewrites)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+  descriptor : @ir.HotPassDescriptor,
+  options : HotPipelineOptions,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "simplify-locals" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let @lib.Func(locals, @lib.Expr(instrs)) = original
+  let should_rewrite_ladder = run_hot_pipeline_raw_simplify_locals_should_rewrite_ladder(
+    locals, instrs,
+  )
+  if run_hot_pipeline_raw_simplify_locals_should_rewrite_pure_call_tails(
+      locals, instrs,
+    ) {
+    let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
+      instrs,
+    )
+    if rewrite_count > 0 {
+      return Some({
+        reason: "straight-line-pure-copy-call-tail",
+        func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+        unchanged_original: false,
+        trace_skip_raw: true,
+      })
+    }
+  }
+  if !should_rewrite_ladder {
+    if run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
+        mod_, func_idx, module_state, options,
+      ) &&
+      run_hot_pipeline_raw_simplify_locals_should_skip_multivalue_call_ladder(
+        locals, instrs,
+      ) {
+      return Some({
+        reason: "multivalue-call-heavy-ladder",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_simplify_locals_should_skip_validator_structured_call_heavy(
+        locals, instrs,
+      ) {
+      return Some({
+        reason: "validator-structured-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_simplify_locals_should_skip_parser_structured_call_heavy(
+        locals, instrs,
+      ) {
+      return Some({
+        reason: "parser-structured-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_simplify_locals_should_skip_transformer_structured_call_heavy(
+        locals, instrs,
+      ) {
+      return Some({
+        reason: "transformer-structured-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_simplify_locals_should_skip_small_loop_call_heavy(
+        locals, instrs,
+      ) {
+      return Some({
+        reason: "small-loop-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_simplify_locals_should_skip_medium_structured_call_heavy(
+        locals, instrs,
+      ) {
+      return Some({
+        reason: "medium-structured-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_simplify_locals_should_skip_loop_heavy_structured_call_heavy(
+        locals, instrs,
+      ) {
+      return Some({
+        reason: "loop-heavy-structured-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_call_heavy(
+        locals, instrs,
+      ) {
+      return Some({
+        reason: "giant-structured-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_local_churn(
+        locals, instrs,
+      ) {
+      return Some({
+        reason: "giant-structured-local-churn",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_simplify_locals_should_skip_giant_func(
+        locals, instrs,
+      ) {
+      return Some({
+        reason: "giant-local-func-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if run_hot_pipeline_raw_simplify_locals_should_rewrite_structured_pure_call_tails(
+        locals, instrs,
+      ) {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let env = run_hot_pipeline_raw_simplify_locals_func_env(
+        mod_, func_idx, module_ctx, locals,
+      )
+      let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
+        instrs, env,
+      )
+      if rewrite_count >= 16 {
+        return Some({
+          reason: "structured-pure-copy-call-tail",
+          func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+          unchanged_original: false,
+          trace_skip_raw: true,
+        })
+      }
+    }
+    return None
+  }
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  let env = run_hot_pipeline_raw_simplify_locals_func_env(
+    mod_, func_idx, module_ctx, locals,
+  )
+  let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
+    instrs, env,
+  )
+  if rewrite_count == 0 {
+    return None
+  }
+  Some({
+    reason: "multivalue-tail-local-get-ladder",
+    func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
+    unchanged_original: false,
+    trace_skip_raw: true,
+  })
+}
+
+///|
 fn run_hot_pipeline_dce_raw_has_early_terminator(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -3990,6 +4959,104 @@ fn run_hot_pipeline_precompute_writeback_validates(
 }
 
 ///|
+fn run_hot_pipeline_skip_invalid_lower_reason(
+  current_mod : @lib.Module,
+  validation_mod : @lib.Module,
+  code_idx : Int,
+  descriptor_name : String,
+  result : HotPipelineFuncResult,
+) -> String? {
+  if result.unchanged_original {
+    return None
+  }
+  if descriptor_name == "precompute" {
+    if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+        result.func,
+      ) {
+      return Some("invalid-escape-carrier")
+    }
+    return match
+      run_hot_pipeline_precompute_writeback_validation_error(
+        validation_mod,
+        code_idx,
+        result.func,
+      ) {
+      Some(msg) => Some("writeback-validate:\{msg}")
+      None => None
+    }
+  }
+  if descriptor_name == "dead-code-elimination" {
+    if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+        result.func,
+      ) {
+      return Some("invalid-escape-carrier")
+    }
+    if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(result.func) {
+      return Some("suspicious-escape-carrier")
+    }
+    if run_hot_pipeline_lowered_func_exceeds_local_limit(result.func) {
+      return Some("local-limit")
+    }
+    return match
+      run_hot_pipeline_precompute_writeback_validation_error(
+        validation_mod,
+        code_idx,
+        result.func,
+      ) {
+      Some(msg) => Some("writeback-validate:\{msg}")
+      None => None
+    }
+  }
+  if descriptor_name == "simplify-locals" {
+    if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+        result.func,
+      ) {
+      return Some("invalid-escape-carrier")
+    }
+    return match
+      run_hot_pipeline_precompute_writeback_validation_error(
+        validation_mod,
+        code_idx,
+        result.func,
+      ) {
+      Some(msg) => Some("writeback-validate:\{msg}")
+      None => None
+    }
+  }
+  if descriptor_name == "remove-unused-brs" {
+    return match
+      run_hot_pipeline_precompute_writeback_validation_error(
+        validation_mod,
+        code_idx,
+        result.func,
+      ) {
+      Some(msg) => Some("writeback-validate:\{msg}")
+      None => None
+    }
+  }
+  if descriptor_name == "ssa-nomerge" {
+    if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
+        result.func,
+      ) {
+      return Some("invalid-escape-carrier")
+    }
+    if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(result.func) {
+      return Some("suspicious-escape-carrier")
+    }
+    return match
+      run_hot_pipeline_precompute_writeback_validation_error(
+        current_mod,
+        code_idx,
+        result.func,
+      ) {
+      Some(msg) => Some("writeback-validate:\{msg}")
+      None => None
+    }
+  }
+  None
+}
+
+///|
 fn run_hot_pipeline_precompute_branch_depth(instr : @lib.Instruction) -> Int? {
   match instr {
     @lib.Instruction::Br(label_idx) => {
@@ -4252,81 +5319,13 @@ fn run_hot_pipeline_apply_hot_pass(
         } else {
           current_mod
         }
-        let skip_invalid_lower_reason : String? = if result.unchanged_original {
-          None
-        } else if descriptor.name == "precompute" {
-          if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-              result.func,
-            ) {
-            Some("invalid-escape-carrier")
-          } else {
-            match
-              run_hot_pipeline_precompute_writeback_validation_error(
-                validation_mod,
-                code_idx,
-                result.func,
-              ) {
-              Some(msg) => Some("writeback-validate:\{msg}")
-              None => None
-            }
-          }
-        } else if descriptor.name == "dead-code-elimination" {
-          if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-              result.func,
-            ) {
-            Some("invalid-escape-carrier")
-          } else if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
-              result.func,
-            ) {
-            Some("suspicious-escape-carrier")
-          } else if run_hot_pipeline_lowered_func_exceeds_local_limit(
-              result.func,
-            ) {
-            Some("local-limit")
-          } else {
-            match
-              run_hot_pipeline_precompute_writeback_validation_error(
-                validation_mod,
-                code_idx,
-                result.func,
-              ) {
-              Some(msg) => Some("writeback-validate:\{msg}")
-              None => None
-            }
-          }
-        } else if descriptor.name == "ssa-nomerge" {
-          if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-              result.func,
-            ) {
-            Some("invalid-escape-carrier")
-          } else if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
-              result.func,
-            ) {
-            Some("suspicious-escape-carrier")
-          } else {
-            match
-              run_hot_pipeline_precompute_writeback_validation_error(
-                mod_,
-                code_idx,
-                result.func,
-              ) {
-              Some(msg) => Some("writeback-validate:\{msg}")
-              None => None
-            }
-          }
-        } else if descriptor.name == "remove-unused-brs" {
-          match
-            run_hot_pipeline_precompute_writeback_validation_error(
-              validation_mod,
-              code_idx,
-              result.func,
-            ) {
-            Some(msg) => Some("writeback-validate:\{msg}")
-            None => None
-          }
-        } else {
-          None
-        }
+        let skip_invalid_lower_reason = run_hot_pipeline_skip_invalid_lower_reason(
+          current_mod,
+          validation_mod,
+          code_idx,
+          descriptor.name,
+          result,
+        )
         if skip_invalid_lower_reason != None {
           pipeline_trace_hook(
             options.trace,

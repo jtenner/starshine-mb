@@ -19,8 +19,8 @@ pub fn simplify_locals_summary() -> String {
 ///|
 priv struct SimplifyLocalsEffects {
   mask : @ir.EffectMask
-  local_reads : Array[Bool]
-  local_writes : Array[Bool]
+  local_reads : Array[Int]
+  local_writes : Array[Int]
 }
 
 ///|
@@ -34,6 +34,12 @@ priv struct SimplifyLocalsSinkables {
   entries : Array[SimplifyLocalsSinkableInfo?]
   active_pos : Array[Int]
   active_locals : Array[Int]
+  effect_bit_counts : Array[Int]
+  local_read_counts : Array[Int]
+  local_write_counts : Array[Int]
+  scratch_local_read_stamps : Array[Int]
+  scratch_local_write_stamps : Array[Int]
+  mut next_scratch_stamp : Int
 }
 
 ///|
@@ -60,7 +66,212 @@ fn simplify_locals_new_sinkables(func : @ir.HotFunc) -> SimplifyLocalsSinkables 
     entries: Array::make(@ir.hot_local_count(func), None),
     active_pos: Array::make(@ir.hot_local_count(func), -1),
     active_locals: [],
+    effect_bit_counts: Array::make(10, 0),
+    local_read_counts: Array::make(@ir.hot_local_count(func), 0),
+    local_write_counts: Array::make(@ir.hot_local_count(func), 0),
+    scratch_local_read_stamps: Array::make(@ir.hot_local_count(func), 0),
+    scratch_local_write_stamps: Array::make(@ir.hot_local_count(func), 0),
+    next_scratch_stamp: 1,
   }
+}
+
+///|
+fn simplify_locals_accumulate_effect_mask_counts(
+  counts : Array[Int],
+  mask : @ir.EffectMask,
+  delta : Int,
+) -> Unit {
+  let mut bit = 1U
+  let mut idx = 0
+  while idx < counts.length() {
+    if (mask & bit) != 0U {
+      counts[idx] = counts[idx] + delta
+    }
+    bit = bit << 1
+    idx = idx + 1
+  }
+}
+
+///|
+fn simplify_locals_accumulate_local_effect_counts(
+  counts : Array[Int],
+  effects : Array[Int],
+  delta : Int,
+) -> Unit {
+  for local_id in effects {
+    if local_id >= 0 && local_id < counts.length() {
+      counts[local_id] = counts[local_id] + delta
+    }
+  }
+}
+
+///|
+fn simplify_locals_sinkables_add_effects(
+  sinkables : SimplifyLocalsSinkables,
+  effects : SimplifyLocalsEffects,
+) -> Unit {
+  simplify_locals_accumulate_effect_mask_counts(
+    sinkables.effect_bit_counts,
+    effects.mask,
+    1,
+  )
+  simplify_locals_accumulate_local_effect_counts(
+    sinkables.local_read_counts,
+    effects.local_reads,
+    1,
+  )
+  simplify_locals_accumulate_local_effect_counts(
+    sinkables.local_write_counts,
+    effects.local_writes,
+    1,
+  )
+}
+
+///|
+fn simplify_locals_sinkables_remove_effects(
+  sinkables : SimplifyLocalsSinkables,
+  effects : SimplifyLocalsEffects,
+) -> Unit {
+  simplify_locals_accumulate_effect_mask_counts(
+    sinkables.effect_bit_counts,
+    effects.mask,
+    -1,
+  )
+  simplify_locals_accumulate_local_effect_counts(
+    sinkables.local_read_counts,
+    effects.local_reads,
+    -1,
+  )
+  simplify_locals_accumulate_local_effect_counts(
+    sinkables.local_write_counts,
+    effects.local_writes,
+    -1,
+  )
+}
+
+///|
+fn simplify_locals_sinkables_have_effect(
+  sinkables : SimplifyLocalsSinkables,
+  bit : @ir.EffectMask,
+) -> Bool {
+  let mut mask_bit = 1U
+  let mut idx = 0
+  while idx < sinkables.effect_bit_counts.length() {
+    if mask_bit == bit {
+      return sinkables.effect_bit_counts[idx] > 0
+    }
+    mask_bit = mask_bit << 1
+    idx = idx + 1
+  }
+  false
+}
+
+///|
+fn simplify_locals_sinkables_may_conflict(
+  sinkables : SimplifyLocalsSinkables,
+  rhs_mask : @ir.EffectMask,
+  rhs_local_read : Int,
+  rhs_local_write : Int,
+) -> Bool {
+  if sinkables.active_locals.is_empty() || rhs_mask == 0U {
+    return false
+  }
+
+  if simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_CALL) ||
+    simplify_locals_effects_has(
+      rhs_mask,
+      @ir.EFFECT_MASK_CONTROL | @ir.EFFECT_MASK_THROW | @ir.EFFECT_MASK_TRAP,
+    ) {
+    return true
+  }
+
+  if simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_LOCAL_STATE) {
+    if rhs_local_read >= 0 &&
+      rhs_local_read < sinkables.local_write_counts.length() &&
+      sinkables.local_write_counts[rhs_local_read] > 0 {
+      return true
+    }
+    if rhs_local_write >= 0 &&
+      rhs_local_write < sinkables.local_read_counts.length() &&
+      (
+        sinkables.local_read_counts[rhs_local_write] > 0 ||
+        sinkables.local_write_counts[rhs_local_write] > 0
+      ) {
+      return true
+    }
+  }
+
+  if simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_GLOBAL_STATE) &&
+    simplify_locals_sinkables_have_effect(
+      sinkables,
+      @ir.EFFECT_MASK_GLOBAL_STATE,
+    ) {
+    return true
+  }
+
+  let rhs_reads_memory = simplify_locals_effects_has(
+    rhs_mask,
+    @ir.EFFECT_MASK_MEMORY_READ,
+  )
+  let rhs_writes_memory = simplify_locals_effects_has(
+    rhs_mask,
+    @ir.EFFECT_MASK_MEMORY_WRITE,
+  )
+  if (
+      rhs_reads_memory &&
+      simplify_locals_sinkables_have_effect(
+        sinkables,
+        @ir.EFFECT_MASK_MEMORY_WRITE,
+      )
+    ) ||
+    (
+      rhs_writes_memory &&
+      (
+        simplify_locals_sinkables_have_effect(
+          sinkables,
+          @ir.EFFECT_MASK_MEMORY_READ,
+        ) ||
+        simplify_locals_sinkables_have_effect(
+          sinkables,
+          @ir.EFFECT_MASK_MEMORY_WRITE,
+        )
+      )
+    ) {
+    return true
+  }
+
+  let rhs_reads_table = simplify_locals_effects_has(
+    rhs_mask,
+    @ir.EFFECT_MASK_TABLE_READ,
+  )
+  let rhs_writes_table = simplify_locals_effects_has(
+    rhs_mask,
+    @ir.EFFECT_MASK_TABLE_WRITE,
+  )
+  if (
+      rhs_reads_table &&
+      simplify_locals_sinkables_have_effect(
+        sinkables,
+        @ir.EFFECT_MASK_TABLE_WRITE,
+      )
+    ) ||
+    (
+      rhs_writes_table &&
+      (
+        simplify_locals_sinkables_have_effect(
+          sinkables,
+          @ir.EFFECT_MASK_TABLE_READ,
+        ) ||
+        simplify_locals_sinkables_have_effect(
+          sinkables,
+          @ir.EFFECT_MASK_TABLE_WRITE,
+        )
+      )
+    ) {
+    return true
+  }
+
+  false
 }
 
 ///|
@@ -86,8 +297,15 @@ fn simplify_locals_sinkables_set(
   if sinkables.active_pos[local_id] < 0 {
     sinkables.active_pos[local_id] = sinkables.active_locals.length()
     sinkables.active_locals.push(local_id)
+  } else {
+    match sinkables.entries[local_id] {
+      Some(previous) =>
+        simplify_locals_sinkables_remove_effects(sinkables, previous.effects)
+      None => ()
+    }
   }
   sinkables.entries[local_id] = Some(info)
+  simplify_locals_sinkables_add_effects(sinkables, info.effects)
 }
 
 ///|
@@ -100,6 +318,11 @@ fn simplify_locals_sinkables_clear_local(
   }
   let pos = sinkables.active_pos[local_id]
   if pos >= 0 {
+    match sinkables.entries[local_id] {
+      Some(info) =>
+        simplify_locals_sinkables_remove_effects(sinkables, info.effects)
+      None => ()
+    }
     let last_local = sinkables.active_locals.pop().unwrap()
     if last_local != local_id {
       sinkables.active_locals[pos] = last_local
@@ -111,34 +334,88 @@ fn simplify_locals_sinkables_clear_local(
 }
 
 ///|
+fn simplify_locals_sinkables_should_bulk_clear(
+  sinkables : SimplifyLocalsSinkables,
+) -> Bool {
+  sinkables.active_locals.length() * 4 >= sinkables.local_read_counts.length()
+}
+
+///|
+fn simplify_locals_sinkables_zero_aggregate_counts(
+  sinkables : SimplifyLocalsSinkables,
+) -> Unit {
+  for idx = 0; idx < sinkables.effect_bit_counts.length(); idx = idx + 1 {
+    sinkables.effect_bit_counts[idx] = 0
+  }
+  for idx = 0; idx < sinkables.local_read_counts.length(); idx = idx + 1 {
+    sinkables.local_read_counts[idx] = 0
+    sinkables.local_write_counts[idx] = 0
+  }
+}
+
+///|
 fn simplify_locals_clear_sinkables(sinkables : SimplifyLocalsSinkables) -> Unit {
+  if simplify_locals_sinkables_should_bulk_clear(sinkables) {
+    while !sinkables.active_locals.is_empty() {
+      let local_id = sinkables.active_locals.pop().unwrap()
+      sinkables.entries[local_id] = None
+      sinkables.active_pos[local_id] = -1
+    }
+    simplify_locals_sinkables_zero_aggregate_counts(sinkables)
+    return
+  }
   while !sinkables.active_locals.is_empty() {
     let local_id = sinkables.active_locals.pop().unwrap()
+    match sinkables.entries[local_id] {
+      Some(info) =>
+        simplify_locals_sinkables_remove_effects(sinkables, info.effects)
+      None => ()
+    }
     sinkables.entries[local_id] = None
     sinkables.active_pos[local_id] = -1
   }
 }
 
 ///|
-fn simplify_locals_new_local_effect_bits(func : @ir.HotFunc) -> Array[Bool] {
-  Array::make(@ir.hot_local_count(func), false)
+fn simplify_locals_empty_effects() -> SimplifyLocalsEffects {
+  { mask: 0U, local_reads: [], local_writes: [] }
 }
 
 ///|
-fn simplify_locals_empty_effects(func : @ir.HotFunc) -> SimplifyLocalsEffects {
-  {
-    mask: 0U,
-    local_reads: simplify_locals_new_local_effect_bits(func),
-    local_writes: simplify_locals_new_local_effect_bits(func),
+fn simplify_locals_next_scratch_stamp(
+  sinkables : SimplifyLocalsSinkables,
+) -> Int {
+  let stamp = sinkables.next_scratch_stamp
+  sinkables.next_scratch_stamp = stamp + 1
+  stamp
+}
+
+///|
+fn simplify_locals_record_sparse_local_effect(
+  local_ids : Array[Int],
+  stamps : Array[Int],
+  stamp : Int,
+  local_id : Int,
+) -> Unit {
+  if local_id < 0 || local_id >= stamps.length() {
+    return
   }
+  if stamps[local_id] == stamp {
+    return
+  }
+  stamps[local_id] = stamp
+  local_ids.push(local_id)
 }
 
 ///|
 fn simplify_locals_record_exact_local_effects(
   func : @ir.HotFunc,
   node_id : Int,
-  local_reads : Array[Bool],
-  local_writes : Array[Bool],
+  local_reads : Array[Int],
+  local_writes : Array[Int],
+  read_stamps : Array[Int],
+  write_stamps : Array[Int],
+  stamp : Int,
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return
@@ -146,13 +423,19 @@ fn simplify_locals_record_exact_local_effects(
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::LocalGet =>
-      if node.imm0 >= 0 && node.imm0 < local_reads.length() {
-        local_reads[node.imm0] = true
-      }
+      simplify_locals_record_sparse_local_effect(
+        local_reads,
+        read_stamps,
+        stamp,
+        node.imm0,
+      )
     @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
-      if node.imm0 >= 0 && node.imm0 < local_writes.length() {
-        local_writes[node.imm0] = true
-      }
+      simplify_locals_record_sparse_local_effect(
+        local_writes,
+        write_stamps,
+        stamp,
+        node.imm0,
+      )
     _ => ()
   }
 }
@@ -161,19 +444,22 @@ fn simplify_locals_record_exact_local_effects(
 fn simplify_locals_collect_subtree_local_effects(
   func : @ir.HotFunc,
   node_id : Int,
-  local_reads : Array[Bool],
-  local_writes : Array[Bool],
+  local_reads : Array[Int],
+  local_writes : Array[Int],
+  read_stamps : Array[Int],
+  write_stamps : Array[Int],
+  stamp : Int,
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return
   }
   simplify_locals_record_exact_local_effects(
-    func, node_id, local_reads, local_writes,
+    func, node_id, local_reads, local_writes, read_stamps, write_stamps, stamp,
   )
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
     let child_id = @ir.hot_child_get(func, node_id, slot)
     simplify_locals_collect_subtree_local_effects(
-      func, child_id, local_reads, local_writes,
+      func, child_id, local_reads, local_writes, read_stamps, write_stamps, stamp,
     )
   }
 }
@@ -342,8 +628,10 @@ fn simplify_locals_effects_for_pending_local_set(
   func : @ir.HotFunc,
   node_id : Int,
   node : @ir.HotNode,
+  sinkables : SimplifyLocalsSinkables,
 ) -> SimplifyLocalsEffects {
-  let effects = simplify_locals_empty_effects(func)
+  let effects = simplify_locals_empty_effects()
+  let stamp = simplify_locals_next_scratch_stamp(sinkables)
   let value_mask = if node.child_count != 0 {
     @ir.effects_for_node(func, @ir.hot_child_get(func, node_id, 0))
   } else {
@@ -363,11 +651,17 @@ fn simplify_locals_effects_for_pending_local_set(
       @ir.hot_child_get(func, node_id, 0),
       effects.local_reads,
       effects.local_writes,
+      sinkables.scratch_local_read_stamps,
+      sinkables.scratch_local_write_stamps,
+      stamp,
     )
   }
-  if node.imm0 >= 0 && node.imm0 < effects.local_writes.length() {
-    effects.local_writes[node.imm0] = true
-  }
+  simplify_locals_record_sparse_local_effect(
+    effects.local_writes,
+    sinkables.scratch_local_write_stamps,
+    stamp,
+    node.imm0,
+  )
   { ..effects, mask: value_mask | @ir.EFFECT_MASK_LOCAL_STATE }
 }
 
@@ -380,19 +674,32 @@ fn simplify_locals_effects_has(
 }
 
 ///|
+fn simplify_locals_effects_has_local(
+  local_ids : Array[Int],
+  local_id : Int,
+) -> Bool {
+  if local_id < 0 {
+    return false
+  }
+  for current_id in local_ids {
+    if current_id == local_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn simplify_locals_effects_conflict_exact_local(
   lhs : SimplifyLocalsEffects,
   rhs_local_read : Int,
   rhs_local_write : Int,
 ) -> Bool {
-  if rhs_local_read >= 0 &&
-    rhs_local_read < lhs.local_writes.length() &&
-    lhs.local_writes[rhs_local_read] {
+  if simplify_locals_effects_has_local(lhs.local_writes, rhs_local_read) {
     return true
   }
-  if rhs_local_write >= 0 &&
-    rhs_local_write < lhs.local_reads.length() &&
-    (lhs.local_reads[rhs_local_write] || lhs.local_writes[rhs_local_write]) {
+  if simplify_locals_effects_has_local(lhs.local_reads, rhs_local_write) ||
+    simplify_locals_effects_has_local(lhs.local_writes, rhs_local_write) {
     return true
   }
   false
@@ -507,6 +814,23 @@ fn simplify_locals_invalidate_sinkables(
   }
   let effects_local_read = simplify_locals_exact_local_read_id(node)
   let effects_local_write = simplify_locals_exact_local_write_id(node)
+  let clear_all = simplify_locals_effects_has(
+      effects_mask,
+      @ir.EFFECT_MASK_CALL,
+    ) ||
+    simplify_locals_effects_has(
+      effects_mask,
+      @ir.EFFECT_MASK_CONTROL | @ir.EFFECT_MASK_THROW | @ir.EFFECT_MASK_TRAP,
+    )
+  if clear_all && skip_local < 0 {
+    simplify_locals_clear_sinkables(sinkables)
+    return
+  }
+  if !simplify_locals_sinkables_may_conflict(
+      sinkables, effects_mask, effects_local_read, effects_local_write,
+    ) {
+    return
+  }
   let mut idx = 0
   while idx < sinkables.active_locals.length() {
     let local_id = sinkables.active_locals[idx]
@@ -744,6 +1068,15 @@ fn simplify_locals_region_is_unreachableish(
 }
 
 ///|
+fn simplify_locals_control_has_typed_branch_payload(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, node_id)) !=
+  0
+}
+
+///|
 fn simplify_locals_node_targets_label(
   func : @ir.HotFunc,
   node_id : Int,
@@ -977,7 +1310,7 @@ fn simplify_locals_delete_detached_nodes(
       label_owners[node_id] {
       continue
     }
-    @ir.hot_delete_node(func, node_id)
+    @ir.hot_delete_detached_node(func, node_id)
   }
 }
 
@@ -1021,7 +1354,9 @@ fn simplify_locals_record_local_set(
   }
   simplify_locals_sinkables_set(sinkables, local_id, {
     node_id,
-    effects: simplify_locals_effects_for_pending_local_set(func, node_id, node),
+    effects: simplify_locals_effects_for_pending_local_set(
+      func, node_id, node, sinkables,
+    ),
   })
   changed
 }
@@ -1361,69 +1696,139 @@ fn simplify_locals_collect_block_branch_exits(
       continue
     }
     let node = @ir.hot_node_get(func, node_id)
+    if !@ir.hot_node_kind_is_control(func, node_id) {
+      if simplify_locals_subtree_has_branch_to_label(
+          func, node_id, target_label,
+        ) {
+        return false
+      }
+      continue
+    }
     match node.op {
-      @ir.HotOp::Block | @ir.HotOp::Loop =>
-        if !simplify_locals_collect_block_branch_exits(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            target_label,
-            exits,
+      @ir.HotOp::Block | @ir.HotOp::Loop => {
+        let body_ref = @ir.hot_region_body_ref(func, node_id)
+        match node.op {
+          @ir.HotOp::Loop => {
+            let input_count = @ir.hot_label_branch_arity(
+              func,
+              @ir.hot_control_node_label(func, node_id),
+            )
+            for child_idx = 0
+                child_idx < input_count
+                child_idx = child_idx + 1 {
+              if simplify_locals_subtree_has_branch_to_label(
+                  func,
+                  @ir.hot_child_get(func, node_id, child_idx),
+                  target_label,
+                ) {
+                return false
+              }
+            }
+          }
+          _ => ()
+        }
+        if simplify_locals_control_has_typed_branch_payload(func, node_id) &&
+          simplify_locals_region_has_branch_to_label(
+            func, body_ref, target_label,
           ) {
           return false
         }
-      @ir.HotOp::If => {
         if !simplify_locals_collect_block_branch_exits(
+            func, body_ref, target_label, exits,
+          ) {
+          return false
+        }
+      }
+      @ir.HotOp::If => {
+        if simplify_locals_subtree_has_branch_to_label(
             func,
-            @ir.hot_region_then_ref(func, node_id),
+            @ir.hot_child_get(func, node_id, 0),
             target_label,
-            exits,
+          ) {
+          return false
+        }
+        let then_ref = @ir.hot_region_then_ref(func, node_id)
+        if simplify_locals_control_has_typed_branch_payload(func, node_id) &&
+          simplify_locals_region_has_branch_to_label(
+            func, then_ref, target_label,
+          ) {
+          return false
+        }
+        if !simplify_locals_collect_block_branch_exits(
+            func, then_ref, target_label, exits,
           ) {
           return false
         }
         match @ir.hot_region_else_ref(func, node_id) {
-          Some(else_ref) =>
+          Some(else_ref) => {
+            if simplify_locals_control_has_typed_branch_payload(func, node_id) &&
+              simplify_locals_region_has_branch_to_label(
+                func, else_ref, target_label,
+              ) {
+              return false
+            }
             if !simplify_locals_collect_block_branch_exits(
                 func, else_ref, target_label, exits,
               ) {
               return false
             }
+          }
           None => ()
         }
       }
       @ir.HotOp::Try => {
+        let body_ref = @ir.hot_region_body_ref(func, node_id)
+        if simplify_locals_control_has_typed_branch_payload(func, node_id) &&
+          simplify_locals_region_has_branch_to_label(
+            func, body_ref, target_label,
+          ) {
+          return false
+        }
         if !simplify_locals_collect_block_branch_exits(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            target_label,
-            exits,
+            func, body_ref, target_label, exits,
           ) {
           return false
         }
         match @ir.hot_region_catch_ref(func, node_id) {
-          Some(catch_ref) =>
+          Some(catch_ref) => {
+            if simplify_locals_control_has_typed_branch_payload(func, node_id) &&
+              simplify_locals_region_has_branch_to_label(
+                func, catch_ref, target_label,
+              ) {
+              return false
+            }
             if !simplify_locals_collect_block_branch_exits(
                 func, catch_ref, target_label, exits,
               ) {
               return false
             }
+          }
           None => ()
         }
       }
-      @ir.HotOp::TryTable =>
-        if !simplify_locals_collect_block_branch_exits(
-            func,
-            @ir.hot_region_body_ref(func, node_id),
-            target_label,
-            exits,
-          ) ||
-          !simplify_locals_collect_block_branch_exits(
-            func,
-            @ir.hot_region_catch_list_ref(func, node_id),
-            target_label,
-            exits,
+      @ir.HotOp::TryTable => {
+        let body_ref = @ir.hot_region_body_ref(func, node_id)
+        let catch_list_ref = @ir.hot_region_catch_list_ref(func, node_id)
+        if simplify_locals_control_has_typed_branch_payload(func, node_id) &&
+          (
+            simplify_locals_region_has_branch_to_label(
+              func, body_ref, target_label,
+            ) ||
+            simplify_locals_region_has_branch_to_label(
+              func, catch_list_ref, target_label,
+            )
           ) {
           return false
         }
+        if !simplify_locals_collect_block_branch_exits(
+            func, body_ref, target_label, exits,
+          ) ||
+          !simplify_locals_collect_block_branch_exits(
+            func, catch_list_ref, target_label, exits,
+          ) {
+          return false
+        }
+      }
       _ => ()
     }
   }
@@ -1510,6 +1915,57 @@ fn simplify_locals_region_has_branch_to_label(
 }
 
 ///|
+fn simplify_locals_subtree_has_branch_to_label(
+  func : @ir.HotFunc,
+  node_id : Int,
+  target_label : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if simplify_locals_node_targets_label(func, node_id, target_label) {
+    return true
+  }
+  for child_idx = 0
+      child_idx < @ir.hot_child_count(func, node_id)
+      child_idx = child_idx + 1 {
+    if simplify_locals_subtree_has_branch_to_label(
+        func,
+        @ir.hot_child_get(func, node_id, child_idx),
+        target_label,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn simplify_locals_subtree_has_typed_control(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if @ir.hot_node_kind_is_control(func, node_id) &&
+    @ir.hot_node_result_arity(func, node_id) != 0 {
+    return true
+  }
+  for child_idx = 0
+      child_idx < @ir.hot_child_count(func, node_id)
+      child_idx = child_idx + 1 {
+    if simplify_locals_subtree_has_typed_control(
+        func,
+        @ir.hot_child_get(func, node_id, child_idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn simplify_locals_try_rewrite_block_return(
   func : @ir.HotFunc,
   parent_region : @ir.HotRegionRef,
@@ -1540,12 +1996,20 @@ fn simplify_locals_try_rewrite_block_return(
     get_counts[fallthrough.local_id] == 0 {
     return false
   }
+  let label_id = @ir.hot_control_node_label(func, node_id)
+  if simplify_locals_subtree_has_branch_to_label(
+      func,
+      fallthrough.value_id,
+      label_id,
+    ) {
+    return false
+  }
+  if simplify_locals_subtree_has_typed_control(func, fallthrough.value_id) {
+    return false
+  }
   let exits : Array[SimplifyLocalsBranchExit] = []
   if !simplify_locals_collect_block_branch_exits(
-      func,
-      body_ref,
-      @ir.hot_control_node_label(func, node_id),
-      exits,
+      func, body_ref, label_id, exits,
     ) ||
     exits.is_empty() {
     return false
@@ -1664,6 +2128,22 @@ fn simplify_locals_try_rewrite_if_return(
       } else {
         then_tail.unwrap().value_id
       }
+      if (
+          !then_unreachable &&
+          simplify_locals_subtree_has_typed_control(
+            func,
+            then_tail.unwrap().value_id,
+          )
+        ) ||
+        (
+          !else_unreachable &&
+          simplify_locals_subtree_has_typed_control(
+            func,
+            else_tail.unwrap().value_id,
+          )
+        ) {
+        return false
+      }
       if !then_unreachable {
         let tail = then_tail.unwrap()
         ignore(@ir.hot_region_set(func, then_ref, tail.root_idx, tail.value_id))
@@ -1704,6 +2184,9 @@ fn simplify_locals_try_rewrite_if_return(
         then_tail.local_id >= get_counts.length() ||
         get_counts[then_tail.local_id] == 0 ||
         !simplify_locals_local_type_is_defaultable(func, then_tail.local_id) {
+        return false
+      }
+      if simplify_locals_subtree_has_typed_control(func, then_tail.value_id) {
         return false
       }
       ignore(
@@ -2439,6 +2922,32 @@ fn simplify_locals_run_equivalent_cleanup(
 }
 
 ///|
+fn simplify_locals_has_equivalent_candidate(func : @ir.HotFunc) -> Bool {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+        if @ir.hot_child_count(func, node_id) == 0 {
+          continue
+        }
+        let value_id = @ir.hot_child_get(func, node_id, 0)
+        if value_id >= 0 && @ir.hot_node_is_live(func, value_id) {
+          match @ir.hot_node_get(func, value_id).op {
+            @ir.HotOp::LocalGet => return true
+            _ => ()
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn simplify_locals_run_dead_cleanup(
   func : @ir.HotFunc,
   detached : Array[Int],
@@ -2611,6 +3120,11 @@ fn simplify_locals_run(
     if structure_changed {
       changed = true
       continue
+    }
+
+    if @ir.hot_local_count(func) >= 96 ||
+      !simplify_locals_has_equivalent_candidate(func) {
+      break
     }
 
     let equivalent_start_us = perf_start_timer_opt(
