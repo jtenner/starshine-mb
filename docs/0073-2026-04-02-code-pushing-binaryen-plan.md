@@ -435,6 +435,13 @@
   parent-escape crossed-gap carrier does too. So the crossed-gap tail itself is
   no longer the distinguishing ingredient; the remaining unsafe rewrite sits
   upstream in the transition that makes the parent `err` block result-producing.
+- On the performance side, a fresh live native stack sample no longer landed in
+  the recursive owner-exit walk first. It hit `cp_region_roots_copy` through
+  repeated `hot_region_get` / holder lookup instead. Deferring that copy until
+  a rewrite candidate actually survives `cp_try_push_to_pushpoint` moved the
+  native debug-artifact path from the last `28.597s` sample down to `26.373s`
+  and `26.904s`. That is still far from Binaryen, but it confirms whole-region
+  root copies are another real hot cost on the current path.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the
   special walk to zero-result `Block` roots only, both regressed the existing

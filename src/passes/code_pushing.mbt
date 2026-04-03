@@ -32,6 +32,7 @@ priv struct CpSummaryCache {
   local_count : Int
   global_count : Int
   live_nodes : Array[Bool]
+  owner_exit_active_marks : Array[Bool]
   ready : Array[Bool]
   summaries : Array[CpEffectSummary]
   explicit_exit_ready : Array[Bool]
@@ -226,6 +227,7 @@ fn cp_new_summary_cache(func : @ir.HotFunc) -> CpSummaryCache {
     local_count,
     global_count,
     live_nodes,
+    owner_exit_active_marks: Array::make(node_count, false),
     ready,
     summaries,
     explicit_exit_ready: Array::make(node_count, false),
@@ -883,11 +885,12 @@ fn cp_block_root_has_only_self_and_dropped_owner_exits(
     has_dropped_owner_exit: false,
     has_unsafe_explicit_exit: false,
   }
-  let active_owner_marks = Array::make(@ir.hot_node_count(func), false)
+  let active_owner_marks = cache.owner_exit_active_marks
   active_owner_marks[root_id] = true
   cp_collect_block_owner_exit_summary(
     cache, func, root_id, root_id, active_owner_marks, dropped_region_owner_id, summary,
   )
+  active_owner_marks[root_id] = false
   let result = summary.has_dropped_owner_exit &&
     !summary.has_unsafe_explicit_exit
   let should_guard = (
@@ -1491,32 +1494,31 @@ fn cp_try_push_to_pushpoint(
   if target_idx <= 0 {
     return false
   }
-  let roots = cp_region_roots_copy(func, region_ref)
+  let root_count = @ir.hot_region_root_count(func, region_ref)
   if cp_region_has_nonvoid_result(func, region_ref) &&
     cp_nonvoid_prefix_has_explicit_exit_guard(
       cache, func, region_ref, target_idx,
     ) {
     return false
   }
-  let target_if_id = cp_root_if_pushpoint_id(func, roots[target_idx])
+  let target_root_id = @ir.hot_region_get(func, region_ref, target_idx)
+  let target_if_id = cp_root_if_pushpoint_id(func, target_root_id)
   match target_if_id {
     Some(if_id) if cp_node_has_nonvoid_result(func, if_id) => return false
     _ => ()
   }
-  if !cp_root_is_pushpoint(func, roots[target_idx]) {
+  if !cp_root_is_pushpoint(func, target_root_id) {
     return false
   }
   let barrier = cp_new_barrier_summary(cache.local_count, cache.global_count)
-  let movable = Array::make(roots.length(), false)
-  let move_after_target = Array::make(roots.length(), false)
+  let movable = Array::make(root_count, false)
+  let move_after_target = Array::make(root_count, false)
   let pushpoint_summary = cp_effect_summary_for_node(
-    cache,
-    func,
-    roots[target_idx],
+    cache, func, target_root_id,
   )
   let mut scan = target_idx - 1
   while scan >= 0 {
-    let root_id = roots[scan]
+    let root_id = @ir.hot_region_get(func, region_ref, scan)
     let root_summary = cp_effect_summary_for_node(cache, func, root_id)
     let can_move = match cp_root_pushable_local(infos, cache, func, root_id) {
       Some(local_id) =>
@@ -1561,47 +1563,32 @@ fn cp_try_push_to_pushpoint(
     }
     scan = scan - 1
   }
+  let roots = cp_region_roots_copy(func, region_ref)
   let moved : Array[Int] = []
+  let moved_before : Array[Int] = []
+  let moved_after : Array[Int] = []
   let mut idx = 0
-  while idx < roots.length() {
+  while idx < root_count {
     if movable[idx] {
-      moved.push(roots[idx])
+      let node_id = roots[idx]
+      moved.push(node_id)
+      if move_after_target[idx] {
+        moved_after.push(node_id)
+      } else {
+        moved_before.push(node_id)
+      }
     }
     idx = idx + 1
   }
   if moved.is_empty() {
     return false
   }
-  let moved_after : Array[Int] = []
-  for node_id in moved {
-    let mut source_idx = 0
-    while source_idx < roots.length() {
-      if roots[source_idx] == node_id && movable[source_idx] {
-        if move_after_target[source_idx] {
-          moved_after.push(node_id)
-        }
-        break
-      }
-      source_idx = source_idx + 1
-    }
-  }
   let next : Array[Int] = []
   idx = 0
-  while idx < roots.length() {
+  while idx < root_count {
     if idx == target_idx {
-      for node_id in moved {
-        let mut source_idx = 0
-        let mut after_target = false
-        while source_idx < roots.length() {
-          if roots[source_idx] == node_id && movable[source_idx] {
-            after_target = move_after_target[source_idx]
-            break
-          }
-          source_idx = source_idx + 1
-        }
-        if !after_target {
-          next.push(node_id)
-        }
+      for node_id in moved_before {
+        next.push(node_id)
       }
     }
     if !movable[idx] {
