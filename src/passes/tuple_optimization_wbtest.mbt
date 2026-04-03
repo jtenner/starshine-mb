@@ -807,3 +807,40 @@ test "tuple-optimization rewrite suppresses redundant chained host-copy tail-liv
   }
   assert_eq(tuple_make_count, 1)
 }
+
+///|
+test "tuple-optimization analysis links mixed scalar-forward bridges from direct producers" {
+  let analysis = tuple_optimization_test_analyze(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 8 local.get 7 local.get 6 call 1 local.set 0 local.get 0))",
+  )
+
+  assert_eq(analysis.groups.length(), 2)
+
+  let source = analysis.groups[0]
+  assert_eq(source.lane_locals, [4, 5, 6])
+  assert_true(tuple_optimization_group_should_rewrite(source))
+
+  let copy = analysis.groups[1]
+  assert_eq(copy.lane_locals, [8, 7, 6])
+  assert_eq(copy.copy_source, Some(0))
+  assert_eq(tuple_optimization_group_host_lane(copy), Some(0))
+  assert_true(tuple_optimization_group_should_rewrite(copy))
+}
+
+///|
+test "tuple-optimization pipeline rewrites mixed scalar-forward bridges from direct producers" {
+  let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 8 local.get 7 local.get 6 call 1 local.set 0 local.get 0))"
+  let input_mod = pass_test_module_from_wat(source)
+  let optimized = match pass_test_run_pipeline(source, ["tuple-optimization"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected mixed scalar-forward tuple-optimization success, got \{err}",
+      )
+  }
+
+  assert_not_eq(
+    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
+    input_mod.pretty_print_func(@lib.FuncIdx::new(2U)),
+  )
+}

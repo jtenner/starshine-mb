@@ -1989,6 +1989,60 @@ test "run_cmd_with_adapter tuple-optimization rewrites root local.set copy group
 }
 
 ///|
+test "run_cmd_with_adapter tuple-optimization rewrites mixed scalar-forward bridges from direct producers" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 8 local.get 7 local.get 6 call 1 local.set 0 local.get 0))",
+      filename="tuple-direct-mixed-forward.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected mixed direct-producer tuple bridge fixture parse failure: \{err}",
+      )
+  }
+  let wasm = encode_module_bytes(input_mod)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-direct-mixed-forward.wasm"] },
+    file_exists=fn(path) { path == "tuple-direct-mixed-forward.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-direct-mixed-forward.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-direct-mixed-forward.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected tuple-optimization mixed direct-producer bridge failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let out = decode_module_bytes(writes[0].1)
+  let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_not_eq(pretty, input_mod.pretty_print_func(@lib.FuncIdx::new(2U)))
+  assert_true(pretty.contains("(block (Type 3)"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 12))"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 13))"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 14))"), msg=pretty)
+  assert_true(pretty.contains("drop(local.get (Local 8))"), msg=pretty)
+}
+
+///|
 test "run_cmd_with_adapter tuple-optimization stages chained host-copy tail-live0 repro through typed carriers" {
   let input_mod = match
     @wast.wast_to_binary_module(

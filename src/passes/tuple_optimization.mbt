@@ -405,6 +405,7 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
   let defining_nodes : Array[Int] = []
   let read_nodes : Array[Int] = []
   let mut consumed_source_tees = 0
+  let mut has_forwarded_lane = false
   for lane_idx = 0
       lane_idx < source.lane_locals.length()
       lane_idx = lane_idx + 1 {
@@ -413,6 +414,7 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
     let mut forwarding_def = -1
     let mut forwarding_read = -1
     let mut found = false
+    let mut direct_non_forward_reads = 0
     for read_id in @ir.local_read_nodes_borrowed(use_def, local_id) {
       if read_id >= 0 &&
         read_id < copy_read_nodes.length() &&
@@ -434,44 +436,55 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
           forwarding_def = next_def
           forwarding_read = read_id
         }
-        None => return None
+        None => direct_non_forward_reads = direct_non_forward_reads + 1
       }
     }
     if !found {
-      let defining_node = source.defining_nodes[lane_idx]
-      match @ir.hot_node_get(func, defining_node).op {
-        @ir.HotOp::LocalTee => {
-          let sites = @ir.node_use_sites_borrowed(use_def, defining_node)
-          if sites.length() != 1 {
-            return None
-          }
-          let site = sites[0]
-          match site.kind {
-            @ir.HotUseSlotKind::ChildUseSlot => ()
-            _ => return None
-          }
-          let user = @ir.hot_node_get(func, site.user)
-          match user.op {
-            @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
-              let next_local = user.imm0
-              if next_local < 0 ||
-                next_local >= local_group_ids.length() ||
-                local_group_ids[next_local] >= 0 ||
-                next_local >= seen_locals.length() ||
-                seen_locals[next_local] ||
-                @ir.local_write_nodes_borrowed(use_def, next_local).length() !=
-                1 {
-                return None
-              }
-              found = true
-              forwarded_local = next_local
-              forwarding_def = site.user
-              consumed_source_tees = consumed_source_tees + 1
-            }
-            _ => return None
-          }
+      if direct_non_forward_reads == 1 {
+        if local_id < 0 ||
+          local_id >= seen_locals.length() ||
+          seen_locals[local_id] {
+          return None
         }
-        _ => ()
+        found = true
+        forwarded_local = local_id
+        forwarding_def = source.defining_nodes[lane_idx]
+      } else {
+        let defining_node = source.defining_nodes[lane_idx]
+        match @ir.hot_node_get(func, defining_node).op {
+          @ir.HotOp::LocalTee => {
+            let sites = @ir.node_use_sites_borrowed(use_def, defining_node)
+            if sites.length() != 1 {
+              return None
+            }
+            let site = sites[0]
+            match site.kind {
+              @ir.HotUseSlotKind::ChildUseSlot => ()
+              _ => return None
+            }
+            let user = @ir.hot_node_get(func, site.user)
+            match user.op {
+              @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => {
+                let next_local = user.imm0
+                if next_local < 0 ||
+                  next_local >= local_group_ids.length() ||
+                  local_group_ids[next_local] >= 0 ||
+                  next_local >= seen_locals.length() ||
+                  seen_locals[next_local] ||
+                  @ir.local_write_nodes_borrowed(use_def, next_local).length() !=
+                  1 {
+                  return None
+                }
+                found = true
+                forwarded_local = next_local
+                forwarding_def = site.user
+                consumed_source_tees = consumed_source_tees + 1
+              }
+              _ => return None
+            }
+          }
+          _ => ()
+        }
       }
     }
     if !found {
@@ -480,7 +493,15 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
     seen_locals[forwarded_local] = true
     lane_locals.push(forwarded_local)
     defining_nodes.push(forwarding_def)
-    read_nodes.push(forwarding_read)
+    if forwarding_read >= 0 {
+      read_nodes.push(forwarding_read)
+      if forwarded_local != local_id {
+        has_forwarded_lane = true
+      }
+    }
+  }
+  if !has_forwarded_lane {
+    return None
   }
   Some(
     (
@@ -488,7 +509,7 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
         producer: -1,
         lane_locals,
         defining_nodes,
-        host_lane: None,
+        host_lane: source.host_lane,
         copy_source: Some(source_group_id),
         copy_payload_locals: None,
         uses: tuple_optimization_count_tee_defs(func, defining_nodes),
