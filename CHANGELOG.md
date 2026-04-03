@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-03 Checkpoint: extend `heap2local` through direct `ref.eq`
+
+- **`heap2local` `ref.eq` checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/heap2local.mbt`](./src/passes/heap2local.mbt), and [`src/passes/heap2local_test.mbt`](./src/passes/heap2local_test.mbt) so `heap2local` now folds direct `ref.eq` comparisons between a fresh struct allocation and `ref.null` to `i32.const 0`, while preserving any struct initializer evaluation before the folded result. Focused pass coverage now locks that non-local consume case directly, and the targeted parity suite is down to five remaining Binaryen gaps: descriptor-bearing `struct.new_default_desc` plus `ref.get_desc`, `array.new_default`, `array.new`, `array.new_fixed`, and array `ref.test`.
+
 ## 2026-04-03 Checkpoint: extend `heap2local` through successful `ref.cast`
 
 - **`heap2local` `ref.cast` checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/heap2local.mbt`](./src/passes/heap2local.mbt), and [`src/passes/heap2local_test.mbt`](./src/passes/heap2local_test.mbt) so `heap2local` now treats successful `ref.cast` as a passthrough on tee-backed optimized struct allocations, including widened owner locals whose only read is the casted use. Focused pass coverage now locks that behavior directly, and the targeted parity suite is down to six remaining Binaryen gaps: direct `ref.eq`, descriptor-bearing `struct.new_default_desc` plus `ref.get_desc`, `array.new_default`, `array.new`, `array.new_fixed`, and array `ref.test`.

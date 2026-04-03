@@ -243,6 +243,26 @@ test "heap2local removes successful ref.cast around optimized struct traffic" {
 }
 
 ///|
+test "heap2local folds ref.eq against a fresh struct allocation to zero" {
+  let pretty = heap2local_pretty_text(
+    (
+      #| (module
+      #|   (type $box (sub (struct (field (mut i32)) (field (mut i32)))))
+      #|   (func (result i32)
+      #|     (ref.eq
+      #|       (struct.new $box
+      #|         (i32.const 0)
+      #|         (i32.const 1))
+      #|       (ref.null eq))))
+      #|
+    ),
+  )
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("ref.eq"), msg=pretty)
+  assert_true(pretty.contains("I32(0)"), msg=pretty)
+}
+
+///|
 test "heap2local leaves parameter-backed ownership unchanged" {
   let pretty = heap2local_pretty_text(
     (

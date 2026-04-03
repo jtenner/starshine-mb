@@ -17,7 +17,7 @@ pub fn heap2local_descriptor() -> @ir.HotPassDescriptor {
 
 ///|
 pub fn heap2local_summary() -> String {
-  "Replace non-escaping struct locals with scalar field locals when every use stays exact field traffic."
+  "Replace non-escaping struct locals with scalar field locals and fold direct fresh-struct null comparisons."
 }
 
 ///|
@@ -101,6 +101,27 @@ fn h2l_supported_struct_new_fields(
         None => None
       }
     _ => None
+  }
+}
+
+///|
+fn h2l_is_direct_struct_alloc(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructNew(type_idx)) =>
+      match @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+        Some(fields) => fields.length() == @ir.hot_child_count(func, node_id)
+        None => false
+      }
+    Some(@lib.Instruction::StructNewDefault(type_idx)) =>
+      match @ir.hot_module_resolve_struct_fields(module_ctx, type_idx) {
+        Some(_) => true
+        None => false
+      }
+    _ => false
   }
 }
 
@@ -610,6 +631,74 @@ fn h2l_wrap_replacement_with_block_prefix(
 }
 
 ///|
+fn h2l_ref_eq_null_replacement(func : @ir.HotFunc, alloc_node_id : Int) -> Int {
+  let roots : Array[Int] = []
+  let child_count = @ir.hot_child_count(func, alloc_node_id)
+  for child_idx = 0; child_idx < child_count; child_idx = child_idx + 1 {
+    roots.push(
+      @ir.hot_build_drop(
+        func,
+        @ir.hot_child_get(func, alloc_node_id, child_idx),
+      ),
+    )
+  }
+  roots.push(@ir.hot_build_const_i32(func, @lib.I32(0)))
+  if roots.length() == 1 {
+    roots[0]
+  } else {
+    @ir.hot_build_block(
+      func,
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      roots,
+    )
+  }
+}
+
+///|
+fn h2l_try_fold_direct_ref_eq(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  node_id : Int,
+  detached_nodes : Array[Int],
+) -> Bool {
+  if !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefEq) => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 2 {
+    return false
+  }
+  let lhs = @ir.hot_child_get(func, node_id, 0)
+  let rhs = @ir.hot_child_get(func, node_id, 1)
+  let lhs_alloc = h2l_is_direct_struct_alloc(func, module_ctx, lhs)
+  let rhs_alloc = h2l_is_direct_struct_alloc(func, module_ctx, rhs)
+  let lhs_is_null = match @ir.hot_node_get(func, lhs).op {
+    @ir.HotOp::RefNull => true
+    _ => false
+  }
+  let rhs_is_null = match @ir.hot_node_get(func, rhs).op {
+    @ir.HotOp::RefNull => true
+    _ => false
+  }
+  let (alloc_node_id, null_node_id) = match (lhs_alloc, rhs_is_null) {
+    (true, true) => (lhs, rhs)
+    _ =>
+      match (rhs_alloc, lhs_is_null) {
+        (true, true) => (rhs, lhs)
+        _ => return false
+      }
+  }
+  let replacement = h2l_ref_eq_null_replacement(func, alloc_node_id)
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  detached_nodes.push(alloc_node_id)
+  detached_nodes.push(null_node_id)
+  true
+}
+
+///|
 fn h2l_apply_candidate(
   func : @ir.HotFunc,
   candidate : H2LCandidate,
@@ -788,13 +877,16 @@ pub fn heap2local_run(
       None => ()
     }
   }
-  if candidates.is_empty() {
-    return HotPassResult::unchanged()
-  }
   let detached_nodes : Array[Int] = []
   let mut changed = false
   for candidate in candidates {
     if h2l_apply_candidate(func, candidate, detached_nodes) {
+      changed = true
+    }
+  }
+  let node_count = @ir.hot_node_count(func)
+  for node_id = 0; node_id < node_count; node_id = node_id + 1 {
+    if h2l_try_fold_direct_ref_eq(func, module_ctx, node_id, detached_nodes) {
       changed = true
     }
   }
