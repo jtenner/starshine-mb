@@ -133,9 +133,9 @@ fn pass_registry_boundary_only_names() -> Array[String] {
 ///|
 fn pass_registry_removed_names() -> Array[String] {
   [
-    "avoid-reinterprets", "coalesce-locals", "code-folding", "code-pushing", "const-hoisting",
-    "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
-    "merge-locals", "merge-blocks", "flatten", "re-reloop", "optimize-added-constants",
+    "avoid-reinterprets", "coalesce-locals", "code-folding", "const-hoisting", "dataflow-optimization",
+    "local-cse", "local-subtyping", "loop-invariant-code-motion", "merge-locals",
+    "merge-blocks", "flatten", "re-reloop", "optimize-added-constants",
     "optimize-added-constants-propagate", "precompute-propagate", "redundant-set-elimination",
     "optimize-casts", "de-nan", "simplify-locals-no-tee", "simplify-locals-no-structure",
     "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting", "untee",
@@ -209,6 +209,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       precompute_descriptor(),
     ),
     pass_registry_entry_hot(
+      "code-pushing",
+      code_pushing_summary(),
+      code_pushing_descriptor(),
+    ),
+    pass_registry_entry_hot(
       "simplify-locals",
       simplify_locals_summary(),
       simplify_locals_descriptor(),
@@ -230,8 +235,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
         "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-        "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
-        "heap2local", "simplify-locals", "precompute", "remove-unused-names",
+        "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing",
+        "remove-unused-brs", "heap2local", "simplify-locals", "precompute", "remove-unused-names",
       ],
     ),
     pass_registry_entry_preset(
@@ -241,8 +246,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
         "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-        "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
-        "heap2local", "simplify-locals", "precompute", "remove-unused-names",
+        "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing",
+        "remove-unused-brs", "heap2local", "simplify-locals", "precompute", "remove-unused-names",
       ],
     ),
   ]
@@ -295,8 +300,8 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
-    "heap2local", "simplify-locals", "precompute", "remove-unused-names",
+    "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing",
+    "remove-unused-brs", "heap2local", "simplify-locals", "precompute", "remove-unused-names",
   ]
 }
 
@@ -307,8 +312,8 @@ pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
-    "heap2local", "simplify-locals", "precompute", "remove-unused-names",
+    "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing",
+    "remove-unused-brs", "heap2local", "simplify-locals", "precompute", "remove-unused-names",
   ]
 }
 

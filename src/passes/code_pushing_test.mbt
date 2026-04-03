@@ -42,6 +42,32 @@ fn code_pushing_test_region_tags(
 }
 
 ///|
+fn code_pushing_test_find_block_body_region(
+  func : @ir.HotFunc,
+  result_arity : Int,
+  tags : Array[String],
+) -> @ir.HotRegionRef {
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block => {
+        if @ir.hot_node_result_arity(func, node_id) != result_arity {
+          continue
+        }
+        let region = @ir.hot_region_body_ref(func, node_id)
+        if code_pushing_test_region_tags(func, region) == tags {
+          return region
+        }
+      }
+      _ => ()
+    }
+  }
+  abort("expected block body region with tags \{tags}")
+}
+
+///|
 fn code_pushing_test_run_hot(text : String) -> @ir.HotFunc {
   let func = pass_test_lift_first_func(text)
   let ctx = HotPassContext::new(
@@ -54,6 +80,76 @@ fn code_pushing_test_run_hot(text : String) -> @ir.HotFunc {
   match hot_pass_run(ctx, func) {
     Ok(_) => func
     Err(err) => abort("expected code-pushing hot pass success, got \{err}")
+  }
+}
+
+///|
+fn code_pushing_test_run_hot_code(text : String, code_idx : Int) -> @ir.HotFunc {
+  let fixture = @ir.ir_test_build_hot_from_wat(text, code_idx~)
+  let func = fixture.hot_func
+  let ctx = HotPassContext::new(
+    code_pushing_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => func
+    Err(err) => abort("expected code-pushing hot pass success, got \{err}")
+  }
+}
+
+///|
+priv struct CodePushingRealCarrierFixture {
+  carrier_body : @ir.HotRegionRef
+  err_body : @ir.HotRegionRef
+}
+
+///|
+fn code_pushing_test_find_real_carrier_fixture(
+  func : @ir.HotFunc,
+) -> CodePushingRealCarrierFixture {
+  let mut carrier_body : @ir.HotRegionRef? = None
+  let mut err_body : @ir.HotRegionRef? = None
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block => {
+        let region = @ir.hot_region_body_ref(func, node_id)
+        let tags = code_pushing_test_region_tags(func, region)
+        if tags ==
+          ["Block", "LocalSet(5)", "If", "Store", "Drop", "LocalGet(3)"] {
+          carrier_body = Some(region)
+          continue
+        }
+        if tags == ["Br"] {
+          let branch_id = @ir.hot_region_get(func, region, 0)
+          if @ir.hot_child_count(func, branch_id) >= 1 {
+            let payload = @ir.hot_child_get(func, branch_id, 0)
+            if payload >= 0 && @ir.hot_node_is_live(func, payload) {
+              match @ir.hot_node_get(func, payload).op {
+                @ir.HotOp::Block => err_body = Some(region)
+                _ => ()
+              }
+            }
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  {
+    carrier_body: match carrier_body {
+      Some(region) => region
+      None => abort("expected real-carrier body region")
+    },
+    err_body: match err_body {
+      Some(region) => region
+      None => abort("expected parent err region")
+    },
   }
 }
 
@@ -205,6 +301,657 @@ test "code-pushing does not sink into if when a later root still reads the local
     code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
     "LocalSet(1)",
   )
+}
+
+///|
+test "code-pushing moves a local.set past an if when the if does not read it" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32 i32) (local i32) i32.const 7 local.set 2 local.get 0 if local.get 1 drop end local.get 2 drop))",
+  )
+
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
+    "LocalSet(2)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)), "Drop")
+}
+
+///|
+test "code-pushing can split movable local.set roots around an if" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32 i32) local.get 0 local.set 1 i32.const 9 local.set 2 local.get 0 if local.get 1 drop else local.get 1 drop end local.get 2 drop))",
+  )
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "LocalSet(1)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)),
+    "LocalSet(2)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)), "Drop")
+}
+
+///|
+test "code-pushing moves a later-used local.set past an if with multiple future reads" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32 i32) local.get 0 local.set 1 i32.const 9 local.set 2 local.get 0 if local.get 1 drop else local.get 1 drop end block local.get 2 drop local.get 2 drop end local.get 2 drop))",
+  )
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "LocalSet(1)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)),
+    "LocalSet(2)",
+  )
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)),
+    "Block",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 4)), "Drop")
+}
+
+///|
+test "code-pushing moves a pure local.set past a trapping local.set and if when safe" {
+  let func = code_pushing_test_run_hot(
+    "(module (memory 1) (func (param i32 i32) (local i32 i32) local.get 0 local.set 2 local.get 1 i32.load local.set 3 local.get 0 if local.get 3 drop end local.get 2 drop))",
+  )
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "LocalSet(3)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)),
+    "LocalSet(2)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)), "Drop")
+}
+
+///|
+test "code-pushing does not move a local.set after a result if" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if (result i32) i32.const 1 else i32.const 0 end drop local.get 1 drop))",
+  )
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "LocalSet(1)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)), "Drop")
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)), "Drop")
+}
+
+///|
+test "code-pushing does not sink into a result-producing if arm" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if (result i32) local.get 1 drop i32.const 1 else i32.const 0 end drop))",
+  )
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "LocalSet(1)",
+  )
+}
+
+///|
+test "code-pushing rewrites inside a branch-free nested non-void region" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (local i32 i32) local.get 0 if (result i32) local.get 1 local.set 2 i32.const 9 local.set 3 local.get 0 if local.get 2 drop else local.get 2 drop end local.get 3 else i32.const 0 end))",
+  )
+  let if_id = @ir.hot_root_get(func, 0)
+
+  assert_eq(
+    code_pushing_test_region_tags(func, @ir.hot_region_then_ref(func, if_id)),
+    ["LocalSet(2)", "If", "LocalSet(3)", "LocalGet(3)"],
+  )
+}
+
+///|
+test "code-pushing keeps nested non-void region rewrites valid after lowering" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32 i32) local.get 0 if (result i32) local.get 1 local.set 2 i32.const 9 local.set 3 local.get 0 if local.get 2 drop else local.get 2 drop end local.get 3 else i32.const 0 end))"
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites a branch-free root non-void region around sibling ifs" {
+  let source =
+    #|(module
+    #|  (func (result i32) (local i32 i32 i32 i32 i32)
+    #|    i32.const 2
+    #|    local.set 0
+    #|    i32.const 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    i32.const 1
+    #|    i32.gt_s
+    #|    if
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.sub
+    #|      local.set 4
+    #|      local.get 0
+    #|      if
+    #|        local.get 0
+    #|        drop
+    #|      else
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.eq
+    #|        if
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 0
+    #|    local.set 2
+    #|    i32.const 3
+    #|    local.set 3
+    #|    local.get 3
+    #|    i32.const 1
+    #|    i32.gt_s
+    #|    if
+    #|      local.get 3
+    #|      i32.const 1
+    #|      i32.sub
+    #|      local.set 4
+    #|      local.get 3
+    #|      if
+    #|        local.get 3
+    #|        drop
+    #|      else
+    #|        local.get 3
+    #|        i32.const 1
+    #|        i32.eq
+    #|        if
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 3
+    #|    local.set 4
+    #|    local.get 2
+    #|    local.get 4
+    #|    i32.add)
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "LocalSet(0)",
+  )
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
+    "LocalSet(1)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)),
+    "LocalSet(3)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 4)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 5)),
+    "LocalSet(2)",
+  )
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 6)),
+    "LocalSet(4)",
+  )
+}
+
+///|
+test "code-pushing keeps root non-void sibling-if rewrites valid after lowering" {
+  let source =
+    #|(module
+    #|  (func (result i32) (local i32 i32 i32 i32 i32)
+    #|    i32.const 2
+    #|    local.set 0
+    #|    i32.const 2
+    #|    local.set 1
+    #|    local.get 1
+    #|    i32.const 1
+    #|    i32.gt_s
+    #|    if
+    #|      local.get 1
+    #|      i32.const 1
+    #|      i32.sub
+    #|      local.set 4
+    #|      local.get 0
+    #|      if
+    #|        local.get 0
+    #|        drop
+    #|      else
+    #|        local.get 1
+    #|        i32.const 1
+    #|        i32.eq
+    #|        if
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 0
+    #|    local.set 2
+    #|    i32.const 3
+    #|    local.set 3
+    #|    local.get 3
+    #|    i32.const 1
+    #|    i32.gt_s
+    #|    if
+    #|      local.get 3
+    #|      i32.const 1
+    #|      i32.sub
+    #|      local.set 4
+    #|      local.get 3
+    #|      if
+    #|        local.get 3
+    #|        drop
+    #|      else
+    #|        local.get 3
+    #|        i32.const 1
+    #|        i32.eq
+    #|        if
+    #|        end
+    #|      end
+    #|    end
+    #|    local.get 3
+    #|    local.set 4
+    #|    local.get 2
+    #|    local.get 4
+    #|    i32.add)
+    #|)
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing does not rewrite split-carry result-if regions" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32) (local i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (block (result i32)
+    #|              (block $cont
+    #|                (if (local.get 0)
+    #|                  (then
+    #|                    (local.set 3 (local.get 1))
+    #|                    (local.set 2 (local.get 1))
+    #|                    (br $cont))
+    #|                  (else
+    #|                    (local.set 3 (i32.const 5))
+    #|                    (local.set 2 (i32.const 9))
+    #|                    (br $mid))))
+    #|              (local.get 2))))
+    #|        (i32.const 1)))
+    #|    (local.get 3)
+    #|    (if
+    #|      (local.get 3)
+    #|      (then
+    #|        (drop (local.get 3))))
+    #|    (local.get 2)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+  let if_id = code_pushing_test_find_first_node(func, "If")
+
+  assert_eq(
+    code_pushing_test_region_tags(func, @ir.hot_region_then_ref(func, if_id)),
+    ["LocalSet(3)", "LocalSet(2)", "Br"],
+  )
+  assert_eq(
+    code_pushing_test_region_tags(
+      func,
+      @ir.hot_region_else_ref(func, if_id).unwrap(),
+    ),
+    ["LocalSet(3)", "LocalSet(2)", "Br"],
+  )
+}
+
+///|
+test "code-pushing does not rewrite a root sibling-if fed by split-carry results" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32) (local i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (block (result i32)
+    #|              (block $cont
+    #|                (if (local.get 0)
+    #|                  (then
+    #|                    (local.set 3 (local.get 1))
+    #|                    (local.set 2 (local.get 1))
+    #|                    (br $cont))
+    #|                  (else
+    #|                    (local.set 3 (i32.const 5))
+    #|                    (local.set 2 (i32.const 9))
+    #|                    (br $mid))))
+    #|              (local.get 2))))
+    #|        (i32.const 1)))
+    #|    (local.set 4 (local.get 3))
+    #|    (if
+    #|      (local.get 3)
+    #|      (then
+    #|        (drop (local.get 3))))
+    #|    (local.get 4)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "LocalSet(2)",
+  )
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
+    "LocalSet(4)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)),
+    "LocalGet(4)",
+  )
+}
+
+///|
+test "code-pushing keeps split-carry root sibling-if rewrites valid after lowering" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32) (local i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (block (result i32)
+    #|              (block $cont
+    #|                (if (local.get 0)
+    #|                  (then
+    #|                    (local.set 3 (local.get 1))
+    #|                    (local.set 2 (local.get 1))
+    #|                    (br $cont))
+    #|                  (else
+    #|                    (local.set 3 (i32.const 5))
+    #|                    (local.set 2 (i32.const 9))
+    #|                    (br $mid))))
+    #|              (local.get 2))))
+    #|        (i32.const 1)))
+    #|    (local.set 4 (local.get 3))
+    #|    (if
+    #|      (local.get 3)
+    #|      (then
+    #|        (drop (local.get 3))))
+    #|    (local.get 4)))
+    #|)
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing can reorder in a non-void root region without region-label branches" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32 i32) (result i32) (local i32) i32.const 7 local.set 2 local.get 0 if local.get 1 drop end i32.const 1))",
+  )
+
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
+    "LocalSet(2)",
+  )
+}
+
+///|
+test "code-pushing rewrites a non-void prefix before a later branch root" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32) i32.const 7 local.set 2 local.get 0 if local.get 1 drop end block $done local.get 0 br_if $done end local.get 2))"
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
+    "LocalSet(2)",
+  )
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)),
+    "Block",
+  )
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)),
+    "LocalGet(2)",
+  )
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing does not rewrite past an earlier zero-result branch root" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32) block $done local.get 0 br_if $done end i32.const 7 local.set 2 local.get 0 if local.get 1 drop end local.get 2))"
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "Block",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
+    "LocalSet(2)",
+  )
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)),
+    "LocalGet(2)",
+  )
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites past an earlier dropped result-carrying block root" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    (block $outer (result i32)
+    #|      (block $prefix (result i32)
+    #|        (block $work
+    #|          (if (local.get 0)
+    #|            (then
+    #|              (br $work))
+    #|            (else
+    #|              (br $prefix (i32.const 0))))
+    #|          unreachable)
+    #|        (i32.const 1))
+    #|      drop
+    #|      (local.get 1)
+    #|      (local.set 2)
+    #|      (local.get 1)
+    #|      (local.set 3)
+    #|      (local.get 3)
+    #|      (if
+    #|        (then
+    #|          (drop (local.get 3))))
+    #|      (local.get 2)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+  let mut outer_body : @ir.HotRegionRef? = None
+  let candidate_tags : Array[String] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block =>
+        if @ir.hot_node_result_arity(func, node_id) == 1 {
+          let region = @ir.hot_region_body_ref(func, node_id)
+          let tags = code_pushing_test_region_tags(func, region)
+          candidate_tags.push(tags.to_string())
+          if tags.length() == 5 &&
+            tags[0] == "Drop" &&
+            tags[4] == "LocalGet(2)" &&
+            tags.contains("LocalSet(2)") &&
+            tags.contains("LocalSet(3)") &&
+            tags.contains("If") {
+            outer_body = Some(region)
+            break
+          }
+        }
+      _ => ()
+    }
+  }
+  let outer_body = match outer_body {
+    Some(region) => region
+    None =>
+      fail("expected dropped-result-prefix non-void body: \{candidate_tags}")
+  }
+
+  assert_eq(code_pushing_test_region_tags(func, outer_body), [
+    "Drop", "LocalSet(3)", "If", "LocalSet(2)", "LocalGet(2)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing does not rewrite a parent-exit payload-carry shape" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))"
+  let func = code_pushing_test_run_hot(source)
+  let exit_body = code_pushing_test_find_block_body_region(func, 0, [
+    "Block", "Br",
+  ])
+  let work = @ir.hot_region_get(func, exit_body, 0)
+  let work_body = @ir.hot_region_body_ref(func, work)
+
+  assert_eq(code_pushing_test_region_tags(func, exit_body), ["Block", "Br"])
+  assert_eq(code_pushing_test_region_tags(func, work_body), [
+    "If", "Unreachable",
+  ])
+}
+
+///|
+test "code-pushing does not extract a carrier payload through a parent err block" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $incref (param i32))
+    #|  (func $decref (param i32))
+    #|  (func $decode (param i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func $get_tag (param i32) (result i32)
+    #|    i32.const 1)
+    #|  (func (param i32 i32 i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    (block $outer (result i32)
+    #|      (block $err
+    #|        (block $carrier (result i32)
+    #|          (block $work
+    #|            (local.get 1)
+    #|            (i32.load offset=8 align=1)
+    #|            (local.tee 4)
+    #|            (i32.const 1)
+    #|            i32.add
+    #|            (local.set 5)
+    #|            (local.get 0)
+    #|            (call $incref)
+    #|            (local.get 0)
+    #|            (local.get 5)
+    #|            (call $decode)
+    #|            (local.tee 6)
+    #|            (call $get_tag)
+    #|            (i32.const 1)
+    #|            i32.eq
+    #|            (if (result i32)
+    #|              (then
+    #|                (local.get 6)
+    #|                (i32.load offset=12 align=1)
+    #|                (local.set 7)
+    #|                (local.get 6)
+    #|                (i32.load offset=8 align=1)
+    #|                (local.set 8)
+    #|                (local.get 7)
+    #|                (local.get 8)
+    #|                (local.set 3)
+    #|                (local.set 2)
+    #|                (br $work))
+    #|              (else
+    #|                (local.get 0)
+    #|                (call $decref)
+    #|                (local.get 2)
+    #|                (call $decref)
+    #|                (local.get 3)
+    #|                (call $decref)
+    #|                (local.get 1)
+    #|                (call $decref)
+    #|                (local.get 6)
+    #|                (i32.load offset=8 align=1)
+    #|                (local.set 9)
+    #|                (br $err)))
+    #|            unreachable)
+    #|          (local.get 2)
+    #|          (local.set 5)
+    #|          (local.get 2)
+    #|          (if
+    #|            (then
+    #|              (local.get 2)
+    #|              (call $decref)))
+    #|          (local.get 1)
+    #|          (local.get 5)
+    #|          (i32.store offset=8 align=1)
+    #|          (i32.const 0)
+    #|          drop
+    #|          (local.get 3))
+    #|        br $outer)
+    #|      (local.get 9))))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 4)
+  let real = code_pushing_test_find_real_carrier_fixture(func)
+
+  assert_eq(code_pushing_test_region_tags(func, real.err_body), ["Br"])
+  assert_eq(code_pushing_test_region_tags(func, real.carrier_body), [
+    "Block", "LocalSet(5)", "If", "Store", "Drop", "LocalGet(3)",
+  ])
+}
+
+///|
+test "code-pushing can move a local.set fed by an earlier local.tee past an if" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32 i32 i32) i32.const 8 local.tee 3 drop local.get 3 local.set 2 local.get 0 local.set 1 local.get 0 if local.get 1 drop else local.get 1 drop end block local.get 2 drop local.get 2 drop end local.get 2 drop))",
+  )
+
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)), "Drop")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
+    "LocalSet(1)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)),
+    "LocalSet(2)",
+  )
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 4)),
+    "Block",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 5)), "Drop")
 }
 
 ///|

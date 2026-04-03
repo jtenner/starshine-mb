@@ -144,12 +144,148 @@
   CP002 now rewrites HOT regions directly for `if`, `br_if`, `br_on_*`, and
   `drop`-wrapped push points, including stable same-region reordering plus
   one-arm `if` sinking with the terminal-opposite-arm later-read exception.
-- [`src/passes/optimize.mbt`](../src/passes/optimize.mbt) currently keeps
-  `code-pushing` as a removed pass name and omits it from the `optimize` and
-  `shrink` presets.
+- [`src/passes/optimize.mbt`](../src/passes/optimize.mbt) now registers
+  `code-pushing` as an active hot pass and replays it in both `optimize` and
+  `shrink` immediately after the early `precompute` slot.
 - [`src/passes/pass_manager.mbt`](../src/passes/pass_manager.mbt) now dispatches
-  `code-pushing` for direct hot-pass execution, but the registry and presets do
-  not expose it yet.
+  `code-pushing` for direct hot-pass execution, and the CLI can invoke it
+  directly via `--code-pushing`.
+- [`scripts/lib/pass-fuzz-compare-task.ts`](../scripts/lib/pass-fuzz-compare-task.ts)
+  now includes `code-pushing` in the named compare-pass allowlist, so a dedicated
+  differential fuzz lane exists even before debug-artifact replay is available in
+  this workspace.
+- The current debug-artifact replay is valid again after two conservative
+  correctness fences in [`src/passes/code_pushing.mbt`](../src/passes/code_pushing.mbt):
+  Starshine no longer reorders same-region roots inside non-void regions, and it
+  no longer sinks `local.set` roots into result-producing `if` arms. The latest
+  artifact compare still differs from Binaryen, but the remaining work is back to
+  parity and runtime rather than invalid lowered output.
+- Two narrower relaxations tried against the debug artifact are still unsound:
+  allowing non-void rewrites only for regions with a simple trailing payload
+  split, and allowing them only at the root region, both reintroduced the same
+  `Func 1977` stack-underflow family. That means the next correctness step needs
+  a smaller reducer for that family before the fence can be relaxed.
+- The latest reduction attempt narrowed that family further: an isolated
+  root-result sibling-`if` shift was not enough to recreate the validation
+  failure by itself. The unsafe `Func 1977` diff also rewrites earlier
+  result-carrier blocks (`if I32` becoming `if (Void)` with extracted carrier
+  locals), so the next reducer needs to cover that broader non-void carrier
+  shape rather than only the final root-region tail move.
+- A second split-carry reducer narrowed it again: manually swapping the paired
+  branch-local `local.set` roots inside a smaller carried `if` still validated
+  after lowering. That suggests the remaining `Func 1977` bug depends on the
+  enclosing non-void carrier-region rewrite, not only the branch-local order of
+  those carried sets.
+- Even combining that carried result shape with a later root-level sibling-`if`
+  shift still validated in isolation. The remaining bad case therefore appears
+  to need more of the original control-flow scaffolding than these reduced
+  carrier-only shapes preserve, likely still inside the enclosing non-void
+  carrier region that the current fence blocks entirely.
+- A closer forwarder-style block scaffold also still validated after the same
+  local-set-after-sibling-`if` move. So the missing ingredient is probably not
+  just the nested result-block shell; the failing `Func 1977` family likely also
+  depends on more of the real call/refcount behavior that those reducers still
+  strip away.
+- A temporary unfenced replay confirmed the exact invalid lowered family more
+  concretely: the bad output really does split a carried payload upward through
+  the parent escape block and retarget the surrounding branch payload there. But
+  even a direct HOT lowering repro of that extracted-payload-through-parent-`br`
+  scaffold still validated in isolation, and adding the matching inner
+  carried-`if` demotion to `if (Void)` still validated too. So the remaining
+  `Func 1977` blocker still needs extra real-function control-flow scaffolding
+  beyond the carrier extraction plus inner carried-`if` rewrite alone.
+- The validator offset for the real failure is now pinned too: the invalid module
+  underflows at `br 3` to label `@8` in `Func 1977`, and a new focused HOT-verify
+  repro now proves the mechanism behind that class of failure. If the parent
+  escape block is also rewritten to become result-producing after the carried
+  payload extraction and inner carried-`if` demotion, HOT verification rejects
+  the branch with `InvalidBranchArity(_, _, 0, 1)`.
+- There is now a smaller direct HOT-verify reducer for the same branch-arity
+  class too. A tiny carried `if` fixture becomes invalid as soon as one arm's
+  `br` is retargeted from the inner void work block to the outer result block,
+  because that jump skips the result payload site entirely. That removes most of
+  the earlier real-carrier scaffolding from the minimal proof.
+- There is also now a middle-step parent-exit reducer between that tiny retarget
+  case and the real-carrier helper: the smaller `parent-exit payload carry`
+  fixture stays valid normally, but HOT verification rejects it with the same
+  `InvalidBranchArity(_, _, 0, 1)` as soon as the parent exit block itself is
+  rewritten to become result-producing. That bridges the gap between the direct
+  retarget mechanism and the larger parent-escape carrier family.
+- The pass suite now guards that same boundary directly too. A new
+  `code_pushing_test.mbt` regression lifts the closer real carrier fixture and
+  asserts that `code-pushing` leaves the parent `err` block as a single `Br`
+  with the carrier body still in `Block, LocalSet(5), If, Store, Drop,
+  LocalGet(3)` order, and a smaller parent-exit payload-carry pass regression
+  now leaves its `exit` body in `Block, Br` form with the nested work block
+  still `If, Unreachable`. So the current fence is pinned at the pass layer as
+  well as in HOT verification.
+- The current safe non-void relaxation is now narrower than "branch-free whole
+  region" but still broader than the old blanket fence. `code-pushing` may now
+  reorder inside a non-void region when the prefix up through the pushpoint has
+  no explicit exits, even if a later root in the same region branches. That
+  landed with direct pass coverage for both a branch-free nested/root non-void
+  region and a "later branch root" non-void case, and it moved the first
+  debug-artifact parity diff forward from line `17460` to line `19345` in
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-43607`, with
+  Starshine pass time dropping from `12662.937 ms` to `9907.976 ms`.
+- A follow-on attempt to relax that fence further by ignoring earlier
+  zero-result branch roots did not hold on the real artifact. The smaller local
+  fixture still validates in isolation, but the debug artifact reintroduced the
+  same `Func 1977` stack-underflow under that rule, so zero-result explicit-exit
+  prefixes are still conservatively blocked in the last known-valid state.
+- `src/ir/hot_lower_live_repro_test.mbt` now records that local non-repro
+  directly too: manually reordering a reduced earlier-zero-result-branch prefix
+  to `Block, If, LocalSet, LocalGet` still lowers and validates. So that
+  earlier-zero-result prefix shape is not sufficient by itself; the remaining
+  bad family still needs extra surrounding carrier scaffolding from the real
+  `Func 1977` case.
+- That non-repro now extends one step outward as well. Wrapping the same
+  earlier-zero-result prefix in an outer result carrier with a payload `br`
+  still lowers and validates after the same reorder. So the remaining bad
+  family needs more than just "earlier zero-result branch root + outer result
+  carrier"; it still depends on richer real-function scaffolding.
+- It also survives a simplified parent-escape extraction now. A reduced
+  parent-escape carrier with the earlier zero-result branch root still validates
+  after both the local reorder and the same "extract payload into parent err
+  block" rewrite pattern that is valid on the simpler carrier fixtures. So the
+  remaining `Func 1977` failure still needs more than that extracted
+  parent-escape shape too.
+- That boundary now extends to the closer real-carrier scaffold too. Manually
+  inserting the same earlier zero-result branch root into the real parent-escape
+  carrier body and reordering it into the broader-relaxation shape still lowers
+  and validates. So the remaining bad family is narrower again: it needs more
+  than just "real carrier plus earlier zero-result prefix" and still depends on
+  a richer rewrite path than the local carrier reorder alone.
+- Even the next closer extraction step still validates on that real carrier.
+  After the same earlier zero-result branch root is inserted, extracting the
+  moved payload through the parent `err` block and demoting the carried `if` to
+  `if (Void)` still lowers and validates. But forcing that same parent `err`
+  block to become result-producing immediately trips the same
+  `InvalidBranchArity(_, _, 0, 1)` mechanism as the smaller reducers. So the
+  remaining artifact gap still needs more than "real carrier + earlier zero-
+  result prefix + parent-err extraction"; it also needs the outer rewrite step
+  that turns the parent escape block into a result carrier.
+- A separate predecessor-root reduction also stayed valid: an earlier dropped
+  result-carrying block root before two later `local.set`s and a sinkable `if`
+  still lowers after moving the unused `local.set` past the `if`. So the live
+  diff still needs more than "earlier explicit-exit predecessor root before the
+  sink" in isolation too.
+- The next closer predecessor-root reduction also stays valid in HOT. A
+  self-contained earlier `Block` root whose internal payload branches stay
+  entirely inside nested labels still lowers after the same `local.set` sink.
+  A first owner-aware pass attempt to relax that family was too broad and got
+  rolled back because it also weakened the known-unsafe zero-result and
+  split-carry blockers. So the next pass change still needs a narrower notion
+  than "earlier root has no escaping explicit exits".
+- That dropped-result predecessor shape is now reflected in the pass too. The
+  current non-void fence ignores earlier explicit exits under `Drop` roots, and
+  the real debug-artifact compare stayed valid with that change. The new replay
+  is `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-92230`: the
+  first `19348` `local.set $20` mismatch family is still present, but the old
+  `43657` `local.set $167` family is gone. Runtime did not improve yet
+  (`10745.351 ms` Starshine pass vs `54.208 ms` Binaryen; `13345.644 ms` total
+  vs `379.276 ms`), so the change is a real parity gain but not yet a
+  performance win.
 - HOT regions already store root lists directly for root, block, loop, then, else,
   try body, and catch regions.
   That means Starshine does not need Binaryen's `blockify(...)` step when it
@@ -294,6 +430,9 @@
 - Match Binaryen's ordinary trap semantics first.
 - Do not claim GC non-nullable-local parity until the pass pipeline can represent
   or repair that case soundly.
+- Treat non-void-region root reordering and result-producing `if`-arm sinking as
+  explicitly deferred until a smaller proof shows those rewrites preserve HOT
+  region result structure.
 
 ## Validation Plan
 

@@ -5652,6 +5652,97 @@ test "run_cmd_with_adapter validates precompute on debug artifact" {
 
 ///|
 #cfg(target="native")
+test "run_cmd_with_adapter validates code-pushing on debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--code-pushing", "--out", output_path, input_path],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected code-pushing artifact replay success, got \{e}")
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["code-pushing"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+test "run_cmd_with_adapter applies code-pushing to wasm inputs" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (param i32) (local i32) block $exit i32.const 1 local.set 1 i32.const 99 drop local.get 0 br_if $exit local.get 1 drop end))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == "cp.wasm" },
+    list_candidates=fn() { ["cp.wasm"] },
+    read_file=fn(path) {
+      if path == "cp.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["--code-pushing", "--out", "out.wasm", "cp.wasm"], io) {
+    Ok(v) => v
+    Err(e) => fail("unexpected code-pushing run failure: \{e}")
+  }
+  assert_eq(summary.input_files, ["cp.wasm"])
+  assert_eq(summary.output_files, ["out.wasm"])
+  assert_eq(summary.resolved_passes, ["code-pushing"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, "out.wasm")
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.code_sec {
+    Some(CodeSec([Func(_, Expr([Block(_, Expr(instrs))]))])) =>
+      assert_eq(instrs, [
+        @lib.Instruction::i32_const(@lib.I32(99)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::drop(),
+      ])
+    _ => fail("expected code-pushing block body rewrite in transformed code")
+  }
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter validates post-ssa cleanup mini-chain on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let output_path = "out.wasm"

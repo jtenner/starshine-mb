@@ -262,20 +262,35 @@ fn cp_has_unremovable_side_effects(summary : CpEffectSummary) -> Bool {
 }
 
 ///|
+fn cp_summary_has_observable_nonlocal_effects(
+  summary : CpEffectSummary,
+) -> Bool {
+  let observable_mask = @ir.EFFECT_MASK_CONTROL |
+    @ir.EFFECT_MASK_CALL |
+    @ir.EFFECT_MASK_THROW |
+    @ir.EFFECT_MASK_TRAP |
+    @ir.EFFECT_MASK_MEMORY_WRITE |
+    @ir.EFFECT_MASK_TABLE_WRITE
+  if (summary.mask & observable_mask) != 0U {
+    return true
+  }
+  cp_bitset_any(summary.global_writes)
+}
+
+///|
 fn cp_summary_conflicts_with_barrier(
   moving : CpEffectSummary,
   barrier : CpBarrierSummary,
 ) -> Bool {
   if (
       barrier.mask &
-      (
-        @ir.EFFECT_MASK_CONTROL |
-        @ir.EFFECT_MASK_CALL |
-        @ir.EFFECT_MASK_THROW |
-        @ir.EFFECT_MASK_TRAP
-      )
+      (@ir.EFFECT_MASK_CONTROL | @ir.EFFECT_MASK_CALL | @ir.EFFECT_MASK_THROW)
     ) !=
     0U {
+    return true
+  }
+  if (barrier.mask & @ir.EFFECT_MASK_TRAP) != 0U &&
+    cp_summary_has_observable_nonlocal_effects(moving) {
     return true
   }
   if cp_bitset_overlaps(moving.local_writes, barrier.local_reads) ||
@@ -453,6 +468,58 @@ fn cp_region_roots_copy(
     idx = idx + 1
   }
   roots
+}
+
+///|
+fn cp_node_has_explicit_exit(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Unreachable => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if cp_node_has_explicit_exit(func, @ir.hot_child_get(func, node_id, slot)) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn cp_nonvoid_prefix_has_explicit_exit_guard(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  target_idx : Int,
+) -> Bool {
+  let mut idx = 0
+  while idx < @ir.hot_region_root_count(func, region_ref) && idx <= target_idx {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if cp_node_has_explicit_exit(func, root_id) {
+      match @ir.hot_node_get(func, root_id).op {
+        @ir.HotOp::Drop => ()
+        _ => return true
+      }
+    }
+    idx = idx + 1
+  }
+  false
 }
 
 ///|
@@ -680,6 +747,9 @@ fn cp_try_sink_into_if(
     Some(if_id) => if_id
     None => return false
   }
+  if @ir.hot_node_result_arity(func, if_id) != 0 {
+    return false
+  }
   let barrier = cp_new_barrier_summary(cache.local_count, cache.global_count)
   let cond_id = @ir.hot_child_get(func, if_id, 0)
   if cond_id >= 0 && @ir.hot_node_is_live(func, cond_id) {
@@ -743,17 +813,45 @@ fn cp_try_push_to_pushpoint(
     return false
   }
   let roots = cp_region_roots_copy(func, region_ref)
+  if @ir.hot_region_result_arity(func, region_ref) != 0 &&
+    cp_nonvoid_prefix_has_explicit_exit_guard(func, region_ref, target_idx) {
+    return false
+  }
+  match cp_root_if_pushpoint_id(func, roots[target_idx]) {
+    Some(if_id) if @ir.hot_node_result_arity(func, if_id) != 0 => return false
+    _ => ()
+  }
   if !cp_root_is_pushpoint(func, roots[target_idx]) {
     return false
   }
   let barrier = cp_new_barrier_summary(cache.local_count, cache.global_count)
   let movable = Array::make(roots.length(), false)
+  let move_after_target = Array::make(roots.length(), false)
+  let pushpoint_summary = cp_effect_summary_for_node(
+    cache,
+    func,
+    roots[target_idx],
+  )
   let mut scan = target_idx - 1
   while scan >= 0 {
     let root_id = roots[scan]
     let root_summary = cp_effect_summary_for_node(cache, func, root_id)
     let can_move = match cp_root_pushable_local(infos, cache, func, root_id) {
-      Some(_) => !cp_summary_conflicts_with_barrier(root_summary, barrier)
+      Some(local_id) =>
+        if !cp_summary_conflicts_with_barrier(root_summary, barrier) {
+          match cp_root_if_pushpoint_id(func, roots[target_idx]) {
+            Some(if_id) =>
+              if @ir.hot_node_result_arity(func, if_id) == 0 &&
+                !cp_summary_reads_local(pushpoint_summary, local_id) &&
+                !cp_summary_writes_local(pushpoint_summary, local_id) {
+                move_after_target[scan] = true
+              }
+            None => ()
+          }
+          true
+        } else {
+          false
+        }
       None => false
     }
     if can_move {
@@ -774,16 +872,45 @@ fn cp_try_push_to_pushpoint(
   if moved.is_empty() {
     return false
   }
+  let moved_after : Array[Int] = []
+  for node_id in moved {
+    let mut source_idx = 0
+    while source_idx < roots.length() {
+      if roots[source_idx] == node_id && movable[source_idx] {
+        if move_after_target[source_idx] {
+          moved_after.push(node_id)
+        }
+        break
+      }
+      source_idx = source_idx + 1
+    }
+  }
   let next : Array[Int] = []
   idx = 0
   while idx < roots.length() {
     if idx == target_idx {
       for node_id in moved {
-        next.push(node_id)
+        let mut source_idx = 0
+        let mut after_target = false
+        while source_idx < roots.length() {
+          if roots[source_idx] == node_id && movable[source_idx] {
+            after_target = move_after_target[source_idx]
+            break
+          }
+          source_idx = source_idx + 1
+        }
+        if !after_target {
+          next.push(node_id)
+        }
       }
     }
     if !movable[idx] {
       next.push(roots[idx])
+    }
+    if idx == target_idx {
+      for node_id in moved_after {
+        next.push(node_id)
+      }
     }
     idx = idx + 1
   }
