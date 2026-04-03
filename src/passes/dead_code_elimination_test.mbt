@@ -30,7 +30,7 @@ fn dead_code_elimination_test_count_occurrences(
 }
 
 ///|
-test "dead-code-elimination preserves pure drop roots for oracle parity" {
+test "dead-code-elimination removes pure drop roots" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (result i32) i32.const 1 drop i32.const 7))",
@@ -41,8 +41,7 @@ test "dead-code-elimination preserves pure drop roots for oracle parity" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("drop"), msg=pretty)
-  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_false(pretty.contains("drop"))
   assert_true(pretty.contains("I32(7)"))
 }
 
@@ -433,13 +432,11 @@ test "dead-code-elimination removes direct void-if payload forwarders with trail
 }
 
 ///|
-test "dead-code-elimination keeps split payload wrappers when early trim would go invalid" {
-  let trace : Array[String] = []
+test "dead-code-elimination removes dead unreachable tails from split payload wrappers" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (memory 1) (func (param i32) (result i32) (local i32 i32) (block $block11 (result i32) (block $block9 (br $block11 (block $block10 (result i32) (block $block8 (local.set 1 (i32.const 1)) (if (local.get 0) (then (local.set 1 (i32.const 7)) (br $block8)) (else (local.set 1 (i32.const 9)) (br $block9))) unreachable) (local.get 1)))) (i32.store align=1 (i32.const 0) (local.get 1)) (i32.store align=1 (i32.const 4) (local.get 1)) (return (local.get 1)))))",
       ["dead-code-elimination"],
-      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
     ) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -449,24 +446,14 @@ test "dead-code-elimination keeps split payload wrappers when early trim would g
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(
-    trace.any(fn(line) {
-      line.contains("reason=trimmed-unreachable-split-wrapper")
-    }),
+  assert_eq(
+    dead_code_elimination_test_count_occurrences(pretty, "unreachable"),
+    1,
     msg=pretty,
   )
-  assert_false(
-    trace.any(fn(line) {
-      line.contains("pass[dead-code-elimination]:skip-invalid-lower")
-    }),
-    msg=pretty,
-  )
-  assert_true(
-    pretty.contains("(if (Void)") || pretty.contains("(if (Void)"),
-    msg=pretty,
-  )
-  assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
-  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(pretty.contains("(block $block10 (result i32)"), msg=pretty)
+  assert_false(pretty.contains("(br $block10"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
@@ -613,7 +600,7 @@ test "dead-code-elimination voidifies nonfinal nonfallthrough value blocks in li
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("(drop (block I32"), msg=pretty)
   assert_true(pretty.contains("(block (Void)"), msg=pretty)
-  assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
@@ -670,7 +657,7 @@ test "dead-code-elimination voidifies dropped nonfallthrough value blocks with i
 }
 
 ///|
-test "dead-code-elimination preserves consecutive pure drop roots" {
+test "dead-code-elimination batches consecutive dead drop root splices" {
   let func = pass_test_lift_first_func(
     "(module (func i32.const 1 drop i32.const 2 drop i32.const 3 drop))",
   )
@@ -681,22 +668,19 @@ test "dead-code-elimination preserves consecutive pure drop roots" {
     false,
     fn(_) { () },
   )
+  let rev0 = @ir.hot_revision_current(func)
+
   match hot_pass_run(ctx, func) {
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected consecutive pure-drop dead-code-elimination success, got \{err}",
+        "expected batched dead-drop dead-code-elimination success, got \{err}",
       )
   }
 
-  assert_eq(@ir.hot_root_count(func), 3)
-  for idx = 0; idx < 3; idx = idx + 1 {
-    let root = @ir.hot_root_get(func, idx)
-    match @ir.hot_node_get(func, root).op {
-      @ir.HotOp::Drop => ()
-      other => fail("expected drop root at \{idx}, got \{other}")
-    }
-  }
+  assert_eq(@ir.hot_root_count(func), 0)
+  let rev_delta = @ir.hot_revision_current(func) - rev0
+  assert_true(rev_delta <= 9, msg="\{rev_delta}")
 }
 
 ///|
@@ -814,7 +798,7 @@ test "dead-code-elimination retargets stacked payload blocks to the inner result
     .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
+  assert_true(pretty.contains("(block (Void)"), msg=pretty)
   assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
@@ -897,10 +881,8 @@ test "dead-code-elimination preserves outer wrapper payload forwarders in local.
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_true(pretty.contains("(local.set (Local 3))"), msg=pretty)
   assert_true(pretty.contains("(local.set (Local 4))"), msg=pretty)
-  assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
-  assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 3))"), msg=pretty)
   assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 

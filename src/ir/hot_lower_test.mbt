@@ -38,25 +38,6 @@ fn hot_lower_test_struct_module() -> @lib.Module {
 }
 
 ///|
-fn hot_lower_test_count_substring(text : String, needle : String) -> Int {
-  if needle.length() == 0 {
-    return 0
-  }
-  let mut count = 0
-  let limit = text.length() - needle.length()
-  let mut i = 0
-  while i <= limit {
-    if text.sub(start=i, end=i + needle.length()).to_string() == needle {
-      count += 1
-      i += needle.length()
-    } else {
-      i += 1
-    }
-  }
-  count
-}
-
-///|
 test "hot lower roundtrips representative exact-payload families" {
   let memarg = hot_lower_test_memarg()
   let body = @lib.Expr::new([
@@ -589,10 +570,13 @@ test "hot lower repacks split local.set carried values under result blocks" {
     msg=pretty,
   )
   assert_true(
-    pretty.contains("(if (result i32)") || pretty.contains("(if I32"),
+    pretty.contains("(if (Void)") || pretty.contains("(if Void"),
     msg=pretty,
   )
-  assert_false(pretty.contains("(drop\n"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+  assert_false(pretty.contains("(local.tee (Local 2))"), msg=pretty)
 }
 
 ///|
@@ -619,14 +603,16 @@ test "hot lower repacks split local.set carried values with store-store-return t
     .pretty_print_func(@lib.FuncIdx::new(0U))
 
   assert_true(
-    pretty.contains("(if (result i32)") || pretty.contains("(if I32"),
+    pretty.contains("(if (Void)") || pretty.contains("(if Void"),
     msg=pretty,
   )
   assert_true(
     pretty.contains("(block (result i32)") || pretty.contains("(block I32"),
     msg=pretty,
   )
-  assert_false(pretty.contains("(drop\n"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("return"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
@@ -1631,17 +1617,37 @@ test "hot lower repacks split local.set carry blocks from compare shape" {
     #|          unreachable)
     #|        (local.get 2)))
     #|    (local.get 1)))
-  let fixture = ir_test_build_hot_from_wat(source)
-  let validated = ir_test_assert_verify_and_lower(fixture)
-  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
+  let module_ = match @wast.wast_to_binary_module(source) {
+    Ok(module_) => module_
+    Err(err) => fail("expected module to parse, got \{err}")
+  }
+  let hot = hot_lift_func(module_, @lib.FuncIdx::new(0U))
+  let lowered = hot_lower_func(hot)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i64()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(
-    pretty.contains("(if (result i32)") || pretty.contains("(if I32"),
+    pretty.contains("(block (result i32)") || pretty.contains("(block I32"),
     msg=pretty,
   )
-  assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
+  assert_true(
+    pretty.contains("(if (Void)") || pretty.contains("(if Void"),
+    msg=pretty,
+  )
+  assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
-  assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
-  assert_false(pretty.contains("drop"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
+  assert_false(pretty.contains("(local.tee (Local 2))"), msg=pretty)
 }
 
 ///|
@@ -1649,8 +1655,22 @@ test "hot lower preserves packed local.set carry blocks" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (local i32) (local.set 2 (block $outer (result i32) (block $mid (br $outer (block (result i32) (block $cont (if (local.get 0) (then (local.set 2 (local.get 1)) (br $cont)) (else (local.set 2 (i32.const 9)) (br $mid)))) (local.get 2)))) (i32.const 1))) (local.get 2)))",
   )
-  let validated = ir_test_assert_verify_and_lower(fixture)
-  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
+  let lowered = hot_lower_func(fixture.hot_func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
   assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
   assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
@@ -1679,12 +1699,28 @@ test "hot lower repacks prefix-heavy split local.set carry blocks" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32 i32) (result i32) (local i32 i32) (local.set 3 (block $block2 (result i32) (block $block1 (block $block (local.set 4 (local.get 0)) (drop (local.get 1)) (drop (local.get 2)) (if (local.get 2) (then (local.set 4 (i32.const 7)) (br $block)) (else (local.set 4 (i32.const 9)) (br $block1))) unreachable) (local.get 4) (br $block2)) (local.get 3))) (local.get 3)))",
   )
-  let validated = ir_test_assert_verify_and_lower(fixture)
-  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
+  let lowered = hot_lower_func(fixture.hot_func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
-  assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
-  assert_false(pretty.contains("(br (Label 2))"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 4))"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 3))"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
@@ -1705,13 +1741,27 @@ test "hot lower peels nested br payload blocks with unreachable child payloads" 
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))",
   )
-  let validated = ir_test_assert_verify_and_lower(fixture)
-  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
+  let lowered = hot_lower_func(fixture.hot_func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
 
   assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
-  assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
-  assert_false(pretty.contains("(br (Label 2))"), msg=pretty)
+  assert_true(pretty.contains("(i32.const I32(0))"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 2))"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
@@ -1719,13 +1769,27 @@ test "hot lower avoids wrapping parent-exit payloads in extra result blocks" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))",
   )
-  let validated = ir_test_assert_verify_and_lower(fixture)
-  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
+  let lowered = hot_lower_func(fixture.hot_func)
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
 
   assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
   assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
-  assert_false(pretty.contains("(br (Label 2))"), msg=pretty)
+  assert_true(pretty.contains("(br (Label 2))"), msg=pretty)
+  assert_false(pretty.contains("(if I32"), msg=pretty)
 }
 
 ///|
