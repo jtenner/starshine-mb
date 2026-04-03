@@ -957,6 +957,55 @@ test "code-pushing does not rewrite past an earlier branch root even when the cr
 }
 
 ///|
+test "code-pushing does not rewrite a parent-escape carrier with a branch-free crossed gap" {
+  let source =
+    #|(module
+    #|  (func $side (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32)
+    #|    (block $outer (result i32)
+    #|      (block $err
+    #|        (block $carrier (result i32)
+    #|          (block $work
+    #|            (local.get 0)
+    #|            (if (result i32)
+    #|              (then
+    #|                (local.set 2 (local.get 1))
+    #|                (local.set 3 (local.get 1))
+    #|                (br $work))
+    #|              (else
+    #|                (local.set 6 (i32.const 9))
+    #|                (br $err)))
+    #|            unreachable)
+    #|          (block $skip
+    #|            (br_if $skip (local.get 0)))
+    #|          (local.set 4 (local.get 2))
+    #|          (local.set 5 (local.get 3))
+    #|          (if
+    #|            (local.get 4)
+    #|            (then
+    #|              (call $side (local.get 4))))
+    #|          (drop (i32.const 0))
+    #|          (local.get 5))
+    #|        br $outer)
+    #|      (local.get 6))))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 1)
+  let carrier_body = code_pushing_test_find_block_body_region(func, 1, [
+    "Block", "Block", "LocalSet(4)", "LocalSet(5)", "If", "Drop", "LocalGet(5)",
+  ])
+
+  assert_eq(code_pushing_test_region_tags(func, carrier_body), [
+    "Block", "Block", "LocalSet(4)", "LocalSet(5)", "If", "Drop", "LocalGet(5)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing does not rewrite past an earlier zero-result branch root" {
   let source = "(module (func (param i32 i32) (result i32) (local i32) block $done local.get 0 br_if $done end i32.const 7 local.set 2 local.get 0 if local.get 1 drop end local.get 2))"
   let func = code_pushing_test_run_hot(source)

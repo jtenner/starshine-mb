@@ -414,6 +414,15 @@
   conservative there for now, and the new reduced HOT-lowering fixture is
   useful only as another proof that the missing ingredient still lives in the
   larger real-function scaffolding rather than in that local gap shape alone.
+- That crossed-gap non-repro now also survives the next real-carrier wrappers.
+  The same local pattern still lowers and validates after being wrapped in a
+  parent-escape carrier, after extraction through the parent `err` block, in a
+  closer real carrier with the later store/drop tail, and after extraction
+  through the real parent `err` block as well. So the current nearest positive
+  result is sharper than before: even the crossed-gap variant of the closer
+  real-carrier family is still not enough by itself to reproduce the invalid
+  module. The remaining unsafe ingredient is still beyond that local tail
+  pattern and those extraction steps.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the
   special walk to zero-result `Block` roots only, both regressed the existing
