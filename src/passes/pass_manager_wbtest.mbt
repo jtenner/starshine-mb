@@ -402,7 +402,7 @@ test "raw simplify-locals gate accepts debug artifact Func 370" {
 
 ///|
 #cfg(target="native")
-test "raw simplify-locals rewrites giant straight-line debug artifact Func 473" {
+test "raw simplify-locals gate accepts debug artifact Func 473" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
     Some(bytes) => bytes
@@ -413,12 +413,6 @@ test "raw simplify-locals rewrites giant straight-line debug artifact Func 473" 
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   let func_idx = @lib.FuncIdx::new(473U)
-  let @lib.Func(_, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
-    mod_, func_idx,
-  )
-  let (_, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
-    instrs,
-  )
   let pipeline_result = match
     run_hot_pipeline_func(
       mod_,
@@ -431,13 +425,12 @@ test "raw simplify-locals rewrites giant straight-line debug artifact Func 473" 
     Err(err) =>
       fail("expected simplify-locals hot pipeline success, got \{err}")
   }
-  assert_true(rewrite_count > 0)
   assert_true(
     pipeline_result.trace_skip_raw,
     msg="reason=\{pipeline_result.reason}",
   )
   assert_false(pipeline_result.unchanged_original)
-  assert_eq(pipeline_result.reason, "straight-line-pure-copy-call-tail")
+  assert_eq(pipeline_result.reason, "straight-line-adjacent-local-tee")
 }
 
 ///|
@@ -561,6 +554,41 @@ test "raw simplify-locals skips large structured call-heavy debug artifact funcs
     )
     assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
     assert_eq(pipeline_result.reason, "giant-structured-call-heavy")
+  }
+}
+
+///|
+#cfg(target="native")
+test "raw simplify-locals skips read-only local debug artifact funcs" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  for raw_idx in [570, 571] {
+    let func_idx = @lib.FuncIdx::new(raw_idx.to_uint())
+    let pipeline_result = match
+      run_hot_pipeline_func(
+        mod_,
+        func_idx,
+        @ir.HotPassDescriptor::new("simplify-locals"),
+        { module_ctx: None },
+        HotPipelineOptions::new(),
+      ) {
+      Ok(result) => result
+      Err(err) =>
+        fail("expected simplify-locals hot pipeline success, got \{err}")
+    }
+    assert_true(
+      pipeline_result.trace_skip_raw,
+      msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
+    )
+    assert_true(pipeline_result.unchanged_original, msg="func=\{raw_idx}")
+    assert_eq(pipeline_result.reason, "no-local-writes")
   }
 }
 
