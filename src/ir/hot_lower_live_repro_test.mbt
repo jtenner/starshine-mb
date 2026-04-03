@@ -378,6 +378,211 @@ test "hot lower live repro validates dropped result-carrying block root before l
 }
 
 ///|
+test "hot lower live repro validates live-like dropped-owner predecessor chain" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (block $prefix
+    #|            (if (local.get 0)
+    #|              (then
+    #|                (call $touch (local.get 1))
+    #|                (br $prefix))
+    #|              (else
+    #|                (if (local.get 0)
+    #|                  (then
+    #|                    (call $touch (local.get 1))
+    #|                    (br $prefix))
+    #|                  (else
+    #|                    (drop (i32.const 0)))))))
+    #|          (br $outer (i32.const 0))
+    #|          (call $touch (local.get 1))
+    #|          (local.get 1)
+    #|          (local.set 2)
+    #|          (local.get 1)
+    #|          (local.set 3)
+    #|          (local.get 3)
+    #|          (if
+    #|            (then
+    #|              (call $touch (local.get 3))))
+    #|          (local.get 2)))
+    #|      (i32.const 9)))
+    #|  (func $touch (param i32)))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  let mut outer_body : HotRegionRef? = None
+  let candidate_tags : Array[String] = []
+  for node_id = 0
+      node_id < hot_node_count(fixture.hot_func)
+      node_id = node_id + 1 {
+    if !hot_node_is_live(fixture.hot_func, node_id) {
+      continue
+    }
+    match hot_node_get(fixture.hot_func, node_id).op {
+      Block =>
+        if hot_node_result_arity(fixture.hot_func, node_id) == 1 {
+          let region = hot_region_body_ref(fixture.hot_func, node_id)
+          let tags : Array[String] = []
+          for idx = 0
+              idx < hot_region_root_count(fixture.hot_func, region)
+              idx = idx + 1 {
+            let root = hot_region_get(fixture.hot_func, region, idx)
+            let op = hot_node_get(fixture.hot_func, root).op
+            match op {
+              LocalGet | LocalSet | LocalTee =>
+                tags.push("\{op}(\{hot_node_get(fixture.hot_func, root).imm0})")
+              _ => tags.push(op.to_string())
+            }
+          }
+          candidate_tags.push(tags.to_string())
+          if tags ==
+            [
+              "Block", "Br", "Call", "LocalSet(2)", "LocalSet(3)", "If", "LocalGet(2)",
+            ] {
+            outer_body = Some(region)
+            break
+          }
+        }
+      _ => ()
+    }
+  }
+  let outer_body = match outer_body {
+    Some(region) => region
+    None => fail("expected live-like dropped-owner body: \{candidate_tags}")
+  }
+  let prefix_block = hot_region_get(fixture.hot_func, outer_body, 0)
+  let br_id = hot_region_get(fixture.hot_func, outer_body, 1)
+  let call_id = hot_region_get(fixture.hot_func, outer_body, 2)
+  let moved_set = hot_region_get(fixture.hot_func, outer_body, 3)
+  let used_set = hot_region_get(fixture.hot_func, outer_body, 4)
+  let if_id = hot_region_get(fixture.hot_func, outer_body, 5)
+  let next_get = hot_region_get(fixture.hot_func, outer_body, 6)
+
+  hot_region_replace_body(fixture.hot_func, outer_body, [
+    prefix_block, br_id, call_id, used_set, if_id, moved_set, next_get,
+  ])
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot lower live repro validates self-and-dropped-owner block root before later if sink" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (block $prefix
+    #|            (if (local.get 0)
+    #|              (then
+    #|                (call $touch (local.get 1))
+    #|                (br $prefix))
+    #|              (else
+    #|                (if (local.get 0)
+    #|                  (then
+    #|                    (call $touch (local.get 1))
+    #|                    (br $prefix))
+    #|                  (else
+    #|                    (drop (i32.const 0))))))
+    #|            (br $outer (i32.const 0)))
+    #|          (call $touch (local.get 1))
+    #|          (local.get 1)
+    #|          (local.set 2)
+    #|          (local.get 1)
+    #|          (local.set 3)
+    #|          (local.get 3)
+    #|          (if
+    #|            (then
+    #|              (call $touch (local.get 3))))
+    #|          (local.get 2)))
+    #|      (i32.const 9)))
+    #|  (func $touch (param i32)))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  let mut outer_body : HotRegionRef? = None
+  let candidate_tags : Array[String] = []
+  for node_id = 0
+      node_id < hot_node_count(fixture.hot_func)
+      node_id = node_id + 1 {
+    if !hot_node_is_live(fixture.hot_func, node_id) {
+      continue
+    }
+    match hot_node_get(fixture.hot_func, node_id).op {
+      Block =>
+        if hot_node_result_arity(fixture.hot_func, node_id) == 1 {
+          let region = hot_region_body_ref(fixture.hot_func, node_id)
+          let tags : Array[String] = []
+          for idx = 0
+              idx < hot_region_root_count(fixture.hot_func, region)
+              idx = idx + 1 {
+            let root = hot_region_get(fixture.hot_func, region, idx)
+            let op = hot_node_get(fixture.hot_func, root).op
+            match op {
+              LocalGet | LocalSet | LocalTee =>
+                tags.push("\{op}(\{hot_node_get(fixture.hot_func, root).imm0})")
+              _ => tags.push(op.to_string())
+            }
+          }
+          candidate_tags.push(tags.to_string())
+          if tags ==
+            ["Block", "Call", "LocalSet(2)", "LocalSet(3)", "If", "LocalGet(2)"] {
+            outer_body = Some(region)
+            break
+          }
+        }
+      _ => ()
+    }
+  }
+  let outer_body = match outer_body {
+    Some(region) => region
+    None => fail("expected self-and-dropped-owner body: \{candidate_tags}")
+  }
+  let prefix_block = hot_region_get(fixture.hot_func, outer_body, 0)
+  let call_id = hot_region_get(fixture.hot_func, outer_body, 1)
+  let moved_set = hot_region_get(fixture.hot_func, outer_body, 2)
+  let used_set = hot_region_get(fixture.hot_func, outer_body, 3)
+  let if_id = hot_region_get(fixture.hot_func, outer_body, 4)
+  let next_get = hot_region_get(fixture.hot_func, outer_body, 5)
+
+  hot_region_replace_body(fixture.hot_func, outer_body, [
+    prefix_block, call_id, used_set, if_id, moved_set, next_get,
+  ])
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "hot lower live repro validates self-contained block root before later if sink" {
   let source =
     #|(module

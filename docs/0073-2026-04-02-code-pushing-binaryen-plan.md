@@ -296,6 +296,54 @@
   `local.get`, and later `local.tee` sites, so the next reduction likely needs
   to explain how Binaryen sinks that non-SFA-looking local-set or prove a
   narrower Starshine local-analysis rule instead.
+- The pass now also descends through `Drop`-wrapped control roots when looking
+  for nested rewrite regions. A new direct regression proves that
+  `code-pushing` can now rewrite inside a `drop (block (result ...))` owner
+  wrapper when an earlier plain `Block` root exits that dropped owner. That
+  closes a real traversal blind spot in the earlier implementation and matches
+  the `drop (block $block5 ...)` surface of the live artifact much more
+  closely.
+- That traversal fix did not move the first artifact diff yet. The fresh replay
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-121480` still has
+  the same first `19348` `local.set $20` family, with the next early gaps still
+  around `48981`, `61077`, `72008`, and the later structural family near
+  `105624`. Runtime also regressed hard (`16579.566 ms` Starshine pass vs
+  `49.523 ms` Binaryen; `19044.377 ms` total vs `347.409 ms`).
+- So the blocker is narrower again: it is no longer just "the target region is
+  hidden under a `Drop` root." The remaining live `19348` family still needs a
+  closer reducer than the simple dropped-owner case. The next reduction should
+  preserve more of the real predecessor shape, specifically the owner-self
+  branch paths and the intervening call barrier that still separate the reduced
+  passing case from the live artifact.
+- That closer live-like reducer is now landed too. The pass suite now has a
+  direct regression for a dropped-owner predecessor chain with owner-self
+  branch paths, a later root-level `br`, and the intervening call barrier, and
+  `src/ir/hot_lower_live_repro_test.mbt` proves the same reordered shape still
+  lowers and validates. To admit that case without reopening the earlier
+  carrier bugs, the non-void prefix guard now scans only the reachable prefix
+  through the pushpoint: once an unconditional terminal root appears, earlier
+  explicit exits no longer block rewrites in the unreachable suffix after it.
+  Native `--code-pushing` output on `tests/node/dist/starshine-debug-wasi.wasm`
+  still validates after that change.
+- The direct parity status is now stale rather than unknown. The latest
+  measured replay is still `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-121480`,
+  because the new reachable-prefix rule has not been replayed against Binaryen
+  yet. The next decisive step is another
+  `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --code-pushing`
+  run to determine whether the first `19348` family finally moves and whether
+  runtime recovers from the earlier regression.
+- The smaller compare lane is no longer hand-wavy either. A new 100-case
+  `gen-valid` pass-fuzz replay now finishes at
+  `/home/jtenner/Projects/starshine-mb-code-pushing/.tmp/pass-fuzz-code-pushing-check-50d`
+  with `100/100` compared cases, `98` normalized matches, `0` validation
+  failures, `0` command failures, and `2` remaining mismatches. Along the way
+  it exposed and then cleared two local gaps:
+  `code-pushing` was treating `LocalTee` as invisible to SFA analysis, and it
+  was treating control-only roots plus dead-set motion too permissively in the
+  small dead-local cases. Those are now covered directly in
+  `src/passes/code_pushing_test.mbt`, and the remaining small mismatches have
+  narrowed to later-placement deltas in saved failure dirs `case-000026` and
+  `case-000044`.
 - That dropped-result predecessor shape is now reflected in the pass too. The
   current non-void fence ignores earlier explicit exits under `Drop` roots, and
   the real debug-artifact compare stayed valid with that change. The new replay
@@ -305,6 +353,49 @@
   (`10745.351 ms` Starshine pass vs `54.208 ms` Binaryen; `13345.644 ms` total
   vs `379.276 ms`), so the change is a real parity gain but not yet a
   performance win.
+- The next narrowed safe case is now in-tree too. `src/passes/code_pushing_test.mbt`
+  and `src/ir/hot_lower_live_repro_test.mbt` now both cover an earlier
+  zero-result `Block` root that branches to itself and to the dropped outer
+  owner inside the same root, and `code-pushing` now rewrites that case.
+  Correctness is the good news; cost is the new blocker. To admit that shape,
+  the non-void `Block`-root guard now tracks dropped-owner reachability more
+  precisely, but the first implementation was far too expensive on
+  `tests/node/dist/starshine-debug-wasi.wasm`. Caching dropped-owner lookups,
+  caching per-root guard results, collapsing the `Block`-root decision into one
+  cached owner-exit summary, and pruning summary walks when a node's cached
+  effect summary has no control all helped. So did caching
+  `cp_node_has_explicit_exit` and removing the per-branch temporary target
+  array in the dropped-owner owner-exit walk. But the standalone native
+  `--code-pushing` replay is still materially slower than the earlier fenced
+  baseline. Live `gdb` samples now point at the remaining hot path directly:
+  `cp_collect_block_owner_exit_summary` is still spending most of its time in
+  `cp_collect_block_owner_exit_summary_for_region`, especially the repeated
+  region-holder / root-count traversal under the recursive owner-exit walk. So
+  the immediate next task shifted from "add the missing reducer" to
+  "make the non-void `Block`-root guard cheap enough for a clean full replay,"
+  then rerun
+  `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --code-pushing`
+  to see whether the first `19348` family finally moves without keeping the new
+  runtime regression.
+- The later perf trims that stayed landed are all in that same owner-exit walk:
+  live-node caching avoids repeated `free_nodes` scans, active-owner tracking is
+  now mark-based instead of a linear owner array, region recursion walks raw
+  holders directly, the branch-target path no longer copies `BrTable` target
+  arrays or allocates a closure, and the dropped-owner value is threaded
+  through the hot branch-target note path as a raw sentinel `Int` instead of an
+  `Int?`. Those changes keep the tree green and move the samples around, but a
+  direct native-binary replay of `--code-pushing` on
+  `tests/node/dist/starshine-debug-wasi.wasm` still had not finished after
+  roughly a minute in local timing checks.
+- Two broader shortcuts were tried after that and both had to be rolled back.
+  Returning early when a region had no dropped owner, and restricting the
+  special walk to zero-result `Block` roots only, both regressed the existing
+  safe case covered by `code-pushing rewrites past an earlier self-contained
+  block root` in [`src/passes/code_pushing_test.mbt`](../src/passes/code_pushing_test.mbt).
+  On the current green state, `gdb` samples no longer point at the per-target
+  helper churn; they are back to `cp_collect_block_owner_exit_summary_for_region`
+  and `hot_node_get`, which is a clearer sign that the remaining cost is still
+  the recursive region walk itself rather than one leaf helper.
 - HOT regions already store root lists directly for root, block, loop, then, else,
   try body, and catch regions.
   That means Starshine does not need Binaryen's `blockify(...)` step when it

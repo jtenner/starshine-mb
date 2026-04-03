@@ -211,6 +211,17 @@ test "code-pushing rejects locals with multiple sets from SFA eligibility" {
 }
 
 ///|
+test "code-pushing counts local.tee as a set for SFA eligibility" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) (result i32) (local f32) (f32.const 6) (local.set 1) (if (i32.const 0) (then nop) (else nop)) (drop (local.tee 1 (f32.const 91))) (if (i32.const 0) (then nop) (else nop)) (local.get 0)))",
+  )
+  let info = cp_analyze_locals(func)[1]
+
+  assert_eq(info.num_sets, 2)
+  assert_false(info.sfa)
+}
+
+///|
 test "code-pushing summaries track local and global access sets" {
   let func = pass_test_lift_first_func(
     "(module (global (mut i32) (i32.const 0)) (func (local i32) (local.set 0 (global.get 0)) (global.set 0 (i32.const 1))))",
@@ -355,6 +366,109 @@ test "code-pushing moves a later-used local.set past an if with multiple future 
     "Block",
   )
   assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 4)), "Drop")
+}
+
+///|
+test "code-pushing moves a dead local.set past a later void if" {
+  let source =
+    #|(module
+    #|  (func (param i64)
+    #|    (local f32)
+    #|    (if (i32.const 1)
+    #|      (then
+    #|        nop)
+    #|      (else
+    #|        nop))
+    #|    (f32.const 82)
+    #|    (local.set 1)
+    #|    nop
+    #|    (block
+    #|      nop)
+    #|    (if (i32.const 1)
+    #|      (then
+    #|        nop)
+    #|      (else
+    #|        nop))
+    #|    nop))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "If", "Nop", "Block", "If", "LocalSet(1)", "Nop",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing does not move a local.set when a later local.tee rewrites it" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local f32)
+    #|    (f32.const 6)
+    #|    (local.set 1)
+    #|    (if (i32.const 0)
+    #|      (then
+    #|        nop)
+    #|      (else
+    #|        nop))
+    #|    (drop
+    #|      (local.tee 1
+    #|        (f32.const 91)))
+    #|    (if (i32.const 0)
+    #|      (then
+    #|        nop)
+    #|      (else
+    #|        nop))
+    #|    (local.get 0)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(1)", "If", "Drop", "If", "LocalGet(0)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing keeps a dead local.set before nontrivial roots when no later read needs it" {
+  let source =
+    #|(module
+    #|  (global i64 (i64.const 926))
+    #|  (func (param i64)
+    #|    (local f64)
+    #|    (drop
+    #|      (i64.const 211))
+    #|    (f64.const 77)
+    #|    (local.set 1)
+    #|    (drop
+    #|      (global.get 0))
+    #|    (drop
+    #|      (f32.const 73))
+    #|    (if (i32.const 0)
+    #|      (then
+    #|        nop)
+    #|      (else
+    #|        nop))))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "Drop", "LocalSet(1)", "Drop", "Drop", "If",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
 }
 
 ///|
@@ -862,6 +976,228 @@ test "code-pushing rewrites past an earlier self-contained block root" {
 
   assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
     "Block", "LocalSet(3)", "If", "LocalSet(2)", "LocalGet(2)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites past an earlier block root that exits a dropped owner" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (block $prefix
+    #|            (if (local.get 0)
+    #|              (then
+    #|                (br $outer (i32.const 0)))
+    #|              (else
+    #|                (drop (i32.const 0)))))
+    #|          (local.get 1)
+    #|          (local.set 2)
+    #|          (local.get 1)
+    #|          (local.set 3)
+    #|          (local.get 3)
+    #|          (if
+    #|            (then
+    #|              (drop (local.get 3))))
+    #|          (local.get 2)))
+    #|      (i32.const 9)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+  let mut outer_body : @ir.HotRegionRef? = None
+  let candidate_tags : Array[String] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block =>
+        if @ir.hot_node_result_arity(func, node_id) == 1 {
+          let region = @ir.hot_region_body_ref(func, node_id)
+          let tags = code_pushing_test_region_tags(func, region)
+          candidate_tags.push(tags.to_string())
+          if tags.length() == 5 &&
+            tags[0] == "Block" &&
+            tags[4] == "LocalGet(2)" &&
+            tags.contains("LocalSet(2)") &&
+            tags.contains("LocalSet(3)") &&
+            tags.contains("If") {
+            outer_body = Some(region)
+            break
+          }
+        }
+      _ => ()
+    }
+  }
+  let outer_body = match outer_body {
+    Some(region) => region
+    None => fail("expected dropped-owner non-void body: \{candidate_tags}")
+  }
+
+  assert_eq(code_pushing_test_region_tags(func, outer_body), [
+    "Block", "LocalSet(3)", "If", "LocalSet(2)", "LocalGet(2)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites a live-like dropped-owner predecessor chain" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (block $prefix
+    #|            (if (local.get 0)
+    #|              (then
+    #|                (call $touch (local.get 1))
+    #|                (br $prefix))
+    #|              (else
+    #|                (if (local.get 0)
+    #|                  (then
+    #|                    (call $touch (local.get 1))
+    #|                    (br $prefix))
+    #|                  (else
+    #|                    (drop (i32.const 0)))))))
+    #|          (br $outer (i32.const 0))
+    #|          (call $touch (local.get 1))
+    #|          (local.get 1)
+    #|          (local.set 2)
+    #|          (local.get 1)
+    #|          (local.set 3)
+    #|          (local.get 3)
+    #|          (if
+    #|            (then
+    #|              (call $touch (local.get 3))))
+    #|          (local.get 2)))
+    #|      (i32.const 9)))
+    #|  (func $touch (param i32)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+  let mut outer_body : @ir.HotRegionRef? = None
+  let candidate_tags : Array[String] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block =>
+        if @ir.hot_node_result_arity(func, node_id) == 1 {
+          let region = @ir.hot_region_body_ref(func, node_id)
+          let tags = code_pushing_test_region_tags(func, region)
+          candidate_tags.push(tags.to_string())
+          if tags.length() == 7 &&
+            tags[0] == "Block" &&
+            tags[1] == "Br" &&
+            tags[2] == "Call" &&
+            tags[6] == "LocalGet(2)" &&
+            tags.contains("LocalSet(2)") &&
+            tags.contains("LocalSet(3)") &&
+            tags.contains("If") {
+            outer_body = Some(region)
+            break
+          }
+        }
+      _ => ()
+    }
+  }
+  let outer_body = match outer_body {
+    Some(region) => region
+    None => fail("expected live-like dropped-owner body: \{candidate_tags}")
+  }
+
+  assert_eq(code_pushing_test_region_tags(func, outer_body), [
+    "Block", "Br", "Call", "LocalSet(3)", "If", "LocalSet(2)", "LocalGet(2)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites past a self-and-dropped-owner block root" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (block $prefix
+    #|            (if (local.get 0)
+    #|              (then
+    #|                (call $touch (local.get 1))
+    #|                (br $prefix))
+    #|              (else
+    #|                (if (local.get 0)
+    #|                  (then
+    #|                    (call $touch (local.get 1))
+    #|                    (br $prefix))
+    #|                  (else
+    #|                    (drop (i32.const 0))))))
+    #|            (br $outer (i32.const 0)))
+    #|          (call $touch (local.get 1))
+    #|          (local.get 1)
+    #|          (local.set 2)
+    #|          (local.get 1)
+    #|          (local.set 3)
+    #|          (local.get 3)
+    #|          (if
+    #|            (then
+    #|              (call $touch (local.get 3))))
+    #|          (local.get 2)))
+    #|      (i32.const 9)))
+    #|  (func $touch (param i32)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+  let mut outer_body : @ir.HotRegionRef? = None
+  let candidate_tags : Array[String] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block =>
+        if @ir.hot_node_result_arity(func, node_id) == 1 {
+          let region = @ir.hot_region_body_ref(func, node_id)
+          let tags = code_pushing_test_region_tags(func, region)
+          candidate_tags.push(tags.to_string())
+          if tags.length() == 6 &&
+            tags[0] == "Block" &&
+            tags[1] == "Call" &&
+            tags[5] == "LocalGet(2)" &&
+            tags.contains("LocalSet(2)") &&
+            tags.contains("LocalSet(3)") &&
+            tags.contains("If") {
+            outer_body = Some(region)
+            break
+          }
+        }
+      _ => ()
+    }
+  }
+  let outer_body = match outer_body {
+    Some(region) => region
+    None => fail("expected self-and-dropped-owner body: \{candidate_tags}")
+  }
+
+  assert_eq(code_pushing_test_region_tags(func, outer_body), [
+    "Block", "Call", "LocalSet(3)", "If", "LocalSet(2)", "LocalGet(2)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {
