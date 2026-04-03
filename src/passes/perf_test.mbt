@@ -998,6 +998,82 @@ fn perf_test_make_simplify_locals_small_loop_call_module() -> String {
 }
 
 ///|
+fn perf_test_make_simplify_locals_straight_line_builder_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 256 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 41 {
+    let touched_local = i * 4 + 4
+    let merged_local = i * 4 + 5
+    let copied_local = i * 4 + 6
+    let spilled_local = i * 4 + 7
+    out.write_string("    local.get 0\n")
+    out.write_string("    call 0\n")
+    out.write_string("    local.set ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.get ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.get 0\n")
+    out.write_string("    call 1\n")
+    out.write_string("    local.set ")
+    out.write_string(merged_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.get ")
+    out.write_string(merged_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.set ")
+    out.write_string(copied_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.get ")
+    out.write_string(copied_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.get ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("    call 1\n")
+    out.write_string("    local.set ")
+    out.write_string(spilled_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.get ")
+    out.write_string(spilled_local.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get ")
+    out.write_string(spilled_local.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get ")
+    out.write_string(copied_local.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_simplify_locals_loop_heavy_validator_call_module(
   repetitions : Int,
   base_locals : Int,
@@ -4298,6 +4374,35 @@ test "simplify-locals skips small-loop call-heavy kernels without hot lift" {
   let text = perf_test_join_lines(lines)
   assert_true(
     text.contains("pass[simplify-locals]:skip-raw reason=small-loop-call-heavy"),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips straight-line builder churn without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_straight_line_builder_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected straight-line builder simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=straight-line-builder-churn",
+    ),
     msg=text,
   )
   assert_false(text.contains("perf:timer name=lift"), msg=text)

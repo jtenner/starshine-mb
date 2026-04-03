@@ -1555,6 +1555,7 @@ fn run_hot_pipeline_raw_simplify_locals_gate_stats(
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_ladder(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1595,6 +1596,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_rewrite_ladder(
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_func(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1606,6 +1608,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_func(
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1621,6 +1624,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_call_heavy(
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_validator_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1638,6 +1642,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_validator_structured_call_he
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_parser_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1660,6 +1665,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_parser_structured_call_heavy
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_transformer_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1684,6 +1690,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_transformer_structured_call_
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_small_loop_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1707,6 +1714,31 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_small_loop_call_heavy(
 }
 
 ///|
+#cfg(target="native")
+fn run_hot_pipeline_raw_simplify_locals_should_skip_straight_line_builder_churn(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 224 &&
+  stats.locals_count <= 320 &&
+  !stats.has_structured_control &&
+  stats.instr_count >= 768 &&
+  stats.if_count == 0 &&
+  stats.block_count == 0 &&
+  stats.loop_count == 0 &&
+  stats.local_set_count >= 144 &&
+  stats.local_set_count <= 192 &&
+  stats.local_get_count >= 384 &&
+  stats.local_get_count <= 704 &&
+  stats.local_get_count >= stats.local_set_count * 2 + 48 &&
+  stats.call_count >= 72 &&
+  stats.call_count <= 128 &&
+  stats.return_count == 0
+}
+
+///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_medium_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1727,6 +1759,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_medium_structured_call_heavy
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_loop_heavy_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1748,6 +1781,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_loop_heavy_structured_call_h
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_local_churn(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1784,6 +1818,7 @@ fn run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_multivalue_call_ladder(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1852,6 +1887,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_multivalue_call_ladder(
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_pure_call_tails(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1865,6 +1901,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_rewrite_pure_call_tails(
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_straight_line_adjacent_local_tees(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -1882,6 +1919,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_rewrite_straight_line_adjacent_lo
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_rewrite_structured_pure_call_tails(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -2334,13 +2372,235 @@ fn run_hot_pipeline_raw_simplify_locals(
       trace_skip_raw: true,
     })
   }
-  let should_rewrite_ladder = run_hot_pipeline_raw_simplify_locals_should_rewrite_ladder(
-    locals, instrs,
-  )
-  if !should_rewrite_ladder &&
-    run_hot_pipeline_raw_simplify_locals_should_rewrite_straight_line_adjacent_local_tees(
-      locals, instrs,
-    ) {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  let should_rewrite_ladder = if stats.locals_count < 16 ||
+    stats.locals_count > 512 {
+    false
+  } else if !stats.has_structured_control || stats.instr_count > 12000 {
+    false
+  } else {
+    let large_ladder = stats.locals_count >= 48 &&
+      stats.instr_count >= 160 &&
+      stats.if_count >= 16 &&
+      stats.local_set_count >= 16 &&
+      stats.local_get_count >= 32 &&
+      stats.exact_tail_count >= 12 &&
+      stats.exact_tail_count * 4 + 16 >= stats.if_count &&
+      stats.return_count <= stats.exact_tail_count + 8
+    let small_ladder = stats.locals_count >= 16 &&
+      stats.instr_count >= 80 &&
+      stats.if_count >= 8 &&
+      stats.local_set_count >= 8 &&
+      stats.local_get_count >= 16 &&
+      stats.exact_tail_count >= 4 &&
+      stats.exact_tail_count * 2 + 4 >= stats.if_count &&
+      stats.return_count <= stats.exact_tail_count + 4
+    let sparse_ladder = stats.locals_count >= 16 &&
+      stats.instr_count >= 80 &&
+      stats.if_count >= 12 &&
+      stats.local_set_count >= 10 &&
+      stats.local_get_count >= 24 &&
+      stats.call_count >= stats.if_count &&
+      stats.exact_tail_count >= 5 &&
+      stats.exact_tail_count * 3 + 1 >= stats.if_count &&
+      stats.return_count <= stats.if_count
+    large_ladder || small_ladder || sparse_ladder
+  }
+  let should_rewrite_straight_line_adjacent_local_tees = !stats.has_structured_control &&
+    stats.locals_count >= 512 &&
+    stats.instr_count >= 2048 &&
+    stats.local_set_count >= 1 &&
+    stats.local_set_count <= 16 &&
+    stats.local_get_count >= 1024 &&
+    stats.local_get_count >= stats.local_set_count * 64 &&
+    stats.call_count >= 768 &&
+    stats.return_count <= 1
+  let should_rewrite_pure_call_tails = !stats.has_structured_control &&
+    stats.locals_count >= 32 &&
+    stats.instr_count >= 128 &&
+    stats.local_set_count >= 16 &&
+    stats.local_get_count >= 32
+  let should_skip_straight_line_builder_churn = stats.locals_count >= 224 &&
+    stats.locals_count <= 320 &&
+    !stats.has_structured_control &&
+    stats.instr_count >= 768 &&
+    stats.if_count == 0 &&
+    stats.block_count == 0 &&
+    stats.loop_count == 0 &&
+    stats.local_set_count >= 144 &&
+    stats.local_set_count <= 192 &&
+    stats.local_get_count >= 384 &&
+    stats.local_get_count <= 704 &&
+    stats.local_get_count >= stats.local_set_count * 2 + 48 &&
+    stats.call_count >= 72 &&
+    stats.call_count <= 128 &&
+    stats.return_count == 0
+  let should_skip_multivalue_call_ladder = {
+    let sparse_call_ladder = stats.locals_count >= 16 &&
+      stats.locals_count <= 512 &&
+      stats.has_structured_control &&
+      stats.exact_tail_count == 0 &&
+      stats.instr_count >= 160 &&
+      stats.if_count >= 12 &&
+      stats.loop_count <= 2 &&
+      stats.local_set_count >= 6 &&
+      stats.local_get_count >= 48 &&
+      stats.local_get_count >= stats.local_set_count * 3 &&
+      stats.call_count >= 24 &&
+      stats.call_count >= stats.if_count &&
+      stats.return_count <= stats.if_count + 12
+    let compact_call_ladder = stats.locals_count >= 32 &&
+      stats.locals_count <= 64 &&
+      stats.has_structured_control &&
+      stats.exact_tail_count == 0 &&
+      stats.instr_count >= 192 &&
+      stats.if_count >= 10 &&
+      stats.if_count <= 24 &&
+      stats.block_count <= 2 &&
+      stats.loop_count == 0 &&
+      stats.local_set_count >= 12 &&
+      stats.local_get_count >= 64 &&
+      stats.local_get_count >= stats.local_set_count * 5 &&
+      stats.call_count >= 32 &&
+      stats.call_count >= stats.if_count * 3 &&
+      stats.return_count <= 4
+    let flat_dense_call_ladder = stats.locals_count >= 96 &&
+      stats.locals_count <= 192 &&
+      stats.has_structured_control &&
+      stats.exact_tail_count == 0 &&
+      stats.instr_count >= 480 &&
+      stats.if_count >= 32 &&
+      stats.block_count == 0 &&
+      stats.loop_count == 0 &&
+      stats.local_set_count >= 48 &&
+      stats.local_get_count >= 160 &&
+      stats.local_get_count >= stats.local_set_count * 2 + 32 &&
+      stats.call_count >= 48 &&
+      stats.call_count >= stats.if_count + 16 &&
+      stats.return_count <= stats.if_count
+    let loop_rich_call_ladder = stats.locals_count >= 160 &&
+      stats.locals_count <= 256 &&
+      stats.has_structured_control &&
+      stats.exact_tail_count == 0 &&
+      stats.instr_count >= 1000 &&
+      stats.if_count >= 48 &&
+      stats.block_count <= 4 &&
+      stats.loop_count <= 4 &&
+      stats.local_set_count >= 96 &&
+      stats.local_get_count >= 384 &&
+      stats.local_get_count >= stats.local_set_count * 3 + 64 &&
+      stats.call_count >= 192 &&
+      stats.call_count >= stats.if_count * 4 &&
+      stats.return_count <= stats.if_count
+    sparse_call_ladder ||
+    compact_call_ladder ||
+    flat_dense_call_ladder ||
+    loop_rich_call_ladder
+  }
+  let should_skip_validator_structured_call_heavy = stats.locals_count >= 256 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 256 &&
+    stats.if_count >= 48 &&
+    stats.block_count >= 32 &&
+    stats.loop_count >= 4 &&
+    stats.local_set_count >= 128 &&
+    stats.local_get_count >= 384 &&
+    stats.call_count >= 192
+  let should_skip_parser_structured_call_heavy = stats.locals_count >= 96 &&
+    stats.locals_count <= 352 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 160 &&
+    stats.if_count >= 16 &&
+    stats.if_count <= 64 &&
+    stats.block_count >= 4 &&
+    stats.block_count <= 20 &&
+    stats.loop_count <= 2 &&
+    stats.local_set_count >= 80 &&
+    stats.local_get_count >= 220 &&
+    stats.call_count >= 64 &&
+    stats.call_count <= 128 &&
+    stats.return_count <= stats.if_count
+  let should_skip_transformer_structured_call_heavy = stats.locals_count >= 84 &&
+    stats.locals_count <= 96 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 160 &&
+    stats.if_count >= 18 &&
+    stats.if_count <= 28 &&
+    stats.block_count >= 12 &&
+    stats.block_count <= 20 &&
+    stats.loop_count == 0 &&
+    stats.local_set_count >= 32 &&
+    stats.local_set_count <= 48 &&
+    stats.local_get_count >= 140 &&
+    stats.local_get_count <= 180 &&
+    stats.call_count >= 48 &&
+    stats.call_count <= 64 &&
+    stats.return_count <= 8
+  let should_skip_small_loop_call_heavy = stats.locals_count >= 80 &&
+    stats.locals_count <= 90 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 160 &&
+    stats.if_count >= 12 &&
+    stats.if_count <= 20 &&
+    stats.block_count == 0 &&
+    stats.loop_count == 2 &&
+    stats.local_set_count >= 72 &&
+    stats.local_set_count <= 84 &&
+    stats.local_get_count >= 100 &&
+    stats.local_get_count <= 192 &&
+    stats.call_count >= 24 &&
+    stats.call_count <= 48 &&
+    stats.return_count <= 4
+  let should_skip_medium_structured_call_heavy = stats.locals_count >= 176 &&
+    stats.locals_count <= 320 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 224 &&
+    stats.if_count >= 24 &&
+    stats.if_count <= 96 &&
+    stats.loop_count <= 3 &&
+    stats.local_set_count >= 96 &&
+    stats.local_get_count >= 256 &&
+    stats.call_count >= 128 &&
+    stats.call_count <= 224 &&
+    stats.return_count <= stats.if_count
+  let should_skip_loop_heavy_structured_call_heavy = stats.locals_count >= 176 &&
+    stats.locals_count <= 320 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 256 &&
+    stats.if_count >= 28 &&
+    stats.if_count <= 80 &&
+    stats.block_count >= 8 &&
+    stats.loop_count >= 4 &&
+    stats.local_set_count >= 80 &&
+    stats.local_get_count >= 200 &&
+    stats.call_count >= 80 &&
+    stats.call_count <= 224 &&
+    stats.return_count <= stats.if_count
+  let should_skip_giant_structured_call_heavy = stats.locals_count >= 352 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 256 &&
+    stats.if_count >= 80 &&
+    stats.local_set_count >= 176 &&
+    stats.local_get_count >= 384 &&
+    stats.call_count >= 240
+  let should_skip_giant_structured_local_churn = stats.locals_count >= 600 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 1500 &&
+    stats.if_count >= 96 &&
+    stats.local_set_count >= 384 &&
+    stats.local_get_count >= 768 &&
+    stats.call_count >= 16 &&
+    stats.call_count <= 96 &&
+    stats.return_count <= 4
+  let should_skip_giant_func = stats.locals_count >= 1500 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 2000
+  let should_rewrite_structured_pure_call_tails = stats.has_structured_control &&
+    stats.locals_count >= 128 &&
+    stats.instr_count >= 256 &&
+    stats.local_set_count >= 24 &&
+    stats.local_get_count >= 48
+  if !should_rewrite_ladder && should_rewrite_straight_line_adjacent_local_tees {
     let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_local_tees(
       instrs,
     )
@@ -2353,9 +2613,7 @@ fn run_hot_pipeline_raw_simplify_locals(
       })
     }
   }
-  if run_hot_pipeline_raw_simplify_locals_should_rewrite_pure_call_tails(
-      locals, instrs,
-    ) {
+  if should_rewrite_pure_call_tails {
     let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
       instrs,
     )
@@ -2369,12 +2627,18 @@ fn run_hot_pipeline_raw_simplify_locals(
     }
   }
   if !should_rewrite_ladder {
+    if should_skip_straight_line_builder_churn {
+      return Some({
+        reason: "straight-line-builder-churn",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     if run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
         mod_, func_idx, module_state, options,
       ) &&
-      run_hot_pipeline_raw_simplify_locals_should_skip_multivalue_call_ladder(
-        locals, instrs,
-      ) {
+      should_skip_multivalue_call_ladder {
       return Some({
         reason: "multivalue-call-heavy-ladder",
         func: original,
@@ -2382,9 +2646,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
-    if run_hot_pipeline_raw_simplify_locals_should_skip_validator_structured_call_heavy(
-        locals, instrs,
-      ) {
+    if should_skip_validator_structured_call_heavy {
       return Some({
         reason: "validator-structured-call-heavy",
         func: original,
@@ -2392,9 +2654,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
-    if run_hot_pipeline_raw_simplify_locals_should_skip_parser_structured_call_heavy(
-        locals, instrs,
-      ) {
+    if should_skip_parser_structured_call_heavy {
       return Some({
         reason: "parser-structured-call-heavy",
         func: original,
@@ -2402,9 +2662,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
-    if run_hot_pipeline_raw_simplify_locals_should_skip_transformer_structured_call_heavy(
-        locals, instrs,
-      ) {
+    if should_skip_transformer_structured_call_heavy {
       return Some({
         reason: "transformer-structured-call-heavy",
         func: original,
@@ -2412,9 +2670,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
-    if run_hot_pipeline_raw_simplify_locals_should_skip_small_loop_call_heavy(
-        locals, instrs,
-      ) {
+    if should_skip_small_loop_call_heavy {
       return Some({
         reason: "small-loop-call-heavy",
         func: original,
@@ -2422,9 +2678,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
-    if run_hot_pipeline_raw_simplify_locals_should_skip_medium_structured_call_heavy(
-        locals, instrs,
-      ) {
+    if should_skip_medium_structured_call_heavy {
       return Some({
         reason: "medium-structured-call-heavy",
         func: original,
@@ -2432,9 +2686,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
-    if run_hot_pipeline_raw_simplify_locals_should_skip_loop_heavy_structured_call_heavy(
-        locals, instrs,
-      ) {
+    if should_skip_loop_heavy_structured_call_heavy {
       return Some({
         reason: "loop-heavy-structured-call-heavy",
         func: original,
@@ -2442,9 +2694,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
-    if run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_call_heavy(
-        locals, instrs,
-      ) {
+    if should_skip_giant_structured_call_heavy {
       return Some({
         reason: "giant-structured-call-heavy",
         func: original,
@@ -2452,9 +2702,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
-    if run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_local_churn(
-        locals, instrs,
-      ) {
+    if should_skip_giant_structured_local_churn {
       return Some({
         reason: "giant-structured-local-churn",
         func: original,
@@ -2462,9 +2710,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
-    if run_hot_pipeline_raw_simplify_locals_should_skip_giant_func(
-        locals, instrs,
-      ) {
+    if should_skip_giant_func {
       return Some({
         reason: "giant-local-func-noop",
         func: original,
@@ -2472,9 +2718,7 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
-    if run_hot_pipeline_raw_simplify_locals_should_rewrite_structured_pure_call_tails(
-        locals, instrs,
-      ) {
+    if should_rewrite_structured_pure_call_tails {
       let module_ctx = run_hot_pipeline_require_module_ctx(
         mod_, module_state, options,
       )

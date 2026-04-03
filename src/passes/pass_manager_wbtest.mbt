@@ -306,6 +306,47 @@ test "simplify-locals debug artifact Func 1950 reports skip-invalid-lower reason
 
 ///|
 #cfg(target="native")
+test "raw simplify-locals skips straight-line builder debug artifact Func 262" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(262U)
+  let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
+    mod_, func_idx,
+  )
+  let pipeline_result = match
+    run_hot_pipeline_func(
+      mod_,
+      func_idx,
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      { module_ctx: None },
+      HotPipelineOptions::new(),
+    ) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected simplify-locals hot pipeline success, got \{err}")
+  }
+  assert_true(
+    run_hot_pipeline_raw_simplify_locals_should_skip_straight_line_builder_churn(
+      locals, instrs,
+    ),
+  )
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="reason=\{pipeline_result.reason}",
+  )
+  assert_true(pipeline_result.unchanged_original)
+  assert_eq(pipeline_result.reason, "straight-line-builder-churn")
+}
+
+///|
+#cfg(target="native")
 test "raw simplify-locals gate accepts debug artifact Func 414" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
