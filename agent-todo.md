@@ -281,7 +281,7 @@ Observed unique-pass order
      - Doc: [0075](/home/jtenner/Projects/starshine-mb-heap2local/docs/0075-2026-04-03-heap2local-binaryen-comparison.md)
     - [H2L]002 - Localization Rewrite and Artifact Validation - Rewrite eligible heap accesses to locals and validate the result on focused GC fixtures and the debug artifact.
       - Deliverables: add regressions for escaping objects and partial field coverage; prove the pass only runs in the GC mid-function slot; compare against Binaryen output.
-    - Current blocker: the in-tree parity suite is now green and the pass-fuzz compare harness now accepts `heap2local`, but non-nullable local fixups and enough external Binaryen compare-harness evidence are still missing. Preset wiring currently inserts `heap2local` in the modeled mid-function slot before `simplify-locals`, but the wider missing-pass neighborhood (`optimize-casts`, `local-subtyping`, `coalesce-locals`, `local-cse`) still needs to land for full no-DWARF parity.
+    - Current blocker: the in-tree parity suite is green, `heap2local` now matches Binaryen on a `10000`-case `gen-valid` compare run, and a `1000`-case mixed-generator sample found no mismatches or Starshine validation failures but did hit Binaryen wasm-smith parser rejects. Remaining follow-up is Binaryen's non-nullable-local / refinalization fixups plus the wider missing-pass neighborhood (`optimize-casts`, `local-subtyping`, `coalesce-locals`, `local-cse`) needed for full no-DWARF parity.
       - Doc: [0075](/home/jtenner/Projects/starshine-mb-heap2local/docs/0075-2026-04-03-heap2local-binaryen-comparison.md)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-03 Checkpoint: record `heap2local` compare-pass evidence
+
+- **`heap2local` parity-evidence checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`docs/0075-2026-04-03-heap2local-binaryen-comparison.md`](./docs/0075-2026-04-03-heap2local-binaryen-comparison.md) to record direct Binaryen compare-pass evidence for `heap2local`: a clean `10000`-case `gen-valid` run with zero mismatches or failures, plus a `1000`-case mixed-generator sample with zero mismatches and only Binaryen wasm-smith parser rejects on the non-compared cases. The remaining Heap2Local follow-up is Binaryen's non-nullable-local/refinalization fixup behavior and the wider neighboring-pass parity needed for the full no-DWARF pipeline.
+
 ## 2026-04-03 Checkpoint: enable `heap2local` in pass-fuzz comparison
 
 - **`heap2local` compare-harness checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so the pass-fuzz compare harness now accepts `heap2local` in both `--list-passes` output and `--pass <name>` normalization. That unblocks direct Binaryen parity runs for Heap2Local; the remaining follow-up is collecting enough comparable cases for signoff and then addressing any non-nullable-local or parity gaps that surface.

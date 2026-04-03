@@ -160,17 +160,36 @@ The primary suite for this worktree should lock these Binaryen-aligned expectati
 
 ## Starshine Gap Summary
 
-- The current Starshine slice only handles:
-  - one writer local
-  - `struct.new` and `struct.new_default`
-  - later direct `struct.get*` and `struct.set` users on the same type
-- The current slice does not yet cover:
-  - ownership flowing through locals, blocks, loops, or tees
-  - direct allocation users without an owner local
-  - ref operation folding
-  - descriptor-bearing structs
-  - array-to-struct lowering
-  - Binaryen's non-nullable local and refinalization fixups
+- The current Starshine slice now covers the full in-tree primary suite:
+  - exclusive struct owners through direct locals, local-copy chains, tees, and simple block-result flow
+  - `ref.as_non_null`
+  - direct `ref.eq`
+  - successful `ref.cast`
+  - descriptor-bearing `struct.new_desc` / `struct.new_default_desc` plus `ref.get_desc`
+  - constant-size `array.new_default`, `array.new`, and `array.new_fixed`
+  - constant-index `array.get`, `array.get_s`, `array.get_u`, and `array.set`
+  - direct array `ref.test`
+  - bailout on parameter-backed mixed provenance
+- The remaining documented Binaryen gap is:
+  - Binaryen's non-nullable local and refinalization fixups after successful rewrites
+- Wider no-DWARF optimize-path parity still depends on neighboring passes:
+  - `optimize-casts`
+  - `local-subtyping`
+  - `coalesce-locals`
+  - `local-cse`
+
+## Observed Compare Evidence
+
+- `2026-04-03`: `bun scripts/pass-fuzz-compare.ts --pass heap2local --generator gen-valid --count 10000 --min-compared 10000 --max-failures 20 --out-dir .tmp/pass-fuzz/heap2local-genvalid-10k-20260403`
+  - Result: `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, `0` validation failures, `0` command failures
+  - Artifact: `.tmp/pass-fuzz/heap2local-genvalid-10k-20260403/result.json`
+- `2026-04-03`: `bun scripts/pass-fuzz-compare.ts --pass heap2local --generator both --count 1000 --min-compared 900 --max-failures 200 --out-dir .tmp/pass-fuzz/heap2local-both-1000-20260403`
+  - Result: `950 / 1000` compared, `950` normalized matches, `0` mismatches, `0` validation failures, `50` command failures
+  - Command failures were all Binaryen parser rejects on wasm-smith inputs, not Starshine output failures:
+    - `45` `binaryen-invalid-type-index`
+    - `2` `binaryen-rec-group-zero`
+    - `3` `binaryen-invalid-wasm-type-neg64`
+  - Artifact: `.tmp/pass-fuzz/heap2local-both-1000-20260403/result.json`
 
 ## Validation Plan
 
