@@ -2210,6 +2210,7 @@ fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   block_id : Int,
+  reorder_cache : Array[Int],
   label_refs : Array[Int],
   branch_payload_children : Array[Bool],
 ) -> Bool {
@@ -2262,15 +2263,32 @@ fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
       func,
       @ir.hot_node_type(func, block_id),
     )[0]
-  let branch_body = match
-    remove_unused_brs_build_stack_exit_region_value_body(
+  let branch_value = match
+    remove_unused_brs_build_stack_exit_region_value_expr(
+      ctx,
       func,
       then_ref,
       BranchTarget(block_label),
-      result_arity,
+      result_type,
+      reorder_cache,
     ) {
-    Some(branch_body) => branch_body
-    None => return false
+    Some(branch_value) => branch_value
+    None =>
+      match
+        remove_unused_brs_build_stack_exit_region_value_body(
+          func,
+          then_ref,
+          BranchTarget(block_label),
+          result_arity,
+        ) {
+        Some(branch_body) =>
+          @ir.hot_build_block(
+            func,
+            @lib.BlockType::val_type(result_type),
+            branch_body,
+          )
+        None => return false
+      }
   }
   let fallthrough_roots : Array[Int] = []
   for root_idx = 1
@@ -2287,7 +2305,7 @@ fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
     func,
     @lib.BlockType::val_type(result_type),
     @ir.hot_child_get(func, if_id, 0),
-    branch_body,
+    [branch_value],
     else_body=Some(fallthrough_roots),
   )
   @ir.hot_replace_node(func, block_id, @ir.hot_node_get(func, replacement))
@@ -2750,6 +2768,9 @@ fn remove_unused_brs_try_rewrite_tail_value_if_simple_payload_arm(
   let region_prefix : Array[Int] = []
   for idx = 0; idx < tail_idx; idx = idx + 1 {
     region_prefix.push(@ir.hot_region_get(func, region_ref, idx))
+  }
+  if region_prefix.is_empty() {
+    return false
   }
   let result_type = @ir.hot_type_results(func, @ir.hot_node_type(func, if_id))[0]
   let try_build = fn(
@@ -3476,7 +3497,7 @@ fn remove_unused_brs_visit_node(
         ) ||
         changed
       if remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
-          ctx, func, node_id, label_refs, branch_payload_children,
+          ctx, func, node_id, reorder_cache, label_refs, branch_payload_children,
         ) {
         return true
       }
