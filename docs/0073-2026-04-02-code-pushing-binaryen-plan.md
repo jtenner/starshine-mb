@@ -381,13 +381,13 @@
   holders directly, the branch-target path no longer copies `BrTable` target
   arrays or allocates a closure, and the dropped-owner value is threaded
   through the hot branch-target note path as a raw sentinel `Int` instead of an
-  `Int?`. Later trims now cache per-region explicit-exit root lists, replace the
-  root-region and node non-void checks with exact type-tag tests that avoid
-  copying result arrays, and read `func.nodes[node_id]` directly inside
-  `cp_collect_block_owner_exit_summary`. Those changes keep the tree green and
-  move the samples around, but a direct native-binary replay of `--code-pushing`
-  on `tests/node/dist/starshine-debug-wasi.wasm` still had not finished after a
-  local run that was terminated at `68.659s`.
+  `Int?`. Later trims now replace the root-region and node non-void checks with
+  exact type-tag tests that avoid copying result arrays, read
+  `func.nodes[node_id]` directly inside `cp_collect_block_owner_exit_summary`,
+  and remove a duplicate region walk from the recursive owner-exit traversal
+  entirely. That last cut was real: a direct native `--code-pushing` replay now
+  completes in `25.846s`, and the full compare replay completes again instead of
+  being abandoned in the earlier minute-long band.
 - A follow-on direct-read probe stays green too: the recursive summary walk now
   reads `func.nodes` and `func.children` directly in its hottest paths, the
   branch classifier no longer reloads branch targets through
@@ -397,6 +397,14 @@
   stacks still sit inside `cp_collect_block_owner_exit_summary` /
   `cp_collect_block_owner_exit_summary_for_region`, so the accessor wrappers are
   no longer the main story; the recursive owner-exit walk itself is.
+- The first live parity family has moved forward again with that runtime cut.
+  The fresh compare replay is
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-442719`, and the
+  first normalized WAT deltas now start at `48978`, `61074`, `72005`,
+  `105621`, and `126757`. The earlier `19348` and `43657` families are no
+  longer first. Runtime is still far from acceptable though: `24515.088 ms`
+  Starshine pass time vs `50.151 ms` for Binaryen, and `27083.322 ms` total vs
+  `363.237 ms`.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the
   special walk to zero-result `Block` roots only, both regressed the existing

@@ -36,8 +36,6 @@ priv struct CpSummaryCache {
   summaries : Array[CpEffectSummary]
   explicit_exit_ready : Array[Bool]
   explicit_exit_values : Array[Bool]
-  region_explicit_exit_roots_ready : Array[Bool]
-  region_explicit_exit_roots_values : Array[Array[Int]]
   dropped_region_owner_ready : Array[Bool]
   dropped_region_owner_values : Array[Int]
   nonvoid_block_root_guard_ready : Array[Bool]
@@ -232,8 +230,6 @@ fn cp_new_summary_cache(func : @ir.HotFunc) -> CpSummaryCache {
     summaries,
     explicit_exit_ready: Array::make(node_count, false),
     explicit_exit_values: Array::make(node_count, false),
-    region_explicit_exit_roots_ready: Array::make(region_cache_len, false),
-    region_explicit_exit_roots_values: Array::make(region_cache_len, []),
     dropped_region_owner_ready: Array::make(region_cache_len, false),
     dropped_region_owner_values: Array::make(region_cache_len, -1),
     nonvoid_block_root_guard_ready: Array::make(node_count, false),
@@ -865,127 +861,8 @@ fn cp_collect_block_owner_exit_summary(
       break
     }
   }
-  if !summary.has_unsafe_explicit_exit {
-    match node.op {
-      @ir.HotOp::Block | @ir.HotOp::Loop =>
-        cp_collect_block_owner_exit_summary_for_region(
-          cache, func, node_id, owner_id, active_owner_marks, dropped_region_owner_id,
-          summary,
-        )
-      @ir.HotOp::If => {
-        let then_holder = func.children[node.child_base + 1]
-        cp_collect_block_owner_exit_summary_for_region(
-          cache, func, then_holder, owner_id, active_owner_marks, dropped_region_owner_id,
-          summary,
-        )
-        if !summary.has_unsafe_explicit_exit {
-          let else_holder = if node.child_count > 2 {
-            func.children[node.child_base + 2]
-          } else {
-            -1
-          }
-          if else_holder != -1 {
-            cp_collect_block_owner_exit_summary_for_region(
-              cache, func, else_holder, owner_id, active_owner_marks, dropped_region_owner_id,
-              summary,
-            )
-          }
-        }
-      }
-      @ir.HotOp::Try => {
-        let body_holder = func.children[node.child_base]
-        cp_collect_block_owner_exit_summary_for_region(
-          cache, func, body_holder, owner_id, active_owner_marks, dropped_region_owner_id,
-          summary,
-        )
-        if !summary.has_unsafe_explicit_exit {
-          let catch_holder = if node.child_count > 1 {
-            func.children[node.child_base + 1]
-          } else {
-            -1
-          }
-          if catch_holder != -1 {
-            cp_collect_block_owner_exit_summary_for_region(
-              cache, func, catch_holder, owner_id, active_owner_marks, dropped_region_owner_id,
-              summary,
-            )
-          }
-        }
-      }
-      @ir.HotOp::TryTable => {
-        let body_holder = func.children[node.child_base]
-        cp_collect_block_owner_exit_summary_for_region(
-          cache, func, body_holder, owner_id, active_owner_marks, dropped_region_owner_id,
-          summary,
-        )
-        if !summary.has_unsafe_explicit_exit {
-          let catch_list_holder = func.children[node.child_base + 1]
-          cp_collect_block_owner_exit_summary_for_region(
-            cache, func, catch_list_holder, owner_id, active_owner_marks, dropped_region_owner_id,
-            summary,
-          )
-        }
-      }
-      _ => ()
-    }
-  }
   if pushes_owner {
     active_owner_marks[node_id] = false
-  }
-}
-
-///|
-fn cp_collect_block_owner_exit_summary_for_region(
-  cache : CpSummaryCache,
-  func : @ir.HotFunc,
-  region_holder : Int,
-  owner_id : Int,
-  active_owner_marks : Array[Bool],
-  dropped_region_owner_id : Int,
-  summary : CpBlockOwnerExitSummary,
-) -> Unit {
-  let cache_slot = region_holder + 1
-  if !cache.region_explicit_exit_roots_ready[cache_slot] {
-    let roots : Array[Int] = []
-    if region_holder == -1 {
-      for root_id in func.roots {
-        if cp_node_has_explicit_exit(cache, func, root_id) {
-          roots.push(root_id)
-        }
-      }
-    } else {
-      let node = func.nodes[region_holder]
-      let body_base = match node.op {
-        @ir.HotOp::Loop => {
-          let label_id = @ir.hot_control_node_label(func, region_holder)
-          if label_id < 0 {
-            0
-          } else {
-            @ir.hot_label_branch_arity(func, label_id)
-          }
-        }
-        _ => 0
-      }
-      let mut slot = body_base
-      while slot < node.child_count {
-        let root_id = func.children[node.child_base + slot]
-        if cp_node_has_explicit_exit(cache, func, root_id) {
-          roots.push(root_id)
-        }
-        slot = slot + 1
-      }
-    }
-    cache.region_explicit_exit_roots_ready[cache_slot] = true
-    cache.region_explicit_exit_roots_values[cache_slot] = roots
-  }
-  for root_id in cache.region_explicit_exit_roots_values[cache_slot] {
-    cp_collect_block_owner_exit_summary(
-      cache, func, root_id, owner_id, active_owner_marks, dropped_region_owner_id,
-      summary,
-    )
-    if summary.has_unsafe_explicit_exit {
-      return
-    }
   }
 }
 
