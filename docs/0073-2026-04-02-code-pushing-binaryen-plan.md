@@ -405,6 +405,15 @@
   longer first. Runtime is still far from acceptable though: `24515.088 ms`
   Starshine pass time vs `50.151 ms` for Binaryen, and `27083.322 ms` total vs
   `363.237 ms`.
+- One more smaller non-repro is now pinned beside that live family. A reduced
+  root shape with an earlier zero-result branch root, one intervening used
+  `LocalSet`, and then a branch-free crossed gap before the later `if` still
+  lowers and validates when manually reordered. But letting the pass rewrite
+  that shape directly was not keepable: the real debug artifact immediately
+  reintroduced the same `Func 1977` stack underflow. So the pass stays
+  conservative there for now, and the new reduced HOT-lowering fixture is
+  useful only as another proof that the missing ingredient still lives in the
+  larger real-function scaffolding rather than in that local gap shape alone.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the
   special walk to zero-result `Block` roots only, both regressed the existing

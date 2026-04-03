@@ -255,6 +255,37 @@ test "hot lower live repro validates moving a set past an earlier zero-result br
 }
 
 ///|
+test "hot lower live repro validates moving a set past an earlier branch root when the crossed gap is branch-free" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32 i32) block $done local.get 0 br_if $done end local.get 1 local.set 2 i32.const 7 local.set 3 local.get 2 if local.get 2 drop end local.get 3))",
+  )
+  let block_id = hot_root_get(fixture.hot_func, 0)
+  let used_set = hot_root_get(fixture.hot_func, 1)
+  let moved_set = hot_root_get(fixture.hot_func, 2)
+  let if_id = hot_root_get(fixture.hot_func, 3)
+  let local_get = hot_root_get(fixture.hot_func, 4)
+
+  hot_region_replace_body(fixture.hot_func, HotRegionRef::root(), [
+    block_id, used_set, if_id, moved_set, local_get,
+  ])
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "hot lower live repro validates earlier zero-result branch root inside an outer result carrier" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $done (br_if $done (local.get 0))) (local.set 2 (i32.const 7)) (if (local.get 0) (then (drop (local.get 1)))) (br $outer (local.get 2)))))",

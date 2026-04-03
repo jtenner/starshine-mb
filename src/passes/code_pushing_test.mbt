@@ -928,6 +928,35 @@ test "code-pushing rewrites a non-void prefix before a later branch root" {
 }
 
 ///|
+test "code-pushing does not rewrite past an earlier branch root even when the crossed gap is branch-free" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32 i32) block $done local.get 0 br_if $done end local.get 1 local.set 2 i32.const 7 local.set 3 local.get 2 if local.get 2 drop end local.get 3))"
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "Block",
+  )
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
+    "LocalSet(2)",
+  )
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)),
+    "LocalSet(3)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 4)),
+    "LocalGet(3)",
+  )
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing does not rewrite past an earlier zero-result branch root" {
   let source = "(module (func (param i32 i32) (result i32) (local i32) block $done local.get 0 br_if $done end i32.const 7 local.set 2 local.get 0 if local.get 1 drop end local.get 2))"
   let func = code_pushing_test_run_hot(source)
