@@ -53,6 +53,46 @@ test "hot pipeline debug dump targets require traced dce or vacuum on target fun
 }
 
 ///|
+test "raw simplify-locals branchy structured gate accepts target-like stats" {
+  let accepted = {
+    locals_count: 184,
+    instr_count: 1072,
+    has_structured_control: true,
+    if_count: 53,
+    block_count: 24,
+    loop_count: 0,
+    local_set_count: 69,
+    local_get_count: 315,
+    call_count: 107,
+    return_count: 7,
+    exact_tail_count: 0,
+  }
+  assert_true(
+    run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats(
+      accepted,
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats({
+      ..accepted,
+      local_set_count: 63,
+    }),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats({
+      ..accepted,
+      call_count: 95,
+    }),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats({
+      ..accepted,
+      loop_count: 1,
+    }),
+  )
+}
+
+///|
 #cfg(target="native")
 fn pass_manager_test_native_c_string(text : String) -> Bytes {
   let out = @buffer.new(size_hint=text.length() + 1)
@@ -776,6 +816,48 @@ test "raw simplify-locals rewrites lane-builder debug artifact Func 1884" {
   )
   assert_false(pipeline_result.unchanged_original)
   assert_eq(pipeline_result.reason, "straight-line-lane-builder")
+}
+
+///|
+#cfg(target="native")
+test "raw simplify-locals skips branchy structured debug artifact funcs" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  for raw_idx in [1058, 1274] {
+    let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
+    let pipeline_result = match
+      run_hot_pipeline_func(
+        mod_,
+        func_idx,
+        @ir.HotPassDescriptor::new("simplify-locals"),
+        { module_ctx: None },
+        HotPipelineOptions::new(),
+      ) {
+      Ok(result) => result
+      Err(err) =>
+        fail("expected simplify-locals hot pipeline success, got \{err}")
+    }
+    assert_true(
+      pipeline_result.trace_skip_raw,
+      msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
+    )
+    assert_true(
+      pipeline_result.unchanged_original,
+      msg="func=\{raw_idx} reason=\{pipeline_result.reason}",
+    )
+    assert_eq(
+      pipeline_result.reason,
+      "branchy-structured-call-heavy",
+      msg="func=\{raw_idx}",
+    )
+  }
 }
 
 ///|
