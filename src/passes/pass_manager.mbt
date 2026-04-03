@@ -1752,6 +1752,30 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_branchy_decode_structured_ca
 
 ///|
 #cfg(target="native")
+fn run_hot_pipeline_raw_simplify_locals_should_skip_stringview_trim_loop_churn(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 34 &&
+  stats.locals_count <= 40 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 64 &&
+  stats.if_count >= 2 &&
+  stats.if_count <= 3 &&
+  stats.block_count == 0 &&
+  stats.loop_count == 1 &&
+  stats.local_set_count >= 8 &&
+  stats.local_set_count <= 12 &&
+  stats.local_get_count >= 32 &&
+  stats.local_get_count <= 52 &&
+  stats.call_count >= 12 &&
+  stats.call_count <= 18 &&
+  stats.return_count == 0
+}
+
+///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_transformer_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -2657,6 +2681,21 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.call_count <= 128 &&
     stats.return_count >= 4 &&
     stats.return_count <= 12
+  let should_skip_stringview_trim_loop_churn = stats.locals_count >= 34 &&
+    stats.locals_count <= 40 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 64 &&
+    stats.if_count >= 2 &&
+    stats.if_count <= 3 &&
+    stats.block_count == 0 &&
+    stats.loop_count == 1 &&
+    stats.local_set_count >= 8 &&
+    stats.local_set_count <= 12 &&
+    stats.local_get_count >= 32 &&
+    stats.local_get_count <= 52 &&
+    stats.call_count >= 12 &&
+    stats.call_count <= 18 &&
+    stats.return_count == 0
   let should_skip_transformer_structured_call_heavy = stats.locals_count >= 84 &&
     stats.locals_count <= 96 &&
     stats.has_structured_control &&
@@ -2818,6 +2857,14 @@ fn run_hot_pipeline_raw_simplify_locals(
     if should_skip_branchy_decode_structured_call_heavy {
       return Some({
         reason: "branchy-decode-structured-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_stringview_trim_loop_churn {
+      return Some({
+        reason: "stringview-trim-loop-churn",
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,

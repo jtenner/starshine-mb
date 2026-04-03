@@ -1238,6 +1238,103 @@ fn perf_test_make_simplify_locals_branchy_decode_fanout_module() -> String {
 }
 
 ///|
+fn perf_test_make_simplify_locals_stringview_trim_loop_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 40 {
+    out.write_string(" i32")
+    local_idx += 1
+  }
+  out.write_string(")\n")
+  out.write_string("    loop\n")
+  let mut arm = 0
+  while arm < 3 {
+    let base = arm * 8 + 2
+    let a = base
+    let b = base + 1
+    let c = base + 2
+    let d = base + 3
+    let e = base + 4
+    let f = base + 5
+    out.write_string("      local.get 0\n")
+    out.write_string("      i32.const ")
+    out.write_string(arm.to_string())
+    out.write_string("\n")
+    out.write_string("      i32.eq\n")
+    out.write_string("      if\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.tee ")
+    out.write_string(a.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(b.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(a.to_string())
+    out.write_string("\n")
+    out.write_string("        local.tee ")
+    out.write_string(c.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(d.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(c.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        call 1\n")
+    out.write_string("        local.set ")
+    out.write_string(e.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(e.to_string())
+    out.write_string("\n")
+    out.write_string("        call 0\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(b.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(d.to_string())
+    out.write_string("\n")
+    out.write_string("        call 1\n")
+    out.write_string("        local.set ")
+    out.write_string(f.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(e.to_string())
+    out.write_string("\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(f.to_string())
+    out.write_string("\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    arm += 1
+  }
+  out.write_string("    end\n")
+  out.write_string("    local.get 2\n")
+  out.write_string("    drop\n")
+  out.write_string("    local.get 10\n")
+  out.write_string("    drop\n")
+  out.write_string("    local.get 18\n")
+  out.write_string("    drop\n")
+  out.write_string("    local.get 1)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_simplify_locals_loop_heavy_validator_call_module(
   repetitions : Int,
   base_locals : Int,
@@ -4624,6 +4721,35 @@ test "simplify-locals skips branchy decode fanout without hot lift" {
   assert_true(
     text.contains(
       "pass[simplify-locals]:skip-raw reason=branchy-decode-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips stringview trim loops without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_stringview_trim_loop_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected stringview trim simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=stringview-trim-loop-churn",
     ),
     msg=text,
   )
