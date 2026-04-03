@@ -1074,6 +1074,103 @@ fn perf_test_make_simplify_locals_straight_line_builder_module() -> String {
 }
 
 ///|
+fn perf_test_make_simplify_locals_decode_structured_call_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 96 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    block (result i32)\n")
+  out.write_string("      loop\n")
+  let mut i = 0
+  while i < 14 {
+    let touched_local = i * 6 + 4
+    let echoed_local = i * 6 + 5
+    let copied_local = i * 6 + 6
+    let merged_local = i * 6 + 7
+    let spilled_local = i * 6 + 8
+    let out_local = i * 6 + 9
+    out.write_string("        block\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          i32.const ")
+    out.write_string(i.to_string())
+    out.write_string("\n")
+    out.write_string("          i32.eq\n")
+    out.write_string("          if\n")
+    out.write_string("            local.get 0\n")
+    out.write_string("            call 0\n")
+    out.write_string("            local.set ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("            local.get ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("            call 0\n")
+    out.write_string("            local.set ")
+    out.write_string(echoed_local.to_string())
+    out.write_string("\n")
+    out.write_string("            local.get ")
+    out.write_string(echoed_local.to_string())
+    out.write_string("\n")
+    out.write_string("            local.set ")
+    out.write_string(copied_local.to_string())
+    out.write_string("\n")
+    out.write_string("            local.get ")
+    out.write_string(copied_local.to_string())
+    out.write_string("\n")
+    out.write_string("            local.get 1\n")
+    out.write_string("            call 1\n")
+    out.write_string("            local.set ")
+    out.write_string(merged_local.to_string())
+    out.write_string("\n")
+    out.write_string("            local.get ")
+    out.write_string(merged_local.to_string())
+    out.write_string("\n")
+    out.write_string("            local.get ")
+    out.write_string(touched_local.to_string())
+    out.write_string("\n")
+    out.write_string("            call 1\n")
+    out.write_string("            local.set ")
+    out.write_string(spilled_local.to_string())
+    out.write_string("\n")
+    out.write_string("            local.get ")
+    out.write_string(spilled_local.to_string())
+    out.write_string("\n")
+    out.write_string("            local.set ")
+    out.write_string(out_local.to_string())
+    out.write_string("\n")
+    out.write_string("            local.get ")
+    out.write_string(copied_local.to_string())
+    out.write_string("\n")
+    out.write_string("            drop\n")
+    out.write_string("            local.get ")
+    out.write_string(out_local.to_string())
+    out.write_string("\n")
+    out.write_string("            return\n")
+    out.write_string("          end\n")
+    out.write_string("        end\n")
+    i = i + 1
+  }
+  out.write_string("      end\n")
+  out.write_string("      local.get 1\n")
+  out.write_string("      br 0\n")
+  out.write_string("    end)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_simplify_locals_loop_heavy_validator_call_module(
   repetitions : Int,
   base_locals : Int,
@@ -4402,6 +4499,35 @@ test "simplify-locals skips straight-line builder churn without hot lift" {
   assert_true(
     text.contains(
       "pass[simplify-locals]:skip-raw reason=straight-line-builder-churn",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips decode-shaped structured call walkers without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_decode_structured_call_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected decode-shaped simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=decode-structured-call-heavy",
     ),
     msg=text,
   )
