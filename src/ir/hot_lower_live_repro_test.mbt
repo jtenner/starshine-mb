@@ -785,7 +785,14 @@ test "hot lower live repro validates earlier zero-result branch root inside a pa
 }
 
 ///|
-test "hot lower live repro validates a parent-escape carrier with a branch-free crossed gap" {
+priv struct HotLowerParentEscapeCrossedGapFixture {
+  fixture : IrTestHotFixture
+  carrier_body : HotRegionRef
+  err_block : Int
+}
+
+///|
+fn hot_lower_live_parent_escape_crossed_gap_fixture() -> HotLowerParentEscapeCrossedGapFixture {
   let source =
     #|(module
     #|  (func $side (param i32))
@@ -820,6 +827,7 @@ test "hot lower live repro validates a parent-escape carrier with a branch-free 
     #|)
   let fixture = ir_test_build_hot_from_wat(source, code_idx=1)
   let mut carrier_body : HotRegionRef? = None
+  let mut err_block = -1
   for node_id = 0
       node_id < hot_node_count(fixture.hot_func)
       node_id = node_id + 1 {
@@ -829,6 +837,21 @@ test "hot lower live repro validates a parent-escape carrier with a branch-free 
     match hot_node_get(fixture.hot_func, node_id).op {
       Block => {
         let region = hot_region_body_ref(fixture.hot_func, node_id)
+        if hot_region_root_count(fixture.hot_func, region) == 1 {
+          let root0 = hot_region_get(fixture.hot_func, region, 0)
+          match hot_node_get(fixture.hot_func, root0).op {
+            Br =>
+              if hot_child_count(fixture.hot_func, root0) >= 1 {
+                let payload = hot_child_get(fixture.hot_func, root0, 0)
+                match hot_node_get(fixture.hot_func, payload).op {
+                  Block => err_block = node_id
+                  _ => ()
+                }
+              }
+            _ => ()
+          }
+          continue
+        }
         let tags : Array[String] = []
         for idx = 0
             idx < hot_region_root_count(fixture.hot_func, region)
@@ -846,41 +869,76 @@ test "hot lower live repro validates a parent-escape carrier with a branch-free 
             "Block", "Block", "LocalSet(4)", "LocalSet(5)", "If", "Drop", "LocalGet(5)",
           ] {
           carrier_body = Some(region)
-          break
         }
       }
       _ => ()
     }
   }
-  let carrier_body = match carrier_body {
-    Some(region) => region
-    None => fail("expected parent-escape crossed-gap carrier body")
+  {
+    fixture,
+    carrier_body: match carrier_body {
+      Some(region) => region
+      None => abort("expected parent-escape crossed-gap carrier body")
+    },
+    err_block,
   }
-  let work = hot_region_get(fixture.hot_func, carrier_body, 0)
-  let skip = hot_region_get(fixture.hot_func, carrier_body, 1)
-  let used_set = hot_region_get(fixture.hot_func, carrier_body, 2)
-  let moved_set = hot_region_get(fixture.hot_func, carrier_body, 3)
-  let if_id = hot_region_get(fixture.hot_func, carrier_body, 4)
-  let drop_root = hot_region_get(fixture.hot_func, carrier_body, 5)
-  let next_get = hot_region_get(fixture.hot_func, carrier_body, 6)
+}
 
-  hot_region_replace_body(fixture.hot_func, carrier_body, [
+///|
+fn hot_lower_live_apply_parent_escape_crossed_gap_reorder(
+  real : HotLowerParentEscapeCrossedGapFixture,
+) -> Unit {
+  let work = hot_region_get(real.fixture.hot_func, real.carrier_body, 0)
+  let skip = hot_region_get(real.fixture.hot_func, real.carrier_body, 1)
+  let used_set = hot_region_get(real.fixture.hot_func, real.carrier_body, 2)
+  let moved_set = hot_region_get(real.fixture.hot_func, real.carrier_body, 3)
+  let if_id = hot_region_get(real.fixture.hot_func, real.carrier_body, 4)
+  let drop_root = hot_region_get(real.fixture.hot_func, real.carrier_body, 5)
+  let next_get = hot_region_get(real.fixture.hot_func, real.carrier_body, 6)
+
+  hot_region_replace_body(real.fixture.hot_func, real.carrier_body, [
     work, skip, used_set, if_id, moved_set, drop_root, next_get,
   ])
+}
 
-  let lowered = hot_lower_func(fixture.hot_func)
-  let next_code_sec = match fixture.mod_.code_sec {
+///|
+test "hot lower live repro validates a parent-escape carrier with a branch-free crossed gap" {
+  let real = hot_lower_live_parent_escape_crossed_gap_fixture()
+  hot_lower_live_apply_parent_escape_crossed_gap_reorder(real)
+
+  let lowered = hot_lower_func(real.fixture.hot_func)
+  let next_code_sec = match real.fixture.mod_.code_sec {
     Some(@lib.CodeSec(defs)) => {
       let next_defs = defs.copy()
-      next_defs[fixture.code_idx] = lowered
+      next_defs[real.fixture.code_idx] = lowered
       @lib.CodeSec::new(next_defs)
     }
     None => fail("fixture missing code sec")
   }
-  let out = fixture.mod_.with_code_sec(next_code_sec)
+  let out = real.fixture.mod_.with_code_sec(next_code_sec)
   match @validate.validate_module(out) {
     Ok(_) => ()
     Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot verify rejects a parent-escape carrier with a branch-free crossed gap when parent err block becomes result-producing" {
+  let real = hot_lower_live_parent_escape_crossed_gap_fixture()
+  hot_lower_live_apply_parent_escape_crossed_gap_reorder(real)
+  hot_control_result_type_set(
+    real.fixture.hot_func,
+    real.err_block,
+    hot_type_intern_value(real.fixture.hot_func, @lib.ValType::i32()),
+  )
+
+  match hot_verify_all(real.fixture.hot_func, cache=Some(())) {
+    Err(InvalidBranchArity(_, _, 0, 1)) => ()
+    Err(err) => fail(err.to_string())
+    Ok(_) =>
+      fail(
+        "expected parent err block result rewrite to invalidate parent-escape crossed-gap carrier too",
+      )
   }
 }
 
@@ -1166,7 +1224,17 @@ test "hot lower live repro validates reordered real carrier with earlier zero-re
 }
 
 ///|
-test "hot lower live repro validates reordered real carrier with a branch-free crossed gap" {
+priv struct HotLowerRealCrossedGapFixture {
+  fixture : IrTestHotFixture
+  carrier_body : HotRegionRef
+  err_block : Int
+  err_body : HotRegionRef
+  err_branch : Int
+  err_carrier_block : Int
+}
+
+///|
+fn hot_lower_live_real_crossed_gap_fixture() -> HotLowerRealCrossedGapFixture {
   let source =
     #|(module
     #|  (memory 1)
@@ -1246,6 +1314,10 @@ test "hot lower live repro validates reordered real carrier with a branch-free c
     #|)
   let fixture = ir_test_build_hot_from_wat(source, code_idx=4)
   let mut carrier_body : HotRegionRef? = None
+  let mut err_block = -1
+  let mut err_body : HotRegionRef? = None
+  let mut err_branch = -1
+  let mut err_carrier_block = -1
   for node_id = 0
       node_id < hot_node_count(fixture.hot_func)
       node_id = node_id + 1 {
@@ -1255,6 +1327,26 @@ test "hot lower live repro validates reordered real carrier with a branch-free c
     match hot_node_get(fixture.hot_func, node_id).op {
       Block => {
         let region = hot_region_body_ref(fixture.hot_func, node_id)
+        if hot_region_root_count(fixture.hot_func, region) == 1 {
+          let root0 = hot_region_get(fixture.hot_func, region, 0)
+          match hot_node_get(fixture.hot_func, root0).op {
+            Br =>
+              if hot_child_count(fixture.hot_func, root0) >= 1 {
+                let payload = hot_child_get(fixture.hot_func, root0, 0)
+                match hot_node_get(fixture.hot_func, payload).op {
+                  Block => {
+                    err_block = node_id
+                    err_body = Some(region)
+                    err_branch = root0
+                    err_carrier_block = payload
+                  }
+                  _ => ()
+                }
+              }
+            _ => ()
+          }
+          continue
+        }
         let tags : Array[String] = []
         for idx = 0
             idx < hot_region_root_count(fixture.hot_func, region)
@@ -1273,42 +1365,113 @@ test "hot lower live repro validates reordered real carrier with a branch-free c
             "LocalGet(3)",
           ] {
           carrier_body = Some(region)
-          break
         }
       }
       _ => ()
     }
   }
-  let carrier_body = match carrier_body {
-    Some(region) => region
-    None => fail("expected real crossed-gap carrier body")
+  {
+    fixture,
+    carrier_body: match carrier_body {
+      Some(region) => region
+      None => abort("expected real crossed-gap carrier body")
+    },
+    err_block,
+    err_body: match err_body {
+      Some(region) => region
+      None => abort("expected real crossed-gap err body")
+    },
+    err_branch,
+    err_carrier_block,
   }
-  let work = hot_region_get(fixture.hot_func, carrier_body, 0)
-  let skip = hot_region_get(fixture.hot_func, carrier_body, 1)
-  let used_set = hot_region_get(fixture.hot_func, carrier_body, 2)
-  let moved_set = hot_region_get(fixture.hot_func, carrier_body, 3)
-  let decref_if = hot_region_get(fixture.hot_func, carrier_body, 4)
-  let store = hot_region_get(fixture.hot_func, carrier_body, 5)
-  let drop_root = hot_region_get(fixture.hot_func, carrier_body, 6)
-  let next_get = hot_region_get(fixture.hot_func, carrier_body, 7)
+}
 
-  hot_region_replace_body(fixture.hot_func, carrier_body, [
+///|
+fn hot_lower_live_apply_reordered_real_crossed_gap(
+  real : HotLowerRealCrossedGapFixture,
+) -> Unit {
+  let work = hot_region_get(real.fixture.hot_func, real.carrier_body, 0)
+  let skip = hot_region_get(real.fixture.hot_func, real.carrier_body, 1)
+  let used_set = hot_region_get(real.fixture.hot_func, real.carrier_body, 2)
+  let moved_set = hot_region_get(real.fixture.hot_func, real.carrier_body, 3)
+  let decref_if = hot_region_get(real.fixture.hot_func, real.carrier_body, 4)
+  let store = hot_region_get(real.fixture.hot_func, real.carrier_body, 5)
+  let drop_root = hot_region_get(real.fixture.hot_func, real.carrier_body, 6)
+  let next_get = hot_region_get(real.fixture.hot_func, real.carrier_body, 7)
+
+  hot_region_replace_body(real.fixture.hot_func, real.carrier_body, [
     work, skip, used_set, decref_if, moved_set, store, drop_root, next_get,
   ])
+}
 
-  let lowered = hot_lower_func(fixture.hot_func)
-  let next_code_sec = match fixture.mod_.code_sec {
+///|
+fn hot_lower_live_apply_parent_err_extraction_for_crossed_gap(
+  real : HotLowerRealCrossedGapFixture,
+) -> Unit {
+  if real.err_branch < 0 || real.err_carrier_block < 0 {
+    abort("expected parent err branch carrying block payload")
+  }
+  let work = hot_region_get(real.fixture.hot_func, real.carrier_body, 0)
+  let skip = hot_region_get(real.fixture.hot_func, real.carrier_body, 1)
+  let used_set = hot_region_get(real.fixture.hot_func, real.carrier_body, 2)
+  let moved_set = hot_region_get(real.fixture.hot_func, real.carrier_body, 3)
+  let decref_if = hot_region_get(real.fixture.hot_func, real.carrier_body, 4)
+  let store = hot_region_get(real.fixture.hot_func, real.carrier_body, 5)
+  let drop_root = hot_region_get(real.fixture.hot_func, real.carrier_body, 6)
+  let next_get = hot_region_get(real.fixture.hot_func, real.carrier_body, 7)
+  let carrier_payload = hot_child_get(real.fixture.hot_func, moved_set, 0)
+
+  hot_region_replace_body(real.fixture.hot_func, real.carrier_body, [
+    work, skip, used_set, carrier_payload,
+  ])
+  hot_region_insert(real.fixture.hot_func, real.err_body, 0, [
+    real.err_carrier_block,
+    moved_set,
+    decref_if,
+    store,
+    drop_root,
+  ])
+  hot_child_set(real.fixture.hot_func, real.err_branch, 0, next_get)
+}
+
+///|
+test "hot lower live repro validates reordered real carrier with a branch-free crossed gap" {
+  let real = hot_lower_live_real_crossed_gap_fixture()
+  hot_lower_live_apply_reordered_real_crossed_gap(real)
+
+  let lowered = hot_lower_func(real.fixture.hot_func)
+  let next_code_sec = match real.fixture.mod_.code_sec {
     Some(@lib.CodeSec(defs)) => {
       let next_defs = defs.copy()
-      next_defs[fixture.code_idx] = lowered
+      next_defs[real.fixture.code_idx] = lowered
       @lib.CodeSec::new(next_defs)
     }
     None => fail("fixture missing code sec")
   }
-  let out = fixture.mod_.with_code_sec(next_code_sec)
+  let out = real.fixture.mod_.with_code_sec(next_code_sec)
   match @validate.validate_module(out) {
     Ok(_) => ()
     Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot verify rejects reordered real carrier with a branch-free crossed gap when parent err block becomes result-producing" {
+  let real = hot_lower_live_real_crossed_gap_fixture()
+  hot_lower_live_apply_reordered_real_crossed_gap(real)
+  hot_control_result_type_set(
+    real.fixture.hot_func,
+    real.err_block,
+    hot_type_intern_value(real.fixture.hot_func, @lib.ValType::i32()),
+  )
+
+  match hot_verify_all(real.fixture.hot_func, cache=Some(())) {
+    Err(InvalidBranchArity(_, _, 0, 1)) => ()
+    Err(err) => fail(err.to_string())
+    Ok(_) =>
+      fail(
+        "expected parent err block result rewrite to invalidate reordered real crossed-gap carrier too",
+      )
   }
 }
 
@@ -1840,175 +2003,19 @@ fn hot_lower_live_apply_parent_err_extraction_with_skip(
 
 ///|
 test "hot lower live repro validates extracted real carrier with a branch-free crossed gap" {
-  let source =
-    #|(module
-    #|  (memory 1)
-    #|  (func $incref (param i32))
-    #|  (func $decref (param i32))
-    #|  (func $decode (param i32 i32) (result i32)
-    #|    local.get 0)
-    #|  (func $get_tag (param i32) (result i32)
-    #|    i32.const 1)
-    #|  (func (param i32 i32 i32 i32) (result i32)
-    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
-    #|    (block $outer (result i32)
-    #|      (block $err
-    #|        (block $carrier (result i32)
-    #|          (block $work
-    #|            (local.get 1)
-    #|            (i32.load offset=8 align=1)
-    #|            (local.tee 4)
-    #|            (i32.const 1)
-    #|            i32.add
-    #|            (local.set 5)
-    #|            (local.get 0)
-    #|            (call $incref)
-    #|            (local.get 0)
-    #|            (local.get 5)
-    #|            (call $decode)
-    #|            (local.tee 6)
-    #|            (call $get_tag)
-    #|            (i32.const 1)
-    #|            i32.eq
-    #|            (if (result i32)
-    #|              (then
-    #|                (local.get 6)
-    #|                (i32.load offset=12 align=1)
-    #|                (local.set 7)
-    #|                (local.get 6)
-    #|                (i32.load offset=8 align=1)
-    #|                (local.set 8)
-    #|                (local.get 7)
-    #|                (local.get 8)
-    #|                (local.set 3)
-    #|                (local.set 2)
-    #|                (br $work))
-    #|              (else
-    #|                (local.get 0)
-    #|                (call $decref)
-    #|                (local.get 2)
-    #|                (call $decref)
-    #|                (local.get 3)
-    #|                (call $decref)
-    #|                (local.get 1)
-    #|                (call $decref)
-    #|                (local.get 6)
-    #|                (i32.load offset=8 align=1)
-    #|                (local.set 9)
-    #|                (br $err)))
-    #|            unreachable)
-    #|          (block $skip
-    #|            (br_if $skip (local.get 0)))
-    #|          (local.get 2)
-    #|          (local.set 10)
-    #|          (local.get 2)
-    #|          (local.set 5)
-    #|          (local.get 10)
-    #|          (if
-    #|            (then
-    #|              (local.get 10)
-    #|              (call $decref)))
-    #|          (local.get 1)
-    #|          (local.get 5)
-    #|          (i32.store offset=8 align=1)
-    #|          (i32.const 0)
-    #|          drop
-    #|          (local.get 3))
-    #|        br $outer)
-    #|      (local.get 9))))
-    #|)
-  let fixture = ir_test_build_hot_from_wat(source, code_idx=4)
-  let mut carrier_body : HotRegionRef? = None
-  let mut err_body : HotRegionRef? = None
-  let mut err_branch = -1
-  let mut err_carrier_block = -1
-  for node_id = 0
-      node_id < hot_node_count(fixture.hot_func)
-      node_id = node_id + 1 {
-    if !hot_node_is_live(fixture.hot_func, node_id) {
-      continue
-    }
-    match hot_node_get(fixture.hot_func, node_id).op {
-      Block => {
-        let region = hot_region_body_ref(fixture.hot_func, node_id)
-        if hot_region_root_count(fixture.hot_func, region) == 1 {
-          let root0 = hot_region_get(fixture.hot_func, region, 0)
-          match hot_node_get(fixture.hot_func, root0).op {
-            Br =>
-              if hot_child_count(fixture.hot_func, root0) >= 1 {
-                let payload = hot_child_get(fixture.hot_func, root0, 0)
-                match hot_node_get(fixture.hot_func, payload).op {
-                  Block => {
-                    err_body = Some(region)
-                    err_branch = root0
-                    err_carrier_block = payload
-                  }
-                  _ => ()
-                }
-              }
-            _ => ()
-          }
-          continue
-        }
-        let tags : Array[String] = []
-        for idx = 0
-            idx < hot_region_root_count(fixture.hot_func, region)
-            idx = idx + 1 {
-          let root = hot_region_get(fixture.hot_func, region, idx)
-          let op = hot_node_get(fixture.hot_func, root).op
-          match op {
-            LocalGet | LocalSet | LocalTee =>
-              tags.push("\{op}(\{hot_node_get(fixture.hot_func, root).imm0})")
-            _ => tags.push(op.to_string())
-          }
-        }
-        if tags ==
-          [
-            "Block", "Block", "LocalSet(10)", "LocalSet(5)", "If", "Store", "Drop",
-            "LocalGet(3)",
-          ] {
-          carrier_body = Some(region)
-        }
-      }
-      _ => ()
-    }
-  }
-  let carrier_body = match carrier_body {
-    Some(region) => region
-    None => fail("expected extracted real crossed-gap carrier body")
-  }
-  let err_body = match err_body {
-    Some(region) => region
-    None => fail("expected extracted real crossed-gap err body")
-  }
-  let work = hot_region_get(fixture.hot_func, carrier_body, 0)
-  let skip = hot_region_get(fixture.hot_func, carrier_body, 1)
-  let used_set = hot_region_get(fixture.hot_func, carrier_body, 2)
-  let moved_set = hot_region_get(fixture.hot_func, carrier_body, 3)
-  let decref_if = hot_region_get(fixture.hot_func, carrier_body, 4)
-  let store = hot_region_get(fixture.hot_func, carrier_body, 5)
-  let drop_root = hot_region_get(fixture.hot_func, carrier_body, 6)
-  let next_get = hot_region_get(fixture.hot_func, carrier_body, 7)
-  let carrier_payload = hot_child_get(fixture.hot_func, moved_set, 0)
+  let real = hot_lower_live_real_crossed_gap_fixture()
+  hot_lower_live_apply_parent_err_extraction_for_crossed_gap(real)
 
-  hot_region_replace_body(fixture.hot_func, carrier_body, [
-    work, skip, used_set, carrier_payload,
-  ])
-  hot_region_insert(fixture.hot_func, err_body, 0, [
-    err_carrier_block, moved_set, decref_if, store, drop_root,
-  ])
-  hot_child_set(fixture.hot_func, err_branch, 0, next_get)
-
-  let lowered = hot_lower_func(fixture.hot_func)
-  let next_code_sec = match fixture.mod_.code_sec {
+  let lowered = hot_lower_func(real.fixture.hot_func)
+  let next_code_sec = match real.fixture.mod_.code_sec {
     Some(@lib.CodeSec(defs)) => {
       let next_defs = defs.copy()
-      next_defs[fixture.code_idx] = lowered
+      next_defs[real.fixture.code_idx] = lowered
       @lib.CodeSec::new(next_defs)
     }
     None => fail("fixture missing code sec")
   }
-  let out = fixture.mod_.with_code_sec(next_code_sec)
+  let out = real.fixture.mod_.with_code_sec(next_code_sec)
   match @validate.validate_module(out) {
     Ok(_) => ()
     Err(err) => fail(@validate.validation_error_message(err))
@@ -2017,173 +2024,15 @@ test "hot lower live repro validates extracted real carrier with a branch-free c
 
 ///|
 test "hot verify rejects extracted real carrier with a branch-free crossed gap when parent err block becomes result-producing" {
-  let source =
-    #|(module
-    #|  (memory 1)
-    #|  (func $incref (param i32))
-    #|  (func $decref (param i32))
-    #|  (func $decode (param i32 i32) (result i32)
-    #|    local.get 0)
-    #|  (func $get_tag (param i32) (result i32)
-    #|    i32.const 1)
-    #|  (func (param i32 i32 i32 i32) (result i32)
-    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
-    #|    (block $outer (result i32)
-    #|      (block $err
-    #|        (block $carrier (result i32)
-    #|          (block $work
-    #|            (local.get 1)
-    #|            (i32.load offset=8 align=1)
-    #|            (local.tee 4)
-    #|            (i32.const 1)
-    #|            i32.add
-    #|            (local.set 5)
-    #|            (local.get 0)
-    #|            (call $incref)
-    #|            (local.get 0)
-    #|            (local.get 5)
-    #|            (call $decode)
-    #|            (local.tee 6)
-    #|            (call $get_tag)
-    #|            (i32.const 1)
-    #|            i32.eq
-    #|            (if (result i32)
-    #|              (then
-    #|                (local.get 6)
-    #|                (i32.load offset=12 align=1)
-    #|                (local.set 7)
-    #|                (local.get 6)
-    #|                (i32.load offset=8 align=1)
-    #|                (local.set 8)
-    #|                (local.get 7)
-    #|                (local.get 8)
-    #|                (local.set 3)
-    #|                (local.set 2)
-    #|                (br $work))
-    #|              (else
-    #|                (local.get 0)
-    #|                (call $decref)
-    #|                (local.get 2)
-    #|                (call $decref)
-    #|                (local.get 3)
-    #|                (call $decref)
-    #|                (local.get 1)
-    #|                (call $decref)
-    #|                (local.get 6)
-    #|                (i32.load offset=8 align=1)
-    #|                (local.set 9)
-    #|                (br $err)))
-    #|            unreachable)
-    #|          (block $skip
-    #|            (br_if $skip (local.get 0)))
-    #|          (local.get 2)
-    #|          (local.set 10)
-    #|          (local.get 2)
-    #|          (local.set 5)
-    #|          (local.get 10)
-    #|          (if
-    #|            (then
-    #|              (local.get 10)
-    #|              (call $decref)))
-    #|          (local.get 1)
-    #|          (local.get 5)
-    #|          (i32.store offset=8 align=1)
-    #|          (i32.const 0)
-    #|          drop
-    #|          (local.get 3))
-    #|        br $outer)
-    #|      (local.get 9))))
-    #|)
-  let fixture = ir_test_build_hot_from_wat(source, code_idx=4)
-  let mut carrier_body : HotRegionRef? = None
-  let mut err_block = -1
-  let mut err_body : HotRegionRef? = None
-  let mut err_branch = -1
-  let mut err_carrier_block = -1
-  for node_id = 0
-      node_id < hot_node_count(fixture.hot_func)
-      node_id = node_id + 1 {
-    if !hot_node_is_live(fixture.hot_func, node_id) {
-      continue
-    }
-    match hot_node_get(fixture.hot_func, node_id).op {
-      Block => {
-        let region = hot_region_body_ref(fixture.hot_func, node_id)
-        if hot_region_root_count(fixture.hot_func, region) == 1 {
-          let root0 = hot_region_get(fixture.hot_func, region, 0)
-          match hot_node_get(fixture.hot_func, root0).op {
-            Br =>
-              if hot_child_count(fixture.hot_func, root0) >= 1 {
-                let payload = hot_child_get(fixture.hot_func, root0, 0)
-                match hot_node_get(fixture.hot_func, payload).op {
-                  Block => {
-                    err_block = node_id
-                    err_body = Some(region)
-                    err_branch = root0
-                    err_carrier_block = payload
-                  }
-                  _ => ()
-                }
-              }
-            _ => ()
-          }
-          continue
-        }
-        let tags : Array[String] = []
-        for idx = 0
-            idx < hot_region_root_count(fixture.hot_func, region)
-            idx = idx + 1 {
-          let root = hot_region_get(fixture.hot_func, region, idx)
-          let op = hot_node_get(fixture.hot_func, root).op
-          match op {
-            LocalGet | LocalSet | LocalTee =>
-              tags.push("\{op}(\{hot_node_get(fixture.hot_func, root).imm0})")
-            _ => tags.push(op.to_string())
-          }
-        }
-        if tags ==
-          [
-            "Block", "Block", "LocalSet(10)", "LocalSet(5)", "If", "Store", "Drop",
-            "LocalGet(3)",
-          ] {
-          carrier_body = Some(region)
-        }
-      }
-      _ => ()
-    }
-  }
-  let carrier_body = match carrier_body {
-    Some(region) => region
-    None => fail("expected verify real crossed-gap carrier body")
-  }
-  let err_body = match err_body {
-    Some(region) => region
-    None => fail("expected verify real crossed-gap err body")
-  }
-  let work = hot_region_get(fixture.hot_func, carrier_body, 0)
-  let skip = hot_region_get(fixture.hot_func, carrier_body, 1)
-  let used_set = hot_region_get(fixture.hot_func, carrier_body, 2)
-  let moved_set = hot_region_get(fixture.hot_func, carrier_body, 3)
-  let decref_if = hot_region_get(fixture.hot_func, carrier_body, 4)
-  let store = hot_region_get(fixture.hot_func, carrier_body, 5)
-  let drop_root = hot_region_get(fixture.hot_func, carrier_body, 6)
-  let next_get = hot_region_get(fixture.hot_func, carrier_body, 7)
-  let carrier_payload = hot_child_get(fixture.hot_func, moved_set, 0)
-
-  hot_region_replace_body(fixture.hot_func, carrier_body, [
-    work, skip, used_set, carrier_payload,
-  ])
-  hot_region_insert(fixture.hot_func, err_body, 0, [
-    err_carrier_block, moved_set, decref_if, store, drop_root,
-  ])
-  hot_child_set(fixture.hot_func, err_branch, 0, next_get)
+  let real = hot_lower_live_real_crossed_gap_fixture()
+  hot_lower_live_apply_parent_err_extraction_for_crossed_gap(real)
   hot_control_result_type_set(
-    fixture.hot_func,
-    err_block,
-    hot_type_intern_value(fixture.hot_func, @lib.ValType::i32()),
+    real.fixture.hot_func,
+    real.err_block,
+    hot_type_intern_value(real.fixture.hot_func, @lib.ValType::i32()),
   )
 
-  match hot_verify_all(fixture.hot_func, cache=Some(())) {
+  match hot_verify_all(real.fixture.hot_func, cache=Some(())) {
     Err(InvalidBranchArity(_, _, 0, 1)) => ()
     Err(err) => fail(err.to_string())
     Ok(_) =>

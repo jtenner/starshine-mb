@@ -429,6 +429,12 @@
   as the older zero-result family. So this newer branch still lands on the same
   final cliff; it just takes the larger parent-`err` result rewrite to get
   there.
+- That cliff is earlier than the extracted-real step though. The reordered real
+  crossed-gap carrier already hits the same `InvalidBranchArity(_, _, 0, 1)`
+  once the parent `err` block becomes result-producing, and the smaller
+  parent-escape crossed-gap carrier does too. So the crossed-gap tail itself is
+  no longer the distinguishing ingredient; the remaining unsafe rewrite sits
+  upstream in the transition that makes the parent `err` block result-producing.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the
   special walk to zero-result `Block` roots only, both regressed the existing
