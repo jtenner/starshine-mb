@@ -1171,6 +1171,73 @@ fn perf_test_make_simplify_locals_decode_structured_call_module() -> String {
 }
 
 ///|
+fn perf_test_make_simplify_locals_branchy_decode_fanout_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 208 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  let mut group = 0
+  while group < 12 {
+    out.write_string("    block\n")
+    out.write_string("      block\n")
+    let mut inner = 0
+    while inner < 5 {
+      let i = group * 5 + inner
+      let touched_local = i * 2 + 4
+      let merged_local = i * 2 + 5
+      out.write_string("        local.get 0\n")
+      out.write_string("        i32.const ")
+      out.write_string(i.to_string())
+      out.write_string("\n")
+      out.write_string("        i32.eq\n")
+      out.write_string("        if\n")
+      out.write_string("          local.get 0\n")
+      out.write_string("          call 0\n")
+      out.write_string("          local.tee ")
+      out.write_string(touched_local.to_string())
+      out.write_string("\n")
+      out.write_string("          drop\n")
+      out.write_string("          local.get ")
+      out.write_string(touched_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.get 1\n")
+      out.write_string("          call 1\n")
+      out.write_string("          local.set ")
+      out.write_string(merged_local.to_string())
+      out.write_string("\n")
+      out.write_string("          local.get ")
+      out.write_string(merged_local.to_string())
+      out.write_string("\n")
+      if i < 8 {
+        out.write_string("          return\n")
+      } else {
+        out.write_string("          drop\n")
+      }
+      out.write_string("        end\n")
+      inner = inner + 1
+    }
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    group = group + 1
+  }
+  out.write_string("    local.get 1)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_simplify_locals_loop_heavy_validator_call_module(
   repetitions : Int,
   base_locals : Int,
@@ -4528,6 +4595,35 @@ test "simplify-locals skips decode-shaped structured call walkers without hot li
   assert_true(
     text.contains(
       "pass[simplify-locals]:skip-raw reason=decode-structured-call-heavy",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips branchy decode fanout without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_branchy_decode_fanout_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected branchy decode simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=branchy-decode-structured-call-heavy",
     ),
     msg=text,
   )

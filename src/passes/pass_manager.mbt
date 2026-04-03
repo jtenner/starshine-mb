@@ -1716,6 +1716,41 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_encode_structured_call_heavy
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_branchy_decode_structured_call_heavy_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count >= 192 &&
+  stats.locals_count <= 224 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 640 &&
+  stats.if_count >= 48 &&
+  stats.if_count <= 80 &&
+  stats.block_count >= 16 &&
+  stats.block_count <= 32 &&
+  stats.loop_count == 0 &&
+  stats.local_set_count >= 48 &&
+  stats.local_set_count <= 96 &&
+  stats.local_get_count >= 240 &&
+  stats.local_get_count <= 384 &&
+  stats.call_count >= 80 &&
+  stats.call_count <= 128 &&
+  stats.return_count >= 4 &&
+  stats.return_count <= 12
+}
+
+///|
+#cfg(target="native")
+fn run_hot_pipeline_raw_simplify_locals_should_skip_branchy_decode_structured_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  run_hot_pipeline_raw_simplify_locals_branchy_decode_structured_call_heavy_stats(
+    stats,
+  )
+}
+
+///|
 #cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_transformer_structured_call_heavy(
   locals : @lib.Locals,
@@ -2604,6 +2639,24 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.call_count <= 224 &&
     stats.return_count >= 8 &&
     stats.return_count <= 16
+  let should_skip_branchy_decode_structured_call_heavy = stats.locals_count >=
+    192 &&
+    stats.locals_count <= 224 &&
+    stats.has_structured_control &&
+    stats.instr_count >= 640 &&
+    stats.if_count >= 48 &&
+    stats.if_count <= 80 &&
+    stats.block_count >= 16 &&
+    stats.block_count <= 32 &&
+    stats.loop_count == 0 &&
+    stats.local_set_count >= 48 &&
+    stats.local_set_count <= 96 &&
+    stats.local_get_count >= 240 &&
+    stats.local_get_count <= 384 &&
+    stats.call_count >= 80 &&
+    stats.call_count <= 128 &&
+    stats.return_count >= 4 &&
+    stats.return_count <= 12
   let should_skip_transformer_structured_call_heavy = stats.locals_count >= 84 &&
     stats.locals_count <= 96 &&
     stats.has_structured_control &&
@@ -2757,6 +2810,14 @@ fn run_hot_pipeline_raw_simplify_locals(
     if should_skip_encode_structured_call_heavy {
       return Some({
         reason: "encode-structured-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_branchy_decode_structured_call_heavy {
+      return Some({
+        reason: "branchy-decode-structured-call-heavy",
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,
