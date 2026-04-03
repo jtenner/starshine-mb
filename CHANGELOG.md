@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-03 Checkpoint: extend `heap2local` through successful `ref.cast`
+
+- **`heap2local` `ref.cast` checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/heap2local.mbt`](./src/passes/heap2local.mbt), and [`src/passes/heap2local_test.mbt`](./src/passes/heap2local_test.mbt) so `heap2local` now treats successful `ref.cast` as a passthrough on tee-backed optimized struct allocations, including widened owner locals whose only read is the casted use. Focused pass coverage now locks that behavior directly, and the targeted parity suite is down to six remaining Binaryen gaps: direct `ref.eq`, descriptor-bearing `struct.new_default_desc` plus `ref.get_desc`, `array.new_default`, `array.new`, `array.new_fixed`, and array `ref.test`.
+
 ## 2026-04-03 Checkpoint: extend `heap2local` ownership-flow coverage
 
 - **`heap2local` flow-slice checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/heap2local.mbt`](./src/passes/heap2local.mbt), and [`src/passes/heap2local_test.mbt`](./src/passes/heap2local_test.mbt) so `heap2local` now rewrites exclusive local-copy chains, direct `local.tee` owners, simple result-block flow, and `ref.as_non_null` passthrough on top of the initial direct-owner struct slice, while parameter-backed ownership now bails out instead of mis-optimizing the loop-carried mixed-provenance family. Focused green tests now lock those landed slices directly in the pass test file, and the targeted parity suite is down to seven remaining Binaryen gaps: direct `ref.eq`, successful `ref.cast`, descriptor-bearing `struct.new_default_desc` plus `ref.get_desc`, `array.new_default`, `array.new`, `array.new_fixed`, and array `ref.test`.

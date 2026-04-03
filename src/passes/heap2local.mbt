@@ -285,6 +285,36 @@ fn h2l_collect_source_use(
       }
       return false
     }
+    Some(@lib.Instruction::RefCast(_, cast_heap_type)) => {
+      if cast_heap_type != @lib.HeapType::new(struct_type) {
+        return false
+      }
+      let flow_sites = use_def.node_uses[site.user]
+      if flow_sites.length() != 1 {
+        return false
+      }
+      let flow_site = flow_sites[0]
+      match flow_site.kind {
+        @ir.HotUseSlotKind::ChildUseSlot =>
+          if flow_site.slot != 0 {
+            return false
+          }
+        _ => return false
+      }
+      if h2l_exact_field_user_matches(
+          func,
+          flow_site.user,
+          struct_type,
+          field_count,
+        ) {
+        use_sites.push({
+          source_node_id: site.user,
+          user_node_id: flow_site.user,
+        })
+        return true
+      }
+      return false
+    }
     _ => ()
   }
   if !allow_copy {
@@ -362,7 +392,11 @@ fn h2l_find_candidate_for_local(
     None => return None
   }
   ignore(uses_default)
-  if !h2l_local_can_hold_struct_ref(func, local_id, struct_type) {
+  let owner_local_matches = h2l_local_can_hold_struct_ref(
+    func, local_id, struct_type,
+  )
+  if !owner_local_matches &&
+    (!write_is_tee || !use_def.local_reads[local_id].is_empty()) {
     return None
   }
   let use_sites : Array[H2LUseSite] = []
@@ -497,7 +531,28 @@ fn h2l_passthrough_child_node(func : @ir.HotFunc, source_node_id : Int) -> Int? 
       } else {
         None
       }
+    Some(@lib.Instruction::RefCast(_, _)) =>
+      if @ir.hot_child_count(func, source_node_id) == 1 {
+        Some(@ir.hot_child_get(func, source_node_id, 0))
+      } else {
+        None
+      }
     _ => None
+  }
+}
+
+///|
+fn h2l_source_requires_tee_init(
+  func : @ir.HotFunc,
+  source_node_id : Int,
+  write_node_id : Int,
+) -> Bool {
+  if source_node_id == write_node_id {
+    return true
+  }
+  match h2l_passthrough_child_node(func, source_node_id) {
+    Some(child_node_id) => child_node_id == write_node_id
+    None => false
   }
 }
 
@@ -603,7 +658,11 @@ fn h2l_apply_candidate(
                       field_locals[field_idx],
                     )
                     if write_is_tee &&
-                      use_site.source_node_id == candidate.write_node_id {
+                      h2l_source_requires_tee_init(
+                        func,
+                        use_site.source_node_id,
+                        candidate.write_node_id,
+                      ) {
                       h2l_wrap_replacement_with_init(
                         func, candidate, init_replacement, field_idx, local_get,
                       )
@@ -633,7 +692,11 @@ fn h2l_apply_candidate(
                       @ir.hot_child_get(func, use_site.user_node_id, 1),
                     )
                     if write_is_tee &&
-                      use_site.source_node_id == candidate.write_node_id {
+                      h2l_source_requires_tee_init(
+                        func,
+                        use_site.source_node_id,
+                        candidate.write_node_id,
+                      ) {
                       h2l_wrap_replacement_with_init(
                         func, candidate, init_replacement, field_idx, local_set,
                       )

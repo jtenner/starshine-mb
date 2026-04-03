@@ -214,6 +214,35 @@ test "heap2local removes ref.as_non_null around optimized struct traffic" {
 }
 
 ///|
+test "heap2local removes successful ref.cast around optimized struct traffic" {
+  let box = @lib.TypeIdx::new(0U)
+  let temp = @lib.LocalIdx::new(0U)
+  let optimized = heap2local_run_module(
+    heap2local_module_with_locals(
+      [@lib.ValType::i32()],
+      [@lib.ValType::anyref()],
+      [
+        @lib.Instruction::i32_const(@lib.I32(11)),
+        @lib.Instruction::i32_const(@lib.I32(22)),
+        @lib.Instruction::struct_new(box),
+        @lib.Instruction::local_tee(temp),
+        @lib.Instruction::ref_cast(false, @lib.HeapType::new(box)),
+        @lib.Instruction::struct_get(box, @lib.U32(0U)),
+      ],
+    ),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected heap2local ref.cast output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("ref.cast"), msg=pretty)
+}
+
+///|
 test "heap2local leaves parameter-backed ownership unchanged" {
   let pretty = heap2local_pretty_text(
     (
