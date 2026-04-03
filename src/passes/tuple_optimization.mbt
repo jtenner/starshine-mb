@@ -703,6 +703,31 @@ fn tuple_optimization_local_has_forwarded_non_drop_use(
 }
 
 ///|
+fn tuple_optimization_local_has_forwarded_any_use(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  local_id : Int,
+  visited : Array[Bool],
+) -> Bool {
+  if local_id < 0 || local_id >= visited.length() || visited[local_id] {
+    return false
+  }
+  visited[local_id] = true
+  for read_id in @ir.local_read_nodes_borrowed(use_def, local_id) {
+    match tuple_optimization_scalar_forward_local(func, use_def, read_id) {
+      Some((next_local, _, _)) =>
+        if tuple_optimization_local_has_forwarded_any_use(
+            func, use_def, next_local, visited,
+          ) {
+          return true
+        }
+      None => return true
+    }
+  }
+  false
+}
+
+///|
 fn tuple_optimization_local_has_forwarded_host_tee_use(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
@@ -1070,34 +1095,49 @@ fn tuple_optimization_group_should_rewrite_in_func(
     return false
   }
   let group = groups[group_id]
-  let copy_group_only_uses_host_non_drop = match
-    (group.copy_source, tuple_optimization_group_host_lane(group)) {
-    (Some(_), Some(host_lane)) => {
-      let mut saw_non_drop = false
+  let mut copy_group_non_drop_lane_count = 0
+  let mut copy_group_has_drop_only_lane_use = false
+  let mut copy_group_only_uses_host_non_drop = false
+  match (group.copy_source, tuple_optimization_group_host_lane(group)) {
+    (Some(_), host_lane) => {
       let mut only_host = true
       for lane_idx = 0
           lane_idx < group.lane_locals.length()
           lane_idx = lane_idx + 1 {
-        let visited = Array::make(@ir.hot_local_count(func), false)
-        if !tuple_optimization_local_has_forwarded_non_drop_use(
+        let non_drop_visited = Array::make(@ir.hot_local_count(func), false)
+        let has_non_drop_use = tuple_optimization_local_has_forwarded_non_drop_use(
+          func,
+          use_def,
+          group.lane_locals[lane_idx],
+          non_drop_visited,
+        )
+        if has_non_drop_use {
+          copy_group_non_drop_lane_count += 1
+          match host_lane {
+            Some(host_lane) if lane_idx == host_lane => ()
+            _ => only_host = false
+          }
+          continue
+        }
+        let any_use_visited = Array::make(@ir.hot_local_count(func), false)
+        if tuple_optimization_local_has_forwarded_any_use(
             func,
             use_def,
             group.lane_locals[lane_idx],
-            visited,
+            any_use_visited,
           ) {
-          continue
-        }
-        saw_non_drop = true
-        if lane_idx != host_lane {
-          only_host = false
-          break
+          copy_group_has_drop_only_lane_use = true
         }
       }
-      only_host && saw_non_drop
+      copy_group_only_uses_host_non_drop = only_host &&
+        copy_group_non_drop_lane_count > 0
     }
-    _ => false
+    _ => ()
   }
   tuple_optimization_group_should_rewrite(groups[group_id]) &&
+  !(group.copy_source is Some(_) &&
+  copy_group_non_drop_lane_count <= 1 &&
+  copy_group_has_drop_only_lane_use) &&
   !copy_group_only_uses_host_non_drop &&
   !tuple_optimization_copy_group_redundant_with_source_host_chain(
     func, use_def, groups, group_id,

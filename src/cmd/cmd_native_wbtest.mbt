@@ -22,6 +22,35 @@ fn cnw_assert_occurs_in_order(text : String, needles : Array[String]) -> Unit {
 
 ///|
 #cfg(target="native")
+fn cnw_count_substring(text : String, needle : String) -> Int {
+  if needle.is_empty() {
+    return 0
+  }
+  let mut count = 0
+  let mut start = 0
+  while start + needle.length() <= text.length() {
+    let mut found : Int? = None
+    let mut i = start
+    while i + needle.length() <= text.length() {
+      if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+        found = Some(i)
+        break
+      }
+      i += 1
+    }
+    match found {
+      Some(idx) => {
+        count += 1
+        start = idx + needle.length()
+      }
+      None => break
+    }
+  }
+  count
+}
+
+///|
+#cfg(target="native")
 fn cmd_native_wbtest_print_wasm_bytes(bytes : Bytes) -> String {
   let in_path = cmd_native_tmp_path("cmd-test-print-in", ".wasm")
   let out_path = cmd_native_tmp_path("cmd-test-print-out", ".wat")
@@ -164,4 +193,68 @@ test "run_cmd_with_adapter tuple-optimization rematerializes old source lanes be
     "local.set 8", "local.get 13", "local.set 7", "local.get 18", "local.tee 6",
     "local.set 11",
   ])
+  assert_eq(
+    cnw_count_substring(printed, "block (type 2) (result i32 i32 i32)"),
+    1,
+    msg=printed,
+  )
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization leaves terminal drop-only host copy groups scalarized" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 local.get 7 local.set 5 local.get 8 local.set 4 local.get 6 local.set 3 block (result i32 i32 i32) local.get 3 local.get 5 local.get 4 end local.set 2 local.set 1 local.tee 0 local.get 1 drop local.get 2 drop))",
+      filename="tuple-terminal-drop-only-host.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("unexpected drop-only host copy fixture parse failure: \{err}")
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail("unexpected drop-only host copy fixture encode failure: \{err}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-terminal-drop-only-host.wasm"] },
+    file_exists=fn(path) { path == "tuple-terminal-drop-only-host.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-terminal-drop-only-host.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-terminal-drop-only-host.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("unexpected tuple-optimization drop-only host copy failure: \{e}")
+  }
+  assert_eq(writes.length(), 1)
+  let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
+  cnw_assert_occurs_in_order(printed, [
+    "call 0", "local.set 8", "local.set 7", "local.set 6", "local.get 7", "local.set 5",
+    "local.get 8", "local.set 4", "local.get 6", "local.set 3", "block (type 2) (result i32 i32 i32)",
+    "local.get 3", "local.get 5", "local.get 4", "local.set 2", "local.set 1", "local.get 1",
+    "drop", "local.get 2", "drop", "local.tee 0",
+  ])
+  assert_eq(
+    cnw_count_substring(printed, "block (type 2) (result i32 i32 i32)"),
+    1,
+    msg=printed,
+  )
 }

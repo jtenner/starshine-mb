@@ -715,6 +715,36 @@ test "tuple-optimization leaves terminal two-hop scalar forwarding copy groups h
 }
 
 ///|
+test "tuple-optimization suppresses terminal two-hop scalar forwarding copy groups with only one live host lane" {
+  let analysis = tuple_optimization_test_analyze(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 local.get 7 local.set 5 local.get 8 local.set 4 local.get 6 local.set 3 block (result i32 i32 i32) local.get 3 local.get 5 local.get 4 end local.set 2 local.set 1 local.tee 0 local.get 1 drop local.get 2 drop))",
+  )
+
+  assert_eq(analysis.groups.length(), 2)
+
+  let source = analysis.groups[0]
+  assert_eq(source.lane_locals, [6, 7, 8])
+  assert_true(tuple_optimization_group_should_rewrite(source))
+
+  let terminal = analysis.groups[1]
+  assert_eq(terminal.lane_locals, [0, 1, 2])
+  assert_eq(terminal.copy_source, Some(0))
+  assert_eq(tuple_optimization_group_host_lane(terminal), Some(0))
+  let fixture = @ir.ir_test_build_hot_from_wat(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 local.get 7 local.set 5 local.get 8 local.set 4 local.get 6 local.set 3 block (result i32 i32 i32) local.get 3 local.get 5 local.get 4 end local.set 2 local.set 1 local.tee 0 local.get 1 drop local.get 2 drop))",
+  )
+  let use_def = @ir.use_def_build(fixture.hot_func)
+  assert_false(
+    tuple_optimization_group_should_rewrite_in_func(
+      fixture.hot_func,
+      use_def,
+      analysis.groups,
+      1,
+    ),
+  )
+}
+
+///|
 test "tuple-optimization pipeline rewrites one-hop scalar forwarding bridges" {
   let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"trim\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.set 4 local.get 6 local.set 0 local.get 5 local.set 1 local.get 4 local.tee 3 local.get 1 local.get 0 call 1 local.set 2 local.get 2))"
   let input_mod = pass_test_module_from_wat(source)
