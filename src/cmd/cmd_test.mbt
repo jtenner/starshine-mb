@@ -1769,14 +1769,11 @@ test "run_cmd_with_adapter applies ssa-nomerge to wasm inputs" {
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.code_sec {
     Some(CodeSec([Func(locals, Expr(instrs))])) => {
-      assert_eq(
-        locals,
-        @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
-      )
+      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
       assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(5)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       ])
     }
     _ => fail("expected transformed code section")
@@ -2902,14 +2899,11 @@ test "run_cmd_with_adapter interleaves dump validate and optimize steps in cli o
   let after = decode_module_bytes(writes[1].1)
   match after.code_sec {
     Some(CodeSec([Func(locals, Expr(instrs))])) => {
-      assert_eq(
-        locals,
-        @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
-      )
+      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
       assert_eq(instrs, [
         @lib.Instruction::i32_const(@lib.I32(5)),
-        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-        @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       ])
     }
     _ => fail("expected transformed code section in after dump")
@@ -3044,7 +3038,7 @@ test "run_cmd_with_adapter prints ordered log entries to stderr and sees post-pa
     stderr_text.contains("(Sub Final (Func [] [I32]))"),
     msg=stderr_text,
   )
-  assert_true(stderr_text.contains("local.set (Local 1)"), msg=stderr_text)
+  assert_true(stderr_text.contains("local.set (Local 0)"), msg=stderr_text)
   assert_true(stderr_text.contains("(Elem "), msg=stderr_text)
 }
 
@@ -3200,6 +3194,50 @@ test "run_cmd_with_adapter applies remove-unused-module-elements to wasm inputs"
   let optimized = decode_module_bytes(writes[0].1)
   match optimized.code_sec {
     Some(CodeSec(funcs)) => assert_eq(funcs.length(), 1)
+    None => fail("expected code section")
+  }
+}
+
+///|
+test "run_cmd_with_adapter applies reorder-locals to wasm inputs" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (result i32) (local i32 i64) i64.const 11 local.set 1 i32.const 7))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["rl.wasm"] },
+    file_exists=fn(path) { path == "rl.wasm" },
+    read_file=fn(path) {
+      if path == "rl.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--reorder-locals", "--out", "out.wasm", "rl.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["reorder-locals"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.code_sec {
+    Some(CodeSec([Func(locals, Expr(instrs))])) => {
+      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
+      assert_eq(instrs[1], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
+    }
+    Some(_) => fail("expected single defined function")
     None => fail("expected code section")
   }
 }

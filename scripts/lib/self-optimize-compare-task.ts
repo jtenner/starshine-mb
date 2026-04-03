@@ -17,14 +17,21 @@ type SelfOptimizeCompareOptions = {
   starshineBin: string | null;
   wasmOptBin: string;
   wasmToolsBin: string;
+  binaryenNopRoundtrips: number;
+  binaryenNopUntilStableMaxRoundtrips: number | null;
+  requireBinaryenNopConverged: boolean;
   passFlags: string[];
 };
 
 type ComparisonSummary = {
   inputPath: string;
+  effectiveInputPath: string;
   outDir: string;
   passFlags: string[];
   binaryenPassFlags: string[];
+  binaryenNopRoundtrips: number;
+  binaryenNopConverged: boolean | null;
+  binaryenNopUntilStableMaxRoundtrips: number | null;
   starshineCommand: string[];
   binaryenCommand: string[];
   starshineSize: number;
@@ -46,6 +53,9 @@ const RESERVED_OPTIONS = new Set([
   "--wasm-opt-bin",
   "--wasm-tools-bin",
   "--moon",
+  "--binaryen-nop-roundtrips",
+  "--binaryen-nop-until-stable",
+  "--require-binaryen-nop-converged",
 ]);
 
 const BINARYEN_FLAG_ALIASES = new Map<string, string>([
@@ -182,6 +192,106 @@ function validateInputBaseline(wasmToolsBin: string, inputPath: string, repoRoot
   }
 }
 
+function parseNonNegativeIntegerOption(flag: string, raw: string | undefined): number {
+  if (raw === undefined) {
+    fail(`missing value for ${flag}`);
+  }
+  if (!/^\d+$/.test(raw)) {
+    fail(`expected non-negative integer for ${flag}, got: ${raw}`);
+  }
+  return Number(raw);
+}
+
+function applyBinaryenNoPassRoundtrips(
+  wasmOptBin: string,
+  inputPath: string,
+  outDir: string,
+  roundtrips: number,
+  repoRoot: string,
+): {
+  effectiveInputPath: string;
+  commands: string[][];
+  roundtripsApplied: number;
+  converged: boolean | null;
+  untilStableMaxRoundtrips: number | null;
+} {
+  if (roundtrips === 0) {
+    return {
+      effectiveInputPath: inputPath,
+      commands: [],
+      roundtripsApplied: 0,
+      converged: null,
+      untilStableMaxRoundtrips: null,
+    };
+  }
+  let current = inputPath;
+  const commands: string[][] = [];
+  for (let round = 1; round <= roundtrips; round += 1) {
+    const next = path.join(outDir, `binaryen.nop${round}.wasm`);
+    const args = [current, "--all-features", "-o", next];
+    runOrThrow(wasmOptBin, args, { cwd: repoRoot, stdio: "pipe" });
+    commands.push([wasmOptBin, ...args]);
+    current = next;
+  }
+  return {
+    effectiveInputPath: current,
+    commands,
+    roundtripsApplied: roundtrips,
+    converged: null,
+    untilStableMaxRoundtrips: null,
+  };
+}
+
+function applyBinaryenNoPassUntilStable(
+  wasmOptBin: string,
+  inputPath: string,
+  outDir: string,
+  maxRoundtrips: number,
+  repoRoot: string,
+): {
+  effectiveInputPath: string;
+  commands: string[][];
+  roundtripsApplied: number;
+  converged: boolean;
+  untilStableMaxRoundtrips: number;
+} {
+  if (maxRoundtrips === 0) {
+    return {
+      effectiveInputPath: inputPath,
+      commands: [],
+      roundtripsApplied: 0,
+      converged: true,
+      untilStableMaxRoundtrips: 0,
+    };
+  }
+  let current = inputPath;
+  const commands: string[][] = [];
+  for (let round = 1; round <= maxRoundtrips; round += 1) {
+    const next = path.join(outDir, `binaryen.nop${round}.wasm`);
+    const args = [current, "--all-features", "-o", next];
+    runOrThrow(wasmOptBin, args, { cwd: repoRoot, stdio: "pipe" });
+    commands.push([wasmOptBin, ...args]);
+    const converged = fs.readFileSync(current).equals(fs.readFileSync(next));
+    current = next;
+    if (converged) {
+      return {
+        effectiveInputPath: current,
+        commands,
+        roundtripsApplied: round,
+        converged: true,
+        untilStableMaxRoundtrips: maxRoundtrips,
+      };
+    }
+  }
+  return {
+    effectiveInputPath: current,
+    commands,
+    roundtripsApplied: maxRoundtrips,
+    converged: false,
+    untilStableMaxRoundtrips: maxRoundtrips,
+  };
+}
+
 export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompareOptions {
   let inputPath: string | null = null;
   let outDir: string | null = null;
@@ -189,6 +299,9 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
   let starshineBin: string | null = null;
   let wasmOptBin = process.env.WASM_OPT_BIN || "wasm-opt";
   let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
+  let binaryenNopRoundtrips = 0;
+  let binaryenNopUntilStableMaxRoundtrips: number | null = null;
+  let requireBinaryenNopConverged = false;
   const passFlags: string[] = [];
 
   for (let i = 0; i < argv.length; ) {
@@ -214,6 +327,18 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
         wasmToolsBin = argv[i + 1] ?? fail("missing value for --wasm-tools-bin");
         i += 2;
         break;
+      case "--binaryen-nop-roundtrips":
+        binaryenNopRoundtrips = parseNonNegativeIntegerOption(token, argv[i + 1]);
+        i += 2;
+        break;
+      case "--binaryen-nop-until-stable":
+        binaryenNopUntilStableMaxRoundtrips = parseNonNegativeIntegerOption(token, argv[i + 1]);
+        i += 2;
+        break;
+      case "--require-binaryen-nop-converged":
+        requireBinaryenNopConverged = true;
+        i += 1;
+        break;
       default:
         if (RESERVED_OPTIONS.has(token)) {
           fail(`missing value for ${token}`);
@@ -238,6 +363,12 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
   if (passFlags.length === 0) {
     fail("expected at least one pass flag to compare");
   }
+  if (binaryenNopRoundtrips !== 0 && binaryenNopUntilStableMaxRoundtrips !== null) {
+    fail("choose at most one of --binaryen-nop-roundtrips and --binaryen-nop-until-stable");
+  }
+  if (requireBinaryenNopConverged && binaryenNopUntilStableMaxRoundtrips === null) {
+    fail("--require-binaryen-nop-converged requires --binaryen-nop-until-stable");
+  }
 
   return {
     inputPath,
@@ -246,6 +377,9 @@ export function parseSelfOptimizeCompareArgs(argv: string[]): SelfOptimizeCompar
     starshineBin,
     wasmOptBin,
     wasmToolsBin,
+    binaryenNopRoundtrips,
+    binaryenNopUntilStableMaxRoundtrips,
+    requireBinaryenNopConverged,
     passFlags,
   };
 }
@@ -274,6 +408,28 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
 
   fs.mkdirSync(outDir, { recursive: true });
   validateInputBaseline(options.wasmToolsBin, inputPath, repoRoot);
+  const binaryenNopPrep = options.binaryenNopUntilStableMaxRoundtrips !== null
+    ? applyBinaryenNoPassUntilStable(
+        options.wasmOptBin,
+        inputPath,
+        outDir,
+        options.binaryenNopUntilStableMaxRoundtrips,
+        repoRoot,
+      )
+    : applyBinaryenNoPassRoundtrips(
+        options.wasmOptBin,
+        inputPath,
+        outDir,
+        options.binaryenNopRoundtrips,
+        repoRoot,
+      );
+  const { effectiveInputPath, commands: binaryenNopCommands } = binaryenNopPrep;
+  validateInputBaseline(options.wasmToolsBin, effectiveInputPath, repoRoot);
+  if (options.requireBinaryenNopConverged && binaryenNopPrep.converged === false) {
+    fail(
+      `Binaryen no-pass writeback did not converge within ${binaryenNopPrep.untilStableMaxRoundtrips} roundtrips: ${effectiveInputPath}`,
+    );
+  }
 
   const binaryenPassFlags = options.passFlags.map(normalizeBinaryenPassFlag);
   const starshineInvocation = resolveStarshineInvocation(
@@ -286,10 +442,10 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     ...options.passFlags,
     "--out",
     starshineRawOutputPath,
-    inputPath,
+    effectiveInputPath,
   ];
   const binaryenArgs = [
-    inputPath,
+    effectiveInputPath,
     "--all-features",
     ...binaryenPassFlags,
     "--debug",
@@ -331,9 +487,13 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
 
   const summary: ComparisonSummary = {
     inputPath,
+    effectiveInputPath,
     outDir,
     passFlags: options.passFlags,
     binaryenPassFlags,
+    binaryenNopRoundtrips: binaryenNopPrep.roundtripsApplied,
+    binaryenNopConverged: binaryenNopPrep.converged,
+    binaryenNopUntilStableMaxRoundtrips: binaryenNopPrep.untilStableMaxRoundtrips,
     starshineCommand: [starshineInvocation.command, ...starshineArgs],
     binaryenCommand: [options.wasmOptBin, ...binaryenArgs],
     starshineSize: fs.statSync(starshineOutputPath).size,
@@ -352,6 +512,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   fs.writeFileSync(
     commandsPath,
     [
+      ...binaryenNopCommands.map((command, index) => `binaryen-nop-${index + 1}: ${command.join(" ")}`),
       `starshine: ${summary.starshineCommand.join(" ")}`,
       `binaryen: ${summary.binaryenCommand.join(" ")}`,
     ].join("\n") + "\n",
@@ -363,6 +524,16 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Binaryen raw wasm: ${binaryenRawOutputPath}\n`);
   process.stdout.write(`Starshine wasm: ${starshineOutputPath}\n`);
   process.stdout.write(`Binaryen wasm: ${binaryenOutputPath}\n`);
+  process.stdout.write(`Binaryen no-pass roundtrips: ${summary.binaryenNopRoundtrips}\n`);
+  if (summary.binaryenNopConverged !== null) {
+    process.stdout.write(`Binaryen no-pass converged: ${summary.binaryenNopConverged ? "yes" : "no"}\n`);
+  }
+  if (summary.binaryenNopUntilStableMaxRoundtrips !== null) {
+    process.stdout.write(
+      `Binaryen no-pass until-stable max roundtrips: ${summary.binaryenNopUntilStableMaxRoundtrips}\n`,
+    );
+  }
+  process.stdout.write(`Effective input wasm: ${summary.effectiveInputPath}\n`);
   process.stdout.write(`Starshine normalized WAT: ${starshineWatPath}\n`);
   process.stdout.write(`Binaryen normalized WAT: ${binaryenWatPath}\n`);
   process.stdout.write(`Canonical wasm equal: ${summary.wasmEqual ? "yes" : "no"}\n`);

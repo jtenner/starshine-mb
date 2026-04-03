@@ -183,6 +183,14 @@ test "shrink preset replays precompute in both PC slots" {
 }
 
 ///|
+test "optimize and shrink presets do not schedule reorder-locals before its neighboring local passes land" {
+  let optimize = optimize_preset_passes(HotPipelineOptions::new())
+  let shrink = shrink_preset_passes(HotPipelineOptions::new())
+  assert_false(optimize.contains("reorder-locals"))
+  assert_false(shrink.contains("reorder-locals"))
+}
+
+///|
 test "remove-unused-names can clean up stale labels exposed by remove-unused-brs" {
   let optimized = match
     run_hot_pipeline(
