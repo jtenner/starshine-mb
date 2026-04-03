@@ -20,7 +20,7 @@ pub struct CpLocalInfo {
 
 ///|
 priv struct CpEffectSummary {
-  mask : UInt
+  mut mask : UInt
   local_reads : @ir.Bitset
   local_writes : @ir.Bitset
   global_reads : @ir.Bitset
@@ -39,6 +39,11 @@ priv struct CpSummaryCache {
   explicit_exit_ready : Array[Bool]
   explicit_exit_values : Array[Bool]
   dropped_region_owner_values : Array[Int]
+  region_last_local_read_root_idxs : Array[Array[Int]?]
+  pushable_local_ready : Array[Bool]
+  pushable_local_values : Array[Int]
+  trivial_dead_move_gap_ready : Array[Bool]
+  trivial_dead_move_gap_values : Array[Bool]
   nonvoid_block_root_guard_ready : Array[Bool]
   nonvoid_block_root_guard_values : Array[Bool]
 }
@@ -70,6 +75,8 @@ priv struct CpTraversalGateScan {
   node_masks : Array[@ir.EffectMask]
   subtree_unremovable_ready : Array[Bool]
   subtree_unremovable_values : Array[Bool]
+  subtree_reads_sfa_ready : Array[Bool]
+  subtree_reads_sfa_values : Array[Bool]
   region_candidate_ready : Array[Bool]
   region_candidate_values : Array[Bool]
 }
@@ -170,6 +177,12 @@ fn cp_summary_merge_bits_into(
 }
 
 ///|
+fn cp_summary_merge_into(dst : CpEffectSummary, src : CpEffectSummary) -> Unit {
+  dst.mask = dst.mask | src.mask
+  cp_summary_merge_bits_into(dst, src)
+}
+
+///|
 fn cp_barrier_merge_summary(
   barrier : CpBarrierSummary,
   summary : CpEffectSummary,
@@ -241,6 +254,11 @@ fn cp_new_summary_cache(
     explicit_exit_ready: Array::make(node_count, false),
     explicit_exit_values: Array::make(node_count, false),
     dropped_region_owner_values: static_scan.dropped_region_owner_values,
+    region_last_local_read_root_idxs: Array::make(node_count + 1, None),
+    pushable_local_ready: Array::make(node_count, false),
+    pushable_local_values: Array::make(node_count, -1),
+    trivial_dead_move_gap_ready: Array::make(node_count, false),
+    trivial_dead_move_gap_values: Array::make(node_count, false),
     nonvoid_block_root_guard_ready: Array::make(node_count, false),
     nonvoid_block_root_guard_values: Array::make(node_count, false),
   }
@@ -543,9 +561,48 @@ fn cp_new_traversal_gate_scan(
     node_masks,
     subtree_unremovable_ready: Array::make(node_count, false),
     subtree_unremovable_values: Array::make(node_count, false),
+    subtree_reads_sfa_ready: Array::make(node_count, false),
+    subtree_reads_sfa_values: Array::make(node_count, false),
     region_candidate_ready: Array::make(node_count + 1, false),
     region_candidate_values: Array::make(node_count + 1, false),
   }
+}
+
+///|
+fn cp_node_reads_any_sfa_local_cheap(
+  infos : Array[CpLocalInfo],
+  scan : CpTraversalGateScan,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if scan.subtree_reads_sfa_ready[node_id] {
+    return scan.subtree_reads_sfa_values[node_id]
+  }
+  let node = func.nodes[node_id]
+  let mut reads_sfa = match node.op {
+    @ir.HotOp::LocalGet =>
+      node.imm0 >= 0 && node.imm0 < infos.length() && infos[node.imm0].sfa
+    _ => false
+  }
+  if !reads_sfa {
+    for slot = 0; slot < node.child_count; slot = slot + 1 {
+      if cp_node_reads_any_sfa_local_cheap(
+          infos,
+          scan,
+          func,
+          func.children[node.child_base + slot],
+        ) {
+        reads_sfa = true
+        break
+      }
+    }
+  }
+  scan.subtree_reads_sfa_ready[node_id] = true
+  scan.subtree_reads_sfa_values[node_id] = reads_sfa
+  reads_sfa
 }
 
 ///|
@@ -618,6 +675,20 @@ fn cp_root_has_cheap_traversal_candidate(
     func,
     func.children[node.child_base],
   )
+}
+
+///|
+fn cp_root_is_cheap_traversal_target(
+  infos : Array[CpLocalInfo],
+  scan : CpTraversalGateScan,
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Bool {
+  match cp_root_pushpoint_id(func, root_id) {
+    Some(pushpoint_id) =>
+      cp_node_reads_any_sfa_local_cheap(infos, scan, func, pushpoint_id)
+    None => false
+  }
 }
 
 ///|
@@ -710,6 +781,7 @@ fn cp_region_has_traversal_candidate(
     return scan.region_candidate_values[cache_slot]
   }
   let mut saw_later_target = false
+  let mut saw_later_live_root = false
   let mut has_candidate = false
   let mut idx = @ir.hot_region_root_count(func, region_ref) - 1
   while idx >= 0 {
@@ -725,8 +797,15 @@ fn cp_region_has_traversal_candidate(
       has_candidate = true
       break
     }
-    if cp_root_is_pushpoint(func, root_id) {
+    if !saw_later_target &&
+      saw_later_live_root &&
+      cp_root_is_pushpoint(func, root_id) {
       saw_later_target = true
+    } else if cp_root_is_cheap_traversal_target(infos, scan, func, root_id) {
+      saw_later_target = true
+    }
+    if root_id >= 0 && @ir.hot_node_is_live(func, root_id) {
+      saw_later_live_root = true
     }
     idx = idx - 1
   }
@@ -1359,23 +1438,50 @@ fn cp_root_pushable_local(
   if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
     return None
   }
+  if root_id < cache.pushable_local_ready.length() &&
+    cache.pushable_local_ready[root_id] {
+    let cached = cache.pushable_local_values[root_id]
+    return if cached >= 0 { Some(cached) } else { None }
+  }
   let node = @ir.hot_node_get(func, root_id)
   match node.op {
     @ir.HotOp::LocalSet => ()
-    _ => return None
+    _ => {
+      if root_id < cache.pushable_local_ready.length() {
+        cache.pushable_local_ready[root_id] = true
+        cache.pushable_local_values[root_id] = -1
+      }
+      return None
+    }
   }
   if node.imm0 < 0 || node.imm0 >= infos.length() || !infos[node.imm0].sfa {
+    if root_id < cache.pushable_local_ready.length() {
+      cache.pushable_local_ready[root_id] = true
+      cache.pushable_local_values[root_id] = -1
+    }
     return None
   }
   if @ir.hot_child_count(func, root_id) == 0 {
+    if root_id < cache.pushable_local_ready.length() {
+      cache.pushable_local_ready[root_id] = true
+      cache.pushable_local_values[root_id] = node.imm0
+    }
     return Some(node.imm0)
   }
   let value_id = @ir.hot_child_get(func, root_id, 0)
   if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+    if root_id < cache.pushable_local_ready.length() {
+      cache.pushable_local_ready[root_id] = true
+      cache.pushable_local_values[root_id] = node.imm0
+    }
     return Some(node.imm0)
   }
   let value_summary = cp_effect_summary_for_node(cache, func, value_id)
   if cp_has_unremovable_side_effects(value_summary) {
+    if root_id < cache.pushable_local_ready.length() {
+      cache.pushable_local_ready[root_id] = true
+      cache.pushable_local_values[root_id] = -1
+    }
     return None
   }
   if (
@@ -1390,9 +1496,53 @@ fn cp_root_pushable_local(
       )
     ) !=
     0U {
+    if root_id < cache.pushable_local_ready.length() {
+      cache.pushable_local_ready[root_id] = true
+      cache.pushable_local_values[root_id] = -1
+    }
     return None
   }
+  if root_id < cache.pushable_local_ready.length() {
+    cache.pushable_local_ready[root_id] = true
+    cache.pushable_local_values[root_id] = node.imm0
+  }
   Some(node.imm0)
+}
+
+///|
+fn cp_region_last_local_read_root_idxs(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Array[Int] {
+  let cache_slot = region_ref.holder + 1
+  if cache_slot >= 0 &&
+    cache_slot < cache.region_last_local_read_root_idxs.length() {
+    match cache.region_last_local_read_root_idxs[cache_slot] {
+      Some(last_read_root_idxs) => return last_read_root_idxs
+      None => ()
+    }
+  }
+  let last_read_root_idxs = Array::make(cache.local_count, -1)
+  let mut idx = 0
+  while idx < @ir.hot_region_root_count(func, region_ref) {
+    let root_summary = cp_effect_summary_for_node(
+      cache,
+      func,
+      @ir.hot_region_get(func, region_ref, idx),
+    )
+    @ir.bitset_for_each_set_bit(root_summary.local_reads, fn(local_id) {
+      last_read_root_idxs[local_id] = idx
+    })
+    idx = idx + 1
+  }
+  if cache_slot >= 0 &&
+    cache_slot < cache.region_last_local_read_root_idxs.length() {
+    cache.region_last_local_read_root_idxs[cache_slot] = Some(
+      last_read_root_idxs,
+    )
+  }
+  last_read_root_idxs
 }
 
 ///|
@@ -1402,21 +1552,23 @@ fn cp_region_reads_local(
   region_ref : @ir.HotRegionRef,
   local_id : Int,
 ) -> Bool {
-  let mut idx = 0
-  while idx < @ir.hot_region_root_count(func, region_ref) {
-    if cp_summary_reads_local(
-        cp_effect_summary_for_node(
-          cache,
-          func,
-          @ir.hot_region_get(func, region_ref, idx),
-        ),
-        local_id,
-      ) {
-      return true
-    }
-    idx = idx + 1
+  if local_id < 0 || local_id >= cache.local_count {
+    return false
   }
-  false
+  let cache_slot = region_ref.holder + 1
+  if cache_slot < 0 ||
+    cache_slot >= cache.region_last_local_read_root_idxs.length() {
+    return false
+  }
+  match cache.region_last_local_read_root_idxs[cache_slot] {
+    Some(last_read_root_idxs) => last_read_root_idxs[local_id] >= 0
+    None => {
+      let last_read_root_idxs = cp_region_last_local_read_root_idxs(
+        cache, func, region_ref,
+      )
+      last_read_root_idxs[local_id] >= 0
+    }
+  }
 }
 
 ///|
@@ -1427,21 +1579,13 @@ fn cp_region_reads_local_after_index(
   start_idx : Int,
   local_id : Int,
 ) -> Bool {
-  let mut idx = start_idx
-  while idx < @ir.hot_region_root_count(func, region_ref) {
-    if cp_summary_reads_local(
-        cp_effect_summary_for_node(
-          cache,
-          func,
-          @ir.hot_region_get(func, region_ref, idx),
-        ),
-        local_id,
-      ) {
-      return true
-    }
-    idx = idx + 1
+  if local_id < 0 || local_id >= cache.local_count {
+    return false
   }
-  false
+  let last_read_root_idxs = cp_region_last_local_read_root_idxs(
+    cache, func, region_ref,
+  )
+  last_read_root_idxs[local_id] >= start_idx
 }
 
 ///|
@@ -1453,18 +1597,33 @@ fn cp_root_is_trivial_dead_move_gap(
   if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
     return true
   }
+  if root_id < cache.trivial_dead_move_gap_ready.length() &&
+    cache.trivial_dead_move_gap_ready[root_id] {
+    return cache.trivial_dead_move_gap_values[root_id]
+  }
   if cp_node_has_explicit_exit(cache, func, root_id) {
+    if root_id < cache.trivial_dead_move_gap_ready.length() {
+      cache.trivial_dead_move_gap_ready[root_id] = true
+      cache.trivial_dead_move_gap_values[root_id] = false
+    }
     return false
   }
   let summary = cp_effect_summary_for_node(cache, func, root_id)
-  if cp_bitset_any(summary.local_reads) ||
+  let result = if cp_bitset_any(summary.local_reads) ||
     cp_bitset_any(summary.local_writes) ||
     cp_bitset_any(summary.global_reads) ||
     cp_bitset_any(summary.global_writes) {
-    return false
+    false
+  } else {
+    let noncontrol_mask = summary.mask ^
+      (summary.mask & @ir.EFFECT_MASK_CONTROL)
+    noncontrol_mask == 0U
   }
-  let noncontrol_mask = summary.mask ^ (summary.mask & @ir.EFFECT_MASK_CONTROL)
-  noncontrol_mask == 0U
+  if root_id < cache.trivial_dead_move_gap_ready.length() {
+    cache.trivial_dead_move_gap_ready[root_id] = true
+    cache.trivial_dead_move_gap_values[root_id] = result
+  }
+  result
 }
 
 ///|
@@ -1502,30 +1661,6 @@ fn cp_summary_conflicts_with_dead_move_gap(
     return true
   }
   false
-}
-
-///|
-fn cp_region_dead_move_gap_is_safe(
-  cache : CpSummaryCache,
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-  source_idx : Int,
-  target_idx : Int,
-  moving_summary : CpEffectSummary,
-) -> Bool {
-  let mut idx = source_idx + 1
-  while idx < target_idx {
-    let root_id = @ir.hot_region_get(func, region_ref, idx)
-    if !cp_root_is_trivial_dead_move_gap(cache, func, root_id) &&
-      cp_summary_conflicts_with_dead_move_gap(
-        moving_summary,
-        cp_effect_summary_for_node(cache, func, root_id),
-      ) {
-      return false
-    }
-    idx = idx + 1
-  }
-  true
 }
 
 ///|
@@ -1757,6 +1892,10 @@ fn cp_try_push_to_pushpoint(
     return false
   }
   let barrier = cp_new_barrier_summary(cache.local_count, cache.global_count)
+  let dead_move_gap = cp_empty_effect_summary(
+    cache.local_count,
+    cache.global_count,
+  )
   let movable = Array::make(root_count, false)
   let move_after_target = Array::make(root_count, false)
   let pushpoint_summary = cp_effect_summary_for_node(
@@ -1786,8 +1925,8 @@ fn cp_try_push_to_pushpoint(
                 if has_later_read {
                   move_after_target[scan] = true
                   true
-                } else if cp_region_dead_move_gap_is_safe(
-                    cache, func, region_ref, scan, target_idx, root_summary,
+                } else if !cp_summary_conflicts_with_dead_move_gap(
+                    root_summary, dead_move_gap,
                   ) {
                   move_after_target[scan] = true
                   true
@@ -1806,6 +1945,9 @@ fn cp_try_push_to_pushpoint(
       movable[scan] = true
     } else {
       cp_barrier_merge_root_summary(barrier, cache, func, root_id, root_summary)
+    }
+    if !cp_root_is_trivial_dead_move_gap(cache, func, root_id) {
+      cp_summary_merge_into(dead_move_gap, root_summary)
     }
     scan = scan - 1
   }

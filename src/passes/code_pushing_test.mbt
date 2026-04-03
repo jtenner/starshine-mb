@@ -317,6 +317,19 @@ test "code-pushing does not move a local.set when no later target root exists" {
 }
 
 ///|
+test "code-pushing does not move a local.set before an unrelated if" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (local i32) i32.const 7 local.set 0 i32.const 1 if nop end))",
+  )
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "LocalSet(0)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)), "If")
+}
+
+///|
 test "code-pushing does not sink into if when both arms read the local" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop else local.get 1 drop end))",

@@ -486,23 +486,27 @@
   were effectively removed too: `Func 3617` fell from `337161 us` to `574 us`,
   `Func 1558` from `254285 us` to `410 us`, and `Func 1530` from `197051 us`
   to `242 us`.
-- That changes the next performance question again. The remaining largest
-  pass-local hotspot is now the real mutating `Func 1816` at about `187021 us`,
-  with the next unchanged pass hotspot `Func 1678` at about `75809 us`, while
-  hot lift is often back to dominating whole-artifact wall time on large
-  unchanged functions. So the next decision is no longer “find another obvious
-  GC churn source”; it is whether to keep squeezing those remaining
-  `code-pushing` families or to take the permission-gated full compare replay
-  and see how much of the remaining artifact budget is parity-only.
-- Two broader shortcuts were tried after that and both had to be rolled back.
-  Returning early when a region had no dropped owner, and restricting the
-  special walk to zero-result `Block` roots only, both regressed the existing
-  safe case covered by `code-pushing rewrites past an earlier self-contained
-  block root` in [`src/passes/code_pushing_test.mbt`](../src/passes/code_pushing_test.mbt).
-  On the current green state, `gdb` samples no longer point at the per-target
-  helper churn; they are back to `cp_collect_block_owner_exit_summary_for_region`
-  and `hot_node_get`, which is a clearer sign that the remaining cost is still
-  the recursive region walk itself rather than one leaf helper.
+- The next perf tranche stayed in the actual backward scans rather than the
+  whole-function entry gate. `code-pushing` now ignores terminal unrelated
+  pushpoints during traversal gating, caches the last root index that reads
+  each local per region, maintains an incremental dead-gap summary instead of
+  rescanning crossed gaps for dead-set motion, and memoizes both trivial
+  dead-gap roots and pushable `LocalSet` roots within an iteration. That moved
+  the same direct native debug-artifact path down again from `3.604s` to
+  `3.559s`, `3.348s`, and then `3.160s-3.162s`, while traced
+  `pass:code-pushing` dropped from `1290492 us` to `1245985 us`, then
+  `1136216 us`, and finally `1095736 us`. The unchanged share fell again too,
+  from `963639 us` to `809435 us`.
+- That changed the hotspot mix again. `Func 1678` is no longer the dominant
+  unchanged outlier; it fell from `75809 us` to `27783 us`, while the top
+  remaining pass-local costs are now the real mutating `Func 1816`
+  (`164475 us`) plus unchanged functions `Func 2609` (`35147 us`), `Func 1910`
+  (`28200 us`), `Func 1678` (`27783 us`), and `Func 2010` (`18059 us`). The
+  next performance decision is therefore narrower than before: either keep
+  attacking those remaining late rewrite scans, especially on the real mutating
+  `Func 1816`, or accept that the next large wall-time chunk is now increasingly
+  outside `code-pushing` itself and spend the next budget on permission-gated
+  parity replay instead.
 - HOT regions already store root lists directly for root, block, loop, then, else,
   try body, and catch regions.
   That means Starshine does not need Binaryen's `blockify(...)` step when it
