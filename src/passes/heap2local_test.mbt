@@ -47,6 +47,18 @@ fn heap2local_run_module(mod_ : @lib.Module) -> @lib.Module {
 }
 
 ///|
+fn heap2local_pretty_text(text : String) -> String {
+  let optimized = match pass_test_run_pipeline(text, ["heap2local"]) {
+    Ok(mod_) => mod_
+    Err(err) => abort("expected heap2local text fixture success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+    Err(err) => abort("expected heap2local text output to validate, got \{err}")
+  }
+}
+
+///|
 test "heap2local rewrites a non-escaping struct local into scalar locals" {
   let pair = @lib.TypeIdx::new(0U)
   let owner_local = @lib.LocalIdx::new(0U)
@@ -104,4 +116,123 @@ test "heap2local leaves escaping struct locals unchanged" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_true(pretty.contains("local.get"), msg=pretty)
+}
+
+///|
+test "heap2local rewrites exclusive local copy chains into scalar locals" {
+  let pair = @lib.TypeIdx::new(0U)
+  let owner_local = @lib.LocalIdx::new(0U)
+  let copy_local = @lib.LocalIdx::new(1U)
+  let optimized = heap2local_run_module(
+    heap2local_module_with_locals(
+      [@lib.ValType::i32()],
+      [
+        @lib.ValType::ref_null(@lib.HeapType::new(pair)),
+        @lib.ValType::ref_null(@lib.HeapType::new(pair)),
+      ],
+      [
+        @lib.Instruction::i32_const(@lib.I32(11)),
+        @lib.Instruction::i32_const(@lib.I32(22)),
+        @lib.Instruction::struct_new(pair),
+        @lib.Instruction::local_set(owner_local),
+        @lib.Instruction::local_get(owner_local),
+        @lib.Instruction::local_set(copy_local),
+        @lib.Instruction::local_get(copy_local),
+        @lib.Instruction::struct_get(pair, @lib.U32(1U)),
+      ],
+    ),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected heap2local local-copy output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+}
+
+///|
+test "heap2local rewrites direct tee owners into scalar locals" {
+  let pretty = heap2local_pretty_text(
+    (
+      #| (module
+      #|   (type $pair (sub (struct (field (mut i32)) (field (mut i32)))))
+      #|   (func (result i32)
+      #|     (local $ref (ref null $pair))
+      #|     (struct.get $pair 0
+      #|       (local.tee $ref
+      #|         (struct.new_default $pair)))))
+      #|
+    ),
+  )
+  assert_false(pretty.contains("struct.new_default"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
+test "heap2local rewrites simple block result flow into scalar locals" {
+  let pretty = heap2local_pretty_text(
+    (
+      #| (module
+      #|   (type $pair (sub (struct (field (mut i32)) (field (mut i32)))))
+      #|   (func (result i32)
+      #|     (local $ref (ref null $pair))
+      #|     (local.set $ref
+      #|       (struct.new_default $pair))
+      #|     (struct.get $pair 1
+      #|       (block (result (ref null $pair))
+      #|         (drop (ref.null $pair))
+      #|         (local.get $ref)))))
+      #|
+    ),
+  )
+  assert_false(pretty.contains("struct.new_default"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+}
+
+///|
+test "heap2local removes ref.as_non_null around optimized struct traffic" {
+  let pretty = heap2local_pretty_text(
+    (
+      #| (module
+      #|   (type $pair (sub (struct (field (mut i32)) (field (mut i32)))))
+      #|   (func (result i32)
+      #|     (local $ref (ref null $pair))
+      #|     (local.set $ref
+      #|       (struct.new_default $pair))
+      #|     (struct.get $pair 0
+      #|       (ref.as_non_null
+      #|         (local.get $ref)))))
+      #|
+    ),
+  )
+  assert_false(pretty.contains("struct.new_default"), msg=pretty)
+  assert_false(pretty.contains("struct.get"), msg=pretty)
+  assert_false(pretty.contains("ref.as_non_null"), msg=pretty)
+}
+
+///|
+test "heap2local leaves parameter-backed ownership unchanged" {
+  let pretty = heap2local_pretty_text(
+    (
+      #| (module
+      #|   (type $pair (sub (struct (field (mut i32)) (field (mut i32)))))
+      #|   (func (param $ref (ref null $pair))
+      #|     (loop $loop
+      #|       (drop
+      #|         (struct.get $pair 0
+      #|           (local.get $ref)))
+      #|       (local.set $ref
+      #|         (struct.new_default $pair))
+      #|       (drop
+      #|         (struct.get $pair 0
+      #|           (local.get $ref)))
+      #|       (br $loop))))
+      #|
+    ),
+  )
+  assert_true(pretty.contains("struct.new_default"), msg=pretty)
+  assert_true(pretty.contains("struct.get"), msg=pretty)
 }

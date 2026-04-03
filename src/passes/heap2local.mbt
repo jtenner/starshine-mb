@@ -22,8 +22,15 @@ pub fn heap2local_summary() -> String {
 
 ///|
 priv struct H2LUseSite {
-  read_node_id : Int
+  source_node_id : Int
   user_node_id : Int
+} derive(Eq, Show, Debug)
+
+///|
+priv struct H2LCopySite {
+  source_node_id : Int
+  write_node_id : Int
+  target_local : Int
 } derive(Eq, Show, Debug)
 
 ///|
@@ -34,6 +41,7 @@ priv struct H2LCandidate {
   struct_type : @lib.TypeIdx
   fields : Array[@lib.FieldType]
   use_sites : Array[H2LUseSite]
+  copy_sites : Array[H2LCopySite]
 } derive(Eq, Show, Debug)
 
 ///|
@@ -138,12 +146,191 @@ fn h2l_exact_field_user_matches(
 }
 
 ///|
+fn h2l_local_can_hold_struct_ref(
+  func : @ir.HotFunc,
+  local_id : Int,
+  struct_type : @lib.TypeIdx,
+) -> Bool {
+  match @ir.hot_local_type(func, local_id) {
+    Some(@lib.RefTypeValType(ref_type)) =>
+      ref_type.is_nullable() &&
+      ref_type.get_heap_type() == @lib.HeapType::new(struct_type)
+    _ => false
+  }
+}
+
+///|
+fn h2l_collect_source_use(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  source_node_id : Int,
+  current_local : Int,
+  struct_type : @lib.TypeIdx,
+  field_count : Int,
+  family_locals : Array[Int],
+  use_sites : Array[H2LUseSite],
+  copy_sites : Array[H2LCopySite],
+  allow_copy : Bool,
+) -> Bool {
+  if !@ir.hot_node_is_live(func, source_node_id) {
+    return false
+  }
+  let sites = use_def.node_uses[source_node_id]
+  if sites.length() != 1 {
+    return false
+  }
+  let site = sites[0]
+  let (flowed_source_node_id, flowed_user_node_id) = match site.kind {
+    @ir.HotUseSlotKind::ChildUseSlot =>
+      if site.slot != 0 {
+        return false
+      } else {
+        (source_node_id, site.user)
+      }
+    @ir.HotUseSlotKind::RootUseSlot => {
+      if site.user < 0 {
+        return false
+      }
+      let block_node_id = site.user
+      let block_node = @ir.hot_node_get(func, block_node_id)
+      match block_node.op {
+        @ir.HotOp::Block => ()
+        _ => return false
+      }
+      let body_ref = @ir.hot_region_body_ref(func, block_node_id)
+      let root_count = @ir.hot_region_root_count(func, body_ref)
+      if root_count == 0 || site.slot != root_count - 1 {
+        return false
+      }
+      for root_idx = 0; root_idx < root_count - 1; root_idx = root_idx + 1 {
+        let root_node = @ir.hot_node_get(
+          func,
+          @ir.hot_region_get(func, body_ref, root_idx),
+        )
+        match root_node.op {
+          @ir.HotOp::Block
+          | @ir.HotOp::Loop
+          | @ir.HotOp::If
+          | @ir.HotOp::Try
+          | @ir.HotOp::TryTable
+          | @ir.HotOp::Br
+          | @ir.HotOp::BrIf
+          | @ir.HotOp::BrTable
+          | @ir.HotOp::BrOnNull
+          | @ir.HotOp::BrOnNonNull
+          | @ir.HotOp::BrOnCast
+          | @ir.HotOp::BrOnCastFail
+          | @ir.HotOp::Return
+          | @ir.HotOp::Throw
+          | @ir.HotOp::Rethrow
+          | @ir.HotOp::ThrowRef
+          | @ir.HotOp::Delegate
+          | @ir.HotOp::Catch
+          | @ir.HotOp::CatchAll => return false
+          _ => ()
+        }
+      }
+      let block_sites = use_def.node_uses[block_node_id]
+      if block_sites.length() != 1 {
+        return false
+      }
+      let block_site = block_sites[0]
+      match block_site.kind {
+        @ir.HotUseSlotKind::ChildUseSlot =>
+          if block_site.slot != 0 {
+            return false
+          }
+        _ => return false
+      }
+      (block_node_id, block_site.user)
+    }
+  }
+  if h2l_exact_field_user_matches(
+      func, flowed_user_node_id, struct_type, field_count,
+    ) {
+    use_sites.push({
+      source_node_id: flowed_source_node_id,
+      user_node_id: flowed_user_node_id,
+    })
+    return true
+  }
+  if flowed_source_node_id != source_node_id {
+    return false
+  }
+  match @ir.hot_node_exact_instr(func, site.user) {
+    Some(@lib.Instruction::RefAsNonNull) => {
+      let flow_sites = use_def.node_uses[site.user]
+      if flow_sites.length() != 1 {
+        return false
+      }
+      let flow_site = flow_sites[0]
+      match flow_site.kind {
+        @ir.HotUseSlotKind::ChildUseSlot =>
+          if flow_site.slot != 0 {
+            return false
+          }
+        _ => return false
+      }
+      if h2l_exact_field_user_matches(
+          func,
+          flow_site.user,
+          struct_type,
+          field_count,
+        ) {
+        use_sites.push({
+          source_node_id: site.user,
+          user_node_id: flow_site.user,
+        })
+        return true
+      }
+      return false
+    }
+    _ => ()
+  }
+  if !allow_copy {
+    return false
+  }
+  let user_node = @ir.hot_node_get(func, site.user)
+  match user_node.op {
+    @ir.HotOp::LocalSet =>
+      if user_node.child_count != 1 || user_node.imm0 == current_local {
+        false
+      } else {
+        let target_local = user_node.imm0
+        if target_local < @ir.hot_param_count(func) {
+          return false
+        }
+        if !h2l_local_can_hold_struct_ref(func, target_local, struct_type) {
+          return false
+        }
+        let writes = use_def.local_writes[target_local]
+        if writes.length() != 1 || writes[0] != site.user {
+          return false
+        }
+        copy_sites.push({
+          source_node_id,
+          write_node_id: site.user,
+          target_local,
+        })
+        if !family_locals.contains(target_local) {
+          family_locals.push(target_local)
+        }
+        true
+      }
+    _ => false
+  }
+}
+
+///|
 fn h2l_find_candidate_for_local(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
   use_def : @ir.HotUseDef,
   local_id : Int,
 ) -> H2LCandidate? {
+  if local_id < @ir.hot_param_count(func) {
+    return None
+  }
   let writes = use_def.local_writes[local_id]
   if writes.length() != 1 {
     return None
@@ -153,10 +340,18 @@ fn h2l_find_candidate_for_local(
     return None
   }
   let write_node = @ir.hot_node_get(func, write_node_id)
-  match write_node.op {
+  let write_is_tee = match write_node.op {
     @ir.HotOp::LocalSet =>
       if write_node.imm0 != local_id || write_node.child_count != 1 {
         return None
+      } else {
+        false
+      }
+    @ir.HotOp::LocalTee =>
+      if write_node.imm0 != local_id || write_node.child_count != 1 {
+        return None
+      } else {
+        true
       }
     _ => return None
   }
@@ -167,33 +362,51 @@ fn h2l_find_candidate_for_local(
     None => return None
   }
   ignore(uses_default)
-  let reads = use_def.local_reads[local_id]
-  if reads.is_empty() {
+  if !h2l_local_can_hold_struct_ref(func, local_id, struct_type) {
     return None
   }
   let use_sites : Array[H2LUseSite] = []
-  for read_node_id in reads {
-    if !@ir.hot_node_is_live(func, read_node_id) {
-      return None
+  let copy_sites : Array[H2LCopySite] = []
+  let family_locals : Array[Int] = [local_id]
+  if write_is_tee &&
+    !h2l_collect_source_use(
+      func,
+      use_def,
+      write_node_id,
+      local_id,
+      struct_type,
+      fields.length(),
+      family_locals,
+      use_sites,
+      copy_sites,
+      false,
+    ) {
+    return None
+  }
+  for family_idx = 0
+      family_idx < family_locals.length()
+      family_idx = family_idx + 1 {
+    let current_local = family_locals[family_idx]
+    let reads = use_def.local_reads[current_local]
+    for read_node_id in reads {
+      if !h2l_collect_source_use(
+          func,
+          use_def,
+          read_node_id,
+          current_local,
+          struct_type,
+          fields.length(),
+          family_locals,
+          use_sites,
+          copy_sites,
+          true,
+        ) {
+        return None
+      }
     }
-    let sites = use_def.node_uses[read_node_id]
-    if sites.length() != 1 {
-      return None
-    }
-    let site = sites[0]
-    match site.kind {
-      @ir.HotUseSlotKind::ChildUseSlot => if site.slot != 0 { return None }
-      _ => return None
-    }
-    if !h2l_exact_field_user_matches(
-        func,
-        site.user,
-        struct_type,
-        fields.length(),
-      ) {
-      return None
-    }
-    use_sites.push({ read_node_id, user_node_id: site.user })
+  }
+  if use_sites.is_empty() {
+    return None
   }
   Some({
     owner_local: local_id,
@@ -202,6 +415,7 @@ fn h2l_find_candidate_for_local(
     struct_type,
     fields,
     use_sites,
+    copy_sites,
   })
 }
 
@@ -260,6 +474,87 @@ fn h2l_build_init_replacement(
 }
 
 ///|
+fn h2l_wrap_replacement_with_init(
+  func : @ir.HotFunc,
+  candidate : H2LCandidate,
+  init_replacement : Int,
+  field_idx : Int,
+  replacement_id : Int,
+) -> Int {
+  let block_type = match @ir.hot_node_result_arity(func, replacement_id) {
+    0 => @lib.BlockType::void_()
+    _ => @lib.BlockType::val_type(candidate.fields[field_idx].unpack())
+  }
+  @ir.hot_build_block(func, block_type, [init_replacement, replacement_id])
+}
+
+///|
+fn h2l_passthrough_child_node(func : @ir.HotFunc, source_node_id : Int) -> Int? {
+  match @ir.hot_node_exact_instr(func, source_node_id) {
+    Some(@lib.Instruction::RefAsNonNull) =>
+      if @ir.hot_child_count(func, source_node_id) == 1 {
+        Some(@ir.hot_child_get(func, source_node_id, 0))
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn h2l_node_is_block(func : @ir.HotFunc, node_id : Int) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Block => true
+    _ => false
+  }
+}
+
+///|
+fn h2l_block_flow_tail_node(func : @ir.HotFunc, block_node_id : Int) -> Int? {
+  let block_node = @ir.hot_node_get(func, block_node_id)
+  match block_node.op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_node_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  if root_count == 0 {
+    None
+  } else {
+    Some(@ir.hot_region_get(func, body_ref, root_count - 1))
+  }
+}
+
+///|
+fn h2l_wrap_replacement_with_block_prefix(
+  func : @ir.HotFunc,
+  candidate : H2LCandidate,
+  block_node_id : Int,
+  field_idx : Int,
+  replacement_id : Int,
+) -> Int? {
+  let tail_node_id = match h2l_block_flow_tail_node(func, block_node_id) {
+    Some(node_id) => node_id
+    None => return None
+  }
+  if tail_node_id == block_node_id {
+    return None
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_node_id)
+  let root_count = @ir.hot_region_root_count(func, body_ref)
+  let roots : Array[Int] = []
+  for root_idx = 0; root_idx < root_count - 1; root_idx = root_idx + 1 {
+    roots.push(@ir.hot_region_get(func, body_ref, root_idx))
+  }
+  roots.push(replacement_id)
+  let block_type = match @ir.hot_node_result_arity(func, replacement_id) {
+    0 => @lib.BlockType::void_()
+    _ => @lib.BlockType::val_type(candidate.fields[field_idx].unpack())
+  }
+  Some(@ir.hot_build_block(func, block_type, roots))
+}
+
+///|
 fn h2l_apply_candidate(
   func : @ir.HotFunc,
   candidate : H2LCandidate,
@@ -271,12 +566,26 @@ fn h2l_apply_candidate(
     Some(node_id) => node_id
     None => return false
   }
-  @ir.hot_replace_node(
-    func,
-    candidate.write_node_id,
-    @ir.hot_node_get(func, init_replacement),
-  )
-  detached_nodes.push(candidate.init_node_id)
+  let write_is_tee = match @ir.hot_node_get(func, candidate.write_node_id).op {
+    @ir.HotOp::LocalTee => true
+    _ => false
+  }
+  if !write_is_tee {
+    @ir.hot_replace_node(
+      func,
+      candidate.write_node_id,
+      @ir.hot_node_get(func, init_replacement),
+    )
+    detached_nodes.push(candidate.init_node_id)
+  }
+  for copy_site in candidate.copy_sites {
+    @ir.hot_replace_node(
+      func,
+      copy_site.write_node_id,
+      @ir.hot_node_get(func, @ir.hot_build_nop(func)),
+    )
+    detached_nodes.push(copy_site.source_node_id)
+  }
   for use_site in candidate.use_sites {
     let replacement = match
       @ir.hot_node_exact_instr(func, use_site.user_node_id) {
@@ -287,14 +596,63 @@ fn h2l_apply_candidate(
               @lib.StructGet(_, _)
               | @lib.StructGetS(_, _)
               | @lib.StructGetU(_, _) =>
-                Some(@ir.hot_build_local_get(func, field_locals[field_idx]))
+                Some(
+                  {
+                    let local_get = @ir.hot_build_local_get(
+                      func,
+                      field_locals[field_idx],
+                    )
+                    if write_is_tee &&
+                      use_site.source_node_id == candidate.write_node_id {
+                      h2l_wrap_replacement_with_init(
+                        func, candidate, init_replacement, field_idx, local_get,
+                      )
+                    } else if h2l_node_is_block(func, use_site.source_node_id) {
+                      match
+                        h2l_wrap_replacement_with_block_prefix(
+                          func,
+                          candidate,
+                          use_site.source_node_id,
+                          field_idx,
+                          local_get,
+                        ) {
+                        Some(node_id) => node_id
+                        None => return false
+                      }
+                    } else {
+                      local_get
+                    }
+                  },
+                )
               @lib.StructSet(_, _) =>
                 Some(
-                  @ir.hot_build_local_set(
-                    func,
-                    field_locals[field_idx],
-                    @ir.hot_child_get(func, use_site.user_node_id, 1),
-                  ),
+                  {
+                    let local_set = @ir.hot_build_local_set(
+                      func,
+                      field_locals[field_idx],
+                      @ir.hot_child_get(func, use_site.user_node_id, 1),
+                    )
+                    if write_is_tee &&
+                      use_site.source_node_id == candidate.write_node_id {
+                      h2l_wrap_replacement_with_init(
+                        func, candidate, init_replacement, field_idx, local_set,
+                      )
+                    } else if h2l_node_is_block(func, use_site.source_node_id) {
+                      match
+                        h2l_wrap_replacement_with_block_prefix(
+                          func,
+                          candidate,
+                          use_site.source_node_id,
+                          field_idx,
+                          local_set,
+                        ) {
+                        Some(node_id) => node_id
+                        None => return false
+                      }
+                    } else {
+                      local_set
+                    }
+                  },
                 )
               _ => None
             }
@@ -309,10 +667,24 @@ fn h2l_apply_candidate(
           use_site.user_node_id,
           @ir.hot_node_get(func, replacement_id),
         )
-        detached_nodes.push(use_site.read_node_id)
+        detached_nodes.push(use_site.source_node_id)
+        match h2l_passthrough_child_node(func, use_site.source_node_id) {
+          Some(child_node_id) => detached_nodes.push(child_node_id)
+          None => ()
+        }
+        if h2l_node_is_block(func, use_site.source_node_id) {
+          match h2l_block_flow_tail_node(func, use_site.source_node_id) {
+            Some(tail_node_id) => detached_nodes.push(tail_node_id)
+            None => return false
+          }
+        }
       }
       None => return false
     }
+  }
+  if write_is_tee {
+    detached_nodes.push(candidate.write_node_id)
+    detached_nodes.push(candidate.init_node_id)
   }
   true
 }
