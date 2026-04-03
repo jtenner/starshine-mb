@@ -263,6 +263,30 @@ test "heap2local folds ref.eq against a fresh struct allocation to zero" {
 }
 
 ///|
+test "heap2local removes ref.get_desc around a fresh descriptor-bearing allocation" {
+  let pretty = heap2local_pretty_text(
+    (
+      #| (module
+      #|   (rec
+      #|     (type $node
+      #|       (descriptor $node_desc)
+      #|       (struct))
+      #|     (type $node_desc
+      #|       (describes $node)
+      #|       (struct)))
+      #|   (func
+      #|     (drop
+      #|       (ref.get_desc $node
+      #|         (struct.new_default_desc $node
+      #|           (struct.new $node_desc))))))
+      #|
+    ),
+  )
+  assert_false(pretty.contains("struct.new_default_desc"), msg=pretty)
+  assert_false(pretty.contains("ref.get_desc"), msg=pretty)
+}
+
+///|
 test "heap2local leaves parameter-backed ownership unchanged" {
   let pretty = heap2local_pretty_text(
     (

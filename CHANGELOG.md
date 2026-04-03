@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-03 Checkpoint: extend `heap2local` through descriptor-bearing `ref.get_desc`
+
+- **`heap2local` descriptor checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/heap2local.mbt`](./src/passes/heap2local.mbt), and [`src/passes/heap2local_test.mbt`](./src/passes/heap2local_test.mbt) so `heap2local` now removes direct `ref.get_desc` on fresh `struct.new_desc` and `struct.new_default_desc` allocations, preserving any field-argument evaluation before returning the descriptor child. Focused pass coverage now locks that descriptor-bearing consume case directly, and the targeted parity suite is down to four remaining Binaryen gaps: `array.new_default`, `array.new`, `array.new_fixed`, and array `ref.test`.
+
 ## 2026-04-03 Checkpoint: extend `heap2local` through direct `ref.eq`
 
 - **`heap2local` `ref.eq` checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/heap2local.mbt`](./src/passes/heap2local.mbt), and [`src/passes/heap2local_test.mbt`](./src/passes/heap2local_test.mbt) so `heap2local` now folds direct `ref.eq` comparisons between a fresh struct allocation and `ref.null` to `i32.const 0`, while preserving any struct initializer evaluation before the folded result. Focused pass coverage now locks that non-local consume case directly, and the targeted parity suite is down to five remaining Binaryen gaps: descriptor-bearing `struct.new_default_desc` plus `ref.get_desc`, `array.new_default`, `array.new`, `array.new_fixed`, and array `ref.test`.

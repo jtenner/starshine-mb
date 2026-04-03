@@ -126,6 +126,62 @@ fn h2l_is_direct_struct_alloc(
 }
 
 ///|
+fn h2l_direct_descriptor_alloc_info(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  node_id : Int,
+) -> (@lib.TypeIdx, Int)? {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::StructNewDesc(type_idx)) =>
+      match
+        (
+          @ir.hot_module_resolve_subtype(module_ctx, type_idx),
+          @ir.hot_module_resolve_struct_fields(module_ctx, type_idx),
+        ) {
+        (Some(subtype), Some(fields)) =>
+          match subtype.descriptor_type() {
+            Some(_) =>
+              if @ir.hot_child_count(func, node_id) == fields.length() + 1 {
+                Some(
+                  (
+                    type_idx,
+                    @ir.hot_child_get(
+                      func,
+                      node_id,
+                      @ir.hot_child_count(func, node_id) - 1,
+                    ),
+                  ),
+                )
+              } else {
+                None
+              }
+            None => None
+          }
+        _ => None
+      }
+    Some(@lib.Instruction::StructNewDefaultDesc(type_idx)) =>
+      match
+        (
+          @ir.hot_module_resolve_subtype(module_ctx, type_idx),
+          @ir.hot_module_resolve_struct_fields(module_ctx, type_idx),
+        ) {
+        (Some(subtype), Some(_)) =>
+          match subtype.descriptor_type() {
+            Some(_) =>
+              if @ir.hot_child_count(func, node_id) == 1 {
+                Some((type_idx, @ir.hot_child_get(func, node_id, 0)))
+              } else {
+                None
+              }
+            None => None
+          }
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
 fn h2l_field_index(instr : @lib.Instruction) -> Int? {
   match instr {
     @lib.StructGet(_, field_idx)
@@ -655,6 +711,34 @@ fn h2l_ref_eq_null_replacement(func : @ir.HotFunc, alloc_node_id : Int) -> Int {
 }
 
 ///|
+fn h2l_ref_get_desc_replacement(func : @ir.HotFunc, alloc_node_id : Int) -> Int {
+  let child_count = @ir.hot_child_count(func, alloc_node_id)
+  if child_count <= 0 {
+    return @ir.hot_build_unreachable(func)
+  }
+  let roots : Array[Int] = []
+  for child_idx = 0; child_idx < child_count - 1; child_idx = child_idx + 1 {
+    roots.push(
+      @ir.hot_build_drop(
+        func,
+        @ir.hot_child_get(func, alloc_node_id, child_idx),
+      ),
+    )
+  }
+  let desc_node_id = @ir.hot_child_get(func, alloc_node_id, child_count - 1)
+  roots.push(desc_node_id)
+  if roots.length() == 1 {
+    roots[0]
+  } else {
+    let desc_result_type = @ir.hot_type_results(
+        func,
+        @ir.hot_node_type(func, desc_node_id),
+      )[0]
+    @ir.hot_build_block(func, @lib.BlockType::val_type(desc_result_type), roots)
+  }
+}
+
+///|
 fn h2l_try_fold_direct_ref_eq(
   func : @ir.HotFunc,
   module_ctx : @ir.HotModuleContext,
@@ -695,6 +779,38 @@ fn h2l_try_fold_direct_ref_eq(
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
   detached_nodes.push(alloc_node_id)
   detached_nodes.push(null_node_id)
+  true
+}
+
+///|
+fn h2l_try_fold_direct_ref_get_desc(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  node_id : Int,
+  detached_nodes : Array[Int],
+) -> Bool {
+  if !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let target_type = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefGetDesc(type_idx)) => type_idx
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let alloc_node_id = @ir.hot_child_get(func, node_id, 0)
+  let (alloc_type, _) = match
+    h2l_direct_descriptor_alloc_info(func, module_ctx, alloc_node_id) {
+    Some(info) => info
+    None => return false
+  }
+  if alloc_type != target_type {
+    return false
+  }
+  let replacement = h2l_ref_get_desc_replacement(func, alloc_node_id)
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  detached_nodes.push(alloc_node_id)
   true
 }
 
@@ -887,6 +1003,11 @@ pub fn heap2local_run(
   let node_count = @ir.hot_node_count(func)
   for node_id = 0; node_id < node_count; node_id = node_id + 1 {
     if h2l_try_fold_direct_ref_eq(func, module_ctx, node_id, detached_nodes) {
+      changed = true
+    }
+    if h2l_try_fold_direct_ref_get_desc(
+        func, module_ctx, node_id, detached_nodes,
+      ) {
       changed = true
     }
   }
