@@ -1558,6 +1558,23 @@ fn hot_lower_impl_trim_redundant_unreachable_tail(
 }
 
 ///|
+fn hot_lower_impl_append_explicit_unreachable(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  match body {
+    [.., Unreachable] => body
+    _ => {
+      let trimmed : Array[Instruction] = []
+      for instr in body {
+        trimmed.push(instr)
+      }
+      trimmed.push(Instruction::unreachable_())
+      trimmed
+    }
+  }
+}
+
+///|
 fn hot_lower_impl_try_sink_terminal_exit_into_arm(
   body : Array[Instruction],
   exit_ : Instruction,
@@ -1666,7 +1683,7 @@ fn hot_lower_impl_try_voidify_terminal_return_if_forwarder(
 }
 
 ///|
-fn hot_lower_impl_try_voidify_dropped_if_forwarder(
+fn hot_lower_impl_try_voidify_terminal_drop_if_forwarder(
   body : Array[Instruction],
 ) -> Array[Instruction]? {
   if body.length() < 2 {
@@ -1678,41 +1695,17 @@ fn hot_lower_impl_try_voidify_dropped_if_forwarder(
   }
   let rewritten : Array[Instruction] = []
   for i = 0; i < body.length() - 2; i = i + 1 {
-    if hot_lower_impl_has_control_transfer(body[i]) {
-      return None
-    }
     rewritten.push(body[i])
   }
   match body[body.length() - 2] {
-    If(inner_bt, then_, Some(else_)) if inner_bt != @lib.BlockType::void_() =>
-      match
-        hot_lower_impl_try_sink_terminal_exit_into_arm(
-          then_,
-          Instruction::drop(),
-        ) {
-        Some(rewritten_then) =>
-          match
-            hot_lower_impl_try_sink_terminal_exit_into_arm(
-              else_,
-              Instruction::drop(),
-            ) {
-            Some(rewritten_else) =>
-              Some(
-                hot_lower_impl_append_unreachable_if_needed(
-                  rewritten +
-                  [
-                    Instruction::if_(
-                      @lib.BlockType::void_(),
-                      rewritten_then,
-                      Some(rewritten_else),
-                    ),
-                  ],
-                ),
-              )
-            None => None
-          }
-        None => None
-      }
+    If(inner_bt, then_, Some(else_)) if inner_bt != @lib.BlockType::void_() &&
+      hot_lower_impl_body_has_terminal_exit(then_) &&
+      hot_lower_impl_body_has_terminal_exit(else_) => {
+      rewritten.push(
+        Instruction::if_(@lib.BlockType::void_(), then_, Some(else_)),
+      )
+      Some(hot_lower_impl_append_explicit_unreachable(rewritten))
+    }
     _ => None
   }
 }
@@ -1846,6 +1839,58 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
         }
         prefix.push(inner_body[i])
       }
+      let rebuild_result_arm = fn(
+        arm : Array[Instruction],
+      ) -> Array[Instruction]? {
+        if arm.length() < 2 {
+          return None
+        }
+        match arm[arm.length() - 1] {
+          Br(li) if hot_lower_impl_decoded_label_depth(li) <= 1 => ()
+          _ => return None
+        }
+        let value_instrs : Array[Instruction] = []
+        for i = 0; i < arm.length() - 1; i = i + 1 {
+          value_instrs.push(arm[i])
+        }
+        if value_instrs.length() == 0 {
+          return None
+        }
+        let mut needs_tee = true
+        match value_instrs[value_instrs.length() - 1] {
+          Drop => ignore(value_instrs.pop())
+          LocalSet(target_local) if target_local == carried_local => {
+            value_instrs[value_instrs.length() - 1] = Instruction::local_tee(
+              carried_local,
+            )
+            needs_tee = false
+          }
+          LocalTee(target_local) if target_local == carried_local =>
+            needs_tee = false
+          _ => ()
+        }
+        if value_instrs.length() == 0 {
+          return None
+        }
+        for instr in value_instrs {
+          if hot_lower_impl_has_control_transfer(instr) {
+            return None
+          }
+        }
+        if needs_tee {
+          value_instrs.push(Instruction::local_tee(carried_local))
+        }
+        Some(value_instrs)
+      }
+      let arm_terminal_branch_depth = fn(arm : Array[Instruction]) -> Int? {
+        if arm.length() == 0 {
+          return None
+        }
+        match arm[arm.length() - 1] {
+          Br(li) => Some(hot_lower_impl_decoded_label_depth(li))
+          _ => None
+        }
+      }
       let extract_dropped_value_arm = fn(
         arm : Array[Instruction],
       ) -> Array[Instruction]? {
@@ -1896,12 +1941,26 @@ fn hot_lower_impl_try_pack_split_if_payload_forwarder(
       match inner_if {
         If(VoidBlockType, then_, Some(else_)) => {
           match
-            (
-              hot_lower_impl_body_terminal_branch_depth(then_),
-              hot_lower_impl_body_terminal_branch_depth(else_),
-            ) {
-            (Some(then_depth), Some(else_depth)) if then_depth != else_depth =>
-              return None
+            (arm_terminal_branch_depth(then_), arm_terminal_branch_depth(else_)) {
+            (Some(then_depth), Some(else_depth)) =>
+              if then_depth == 1 || else_depth == 1 {
+                match (rebuild_result_arm(then_), rebuild_result_arm(else_)) {
+                  (Some(rewritten_then), Some(rewritten_else)) =>
+                    return Some(
+                      prefix +
+                      [
+                        Instruction::if_(
+                          bt,
+                          rewritten_then,
+                          Some(rewritten_else),
+                        ),
+                      ],
+                    )
+                  _ => ()
+                }
+              } else if then_depth != else_depth {
+                return None
+              }
             _ => ()
           }
           let rebuilt = match extract_dropped_value_arm(then_) {
@@ -2403,7 +2462,7 @@ fn hot_lower_impl_canonicalize_body(
     None => canonical
   }
   let canonical = match
-    hot_lower_impl_try_voidify_dropped_if_forwarder(canonical) {
+    hot_lower_impl_try_voidify_terminal_drop_if_forwarder(canonical) {
     Some(rewritten) => rewritten
     None => canonical
   }
