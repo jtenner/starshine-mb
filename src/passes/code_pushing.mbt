@@ -31,6 +31,7 @@ priv struct CpEffectSummary {
 priv struct CpSummaryCache {
   local_count : Int
   global_count : Int
+  node_masks : Array[@ir.EffectMask]
   live_nodes : Array[Bool]
   owner_exit_active_marks : Array[Bool]
   ready : Array[Bool]
@@ -206,7 +207,10 @@ fn cp_max_global_index(func : @ir.HotFunc, live_nodes : Array[Bool]) -> Int {
 }
 
 ///|
-fn cp_new_summary_cache(func : @ir.HotFunc) -> CpSummaryCache {
+fn cp_new_summary_cache(
+  func : @ir.HotFunc,
+  effects? : @ir.HotEffectsSummary? = None,
+) -> CpSummaryCache {
   let node_count = @ir.hot_node_count(func)
   let live_nodes = Array::make(node_count, true)
   for free_id in func.free_nodes {
@@ -216,6 +220,10 @@ fn cp_new_summary_cache(func : @ir.HotFunc) -> CpSummaryCache {
   }
   let local_count = @ir.hot_local_count(func)
   let global_count = cp_max_global_index(func, live_nodes)
+  let effects = match effects {
+    Some(effects) => effects
+    None => @ir.cache_get_or_build_effects(@ir.HotAnalysisCache::new(), func)
+  }
   let ready = Array::make(node_count, false)
   let summaries : Array[CpEffectSummary] = []
   for idx = 0; idx < node_count; idx = idx + 1 {
@@ -226,6 +234,7 @@ fn cp_new_summary_cache(func : @ir.HotFunc) -> CpSummaryCache {
   {
     local_count,
     global_count,
+    node_masks: effects.node_masks,
     live_nodes,
     owner_exit_active_marks: Array::make(node_count, false),
     ready,
@@ -260,7 +269,7 @@ fn cp_effect_summary_for_node(
   }
   let node = func.nodes[node_id]
   let summary : CpEffectSummary = {
-    mask: @ir.effects_for_node(func, node_id),
+    mask: cache.node_masks[node_id],
     local_reads: @ir.bitset_new(cache.local_count),
     local_writes: @ir.bitset_new(cache.local_count),
     global_reads: @ir.bitset_new(cache.global_count),
@@ -1724,7 +1733,7 @@ fn code_pushing_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   let mut changed = false
   while true {
     let infos = cp_analyze_locals(func)
-    let cache = cp_new_summary_cache(func)
+    let cache = cp_new_summary_cache(func, effects=Some(pass_require_effects(ctx, func)))
     if !cp_try_rewrite_region(ctx, func, @ir.HotRegionRef::root(), infos, cache) {
       break
     }

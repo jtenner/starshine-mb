@@ -442,6 +442,17 @@
   native debug-artifact path from the last `28.597s` sample down to `26.373s`
   and `26.904s`. That is still far from Binaryen, but it confirms whole-region
   root copies are another real hot cost on the current path.
+- The next hotspot after that was much larger. A fresh live sample moved into
+  `effects_accumulate_node_cached` via `cp_effect_summary_for_node`, and the
+  cause was direct: `cp_effect_summary_for_node` was still calling
+  `effects_for_node`, which allocates fresh `node_masks` / `ready` arrays and
+  recursively rebuilds masks for each query. Reusing the pass pipeline's cached
+  `HotEffectsSummary.node_masks` inside `CpSummaryCache` dropped the native
+  debug-artifact path again, from the `26.3s` band to `8.430s` and `8.449s`,
+  both with valid output. That finally puts the direct native path below the
+  earlier `< 1s or >= 50% of Binaryen where possible` guardrail on the same
+  order of magnitude, even though the full compare replay still needs to be
+  rerun.
 - Two broader shortcuts were tried after that and both had to be rolled back.
   Returning early when a region had no dropped owner, and restricting the
   special walk to zero-result `Block` roots only, both regressed the existing
