@@ -1871,7 +1871,8 @@ fn tuple_optimization_build_copy_root_carrier_replacement(
   if group.lane_locals.length() != source_split_locals.length() {
     abort("tuple-optimization synthetic copy carriers must preserve arity")
   }
-  if !tuple_optimization_lane_locals_are_strictly_increasing(group.lane_locals) {
+  if !tuple_optimization_lane_locals_are_strictly_increasing(group.lane_locals) ||
+    !tuple_optimization_lane_locals_are_strictly_increasing(source_split_locals) {
     let values : Array[Int] = []
     let result_types : Array[@lib.ValType] = []
     for lane_idx = 0

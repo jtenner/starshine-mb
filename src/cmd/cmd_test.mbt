@@ -1929,6 +1929,66 @@ test "run_cmd_with_adapter tuple-optimization rewrites scrambled tuple copy carr
 }
 
 ///|
+test "run_cmd_with_adapter tuple-optimization rewrites root local.set copy groups through a typed multivalue carrier" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 2 local.set 1 local.set 0 local.get 0 local.get 1 local.get 2 call 1 local.set 9 local.get 9))",
+      filename="tuple-root-copy-order.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected root local.set tuple copy carrier fixture parse failure: \{err}",
+      )
+  }
+  let wasm = encode_module_bytes(input_mod)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-root-copy-order.wasm"] },
+    file_exists=fn(path) { path == "tuple-root-copy-order.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-root-copy-order.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-root-copy-order.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected tuple-optimization root local.set tuple copy carrier failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let out = decode_module_bytes(writes[0].1)
+  let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_not_eq(pretty, input_mod.pretty_print_func(@lib.FuncIdx::new(2U)))
+  match out.type_sec {
+    Some(@lib.TypeSec(types)) => assert_eq(types.length(), 4)
+    None => fail("expected root local.set tuple copy carrier output type sec")
+  }
+  assert_true(pretty.contains("(block (Type 3)"), msg=pretty)
+  assert_false(
+    pretty.contains(
+      "(local.get (Local 6))(local.set (Local 2))(local.get (Local 7))(local.set (Local 1))(local.get (Local 8))(local.set (Local 0))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 #cfg(target="native")
 test "run_cmd_with_adapter validates ssa-nomerge on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"

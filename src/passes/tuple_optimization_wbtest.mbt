@@ -517,13 +517,8 @@ test "tuple-optimization rewrite carries exact copy groups through a root local.
   assert_eq(@ir.hot_node_get(func, lane2).imm0, 2)
   assert_eq(@ir.hot_node_get(func, lane1).op.to_string(), "LocalSet")
   assert_eq(@ir.hot_node_get(func, lane1).imm0, 1)
-  assert_true(
-    @ir.hot_node_get(func, lane0).op.to_string() == "LocalGet" ||
-    @ir.hot_node_get(func, lane0).op.to_string() == "Block",
-  )
-  if @ir.hot_node_get(func, lane0).op.to_string() == "LocalGet" {
-    assert_eq(@ir.hot_node_get(func, lane0).imm0, 8)
-  }
+  assert_eq(@ir.hot_node_get(func, lane0).op.to_string(), "TupleMake")
+  assert_true(@ir.hot_node_result_arity(func, lane0) > 1)
 }
 
 ///|
