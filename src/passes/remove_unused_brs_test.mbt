@@ -563,6 +563,45 @@ test "remove-unused-brs rewrites result-block br_if prefixes into one-arm payloa
 }
 
 ///|
+test "remove-unused-brs rewrites result-block br_if prefixes with payload bodies into one-arm payload ifs" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (param i32 i32) (result i32) (block (result i32) (block (br_if 0 (if (result i32) (i32.load offset=8 (local.get 0)) (then (i32.const 1)) (else (drop (i32.load offset=12 (local.get 0))) (i32.const 0)))) (drop (i32.const 0)) (br 1 (local.get 1))) unreachable)))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs payload-prefix rewrite success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("br_if"), msg=pretty)
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let outer = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let outer_body = @ir.hot_region_body_ref(func, outer)
+  let first = @ir.hot_region_get(func, outer_body, 0)
+  match @ir.hot_node_get(func, first).op {
+    @ir.HotOp::If => ()
+    _ =>
+      fail(
+        "expected rewritten payload-prefix if, got \{@ir.hot_node_get(func, first).op}",
+      )
+  }
+  let then_ref = @ir.hot_region_then_ref(func, first)
+  let then_root = @ir.hot_region_get(func, then_ref, 0)
+  match @ir.hot_node_get(func, then_root).op {
+    @ir.HotOp::Block => ()
+    _ =>
+      fail(
+        "expected preserved payload body block wrapper, got \{@ir.hot_node_get(func, then_root).op}",
+      )
+  }
+}
+
+///|
 test "remove-unused-brs keeps branch-payload result wrappers around br_if prefixes" {
   let optimized = match
     pass_test_run_pipeline(

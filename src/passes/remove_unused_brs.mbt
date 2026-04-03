@@ -2133,11 +2133,6 @@ fn remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(
     Some(holder) => holder
     None => return false
   }
-  if holder >= 0 &&
-    holder < branch_payload_children.length() &&
-    branch_payload_children[holder] {
-    return false
-  }
   if @ir.hot_node_result_arity(func, holder) <= 0 ||
     @ir.hot_region_root_count(func, region_ref) <= 1 {
     return false
@@ -2160,11 +2155,18 @@ fn remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(
     return false
   }
   let inner_body_ref = @ir.hot_region_body_ref(func, inner_id)
-  if @ir.hot_region_root_count(func, inner_body_ref) != 2 {
+  let inner_root_count = @ir.hot_region_root_count(func, inner_body_ref)
+  if inner_root_count < 2 {
+    return false
+  }
+  if holder >= 0 &&
+    holder < branch_payload_children.length() &&
+    branch_payload_children[holder] &&
+    inner_root_count == 2 {
     return false
   }
   let guard_id = @ir.hot_region_get(func, inner_body_ref, 0)
-  let branch_id = @ir.hot_region_get(func, inner_body_ref, 1)
+  let branch_id = @ir.hot_region_get(func, inner_body_ref, inner_root_count - 1)
   if guard_id < 0 ||
     branch_id < 0 ||
     !@ir.hot_node_is_live(func, guard_id) ||
@@ -2193,7 +2195,12 @@ fn remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(
     return false
   }
   let nop_id = @ir.hot_build_nop(func)
-  @ir.hot_region_replace_body(func, inner_body_ref, [nop_id, branch_id])
+  let replacement_body = [nop_id]
+  for root_idx = 1; root_idx < inner_root_count - 1; root_idx = root_idx + 1 {
+    replacement_body.push(@ir.hot_region_get(func, inner_body_ref, root_idx))
+  }
+  replacement_body.push(branch_id)
+  @ir.hot_region_replace_body(func, inner_body_ref, replacement_body)
   let if_id = @ir.hot_build_if(
     func,
     @lib.BlockType::void_(),
