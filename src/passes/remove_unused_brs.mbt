@@ -545,6 +545,192 @@ fn remove_unused_brs_build_i32_eqz(func : @ir.HotFunc, operand : Int) -> Int {
 }
 
 ///|
+fn remove_unused_brs_match_i32_const_value(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, node.imm0) {
+        @ir.HotConstPayload::I32Const(value) => Some(value.0)
+        _ => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn remove_unused_brs_match_br_if_ladder_selector(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> (Int, Int)? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet => Some((node_id, node.imm0))
+    @ir.HotOp::LocalTee =>
+      if node.child_count == 1 {
+        Some((node_id, node.imm0))
+      } else {
+        None
+      }
+    _ => None
+  }
+}
+
+///|
+fn remove_unused_brs_match_br_if_ladder_eq_const(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> (Int, Int)? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Compare =>
+      if node.child_count != 2 ||
+        @ir.hot_node_exact_instr(func, node_id) !=
+        Some(@lib.Instruction::i32_eq()) {
+        return None
+      }
+    _ => return None
+  }
+  let lhs = @ir.hot_child_get(func, node_id, 0)
+  let rhs = @ir.hot_child_get(func, node_id, 1)
+  match remove_unused_brs_match_i32_const_value(func, rhs) {
+    Some(value) => Some((lhs, value))
+    None =>
+      match remove_unused_brs_match_i32_const_value(func, lhs) {
+        Some(value) => Some((rhs, value))
+        None => None
+      }
+  }
+}
+
+///|
+fn remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+) -> Bool {
+  if idx < 0 || idx >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let first_branch = @ir.hot_region_get(func, region_ref, idx)
+  if first_branch < 0 || !@ir.hot_node_is_live(func, first_branch) {
+    return false
+  }
+  let first_branch_node = @ir.hot_node_get(func, first_branch)
+  match first_branch_node.op {
+    @ir.HotOp::BrIf => if first_branch_node.child_count != 1 { return false }
+    _ => return false
+  }
+  let target_label = match @ir.hot_branch_target(func, first_branch) {
+    Some(label_id) => label_id
+    None => return false
+  }
+  let first_condition = @ir.hot_child_get(func, first_branch, 0)
+  let (first_selector, first_const) = match
+    remove_unused_brs_match_br_if_ladder_eq_const(func, first_condition) {
+    Some(matched) => matched
+    None => return false
+  }
+  let (selector_node, selector_local) = match
+    remove_unused_brs_match_br_if_ladder_selector(func, first_selector) {
+    Some(matched) => matched
+    None => return false
+  }
+  if first_const < 0 || first_const > 16 {
+    return false
+  }
+
+  let branch_ids : Array[Int] = [first_branch]
+  let constants : Array[Int] = [first_const]
+  let mut scan_idx = idx + 1
+  while scan_idx < @ir.hot_region_root_count(func, region_ref) {
+    let branch_id = @ir.hot_region_get(func, region_ref, scan_idx)
+    if branch_id < 0 || !@ir.hot_node_is_live(func, branch_id) {
+      break
+    }
+    let branch_node = @ir.hot_node_get(func, branch_id)
+    match branch_node.op {
+      @ir.HotOp::BrIf => if branch_node.child_count != 1 { break }
+      _ => break
+    }
+    if @ir.hot_branch_target(func, branch_id) != Some(target_label) {
+      break
+    }
+    let condition = @ir.hot_child_get(func, branch_id, 0)
+    let (selector_id, const_value) = match
+      remove_unused_brs_match_br_if_ladder_eq_const(func, condition) {
+      Some(matched) => matched
+      None => break
+    }
+    let selector = @ir.hot_node_get(func, selector_id)
+    match selector.op {
+      @ir.HotOp::LocalGet if selector.imm0 == selector_local => ()
+      _ => break
+    }
+    if const_value < 0 || const_value > 16 {
+      break
+    }
+    branch_ids.push(branch_id)
+    constants.push(const_value)
+    scan_idx = scan_idx + 1
+  }
+  if branch_ids.length() < 3 {
+    return false
+  }
+
+  let mut max_const = constants[0]
+  for const_value in constants {
+    if const_value > max_const {
+      max_const = const_value
+    }
+  }
+  let inner_block = @ir.hot_build_block(func, @lib.BlockType::void_(), [])
+  let inner_label = @ir.hot_control_node_label(func, inner_block)
+  let table_targets = Array::make(max_const + 1, inner_label)
+  for const_value in constants {
+    table_targets[const_value] = target_label
+  }
+  let br_table = @ir.hot_build_br_table(
+    func, table_targets, inner_label, selector_node,
+  )
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, inner_block),
+    [br_table],
+  )
+
+  let replacement : Array[Int] = []
+  let mut nop_count = 0
+  while nop_count < branch_ids.length() - 1 {
+    replacement.push(@ir.hot_build_nop(func))
+    nop_count = nop_count + 1
+  }
+  replacement.push(inner_block)
+  let removed = pass_splice_region(
+    ctx,
+    func,
+    region_ref,
+    idx,
+    branch_ids.length(),
+    replacement,
+  )
+  pass_delete_detached_nodes(ctx, func, removed)
+  true
+}
+
+///|
 fn remove_unused_brs_trim_trailing_nops(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2078,7 +2264,10 @@ fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
     )[0]
   let branch_body = match
     remove_unused_brs_build_stack_exit_region_value_body(
-      func, then_ref, BranchTarget(block_label), result_arity,
+      func,
+      then_ref,
+      BranchTarget(block_label),
+      result_arity,
     ) {
     Some(branch_body) => branch_body
     None => return false
@@ -2089,7 +2278,8 @@ fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
       root_idx = root_idx + 1 {
     fallthrough_roots.push(@ir.hot_region_get(func, body_ref, root_idx))
   }
-  match @ir.hot_split_trailing_payload_roots(func, fallthrough_roots, result_arity) {
+  match
+    @ir.hot_split_trailing_payload_roots(func, fallthrough_roots, result_arity) {
     Some(_) => ()
     None => return false
   }
@@ -3843,6 +4033,16 @@ fn remove_unused_brs_visit_region(
     let node_id = roots[idx]
     if !@ir.hot_node_is_live(func, node_id) {
       continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::BrIf =>
+        if remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(
+            ctx, func, region_ref, idx,
+          ) {
+          changed = true
+          continue
+        }
+      _ => ()
     }
     if !remove_unused_brs_subtree_has_embedded_control(
         func, node_id, control_cache,

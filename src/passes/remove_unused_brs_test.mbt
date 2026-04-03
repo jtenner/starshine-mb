@@ -1158,6 +1158,25 @@ test "remove-unused-brs rewrites block-carried one-arm payload branches into nes
 }
 
 ///|
+test "remove-unused-brs rewrites repeated branch-target equality ladders into br_table" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32)) (func (param i32) (result i32) (local.get 0)) (func (param i32 i32) (result i32) (local i32) (block (result i32) (block (call 0 (local.get 0)) (br_if 0 (i32.eq (local.tee 2 (local.get 1)) (i32.const 0))) (br_if 0 (i32.eq (local.get 2) (i32.const 1))) (br_if 0 (i32.eq (local.get 2) (i32.const 4))) (return (call 1 (local.get 0)))) (i32.const 9))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs repeated target ladder success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs strips stack-style branch exits from tail value if arms" {
   let optimized = match
     pass_test_run_pipeline(
