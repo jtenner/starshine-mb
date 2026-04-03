@@ -782,3 +782,22 @@ test "tuple-optimization rewrite keeps a typed source host carrier on raw decode
   }
   assert_true(saw_typed_source_host)
 }
+
+///|
+test "tuple-optimization rewrite stages chained host-copy tail-live0 through raw typed carriers" {
+  let fixture = tuple_optimization_test_rewrite(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
+  )
+  let func = fixture.hot_func
+  let mut tuple_make_count = 0
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    if node.op.to_string() == "TupleMake" {
+      tuple_make_count = tuple_make_count + 1
+    }
+  }
+  assert_eq(tuple_make_count, 2)
+}

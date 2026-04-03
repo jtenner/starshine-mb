@@ -1989,6 +1989,67 @@ test "run_cmd_with_adapter tuple-optimization rewrites root local.set copy group
 }
 
 ///|
+test "run_cmd_with_adapter tuple-optimization stages chained host-copy tail-live0 repro through typed carriers" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
+      filename="tuple-host-tail-live0.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected tuple-optimization chained host-copy repro fixture parse failure: \{err}",
+      )
+  }
+  let wasm = encode_module_bytes(input_mod)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-host-tail-live0.wasm"] },
+    file_exists=fn(path) { path == "tuple-host-tail-live0.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-host-tail-live0.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-host-tail-live0.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected tuple-optimization chained host-copy repro failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let out = decode_module_bytes(writes[0].1)
+  let pretty = out.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(count_substring(pretty, "(block (Type ") >= 2, msg=pretty)
+  assert_false(
+    pretty.contains(
+      "(local.get (Local 8))(local.set (Local 14))(local.get (Local 10))(local.set (Local 13))(local.get (Local 11))(local.set (Local 12))",
+    ),
+    msg=pretty,
+  )
+  assert_false(
+    pretty.contains(
+      "(local.get (Local 5))(local.set (Local 17))(local.get (Local 4))(local.set (Local 16))(local.get (Local 3))(local.set (Local 15))",
+    ),
+    msg=pretty,
+  )
+}
+
+///|
 #cfg(target="native")
 test "run_cmd_with_adapter validates ssa-nomerge on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
