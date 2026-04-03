@@ -208,6 +208,7 @@ export function runPassFuzzCompareListPassesCommandTest(): void {
     fail(`pass-fuzz-compare --list-passes failed:\n${result.stderr}`);
   }
   assert(result.stdout.includes("remove-unused-brs"), `expected remove-unused-brs in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("heap2local"), `expected heap2local in list output:\n${result.stdout}`);
   assert(result.stdout.includes("reorder-locals"), `expected reorder-locals in list output:\n${result.stdout}`);
   assert(result.stdout.includes("dead-code-elimination"), `expected dead-code-elimination in list output:\n${result.stdout}`);
   assert(result.stdout.includes("precompute"), `expected precompute in list output:\n${result.stdout}`);
@@ -303,7 +304,7 @@ process.exit(0);
       "--wasm-tools-bin",
       fakeWasmTools,
       "--pass",
-      "reorder-locals",
+      "heap2local",
     ],
     {
       cwd: repoRoot,
@@ -327,7 +328,7 @@ process.exit(0);
     passFlags: string[];
   };
   assert(
-    JSON.stringify(summary.passFlags) === JSON.stringify(["--reorder-locals"]),
+    JSON.stringify(summary.passFlags) === JSON.stringify(["--heap2local"]),
     `expected --pass alias to normalize to flag, got ${JSON.stringify(summary.passFlags)}`,
   );
 }

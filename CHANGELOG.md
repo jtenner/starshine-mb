@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-03 Checkpoint: enable `heap2local` in pass-fuzz comparison
+
+- **`heap2local` compare-harness checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so the pass-fuzz compare harness now accepts `heap2local` in both `--list-passes` output and `--pass <name>` normalization. That unblocks direct Binaryen parity runs for Heap2Local; the remaining follow-up is collecting enough comparable cases for signoff and then addressing any non-nullable-local or parity gaps that surface.
+
 ## 2026-04-03 Checkpoint: complete the in-tree `heap2local` primary parity suite
 
 - **`heap2local` array + parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/heap2local.mbt`](./src/passes/heap2local.mbt), and [`src/passes/heap2local_test.mbt`](./src/passes/heap2local_test.mbt) so `heap2local` now lowers constant-size `array.new_default`, `array.new`, and `array.new_fixed` traffic to scalar locals, handles constant-index `array.set` / `array.get`, and folds direct array `ref.test` on fresh supported allocations to a constant while preserving operand evaluation. Focused pass tests now cover each landed array family directly, the full in-tree Heap2Local primary parity suite is green, and the remaining follow-up work is non-nullable local fixups plus external Binaryen compare-harness evidence.
