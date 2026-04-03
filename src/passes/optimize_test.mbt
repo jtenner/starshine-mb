@@ -191,6 +191,14 @@ test "optimize and shrink presets do not schedule reorder-locals before its neig
 }
 
 ///|
+test "optimize preset schedules heap2local in the mid-function GC slot" {
+  let optimize = optimize_preset_passes(HotPipelineOptions::new())
+  assert_eq(optimize[15], "remove-unused-brs")
+  assert_eq(optimize[16], "heap2local")
+  assert_eq(optimize[17], "simplify-locals")
+}
+
+///|
 test "remove-unused-names can clean up stale labels exposed by remove-unused-brs" {
   let optimized = match
     run_hot_pipeline(

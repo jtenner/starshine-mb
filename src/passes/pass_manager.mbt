@@ -3943,6 +3943,7 @@ pub fn hot_pass_run(
     "remove-unused-brs" => remove_unused_brs_run(ctx, func)
     "optimize-instructions" => optimize_instructions_run(ctx, func)
     "heap-store-optimization" => heap_store_optimization_run(ctx, func)
+    "heap2local" => heap2local_run(ctx, func)
     "pick-load-signs" => pick_load_signs_run(ctx, func)
     "precompute" => precompute_run(ctx, func)
     "simplify-locals" => simplify_locals_run(ctx, func)

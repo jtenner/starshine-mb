@@ -273,14 +273,16 @@ Observed unique-pass order
 
 #### H2L - Heap2Local
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L238](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L238)
+   - Research exactly how it works with a document: [0075](/home/jtenner/Projects/starshine-mb-heap2local/docs/0075-2026-04-03-heap2local-binaryen-comparison.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [H2L]001 - Escape and Alias Eligibility - Build the GC-localization analysis that proves heap traffic can be rewritten into locals without alias leaks.
      - Deliverables: track allocation lifetimes, reads, writes, and escaping refs; preserve aliasing correctness; document unsupported object shapes explicitly.
-     - Doc: [0066#L238](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L238)
+     - Status: initial direct-owner struct-localization is active in the hot pipeline. `heap2local` now rewrites a single `local.set` fed by `struct.new` or `struct.new_default` when every later use of that local is a direct `struct.get*` or `struct.set` on the same type, with no escapes or multi-use aliases; unsupported shapes still bail out unchanged. The new primary red suite in `src/passes/heap2local_primary_test.mbt` now encodes the larger Binaryen shape matrix from [0075](/home/jtenner/Projects/starshine-mb-heap2local/docs/0075-2026-04-03-heap2local-binaryen-comparison.md), including local-copy flow, tees, block flow, ref ops, descriptor-bearing structs, and array lowering.
+     - Doc: [0075](/home/jtenner/Projects/starshine-mb-heap2local/docs/0075-2026-04-03-heap2local-binaryen-comparison.md)
    - [H2L]002 - Localization Rewrite and Artifact Validation - Rewrite eligible heap accesses to locals and validate the result on focused GC fixtures and the debug artifact.
      - Deliverables: add regressions for escaping objects and partial field coverage; prove the pass only runs in the GC mid-function slot; compare against Binaryen output.
-     - Doc: [0066#L238](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L238)
+     - Current blocker: the landed slice does not yet cover `struct.new_desc` / `struct.new_default_desc`, array traffic, multi-write locals, local-copy ownership, tee or block/loop flow, Binaryen's ref-op folding (`ref.as_non_null`, `ref.eq`, `ref.test`, `ref.cast`), non-nullable local fixups, or any Binaryen compare-harness evidence. Preset wiring currently inserts `heap2local` in the modeled mid-function slot before `simplify-locals`, but the wider missing-pass neighborhood (`optimize-casts`, `local-subtyping`, `coalesce-locals`, `local-cse`) still needs to land for full no-DWARF parity.
+     - Doc: [0075](/home/jtenner/Projects/starshine-mb-heap2local/docs/0075-2026-04-03-heap2local-binaryen-comparison.md)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.

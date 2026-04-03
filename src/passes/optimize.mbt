@@ -122,11 +122,11 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "global-struct-inference-desc-cast", "global-type-optimization", "simplify-globals",
     "simplify-globals-optimizing", "global-effects", "propagate-globals-globally",
     "type-refining", "type-generalizing", "type-finalizing", "type-un-finalizing",
-    "unsubtyping", "heap2local", "inlining", "inlining-optimizing", "inline-main",
-    "merge-similar-functions", "minimize-rec-groups", "type-merging", "monomorphize",
-    "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering",
-    "reorder-types", "reorder-globals", "reorder-globals-always", "reorder-functions",
-    "reorder-functions-by-name", "remove-unused-types", "remove-unused", "remove-unused-non-function-elements",
+    "unsubtyping", "inlining", "inlining-optimizing", "inline-main", "merge-similar-functions",
+    "minimize-rec-groups", "type-merging", "monomorphize", "monomorphize-always",
+    "gufa", "gufa-optimizing", "gufa-cast-all", "i64-to-i32-lowering", "reorder-types",
+    "reorder-globals", "reorder-globals-always", "reorder-functions", "reorder-functions-by-name",
+    "remove-unused-types", "remove-unused", "remove-unused-non-function-elements",
   ]
 }
 
@@ -190,6 +190,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       heap_store_optimization_descriptor(),
     ),
     pass_registry_entry_hot(
+      "heap2local",
+      heap2local_summary(),
+      heap2local_descriptor(),
+    ),
+    pass_registry_entry_hot(
       "pick-load-signs",
       pick_load_signs_summary(),
       pick_load_signs_descriptor(),
@@ -221,8 +226,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
         "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-        "heap-store-optimization", "pick-load-signs", "precompute", "simplify-locals",
-        "remove-unused-brs", "precompute", "remove-unused-names",
+        "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
+        "heap2local", "simplify-locals", "precompute", "remove-unused-names",
       ],
     ),
     pass_registry_entry_preset(
@@ -232,8 +237,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
         "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-        "heap-store-optimization", "pick-load-signs", "precompute", "simplify-locals",
-        "remove-unused-brs", "precompute", "remove-unused-names",
+        "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
+        "heap2local", "simplify-locals", "precompute", "remove-unused-names",
       ],
     ),
   ]
@@ -275,8 +280,8 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "simplify-locals",
-    "remove-unused-brs", "precompute", "remove-unused-names",
+    "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
+    "heap2local", "simplify-locals", "precompute", "remove-unused-names",
   ]
 }
 
@@ -286,8 +291,8 @@ pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "simplify-locals",
-    "remove-unused-brs", "precompute", "remove-unused-names",
+    "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
+    "heap2local", "simplify-locals", "precompute", "remove-unused-names",
   ]
 }
 

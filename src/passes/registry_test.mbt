@@ -25,6 +25,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("heap2local"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("pick-load-signs"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -86,6 +90,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let precompute = precompute_descriptor()
   let pls = pick_load_signs_descriptor()
   let hso = heap_store_optimization_descriptor()
+  let h2l = heap2local_descriptor()
   let locals = simplify_locals_descriptor()
   let rub = remove_unused_brs_descriptor()
 
@@ -100,6 +105,8 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(@ir.hot_pass_requires(pls), [@ir.HotAnalysis::use_def()])
   assert_eq(hso.name, "heap-store-optimization")
   assert_true(@ir.hot_pass_requires(hso).contains(@ir.HotAnalysis::effects()))
+  assert_eq(h2l.name, "heap2local")
+  assert_eq(@ir.hot_pass_requires(h2l), [@ir.HotAnalysis::use_def()])
   assert_eq(locals.name, "simplify-locals")
   assert_true(@ir.hot_pass_requires(locals).contains(@ir.HotAnalysis::ssa()))
   assert_eq(rub.name, "remove-unused-brs")
@@ -114,15 +121,15 @@ test "preset expansion stays on implemented active pass names" {
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "simplify-locals",
-    "remove-unused-brs", "precompute", "remove-unused-names",
+    "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
+    "heap2local", "simplify-locals", "precompute", "remove-unused-names",
   ])
   assert_eq(shrink, [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "simplify-locals",
-    "remove-unused-brs", "precompute", "remove-unused-names",
+    "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
+    "heap2local", "simplify-locals", "precompute", "remove-unused-names",
   ])
   for name in optimize {
     match pass_registry_category(name) {
