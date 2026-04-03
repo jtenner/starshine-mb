@@ -2043,6 +2043,56 @@ test "run_cmd_with_adapter tuple-optimization rewrites mixed scalar-forward brid
 }
 
 ///|
+test "run_cmd_with_adapter tuple-optimization rewrites chained mixed scalar-forward bridges" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 7 local.set 9 local.get 8 local.get 9 local.get 6 call 1 local.set 0 local.get 0))",
+      filename="tuple-direct-chained-forward.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected chained direct-producer tuple bridge fixture parse failure: \{err}",
+      )
+  }
+  let wasm = encode_module_bytes(input_mod)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-direct-chained-forward.wasm"] },
+    file_exists=fn(path) { path == "tuple-direct-chained-forward.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-direct-chained-forward.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-direct-chained-forward.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected tuple-optimization chained direct-producer bridge failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let out = decode_module_bytes(writes[0].1)
+  let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_not_eq(pretty, input_mod.pretty_print_func(@lib.FuncIdx::new(2U)))
+  assert_true(pretty.contains("(block (Type 3)"), msg=pretty)
+}
+
+///|
 test "run_cmd_with_adapter tuple-optimization stages chained host-copy tail-live0 repro through typed carriers" {
   let input_mod = match
     @wast.wast_to_binary_module(

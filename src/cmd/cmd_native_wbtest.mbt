@@ -258,3 +258,61 @@ test "run_cmd_with_adapter tuple-optimization leaves terminal drop-only host cop
     msg=printed,
   )
 }
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization leaves chained terminal drop-only no-host copy groups scalarized" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 5 local.set 4 local.set 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.set 0 local.get 1 drop local.get 2 drop local.get 0))",
+      filename="tuple-chained-drop-only-nohost.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("unexpected chained no-host drop-only fixture parse failure: \{err}")
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail(
+        "unexpected chained no-host drop-only fixture encode failure: \{err}",
+      )
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-chained-drop-only-nohost.wasm"] },
+    file_exists=fn(path) { path == "tuple-chained-drop-only-nohost.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-chained-drop-only-nohost.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-chained-drop-only-nohost.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected tuple-optimization chained no-host drop-only failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
+  cnw_assert_occurs_in_order(printed, [
+    "call 0", "local.set 8", "local.set 7", "local.set 6", "block (type 2) (result i32 i32 i32)",
+    "local.get 6", "local.get 7", "local.get 8", "local.set 5", "local.set 4", "local.set 3",
+    "local.get 1", "drop", "local.get 2", "drop", "local.get 0",
+  ])
+  assert_eq(cnw_count_substring(printed, "block (type "), 2, msg=printed)
+}

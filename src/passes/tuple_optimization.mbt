@@ -533,23 +533,35 @@ fn tuple_optimization_link_scalar_forward_copy_groups(
 ) -> Unit {
   let mut group_id = 0
   while group_id < groups.length() {
-    match groups[group_id].copy_source {
-      Some(_) => {
-        group_id = group_id + 1
-        continue
-      }
-      None => ()
+    let group = groups[group_id]
+    let mut can_link = false
+    match group.copy_source {
+      Some(source_group) =>
+        if group.producer < 0 &&
+          source_group >= 0 &&
+          source_group < groups.length() {
+          for lane_idx = 0
+              lane_idx < group.lane_locals.length()
+              lane_idx = lane_idx + 1 {
+            if lane_idx < groups[source_group].lane_locals.length() &&
+              group.lane_locals[lane_idx] ==
+              groups[source_group].lane_locals[lane_idx] {
+              can_link = true
+              break
+            }
+          }
+        }
+      None =>
+        if group.producer >= 0 {
+          match @ir.hot_node_get(func, group.producer).op {
+            @ir.HotOp::Block => ()
+            _ => can_link = true
+          }
+        }
     }
-    if groups[group_id].producer < 0 {
+    if !can_link {
       group_id = group_id + 1
       continue
-    }
-    match @ir.hot_node_get(func, groups[group_id].producer).op {
-      @ir.HotOp::Block => {
-        group_id = group_id + 1
-        continue
-      }
-      _ => ()
     }
     match
       tuple_optimization_collect_scalar_forward_copy_group(
@@ -1155,10 +1167,48 @@ fn tuple_optimization_group_should_rewrite_in_func(
     }
     _ => ()
   }
+  let mut suppressed_child_copy_count = 0
+  for child_group_id = 0
+      child_group_id < groups.length()
+      child_group_id = child_group_id + 1 {
+    if groups[child_group_id].copy_source != Some(group_id) {
+      continue
+    }
+    let mut child_non_drop_lane_count = 0
+    let mut child_has_drop_only_lane_use = false
+    for lane_idx = 0
+        lane_idx < groups[child_group_id].lane_locals.length()
+        lane_idx = lane_idx + 1 {
+      let child_local = groups[child_group_id].lane_locals[lane_idx]
+      let child_non_drop_visited = Array::make(@ir.hot_local_count(func), false)
+      if tuple_optimization_local_has_forwarded_non_drop_use(
+          func, use_def, child_local, child_non_drop_visited,
+        ) {
+        child_non_drop_lane_count += 1
+        continue
+      }
+      let child_any_use_visited = Array::make(@ir.hot_local_count(func), false)
+      if tuple_optimization_local_has_forwarded_any_use(
+          func, use_def, child_local, child_any_use_visited,
+        ) {
+        child_has_drop_only_lane_use = true
+      }
+    }
+    if child_non_drop_lane_count <= 1 && child_has_drop_only_lane_use {
+      suppressed_child_copy_count += 1
+      continue
+    }
+    suppressed_child_copy_count = -1
+    break
+  }
   tuple_optimization_group_should_rewrite(groups[group_id]) &&
   !(group.copy_source is Some(_) &&
   copy_group_non_drop_lane_count <= 1 &&
   copy_group_has_drop_only_lane_use) &&
+  !(group.copy_source is Some(_) &&
+  tuple_optimization_group_host_lane(group) is None &&
+  suppressed_child_copy_count > 0 &&
+  groups[group_id].valid_uses == 1 + suppressed_child_copy_count) &&
   !copy_group_only_uses_host_non_drop &&
   !tuple_optimization_copy_group_redundant_with_source_host_chain(
     func, use_def, groups, group_id,
@@ -1218,9 +1268,19 @@ fn tuple_optimization_ensure_split_locals(
     abort("tuple-optimization rewrite group ids must stay in range")
   }
   if !rewrite_mask[group_id] {
-    abort(
-      "tuple-optimization rewrite only allocates split locals for good groups",
-    )
+    match groups[group_id].copy_source {
+      Some(_) => {
+        let split_locals = groups[group_id].lane_locals
+        split_locals_by_group[group_id] = split_locals
+        split_ready[group_id] = true
+        split_visiting[group_id] = false
+        return split_locals
+      }
+      None =>
+        abort(
+          "tuple-optimization rewrite only allocates split locals for good groups",
+        )
+    }
   }
   if split_ready[group_id] {
     return split_locals_by_group[group_id]
@@ -1244,9 +1304,7 @@ fn tuple_optimization_ensure_split_locals(
   }
   let source_lane_locals = match groups[group_id].copy_source {
     Some(source_group) => {
-      if source_group < 0 ||
-        source_group >= groups.length() ||
-        !rewrite_mask[source_group] {
+      if source_group < 0 || source_group >= groups.length() {
         abort(
           "tuple-optimization rewrite copy sources must stay within good groups",
         )
