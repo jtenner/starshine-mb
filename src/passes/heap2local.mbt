@@ -45,6 +45,25 @@ priv struct H2LCandidate {
 } derive(Eq, Show, Debug)
 
 ///|
+priv struct H2LArrayUseSite {
+  source_node_id : Int
+  user_node_id : Int
+  index : Int
+  is_set : Bool
+}
+
+///|
+priv struct H2LArrayCandidate {
+  owner_local : Int
+  write_node_id : Int
+  init_node_id : Int
+  array_type : @lib.TypeIdx
+  element : @lib.FieldType
+  length : Int
+  use_sites : Array[H2LArrayUseSite]
+}
+
+///|
 fn h2l_build_default_value(func : @ir.HotFunc, vt : @lib.ValType) -> Int? {
   match vt {
     @lib.NumTypeValType(@lib.I32NumType) =>
@@ -233,6 +252,32 @@ fn h2l_local_can_hold_struct_ref(
       ref_type.is_nullable() &&
       ref_type.get_heap_type() == @lib.HeapType::new(struct_type)
     _ => false
+  }
+}
+
+///|
+fn h2l_local_can_hold_array_ref(
+  func : @ir.HotFunc,
+  local_id : Int,
+  array_type : @lib.TypeIdx,
+) -> Bool {
+  match @ir.hot_local_type(func, local_id) {
+    Some(@lib.RefTypeValType(ref_type)) =>
+      ref_type.is_nullable() &&
+      ref_type.get_heap_type() == @lib.HeapType::new(array_type)
+    _ => false
+  }
+}
+
+///|
+fn h2l_i32_const_value(func : @ir.HotFunc, node_id : Int) -> Int? {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Const =>
+      match @ir.hot_const_get(func, @ir.hot_node_get(func, node_id).imm0) {
+        @ir.HotConstPayload::I32Const(@lib.I32(value)) => Some(value)
+        _ => None
+      }
+    _ => None
   }
 }
 
@@ -531,6 +576,196 @@ fn h2l_find_candidate_for_local(
 }
 
 ///|
+fn h2l_supported_array_init(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  node_id : Int,
+) -> (@lib.TypeIdx, @lib.FieldType, Int)? {
+  match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::ArrayNewDefault(type_idx)) =>
+      match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
+        Some(field) =>
+          if @ir.hot_child_count(func, node_id) != 1 {
+            None
+          } else {
+            match
+              h2l_i32_const_value(func, @ir.hot_child_get(func, node_id, 0)) {
+              Some(length) =>
+                if length >= 0 && length < 20 {
+                  match h2l_build_default_value(func, field.unpack()) {
+                    Some(_) => Some((type_idx, field, length))
+                    None => None
+                  }
+                } else {
+                  None
+                }
+              None => None
+            }
+          }
+        None => None
+      }
+    Some(@lib.Instruction::ArrayNew(type_idx)) =>
+      match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
+        Some(field) =>
+          if @ir.hot_child_count(func, node_id) != 2 {
+            None
+          } else {
+            match
+              h2l_i32_const_value(func, @ir.hot_child_get(func, node_id, 1)) {
+              Some(length) =>
+                if length >= 0 && length < 20 {
+                  Some((type_idx, field, length))
+                } else {
+                  None
+                }
+              None => None
+            }
+          }
+        None => None
+      }
+    Some(@lib.Instruction::ArrayNewFixed(type_idx, @lib.U32(raw_length))) =>
+      match @ir.hot_module_resolve_array_field(module_ctx, type_idx) {
+        Some(field) => {
+          let length = raw_length.reinterpret_as_int()
+          if length < 20 && @ir.hot_child_count(func, node_id) == length {
+            Some((type_idx, field, length))
+          } else {
+            None
+          }
+        }
+        None => None
+      }
+    _ => None
+  }
+}
+
+///|
+fn h2l_collect_array_use(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  source_node_id : Int,
+  array_type : @lib.TypeIdx,
+  length : Int,
+  use_sites : Array[H2LArrayUseSite],
+) -> Bool {
+  if !@ir.hot_node_is_live(func, source_node_id) {
+    return false
+  }
+  let sites = use_def.node_uses[source_node_id]
+  if sites.length() != 1 {
+    return false
+  }
+  let site = sites[0]
+  match site.kind {
+    @ir.HotUseSlotKind::ChildUseSlot => if site.slot != 0 { return false }
+    _ => return false
+  }
+  let user_node_id = site.user
+  let index = match @ir.hot_node_exact_instr(func, user_node_id) {
+    Some(@lib.Instruction::ArrayGet(type_idx))
+    | Some(@lib.Instruction::ArrayGetS(type_idx))
+    | Some(@lib.Instruction::ArrayGetU(type_idx)) =>
+      if type_idx != array_type || @ir.hot_child_count(func, user_node_id) != 2 {
+        return false
+      } else {
+        match
+          h2l_i32_const_value(func, @ir.hot_child_get(func, user_node_id, 1)) {
+          Some(index) =>
+            if index >= 0 && index < length {
+              index
+            } else {
+              return false
+            }
+          None => return false
+        }
+      }
+    Some(@lib.Instruction::ArraySet(type_idx)) =>
+      if type_idx != array_type || @ir.hot_child_count(func, user_node_id) != 3 {
+        return false
+      } else {
+        match
+          h2l_i32_const_value(func, @ir.hot_child_get(func, user_node_id, 1)) {
+          Some(index) =>
+            if index >= 0 && index < length {
+              index
+            } else {
+              return false
+            }
+          None => return false
+        }
+      }
+    _ => return false
+  }
+  use_sites.push({
+    source_node_id,
+    user_node_id,
+    index,
+    is_set: match @ir.hot_node_exact_instr(func, user_node_id) {
+      Some(@lib.Instruction::ArraySet(_)) => true
+      _ => false
+    },
+  })
+  true
+}
+
+///|
+fn h2l_find_array_candidate_for_local(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  use_def : @ir.HotUseDef,
+  local_id : Int,
+) -> H2LArrayCandidate? {
+  if local_id < @ir.hot_param_count(func) {
+    return None
+  }
+  let writes = use_def.local_writes[local_id]
+  if writes.length() != 1 {
+    return None
+  }
+  let write_node_id = writes[0]
+  if !@ir.hot_node_is_live(func, write_node_id) {
+    return None
+  }
+  let write_node = @ir.hot_node_get(func, write_node_id)
+  match write_node.op {
+    @ir.HotOp::LocalSet =>
+      if write_node.imm0 != local_id || write_node.child_count != 1 {
+        return None
+      }
+    _ => return None
+  }
+  let init_node_id = @ir.hot_child_get(func, write_node_id, 0)
+  let (array_type, element, length) = match
+    h2l_supported_array_init(func, module_ctx, init_node_id) {
+    Some(info) => info
+    None => return None
+  }
+  if !h2l_local_can_hold_array_ref(func, local_id, array_type) {
+    return None
+  }
+  let use_sites : Array[H2LArrayUseSite] = []
+  for read_node_id in use_def.local_reads[local_id] {
+    if !h2l_collect_array_use(
+        func, use_def, read_node_id, array_type, length, use_sites,
+      ) {
+      return None
+    }
+  }
+  if use_sites.is_empty() {
+    return None
+  }
+  Some({
+    owner_local: local_id,
+    write_node_id,
+    init_node_id,
+    array_type,
+    element,
+    length,
+    use_sites,
+  })
+}
+
+///|
 fn h2l_alloc_field_locals(
   func : @ir.HotFunc,
   fields : Array[@lib.FieldType],
@@ -542,6 +777,21 @@ fn h2l_alloc_field_locals(
     field_locals.push(local_id)
   }
   field_locals
+}
+
+///|
+fn h2l_alloc_array_element_locals(
+  func : @ir.HotFunc,
+  element : @lib.FieldType,
+  length : Int,
+) -> Array[Int] {
+  let element_locals : Array[Int] = []
+  for _ in 0..<length {
+    let local_id = @ir.hot_local_count(func)
+    func.locals.locals.push(element.unpack())
+    element_locals.push(local_id)
+  }
+  element_locals
 }
 
 ///|
@@ -577,6 +827,68 @@ fn h2l_build_init_replacement(
   }
   Some(
     if init_roots.length() == 1 {
+      init_roots[0]
+    } else {
+      @ir.hot_build_block(func, @lib.BlockType::void_(), init_roots)
+    },
+  )
+}
+
+///|
+fn h2l_build_array_init_replacement(
+  func : @ir.HotFunc,
+  candidate : H2LArrayCandidate,
+  element_locals : Array[Int],
+) -> Int? {
+  let init_roots : Array[Int] = []
+  match @ir.hot_node_exact_instr(func, candidate.init_node_id) {
+    Some(@lib.Instruction::ArrayNewDefault(_)) =>
+      for element_local in element_locals {
+        let init_value = match
+          h2l_build_default_value(func, candidate.element.unpack()) {
+          Some(node_id) => node_id
+          None => return None
+        }
+        init_roots.push(
+          @ir.hot_build_local_set(func, element_local, init_value),
+        )
+      }
+    Some(@lib.Instruction::ArrayNew(_)) => {
+      let repeated_local = @ir.hot_local_count(func)
+      func.locals.locals.push(candidate.element.unpack())
+      init_roots.push(
+        @ir.hot_build_local_set(
+          func,
+          repeated_local,
+          @ir.hot_child_get(func, candidate.init_node_id, 0),
+        ),
+      )
+      for element_local in element_locals {
+        init_roots.push(
+          @ir.hot_build_local_set(
+            func,
+            element_local,
+            @ir.hot_build_local_get(func, repeated_local),
+          ),
+        )
+      }
+    }
+    Some(@lib.Instruction::ArrayNewFixed(_, _)) =>
+      for idx = 0; idx < element_locals.length(); idx = idx + 1 {
+        init_roots.push(
+          @ir.hot_build_local_set(
+            func,
+            element_locals[idx],
+            @ir.hot_child_get(func, candidate.init_node_id, idx),
+          ),
+        )
+      }
+    _ => return None
+  }
+  Some(
+    if init_roots.is_empty() {
+      @ir.hot_build_nop(func)
+    } else if init_roots.length() == 1 {
       init_roots[0]
     } else {
       @ir.hot_build_block(func, @lib.BlockType::void_(), init_roots)
@@ -711,6 +1023,33 @@ fn h2l_ref_eq_null_replacement(func : @ir.HotFunc, alloc_node_id : Int) -> Int {
 }
 
 ///|
+fn h2l_array_ref_test_replacement(
+  func : @ir.HotFunc,
+  alloc_node_id : Int,
+) -> Int {
+  let roots : Array[Int] = []
+  let child_count = @ir.hot_child_count(func, alloc_node_id)
+  for child_idx = 0; child_idx < child_count; child_idx = child_idx + 1 {
+    roots.push(
+      @ir.hot_build_drop(
+        func,
+        @ir.hot_child_get(func, alloc_node_id, child_idx),
+      ),
+    )
+  }
+  roots.push(@ir.hot_build_const_i32(func, @lib.I32(1)))
+  if roots.length() == 1 {
+    roots[0]
+  } else {
+    @ir.hot_build_block(
+      func,
+      @lib.BlockType::val_type(@lib.ValType::i32()),
+      roots,
+    )
+  }
+}
+
+///|
 fn h2l_ref_get_desc_replacement(func : @ir.HotFunc, alloc_node_id : Int) -> Int {
   let child_count = @ir.hot_child_count(func, alloc_node_id)
   if child_count <= 0 {
@@ -811,6 +1150,93 @@ fn h2l_try_fold_direct_ref_get_desc(
   let replacement = h2l_ref_get_desc_replacement(func, alloc_node_id)
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
   detached_nodes.push(alloc_node_id)
+  true
+}
+
+///|
+fn h2l_try_fold_direct_array_ref_test(
+  func : @ir.HotFunc,
+  module_ctx : @ir.HotModuleContext,
+  node_id : Int,
+  detached_nodes : Array[Int],
+) -> Bool {
+  if !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let target_heap_type = match @ir.hot_node_exact_instr(func, node_id) {
+    Some(@lib.Instruction::RefTest(_, heap_type)) => heap_type
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) != 1 {
+    return false
+  }
+  let alloc_node_id = @ir.hot_child_get(func, node_id, 0)
+  let (array_type, _, _) = match
+    h2l_supported_array_init(func, module_ctx, alloc_node_id) {
+    Some(info) => info
+    None => return false
+  }
+  if target_heap_type != @lib.HeapType::new(array_type) {
+    return false
+  }
+  let replacement = h2l_array_ref_test_replacement(func, alloc_node_id)
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement))
+  detached_nodes.push(alloc_node_id)
+  true
+}
+
+///|
+fn h2l_apply_array_candidate(
+  func : @ir.HotFunc,
+  candidate : H2LArrayCandidate,
+  detached_nodes : Array[Int],
+) -> Bool {
+  let element_locals = h2l_alloc_array_element_locals(
+    func,
+    candidate.element,
+    candidate.length,
+  )
+  let init_replacement = match
+    h2l_build_array_init_replacement(func, candidate, element_locals) {
+    Some(node_id) => node_id
+    None => return false
+  }
+  @ir.hot_replace_node(
+    func,
+    candidate.write_node_id,
+    @ir.hot_node_get(func, init_replacement),
+  )
+  detached_nodes.push(candidate.init_node_id)
+  for use_site in candidate.use_sites {
+    let replacement = if use_site.is_set {
+      Some(
+        @ir.hot_build_local_set(
+          func,
+          element_locals[use_site.index],
+          @ir.hot_child_get(func, use_site.user_node_id, 2),
+        ),
+      )
+    } else {
+      match @ir.hot_node_exact_instr(func, use_site.user_node_id) {
+        Some(@lib.Instruction::ArrayGet(_))
+        | Some(@lib.Instruction::ArrayGetS(_))
+        | Some(@lib.Instruction::ArrayGetU(_)) =>
+          Some(@ir.hot_build_local_get(func, element_locals[use_site.index]))
+        _ => None
+      }
+    }
+    match replacement {
+      Some(replacement_id) => {
+        @ir.hot_replace_node(
+          func,
+          use_site.user_node_id,
+          @ir.hot_node_get(func, replacement_id),
+        )
+        detached_nodes.push(use_site.source_node_id)
+      }
+      None => return false
+    }
+  }
   true
 }
 
@@ -985,11 +1411,17 @@ pub fn heap2local_run(
   }
   let use_def = pass_require_use_def(ctx, func)
   let candidates : Array[H2LCandidate] = []
+  let array_candidates : Array[H2LArrayCandidate] = []
   for local_id = 0
       local_id < @ir.hot_local_count(func)
       local_id = local_id + 1 {
     match h2l_find_candidate_for_local(func, module_ctx, use_def, local_id) {
       Some(candidate) => candidates.push(candidate)
+      None => ()
+    }
+    match
+      h2l_find_array_candidate_for_local(func, module_ctx, use_def, local_id) {
+      Some(candidate) => array_candidates.push(candidate)
       None => ()
     }
   }
@@ -1000,12 +1432,22 @@ pub fn heap2local_run(
       changed = true
     }
   }
+  for candidate in array_candidates {
+    if h2l_apply_array_candidate(func, candidate, detached_nodes) {
+      changed = true
+    }
+  }
   let node_count = @ir.hot_node_count(func)
   for node_id = 0; node_id < node_count; node_id = node_id + 1 {
     if h2l_try_fold_direct_ref_eq(func, module_ctx, node_id, detached_nodes) {
       changed = true
     }
     if h2l_try_fold_direct_ref_get_desc(
+        func, module_ctx, node_id, detached_nodes,
+      ) {
+      changed = true
+    }
+    if h2l_try_fold_direct_array_ref_test(
         func, module_ctx, node_id, detached_nodes,
       ) {
       changed = true

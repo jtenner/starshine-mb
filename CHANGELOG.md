@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-03 Checkpoint: complete the in-tree `heap2local` primary parity suite
+
+- **`heap2local` array + parity checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/heap2local.mbt`](./src/passes/heap2local.mbt), and [`src/passes/heap2local_test.mbt`](./src/passes/heap2local_test.mbt) so `heap2local` now lowers constant-size `array.new_default`, `array.new`, and `array.new_fixed` traffic to scalar locals, handles constant-index `array.set` / `array.get`, and folds direct array `ref.test` on fresh supported allocations to a constant while preserving operand evaluation. Focused pass tests now cover each landed array family directly, the full in-tree Heap2Local primary parity suite is green, and the remaining follow-up work is non-nullable local fixups plus external Binaryen compare-harness evidence.
+
 ## 2026-04-03 Checkpoint: extend `heap2local` through descriptor-bearing `ref.get_desc`
 
 - **`heap2local` descriptor checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/heap2local.mbt`](./src/passes/heap2local.mbt), and [`src/passes/heap2local_test.mbt`](./src/passes/heap2local_test.mbt) so `heap2local` now removes direct `ref.get_desc` on fresh `struct.new_desc` and `struct.new_default_desc` allocations, preserving any field-argument evaluation before returning the descriptor child. Focused pass coverage now locks that descriptor-bearing consume case directly, and the targeted parity suite is down to four remaining Binaryen gaps: `array.new_default`, `array.new`, `array.new_fixed`, and array `ref.test`.

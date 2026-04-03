@@ -13,6 +13,26 @@ fn heap2local_pair_fields(field_count : Int) -> Array[@lib.FieldType] {
 }
 
 ///|
+fn heap2local_module_with_heap_type(
+  heap_rec : @lib.RecType,
+  result_types : Array[@lib.ValType],
+  local_types : Array[@lib.ValType],
+  body : Array[@lib.Instruction],
+) -> @lib.Module {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], result_types)),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([heap_rec, func_type]))
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(@lib.Locals::from_types(local_types), @lib.Expr::new(body)),
+    ]),
+  )
+}
+
+///|
 fn heap2local_module_with_locals(
   result_types : Array[@lib.ValType],
   local_types : Array[@lib.ValType],
@@ -21,16 +41,20 @@ fn heap2local_module_with_locals(
   let struct_type = @lib.RecType::new(
     @lib.SubType::comp_type(@lib.CompType::struct_(heap2local_pair_fields(2))),
   )
-  let func_type = @lib.RecType::new(
-    @lib.SubType::comp_type(@lib.CompType::func([], result_types)),
-  )
-  @lib.Module::new()
-  .with_type_sec(@lib.TypeSec::new([struct_type, func_type]))
-  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
-  .with_code_sec(
-    @lib.CodeSec::new([
-      @lib.Func::new(@lib.Locals::from_types(local_types), @lib.Expr::new(body)),
-    ]),
+  heap2local_module_with_heap_type(struct_type, result_types, local_types, body)
+}
+
+///|
+fn heap2local_i32_array_type() -> @lib.RecType {
+  @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::array(
+        @lib.FieldType::new(
+          @lib.StorageType::val_type(@lib.ValType::i32()),
+          @lib.Mut::var_(),
+        ),
+      ),
+    ),
   )
 }
 
@@ -284,6 +308,128 @@ test "heap2local removes ref.get_desc around a fresh descriptor-bearing allocati
   )
   assert_false(pretty.contains("struct.new_default_desc"), msg=pretty)
   assert_false(pretty.contains("ref.get_desc"), msg=pretty)
+}
+
+///|
+test "heap2local lowers constant-size array.new_default through array.get" {
+  let array = @lib.TypeIdx::new(0U)
+  let ref_local = @lib.LocalIdx::new(0U)
+  let optimized = heap2local_run_module(
+    heap2local_module_with_heap_type(
+      heap2local_i32_array_type(),
+      [@lib.ValType::i32()],
+      [@lib.ValType::ref_null(@lib.HeapType::new(array))],
+      [
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::array_new_default(array),
+        @lib.Instruction::local_set(ref_local),
+        @lib.Instruction::local_get(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::array_get(array),
+      ],
+    ),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected heap2local array.new_default output to validate, got \{err}",
+      )
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("array.new_default"), msg=pretty)
+  assert_false(pretty.contains("array.get"), msg=pretty)
+}
+
+///|
+test "heap2local lowers constant-size array.new through array.get" {
+  let array = @lib.TypeIdx::new(0U)
+  let ref_local = @lib.LocalIdx::new(0U)
+  let optimized = heap2local_run_module(
+    heap2local_module_with_heap_type(
+      heap2local_i32_array_type(),
+      [@lib.ValType::i32()],
+      [@lib.ValType::ref_null(@lib.HeapType::new(array))],
+      [
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::i32_const(@lib.I32(3)),
+        @lib.Instruction::array_new(array),
+        @lib.Instruction::local_set(ref_local),
+        @lib.Instruction::local_get(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(2)),
+        @lib.Instruction::array_get(array),
+      ],
+    ),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected heap2local array.new output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("array.new"), msg=pretty)
+  assert_false(pretty.contains("array.get"), msg=pretty)
+}
+
+///|
+test "heap2local lowers array.new_fixed with constant index set and get" {
+  let array = @lib.TypeIdx::new(0U)
+  let ref_local = @lib.LocalIdx::new(0U)
+  let optimized = heap2local_run_module(
+    heap2local_module_with_heap_type(
+      heap2local_i32_array_type(),
+      [@lib.ValType::i32()],
+      [@lib.ValType::ref_null(@lib.HeapType::new(array))],
+      [
+        @lib.Instruction::i32_const(@lib.I32(4)),
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::array_new_fixed(array, @lib.U32(2U)),
+        @lib.Instruction::local_set(ref_local),
+        @lib.Instruction::local_get(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::array_set(array),
+        @lib.Instruction::local_get(ref_local),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::array_get(array),
+      ],
+    ),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected heap2local array.new_fixed output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("array.new_fixed"), msg=pretty)
+  assert_false(pretty.contains("array.set"), msg=pretty)
+  assert_false(pretty.contains("array.get"), msg=pretty)
+}
+
+///|
+test "heap2local folds array ref.test to a constant" {
+  let array = @lib.TypeIdx::new(0U)
+  let optimized = heap2local_run_module(
+    heap2local_module_with_heap_type(
+      heap2local_i32_array_type(),
+      [@lib.ValType::i32()],
+      [],
+      [
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::array_new_default(array),
+        @lib.Instruction::ref_test(false, @lib.HeapType::new(array)),
+      ],
+    ),
+  )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected heap2local array ref.test output to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("array.new_default"), msg=pretty)
+  assert_false(pretty.contains("ref.test"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
 }
 
 ///|
