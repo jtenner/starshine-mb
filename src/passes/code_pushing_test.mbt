@@ -1153,6 +1153,48 @@ test "code-pushing rewrites past an earlier explicit-exit local.set carrying a l
 }
 
 ///|
+test "code-pushing rewrites past an earlier explicit-exit local.set carrying a nested self-owner if block" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $carry (result i32)
+    #|        (block $mid
+    #|          (br $carry
+    #|            (if (result i32)
+    #|              (local.get 0)
+    #|              (then
+    #|                (block $inner (result i32)
+    #|                  (local.set 4 (local.get 1))
+    #|                  (br $inner (local.get 4))))
+    #|              (else
+    #|                (local.set 4 (i32.const 5))
+    #|                (local.get 4)))))
+    #|        (local.get 1)))
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 1)
+    #|    (local.set 5)
+    #|    (local.get 5)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 5))))
+    #|    (local.get 3)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "LocalSet(5)", "If", "LocalSet(3)", "LocalGet(3)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing rewrites past an earlier explicit-exit local.set carrying a self-owner block with return" {
   let source =
     #|(module
@@ -1265,7 +1307,7 @@ test "code-pushing rewrites past an owner-only if payload carrier even when the 
 }
 
 ///|
-test "code-pushing does not rewrite past an owner-only if payload when the payload branches back to the inner block" {
+test "code-pushing rewrites past an owner-only if payload when the payload branches back to the inner block" {
   let source =
     #|(module
     #|  (func (param i32 i32) (result i32)
@@ -1293,7 +1335,7 @@ test "code-pushing does not rewrite past an owner-only if payload when the paylo
   let func = code_pushing_test_run_hot(source)
 
   assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
-    "LocalSet(2)", "LocalSet(5)", "If", "LocalGet(5)",
+    "LocalSet(2)", "If", "LocalSet(5)", "LocalGet(5)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {
@@ -1303,7 +1345,7 @@ test "code-pushing does not rewrite past an owner-only if payload when the paylo
 }
 
 ///|
-test "code-pushing does not rewrite past an owner-only if payload with a nested explicit exit even when the trailing local.get is unrelated" {
+test "code-pushing rewrites past an owner-only if payload with a nested explicit exit even when the trailing local.get is unrelated" {
   let source =
     #|(module
     #|  (func (param i32 i32) (result i32)
@@ -1331,7 +1373,7 @@ test "code-pushing does not rewrite past an owner-only if payload with a nested 
   let func = code_pushing_test_run_hot(source)
 
   assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
-    "LocalSet(2)", "LocalSet(4)", "If", "LocalGet(4)",
+    "LocalSet(2)", "If", "LocalSet(4)", "LocalGet(4)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {

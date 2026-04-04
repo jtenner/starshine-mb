@@ -429,6 +429,21 @@
   payload there has `payload_explicit=true`. So the live blocker is not the
   newly-admitted simple owner-only carrier family; it is the nested-explicit-
   exit owner-carrier case.
+- The next nested-explicit-exit carrier slice is now partly landed. The pass
+  now admits direct payload exits back to the carrier's inner block owner, and
+  both the direct and trailing-`LocalGet`-unrelated variants are now covered in
+  `src/passes/code_pushing_test.mbt` plus
+  `src/ir/hot_lower_live_repro_test.mbt`. The latest direct replay is
+  `.tmp/self-opt-code-pushing-inner-owner-v2b`, which keeps the branch on the
+  same `48978` / `72005` / `105621` / `126757` parity frontier while slightly
+  improving pass time to `960.390 ms` vs Binaryen `52.076 ms`.
+- The next widening boundary is also reduced now, but it is intentionally not
+  in the pass. A carried-`if` payload that combines a direct inner-owner exit
+  with a terminal exit still lowers and validates after the same manual
+  reorder, and `src/ir/hot_lower_live_repro_test.mbt` now pins that HOT-safe
+  shape directly. But widening the pass for that family removed the `48978`
+  diff only by introducing a worse earlier structural mismatch around printed
+  line `44251`, so the pass stays conservative there for now.
 - Two more safe non-crossed-prefix families are now in-tree as well. The pass
   now ignores earlier explicit-exit `LocalSet(If ...)` carriers with nested
   local writes when those exits stay terminal-or-safe, and it now ignores the

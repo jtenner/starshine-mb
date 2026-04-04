@@ -764,6 +764,236 @@ test "hot lower live repro validates earlier explicit-exit local.set if carrier 
 }
 
 ///|
+test "hot lower live repro validates earlier explicit-exit local.set carrying a nested self-owner if block before later if sink" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $carry (result i32)
+    #|        (block $mid
+    #|          (br $carry
+    #|            (if (result i32)
+    #|              (local.get 0)
+    #|              (then
+    #|                (block $inner (result i32)
+    #|                  (local.set 4 (local.get 1))
+    #|                  (br $inner (local.get 4))))
+    #|              (else
+    #|                (local.set 4 (i32.const 5))
+    #|                (local.get 4)))))
+    #|        (local.get 1)))
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 1)
+    #|    (local.set 5)
+    #|    (local.get 5)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 5))))
+    #|    (local.get 3))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  assert_eq(hot_root_count(fixture.hot_func), 5)
+  assert_eq(
+    hot_node_get(fixture.hot_func, hot_root_get(fixture.hot_func, 0)).op.to_string(),
+    "LocalSet",
+  )
+  assert_eq(
+    hot_node_get(fixture.hot_func, hot_root_get(fixture.hot_func, 1)).op.to_string(),
+    "LocalSet",
+  )
+  assert_eq(
+    hot_node_get(fixture.hot_func, hot_root_get(fixture.hot_func, 2)).op.to_string(),
+    "LocalSet",
+  )
+  assert_eq(
+    hot_node_get(fixture.hot_func, hot_root_get(fixture.hot_func, 3)).op.to_string(),
+    "If",
+  )
+  assert_eq(
+    hot_node_get(fixture.hot_func, hot_root_get(fixture.hot_func, 4)).op.to_string(),
+    "LocalGet",
+  )
+  let carrier_set = hot_root_get(fixture.hot_func, 0)
+  let moved_set = hot_root_get(fixture.hot_func, 1)
+  let used_set = hot_root_get(fixture.hot_func, 2)
+  let if_id = hot_root_get(fixture.hot_func, 3)
+  let next_get = hot_root_get(fixture.hot_func, 4)
+
+  hot_region_replace_body(fixture.hot_func, HotRegionRef::root(), [
+    carrier_set, used_set, if_id, moved_set, next_get,
+  ])
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot lower live repro validates direct payload branch back to inner block before later if sink" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (if (result i32) (local.get 0)
+    #|              (then
+    #|                (local.set 3 (local.get 1))
+    #|                (local.get 3))
+    #|              (else
+    #|                (local.set 4 (local.get 1))
+    #|                (br $mid)))))
+    #|        (local.get 4)))
+    #|    (local.get 1)
+    #|    (local.set 5)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 5))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  assert_eq(hot_root_count(fixture.hot_func), 4)
+  let carrier_set = hot_root_get(fixture.hot_func, 0)
+  let moved_set = hot_root_get(fixture.hot_func, 1)
+  let if_id = hot_root_get(fixture.hot_func, 2)
+  let next_get = hot_root_get(fixture.hot_func, 3)
+  hot_region_replace_body(fixture.hot_func, HotRegionRef::root(), [
+    carrier_set, if_id, moved_set, next_get,
+  ])
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot lower live repro validates direct payload branch back to inner block with unrelated trailing local.get before later if sink" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (if (result i32) (local.get 0)
+    #|              (then
+    #|                (local.set 3 (local.get 1))
+    #|                (i32.const 7))
+    #|              (else
+    #|                (local.set 3 (i32.const 5))
+    #|                (br $mid)))))
+    #|        (local.get 1)))
+    #|    (local.get 1)
+    #|    (local.set 4)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 4))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  assert_eq(hot_root_count(fixture.hot_func), 4)
+  let carrier_set = hot_root_get(fixture.hot_func, 0)
+  let moved_set = hot_root_get(fixture.hot_func, 1)
+  let if_id = hot_root_get(fixture.hot_func, 2)
+  let next_get = hot_root_get(fixture.hot_func, 3)
+  hot_region_replace_body(fixture.hot_func, HotRegionRef::root(), [
+    carrier_set, if_id, moved_set, next_get,
+  ])
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot lower live repro validates direct payload inner-block exit plus terminal exit before later if sink" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (if (result i32) (local.get 0)
+    #|              (then
+    #|                (return (i32.const 7)))
+    #|              (else
+    #|                (local.set 3 (i32.const 5))
+    #|                (br $mid)))))
+    #|        (local.get 1)))
+    #|    (local.get 1)
+    #|    (local.set 4)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 4))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  assert_eq(hot_root_count(fixture.hot_func), 4)
+  let carrier_set = hot_root_get(fixture.hot_func, 0)
+  let moved_set = hot_root_get(fixture.hot_func, 1)
+  let if_id = hot_root_get(fixture.hot_func, 2)
+  let next_get = hot_root_get(fixture.hot_func, 3)
+  hot_region_replace_body(fixture.hot_func, HotRegionRef::root(), [
+    carrier_set, if_id, moved_set, next_get,
+  ])
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "hot lower live repro validates earlier explicit-exit if root before later if sink" {
   let source =
     #|(module

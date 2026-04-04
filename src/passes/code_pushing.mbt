@@ -1493,10 +1493,59 @@ fn cp_local_set_value_block_is_simple_owner_if_payload_carrier(
     _ => return false
   }
   if !cp_node_has_nonvoid_result(func, payload_id) ||
-    cp_node_has_explicit_exit(cache, func, payload_id) {
+    !cp_if_has_only_self_contained_explicit_exits(
+      cache,
+      func,
+      payload_id,
+      extra_active_owner_id=inner_block_id,
+    ) {
     return false
   }
   true
+}
+
+///|
+fn cp_if_has_only_self_contained_explicit_exits(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  root_id : Int,
+  extra_active_owner_id? : Int = -1,
+) -> Bool {
+  if root_id < 0 || !cp_node_is_live(cache, root_id) {
+    return false
+  }
+  match func.nodes[root_id].op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if !cp_node_has_explicit_exit(cache, func, root_id) {
+    return true
+  }
+  let summary = {
+    has_owner_exit: false,
+    has_dropped_owner_exit: false,
+    has_terminal_exit: false,
+    has_unsafe_branch_exit: false,
+  }
+  let active_owner_marks = cache.owner_exit_active_marks
+  active_owner_marks[root_id] = true
+  if extra_active_owner_id >= 0 &&
+    extra_active_owner_id < active_owner_marks.length() &&
+    extra_active_owner_id != root_id {
+    active_owner_marks[extra_active_owner_id] = true
+  }
+  cp_collect_local_set_value_exit_summary(
+    cache, func, root_id, root_id, active_owner_marks, -1, summary,
+  )
+  if extra_active_owner_id >= 0 &&
+    extra_active_owner_id < active_owner_marks.length() &&
+    extra_active_owner_id != root_id {
+    active_owner_marks[extra_active_owner_id] = false
+  }
+  active_owner_marks[root_id] = false
+  !summary.has_owner_exit &&
+  !summary.has_terminal_exit &&
+  !summary.has_unsafe_branch_exit
 }
 
 ///|
@@ -2258,13 +2307,14 @@ fn cp_try_push_to_pushpoint(
     return false
   }
   let root_count = roots_view.root_count
-  if cp_region_has_nonvoid_result(func, region_ref) &&
-    cp_nonvoid_prefix_has_explicit_exit_guard(
-      cache, func, roots_view, region_ref, reachable_prefix_start_idx, target_idx,
-    ) {
-    return false
-  }
   let target_root_id = cp_region_root_get(func, roots_view, target_idx)
+  if cp_region_has_nonvoid_result(func, region_ref) {
+    if cp_nonvoid_prefix_has_explicit_exit_guard(
+        cache, func, roots_view, region_ref, reachable_prefix_start_idx, target_idx,
+      ) {
+      return false
+    }
+  }
   let target_if_id = cp_root_if_pushpoint_id(func, target_root_id)
   match target_if_id {
     Some(if_id) if cp_node_has_nonvoid_result(func, if_id) => return false
