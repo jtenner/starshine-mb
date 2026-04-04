@@ -46,6 +46,8 @@ priv struct CpSummaryCache {
   trivial_dead_move_gap_values : Array[Bool]
   nonvoid_block_root_guard_ready : Array[Bool]
   nonvoid_block_root_guard_values : Array[Bool]
+  local_set_value_block_guard_ready : Array[Bool]
+  local_set_value_block_guard_values : Array[Bool]
 }
 
 ///|
@@ -62,6 +64,14 @@ priv struct CpBlockOwnerExitSummary {
   mut has_owner_exit : Bool
   mut has_dropped_owner_exit : Bool
   mut has_unsafe_explicit_exit : Bool
+}
+
+///|
+priv struct CpLocalSetValueBlockExitSummary {
+  mut has_owner_exit : Bool
+  mut has_dropped_owner_exit : Bool
+  mut has_terminal_exit : Bool
+  mut has_unsafe_branch_exit : Bool
 }
 
 ///|
@@ -268,6 +278,8 @@ fn cp_new_summary_cache(
     trivial_dead_move_gap_values: Array::make(node_count, false),
     nonvoid_block_root_guard_ready: Array::make(node_count, false),
     nonvoid_block_root_guard_values: Array::make(node_count, false),
+    local_set_value_block_guard_ready: Array::make(node_count, false),
+    local_set_value_block_guard_values: Array::make(node_count, false),
   }
 }
 
@@ -1012,6 +1024,41 @@ fn cp_root_is_unconditional_terminal_explicit_exit(
 }
 
 ///|
+fn cp_root_is_simple_explicit_exit_local_set(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  root_id : Int,
+  dropped_region_owner_id : Int,
+) -> Bool {
+  if root_id < 0 || !cp_node_is_live(cache, root_id) {
+    return false
+  }
+  let root = func.nodes[root_id]
+  match root.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if root.child_count == 0 {
+    return false
+  }
+  let value_id = func.children[root.child_base]
+  if value_id < 0 || !cp_node_is_live(cache, value_id) {
+    return true
+  }
+  let value_summary = cp_effect_summary_for_node(cache, func, value_id)
+  if !cp_bitset_any(value_summary.local_writes) {
+    return true
+  }
+  match func.nodes[value_id].op {
+    @ir.HotOp::Block =>
+      cp_local_set_value_block_has_only_safe_explicit_exits(
+        cache, func, value_id, dropped_region_owner_id,
+      )
+    _ => false
+  }
+}
+
+///|
 fn cp_active_owners_contains(
   active_owners : Array[Int],
   owner_id : Int,
@@ -1226,6 +1273,125 @@ fn cp_collect_block_owner_exit_summary(
 }
 
 ///|
+fn cp_collect_local_set_value_block_exit_summary_for_branch(
+  func : @ir.HotFunc,
+  owner_id : Int,
+  active_owner_marks : Array[Bool],
+  dropped_region_owner_id : Int,
+  node_id : Int,
+  summary : CpLocalSetValueBlockExitSummary,
+) -> Unit {
+  let note_target = fn(label_id : Int) {
+    let target_owner_id = func.labels[label_id].owner
+    if target_owner_id == owner_id {
+      summary.has_owner_exit = true
+      return
+    }
+    if target_owner_id >= 0 &&
+      target_owner_id < active_owner_marks.length() &&
+      active_owner_marks[target_owner_id] {
+      return
+    }
+    if dropped_region_owner_id >= 0 &&
+      target_owner_id == dropped_region_owner_id {
+      summary.has_dropped_owner_exit = true
+      return
+    }
+    summary.has_unsafe_branch_exit = true
+  }
+  let node = func.nodes[node_id]
+  match node.op {
+    @ir.HotOp::BrTable => {
+      let table = func.branch_tables[node.imm0]
+      for label_id in table.targets {
+        note_target(label_id)
+        if summary.has_unsafe_branch_exit {
+          return
+        }
+      }
+      note_target(table.default_target)
+    }
+    _ => note_target(node.imm0)
+  }
+}
+
+///|
+fn cp_collect_local_set_value_block_exit_summary(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  node_id : Int,
+  owner_id : Int,
+  active_owner_marks : Array[Bool],
+  dropped_region_owner_id : Int,
+  summary : CpLocalSetValueBlockExitSummary,
+) -> Unit {
+  if node_id < 0 ||
+    !cp_node_is_live(cache, node_id) ||
+    summary.has_unsafe_branch_exit {
+    return
+  }
+  if !cp_node_has_explicit_exit(cache, func, node_id) {
+    return
+  }
+  let node = func.nodes[node_id]
+  match node.op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail => {
+      cp_collect_local_set_value_block_exit_summary_for_branch(
+        func, owner_id, active_owner_marks, dropped_region_owner_id, node_id, summary,
+      )
+      return
+    }
+    @ir.HotOp::Return
+    | @ir.HotOp::ReturnCall
+    | @ir.HotOp::ReturnCallIndirect
+    | @ir.HotOp::ReturnCallRef
+    | @ir.HotOp::Throw
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Rethrow
+    | @ir.HotOp::Delegate => {
+      summary.has_terminal_exit = true
+      return
+    }
+    @ir.HotOp::Unreachable => return
+    _ => ()
+  }
+  let pushes_owner = match node.op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => false
+  }
+  if pushes_owner {
+    active_owner_marks[node_id] = true
+  }
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    cp_collect_local_set_value_block_exit_summary(
+      cache,
+      func,
+      func.children[node.child_base + slot],
+      owner_id,
+      active_owner_marks,
+      dropped_region_owner_id,
+      summary,
+    )
+    if summary.has_unsafe_branch_exit {
+      break
+    }
+  }
+  if pushes_owner {
+    active_owner_marks[node_id] = false
+  }
+}
+
+///|
 fn cp_block_root_has_only_self_and_dropped_owner_exits(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
@@ -1257,6 +1423,122 @@ fn cp_block_root_has_only_self_and_dropped_owner_exits(
   if root_id >= 0 && root_id < cache.nonvoid_block_root_guard_ready.length() {
     cache.nonvoid_block_root_guard_ready[root_id] = true
     cache.nonvoid_block_root_guard_values[root_id] = should_guard
+  }
+  result
+}
+
+///|
+fn cp_local_set_value_block_is_simple_owner_if_payload_carrier(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Bool {
+  if root_id < 0 || !cp_node_is_live(cache, root_id) {
+    return false
+  }
+  let outer = func.nodes[root_id]
+  match outer.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if outer.child_count != 2 {
+    return false
+  }
+  let inner_block_id = func.children[outer.child_base]
+  let trailing_id = func.children[outer.child_base + 1]
+  if inner_block_id < 0 ||
+    trailing_id < 0 ||
+    !cp_node_is_live(cache, inner_block_id) ||
+    !cp_node_is_live(cache, trailing_id) {
+    return false
+  }
+  let inner_block = func.nodes[inner_block_id]
+  let trailing = func.nodes[trailing_id]
+  match inner_block.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  match trailing.op {
+    @ir.HotOp::LocalGet => ()
+    _ => return false
+  }
+  if inner_block.child_count != 1 {
+    return false
+  }
+  let br_id = func.children[inner_block.child_base]
+  if br_id < 0 || !cp_node_is_live(cache, br_id) {
+    return false
+  }
+  let br = func.nodes[br_id]
+  match br.op {
+    @ir.HotOp::Br => ()
+    _ => return false
+  }
+  if br.imm0 < 0 || br.imm0 >= func.labels.length() {
+    return false
+  }
+  if func.labels[br.imm0].owner != root_id {
+    return false
+  }
+  if br.child_count != 1 {
+    return false
+  }
+  let payload_id = func.children[br.child_base]
+  if payload_id < 0 || !cp_node_is_live(cache, payload_id) {
+    return false
+  }
+  let payload = func.nodes[payload_id]
+  match payload.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if !cp_node_has_nonvoid_result(func, payload_id) ||
+    cp_node_has_explicit_exit(cache, func, payload_id) {
+    return false
+  }
+  true
+}
+
+///|
+fn cp_local_set_value_block_has_only_safe_explicit_exits(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  root_id : Int,
+  dropped_region_owner_id : Int,
+) -> Bool {
+  if root_id < 0 || !cp_node_is_live(cache, root_id) {
+    return false
+  }
+  if root_id >= 0 &&
+    root_id < cache.local_set_value_block_guard_ready.length() &&
+    cache.local_set_value_block_guard_ready[root_id] {
+    return cache.local_set_value_block_guard_values[root_id]
+  }
+  let summary = {
+    has_owner_exit: false,
+    has_dropped_owner_exit: false,
+    has_terminal_exit: false,
+    has_unsafe_branch_exit: false,
+  }
+  let active_owner_marks = cache.owner_exit_active_marks
+  active_owner_marks[root_id] = true
+  cp_collect_local_set_value_block_exit_summary(
+    cache, func, root_id, root_id, active_owner_marks, dropped_region_owner_id, summary,
+  )
+  active_owner_marks[root_id] = false
+  let simple_owner_if_payload_carrier = cp_local_set_value_block_is_simple_owner_if_payload_carrier(
+    cache, func, root_id,
+  )
+  let result = !summary.has_unsafe_branch_exit &&
+    (
+      !summary.has_owner_exit ||
+      summary.has_dropped_owner_exit ||
+      summary.has_terminal_exit ||
+      simple_owner_if_payload_carrier
+    )
+  if root_id >= 0 && root_id < cache.local_set_value_block_guard_ready.length() {
+    cache.local_set_value_block_guard_ready[root_id] = true
+    cache.local_set_value_block_guard_values[root_id] = result
   }
   result
 }
@@ -1437,7 +1719,10 @@ fn cp_nonvoid_prefix_has_explicit_exit_guard(
       _ =>
         if (root_summary.mask & @ir.EFFECT_MASK_CONTROL) != 0U &&
           cp_node_has_explicit_exit(cache, func, root_id) &&
-          !cp_root_is_unconditional_terminal_explicit_exit(cache, func, root_id) {
+          !cp_root_is_unconditional_terminal_explicit_exit(cache, func, root_id) &&
+          !cp_root_is_simple_explicit_exit_local_set(
+            cache, func, root_id, dropped_region_owner_id,
+          ) {
           return true
         }
     }

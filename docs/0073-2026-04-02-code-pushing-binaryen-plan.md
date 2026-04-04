@@ -419,6 +419,16 @@
   remaining parity gap now looks like a root-splitting / carrier-extraction
   problem rather than another traversal-gate or flat same-region `if`
   placement miss.
+- One narrower family is no longer hypothetical now. `code-pushing` now admits
+  only the exact owner-only carrier shape
+  `LocalSet(Block(Block(Br(payload=If))), LocalGet)` when the payload `if`
+  itself has no nested explicit exits, and `src/passes/code_pushing_test.mbt`
+  now has two positive plus two negative reducers that pin that boundary. A
+  fresh live probe against `If#2747` shows why the first `48978` diff still
+  survives: the guard still stops at `offending_root=304`, but the carried
+  payload there has `payload_explicit=true`. So the live blocker is not the
+  newly-admitted simple owner-only carrier family; it is the nested-explicit-
+  exit owner-carrier case.
 - One more smaller non-repro is now pinned beside that live family. A reduced
   root shape with an earlier zero-result branch root, one intervening used
   `LocalSet`, and then a branch-free crossed gap before the later `if` still

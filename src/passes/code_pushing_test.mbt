@@ -1038,6 +1038,309 @@ test "code-pushing rewrites a non-void prefix before a later branch root" {
 }
 
 ///|
+test "code-pushing ignores an earlier unrelated explicit-exit local.set when moving a later local.set in a non-void region" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    (block $carry (result i32)
+    #|      (if (local.get 0)
+    #|        (then
+    #|          (br $carry
+    #|            (i32.const 7))))
+    #|      (i32.const 9))
+    #|    (local.set 2)
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 3)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "If", "LocalSet(3)", "LocalGet(3)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites past an earlier explicit-exit local.set carrying a self-contained block" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    (local.set 2
+    #|      (block $carry (result i32)
+    #|        (block $work
+    #|          (if (local.get 0)
+    #|            (then
+    #|              (br $work))
+    #|            (else
+    #|              (br $carry (i32.const 7))))
+    #|          unreachable)
+    #|        (i32.const 9)))
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 3)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "If", "LocalSet(3)", "LocalGet(3)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites past an earlier explicit-exit local.set carrying a live-like dropped-owner block" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $holder (result i32)
+    #|        (drop
+    #|          (block $outer (result i32)
+    #|            (block $prefix
+    #|              (if (local.get 0)
+    #|                (then
+    #|                  (br $outer (i32.const 0)))
+    #|                (else
+    #|                  (drop (i32.const 0)))))
+    #|            (local.get 1)
+    #|            (local.set 4)
+    #|            (local.get 1)
+    #|            (local.set 5)
+    #|            (local.get 5)
+    #|            (if
+    #|              (then
+    #|                (drop (local.get 5))))
+    #|            (local.get 4)))
+    #|        (i32.const 9)))
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 3)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "If", "LocalSet(3)", "LocalGet(3)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites past an earlier explicit-exit local.set carrying a self-owner block with return" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $carry (result i32)
+    #|        (local.get 1)
+    #|        (local.set 4)
+    #|        (if (local.get 0)
+    #|          (then
+    #|            (return (local.get 4)))
+    #|          (else
+    #|            (br $carry (local.get 4))))
+    #|        unreachable))
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 3)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "If", "LocalSet(3)", "LocalGet(3)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites past an earlier explicit-exit local.set carrying a simple owner-only if payload" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (if (result i32) (local.get 0)
+    #|              (then
+    #|                (local.set 3 (local.get 1))
+    #|                (local.get 3))
+    #|              (else
+    #|                (local.set 3 (i32.const 5))
+    #|                (local.get 3)))))
+    #|        (local.get 3)))
+    #|    (local.get 1)
+    #|    (local.set 4)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 4)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "If", "LocalSet(4)", "LocalGet(4)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites past an owner-only if payload carrier even when the trailing local.get is not the payload-written local" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (if (result i32) (local.get 0)
+    #|              (then
+    #|                (local.set 3 (local.get 1))
+    #|                (i32.const 7))
+    #|              (else
+    #|                (local.set 3 (i32.const 5))
+    #|                (i32.const 9)))))
+    #|        (local.get 1)))
+    #|    (local.get 1)
+    #|    (local.set 4)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 4)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "If", "LocalSet(4)", "LocalGet(4)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing does not rewrite past an owner-only if payload when the payload branches back to the inner block" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (if (result i32) (local.get 0)
+    #|              (then
+    #|                (local.set 3 (local.get 1))
+    #|                (local.get 3))
+    #|              (else
+    #|                (local.set 4 (local.get 1))
+    #|                (br $mid)))))
+    #|        (local.get 4)))
+    #|    (local.get 1)
+    #|    (local.set 5)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 5)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "LocalSet(5)", "If", "LocalGet(5)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing does not rewrite past an owner-only if payload with a nested explicit exit even when the trailing local.get is unrelated" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (if (result i32) (local.get 0)
+    #|              (then
+    #|                (local.set 3 (local.get 1))
+    #|                (i32.const 7))
+    #|              (else
+    #|                (local.set 3 (i32.const 5))
+    #|                (br $mid)))))
+    #|        (local.get 1)))
+    #|    (local.get 1)
+    #|    (local.set 4)
+    #|    (local.get 1)
+    #|    (if
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 4)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "LocalSet(4)", "If", "LocalGet(4)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing does not rewrite past an earlier branch root even when the crossed gap is branch-free" {
   let source = "(module (func (param i32 i32) (result i32) (local i32 i32) block $done local.get 0 br_if $done end local.get 1 local.set 2 i32.const 7 local.set 3 local.get 2 if local.get 2 drop end local.get 3))"
   let func = code_pushing_test_run_hot(source)
