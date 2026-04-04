@@ -40,9 +40,7 @@ test "simplify-locals keeps multivalue local-set producers out of tee rewrites" 
     ) {
     Ok(mod_) => mod_
     Err(err) =>
-      fail(
-        "expected multivalue producer simplify-locals success, got \{err}",
-      )
+      fail("expected multivalue producer simplify-locals success, got \{err}")
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
@@ -345,6 +343,25 @@ test "simplify-locals lifts one-armed if writes for defaultable locals" {
   assert_true(pretty.contains("if I32"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "simplify-locals lifts nested one-armed if writes inside consumed result ifs" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32 i32) local.get 0 i32.const 256 i32.lt_u if (result i32) local.get 0 local.set 1 i32.const 0 else local.get 0 i32.const 10 i32.lt_u if local.get 0 i32.const 1 i32.add local.set 1 end nop local.get 1 local.get 0 i32.shr_u local.set 1 local.get 0 end local.tee 2 local.get 0 i32.add))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested consumed-result one-armed simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("if (Void)"), msg=pretty)
+  assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
 }
 
 ///|

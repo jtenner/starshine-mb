@@ -2313,6 +2313,98 @@ fn simplify_locals_try_rewrite_loop_return(
 }
 
 ///|
+fn simplify_locals_try_rewrite_nested_one_armed_if_child(
+  func : @ir.HotFunc,
+  parent_id : Int,
+  slot : Int,
+  child_id : Int,
+  get_counts : Array[Int],
+  detached : Array[Int],
+) -> Bool {
+  if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+    return false
+  }
+  let child = @ir.hot_node_get(func, child_id)
+  match child.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, child_id) != 0 {
+    return false
+  }
+  match @ir.hot_region_else_ref(func, child_id) {
+    Some(_) => return false
+    None => ()
+  }
+  let then_ref = @ir.hot_region_then_ref(func, child_id)
+  let then_tail = match simplify_locals_region_tail_local_set(func, then_ref) {
+    Some(then_tail) => then_tail
+    None => return false
+  }
+  if then_tail.local_id < 0 ||
+    then_tail.local_id >= get_counts.length() ||
+    get_counts[then_tail.local_id] == 0 ||
+    !simplify_locals_local_type_is_defaultable(func, then_tail.local_id) {
+    return false
+  }
+  if simplify_locals_subtree_has_typed_control(func, then_tail.value_id) {
+    return false
+  }
+  ignore(
+    @ir.hot_region_set(func, then_ref, then_tail.root_idx, then_tail.value_id),
+  )
+  detached.push(then_tail.node_id)
+  let result_block_type = match @ir.hot_local_type(func, then_tail.local_id) {
+    Some(local_type) => @lib.BlockType::val_type(local_type)
+    None => return false
+  }
+  let replacement_if = @ir.hot_build_if(
+    func,
+    result_block_type,
+    @ir.hot_child_get(func, child_id, 0),
+    [then_tail.value_id],
+    else_body=Some([@ir.hot_build_local_get(func, then_tail.local_id)]),
+  )
+  @ir.hot_region_replace_body(func, then_ref, [])
+  @ir.hot_control_demote_if_to_block(func, child_id, [])
+  @ir.hot_child_set(
+    func,
+    parent_id,
+    slot,
+    @ir.hot_build_local_set(func, then_tail.local_id, replacement_if),
+  )
+  detached.push(child_id)
+  true
+}
+
+///|
+fn simplify_locals_try_rewrite_nested_one_armed_if_children(
+  func : @ir.HotFunc,
+  node_id : Int,
+  get_counts : Array[Int],
+  detached : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      continue
+    }
+    if simplify_locals_try_rewrite_nested_one_armed_if_children(
+        func, child_id, get_counts, detached,
+      ) ||
+      simplify_locals_try_rewrite_nested_one_armed_if_child(
+        func, node_id, slot, child_id, get_counts, detached,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn simplify_locals_try_structure_rewrite_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -2323,6 +2415,11 @@ fn simplify_locals_try_structure_rewrite_region(
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
+    }
+    if simplify_locals_try_rewrite_nested_one_armed_if_children(
+        func, node_id, get_counts, detached,
+      ) {
+      return true
     }
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
