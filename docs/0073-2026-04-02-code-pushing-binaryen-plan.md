@@ -405,6 +405,20 @@
   longer first. Runtime is still far from acceptable though: `24515.088 ms`
   Starshine pass time vs `50.151 ms` for Binaryen, and `27083.322 ms` total vs
   `363.237 ms`.
+- The new probe against that first live family changed the diagnosis
+  materially. The printed `func $127` mismatch maps to pipeline `Func 148`
+  because `tests/node/dist/starshine-debug-wasi.wasm` has `21` imported
+  functions. In lifted HOT, the interesting node is not a flat top-level
+  `LocalSet(310)` before a sibling `If`; it is a nested dropped-carrier
+  shape. Top-level root `Drop#1987` owns `Block#1429`, whose body contains
+  `Drop#1782`, whose child `Block#1659` contains `Block#1753`, whose body
+  roots include `LocalSet(310)#1776`. The later `LocalSet(335)#2738` and
+  `If#2747` are sibling roots outside that dropped carrier. Most importantly,
+  `LocalSet(310)#1776` wraps `Call#1775` in HOT, so the current
+  `cp_root_pushable_local` check rejects it on purpose. That means the first
+  remaining parity gap now looks like a root-splitting / carrier-extraction
+  problem rather than another traversal-gate or flat same-region `if`
+  placement miss.
 - One more smaller non-repro is now pinned beside that live family. A reduced
   root shape with an earlier zero-result branch root, one intervening used
   `LocalSet`, and then a branch-free crossed gap before the later `if` still

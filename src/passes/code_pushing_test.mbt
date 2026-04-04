@@ -386,6 +386,77 @@ test "code-pushing can split movable local.set roots around an if" {
 }
 
 ///|
+test "code-pushing moves a later local.set after an if even with an earlier kept local.set before the if" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32 i32) i32.const 7 local.set 1 local.get 0 local.set 2 local.get 2 if local.get 2 drop end local.get 1 drop))",
+  )
+
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    "LocalSet(2)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)), "If")
+  assert_eq(
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)),
+    "LocalSet(1)",
+  )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)), "Drop")
+}
+
+///|
+test "code-pushing still moves a later local.set after an if when the earlier kept local.set is read inside and after the if" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32 i32) i32.const 7 local.set 1 local.get 0 local.set 2 local.get 2 if local.get 2 drop end local.get 2 drop local.get 1 drop))",
+  )
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "If", "LocalSet(1)", "Drop", "Drop",
+  ])
+}
+
+///|
+test "code-pushing moves an artifact-shaped tee-fed local.set after an if when only later roots read it" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $alloc (param i32) (result i32)
+    #|    i32.const 0)
+    #|  (func $use (param i32))
+    #|  (func (param i32)
+    #|    (local i32 i32 i32 i32)
+    #|    local.get 0
+    #|    local.set 1
+    #|    i32.const 4
+    #|    call $alloc
+    #|    local.tee 4
+    #|    i32.const 1
+    #|    i32.store offset=4
+    #|    local.get 4
+    #|    local.get 1
+    #|    i32.store offset=8
+    #|    local.get 4
+    #|    local.set 2
+    #|    local.get 0
+    #|    local.set 3
+    #|    local.get 3
+    #|    if
+    #|      local.get 3
+    #|      call $use
+    #|    end
+    #|    local.get 3
+    #|    drop
+    #|    local.get 2
+    #|    drop))
+    #|
+  let func = code_pushing_test_run_hot_code(source, 2)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(1)", "Store", "Store", "LocalSet(3)", "If", "LocalSet(2)", "Drop",
+    "Drop",
+  ])
+}
+
+///|
 test "code-pushing moves a later-used local.set past an if with multiple future reads" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32 i32) local.get 0 local.set 1 i32.const 9 local.set 2 local.get 0 if local.get 1 drop else local.get 1 drop end block local.get 2 drop local.get 2 drop end local.get 2 drop))",
