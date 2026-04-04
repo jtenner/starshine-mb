@@ -1120,6 +1120,94 @@ fn tuple_optimization_copy_group_redundant_with_source_host_chain(
 }
 
 ///|
+fn tuple_optimization_group_has_nested_rootslot_host_copy_wrapper(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  group : HotTupleOptimizationGroup,
+) -> Bool {
+  if group.copy_source is Some(_) || group.lane_locals.is_empty() {
+    return false
+  }
+  let mut inner_block = -1
+  for lane_idx = 0
+      lane_idx < group.lane_locals.length()
+      lane_idx = lane_idx + 1 {
+    let local_id = group.lane_locals[lane_idx]
+    let reads = @ir.local_read_nodes_borrowed(use_def, local_id)
+    let mut matched = false
+    for read_id in reads {
+      let sites = @ir.node_use_sites_borrowed(use_def, read_id)
+      if sites.length() != 1 {
+        continue
+      }
+      let site = sites[0]
+      match site.kind {
+        @ir.HotUseSlotKind::RootUseSlot =>
+          if site.slot == lane_idx {
+            match @ir.hot_node_get(func, site.user).op {
+              @ir.HotOp::Block => {
+                match inner_block {
+                  -1 => inner_block = site.user
+                  _ => if inner_block != site.user { return false }
+                }
+                matched = true
+                break
+              }
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    }
+    if !matched {
+      return false
+    }
+  }
+  if inner_block < 0 {
+    return false
+  }
+  let inner_sites = @ir.node_use_sites_borrowed(use_def, inner_block)
+  if inner_sites.length() != group.lane_locals.length() {
+    return false
+  }
+  let mut outer_block = -1
+  for lane_idx = 0; lane_idx < inner_sites.length(); lane_idx = lane_idx + 1 {
+    let site = inner_sites[lane_idx]
+    match site.kind {
+      @ir.HotUseSlotKind::RootUseSlot =>
+        if site.slot == lane_idx {
+          match @ir.hot_node_get(func, site.user).op {
+            @ir.HotOp::Block =>
+              match outer_block {
+                -1 => outer_block = site.user
+                _ => if outer_block != site.user { return false }
+              }
+            _ => return false
+          }
+        } else {
+          return false
+        }
+      _ => return false
+    }
+  }
+  if outer_block < 0 {
+    return false
+  }
+  let outer_sites = @ir.node_use_sites_borrowed(use_def, outer_block)
+  if outer_sites.length() != 1 {
+    return false
+  }
+  match outer_sites[0].kind {
+    @ir.HotUseSlotKind::ChildUseSlot =>
+      match @ir.hot_node_get(func, outer_sites[0].user).op {
+        @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => true
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn tuple_optimization_group_should_rewrite_in_func(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
@@ -1222,9 +1310,28 @@ fn tuple_optimization_group_should_rewrite_in_func(
   !(group.copy_source is Some(_) &&
   group.producer < 0 &&
   copy_group_only_uses_host_non_drop) &&
+  !tuple_optimization_group_has_nested_rootslot_host_copy_wrapper(
+    func, use_def, group,
+  ) &&
   !tuple_optimization_copy_group_redundant_with_source_host_chain(
     func, use_def, groups, group_id,
   )
+}
+
+///|
+fn tuple_optimization_has_nested_rootslot_host_copy_wrapper_group(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  groups : Array[HotTupleOptimizationGroup],
+) -> Bool {
+  for group in groups {
+    if tuple_optimization_group_has_nested_rootslot_host_copy_wrapper(
+        func, use_def, group,
+      ) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -1254,6 +1361,11 @@ fn tuple_optimization_build_group_rewrite_mask(
   use_def : @ir.HotUseDef,
   groups : Array[HotTupleOptimizationGroup],
 ) -> Array[Bool] {
+  if tuple_optimization_has_nested_rootslot_host_copy_wrapper_group(
+      func, use_def, groups,
+    ) {
+    return Array::make(groups.length(), false)
+  }
   let rewrite_mask : Array[Bool] = []
   for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
     rewrite_mask.push(

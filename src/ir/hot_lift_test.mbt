@@ -524,6 +524,23 @@ test "hot lift preserves explicit triple-result spill bridges" {
 }
 
 ///|
+test "hot lift preserves nested outer-block spill lanes after a triple-result bridge" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (type (func (param i32 i32 i32) (result i32 i32 i32))) (func (type 0) (param i32 i32 i32) (result i32 i32 i32) local.get 0 local.get 1 local.get 2) (func (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 10 local.set 5 i32.const 20 local.set 4 block block block i32.const 30 local.tee 3 local.get 4 local.get 5 call 0 local.set 8 local.set 7 local.set 6 block (result i32) block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 2 local.set 1 end local.set 0 end local.get 2 local.set 11 local.get 1 local.set 10 local.get 0 local.set 9 end local.get 11 drop local.get 10 drop local.get 9 drop end))",
+    code_idx=1,
+  )
+  let func = fixture.hot_func
+  let use_def = use_def_build(func)
+
+  assert_eq(local_write_nodes_borrowed(use_def, 0).length(), 1)
+  assert_eq(local_write_nodes_borrowed(use_def, 1).length(), 1)
+  assert_eq(local_write_nodes_borrowed(use_def, 2).length(), 1)
+  assert_eq(local_read_nodes_borrowed(use_def, 0).length(), 1)
+  assert_eq(local_read_nodes_borrowed(use_def, 1).length(), 1)
+  assert_eq(local_read_nodes_borrowed(use_def, 2).length(), 1)
+}
+
+///|
 test "hot lift preserves branchy triple-result spill bridges" {
   let ctx = hot_module_context_from_module(
     hot_lift_test_triple_result_bridge_module(),

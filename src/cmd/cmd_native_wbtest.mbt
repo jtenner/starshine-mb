@@ -87,6 +87,42 @@ fn cmd_native_wbtest_print_wasm_bytes(bytes : Bytes) -> String {
 
 ///|
 #cfg(target="native")
+fn cnw_extract_printed_func_by_index(text : String, func_idx : Int) -> String {
+  if func_idx < 0 {
+    abort("expected non-negative function index")
+  }
+  let marker = "\n  (func "
+  let mut found = 0
+  let mut start : Int? = None
+  let mut pos = 0
+  while pos + marker.length() <= text.length() {
+    if text.sub(start=pos, end=pos + marker.length()).to_string() == marker {
+      if found == func_idx {
+        start = Some(pos + 1)
+        break
+      }
+      found += 1
+    }
+    pos += 1
+  }
+  let start = match start {
+    Some(idx) => idx
+    None => abort("expected printed wasm function index \{func_idx}")
+  }
+  let mut end = text.length()
+  let mut scan = start + 1
+  while scan + marker.length() <= text.length() {
+    if text.sub(start=scan, end=scan + marker.length()).to_string() == marker {
+      end = scan
+      break
+    }
+    scan += 1
+  }
+  text.sub(start~, end~).to_string()
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter tuple-optimization rematerializes old source lanes before chained host-copy tail-live0 output" {
   let input_mod = match
     @wast.wast_to_binary_module(
@@ -306,4 +342,50 @@ test "run_cmd_with_adapter tuple-optimization leaves chained terminal drop-only 
     "local.get 3", "local.set 0", "local.get 1", "drop", "local.get 2", "drop", "local.get 0",
   ])
   assert_eq(cnw_count_substring(printed, "block (type "), 0, msg=printed)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization keeps nested rootslot host-copy lanes materialized on debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let wasm = match cmd_native_read_file(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected checked-in artifact at \{input_path}: \{err}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { [input_path] },
+    file_exists=fn(path) { path == input_path },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      ["--tuple-optimization", "--out", "out.wasm", input_path],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("unexpected tuple-optimization debug-artifact replay failure: \{e}")
+  }
+  assert_eq(writes.length(), 1)
+  let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
+  let func = cnw_extract_printed_func_by_index(printed, 1930)
+  assert_true(func.contains("local.set 68"), msg=func)
+  assert_true(func.contains("local.set 67"), msg=func)
+  assert_false(
+    func.contains(
+      "local.set 75\n            drop\n            drop\n            local.get 75",
+    ),
+    msg=func,
+  )
 }
