@@ -82,6 +82,13 @@ priv struct CpTraversalGateScan {
 }
 
 ///|
+priv struct CpRegionRootsView {
+  root_count : Int
+  base : Int
+  uses_func_roots : Bool
+}
+
+///|
 fn cp_new_local_info(is_param : Bool) -> CpLocalInfo {
   {
     num_sets: 0,
@@ -774,6 +781,7 @@ fn cp_region_has_traversal_candidate(
   infos : Array[CpLocalInfo],
   scan : CpTraversalGateScan,
 ) -> Bool {
+  let roots_view = cp_region_roots_view(func, region_ref)
   let cache_slot = region_ref.holder + 1
   if cache_slot >= 0 &&
     cache_slot < scan.region_candidate_ready.length() &&
@@ -783,9 +791,9 @@ fn cp_region_has_traversal_candidate(
   let mut saw_later_target = false
   let mut saw_later_live_root = false
   let mut has_candidate = false
-  let mut idx = @ir.hot_region_root_count(func, region_ref) - 1
+  let mut idx = roots_view.root_count - 1
   while idx >= 0 {
-    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    let root_id = cp_region_root_get(func, roots_view, idx)
     if cp_node_nested_regions_have_traversal_candidate(
         func, root_id, infos, scan,
       ) {
@@ -889,17 +897,41 @@ pub fn cp_node_has_unremovable_side_effects(
 }
 
 ///|
-fn cp_region_roots_copy(
+fn cp_region_roots_view(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-) -> Array[Int] {
-  let roots : Array[Int] = []
-  let mut idx = 0
-  while idx < @ir.hot_region_root_count(func, region_ref) {
-    roots.push(@ir.hot_region_get(func, region_ref, idx))
-    idx = idx + 1
+) -> CpRegionRootsView {
+  let holder_id = region_ref.holder
+  if holder_id < 0 {
+    return { root_count: func.roots.length(), base: 0, uses_func_roots: true }
   }
-  roots
+  let holder = func.nodes[holder_id]
+  let body_base = match holder.op {
+    @ir.HotOp::Loop =>
+      @ir.hot_label_branch_arity(
+        func,
+        @ir.hot_control_node_label(func, holder_id),
+      )
+    _ => 0
+  }
+  {
+    root_count: holder.child_count - body_base,
+    base: holder.child_base + body_base,
+    uses_func_roots: false,
+  }
+}
+
+///|
+fn cp_region_root_get(
+  func : @ir.HotFunc,
+  roots : CpRegionRootsView,
+  idx : Int,
+) -> Int {
+  if roots.uses_func_roots {
+    func.roots[idx]
+  } else {
+    func.children[roots.base + idx]
+  }
 }
 
 ///|
@@ -1237,8 +1269,9 @@ fn cp_region_has_block_exiting_explicit_exit(
   active_owners : Array[Int],
   dropped_region_owner_id : Int?,
 ) -> Bool {
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    let root_id = @ir.hot_region_get(func, region_ref, idx)
+  let roots_view = cp_region_roots_view(func, region_ref)
+  for idx = 0; idx < roots_view.root_count; idx = idx + 1 {
+    let root_id = cp_region_root_get(func, roots_view, idx)
     if cp_subtree_has_block_exiting_explicit_exit(
         func, root_id, owner_id, active_owners, dropped_region_owner_id,
       ) {
@@ -1377,6 +1410,7 @@ fn cp_subtree_has_block_exiting_explicit_exit(
 fn cp_nonvoid_prefix_has_explicit_exit_guard(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
+  roots_view : CpRegionRootsView,
   region_ref : @ir.HotRegionRef,
   prefix_start_idx : Int,
   target_idx : Int,
@@ -1386,10 +1420,9 @@ fn cp_nonvoid_prefix_has_explicit_exit_guard(
     Some(owner_id) => owner_id
     None => -1
   }
-  let root_count = @ir.hot_region_root_count(func, region_ref)
   let mut idx = prefix_start_idx
-  while idx < root_count && idx <= target_idx {
-    let root_id = @ir.hot_region_get(func, region_ref, idx)
+  while idx < roots_view.root_count && idx <= target_idx {
+    let root_id = cp_region_root_get(func, roots_view, idx)
     let root_node = @ir.hot_node_get(func, root_id)
     let root_summary = cp_effect_summary_for_node(cache, func, root_id)
     match root_node.op {
@@ -1414,18 +1447,31 @@ fn cp_nonvoid_prefix_has_explicit_exit_guard(
 }
 
 ///|
-fn cp_node_id_arrays_equal(lhs : Array[Int], rhs : Array[Int]) -> Bool {
-  if lhs.length() != rhs.length() {
+fn cp_region_node_ids_equal(
+  func : @ir.HotFunc,
+  roots : CpRegionRootsView,
+  ids : Array[Int],
+) -> Bool {
+  if ids.length() != roots.root_count {
     return false
   }
   let mut idx = 0
-  while idx < lhs.length() {
-    if lhs[idx] != rhs[idx] {
+  while idx < ids.length() {
+    if ids[idx] != cp_region_root_get(func, roots, idx) {
       return false
     }
     idx = idx + 1
   }
   true
+}
+
+///|
+fn cp_append_reverse_ids(dst : Array[Int], src : Array[Int]) -> Unit {
+  let mut idx = src.length() - 1
+  while idx >= 0 {
+    dst.push(src[idx])
+    idx = idx - 1
+  }
 }
 
 ///|
@@ -1515,6 +1561,7 @@ fn cp_region_last_local_read_root_idxs(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Array[Int] {
+  let roots_view = cp_region_roots_view(func, region_ref)
   let cache_slot = region_ref.holder + 1
   if cache_slot >= 0 &&
     cache_slot < cache.region_last_local_read_root_idxs.length() {
@@ -1525,11 +1572,11 @@ fn cp_region_last_local_read_root_idxs(
   }
   let last_read_root_idxs = Array::make(cache.local_count, -1)
   let mut idx = 0
-  while idx < @ir.hot_region_root_count(func, region_ref) {
+  while idx < roots_view.root_count {
     let root_summary = cp_effect_summary_for_node(
       cache,
       func,
-      @ir.hot_region_get(func, region_ref, idx),
+      cp_region_root_get(func, roots_view, idx),
     )
     @ir.bitset_for_each_set_bit(root_summary.local_reads, fn(local_id) {
       last_read_root_idxs[local_id] = idx
@@ -1668,9 +1715,10 @@ fn cp_region_has_terminal_last_live_root(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
-  let mut idx = @ir.hot_region_root_count(func, region_ref) - 1
+  let roots_view = cp_region_roots_view(func, region_ref)
+  let mut idx = roots_view.root_count - 1
   while idx >= 0 {
-    let node_id = @ir.hot_region_get(func, region_ref, idx)
+    let node_id = cp_region_root_get(func, roots_view, idx)
     if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
       match @ir.hot_node_get(func, node_id).op {
         @ir.HotOp::Br
@@ -1796,6 +1844,7 @@ fn cp_if_sink_allows_later_reads(
 fn cp_try_sink_into_if(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  roots_view : CpRegionRootsView,
   region_ref : @ir.HotRegionRef,
   if_idx : Int,
   infos : Array[CpLocalInfo],
@@ -1805,7 +1854,7 @@ fn cp_try_sink_into_if(
     return false
   }
   let if_id = match
-    cp_root_if_pushpoint_id(func, @ir.hot_region_get(func, region_ref, if_idx)) {
+    cp_root_if_pushpoint_id(func, cp_region_root_get(func, roots_view, if_idx)) {
     Some(if_id) => if_id
     None => return false
   }
@@ -1824,7 +1873,7 @@ fn cp_try_sink_into_if(
   let else_ref = @ir.hot_region_else_ref(func, if_id)
   let mut scan = if_idx - 1
   while scan >= 0 {
-    let root_id = @ir.hot_region_get(func, region_ref, scan)
+    let root_id = cp_region_root_get(func, roots_view, scan)
     let root_summary = cp_effect_summary_for_node(cache, func, root_id)
     match cp_root_pushable_local(infos, cache, func, root_id) {
       Some(local_id) => {
@@ -1866,6 +1915,7 @@ fn cp_try_sink_into_if(
 fn cp_try_push_to_pushpoint(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  roots_view : CpRegionRootsView,
   region_ref : @ir.HotRegionRef,
   target_idx : Int,
   reachable_prefix_start_idx : Int,
@@ -1875,14 +1925,14 @@ fn cp_try_push_to_pushpoint(
   if target_idx <= 0 {
     return false
   }
-  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let root_count = roots_view.root_count
   if cp_region_has_nonvoid_result(func, region_ref) &&
     cp_nonvoid_prefix_has_explicit_exit_guard(
-      cache, func, region_ref, reachable_prefix_start_idx, target_idx,
+      cache, func, roots_view, region_ref, reachable_prefix_start_idx, target_idx,
     ) {
     return false
   }
-  let target_root_id = @ir.hot_region_get(func, region_ref, target_idx)
+  let target_root_id = cp_region_root_get(func, roots_view, target_idx)
   let target_if_id = cp_root_if_pushpoint_id(func, target_root_id)
   match target_if_id {
     Some(if_id) if cp_node_has_nonvoid_result(func, if_id) => return false
@@ -1896,19 +1946,21 @@ fn cp_try_push_to_pushpoint(
     cache.local_count,
     cache.global_count,
   )
-  let movable = Array::make(root_count, false)
-  let move_after_target = Array::make(root_count, false)
+  let moved_idxs_rev : Array[Int] = []
+  let moved_before_rev : Array[Int] = []
+  let moved_after_rev : Array[Int] = []
   let pushpoint_summary = cp_effect_summary_for_node(
     cache, func, target_root_id,
   )
   let mut scan = target_idx - 1
   while scan >= 0 {
-    let root_id = @ir.hot_region_get(func, region_ref, scan)
+    let root_id = cp_region_root_get(func, roots_view, scan)
     let root_summary = cp_effect_summary_for_node(cache, func, root_id)
-    let can_move = match cp_root_pushable_local(infos, cache, func, root_id) {
+    let move_after_target = match
+      cp_root_pushable_local(infos, cache, func, root_id) {
       Some(local_id) =>
         if cp_summary_conflicts_with_barrier(root_summary, barrier) {
-          false
+          None
         } else {
           match target_if_id {
             Some(if_id) =>
@@ -1923,73 +1975,62 @@ fn cp_try_push_to_pushpoint(
                   local_id,
                 )
                 if has_later_read {
-                  move_after_target[scan] = true
-                  true
+                  Some(true)
                 } else if !cp_summary_conflicts_with_dead_move_gap(
                     root_summary, dead_move_gap,
                   ) {
-                  move_after_target[scan] = true
-                  true
+                  Some(true)
                 } else {
-                  false
+                  None
                 }
               } else {
-                true
+                Some(false)
               }
-            None => true
+            None => Some(false)
           }
         }
-      None => false
+      None => None
     }
-    if can_move {
-      movable[scan] = true
-    } else {
-      cp_barrier_merge_root_summary(barrier, cache, func, root_id, root_summary)
+    match move_after_target {
+      Some(move_after) => {
+        moved_idxs_rev.push(scan)
+        if move_after {
+          moved_after_rev.push(root_id)
+        } else {
+          moved_before_rev.push(root_id)
+        }
+      }
+      None =>
+        cp_barrier_merge_root_summary(
+          barrier, cache, func, root_id, root_summary,
+        )
     }
     if !cp_root_is_trivial_dead_move_gap(cache, func, root_id) {
       cp_summary_merge_into(dead_move_gap, root_summary)
     }
     scan = scan - 1
   }
-  let roots = cp_region_roots_copy(func, region_ref)
-  let moved : Array[Int] = []
-  let moved_before : Array[Int] = []
-  let moved_after : Array[Int] = []
-  let mut idx = 0
-  while idx < root_count {
-    if movable[idx] {
-      let node_id = roots[idx]
-      moved.push(node_id)
-      if move_after_target[idx] {
-        moved_after.push(node_id)
-      } else {
-        moved_before.push(node_id)
-      }
-    }
-    idx = idx + 1
-  }
-  if moved.is_empty() {
+  if moved_idxs_rev.is_empty() {
     return false
   }
   let next : Array[Int] = []
-  idx = 0
+  let mut moved_idx_cursor = moved_idxs_rev.length() - 1
+  let mut idx = 0
   while idx < root_count {
     if idx == target_idx {
-      for node_id in moved_before {
-        next.push(node_id)
-      }
+      cp_append_reverse_ids(next, moved_before_rev)
     }
-    if !movable[idx] {
-      next.push(roots[idx])
+    if moved_idx_cursor >= 0 && moved_idxs_rev[moved_idx_cursor] == idx {
+      moved_idx_cursor = moved_idx_cursor - 1
+    } else {
+      next.push(cp_region_root_get(func, roots_view, idx))
     }
     if idx == target_idx {
-      for node_id in moved_after {
-        next.push(node_id)
-      }
+      cp_append_reverse_ids(next, moved_after_rev)
     }
     idx = idx + 1
   }
-  if cp_node_id_arrays_equal(roots, next) {
+  if cp_region_node_ids_equal(func, roots_view, next) {
     return false
   }
   @ir.hot_region_replace_body(func, region_ref, next)
@@ -2103,14 +2144,16 @@ fn cp_try_rewrite_region(
   if !cp_region_has_traversal_candidate(func, region_ref, infos, traversal_scan) {
     return false
   }
-  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let roots_view = cp_region_roots_view(func, region_ref)
+  let root_count = roots_view.root_count
   let mut idx = 0
   let mut reachable_prefix_start_idx = 0
   while idx < root_count {
-    let root_id = @ir.hot_region_get(func, region_ref, idx)
-    if cp_try_sink_into_if(ctx, func, region_ref, idx, infos, cache) ||
+    let root_id = cp_region_root_get(func, roots_view, idx)
+    if cp_try_sink_into_if(ctx, func, roots_view, region_ref, idx, infos, cache) ||
       cp_try_push_to_pushpoint(
-        ctx, func, region_ref, idx, reachable_prefix_start_idx, infos, cache,
+        ctx, func, roots_view, region_ref, idx, reachable_prefix_start_idx, infos,
+        cache,
       ) {
       return true
     }

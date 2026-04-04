@@ -507,6 +507,23 @@
   `Func 1816`, or accept that the next large wall-time chunk is now increasingly
   outside `code-pushing` itself and spend the next budget on permission-gated
   parity replay instead.
+- The next perf cut stayed in unchanged-region overhead rather than deeper
+  effect modeling. `code-pushing` now reads valid region roots through a
+  pass-local precomputed root view instead of repeated
+  `hot_region_root_count(...)` / `hot_region_get(...)` accessor calls,
+  rebuilds moved roots sparsely instead of allocating root-sized `movable` /
+  `move_after_target` arrays for every pushpoint scan, and reuses that same
+  root view across same-region sink and push rewrites. That pushed the direct
+  native debug-artifact path down again into the `2.996s-3.176s` band, and the
+  latest traced native replay `/tmp/code-pushing-trace-pass3.log` now has
+  `pass:code-pushing = 978556 us`, `analysis:effects = 249694 us`,
+  `lift = 1274934 us`, and `lower = 60600 us`. The hotspot mix narrowed again:
+  mutating `Func 1816` dropped from `191303 us` to `149339 us`, while the
+  largest unchanged outliers are now `Func 2609` (`30802 us`), `Func 1910`
+  (`27009 us`), `Func 1678` (`25576 us`), and `Func 2010` (`19791 us`).
+  So the next perf question is sharper still: either attack the 19 rewrite
+  iterations inside `Func 1816`, or stop shaving local pass cost and spend the
+  next budget on the permission-gated full compare replay.
 - HOT regions already store root lists directly for root, block, loop, then, else,
   try body, and catch regions.
   That means Starshine does not need Binaryen's `blockify(...)` step when it
