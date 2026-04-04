@@ -1114,6 +1114,13 @@ fn simplify_locals_value_can_clone_node(
 }
 
 ///|
+fn simplify_locals_value_can_tee(func : @ir.HotFunc, node_id : Int) -> Bool {
+  node_id < 0 ||
+  !@ir.hot_node_is_live(func, node_id) ||
+  @ir.hot_node_result_arity(func, node_id) == 1
+}
+
+///|
 fn simplify_locals_try_consume_following_local_get(
   func : @ir.HotFunc,
   parent_region : @ir.HotRegionRef,
@@ -1563,7 +1570,8 @@ fn simplify_locals_scan_node(
                     @ir.hot_node_get(func, value_id),
                   )
                   detached.push(value_id)
-                } else if !one_use {
+                } else if !one_use &&
+                  simplify_locals_value_can_tee(func, value_id) {
                   @ir.hot_replace_node(
                     func,
                     node_id,
@@ -2294,8 +2302,10 @@ fn simplify_locals_try_rewrite_loop_return(
   detached.push(tail.node_id)
   let replacement_id = if get_counts[tail.local_id] == 1 {
     tail.value_id
-  } else {
+  } else if simplify_locals_value_can_tee(func, tail.value_id) {
     @ir.hot_build_local_tee(func, tail.local_id, tail.value_id)
+  } else {
+    return false
   }
   ignore(@ir.hot_region_set(func, parent_region, next_idx, replacement_id))
   detached.push(next_id)
@@ -2922,7 +2932,11 @@ fn simplify_locals_run_equivalent_cleanup(
 }
 
 ///|
-fn simplify_locals_has_equivalent_candidate(func : @ir.HotFunc) -> Bool {
+fn simplify_locals_equivalent_candidate_count(
+  func : @ir.HotFunc,
+  stop_after? : Int = -1,
+) -> Int {
+  let mut count = 0
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -2936,7 +2950,12 @@ fn simplify_locals_has_equivalent_candidate(func : @ir.HotFunc) -> Bool {
         let value_id = @ir.hot_child_get(func, node_id, 0)
         if value_id >= 0 && @ir.hot_node_is_live(func, value_id) {
           match @ir.hot_node_get(func, value_id).op {
-            @ir.HotOp::LocalGet => return true
+            @ir.HotOp::LocalGet => {
+              count = count + 1
+              if stop_after >= 0 && count > stop_after {
+                return count
+              }
+            }
             _ => ()
           }
         }
@@ -2944,7 +2963,7 @@ fn simplify_locals_has_equivalent_candidate(func : @ir.HotFunc) -> Bool {
       _ => ()
     }
   }
-  false
+  count
 }
 
 ///|
@@ -3122,8 +3141,24 @@ fn simplify_locals_run(
       continue
     }
 
-    if @ir.hot_local_count(func) >= 96 ||
-      !simplify_locals_has_equivalent_candidate(func) {
+    let local_count = @ir.hot_local_count(func)
+    if local_count >= 96 {
+      break
+    }
+    let sparse_equivalent_limit = if local_count >= 56 {
+      local_count / 6
+    } else {
+      -1
+    }
+    let equivalent_candidate_count = simplify_locals_equivalent_candidate_count(
+      func,
+      stop_after=sparse_equivalent_limit,
+    )
+    if equivalent_candidate_count == 0 ||
+      (
+        sparse_equivalent_limit >= 0 &&
+        equivalent_candidate_count <= sparse_equivalent_limit
+      ) {
       break
     }
 

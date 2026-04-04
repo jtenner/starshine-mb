@@ -747,6 +747,61 @@ fn perf_test_make_simplify_locals_large_equivalent_module(
 }
 
 ///|
+fn perf_test_make_simplify_locals_sparse_equivalent_module(
+  local_count : Int,
+  copy_pairs : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < local_count {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    local.set 1\n")
+  let mut churn_local = 2
+  while churn_local < local_count {
+    out.write_string("    i32.const ")
+    out.write_string((1000 + churn_local).to_string())
+    out.write_string("\n")
+    out.write_string("    local.set ")
+    out.write_string(churn_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.get ")
+    out.write_string(churn_local.to_string())
+    out.write_string("\n")
+    out.write_string("    call 0\n")
+    out.write_string("    drop\n")
+    churn_local = churn_local + 1
+  }
+  let mut pair = 0
+  while pair < copy_pairs {
+    let target_local = pair + 2
+    out.write_string("    block\n")
+    out.write_string("      local.get 1\n")
+    out.write_string("      local.set ")
+    out.write_string(target_local.to_string())
+    out.write_string("\n")
+    out.write_string("      local.get ")
+    out.write_string(target_local.to_string())
+    out.write_string("\n")
+    out.write_string("      drop\n")
+    out.write_string("    end\n")
+    pair = pair + 1
+  }
+  out.write_string("    local.get 1)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_simplify_locals_structured_call_heavy_module(
   repetitions : Int,
   base_locals : Int,
@@ -4573,6 +4628,39 @@ test "simplify-locals skips equivalent cleanup on large structured copy webs" {
     Ok(_) => ()
     Err(err) =>
       fail("expected large equivalent simplify-locals success, got \{err}")
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(text.contains("perf:timer name=lift"), msg=text)
+  assert_true(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=detail:simplify-locals:equivalent-cleanup"),
+    msg=text,
+  )
+  assert_false(
+    text.contains("perf:timer name=detail:simplify-locals:late-dead-cleanup"),
+    msg=text,
+  )
+}
+
+///|
+test "simplify-locals skips equivalent cleanup on sparse medium copy helpers" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_sparse_equivalent_module(60, 8)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected sparse medium equivalent simplify-locals success, got \{err}",
+      )
   }
 
   let text = perf_test_join_lines(lines)

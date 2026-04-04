@@ -32,6 +32,26 @@ test "simplify-locals sinks a multi-use local through a tee" {
 }
 
 ///|
+test "simplify-locals keeps multivalue local-set producers out of tee rewrites" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32 i32) (result i32 i32 i32) local.get 0 local.get 1 local.get 2) (func (param i32 i32 i32) (result i32) (local i32 i32 i32) local.get 0 local.get 1 local.get 2 call 0 local.set 5 local.set 4 local.set 3 local.get 3 local.get 3 i32.add))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected multivalue producer simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 3)"), msg=pretty)
+  assert_false(pretty.contains("local.tee (Local 3)"), msg=pretty)
+}
+
+///|
 test "simplify-locals rewrites dead local.set roots" {
   let optimized = match
     pass_test_run_pipeline(
