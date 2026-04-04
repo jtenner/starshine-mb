@@ -790,10 +790,22 @@ fn simplify_locals_effects_ordered_before(
 
   let lhs_traps = simplify_locals_effects_has(lhs.mask, @ir.EFFECT_MASK_TRAP)
   let rhs_traps = simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_TRAP)
+  let lhs_has_non_local_effects = simplify_locals_effects_has(
+    lhs.mask,
+    @ir.EFFECT_MASK_CALL |
+    @ir.EFFECT_MASK_CONTROL |
+    @ir.EFFECT_MASK_THROW |
+    @ir.EFFECT_MASK_TRAP |
+    @ir.EFFECT_MASK_GLOBAL_STATE |
+    @ir.EFFECT_MASK_MEMORY_READ |
+    @ir.EFFECT_MASK_MEMORY_WRITE |
+    @ir.EFFECT_MASK_TABLE_READ |
+    @ir.EFFECT_MASK_TABLE_WRITE,
+  )
   if lhs_traps && rhs_mask != 0U {
     return true
   }
-  if rhs_traps && lhs.mask != 0U {
+  if rhs_traps && lhs_has_non_local_effects {
     return true
   }
 
@@ -820,7 +832,7 @@ fn simplify_locals_invalidate_sinkables(
     ) ||
     simplify_locals_effects_has(
       effects_mask,
-      @ir.EFFECT_MASK_CONTROL | @ir.EFFECT_MASK_THROW | @ir.EFFECT_MASK_TRAP,
+      @ir.EFFECT_MASK_CONTROL | @ir.EFFECT_MASK_THROW,
     )
   if clear_all && skip_local < 0 {
     simplify_locals_clear_sinkables(sinkables)
@@ -3081,6 +3093,20 @@ fn simplify_locals_run_dead_cleanup(
         if value_id >= 0 && @ir.hot_node_is_live(func, value_id) {
           let value = @ir.hot_node_get(func, value_id)
           match value.op {
+            @ir.HotOp::LocalTee if value.imm0 == node.imm0 => {
+              @ir.hot_replace_node(
+                func,
+                node_id,
+                simplify_locals_make_local_set(
+                  func,
+                  node.imm0,
+                  @ir.hot_child_get(func, value_id, 0),
+                ),
+              )
+              detached.push(value_id)
+              changed = true
+              continue
+            }
             @ir.HotOp::LocalGet if value.imm0 == node.imm0 => {
               @ir.hot_replace_node(
                 func,

@@ -32,6 +32,39 @@ test "simplify-locals sinks a multi-use local through a tee" {
 }
 
 ///|
+test "simplify-locals sinks pure local writes across trapping loads with a tee" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (param i32 i32 i32) (result i32) (local i64) local.get 2 if (result i32) i64.const 7 local.set 3 local.get 0 i64.load local.get 3 i64.and local.get 1 i64.load local.get 3 i64.and i64.eq else i32.const 1 end))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected trapping-load tee simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.tee (Local 3)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 3)"), msg=pretty)
+}
+
+///|
+test "simplify-locals drops redundant self-tee sets" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (param i32) (result i32) local.get 0) (func (param i32 i32) (result i32) (local i32 i32) local.get 0 call 0 local.tee 2 local.set 2 loop local.get 3 local.get 0 i32.lt_s if local.get 2 local.get 3 i32.const 1 i32.shl i32.add local.get 1 i32.store16 offset=8 local.get 3 i32.const 1 i32.add local.set 3 br 1 end end local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected self-tee simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.tee (Local 2)"), msg=pretty)
+}
+
+///|
 test "simplify-locals keeps multivalue local-set producers out of tee rewrites" {
   let optimized = match
     pass_test_run_pipeline(
