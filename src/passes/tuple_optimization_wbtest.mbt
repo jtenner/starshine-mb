@@ -8,6 +8,31 @@ fn tuple_optimization_test_analyze(
 }
 
 ///|
+fn tuple_optimization_test_analyze_via_binary(
+  text : String,
+  func_idx : UInt,
+) -> HotTupleOptimizationAnalysis {
+  let mod_ = pass_test_module_from_wat(text)
+  let encoded = match @binary.encode_module(mod_) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      abort(
+        "unexpected tuple-optimization via-binary fixture encode failure: \{err}",
+      )
+  }
+  let decoded = match @binary.decode_module(encoded) {
+    Ok(decoded) => decoded
+    Err(err) =>
+      abort(
+        "unexpected tuple-optimization via-binary fixture decode failure: \{err}",
+      )
+  }
+  let hot_func = @ir.hot_lift_func(decoded, @lib.FuncIdx::new(func_idx))
+  let use_def = @ir.use_def_build(hot_func)
+  tuple_optimization_analyze(hot_func, use_def)
+}
+
+///|
 fn tuple_optimization_test_ctx() -> HotPassContext {
   HotPassContext::new(
     @ir.HotPassDescriptor::new("tuple-optimization-test"),
@@ -439,7 +464,7 @@ test "tuple-optimization pipeline rewrites compare-shape scalar forwarding bridg
 }
 
 ///|
-test "tuple-optimization rewrite stages original lanes before a root local.set host chain" {
+test "tuple-optimization rewrite keeps a staged host local.set root chain" {
   let fixture = tuple_optimization_test_rewrite(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"trim\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 6 local.set 3 local.get 7 local.set 2 local.get 8 local.tee 1 local.get 2 local.get 3 call 1 local.set 0 local.get 0))",
   )
@@ -447,48 +472,8 @@ test "tuple-optimization rewrite stages original lanes before a root local.set h
 
   assert_true(@ir.hot_local_count(func) > 9)
 
-  let source_root = @ir.hot_root_get(func, 0)
-  assert_eq(@ir.hot_node_get(func, source_root).op.to_string(), "Block")
-  let staged_body = @ir.hot_region_body_ref(func, source_root)
-  assert_eq(@ir.hot_region_root_count(func, staged_body), 3)
-  let staged_root = @ir.hot_region_get(func, staged_body, 0)
+  let staged_root = @ir.hot_root_get(func, 0)
   assert_eq(@ir.hot_node_get(func, staged_root).op.to_string(), "LocalSet")
-
-  let source_host = @ir.hot_child_get(func, staged_root, 0)
-  assert_eq(@ir.hot_node_get(func, source_host).op.to_string(), "LocalTee")
-
-  let source_block = @ir.hot_child_get(func, source_host, 0)
-  assert_eq(@ir.hot_node_get(func, source_block).op.to_string(), "Block")
-
-  let source_body = @ir.hot_region_body_ref(func, source_block)
-  assert_eq(@ir.hot_region_root_count(func, source_body), 3)
-
-  let lane2 = @ir.hot_region_get(func, source_body, 0)
-  let lane1 = @ir.hot_region_get(func, source_body, 1)
-  let lane0 = @ir.hot_region_get(func, source_body, 2)
-  assert_eq(@ir.hot_node_get(func, lane2).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, lane1).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, lane0).op.to_string(), "Call")
-
-  let mut saw_forwarded_original_host = false
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    let node = @ir.hot_node_get(func, node_id)
-    if node.op.to_string() == "LocalTee" &&
-      node.imm0 == 4 &&
-      @ir.hot_child_count(func, node_id) == 1 {
-      let forwarded = @ir.hot_child_get(func, node_id, 0)
-      if @ir.hot_node_get(func, forwarded).op.to_string() == "LocalGet" &&
-        @ir.hot_node_get(func, forwarded).imm0 ==
-        @ir.hot_node_get(func, staged_root).imm0 {
-        saw_forwarded_original_host = true
-        break
-      }
-    }
-  }
-  assert_true(saw_forwarded_original_host)
 }
 
 ///|
@@ -715,7 +700,7 @@ test "tuple-optimization leaves terminal two-hop scalar forwarding copy groups h
 }
 
 ///|
-test "tuple-optimization suppresses terminal two-hop scalar forwarding copy groups with only one live host lane" {
+test "tuple-optimization keeps terminal two-hop scalar forwarding copy groups with one live host lane rewriteable" {
   let analysis = tuple_optimization_test_analyze(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 local.get 7 local.set 5 local.get 8 local.set 4 local.get 6 local.set 3 block (result i32 i32 i32) local.get 3 local.get 5 local.get 4 end local.set 2 local.set 1 local.tee 0 local.get 1 drop local.get 2 drop))",
   )
@@ -734,7 +719,7 @@ test "tuple-optimization suppresses terminal two-hop scalar forwarding copy grou
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 local.get 7 local.set 5 local.get 8 local.set 4 local.get 6 local.set 3 block (result i32 i32 i32) local.get 3 local.get 5 local.get 4 end local.set 2 local.set 1 local.tee 0 local.get 1 drop local.get 2 drop))",
   )
   let use_def = @ir.use_def_build(fixture.hot_func)
-  assert_false(
+  assert_true(
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
@@ -745,7 +730,7 @@ test "tuple-optimization suppresses terminal two-hop scalar forwarding copy grou
 }
 
 ///|
-test "tuple-optimization suppresses terminal drop-only no-host exact copy groups" {
+test "tuple-optimization keeps terminal drop-only no-host exact copy groups rewriteable" {
   let analysis = tuple_optimization_test_analyze(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 2 local.set 1 local.set 0 local.get 1 drop local.get 2 drop local.get 0))",
   )
@@ -764,7 +749,7 @@ test "tuple-optimization suppresses terminal drop-only no-host exact copy groups
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 2 local.set 1 local.set 0 local.get 1 drop local.get 2 drop local.get 0))",
   )
   let use_def = @ir.use_def_build(fixture.hot_func)
-  assert_false(
+  assert_true(
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
@@ -775,7 +760,7 @@ test "tuple-optimization suppresses terminal drop-only no-host exact copy groups
 }
 
 ///|
-test "tuple-optimization suppresses chained terminal drop-only no-host exact copy groups" {
+test "tuple-optimization keeps chained terminal drop-only no-host exact copy groups rewriteable" {
   let analysis = tuple_optimization_test_analyze(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 5 local.set 4 local.set 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.set 0 local.get 1 drop local.get 2 drop local.get 0))",
   )
@@ -793,7 +778,7 @@ test "tuple-optimization suppresses chained terminal drop-only no-host exact cop
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 5 local.set 4 local.set 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.set 0 local.get 1 drop local.get 2 drop local.get 0))",
   )
   let use_def = @ir.use_def_build(fixture.hot_func)
-  assert_false(
+  assert_true(
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
@@ -806,7 +791,7 @@ test "tuple-optimization suppresses chained terminal drop-only no-host exact cop
   assert_eq(terminal.lane_locals, [0, 1, 2])
   assert_eq(terminal.copy_source, Some(1))
   assert_eq(tuple_optimization_group_host_lane(terminal), None)
-  assert_false(
+  assert_true(
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
@@ -862,7 +847,7 @@ test "tuple-optimization rewrite keeps a typed source host carrier on raw decode
 }
 
 ///|
-test "tuple-optimization rewrite suppresses redundant chained host-copy tail-live0 carriers" {
+test "tuple-optimization rewrite avoids redundant tuple.make carriers in chained host-copy tail-live0 rewrites" {
   let fixture = tuple_optimization_test_rewrite(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
   )
@@ -877,7 +862,103 @@ test "tuple-optimization rewrite suppresses redundant chained host-copy tail-liv
       tuple_make_count = tuple_make_count + 1
     }
   }
-  assert_eq(tuple_make_count, 1)
+  assert_eq(tuple_make_count, 0)
+}
+
+///|
+test "tuple-optimization lowered chained host-copy tail-live0 keeps downstream host tees" {
+  let fixture = tuple_optimization_test_rewrite(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
+  )
+  let lowered = @ir.ir_test_assert_verify_and_lower(fixture)
+  let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("local.tee (Local 12)"), msg=pretty)
+  assert_true(pretty.contains("local.tee (Local 3)"), msg=pretty)
+  assert_true(pretty.contains("local.tee (Local 15)"), msg=pretty)
+  assert_true(pretty.contains("local.tee (Local 0)"), msg=pretty)
+}
+
+///|
+test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups rewriteable" {
+  let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))"
+  let analysis = tuple_optimization_test_analyze(source)
+  assert_eq(analysis.groups.length(), 3)
+
+  let fixture = @ir.ir_test_build_hot_from_wat(source)
+  let use_def = @ir.use_def_build(fixture.hot_func)
+  assert_true(
+    tuple_optimization_group_should_rewrite_in_func(
+      fixture.hot_func,
+      use_def,
+      analysis.groups,
+      0,
+    ),
+  )
+  assert_true(
+    tuple_optimization_group_should_rewrite_in_func(
+      fixture.hot_func,
+      use_def,
+      analysis.groups,
+      1,
+    ),
+  )
+  assert_true(
+    tuple_optimization_group_should_rewrite_in_func(
+      fixture.hot_func,
+      use_def,
+      analysis.groups,
+      2,
+    ),
+  )
+}
+
+///|
+test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups rewriteable after binary decode" {
+  let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))"
+  let analysis = tuple_optimization_test_analyze_via_binary(source, 1U)
+  assert_eq(analysis.groups.length(), 3)
+
+  let mod_ = pass_test_module_from_wat(source)
+  let encoded = match @binary.encode_module(mod_) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      abort(
+        "unexpected tuple-optimization via-binary suppression fixture encode failure: \{err}",
+      )
+  }
+  let decoded = match @binary.decode_module(encoded) {
+    Ok(decoded) => decoded
+    Err(err) =>
+      abort(
+        "unexpected tuple-optimization via-binary suppression fixture decode failure: \{err}",
+      )
+  }
+  let hot_func = @ir.hot_lift_func(decoded, @lib.FuncIdx::new(1U))
+  let use_def = @ir.use_def_build(hot_func)
+  assert_true(
+    tuple_optimization_group_should_rewrite_in_func(
+      hot_func,
+      use_def,
+      analysis.groups,
+      0,
+    ),
+  )
+  assert_true(
+    tuple_optimization_group_should_rewrite_in_func(
+      hot_func,
+      use_def,
+      analysis.groups,
+      1,
+    ),
+  )
+  assert_true(
+    tuple_optimization_group_should_rewrite_in_func(
+      hot_func,
+      use_def,
+      analysis.groups,
+      2,
+    ),
+  )
 }
 
 ///|

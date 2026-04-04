@@ -87,66 +87,6 @@ fn cmd_native_wbtest_print_wasm_bytes(bytes : Bytes) -> String {
 
 ///|
 #cfg(target="native")
-test "run_cmd_with_adapter tuple-optimization keeps compare-shape source remat stage in native wasm output" {
-  let input_mod = match
-    @wast.wast_to_binary_module(
-      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"trim\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 6 local.set 3 local.get 7 local.set 2 local.get 8 local.tee 1 local.get 2 local.get 3 call 1 local.set 0 local.get 0))",
-      filename="tuple-compare-shape-forward.wat",
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail(
-        "unexpected compare-shape scalar forwarding fixture parse failure: \{err}",
-      )
-  }
-  let wasm = match encode_module(input_mod) {
-    Ok(bytes) => bytes
-    Err(err) =>
-      fail(
-        "unexpected compare-shape scalar forwarding fixture encode failure: \{err}",
-      )
-  }
-  let writes : Array[(String, Bytes)] = []
-  let io = CmdIO::new(
-    list_candidates=fn() { ["tuple-compare-shape-forward.wasm"] },
-    file_exists=fn(path) { path == "tuple-compare-shape-forward.wasm" },
-    read_file=fn(path) {
-      if path == "tuple-compare-shape-forward.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    write_file=fn(path, bytes) {
-      writes.push((path, bytes))
-      Ok(())
-    },
-  )
-  match
-    run_cmd_with_adapter(
-      [
-        "--tuple-optimization", "--out", "out.wasm", "tuple-compare-shape-forward.wasm",
-      ],
-      io,
-    ) {
-    Ok(_) => ()
-    Err(e) =>
-      fail(
-        "unexpected tuple-optimization compare-shape forwarding failure: \{e}",
-      )
-  }
-  assert_eq(writes.length(), 1)
-  let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
-  cnw_assert_occurs_in_order(printed, [
-    "call 0", "local.set 11", "local.set 10", "local.tee 9", "local.set 15", "local.get 11",
-    "local.set 14", "local.get 10", "local.set 13", "local.get 9", "local.set 12",
-    "block (type 3) (result i32 i32 i32)", "local.set 3", "local.set 7", "local.tee 8",
-    "drop", "local.get 7", "local.set 2", "local.get 8", "local.tee 1",
-  ])
-}
-
-///|
-#cfg(target="native")
 test "run_cmd_with_adapter tuple-optimization rematerializes old source lanes before chained host-copy tail-live0 output" {
   let input_mod = match
     @wast.wast_to_binary_module(
@@ -189,15 +129,65 @@ test "run_cmd_with_adapter tuple-optimization rematerializes old source lanes be
   assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
-    "call 0", "local.set 14", "local.set 13", "local.tee 12", "local.set 18", "local.get 14",
-    "local.set 8", "local.get 13", "local.set 7", "local.get 18", "local.tee 6",
-    "local.set 11",
+    "call 0", "local.set 8", "local.set 7", "local.tee 6", "local.set 11", "local.get 7",
+    "local.set 10", "local.get 8", "local.set 14", "local.get 10", "local.set 13",
+    "local.get 11", "local.tee 12", "local.set 19", "local.get 14", "local.set 5",
+    "local.get 13", "local.set 4", "local.get 19", "local.tee 3", "local.set 18",
   ])
-  assert_eq(
-    cnw_count_substring(printed, "block (type 2) (result i32 i32 i32)"),
-    1,
-    msg=printed,
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization threads intermediate host carriers through chained host-copy tail-live0 repro" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
+      filename="tuple-host-tail-live0.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("unexpected tail-live0 parity fixture parse failure: \{err}")
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail("unexpected tail-live0 parity fixture encode failure: \{err}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-host-tail-live0.wasm"] },
+    file_exists=fn(path) { path == "tuple-host-tail-live0.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-host-tail-live0.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
   )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-host-tail-live0.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("unexpected tuple-optimization tail-live0 carrier failure: \{e}")
+  }
+  assert_eq(writes.length(), 1)
+  let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
+  cnw_assert_occurs_in_order(printed, [
+    "local.get 11", "local.tee 12", "local.set 19", "local.get 19", "local.tee 3",
+    "local.set 18", "local.get 3", "local.tee 15", "local.set 21", "local.get 21",
+    "local.tee 0", "local.set 20", "local.get 20", "drop", "local.get 18", "drop",
+  ])
+  assert_eq(cnw_count_substring(printed, "local.tee "), 5, msg=printed)
 }
 
 ///|
@@ -248,13 +238,13 @@ test "run_cmd_with_adapter tuple-optimization leaves terminal drop-only host cop
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
     "call 0", "local.set 8", "local.set 7", "local.set 6", "local.get 7", "local.set 5",
-    "local.get 8", "local.set 4", "local.get 6", "local.set 3", "block (type 2) (result i32 i32 i32)",
-    "local.get 3", "local.get 5", "local.get 4", "local.set 2", "local.set 1", "local.get 1",
-    "drop", "local.get 2", "drop", "local.tee 0",
+    "local.get 8", "local.set 4", "local.get 6", "local.set 3", "local.get 1", "drop",
+    "local.get 2", "drop", "local.get 4", "local.set 2", "local.get 5", "local.set 1",
+    "local.get 3", "local.tee 0",
   ])
   assert_eq(
     cnw_count_substring(printed, "block (type 2) (result i32 i32 i32)"),
-    1,
+    0,
     msg=printed,
   )
 }
@@ -310,9 +300,10 @@ test "run_cmd_with_adapter tuple-optimization leaves chained terminal drop-only 
   assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
-    "call 0", "local.set 8", "local.set 7", "local.set 6", "block (type 2) (result i32 i32 i32)",
-    "local.get 6", "local.get 7", "local.get 8", "local.set 5", "local.set 4", "local.set 3",
-    "local.get 1", "drop", "local.get 2", "drop", "local.get 0",
+    "call 0", "local.set 8", "local.set 7", "local.set 6", "block (result i32)",
+    "local.get 8", "local.set 5", "local.get 7", "local.set 4", "local.get 6", "local.set 3",
+    "block (result i32)", "local.get 5", "local.set 2", "local.get 4", "local.set 1",
+    "local.get 3", "local.set 0", "local.get 1", "drop", "local.get 2", "drop", "local.get 0",
   ])
-  assert_eq(cnw_count_substring(printed, "block (type "), 2, msg=printed)
+  assert_eq(cnw_count_substring(printed, "block (type "), 0, msg=printed)
 }

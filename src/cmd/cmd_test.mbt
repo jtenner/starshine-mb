@@ -2138,7 +2138,8 @@ test "run_cmd_with_adapter tuple-optimization stages chained host-copy tail-live
   assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(count_substring(pretty, "(block (Type ") >= 2, msg=pretty)
+  assert_true(pretty.contains("(local.tee (Local 12))"), msg=pretty)
+  assert_true(pretty.contains("(local.tee (Local 15))"), msg=pretty)
   assert_false(
     pretty.contains(
       "(local.get (Local 8))(local.set (Local 14))(local.get (Local 10))(local.set (Local 13))(local.get (Local 11))(local.set (Local 12))",
