@@ -46,6 +46,8 @@ priv struct CpSummaryCache {
   trivial_dead_move_gap_values : Array[Bool]
   nonvoid_block_root_guard_ready : Array[Bool]
   nonvoid_block_root_guard_values : Array[Bool]
+  safe_if_root_guard_ready : Array[Bool]
+  safe_if_root_guard_values : Array[Bool]
   local_set_value_block_guard_ready : Array[Bool]
   local_set_value_block_guard_values : Array[Bool]
 }
@@ -278,6 +280,8 @@ fn cp_new_summary_cache(
     trivial_dead_move_gap_values: Array::make(node_count, false),
     nonvoid_block_root_guard_ready: Array::make(node_count, false),
     nonvoid_block_root_guard_values: Array::make(node_count, false),
+    safe_if_root_guard_ready: Array::make(node_count, false),
+    safe_if_root_guard_values: Array::make(node_count, false),
     local_set_value_block_guard_ready: Array::make(node_count, false),
     local_set_value_block_guard_values: Array::make(node_count, false),
   }
@@ -1049,13 +1053,9 @@ fn cp_root_is_simple_explicit_exit_local_set(
   if !cp_bitset_any(value_summary.local_writes) {
     return true
   }
-  match func.nodes[value_id].op {
-    @ir.HotOp::Block =>
-      cp_local_set_value_block_has_only_safe_explicit_exits(
-        cache, func, value_id, dropped_region_owner_id,
-      )
-    _ => false
-  }
+  cp_local_set_value_has_only_safe_explicit_exits(
+    cache, func, value_id, dropped_region_owner_id,
+  )
 }
 
 ///|
@@ -1273,7 +1273,7 @@ fn cp_collect_block_owner_exit_summary(
 }
 
 ///|
-fn cp_collect_local_set_value_block_exit_summary_for_branch(
+fn cp_collect_local_set_value_exit_summary_for_branch(
   func : @ir.HotFunc,
   owner_id : Int,
   active_owner_marks : Array[Bool],
@@ -1316,7 +1316,7 @@ fn cp_collect_local_set_value_block_exit_summary_for_branch(
 }
 
 ///|
-fn cp_collect_local_set_value_block_exit_summary(
+fn cp_collect_local_set_value_exit_summary(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
   node_id : Int,
@@ -1342,7 +1342,7 @@ fn cp_collect_local_set_value_block_exit_summary(
     | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
     | @ir.HotOp::BrOnCastFail => {
-      cp_collect_local_set_value_block_exit_summary_for_branch(
+      cp_collect_local_set_value_exit_summary_for_branch(
         func, owner_id, active_owner_marks, dropped_region_owner_id, node_id, summary,
       )
       return
@@ -1373,7 +1373,7 @@ fn cp_collect_local_set_value_block_exit_summary(
     active_owner_marks[node_id] = true
   }
   for slot = 0; slot < node.child_count; slot = slot + 1 {
-    cp_collect_local_set_value_block_exit_summary(
+    cp_collect_local_set_value_exit_summary(
       cache,
       func,
       func.children[node.child_base + slot],
@@ -1500,7 +1500,7 @@ fn cp_local_set_value_block_is_simple_owner_if_payload_carrier(
 }
 
 ///|
-fn cp_local_set_value_block_has_only_safe_explicit_exits(
+fn cp_local_set_value_has_only_safe_explicit_exits(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
   root_id : Int,
@@ -1522,7 +1522,7 @@ fn cp_local_set_value_block_has_only_safe_explicit_exits(
   }
   let active_owner_marks = cache.owner_exit_active_marks
   active_owner_marks[root_id] = true
-  cp_collect_local_set_value_block_exit_summary(
+  cp_collect_local_set_value_exit_summary(
     cache, func, root_id, root_id, active_owner_marks, dropped_region_owner_id, summary,
   )
   active_owner_marks[root_id] = false
@@ -1539,6 +1539,50 @@ fn cp_local_set_value_block_has_only_safe_explicit_exits(
   if root_id >= 0 && root_id < cache.local_set_value_block_guard_ready.length() {
     cache.local_set_value_block_guard_ready[root_id] = true
     cache.local_set_value_block_guard_values[root_id] = result
+  }
+  result
+}
+
+///|
+fn cp_if_root_has_only_safe_explicit_exits(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  root_id : Int,
+  dropped_region_owner_id : Int,
+) -> Bool {
+  if root_id < 0 || !cp_node_is_live(cache, root_id) {
+    return false
+  }
+  if root_id >= 0 &&
+    root_id < cache.safe_if_root_guard_ready.length() &&
+    cache.safe_if_root_guard_ready[root_id] {
+    return cache.safe_if_root_guard_values[root_id]
+  }
+  match func.nodes[root_id].op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  let summary = {
+    has_owner_exit: false,
+    has_dropped_owner_exit: false,
+    has_terminal_exit: false,
+    has_unsafe_branch_exit: false,
+  }
+  let active_owner_marks = cache.owner_exit_active_marks
+  active_owner_marks[root_id] = true
+  cp_collect_local_set_value_exit_summary(
+    cache, func, root_id, root_id, active_owner_marks, dropped_region_owner_id, summary,
+  )
+  active_owner_marks[root_id] = false
+  let result = !summary.has_unsafe_branch_exit &&
+    (
+      !summary.has_owner_exit ||
+      summary.has_dropped_owner_exit ||
+      summary.has_terminal_exit
+    )
+  if root_id >= 0 && root_id < cache.safe_if_root_guard_ready.length() {
+    cache.safe_if_root_guard_ready[root_id] = true
+    cache.safe_if_root_guard_values[root_id] = result
   }
   result
 }
@@ -1721,6 +1765,9 @@ fn cp_nonvoid_prefix_has_explicit_exit_guard(
           cp_node_has_explicit_exit(cache, func, root_id) &&
           !cp_root_is_unconditional_terminal_explicit_exit(cache, func, root_id) &&
           !cp_root_is_simple_explicit_exit_local_set(
+            cache, func, root_id, dropped_region_owner_id,
+          ) &&
+          !cp_if_root_has_only_safe_explicit_exits(
             cache, func, root_id, dropped_region_owner_id,
           ) {
           return true

@@ -1444,6 +1444,79 @@ test "code-pushing does not rewrite past an earlier zero-result branch root" {
 }
 
 ///|
+test "code-pushing rewrites past an earlier explicit-exit local.set if carrier" {
+  let source =
+    #|(module
+    #|  (func $side (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (local.set 2
+    #|      (if (result i32)
+    #|        (local.get 0)
+    #|        (then
+    #|          (local.set 5 (local.get 1))
+    #|          (i32.const 7))
+    #|        (else
+    #|          (local.set 5 (local.get 1))
+    #|          (call $side (local.get 1))
+    #|          (return (i32.const 9)))))
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 1)
+    #|    (local.set 4)
+    #|    (local.get 4)
+    #|    (if
+    #|      (then
+    #|        (call $side (local.get 4))))
+    #|    (local.get 3))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 1)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "LocalSet(4)", "If", "LocalSet(3)", "LocalGet(3)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites past an earlier explicit-exit if root" {
+  let source =
+    #|(module
+    #|  (func $side (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (if
+    #|      (local.get 0)
+    #|      (then
+    #|        (local.set 4 (local.get 1))
+    #|        (return (i32.const 9))))
+    #|    (local.get 1)
+    #|    (local.set 2)
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 3)
+    #|    (if
+    #|      (then
+    #|        (call $side (local.get 3))))
+    #|    (local.get 2))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 1)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "If", "LocalSet(3)", "If", "LocalSet(2)", "LocalGet(2)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing rewrites past an earlier dropped result-carrying block root" {
   let source =
     #|(module

@@ -429,6 +429,17 @@
   payload there has `payload_explicit=true`. So the live blocker is not the
   newly-admitted simple owner-only carrier family; it is the nested-explicit-
   exit owner-carrier case.
+- Two more safe non-crossed-prefix families are now in-tree as well. The pass
+  now ignores earlier explicit-exit `LocalSet(If ...)` carriers with nested
+  local writes when those exits stay terminal-or-safe, and it now ignores the
+  same terminal-or-safe earlier explicit-exit `If` roots directly. Both landed
+  with matching pass plus HOT-lowering reducers.
+- That moved the second live family for real. The fresh compare replay at
+  `.tmp/self-opt-code-pushing-if-root-v4` removes the old `61077` mismatch
+  entirely, so the first normalized WAT deltas now start at `48981`, `72008`,
+  `105623`, and `126731`. The first blocker is still the traced dropped-carrier
+  `LocalSet(call)` family in printed `func $127` / pipeline `Func 148`, not one
+  more flat same-region `if` prefix guard.
 - One more smaller non-repro is now pinned beside that live family. A reduced
   root shape with an earlier zero-result branch root, one intervening used
   `LocalSet`, and then a branch-free crossed gap before the later `if` still
