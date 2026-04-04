@@ -49,6 +49,43 @@ test "simplify-locals sinks pure local writes across trapping loads with a tee" 
 }
 
 ///|
+test "simplify-locals sinks trapping reads across read-only traps with a tee" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (param i32) (local i32 i32) local.get 0 i32.load align=1 local.set 1 local.get 0 i32.load offset=4 align=1 local.set 2 nop local.get 0 local.tee 0 local.get 1 i32.const 4 i32.mul i32.add i32.load align=1 drop local.get 1 i32.const 1 i32.add local.set 1))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected read-only trapping tee simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
+}
+
+///|
+test "simplify-locals does not sink trapping reads across memory writes" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func (param i32 i32) (result i32) (local i32) local.get 0 i32.load align=1 local.set 2 local.get 1 local.get 0 i32.store align=1 local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected trapping-write barrier simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_false(pretty.contains("local.tee (Local 2)"), msg=pretty)
+}
+
+///|
 test "simplify-locals drops redundant self-tee sets" {
   let optimized = match
     pass_test_run_pipeline(
@@ -302,6 +339,25 @@ test "simplify-locals lifts matching block exits into a block result" {
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
   assert_true(pretty.contains("I32(1)"), msg=pretty)
   assert_true(pretty.contains("I32(2)"), msg=pretty)
+}
+
+///|
+test "simplify-locals lifts block returns past live intervening local sets" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32 i32) block $exit local.get 0 if i32.const 7 local.set 1 i32.const 9 local.set 2 br $exit end i32.const 5 local.set 1 i32.const 11 local.set 2 end local.get 1 local.get 2 i32.add))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected intervening-set block-return simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
 }
 
 ///|

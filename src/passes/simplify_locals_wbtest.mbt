@@ -51,6 +51,7 @@ test "simplify-locals does not collect block exits through typed child carriers"
       func,
       outer_body,
       @ir.hot_control_node_label(func, outer_id),
+      2,
       exits,
     ),
   )
