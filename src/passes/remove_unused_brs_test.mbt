@@ -1320,6 +1320,22 @@ test "remove-unused-brs rewrites block-carried one-arm payload branches into nes
 }
 
 ///|
+test "remove-unused-brs rewrites prefix-heavy block-carried one-arm payload branches into nested typed ifs" {
+  let source = "(module (func (param i32 i32 i32 i32) (result i32) (local i32) (block $carry (result i32) (block $inner (local.get 0) (i32.const 0) i32.eq (if (result i32) (then (local.get 1)) (else (local.get 2) drop (local.get 3) (local.set 4) (br $inner))) (br $carry)) (local.get 4))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs prefix-heavy block-carried payload branch success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(br "), msg=pretty)
+  assert_false(pretty.contains("(block I32"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites repeated branch-target equality ladders into br_table" {
   let optimized = match
     pass_test_run_pipeline(

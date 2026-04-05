@@ -2560,22 +2560,6 @@ fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
   if @ir.hot_region_root_count(func, body_ref) < 2 {
     return false
   }
-  let if_id = @ir.hot_region_get(func, body_ref, 0)
-  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
-    return false
-  }
-  match @ir.hot_node_get(func, if_id).op {
-    @ir.HotOp::If =>
-      if @ir.hot_node_result_arity(func, if_id) != 0 {
-        return false
-      }
-    _ => return false
-  }
-  let then_ref = @ir.hot_region_then_ref(func, if_id)
-  match @ir.hot_region_else_ref(func, if_id) {
-    Some(_) => return false
-    None => ()
-  }
   let result_arity = @ir.hot_node_result_arity(func, block_id)
   if result_arity != 1 {
     return false
@@ -2584,33 +2568,6 @@ fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
       func,
       @ir.hot_node_type(func, block_id),
     )[0]
-  let branch_value = match
-    remove_unused_brs_build_stack_exit_region_value_expr(
-      ctx,
-      func,
-      then_ref,
-      BranchTarget(block_label),
-      result_type,
-      reorder_cache,
-    ) {
-    Some(branch_value) => branch_value
-    None =>
-      match
-        remove_unused_brs_build_stack_exit_region_value_body(
-          func,
-          then_ref,
-          BranchTarget(block_label),
-          result_arity,
-        ) {
-        Some(branch_body) =>
-          @ir.hot_build_block(
-            func,
-            @lib.BlockType::val_type(result_type),
-            branch_body,
-          )
-        None => return false
-      }
-  }
   let fallthrough_roots : Array[Int] = []
   for root_idx = 1
       root_idx < @ir.hot_region_root_count(func, body_ref)
@@ -2622,16 +2579,267 @@ fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
     Some(_) => ()
     None => return false
   }
+  let direct_if_id = @ir.hot_region_get(func, body_ref, 0)
+  if direct_if_id >= 0 && @ir.hot_node_is_live(func, direct_if_id) {
+    match @ir.hot_node_get(func, direct_if_id).op {
+      @ir.HotOp::If =>
+        if @ir.hot_node_result_arity(func, direct_if_id) == 0 {
+          let then_ref = @ir.hot_region_then_ref(func, direct_if_id)
+          match @ir.hot_region_else_ref(func, direct_if_id) {
+            Some(_) => ()
+            None => {
+              let branch_value = match
+                remove_unused_brs_build_stack_exit_region_value_expr(
+                  ctx,
+                  func,
+                  then_ref,
+                  BranchTarget(block_label),
+                  result_type,
+                  reorder_cache,
+                ) {
+                Some(branch_value) => branch_value
+                None =>
+                  match
+                    remove_unused_brs_build_stack_exit_region_value_body(
+                      func,
+                      then_ref,
+                      BranchTarget(block_label),
+                      result_arity,
+                    ) {
+                    Some(branch_body) =>
+                      @ir.hot_build_block(
+                        func,
+                        @lib.BlockType::val_type(result_type),
+                        branch_body,
+                      )
+                    None => return false
+                  }
+              }
+              let replacement = @ir.hot_build_if(
+                func,
+                @lib.BlockType::val_type(result_type),
+                @ir.hot_child_get(func, direct_if_id, 0),
+                [branch_value],
+                else_body=Some(fallthrough_roots),
+              )
+              @ir.hot_replace_node(
+                func,
+                block_id,
+                @ir.hot_node_get(func, replacement),
+              )
+              pass_mark_mutated(ctx, func)
+              pass_delete_detached_nodes(ctx, func, [
+                replacement,
+                direct_if_id,
+                then_ref.holder,
+              ])
+              return true
+            }
+          }
+        }
+      _ => ()
+    }
+  }
+  let wrapper_id = direct_if_id
+  if wrapper_id < 0 || !@ir.hot_node_is_live(func, wrapper_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, wrapper_id).op {
+    @ir.HotOp::Block =>
+      if @ir.hot_node_result_arity(func, wrapper_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  let wrapper_label = @ir.hot_control_node_label(func, wrapper_id)
+  if wrapper_label < 0 ||
+    wrapper_label >= label_refs.length() ||
+    label_refs[wrapper_label] != 1 {
+    return false
+  }
+  let wrapper_body = @ir.hot_region_body_ref(func, wrapper_id)
+  let wrapper_root_count = @ir.hot_region_root_count(func, wrapper_body)
+  let branch_arm_prefix = fn(branch_ref : @ir.HotRegionRef) -> Array[Int]? {
+    match
+      remove_unused_brs_region_tail_control_payload_count(
+        func,
+        branch_ref,
+        BranchTarget(wrapper_label),
+        0,
+      ) {
+      Some(0) => ()
+      _ => return None
+    }
+    let roots = remove_unused_brs_region_roots(func, branch_ref)
+    if roots.is_empty() {
+      return None
+    }
+    let prefix : Array[Int] = []
+    for idx = 0; idx < roots.length() - 1; idx = idx + 1 {
+      prefix.push(roots[idx])
+    }
+    Some(prefix)
+  }
+  if wrapper_root_count == 1 {
+    let wrapper_root = @ir.hot_region_get(func, wrapper_body, 0)
+    if wrapper_root >= 0 && @ir.hot_node_is_live(func, wrapper_root) {
+      let wrapper_root_node = @ir.hot_node_get(func, wrapper_root)
+      match wrapper_root_node.op {
+        @ir.HotOp::Br =>
+          if @ir.hot_branch_target(func, wrapper_root) == Some(block_label) {
+            match @ir.hot_node_repeated_live_child(func, wrapper_root) {
+              Some(if_id) if if_id >= 0 && @ir.hot_node_is_live(func, if_id) =>
+                match @ir.hot_node_get(func, if_id).op {
+                  @ir.HotOp::If =>
+                    if @ir.hot_node_result_arity(func, if_id) == 1 {
+                      let then_ref = @ir.hot_region_then_ref(func, if_id)
+                      let else_ref = match
+                        @ir.hot_region_else_ref(func, if_id) {
+                        Some(else_ref) => else_ref
+                        None => return false
+                      }
+                      let then_branch_prefix = branch_arm_prefix(then_ref)
+                      let else_branch_prefix = branch_arm_prefix(else_ref)
+                      let branch_in_then = then_branch_prefix != None
+                      let branch_in_else = else_branch_prefix != None
+                      if branch_in_then != branch_in_else {
+                        let nonbranch_roots = if branch_in_then {
+                          remove_unused_brs_region_roots(func, else_ref)
+                        } else {
+                          remove_unused_brs_region_roots(func, then_ref)
+                        }
+                        let branch_body = if branch_in_then {
+                          match then_branch_prefix {
+                            Some(prefix) => prefix + fallthrough_roots
+                            None => return false
+                          }
+                        } else {
+                          match else_branch_prefix {
+                            Some(prefix) => prefix + fallthrough_roots
+                            None => return false
+                          }
+                        }
+                        let replacement = @ir.hot_build_if(
+                          func,
+                          @lib.BlockType::val_type(result_type),
+                          @ir.hot_child_get(func, if_id, 0),
+                          if branch_in_then {
+                            branch_body
+                          } else {
+                            nonbranch_roots
+                          },
+                          else_body=Some(
+                            if branch_in_then {
+                              nonbranch_roots
+                            } else {
+                              branch_body
+                            },
+                          ),
+                        )
+                        @ir.hot_replace_node(
+                          func,
+                          block_id,
+                          @ir.hot_node_get(func, replacement),
+                        )
+                        pass_mark_mutated(ctx, func)
+                        pass_delete_detached_nodes(ctx, func, [
+                          replacement,
+                          wrapper_id,
+                          wrapper_root,
+                          if_id,
+                          then_ref.holder,
+                          else_ref.holder,
+                        ])
+                        return true
+                      }
+                    }
+                  _ => ()
+                }
+              _ => ()
+            }
+          }
+        _ => ()
+      }
+    }
+  }
+  if wrapper_root_count < 2 {
+    return false
+  }
+  let if_id = @ir.hot_region_get(func, wrapper_body, wrapper_root_count - 2)
+  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, if_id).op {
+    @ir.HotOp::If =>
+      if @ir.hot_node_result_arity(func, if_id) != 1 {
+        return false
+      }
+    _ => return false
+  }
+  let wrapper_exit = @ir.hot_region_get(
+    func,
+    wrapper_body,
+    wrapper_root_count - 1,
+  )
+  if wrapper_exit < 0 || !@ir.hot_node_is_live(func, wrapper_exit) {
+    return false
+  }
+  match @ir.hot_node_get(func, wrapper_exit).op {
+    @ir.HotOp::Br if @ir.hot_node_get(func, wrapper_exit).child_count == 0 => ()
+    _ => return false
+  }
+  if @ir.hot_branch_target(func, wrapper_exit) != Some(block_label) {
+    return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) => else_ref
+    None => return false
+  }
+  let then_branch_prefix = branch_arm_prefix(then_ref)
+  let else_branch_prefix = branch_arm_prefix(else_ref)
+  let branch_in_then = then_branch_prefix != None
+  let branch_in_else = else_branch_prefix != None
+  if branch_in_then == branch_in_else {
+    return false
+  }
+  let nonbranch_roots = if branch_in_then {
+    remove_unused_brs_region_roots(func, else_ref)
+  } else {
+    remove_unused_brs_region_roots(func, then_ref)
+  }
+  let branch_body = if branch_in_then {
+    match then_branch_prefix {
+      Some(prefix) => prefix + fallthrough_roots
+      None => return false
+    }
+  } else {
+    match else_branch_prefix {
+      Some(prefix) => prefix + fallthrough_roots
+      None => return false
+    }
+  }
   let replacement = @ir.hot_build_if(
     func,
     @lib.BlockType::val_type(result_type),
     @ir.hot_child_get(func, if_id, 0),
-    [branch_value],
-    else_body=Some(fallthrough_roots),
+    if branch_in_then {
+      branch_body
+    } else {
+      nonbranch_roots
+    },
+    else_body=Some(if branch_in_then { nonbranch_roots } else { branch_body }),
   )
   @ir.hot_replace_node(func, block_id, @ir.hot_node_get(func, replacement))
   pass_mark_mutated(ctx, func)
-  pass_delete_detached_nodes(ctx, func, [replacement, if_id, then_ref.holder])
+  pass_delete_detached_nodes(ctx, func, [
+    replacement,
+    wrapper_id,
+    if_id,
+    wrapper_exit,
+    then_ref.holder,
+    else_ref.holder,
+  ])
   true
 }
 

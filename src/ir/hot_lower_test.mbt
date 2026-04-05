@@ -1843,13 +1843,26 @@ test "hot lower avoids wrapping parent-exit payloads in extra result blocks" {
 }
 
 ///|
-test "hot lower debug chained nested exact copy constants" {
-  let fixture = ir_test_build_hot_from_wat(
-    "(module (type (func (result i32 i32 i32))) (func (result i32) (local i32 i32 i32 i32 i32 i32) block block block (result i32) block (result i32 i32 i32) i32.const 1 i32.const 2 i32.const 3 end local.set 5 local.set 4 end local.set 3 local.get 5 local.set 2 local.get 4 local.set 1 end local.get 3 local.set 0 end local.get 0))",
+test "hot lower keeps mixed-exit parent payload wrappers stable across reroundtrip" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))"
+  let fixture = ir_test_build_hot_from_wat(source)
+  let first = hot_lower_func(fixture.hot_func)
+  let first_mod = fixture.mod_.with_code_sec(@lib.CodeSec::new([first]))
+  match @validate.validate_module(first_mod) {
+    Ok(_) => ()
+    Err(err) => fail("expected first lower to validate, got \{err}")
+  }
+  let first_code = match first_mod.code_sec {
+    Some(@lib.CodeSec(defs)) => defs[0]
+    None => abort("expected lowered module code section")
+  }
+  let second = hot_lower_func(hot_lift_func(first_mod, @lib.FuncIdx::new(0U)))
+
+  assert_eq(
+    second,
+    first_code,
+    msg="first:\n\{first_code.to_string()}\n\nsecond:\n\{second.to_string()}",
   )
-  let lowered = ir_test_assert_verify_and_lower(fixture)
-  let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(0U))
-  fail(pretty)
 }
 
 ///|

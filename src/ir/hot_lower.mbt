@@ -1848,6 +1848,22 @@ fn hot_lower_impl_parent_exit_payload_has_mixed_child_exits(
 }
 
 ///|
+fn hot_lower_impl_split_parent_exit_payload_has_mixed_child_exits(
+  body : Array[Instruction],
+) -> Bool {
+  match body {
+    [Block(VoidBlockType, Expr(inner_body))] =>
+      match inner_body {
+        [Block(VoidBlockType, Expr(child_body)), _, Br(li)] =>
+          hot_lower_impl_decoded_label_depth(li) == 1 &&
+          hot_lower_impl_has_mixed_terminal_if_exit_depths(child_body)
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn hot_lower_impl_try_unpack_parent_exit_payload_wrapper(
   bt : BlockType,
   body : Array[Instruction],
@@ -2131,14 +2147,23 @@ fn hot_lower_impl_canonicalize_block_body(
         for inner in hot_lower_impl_rebase_body(inner_body, 0) {
           spliced.push(inner)
         }
-      Block(VoidBlockType, Expr(inner_body)) =>
-        match hot_lower_impl_try_pack_split_parent_exit_payload(bt, [instr]) {
+      Block(VoidBlockType, Expr(inner_body)) => {
+        let packed = if i == peeled.length() - 1 ||
+          !hot_lower_impl_split_parent_exit_payload_has_mixed_child_exits([
+            instr,
+          ]) {
+          hot_lower_impl_try_pack_split_parent_exit_payload(bt, [instr])
+        } else {
+          None
+        }
+        match packed {
           Some([rewritten]) => spliced.push(rewritten)
           _ =>
             spliced.push(
               Instruction::block(@lib.BlockType::void_(), Expr::new(inner_body)),
             )
         }
+      }
       Loop(_, Expr(loop_body)) if hot_lower_impl_is_simple_parent_exit_body(
           loop_body, 1,
         ) => {
