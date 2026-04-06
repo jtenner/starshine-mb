@@ -300,8 +300,8 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing",
-    "remove-unused-brs", "heap2local", "simplify-locals", "precompute", "remove-unused-names",
+    "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing", "remove-unused-brs",
+    "heap2local", "simplify-locals", "precompute", "remove-unused-names",
   ]
 }
 
@@ -312,8 +312,8 @@ pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
-    "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing",
-    "remove-unused-brs", "heap2local", "simplify-locals", "precompute", "remove-unused-names",
+    "heap-store-optimization", "pick-load-signs", "precompute", "code-pushing", "remove-unused-brs",
+    "heap2local", "simplify-locals", "precompute", "remove-unused-names",
   ]
 }
 
