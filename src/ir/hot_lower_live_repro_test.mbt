@@ -994,6 +994,58 @@ test "hot lower live repro validates direct payload inner-block exit plus termin
 }
 
 ///|
+test "hot lower live repro validates direct payload inner-block exit plus terminal exit when a condition local.set stays before the later if" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $outer (result i32)
+    #|        (block $mid
+    #|          (br $outer
+    #|            (if (result i32) (local.get 0)
+    #|              (then
+    #|                (return (i32.const 7)))
+    #|              (else
+    #|                (local.set 3 (i32.const 5))
+    #|                (br $mid)))))
+    #|        (local.get 1)))
+    #|    (local.get 1)
+    #|    (local.set 4)
+    #|    (local.get 0)
+    #|    (local.set 5)
+    #|    (if (local.get 5)
+    #|      (then
+    #|        (drop (local.get 1))))
+    #|    (local.get 4))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  assert_eq(hot_root_count(fixture.hot_func), 5)
+  let carrier_set = hot_root_get(fixture.hot_func, 0)
+  let moved_set = hot_root_get(fixture.hot_func, 1)
+  let cond_set = hot_root_get(fixture.hot_func, 2)
+  let if_id = hot_root_get(fixture.hot_func, 3)
+  let next_get = hot_root_get(fixture.hot_func, 4)
+  hot_region_replace_body(fixture.hot_func, HotRegionRef::root(), [
+    carrier_set, cond_set, if_id, moved_set, next_get,
+  ])
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "hot lower live repro validates earlier explicit-exit if root before later if sink" {
   let source =
     #|(module

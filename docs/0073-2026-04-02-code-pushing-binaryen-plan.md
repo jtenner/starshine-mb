@@ -444,6 +444,27 @@
   shape directly. But widening the pass for that family removed the `48978`
   diff only by introducing a worse earlier structural mismatch around printed
   line `44251`, so the pass stays conservative there for now.
+- A fresh retry confirmed that the terminal-owner family is still not ready to
+  land, even under a narrower local-type fence. Re-admitting only the `i32`
+  version of that direct inner-owner plus terminal-exit carrier still
+  reintroduced the same earlier printed drift at `44254`, while again removing
+  the old `48978` family. So the pass is back on the conservative fence, and
+  `src/passes/code_pushing_test.mbt` now keeps that direct terminal-owner
+  carrier as an explicit negative boundary while the HOT-only proof remains in
+  `src/ir/hot_lower_live_repro_test.mbt`.
+- The earlier `44254` drift is now pinned more precisely too. A temporary live
+  trace on the widened pass showed that `Func 148` does not need some second
+  earlier carrier rewrite to trigger that mismatch. The actual admission is
+  still the same terminal-owner family around `LocalSet(335)#2738`, but in the
+  live function it crosses one extra sibling `LocalSet` first: after the
+  widening, roots `2738`, `2741`, `2747` become `2741`, `2747`, `2738`, while
+  the rest of the traced root prefix stays put. So the earlier printed drift is
+  downstream lowering fallout from that same move, not a separate earlier
+  `code-pushing` rewrite. `src/passes/code_pushing_test.mbt` and
+  `src/ir/hot_lower_live_repro_test.mbt` now pin that closer
+  `candidate-set -> condition-set -> later-if` terminal-owner shape directly:
+  manual reorder still lowers and validates, but the pass intentionally keeps
+  it fenced off.
 - Two more safe non-crossed-prefix families are now in-tree as well. The pass
   now ignores earlier explicit-exit `LocalSet(If ...)` carriers with nested
   local writes when those exits stay terminal-or-safe, and it now ignores the
