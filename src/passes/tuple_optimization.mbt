@@ -258,6 +258,70 @@ fn tuple_optimization_resolve_copy_payload_local(
 }
 
 ///|
+fn tuple_optimization_collect_copy_payload_lane_nodes(
+  func : @ir.HotFunc,
+  payload_roots : Array[Int],
+) -> Array[Int]? {
+  let payload_lane_nodes : Array[Int] = []
+  for root_id in payload_roots {
+    let root = @ir.hot_node_get(func, root_id)
+    let root_arity = @ir.hot_node_result_arity(func, root_id)
+    if root_arity <= 0 {
+      return None
+    }
+    if root_arity == 1 {
+      match root.op {
+        @ir.HotOp::Block => ()
+        _ => {
+          payload_lane_nodes.push(root_id)
+          continue
+        }
+      }
+    }
+    match root.op {
+      @ir.HotOp::Block =>
+        match
+          @ir.hot_region_split_trailing_payload_roots(
+            func,
+            @ir.hot_region_body_ref(func, root_id),
+            root_arity,
+          ) {
+          Some((_, nested_payload)) =>
+            for lane_node in nested_payload {
+              payload_lane_nodes.push(lane_node)
+            }
+          None => return None
+        }
+      _ => return None
+    }
+  }
+  Some(payload_lane_nodes)
+}
+
+///|
+fn tuple_optimization_pick_copy_lane_source_node(
+  func : @ir.HotFunc,
+  source_value : Int,
+  lane_idx : Int,
+  lane_count : Int,
+) -> Int? {
+  match
+    tuple_optimization_collect_copy_payload_lane_nodes(func, [source_value]) {
+    Some(source_lane_nodes) =>
+      if source_lane_nodes.length() == 1 {
+        Some(source_lane_nodes[0])
+      } else if lane_idx >= 0 &&
+        lane_idx < source_lane_nodes.length() &&
+        source_lane_nodes.length() == lane_count {
+        Some(source_lane_nodes[lane_idx])
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
 fn tuple_optimization_add_neighbor(
   neighbors : Array[Int],
   neighbor : Int,
@@ -384,6 +448,382 @@ fn tuple_optimization_link_copy_groups(
       if defining_node >= 0 && defining_node < copy_write_nodes.length() {
         copy_write_nodes[defining_node] = true
       }
+    }
+  }
+}
+
+///|
+fn tuple_optimization_collect_result_block_copy_group(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  groups : Array[HotTupleOptimizationGroup],
+  local_group_ids : Array[Int],
+  carrier_id : Int,
+) -> (HotTupleOptimizationGroup, Array[Int])? {
+  let carrier = @ir.hot_node_get(func, carrier_id)
+  match carrier.op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  if @ir.hot_node_result_arity(func, carrier_id) != 1 {
+    return None
+  }
+  let (outer_def, outer_local) = match
+    tuple_optimization_find_root_slot(func, carrier_id, 0) {
+    Some(root_slot) =>
+      if root_slot.slot + 1 >=
+        @ir.hot_region_root_count(func, root_slot.region_ref) {
+        return None
+      } else {
+        let next_root = @ir.hot_region_get(
+          func,
+          root_slot.region_ref,
+          root_slot.slot + 1,
+        )
+        let next_node = @ir.hot_node_get(func, next_root)
+        match next_node.op {
+          @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+            (next_root, next_node.imm0)
+          _ => return None
+        }
+      }
+    None => {
+      let outer_sites = @ir.node_use_sites_borrowed(use_def, carrier_id)
+      if outer_sites.length() != 1 {
+        return None
+      }
+      let outer_site = outer_sites[0]
+      match outer_site.kind {
+        @ir.HotUseSlotKind::ChildUseSlot =>
+          if outer_site.slot != 0 {
+            return None
+          }
+        _ => return None
+      }
+      let outer_user = @ir.hot_node_get(func, outer_site.user)
+      match outer_user.op {
+        @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+          (outer_site.user, outer_user.imm0)
+        _ => return None
+      }
+    }
+  }
+  let body_ref = @ir.hot_region_body_ref(func, carrier_id)
+  let body_root_count = @ir.hot_region_root_count(func, body_ref)
+  if body_root_count < 2 {
+    return None
+  }
+  let prefix_defs : Array[Int] = []
+  let prefix_locals_rev : Array[Int] = []
+  let mut prefix_layout = true
+  for idx = 0; idx + 1 < body_root_count; idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, idx)
+    let root = @ir.hot_node_get(func, root_id)
+    match root.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+        if @ir.hot_child_count(func, root_id) == 1 {
+          prefix_defs.push(root_id)
+          prefix_locals_rev.push(root.imm0)
+        } else {
+          prefix_layout = false
+          break
+        }
+      _ => {
+        prefix_layout = false
+        break
+      }
+    }
+  }
+  if prefix_layout {
+    let lane_count = prefix_defs.length() + 1
+    let host_value = @ir.hot_region_get(func, body_ref, body_root_count - 1)
+    if lane_count == body_root_count &&
+      @ir.hot_node_result_arity(func, host_value) > 0 {
+      let mut source_group = -1
+      let payload_locals : Array[Int] = []
+      let read_nodes : Array[Int] = []
+      let resolved_source_locals : Array[Int] = []
+      let mut ok = true
+      for lane_idx = 0; lane_idx < lane_count; lane_idx = lane_idx + 1 {
+        let source_value = if lane_idx == 0 {
+          host_value
+        } else {
+          @ir.hot_child_get(
+            func,
+            prefix_defs[prefix_defs.length() - lane_idx],
+            0,
+          )
+        }
+        let source_lane = match
+          tuple_optimization_pick_copy_lane_source_node(
+            func, source_value, lane_idx, lane_count,
+          ) {
+          Some(source_lane) => source_lane
+          None => {
+            ok = false
+            break
+          }
+        }
+        let (local_id, read_node) = match
+          tuple_optimization_try_payload_source_read(func, source_lane) {
+          Some(found) => found
+          None => {
+            ok = false
+            break
+          }
+        }
+        payload_locals.push(local_id)
+        let (resolved_local, alias_read_nodes) = match
+          tuple_optimization_resolve_copy_payload_local(
+            func,
+            use_def,
+            local_group_ids,
+            local_id,
+            Array::make(@ir.hot_local_count(func), false),
+          ) {
+          Some(found) => found
+          None => {
+            ok = false
+            break
+          }
+        }
+        if resolved_local < 0 || resolved_local >= local_group_ids.length() {
+          ok = false
+          break
+        }
+        let current_source = local_group_ids[resolved_local]
+        if current_source < 0 || current_source >= groups.length() {
+          ok = false
+          break
+        }
+        if source_group < 0 {
+          source_group = current_source
+        } else if source_group != current_source {
+          ok = false
+          break
+        }
+        if groups[current_source].lane_locals.length() != lane_count ||
+          groups[current_source].lane_locals[lane_idx] != resolved_local {
+          ok = false
+          break
+        }
+        read_nodes.push(read_node)
+        for alias_read_node in alias_read_nodes {
+          read_nodes.push(alias_read_node)
+        }
+        resolved_source_locals.push(resolved_local)
+      }
+      if ok && source_group >= 0 {
+        let lane_locals = [outer_local]
+        let defining_nodes = [outer_def]
+        let seen_locals = Array::make(@ir.hot_local_count(func), false)
+        if outer_local < 0 ||
+          outer_local >= seen_locals.length() ||
+          seen_locals[outer_local] {
+          return None
+        }
+        seen_locals[outer_local] = true
+        for idx = prefix_defs.length() - 1; idx >= 0; idx = idx - 1 {
+          let local_id = prefix_locals_rev[idx]
+          if local_id < 0 ||
+            local_id >= seen_locals.length() ||
+            seen_locals[local_id] {
+            return None
+          }
+          seen_locals[local_id] = true
+          lane_locals.push(local_id)
+          defining_nodes.push(prefix_defs[idx])
+        }
+        return Some(
+          (
+            {
+              producer: carrier_id,
+              lane_locals,
+              defining_nodes,
+              host_lane: None,
+              copy_source: Some(source_group),
+              copy_payload_locals: Some(payload_locals),
+              uses: tuple_optimization_count_tee_defs(func, defining_nodes),
+              valid_uses: tuple_optimization_count_tee_defs(
+                func, defining_nodes,
+              ),
+              neighbors: [source_group],
+              bad: false,
+            },
+            read_nodes,
+          ),
+        )
+      }
+    }
+  }
+  let trailing_defs : Array[Int] = []
+  let trailing_locals : Array[Int] = []
+  let mut scan = body_root_count - 1
+  while scan >= 0 {
+    let root_id = @ir.hot_region_get(func, body_ref, scan)
+    let root = @ir.hot_node_get(func, root_id)
+    match root.op {
+      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee =>
+        if @ir.hot_child_count(func, root_id) == 1 {
+          trailing_defs.push(root_id)
+          trailing_locals.push(root.imm0)
+          scan = scan - 1
+          continue
+        }
+      _ => ()
+    }
+    break
+  }
+  if trailing_defs.is_empty() || scan < 0 {
+    return None
+  }
+  let lane_count = trailing_defs.length() + 1
+  let payload_roots : Array[Int] = []
+  for idx = 0; idx <= scan; idx = idx + 1 {
+    payload_roots.push(@ir.hot_region_get(func, body_ref, idx))
+  }
+  let payload = match
+    @ir.hot_split_trailing_payload_roots(func, payload_roots, lane_count) {
+    Some((_, payload)) => payload
+    None => return None
+  }
+  let payload_lane_nodes = match
+    tuple_optimization_collect_copy_payload_lane_nodes(func, payload) {
+    Some(payload_lane_nodes) => payload_lane_nodes
+    None => return None
+  }
+  if payload_lane_nodes.length() != lane_count {
+    return None
+  }
+  let mut source_group = -1
+  let payload_locals : Array[Int] = []
+  let read_nodes : Array[Int] = []
+  let resolved_source_locals : Array[Int] = []
+  for lane_idx = 0
+      lane_idx < payload_lane_nodes.length()
+      lane_idx = lane_idx + 1 {
+    let (local_id, read_node) = match
+      tuple_optimization_try_payload_source_read(
+        func,
+        payload_lane_nodes[lane_idx],
+      ) {
+      Some(found) => found
+      None => return None
+    }
+    payload_locals.push(local_id)
+    let (resolved_local, alias_read_nodes) = match
+      tuple_optimization_resolve_copy_payload_local(
+        func,
+        use_def,
+        local_group_ids,
+        local_id,
+        Array::make(@ir.hot_local_count(func), false),
+      ) {
+      Some(found) => found
+      None => return None
+    }
+    if resolved_local < 0 || resolved_local >= local_group_ids.length() {
+      return None
+    }
+    let current_source = local_group_ids[resolved_local]
+    if current_source < 0 || current_source >= groups.length() {
+      return None
+    }
+    if source_group < 0 {
+      source_group = current_source
+    } else if source_group != current_source {
+      return None
+    }
+    if groups[current_source].lane_locals.length() != lane_count ||
+      groups[current_source].lane_locals[lane_idx] != resolved_local {
+      return None
+    }
+    read_nodes.push(read_node)
+    for alias_read_node in alias_read_nodes {
+      read_nodes.push(alias_read_node)
+    }
+    resolved_source_locals.push(resolved_local)
+  }
+  if source_group < 0 {
+    return None
+  }
+  let lane_locals = [outer_local]
+  let defining_nodes = [outer_def]
+  let seen_locals = Array::make(@ir.hot_local_count(func), false)
+  if outer_local < 0 ||
+    outer_local >= seen_locals.length() ||
+    seen_locals[outer_local] {
+    return None
+  }
+  seen_locals[outer_local] = true
+  for idx = 0; idx < trailing_defs.length(); idx = idx + 1 {
+    let local_id = trailing_locals[idx]
+    if local_id < 0 || local_id >= seen_locals.length() || seen_locals[local_id] {
+      return None
+    }
+    seen_locals[local_id] = true
+    lane_locals.push(local_id)
+    defining_nodes.push(trailing_defs[idx])
+  }
+  Some(
+    (
+      {
+        producer: carrier_id,
+        lane_locals,
+        defining_nodes,
+        host_lane: None,
+        copy_source: Some(source_group),
+        copy_payload_locals: Some(payload_locals),
+        uses: tuple_optimization_count_tee_defs(func, defining_nodes),
+        valid_uses: tuple_optimization_count_tee_defs(func, defining_nodes),
+        neighbors: [source_group],
+        bad: false,
+      },
+      read_nodes,
+    ),
+  )
+}
+
+///|
+fn tuple_optimization_link_result_block_copy_groups(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  groups : Array[HotTupleOptimizationGroup],
+  local_group_ids : Array[Int],
+  copy_read_nodes : Array[Bool],
+) -> Unit {
+  for carrier_id = 0
+      carrier_id < @ir.hot_node_count(func)
+      carrier_id = carrier_id + 1 {
+    if !@ir.hot_node_is_live(func, carrier_id) {
+      continue
+    }
+    match
+      tuple_optimization_collect_result_block_copy_group(
+        func, use_def, groups, local_group_ids, carrier_id,
+      ) {
+      Some((group, read_nodes)) => {
+        let new_group_id = groups.length()
+        groups.push(group)
+        for read_node in read_nodes {
+          if read_node >= 0 && read_node < copy_read_nodes.length() {
+            copy_read_nodes[read_node] = true
+          }
+        }
+        let source_group = match group.copy_source {
+          Some(source_group) => source_group
+          None => continue
+        }
+        if source_group >= 0 && source_group < groups.length() {
+          tuple_optimization_add_neighbor(
+            groups[source_group].neighbors,
+            new_group_id,
+          )
+          groups[source_group].uses = groups[source_group].uses + 1
+          groups[source_group].valid_uses = groups[source_group].valid_uses + 1
+        }
+      }
+      None => ()
     }
   }
 }
@@ -1041,6 +1481,10 @@ fn tuple_optimization_analyze(
   tuple_optimization_link_copy_groups(
     func, use_def, groups, local_group_ids, copy_read_nodes, copy_write_nodes,
   )
+  tuple_optimization_link_result_block_copy_groups(
+    func, use_def, groups, local_group_ids, copy_read_nodes,
+  )
+  local_group_ids = tuple_optimization_build_local_group_ids(func, groups)
   tuple_optimization_link_scalar_forward_copy_groups(
     func, use_def, groups, local_group_ids, copy_read_nodes,
   )
@@ -1601,6 +2045,42 @@ fn tuple_optimization_lane_locals_are_strictly_increasing(
     }
   }
   true
+}
+
+///|
+fn tuple_optimization_copy_group_has_local_overlap(
+  lane_locals : Array[Int],
+  payload_locals : Array[Int],
+) -> Bool {
+  for local_id in lane_locals {
+    for payload_local in payload_locals {
+      if local_id == payload_local {
+        return true
+      }
+    }
+  }
+  false
+}
+
+///|
+fn tuple_optimization_no_host_copy_group_can_scalarize_directly(
+  group : HotTupleOptimizationGroup,
+) -> Bool {
+  match (group.copy_payload_locals, tuple_optimization_group_host_lane(group)) {
+    (Some(copy_payload_locals), None) =>
+      tuple_optimization_lane_locals_are_strictly_increasing(
+        copy_payload_locals,
+      ) &&
+      !tuple_optimization_copy_group_has_local_overlap(
+        group.lane_locals,
+        copy_payload_locals,
+      ) &&
+      tuple_optimization_lane_copy_needs_tuple_carrier(
+        group.lane_locals,
+        copy_payload_locals,
+      )
+    _ => false
+  }
 }
 
 ///|
@@ -2629,6 +3109,209 @@ fn tuple_optimization_try_rewrite_root_host_copy_group_defs(
 }
 
 ///|
+fn tuple_optimization_try_rewrite_root_no_host_copy_group_defs(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  group : HotTupleOptimizationGroup,
+  split_locals : Array[Int],
+  source_split_locals : Array[Int],
+  carrier_lane : Int,
+) -> Bool {
+  if carrier_lane < 0 || carrier_lane >= group.lane_locals.length() {
+    return false
+  }
+  if tuple_optimization_lane_copy_needs_tuple_carrier(
+      group.lane_locals,
+      source_split_locals,
+    ) {
+    return false
+  }
+  let root_slot = match
+    tuple_optimization_find_root_slot(
+      func,
+      group.defining_nodes[carrier_lane],
+      carrier_lane,
+    ) {
+    Some(root_slot) => root_slot
+    None => return false
+  }
+  let source_lane_locals = if tuple_optimization_split_reuses_group_lanes(
+      group, split_locals,
+    ) {
+    source_split_locals
+  } else {
+    split_locals
+  }
+  let prefix : Array[Int] = []
+  if !tuple_optimization_split_reuses_group_lanes(group, split_locals) {
+    for lane_idx = split_locals.length() - 1
+        lane_idx >= 0
+        lane_idx = lane_idx - 1 {
+      prefix.push(
+        @ir.hot_build_local_set(
+          func,
+          split_locals[lane_idx],
+          @ir.hot_build_local_get(func, source_split_locals[lane_idx]),
+        ),
+      )
+    }
+  }
+  for lane_idx = group.lane_locals.length() - 1
+      lane_idx >= 0
+      lane_idx = lane_idx - 1 {
+    if lane_idx == carrier_lane {
+      continue
+    }
+    prefix.push(
+      @ir.hot_build_local_set(
+        func,
+        group.lane_locals[lane_idx],
+        @ir.hot_build_local_get(func, source_lane_locals[lane_idx]),
+      ),
+    )
+  }
+  if !prefix.is_empty() {
+    @ir.hot_region_insert(func, root_slot.region_ref, root_slot.slot, prefix)
+    pass_mark_mutated(ctx, func)
+  }
+  let carrier_replacement = match
+    @ir.hot_node_get(func, group.defining_nodes[carrier_lane]).op {
+    @ir.HotOp::LocalTee =>
+      @ir.hot_build_local_tee(
+        func,
+        group.lane_locals[carrier_lane],
+        @ir.hot_build_local_get(func, source_lane_locals[carrier_lane]),
+      )
+    @ir.HotOp::LocalSet =>
+      @ir.hot_build_local_set(
+        func,
+        group.lane_locals[carrier_lane],
+        @ir.hot_build_local_get(func, source_lane_locals[carrier_lane]),
+      )
+    _ => return false
+  }
+  tuple_optimization_replace_with_built(
+    ctx,
+    func,
+    group.defining_nodes[carrier_lane],
+    carrier_replacement,
+  )
+  for lane_idx = 0
+      lane_idx < group.defining_nodes.length()
+      lane_idx = lane_idx + 1 {
+    if lane_idx == carrier_lane ||
+      !@ir.hot_node_is_live(func, group.defining_nodes[lane_idx]) {
+      continue
+    }
+    let replacement = match
+      @ir.hot_node_get(func, group.defining_nodes[lane_idx]).op {
+      @ir.HotOp::LocalTee =>
+        @ir.hot_build_local_get(func, source_lane_locals[lane_idx])
+      _ => @ir.hot_build_nop(func)
+    }
+    tuple_optimization_replace_with_built(
+      ctx,
+      func,
+      group.defining_nodes[lane_idx],
+      replacement,
+    )
+  }
+  true
+}
+
+///|
+fn tuple_optimization_try_rewrite_root_no_host_source_group_defs(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  group : HotTupleOptimizationGroup,
+  split_locals : Array[Int],
+  carrier_lane : Int,
+) -> Bool {
+  if carrier_lane < 0 || carrier_lane >= group.lane_locals.length() {
+    return false
+  }
+  if tuple_optimization_split_reuses_group_lanes(group, split_locals) {
+    return false
+  }
+  let root_slot = match
+    tuple_optimization_find_root_slot(
+      func,
+      group.defining_nodes[carrier_lane],
+      carrier_lane,
+    ) {
+    Some(root_slot) => root_slot
+    None => return false
+  }
+  let prefix : Array[Int] = []
+  for lane_idx = split_locals.length() - 1
+      lane_idx >= 0
+      lane_idx = lane_idx - 1 {
+    prefix.push(
+      @ir.hot_build_local_set(func, split_locals[lane_idx], group.producer),
+    )
+  }
+  for lane_idx = group.lane_locals.length() - 1
+      lane_idx >= 0
+      lane_idx = lane_idx - 1 {
+    if lane_idx == carrier_lane {
+      continue
+    }
+    prefix.push(
+      @ir.hot_build_local_set(
+        func,
+        group.lane_locals[lane_idx],
+        @ir.hot_build_local_get(func, split_locals[lane_idx]),
+      ),
+    )
+  }
+  @ir.hot_region_insert(func, root_slot.region_ref, root_slot.slot, prefix)
+  pass_mark_mutated(ctx, func)
+  let carrier_replacement = match
+    @ir.hot_node_get(func, group.defining_nodes[carrier_lane]).op {
+    @ir.HotOp::LocalTee =>
+      @ir.hot_build_local_tee(
+        func,
+        group.lane_locals[carrier_lane],
+        @ir.hot_build_local_get(func, split_locals[carrier_lane]),
+      )
+    @ir.HotOp::LocalSet =>
+      @ir.hot_build_local_set(
+        func,
+        group.lane_locals[carrier_lane],
+        @ir.hot_build_local_get(func, split_locals[carrier_lane]),
+      )
+    _ => return false
+  }
+  tuple_optimization_replace_with_built(
+    ctx,
+    func,
+    group.defining_nodes[carrier_lane],
+    carrier_replacement,
+  )
+  for lane_idx = 0
+      lane_idx < group.defining_nodes.length()
+      lane_idx = lane_idx + 1 {
+    if lane_idx == carrier_lane ||
+      !@ir.hot_node_is_live(func, group.defining_nodes[lane_idx]) {
+      continue
+    }
+    let replacement = match
+      @ir.hot_node_get(func, group.defining_nodes[lane_idx]).op {
+      @ir.HotOp::LocalTee =>
+        @ir.hot_build_local_get(func, split_locals[lane_idx])
+      _ => @ir.hot_build_nop(func)
+    }
+    tuple_optimization_replace_with_built(
+      ctx,
+      func,
+      group.defining_nodes[lane_idx],
+      replacement,
+    )
+  }
+  true
+}
+
+///|
 fn tuple_optimization_try_rewrite_anchor_host_copy_group_defs(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2772,6 +3455,49 @@ fn tuple_optimization_try_rewrite_anchor_host_copy_group_defs(
 }
 
 ///|
+fn tuple_optimization_try_rewrite_direct_scalar_copy_group_defs(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  group : HotTupleOptimizationGroup,
+) -> Bool {
+  if !tuple_optimization_no_host_copy_group_can_scalarize_directly(group) {
+    return false
+  }
+  let payload_locals = match group.copy_payload_locals {
+    Some(copy_payload_locals) => copy_payload_locals
+    None => return false
+  }
+  if payload_locals.length() != group.defining_nodes.length() {
+    return false
+  }
+  for lane_idx = 0
+      lane_idx < group.defining_nodes.length()
+      lane_idx = lane_idx + 1 {
+    let defining_node = group.defining_nodes[lane_idx]
+    if !@ir.hot_node_is_live(func, defining_node) {
+      continue
+    }
+    let replacement = match @ir.hot_node_get(func, defining_node).op {
+      @ir.HotOp::LocalTee =>
+        @ir.hot_build_local_tee(
+          func,
+          group.lane_locals[lane_idx],
+          @ir.hot_build_local_get(func, payload_locals[lane_idx]),
+        )
+      @ir.HotOp::LocalSet =>
+        @ir.hot_build_local_set(
+          func,
+          group.lane_locals[lane_idx],
+          @ir.hot_build_local_get(func, payload_locals[lane_idx]),
+        )
+      _ => return false
+    }
+    tuple_optimization_replace_with_built(ctx, func, defining_node, replacement)
+  }
+  true
+}
+
+///|
 fn tuple_optimization_rewrite_group_defs(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2782,6 +3508,15 @@ fn tuple_optimization_rewrite_group_defs(
   source_split_locals? : Array[Int]? = None,
 ) -> Unit {
   let actual_host_lane = tuple_optimization_group_host_lane(group)
+  match actual_host_lane {
+    None =>
+      if tuple_optimization_try_rewrite_direct_scalar_copy_group_defs(
+          ctx, func, group,
+        ) {
+        return
+      }
+    _ => ()
+  }
   let no_host_root_carrier_slot = match actual_host_lane {
     None => tuple_optimization_pick_no_host_root_carrier_slot(func, group)
     Some(_) => None
@@ -2911,6 +3646,24 @@ fn tuple_optimization_rewrite_group_defs(
       }
     _ => ()
   }
+  match (actual_host_lane, source_split_locals, synthetic_carrier_lane) {
+    (None, Some(source_split_locals), Some(carrier_lane)) =>
+      if tuple_optimization_try_rewrite_root_no_host_copy_group_defs(
+          ctx, func, group, split_locals, source_split_locals, carrier_lane,
+        ) {
+        return
+      }
+    _ => ()
+  }
+  match (actual_host_lane, source_split_locals, synthetic_carrier_lane) {
+    (None, None, Some(carrier_lane)) =>
+      if tuple_optimization_try_rewrite_root_no_host_source_group_defs(
+          ctx, func, group, split_locals, carrier_lane,
+        ) {
+        return
+      }
+    _ => ()
+  }
   let has_anchor_slot = match anchor_slot {
     Some(_) => true
     None => false
@@ -2981,7 +3734,10 @@ fn tuple_optimization_rewrite_group_defs(
         None =>
           match synthetic_carrier_lane {
             Some(carrier_lane) =>
-              if synthetic_carrier_needs_tuple {
+              if synthetic_carrier_needs_tuple &&
+                !tuple_optimization_split_reuses_group_lanes(
+                  group, split_locals,
+                ) {
                 tuple_optimization_build_source_nested_root_tuple_carrier_replacement(
                   func, group, split_locals, carrier_lane,
                 )

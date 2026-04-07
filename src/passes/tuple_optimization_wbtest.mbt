@@ -66,6 +66,19 @@ fn tuple_optimization_test_rewrite(text : String) -> @ir.IrTestHotFixture {
 }
 
 ///|
+fn tuple_optimization_test_pipeline_pretty(
+  text : String,
+  func_idx : UInt,
+) -> String {
+  let optimized = match pass_test_run_pipeline(text, ["tuple-optimization"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      abort("expected tuple-optimization pipeline success, got \{err}")
+  }
+  optimized.pretty_print_func(@lib.FuncIdx::new(func_idx))
+}
+
+///|
 fn tuple_optimization_assert_local_traffic(
   use_def : @ir.HotUseDef,
   local_id : Int,
@@ -78,85 +91,6 @@ fn tuple_optimization_assert_local_traffic(
     abort(
       "unexpected local traffic for \{local_id}: writes \{actual_writes} vs \{writes}, reads \{actual_reads} vs \{reads}",
     )
-  }
-}
-
-///|
-fn tuple_optimization_assert_tuple_make_root_carrier(
-  func : @ir.HotFunc,
-  carrier_local : Int,
-  source_lane_locals : Array[Int],
-) -> Unit {
-  let mut copy_root = -1
-  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
-    let root = @ir.hot_root_get(func, root_idx)
-    if @ir.hot_node_get(func, root).op.to_string() == "LocalSet" &&
-      @ir.hot_node_get(func, root).imm0 == carrier_local {
-      copy_root = root
-      break
-    }
-  }
-  if copy_root < 0 {
-    abort(
-      "expected rewritten tuple.make root carrier for local \{carrier_local}",
-    )
-  }
-
-  let copy_value = @ir.hot_child_get(func, copy_root, 0)
-  if @ir.hot_node_get(func, copy_value).op.to_string() != "Block" ||
-    @ir.hot_node_result_arity(func, copy_value) != 1 {
-    abort(
-      "expected tuple.make root carrier \{carrier_local} to wrap a typed block",
-    )
-  }
-
-  let copy_body = @ir.hot_region_body_ref(func, copy_value)
-  if @ir.hot_region_root_count(func, copy_body) != 3 {
-    abort(
-      "expected tuple.make root carrier \{carrier_local} to keep exactly three body roots",
-    )
-  }
-
-  let lane2 = @ir.hot_region_get(func, copy_body, 0)
-  let lane1 = @ir.hot_region_get(func, copy_body, 1)
-  let lane0 = @ir.hot_region_get(func, copy_body, 2)
-  if @ir.hot_node_get(func, lane2).op.to_string() != "LocalSet" {
-    abort("expected tuple.make root carrier \{carrier_local} lane2 remat")
-  }
-  if @ir.hot_node_get(func, lane1).op.to_string() != "LocalSet" {
-    abort("expected tuple.make root carrier \{carrier_local} lane1 remat")
-  }
-
-  let lane2_value = @ir.hot_child_get(func, lane2, 0)
-  let lane1_value = @ir.hot_child_get(func, lane1, 0)
-  if @ir.hot_node_get(func, lane2_value).op.to_string() != "TupleMake" ||
-    @ir.hot_node_get(func, lane1_value).op.to_string() != "TupleMake" ||
-    @ir.hot_node_get(func, lane0).op.to_string() != "TupleMake" {
-    abort(
-      "expected tuple.make root carrier \{carrier_local} to share a synthetic producer",
-    )
-  }
-  if lane2_value != lane1_value || lane1_value != lane0 {
-    abort(
-      "expected tuple.make root carrier \{carrier_local} to reuse one producer node",
-    )
-  }
-  if @ir.hot_node_result_arity(func, lane0) != source_lane_locals.length() ||
-    @ir.hot_child_count(func, lane0) != source_lane_locals.length() {
-    abort(
-      "expected tuple.make root carrier \{carrier_local} to preserve source arity",
-    )
-  }
-  for lane_idx = 0
-      lane_idx < source_lane_locals.length()
-      lane_idx = lane_idx + 1 {
-    let child = @ir.hot_child_get(func, lane0, lane_idx)
-    if @ir.hot_node_get(func, child).op.to_string() != "LocalGet" ||
-      @ir.hot_node_get(func, child).imm0 != source_lane_locals[lane_idx] {
-      abort(
-        "expected tuple.make root carrier \{carrier_local} child \{lane_idx} to read source lane \{source_lane_locals[lane_idx]}",
-      )
-    }
   }
 }
 
@@ -267,77 +201,19 @@ test "tuple-optimization analysis links pure lane-forwarding copy groups" {
 }
 
 ///|
-test "tuple-optimization rewrite forwards good copy groups through original source lanes" {
-  let fixture = tuple_optimization_test_rewrite(
+test "tuple-optimization rewrite forwards good copy groups through scalar lane rematerialization" {
+  let pretty = tuple_optimization_test_pipeline_pretty(
     "(module (func (result i32) (local i32 i32 i32 i32 i32 i32) block (result i32 i32 i32) i32.const 1 i32.const 2 i32.const 3 end local.set 2 local.set 1 local.set 0 block (result i32 i32 i32) local.get 0 local.get 1 local.get 2 end local.set 5 local.set 4 local.set 3 local.get 3))",
+    0U,
   )
-  let func = fixture.hot_func
 
-  assert_eq(@ir.hot_local_count(func), 6)
-
-  let source_bridge = @ir.hot_root_get(func, 0)
-  assert_eq(@ir.hot_node_get(func, source_bridge).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, source_bridge).imm0, 0)
-  let source_value = @ir.hot_child_get(func, source_bridge, 0)
-  assert_eq(@ir.hot_node_get(func, source_value).op.to_string(), "Block")
-  let source_body = @ir.hot_region_body_ref(func, source_value)
-  assert_eq(@ir.hot_region_root_count(func, source_body), 3)
-  let source_lane2 = @ir.hot_region_get(func, source_body, 0)
-  let source_lane1 = @ir.hot_region_get(func, source_body, 1)
-  let source_lane0 = @ir.hot_region_get(func, source_body, 2)
-  assert_eq(@ir.hot_node_get(func, source_lane2).imm0, 2)
-  assert_eq(@ir.hot_node_get(func, source_lane1).imm0, 1)
-  assert_eq(@ir.hot_node_get(func, source_lane0).op.to_string(), "Block")
-
-  assert_eq(@ir.hot_root_count(func), 3)
-
-  let copy_bridge = @ir.hot_root_get(func, 1)
-  assert_eq(@ir.hot_node_get(func, copy_bridge).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, copy_bridge).imm0, 3)
-  let copy_value = @ir.hot_child_get(func, copy_bridge, 0)
-  assert_eq(@ir.hot_node_get(func, copy_value).op.to_string(), "Block")
-  let copy_body = @ir.hot_region_body_ref(func, copy_value)
-  assert_eq(@ir.hot_region_root_count(func, copy_body), 3)
-  let copy_lane2 = @ir.hot_region_get(func, copy_body, 0)
-  let copy_lane1 = @ir.hot_region_get(func, copy_body, 1)
-  let copy_lane0 = @ir.hot_region_get(func, copy_body, 2)
-  assert_eq(@ir.hot_node_get(func, copy_lane2).imm0, 5)
-  assert_eq(@ir.hot_node_get(func, copy_lane1).imm0, 4)
-  assert_eq(@ir.hot_node_get(func, copy_lane0).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, copy_lane0).imm0, 0)
-
-  let copy_read2 = @ir.hot_child_get(func, copy_lane2, 0)
-  let copy_read1 = @ir.hot_child_get(func, copy_lane1, 0)
-  assert_eq(@ir.hot_node_get(func, copy_read2).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, copy_read2).imm0, 2)
-  assert_eq(@ir.hot_node_get(func, copy_read1).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, copy_read1).imm0, 1)
-
-  let old_copy_producer = tuple_optimization_test_analyze(
-      "(module (func (result i32) (local i32 i32 i32 i32 i32 i32) block (result i32 i32 i32) i32.const 1 i32.const 2 i32.const 3 end local.set 2 local.set 1 local.set 0 block (result i32 i32 i32) local.get 0 local.get 1 local.get 2 end local.set 5 local.set 4 local.set 3 local.get 3))",
-    ).groups[1].producer
-  assert_true(@ir.hot_node_is_live(func, old_copy_producer))
-  assert_eq(@ir.hot_node_get(func, old_copy_producer).op.to_string(), "Block")
-  assert_eq(@ir.hot_node_result_arity(func, old_copy_producer), 0)
-  assert_eq(
-    @ir.hot_region_root_count(
-      func,
-      @ir.hot_region_body_ref(func, old_copy_producer),
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 2))(local.set (Local 5))(local.get (Local 1))(local.set (Local 4))(local.get (Local 0))(local.set (Local 3))",
     ),
-    0,
+    msg=pretty,
   )
-
-  let forwarded = @ir.hot_root_get(func, 2)
-  assert_eq(@ir.hot_node_get(func, forwarded).op.to_string(), "LocalGet")
-  assert_eq(@ir.hot_node_get(func, forwarded).imm0, 3)
-
-  let use_def = @ir.use_def_build(func)
-  tuple_optimization_assert_local_traffic(use_def, 0, 1, 1)
-  tuple_optimization_assert_local_traffic(use_def, 1, 1, 1)
-  tuple_optimization_assert_local_traffic(use_def, 2, 1, 1)
-  tuple_optimization_assert_local_traffic(use_def, 3, 1, 1)
-  tuple_optimization_assert_local_traffic(use_def, 4, 1, 0)
-  tuple_optimization_assert_local_traffic(use_def, 5, 1, 0)
 }
 
 ///|
@@ -477,83 +353,105 @@ test "tuple-optimization rewrite keeps a staged host local.set root chain" {
 }
 
 ///|
-test "tuple-optimization rewrite carries exact copy groups through a root local.set lane" {
-  let fixture = tuple_optimization_test_rewrite(
+test "tuple-optimization rewrite scalarizes exact copy groups through a root local.set lane" {
+  let pretty = tuple_optimization_test_pipeline_pretty(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 2 local.set 1 local.set 0 local.get 0 local.get 1 local.get 2 call 1 local.set 9 local.get 9))",
+    2U,
   )
-  let func = fixture.hot_func
 
-  let mut copy_root = -1
-  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
-    let root = @ir.hot_root_get(func, root_idx)
-    if @ir.hot_node_get(func, root).op.to_string() == "LocalSet" &&
-      @ir.hot_node_get(func, root).imm0 == 0 {
-      copy_root = root
-      break
-    }
-  }
-  if copy_root < 0 {
-    abort("expected rewritten exact copy root carrier for local 0")
-  }
-  assert_eq(@ir.hot_node_get(func, copy_root).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, copy_root).imm0, 0)
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 6))(local.set (Local 2))(local.get (Local 7))(local.set (Local 1))(local.get (Local 8))(local.set (Local 0))(local.get (Local 0))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
+    ),
+    msg=pretty,
+  )
+}
 
-  let copy_value = @ir.hot_child_get(func, copy_root, 0)
-  assert_eq(@ir.hot_node_get(func, copy_value).op.to_string(), "Block")
-  assert_eq(@ir.hot_node_result_arity(func, copy_value), 1)
+///|
+test "tuple-optimization analysis links nested exact copy groups through scalar result carriers" {
+  let analysis = tuple_optimization_test_analyze(
+    "(module (type (func (param i32 i64) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (param i32) (result i32) (local i32 i32 i32 i32 i32 i32) local.get 0 i64.const 1 call 0 local.set 5 local.set 4 local.set 3 block block block (result i32) block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 end local.set 0 end end local.get 0))",
+  )
 
-  let copy_body = @ir.hot_region_body_ref(func, copy_value)
-  assert_eq(@ir.hot_region_root_count(func, copy_body), 3)
+  assert_eq(analysis.groups.length(), 2)
 
-  let lane2 = @ir.hot_region_get(func, copy_body, 0)
-  let lane1 = @ir.hot_region_get(func, copy_body, 1)
-  let lane0 = @ir.hot_region_get(func, copy_body, 2)
-  assert_eq(@ir.hot_node_get(func, lane2).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, lane2).imm0, 2)
-  assert_eq(@ir.hot_node_get(func, lane1).op.to_string(), "LocalSet")
-  assert_eq(@ir.hot_node_get(func, lane1).imm0, 1)
-  assert_eq(@ir.hot_node_get(func, lane0).op.to_string(), "TupleMake")
-  assert_true(@ir.hot_node_result_arity(func, lane0) > 1)
+  let source = analysis.groups[0]
+  assert_eq(source.lane_locals, [3, 4, 5])
+  assert_eq(source.copy_source, None)
+  assert_false(source.bad)
+
+  let copy = analysis.groups[1]
+  assert_eq(copy.lane_locals, [0, 1, 2])
+  assert_eq(copy.copy_source, Some(0))
+  assert_eq(copy.copy_payload_locals, Some([3, 4, 5]))
+  assert_eq(tuple_optimization_group_host_lane(copy), None)
+  assert_false(copy.bad)
+  assert_true(tuple_optimization_group_should_rewrite(copy))
 }
 
 ///|
 test "tuple-optimization rewrite scalarizes single-use exact copy groups from a host tee source" {
-  let fixture = tuple_optimization_test_rewrite(
+  let pretty = tuple_optimization_test_pipeline_pretty(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 11 local.set 9 local.set 10 local.get 9 local.get 10 local.get 11 call 1))",
+    2U,
   )
-  tuple_optimization_assert_tuple_make_root_carrier(fixture.hot_func, 10, [
-    8, 7, 6,
-  ])
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 14))(local.set (Local 11))(local.get (Local 13))(local.set (Local 9))(local.get (Local 12))(local.set (Local 10))(local.get (Local 9))(local.get (Local 10))(local.get (Local 11))(call (Func 1))",
+    ),
+    msg=pretty,
+  )
 }
 
 ///|
-test "tuple-optimization rewrite stages lane-ordered scrambled exact copy groups through a synthetic tuple.make carrier" {
-  let fixture = tuple_optimization_test_rewrite(
+test "tuple-optimization rewrite scalarizes lane-ordered scrambled exact copy groups" {
+  let pretty = tuple_optimization_test_pipeline_pretty(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 11 local.set 9 local.set 10 local.get 10 local.get 9 local.get 11 call 1))",
+    2U,
   )
-  tuple_optimization_assert_tuple_make_root_carrier(fixture.hot_func, 10, [
-    8, 7, 6,
-  ])
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 14))(local.set (Local 11))(local.get (Local 13))(local.set (Local 9))(local.get (Local 12))(local.set (Local 10))(local.get (Local 10))(local.get (Local 9))(local.get (Local 11))(call (Func 1))",
+    ),
+    msg=pretty,
+  )
 }
 
 ///|
 test "tuple-optimization rewrite scalarizes overlapping exact copy groups from a host tee source" {
-  let fixture = tuple_optimization_test_rewrite(
+  let pretty = tuple_optimization_test_pipeline_pretty(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 6 local.set 10 local.set 9 local.get 9 local.get 10 local.get 6 call 1))",
+    2U,
   )
-  tuple_optimization_assert_tuple_make_root_carrier(fixture.hot_func, 9, [
-    8, 7, 6,
-  ])
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 13))(local.set (Local 6))(local.get (Local 12))(local.set (Local 10))(local.get (Local 11))(local.set (Local 9))(local.get (Local 9))(local.get (Local 10))(local.get (Local 6))(call (Func 1))",
+    ),
+    msg=pretty,
+  )
 }
 
 ///|
-test "tuple-optimization rewrite stages overlapping exact copy groups through a synthetic tuple.make carrier" {
+test "tuple-optimization lowered no-host exact-copy chains from materialized lanes stay scalar" {
   let fixture = tuple_optimization_test_rewrite(
-    "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 6 local.set 10 local.set 9 local.get 9 local.get 10 local.get 6 call 1))",
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 5 local.set 4 local.set 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.set 0 local.get 0 local.get 1 local.get 2 call 1))",
   )
-  tuple_optimization_assert_tuple_make_root_carrier(fixture.hot_func, 9, [
-    8, 7, 6,
-  ])
+  let lowered = @ir.ir_test_assert_verify_and_lower(fixture)
+  let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+}
+
+///|
+test "tuple-optimization rewrite keeps overlapping exact copy groups scalar after lowering" {
+  let pretty = tuple_optimization_test_pipeline_pretty(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 6 local.set 10 local.set 9 local.get 9 local.get 10 local.get 6 call 1))",
+    2U,
+  )
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
 }
 
 ///|
@@ -578,7 +476,7 @@ test "tuple-optimization analysis links overlapping exact copy groups from a hos
 }
 
 ///|
-test "tuple-optimization rewrite stages nested branch-exit source roots through a tuple carrier" {
+test "tuple-optimization rewrite stages nested branch-exit source roots through scalar copyback" {
   let source =
     #|(module
     #|  (type (func (result i32 i32 i32)))
@@ -609,12 +507,15 @@ test "tuple-optimization rewrite stages nested branch-exit source roots through 
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(
-    pretty.contains(
-      "(call (Func 0))(local.set (Local 11))(local.set (Local 10))(local.set (Local 9))(block I32 (block (Type 0) (local.get (Local 9))(local.get (Local 10))(local.get (Local 11))(end))(local.set (Local 4))(local.set (Local 3))(end))(local.set (Local 2))",
-    ),
-    msg=pretty,
-  )
+  assert_true(pretty.contains("local.set (Local 11)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 10)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 9)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 11)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 4)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 10)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 3)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 9)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
 }
 
 ///|
@@ -633,6 +534,24 @@ test "tuple-optimization pipeline lowers nested scalar result spill bridges with
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("tuple.extract"), msg=pretty)
+}
+
+///|
+test "tuple-optimization pipeline leaves nested no-host source copy chains scalar" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type (func (param i32 i64) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (param i32) (result i32) (local i32 i32 i32 i32 i32 i32) block (result i32) block block local.get 0 i64.const 1 call 0 local.set 5 local.set 4 local.set 3 end local.get 5 local.set 2 local.get 4 local.set 1 end local.get 3 end))",
+      ["tuple-optimization"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected nested no-host source copy tuple-optimization success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
 }
 
 ///|
