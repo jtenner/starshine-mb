@@ -578,6 +578,55 @@ fn perf_test_make_simplify_locals_straight_line_adjacent_tee_module(
 }
 
 ///|
+fn perf_test_make_simplify_locals_straight_line_adjacent_drop_module(
+  repetitions : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"sink\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < repetitions + 32 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    i32.const 1\n")
+  out.write_string("    call 0\n")
+  out.write_string("    local.set 0\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    call 0\n")
+  out.write_string("    drop\n")
+  out.write_string("    i32.const 2\n")
+  out.write_string("    call 0\n")
+  out.write_string("    local.set 1\n")
+  out.write_string("    local.get 1\n")
+  out.write_string("    drop\n")
+  let mut i = 0
+  while i < repetitions {
+    out.write_string("    local.get 0\n")
+    out.write_string("    call 0\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get 0\n")
+    out.write_string("    i32.const ")
+    out.write_string((1000 + i).to_string())
+    out.write_string("\n")
+    out.write_string("    call 1\n")
+    out.write_string("    drop\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_simplify_locals_no_local_writes_module(
   repetitions : Int,
 ) -> String {
@@ -4487,6 +4536,42 @@ test "simplify-locals rewrites giant straight-line adjacent tees without hot lif
   assert_false(text.contains("perf:timer name=lift"), msg=text)
   assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
   assert_eq(perf_test_count_occurrences(pretty, "local.set"), 0, msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+}
+
+///|
+test "simplify-locals drops dead adjacent local set/get pairs without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_straight_line_adjacent_drop_module(
+    640,
+  )
+  let optimized = match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected giant straight-line adjacent drop simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=straight-line-adjacent-local-tee",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.tee (Local 1)"), msg=pretty)
   assert_true(pretty.contains("local.tee"), msg=pretty)
 }
 

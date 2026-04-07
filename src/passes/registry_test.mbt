@@ -42,7 +42,7 @@ test "pass registry classifies active, boundary-only, and removed names" {
   )
   assert_eq(
     pass_registry_category("reorder-locals"),
-    Some(HotPassRegistryCategory::boundary_only()),
+    Some(HotPassRegistryCategory::module_pass()),
   )
   assert_eq(
     pass_registry_category("duplicate-function-elimination"),
@@ -78,10 +78,6 @@ test "pass registry classifies active, boundary-only, and removed names" {
   )
   assert_eq(
     pass_registry_category("global-struct-inference"),
-    Some(HotPassRegistryCategory::module_pass()),
-  )
-  assert_eq(
-    pass_registry_category("reorder-locals"),
     Some(HotPassRegistryCategory::module_pass()),
   )
   assert_eq(

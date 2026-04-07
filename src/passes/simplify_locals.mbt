@@ -1321,6 +1321,37 @@ fn simplify_locals_value_can_clone_node(
 }
 
 ///|
+fn simplify_locals_value_can_move_one_use(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  if simplify_locals_value_can_clone_node(func, node_id) {
+    return true
+  }
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return true
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if @ir.hot_node_result_arity(func, node_id) != 1 {
+    return false
+  }
+  if @ir.hot_child_count(func, node_id) <= 0 {
+    return false
+  }
+  let cond_id = @ir.hot_child_get(func, node_id, 0)
+  cond_id < 0 ||
+  !@ir.hot_node_is_live(func, cond_id) ||
+  (
+    !@ir.hot_node_kind_is_control(func, cond_id) &&
+    @ir.hot_node_result_arity(func, cond_id) == 1
+  )
+}
+
+///|
 fn simplify_locals_value_can_tee(func : @ir.HotFunc, node_id : Int) -> Bool {
   node_id < 0 ||
   !@ir.hot_node_is_live(func, node_id) ||
@@ -1829,7 +1860,7 @@ fn simplify_locals_scan_node(
                 let value_id = @ir.hot_child_get(func, info.node_id, 0)
                 let one_use = first_cycle || get_counts[local_id] == 1
                 if one_use &&
-                  simplify_locals_value_can_clone_node(func, value_id) {
+                  simplify_locals_value_can_move_one_use(func, value_id) {
                   @ir.hot_replace_node(
                     func,
                     node_id,

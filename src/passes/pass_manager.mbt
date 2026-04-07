@@ -2428,9 +2428,20 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_local_tees(
   while idx < normalized.length() {
     if idx + 1 < normalized.length() {
       match (normalized[idx], normalized[idx + 1]) {
-        (@lib.LocalSet(local_id), @lib.LocalGet(next_local_id)) =>
-          if local_id == next_local_id {
-            rewritten.push(@lib.Instruction::local_tee(local_id))
+        (
+          @lib.LocalSet(@lib.LocalIdx(raw)),
+          @lib.LocalGet(@lib.LocalIdx(next_raw)),
+        ) =>
+          if raw == next_raw {
+            if run_hot_pipeline_raw_instrs_have_later_local_read(
+                normalized,
+                idx + 2,
+                raw.reinterpret_as_int(),
+              ) {
+              rewritten.push(
+                @lib.Instruction::local_tee(@lib.LocalIdx::new(raw)),
+              )
+            }
             rewrite_count = rewrite_count + 1
             idx = idx + 2
           } else {

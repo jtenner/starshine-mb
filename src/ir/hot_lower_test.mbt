@@ -1973,6 +1973,19 @@ test "hot lower strips redundant nop roots during canonicalization" {
 }
 
 ///|
+test "hot lower drops dead nested local.tee instructions" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (result i32) (local i32) i32.const 7 local.tee 0 i32.const 0 i32.gt_s if nop end i32.const 1))",
+  )
+  let validated = ir_test_assert_verify_and_lower(fixture)
+  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
+
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("i32.gt_s"), msg=pretty)
+}
+
+///|
 test "hot lower preserves result blocks consumed by local.tee and later local.gets" {
   let memarg = hot_lower_test_memarg()
   let body = @lib.Expr::new([

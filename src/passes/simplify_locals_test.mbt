@@ -16,6 +16,42 @@ test "simplify-locals sinks a single-use local.set into the later get" {
 }
 
 ///|
+test "simplify-locals sinks single-use if results into later call arguments" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $pred (param i32) (result i32) local.get 0) (func $use (param i32 i32 i32) (result i32) local.get 0 local.get 1 local.get 2 i32.add i32.add) (func (param i32 i32 i32) (result i32) (local i32) local.get 2 call $pred i32.const 1 i32.eq if (result i32) i32.const 7 else i32.const 9 end local.set 3 local.get 0 local.get 1 local.get 3 call $use))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected if-result call-arg simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("local.set (Local 3)"), msg=pretty)
+  assert_true(pretty.contains("if I32"), msg=pretty)
+}
+
+///|
+test "simplify-locals does not move stacked multivalue if results out of place" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $exp (param i32 i32) (result i32 i32) local.get 0 i32.const 9) (func (param i32 i32) (result i32 i32) (local i32 i32) block (result i32) local.get 0 local.get 1 call $exp local.set 2 if (result i32) local.get 2 else i32.const 0 local.get 2 return end local.set 3 i32.const 1 local.get 3 return end i32.const 0 i32.const 0))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected stacked multivalue if-result simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("local.set (Local 3)"), msg=pretty)
+  assert_false(pretty.contains("call (Func 0)\n    if I32"), msg=pretty)
+}
+
+///|
 test "simplify-locals sinks a multi-use local through a tee" {
   let optimized = match
     pass_test_run_pipeline(

@@ -2035,7 +2035,6 @@ test "optimize-instructions does not reorder relational operands across shared t
     body,
     @lib.Expr::new([
       @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-      @lib.Instruction::local_tee(@lib.LocalIdx::new(2U)),
       @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       @lib.Instruction::i32_lt_s(),
       @lib.Instruction::drop(),

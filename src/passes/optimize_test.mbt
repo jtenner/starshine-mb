@@ -354,8 +354,10 @@ test "optimize preset schedules heap2local in the mid-function GC slot" {
   assert_eq(optimize[15], "remove-unused-brs")
   assert_eq(optimize[16], "heap2local")
   assert_eq(optimize[17], "simplify-locals")
+}
 
-test "optimize preset keeps simplify-locals in the late modeled cleanup slot" {
+///|
+test "optimize preset keeps simplify-locals in the heap2local cleanup slot" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
     "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end local.get 1))",
@@ -391,12 +393,12 @@ test "optimize preset keeps simplify-locals in the late modeled cleanup slot" {
   assert_eq(sl_count, 1)
   assert_true(sl_idx > 0, msg=starts.to_string())
   assert_true(
-    starts[sl_idx - 1].contains("pass[precompute]:start"),
+    starts[sl_idx - 1].contains("pass[heap2local]:start"),
     msg=starts.to_string(),
   )
   assert_true(
     sl_idx + 1 < starts.length() &&
-    starts[sl_idx + 1].contains("pass[remove-unused-brs]:start"),
+    starts[sl_idx + 1].contains("pass[precompute]:start"),
     msg=starts.to_string(),
   )
 }

@@ -334,6 +334,8 @@ pub fn hot_debug_dump_core(HotFunc) -> String
 
 pub fn hot_default_flags_for_op(HotOp) -> UInt
 
+pub fn hot_delete_detached_node(HotFunc, Int) -> Unit
+
 pub fn hot_delete_node(HotFunc, Int) -> Unit
 
 pub fn[S, E] hot_for_each_child(HotFunc, Int, S, (S, Int, Int) -> HotVisitCtl[S, E]) -> Result[S, E]
