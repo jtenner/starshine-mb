@@ -455,6 +455,14 @@
   earlier printed `44251` drift in `func $127`, so this smaller block-carrier
   shape now clearly belongs to the same not-kept terminal-owner family as the
   earlier condition-set reducer.
+- That tighter blocker also reclassifies `72005`. The remaining printed
+  `func $238` delta is no longer a separate same-region sink target: its
+  earlier blocker is this same explicit-exit `LocalSet(Block(...), LocalGet)`
+  carrier family before the alias `local.set $11` / later `if`. So another
+  direct widening aimed at `72005` would only reopen the same blocked
+  terminal-owner frontier. The next useful correctness work therefore stays on
+  the distinct `48981` dropped-carrier / root-splitting frontier in
+  `func $127`.
 - The random-corpus dead-gap family that briefly reopened parity is now closed
   again. After narrowing the dead-gap conflict check so pure crossed
   `global.get` reads do not block a dead `local.set`, the exact saved shape is
