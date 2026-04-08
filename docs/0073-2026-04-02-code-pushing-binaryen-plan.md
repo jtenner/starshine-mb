@@ -524,6 +524,17 @@
   vs `399.478 ms`). So the simplify-locals fix is a correctness repair and
   oracle unblocker, not evidence that the remaining `105621` / `126757`
   structural families belong inside `code-pushing`.
+- `simplify-locals` does have one more safe local-forwarding slice now, but it
+  is intentionally narrow. A top-level pure `local.set` whose value is only
+  read by one later top-level `local.get` can now be collapsed directly, and
+  the reduced pass repro is pinned in `src/passes/simplify_locals_test.mbt`.
+  The broader structured `LocalSetDef` forwarding probe is explicitly not kept:
+  native `--simplify-locals` replay on `tests/node/dist/starshine-debug-wasi.wasm`
+  reintroduced stack-underflow (`Func 1910`, with an earlier smaller hit at
+  `Func 104`). The kept root-only slice validates on the artifact and removes
+  the saved fuzz alias case, but the remaining named `gen-valid` mismatches are
+  still mostly `nop` vs `drop (const ...)` cleanup differences where Starshine
+  is smaller than Binaryen rather than less safe.
 - One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
   proves that `code-pushing` already handles the simpler tee-fed sibling shape
   where the movable `local.set` is followed by a kept condition `local.set`,

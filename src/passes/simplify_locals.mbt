@@ -45,9 +45,93 @@ fn simplify_locals_is_trivially_removable_value(
 }
 
 ///|
+fn simplify_locals_is_trivially_forwardable_value(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Const | @ir.HotOp::RefNull | @ir.HotOp::RefFunc => true
+    _ => false
+  }
+}
+
+///|
 fn simplify_locals_replace_with_nop(func : @ir.HotFunc, node_id : Int) -> Unit {
   let nop = @ir.hot_build_nop(func)
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
+}
+
+///|
+fn simplify_locals_is_root_node(func : @ir.HotFunc, node_id : Int) -> Bool {
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    if @ir.hot_root_get(func, idx) == node_id {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn simplify_locals_local_get_rewrite_target(
+  ssa : @ir.HotLocalSsa,
+  use_def : @ir.HotUseDef,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> (Int, Int, Int, Bool)? {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalGet => ()
+    _ => return None
+  }
+  let value_id = ssa.local_get_values[node_id]
+  if value_id < 0 {
+    return None
+  }
+  let uses = @ir.ssa_uses_of_value(ssa, value_id)
+  if uses.length() != 1 {
+    return None
+  }
+  match uses[0] {
+    @ir.HotSsaUseOrigin::LocalGetUse(get_id) =>
+      if get_id != node_id {
+        return None
+      }
+    _ => return None
+  }
+  match ssa.value_origins[value_id] {
+    @ir.HotSsaValueOrigin::LocalTeeDef(tee_id) => {
+      let sites = @ir.node_use_sites_borrowed(use_def, tee_id)
+      if sites.length() != 1 {
+        return None
+      }
+      let site = sites[0]
+      match site.kind {
+        @ir.HotUseSlotKind::ChildUseSlot => ()
+        _ => return None
+      }
+      match @ir.hot_node_get(func, site.user).op {
+        @ir.HotOp::Drop => ()
+        _ => return None
+      }
+      let child_id = @ir.hot_child_get(func, tee_id, 0)
+      if !simplify_locals_is_trivially_forwardable_value(func, child_id) {
+        return None
+      }
+      Some((tee_id, child_id, site.user, false))
+    }
+    @ir.HotSsaValueOrigin::LocalSetDef(set_id) => {
+      if !simplify_locals_is_root_node(func, set_id) ||
+        !simplify_locals_is_root_node(func, node_id) {
+        return None
+      }
+      let child_id = @ir.hot_child_get(func, set_id, 0)
+      if !simplify_locals_is_trivially_forwardable_value(func, child_id) {
+        return None
+      }
+      Some((set_id, child_id, set_id, true))
+    }
+    _ => None
+  }
 }
 
 ///|
@@ -177,9 +261,24 @@ fn simplify_locals_run(
   let detached_control_owners : Array[SimplifyLocalsDetachedControlOwner] = []
   let noppable_local_set_nodes : Array[Int] = []
   let noppable_drop_nodes : Array[Int] = []
+  let forwarded_local_gets : Array[(Int, Int)] = []
+  let forwarded_drop_nodes : Array[Int] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
+    }
+    match
+      simplify_locals_local_get_rewrite_target(ssa, use_def, func, node_id) {
+      Some((def_id, child_id, cleanup_id, cleanup_is_set)) => {
+        dead_nodes.push(def_id)
+        forwarded_local_gets.push((node_id, child_id))
+        if cleanup_is_set {
+          noppable_local_set_nodes.push(cleanup_id)
+        } else {
+          forwarded_drop_nodes.push(cleanup_id)
+        }
+      }
+      None => ()
     }
     let node = @ir.hot_node_get(func, node_id)
     match node.op {
@@ -231,6 +330,13 @@ fn simplify_locals_run(
   }
   @ir.ssa_remove_dead_local_defs(func, dead_nodes)
   simplify_locals_rehome_detached_control_owners(func, detached_control_owners)
+  for forwarded in forwarded_local_gets {
+    let (node_id, child_id) = forwarded
+    if @ir.hot_node_is_live(func, node_id) &&
+      @ir.hot_node_is_live(func, child_id) {
+      @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, child_id))
+    }
+  }
   for node_id in noppable_local_set_nodes {
     if @ir.hot_node_is_live(func, node_id) {
       match @ir.hot_node_get(func, node_id).op {
@@ -240,6 +346,14 @@ fn simplify_locals_run(
     }
   }
   for node_id in noppable_drop_nodes {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Drop => simplify_locals_replace_with_nop(func, node_id)
+        _ => ()
+      }
+    }
+  }
+  for node_id in forwarded_drop_nodes {
     if @ir.hot_node_is_live(func, node_id) {
       match @ir.hot_node_get(func, node_id).op {
         @ir.HotOp::Drop => simplify_locals_replace_with_nop(func, node_id)

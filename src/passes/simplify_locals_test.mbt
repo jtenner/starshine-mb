@@ -156,6 +156,22 @@ test "simplify-locals rewrites dead pure local.tee drop roots to nop" {
 }
 
 ///|
+test "simplify-locals forwards pure local.tee values into the lone later local.get" {
+  let func = simplify_locals_run_hot(
+    "(module (func (result f64) (local f64) f64.const 39 local.tee 0 drop local.get 0))",
+  )
+
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::Nop => ()
+    op => fail("expected nop root after forwarded pure local.tee, got \{op}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).op {
+    @ir.HotOp::Const => ()
+    op => fail("expected const root after forwarded pure local.get, got \{op}")
+  }
+}
+
+///|
 test "simplify-locals rehomes dead tee control labels before cleanup" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
@@ -198,6 +214,24 @@ test "simplify-locals rehomes dead tee control labels before cleanup" {
         "expected simplify-locals dead-tee control verify success, got \{err}",
       )
   }
+}
+
+///|
+test "simplify-locals forwards pure local.set values into the lone later local.get" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i64) (local i64 i32) i32.const 143 local.tee 1 drop i32.const 0 if nop else nop end i32.const 379 local.tee 1 drop i64.const 885 local.set 0 local.get 0))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected forwarded local.set simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.set"))
+  assert_false(pretty.contains("local.get"))
+  assert_true(pretty.contains("I64(885)"))
 }
 
 ///|
