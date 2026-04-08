@@ -2103,6 +2103,57 @@ test "code-pushing moves a tee-fed local.set after an if even with a later kept 
 }
 
 ///|
+test "code-pushing moves an alias local.set after an if when a kept loaded local.set still sits before the if" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $alloc (param i32) (result i32)
+    #|    i32.const 0)
+    #|  (func $use (param i32))
+    #|  (func (param i32)
+    #|    (local i32 i32 i32 i32 i32)
+    #|    i32.const 10016
+    #|    local.set 2
+    #|    i32.const 8
+    #|    call $alloc
+    #|    local.tee 4
+    #|    i32.const 1573120
+    #|    i32.store offset=4
+    #|    local.get 4
+    #|    i32.const 0
+    #|    i32.store offset=8
+    #|    local.get 4
+    #|    local.get 2
+    #|    i32.store offset=12
+    #|    local.get 4
+    #|    local.set 1
+    #|    local.get 0
+    #|    i32.load offset=8
+    #|    local.set 3
+    #|    local.get 0
+    #|    i32.load
+    #|    i32.const 1
+    #|    i32.gt_s
+    #|    if
+    #|      local.get 3
+    #|      call $use
+    #|    end
+    #|    local.get 3
+    #|    local.tee 5
+    #|    i32.load offset=8
+    #|    drop
+    #|    local.get 1
+    #|    drop))
+    #|
+  let func = code_pushing_test_run_hot_code(source, 2)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "Store", "Store", "Store", "LocalSet(3)", "If",
+    "LocalSet(1)", "Drop", "Drop",
+  ])
+}
+
+///|
 test "code-pushing allows a later read when the opposite arm is terminal" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop else unreachable end local.get 1 drop))",

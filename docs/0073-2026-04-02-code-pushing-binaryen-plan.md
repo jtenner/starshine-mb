@@ -480,6 +480,12 @@
   `48981` direct-artifact family is narrower again and still points at the
   dropped-carrier / extraction frontier rather than plain same-region sibling
   motion.
+- The next live family at `72005` is narrower in the same way. A new reducer in
+  `src/passes/code_pushing_test.mbt` proves the pass already handles the
+  simpler alias-set form from that diff too: alias `local.set`, then a kept
+  loaded condition `local.set`, then the later `if`, then later reads. So the
+  surviving `72005` artifact family also still depends on broader artifact
+  context than ordinary same-region sibling motion.
 - A fresh retry confirmed that the terminal-owner family is still not ready to
   land, even under a narrower local-type fence. Re-admitting only the `i32`
   version of that direct inner-owner plus terminal-exit carrier still
