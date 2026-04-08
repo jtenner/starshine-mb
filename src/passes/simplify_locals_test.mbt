@@ -235,20 +235,25 @@ test "simplify-locals forwards pure local.set values into the lone later local.g
 }
 
 ///|
-test "simplify-locals keeps same-local result-if storeback roots for now" {
+test "simplify-locals rewrites same-local result-if storeback roots into conditional updates" {
   let func = simplify_locals_run_hot(
     "(module (func (param i32 i32) (result i32) (local.set 0 (if (result i32) (local.get 1) (then (i32.const 2)) (else (local.get 0)))) (local.get 0)))",
   )
 
-  let store = @ir.hot_root_get(func, 0)
-  match @ir.hot_node_get(func, store).op {
-    @ir.HotOp::LocalSet => ()
-    op => fail("expected storeback root to remain a local.set, got \{op}")
-  }
-  match @ir.hot_node_get(func, @ir.hot_child_get(func, store, 0)).op {
+  let rewritten = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, rewritten).op {
     @ir.HotOp::If => ()
-    op => fail("expected storeback local.set child to remain if, got \{op}")
+    op => fail("expected storeback root to become if, got \{op}")
   }
+  let then_region = @ir.hot_region_then_ref(func, rewritten)
+  assert_eq(@ir.hot_region_root_count(func, then_region), 1)
+  let then_root = @ir.hot_region_get(func, then_region, 0)
+  match @ir.hot_node_get(func, then_root).op {
+    @ir.HotOp::LocalSet => ()
+    op => fail("expected then root to store the updated value, got \{op}")
+  }
+  let else_region = @ir.hot_region_else_ref(func, rewritten).unwrap()
+  assert_eq(@ir.hot_region_root_count(func, else_region), 0)
 }
 
 ///|

@@ -543,6 +543,16 @@
   Binaryen narrows the storeback `if (result)` into a conditional update or a
   use-site forward. So the next meaningful simplify-locals work should reduce
   that storeback family, not reopen broader dead-local-set relaxations.
+- That storeback family is now partially implemented too. Root-level
+  `local.set L (if (result T) cond then V else (local.get L))` now rewrites
+  into a void `if` whose `then` arm performs the `local.set`, and the reduced
+  pass regression is green. Native `--simplify-locals` replay on
+  `tests/node/dist/starshine-debug-wasi.wasm` remains valid, and the fresh
+  direct compare `.tmp/self-opt-simplify-locals-20260408d` moves the old `529`
+  family toward Binaryen by removing the outer result-`if` storeback wrapper.
+  The overall parity story is still open though: size is unchanged, the first
+  direct hunk at `214` is still intact, and the later `641` family still wants
+  deeper use-site forwarding than this rewrite provides.
 - One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
   proves that `code-pushing` already handles the simpler tee-fed sibling shape
   where the movable `local.set` is followed by a kept condition `local.set`,

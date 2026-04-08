@@ -72,6 +72,46 @@ fn simplify_locals_is_root_node(func : @ir.HotFunc, node_id : Int) -> Bool {
 }
 
 ///|
+fn simplify_locals_same_local_storeback_if_target(
+  func : @ir.HotFunc,
+  root_idx : Int,
+) -> (Int, Int)? {
+  let root_id = @ir.hot_root_get(func, root_idx)
+  let root = @ir.hot_node_get(func, root_id)
+  match root.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return None
+  }
+  let if_id = @ir.hot_child_get(func, root_id, 0)
+  let if_node = @ir.hot_node_get(func, if_id)
+  match if_node.op {
+    @ir.HotOp::If => ()
+    _ => return None
+  }
+  if @ir.hot_type_result_arity(func, if_node.ty) != 1 {
+    return None
+  }
+  let else_region = match @ir.hot_region_else_ref(func, if_id) {
+    Some(region) => region
+    None => return None
+  }
+  if @ir.hot_region_root_count(func, else_region) != 1 {
+    return None
+  }
+  let else_root = @ir.hot_region_get(func, else_region, 0)
+  let else_node = @ir.hot_node_get(func, else_root)
+  match else_node.op {
+    @ir.HotOp::LocalGet => if else_node.imm0 != root.imm0 { return None }
+    _ => return None
+  }
+  let then_region = @ir.hot_region_then_ref(func, if_id)
+  if @ir.hot_region_root_count(func, then_region) == 0 {
+    return None
+  }
+  Some((root_id, if_id))
+}
+
+///|
 fn simplify_locals_local_get_rewrite_target(
   ssa : @ir.HotLocalSsa,
   use_def : @ir.HotUseDef,
@@ -263,6 +303,13 @@ fn simplify_locals_run(
   let noppable_drop_nodes : Array[Int] = []
   let forwarded_local_gets : Array[(Int, Int)] = []
   let forwarded_drop_nodes : Array[Int] = []
+  let storeback_if_roots : Array[(Int, Int)] = []
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    match simplify_locals_same_local_storeback_if_target(func, root_idx) {
+      Some((root_id, if_id)) => storeback_if_roots.push((root_id, if_id))
+      None => ()
+    }
+  }
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -325,11 +372,42 @@ fn simplify_locals_run(
       _ => ()
     }
   }
-  if dead_nodes.length() == 0 {
+  if dead_nodes.length() == 0 && storeback_if_roots.length() == 0 {
     return HotPassResult::unchanged()
   }
   @ir.ssa_remove_dead_local_defs(func, dead_nodes)
   simplify_locals_rehome_detached_control_owners(func, detached_control_owners)
+  for storeback in storeback_if_roots {
+    let (root_id, if_id) = storeback
+    if !@ir.hot_node_is_live(func, root_id) ||
+      !@ir.hot_node_is_live(func, if_id) {
+      continue
+    }
+    let root = @ir.hot_node_get(func, root_id)
+    let then_region = @ir.hot_region_then_ref(func, if_id)
+    let then_count = @ir.hot_region_root_count(func, then_region)
+    if then_count == 0 {
+      continue
+    }
+    let then_roots : Array[Int] = []
+    for idx = 0; idx < then_count - 1; idx = idx + 1 {
+      then_roots.push(@ir.hot_region_get(func, then_region, idx))
+    }
+    let then_value = @ir.hot_region_get(func, then_region, then_count - 1)
+    then_roots.push(@ir.hot_build_local_set(func, root.imm0, then_value))
+    @ir.hot_region_replace_body(func, then_region, then_roots)
+    let else_region = @ir.hot_region_else_ref(func, if_id).unwrap()
+    @ir.hot_region_replace_body(func, else_region, [])
+    @ir.hot_control_result_type_set(func, if_id, @ir.hot_type_void(func))
+    for root_idx = 0
+        root_idx < @ir.hot_root_count(func)
+        root_idx = root_idx + 1 {
+      if @ir.hot_root_get(func, root_idx) == root_id {
+        @ir.hot_root_set(func, root_idx, if_id)
+        break
+      }
+    }
+  }
   for forwarded in forwarded_local_gets {
     let (node_id, child_id) = forwarded
     if @ir.hot_node_is_live(func, node_id) &&
