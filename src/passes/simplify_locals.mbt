@@ -31,6 +31,26 @@ priv struct SimplifyLocalsDetachedControlOwner {
 }
 
 ///|
+fn simplify_locals_is_trivially_removable_value(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::Nop
+    | @ir.HotOp::Const
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefFunc => true
+    _ => false
+  }
+}
+
+///|
+fn simplify_locals_replace_with_nop(func : @ir.HotFunc, node_id : Int) -> Unit {
+  let nop = @ir.hot_build_nop(func)
+  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, nop))
+}
+
+///|
 fn simplify_locals_rehome_detached_control_owners(
   func : @ir.HotFunc,
   owners : Array[SimplifyLocalsDetachedControlOwner],
@@ -155,6 +175,8 @@ fn simplify_locals_run(
   let dead_nodes : Array[Int] = []
   let detached_tee_nodes : Array[Int] = []
   let detached_control_owners : Array[SimplifyLocalsDetachedControlOwner] = []
+  let noppable_local_set_nodes : Array[Int] = []
+  let noppable_drop_nodes : Array[Int] = []
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
@@ -174,6 +196,11 @@ fn simplify_locals_run(
           @ir.HotOp::LocalSet =>
             if !simplify_locals_dead_local_set_is_safe(use_def, func, node_id) {
               ignore(dead_nodes.pop())
+            } else if simplify_locals_is_trivially_removable_value(
+                func,
+                @ir.hot_child_get(func, node_id, 0),
+              ) {
+              noppable_local_set_nodes.push(node_id)
             }
           @ir.HotOp::LocalTee => {
             if !simplify_locals_dead_local_tee_is_safe(use_def, func, node_id) {
@@ -181,6 +208,10 @@ fn simplify_locals_run(
               continue
             }
             let child_id = @ir.hot_child_get(func, node_id, 0)
+            if simplify_locals_is_trivially_removable_value(func, child_id) {
+              let sites = @ir.node_use_sites_borrowed(use_def, node_id)
+              noppable_drop_nodes.push(sites[0].user)
+            }
             if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
               detached_tee_nodes.push(child_id)
               detached_control_owners.push({
@@ -200,6 +231,22 @@ fn simplify_locals_run(
   }
   @ir.ssa_remove_dead_local_defs(func, dead_nodes)
   simplify_locals_rehome_detached_control_owners(func, detached_control_owners)
+  for node_id in noppable_local_set_nodes {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Drop => simplify_locals_replace_with_nop(func, node_id)
+        _ => ()
+      }
+    }
+  }
+  for node_id in noppable_drop_nodes {
+    if @ir.hot_node_is_live(func, node_id) {
+      match @ir.hot_node_get(func, node_id).op {
+        @ir.HotOp::Drop => simplify_locals_replace_with_nop(func, node_id)
+        _ => ()
+      }
+    }
+  }
   @ir.cache_invalidate_all(ctx.cache)
   simplify_locals_delete_detached_nodes(ctx, func, detached_tee_nodes)
   pass_mark_mutated(ctx, func)

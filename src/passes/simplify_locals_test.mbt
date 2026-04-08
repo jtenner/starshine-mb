@@ -1,4 +1,20 @@
 ///|
+fn simplify_locals_run_hot(text : String) -> @ir.HotFunc {
+  let func = pass_test_lift_first_func(text)
+  let ctx = HotPassContext::new(
+    simplify_locals_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => func
+    Err(err) => abort("unexpected simplify-locals hot test failure: \{err}")
+  }
+}
+
+///|
 test "simplify-locals rewrites dead local.set roots" {
   let optimized = match
     pass_test_run_pipeline(
@@ -11,7 +27,7 @@ test "simplify-locals rewrites dead local.set roots" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.set"))
-  assert_true(pretty.contains("drop"))
+  assert_false(pretty.contains("drop"))
   assert_true(pretty.contains("I32(7)"))
 }
 
@@ -28,7 +44,7 @@ test "simplify-locals rewrites dead local.tee roots" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("local.tee"))
-  assert_true(pretty.contains("drop"))
+  assert_false(pretty.contains("drop"))
   assert_true(pretty.contains("I32(7)"))
 }
 
@@ -45,6 +61,35 @@ test "simplify-locals skips unreachable local defs outside the ssa overlay" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("I32(7)"))
+}
+
+///|
+test "simplify-locals rewrites dead pure local.set roots to nop" {
+  let func = simplify_locals_run_hot(
+    "(module (func (local i32) i32.const 861 local.set 0 f32.const 65 drop))",
+  )
+
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::Nop => ()
+    op => fail("expected nop root after pure dead local.set, got \{op}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).op {
+    @ir.HotOp::Drop => ()
+    op => fail("expected trailing drop root, got \{op}")
+  }
+}
+
+///|
+test "simplify-locals keeps drops for dead side-effectful local.set roots" {
+  let func = simplify_locals_run_hot(
+    "(module (func (local i32) call 1 local.set 0) (func (result i32) i32.const 7))",
+  )
+
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::Drop => ()
+    op =>
+      fail("expected drop root for side-effectful dead local.set, got \{op}")
+  }
 }
 
 ///|
@@ -92,6 +137,22 @@ test "simplify-locals keeps shared tee children that remain referenced" {
   }
 
   assert_true(@ir.hot_node_is_live(func, shared))
+}
+
+///|
+test "simplify-locals rewrites dead pure local.tee drop roots to nop" {
+  let func = simplify_locals_run_hot(
+    "(module (func (local i64) i64.const 756 local.tee 0 drop i32.const 7 drop))",
+  )
+
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::Nop => ()
+    op => fail("expected nop root after pure dead local.tee, got \{op}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).op {
+    @ir.HotOp::Drop => ()
+    op => fail("expected trailing drop root, got \{op}")
+  }
 }
 
 ///|
