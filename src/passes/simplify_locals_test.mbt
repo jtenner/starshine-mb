@@ -490,6 +490,45 @@ test "simplify-locals lifts one-armed if writes for defaultable locals" {
 }
 
 ///|
+test "simplify-locals preserves then-arm nop when lifting one-armed if writes" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 42 local.set 1 end local.get 1 i32.const 1 i32.add local.set 1 local.get 1))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected one-armed nop-preserving simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("if I32 nop"), msg=pretty)
+  assert_true(pretty.contains("I32(42)"), msg=pretty)
+}
+
+///|
+test "simplify-locals keeps live then-arm roots when lifting one-armed if writes" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func $use (param i32 i32)) (func (param i32 i32) (result i32) (local i32) local.get 0 if local.get 0 local.get 1 call $use local.get 1 i32.const 0 i32.store local.get 1 i32.load local.set 2 end local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected live-root one-armed simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+}
+
+///|
 test "simplify-locals lifts nested one-armed if writes inside consumed result ifs" {
   let optimized = match
     pass_test_run_pipeline(

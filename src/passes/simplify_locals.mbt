@@ -1066,6 +1066,29 @@ fn simplify_locals_region_tail_local_set(
 }
 
 ///|
+fn simplify_locals_build_one_armed_if_then_body(
+  func : @ir.HotFunc,
+  then_ref : @ir.HotRegionRef,
+  tail_root_idx : Int,
+  value_id : Int,
+) -> Array[Int] {
+  let then_body : Array[Int] = []
+  for idx = 0; idx < @ir.hot_region_root_count(func, then_ref); idx = idx + 1 {
+    if idx == tail_root_idx {
+      then_body.push(@ir.hot_build_nop(func))
+      continue
+    }
+    let root_id = @ir.hot_region_get(func, then_ref, idx)
+    if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    then_body.push(root_id)
+  }
+  then_body.push(value_id)
+  then_body
+}
+
+///|
 fn simplify_locals_subtree_mentions_local(
   func : @ir.HotFunc,
   node_id : Int,
@@ -2567,11 +2590,17 @@ fn simplify_locals_try_rewrite_if_return(
         Some(local_type) => @lib.BlockType::val_type(local_type)
         None => return false
       }
+      let replacement_then = simplify_locals_build_one_armed_if_then_body(
+        func,
+        then_ref,
+        then_tail.root_idx,
+        then_tail.value_id,
+      )
       let replacement_if = @ir.hot_build_if(
         func,
         result_block_type,
         @ir.hot_child_get(func, node_id, 0),
-        [then_tail.value_id],
+        replacement_then,
         else_body=Some([@ir.hot_build_local_get(func, then_tail.local_id)]),
       )
       @ir.hot_region_replace_body(func, then_ref, [])
@@ -2714,11 +2743,17 @@ fn simplify_locals_try_rewrite_nested_one_armed_if_child(
     Some(local_type) => @lib.BlockType::val_type(local_type)
     None => return false
   }
+  let replacement_then = simplify_locals_build_one_armed_if_then_body(
+    func,
+    then_ref,
+    then_tail.root_idx,
+    then_tail.value_id,
+  )
   let replacement_if = @ir.hot_build_if(
     func,
     result_block_type,
     @ir.hot_child_get(func, child_id, 0),
-    [then_tail.value_id],
+    replacement_then,
     else_body=Some([@ir.hot_build_local_get(func, then_tail.local_id)]),
   )
   @ir.hot_region_replace_body(func, then_ref, [])
