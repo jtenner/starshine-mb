@@ -5539,6 +5539,253 @@ fn run_hot_pipeline_raw_remove_unused_brs(
 }
 
 ///|
+fn run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_instr(
+  instr : @lib.Instruction,
+  counts : Array[Int],
+) -> Unit {
+  match instr {
+    @lib.LocalGet(local_idx) =>
+      match local_idx {
+        @lib.LocalIdx(raw) => {
+          let idx = raw.reinterpret_as_int()
+          if idx >= 0 && idx < counts.length() {
+            counts[idx] = counts[idx] + 1
+          }
+        }
+      }
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
+        body, counts,
+      )
+    @lib.If(_, then_, else_) => {
+      run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
+        then_, counts,
+      )
+      match else_ {
+        Some(else_body) =>
+          run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
+            else_body, counts,
+          )
+        None => ()
+      }
+    }
+    _ => ()
+  }
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_instr(
+  instr : @lib.Instruction,
+) -> Int {
+  match instr {
+    @lib.LocalGet(@lib.LocalIdx(raw))
+    | @lib.LocalSet(@lib.LocalIdx(raw))
+    | @lib.LocalTee(@lib.LocalIdx(raw)) => raw.reinterpret_as_int()
+    @lib.Block(_, @lib.Expr(body))
+    | @lib.Loop(_, @lib.Expr(body))
+    | @lib.TryTable(_, _, @lib.Expr(body)) =>
+      run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(body)
+    @lib.If(_, then_, else_) => {
+      let then_max = run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
+        then_,
+      )
+      let else_max = match else_ {
+        Some(else_body) =>
+          run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
+            else_body,
+          )
+        None => -1
+      }
+      if then_max > else_max {
+        then_max
+      } else {
+        else_max
+      }
+    }
+    _ => -1
+  }
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
+  body : Array[@lib.Instruction],
+) -> Int {
+  let mut max_idx = -1
+  for instr in body {
+    let instr_max = run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_instr(
+      instr,
+    )
+    if instr_max > max_idx {
+      max_idx = instr_max
+    }
+  }
+  max_idx
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_instr_stops_following_body_instrs(
+  instr : @lib.Instruction,
+) -> Bool {
+  match instr {
+    @lib.Br(_)
+    | @lib.BrTable(_, _)
+    | @lib.Return
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Unreachable => true
+    @lib.Block(_, @lib.Expr(body)) | @lib.Loop(_, @lib.Expr(body)) =>
+      run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(body)
+    @lib.If(_, then_, Some(else_)) =>
+      run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(then_) &&
+      run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(else_)
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_body_is_nonfallthrough(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() == 0 {
+    return false
+  }
+  match body[body.length() - 1] {
+    @lib.Br(_)
+    | @lib.BrTable(_, _)
+    | @lib.Return
+    | @lib.Throw(_)
+    | @lib.ThrowRef
+    | @lib.Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
+  body : Array[@lib.Instruction],
+  counts : Array[Int],
+) -> Unit {
+  for instr in body {
+    run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_instr(
+      instr, counts,
+    )
+    if run_hot_pipeline_simplify_locals_lowered_instr_stops_following_body_instrs(
+        instr,
+      ) {
+      break
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_cleanup_instr(
+  instr : @lib.Instruction,
+  counts : Array[Int],
+) -> @lib.Instruction? {
+  match instr {
+    @lib.Nop => Some(instr)
+    @lib.LocalTee(local_idx) =>
+      match local_idx {
+        @lib.LocalIdx(raw) => {
+          let idx = raw.reinterpret_as_int()
+          if idx >= 0 && idx < counts.length() && counts[idx] == 0 {
+            None
+          } else {
+            Some(instr)
+          }
+        }
+      }
+    @lib.Block(block_type, @lib.Expr(body)) =>
+      Some(
+        @lib.Instruction::block(
+          block_type,
+          @lib.Expr::new(
+            run_hot_pipeline_simplify_locals_lowered_cleanup_body(body, counts),
+          ),
+        ),
+      )
+    @lib.Loop(block_type, @lib.Expr(body)) =>
+      Some(
+        @lib.Instruction::loop_(
+          block_type,
+          @lib.Expr::new(
+            run_hot_pipeline_simplify_locals_lowered_cleanup_body(body, counts),
+          ),
+        ),
+      )
+    @lib.If(block_type, then_, else_) =>
+      Some(
+        @lib.Instruction::if_(
+          block_type,
+          run_hot_pipeline_simplify_locals_lowered_cleanup_body(then_, counts),
+          match else_ {
+            Some(else_body) =>
+              Some(
+                run_hot_pipeline_simplify_locals_lowered_cleanup_body(
+                  else_body, counts,
+                ),
+              )
+            None => None
+          },
+        ),
+      )
+    @lib.TryTable(block_type, catches, @lib.Expr(body)) =>
+      Some(
+        @lib.Instruction::try_table(
+          block_type,
+          catches,
+          @lib.Expr::new(
+            run_hot_pipeline_simplify_locals_lowered_cleanup_body(body, counts),
+          ),
+        ),
+      )
+    _ => Some(instr)
+  }
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_lowered_cleanup_body(
+  body : Array[@lib.Instruction],
+  counts : Array[Int],
+) -> Array[@lib.Instruction] {
+  let cleaned : Array[@lib.Instruction] = []
+  for instr in body {
+    match
+      run_hot_pipeline_simplify_locals_lowered_cleanup_instr(instr, counts) {
+      Some(rewritten) => cleaned.push(rewritten)
+      None => ()
+    }
+  }
+  cleaned
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
+  func : @lib.Func,
+  descriptor_name : String,
+) -> @lib.Func {
+  if descriptor_name != "simplify-locals" {
+    return func
+  }
+  let @lib.Func(locals, @lib.Expr(body)) = func
+  let max_local_idx = run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
+    body,
+  )
+  let counts = Array::make(max_local_idx + 1, 0)
+  run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
+    body, counts,
+  )
+  @lib.Func::new(
+    locals,
+    @lib.Expr::new(
+      run_hot_pipeline_simplify_locals_lowered_cleanup_body(body, counts),
+    ),
+  )
+}
+
+///|
 fn run_hot_pipeline_func(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -5794,16 +6041,22 @@ fn run_hot_pipeline_func(
           run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
           let lower_start_us = perf_start_timer_opt(options.perf, "lower")
           let lowered = if descriptor.name == "remove-unused-brs" {
-            @ir.hot_lower_func_with_options(
-              func,
-              @ir.HotLowerOptions::new(
-                preserve_if_arm_single_nops=true,
-                preserve_dead_local_tee_drops=true,
-                preserve_nontrailing_nops=true,
+            run_hot_pipeline_simplify_locals_cleanup_lowered_func(
+              @ir.hot_lower_func_with_options(
+                func,
+                @ir.HotLowerOptions::new(
+                  preserve_if_arm_single_nops=true,
+                  preserve_dead_local_tee_drops=true,
+                  preserve_nontrailing_nops=true,
+                ),
               ),
+              descriptor.name,
             )
           } else {
-            @ir.hot_lower_func(func)
+            run_hot_pipeline_simplify_locals_cleanup_lowered_func(
+              @ir.hot_lower_func(func),
+              descriptor.name,
+            )
           }
           perf_stop_timer_opt(options.perf, "lower", lower_start_us)
           Ok({
@@ -5819,16 +6072,22 @@ fn run_hot_pipeline_func(
       run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
       let lower_start_us = perf_start_timer_opt(options.perf, "lower")
       let lowered = if descriptor.name == "remove-unused-brs" {
-        @ir.hot_lower_func_unverified_with_options(
-          func,
-          @ir.HotLowerOptions::new(
-            preserve_if_arm_single_nops=true,
-            preserve_dead_local_tee_drops=true,
-            preserve_nontrailing_nops=true,
+        run_hot_pipeline_simplify_locals_cleanup_lowered_func(
+          @ir.hot_lower_func_unverified_with_options(
+            func,
+            @ir.HotLowerOptions::new(
+              preserve_if_arm_single_nops=true,
+              preserve_dead_local_tee_drops=true,
+              preserve_nontrailing_nops=true,
+            ),
           ),
+          descriptor.name,
         )
       } else {
-        @ir.hot_lower_func_unverified(func)
+        run_hot_pipeline_simplify_locals_cleanup_lowered_func(
+          @ir.hot_lower_func_unverified(func),
+          descriptor.name,
+        )
       }
       perf_stop_timer_opt(options.perf, "lower", lower_start_us)
       Ok({

@@ -302,6 +302,24 @@ test "simplify-locals rewrites dead local.tee roots" {
 }
 
 ///|
+test "simplify-locals drops dead copied local.tee stores after writeback" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $id (param i32) (result i32) local.get 0) (func (result i32) (local i32 i32) i32.const 7 local.tee 1 local.set 0 local.get 0 call $id))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected copied-tee simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_false(pretty.contains("local.tee"), msg=pretty)
+  assert_false(pretty.contains("Local 1"), msg=pretty)
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "simplify-locals removes overwritten pending local sets" {
   let optimized = match
     pass_test_run_pipeline(
