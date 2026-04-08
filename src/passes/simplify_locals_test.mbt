@@ -1,4 +1,23 @@
 ///|
+fn simplify_locals_test_count_substring(text : String, needle : String) -> Int {
+  if needle.length() == 0 {
+    return 0
+  }
+  let mut count = 0
+  let limit = text.length() - needle.length()
+  let mut i = 0
+  while i <= limit {
+    if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+      count += 1
+      i += needle.length()
+    } else {
+      i += 1
+    }
+  }
+  count
+}
+
+///|
 test "simplify-locals sinks a single-use local.set into the later get" {
   let optimized = match
     pass_test_run_pipeline(
@@ -170,6 +189,27 @@ test "simplify-locals preserves tee-backed copied locals for later branch uses" 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
+test "simplify-locals rewrites same-arm tee aliases back to the source local" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type $t1 (func (param i32) (result i32))) (type $t0 (func (param i32))) (type $t3 (func (param i32 i32 i32) (result i32))) (import \"m\" \"get_tag\" (func $get_tag (type $t1))) (import \"m\" \"incref\" (func $incref (type $t0))) (import \"m\" \"free\" (func $free (type $t0))) (import \"m\" \"decref\" (func $decref (type $t0))) (memory 1) (func $outer (param i32 i32 i32) (result i32) (local i32 i32 i32 i32 i32 i32) nop local.get 0 local.get 1 local.get 2 call $get_tag i32.const 1 i32.eq if (result i32) local.get 2 local.tee 4 i32.load offset=8 align=1 local.set 5 local.get 4 i32.load align=1 local.tee 6 i32.const 1 i32.gt_s if nop local.get 4 local.get 6 i32.const 1 i32.sub i32.store align=1 local.get 5 if local.get 5 call $incref end else local.get 6 i32.const 1 i32.eq if local.get 4 call $free end end local.get 5 else local.get 2 call $decref i32.const 0 end call $dummy) (func $dummy (type $t3) (param i32 i32 i32) (result i32) local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected same-arm tee-alias simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(4U))
+  assert_true(pretty.contains("local.tee (Local 4)"), msg=pretty)
+  assert_eq(
+    simplify_locals_test_count_substring(pretty, "local.get (Local 4)"),
+    1,
+    msg=pretty,
+  )
 }
 
 ///|

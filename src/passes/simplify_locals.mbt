@@ -3389,7 +3389,7 @@ fn simplify_locals_scan_equivalent_region(
       continue
     }
     if simplify_locals_scan_equivalent_node(
-        env, func, node_id, equivalences, get_counts, tee_defined_locals,
+        env, func, node_id, equivalences, get_counts, tee_defined_locals, false,
       ) {
       changed = true
     }
@@ -3405,6 +3405,7 @@ fn simplify_locals_scan_equivalent_current(
   equivalences : SimplifyLocalsEquivalentState,
   get_counts : Array[Int],
   tee_defined_locals : Array[Bool],
+  protect_tee_defined_locals : Bool,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3436,7 +3437,8 @@ fn simplify_locals_scan_equivalent_current(
       let best = simplify_locals_pick_best_equivalent_local(
         env, func, equivalences, get_counts, local_id,
       )
-      if local_id >= 0 &&
+      if protect_tee_defined_locals &&
+        local_id >= 0 &&
         local_id < tee_defined_locals.length() &&
         tee_defined_locals[local_id] &&
         best != local_id {
@@ -3484,6 +3486,7 @@ fn simplify_locals_scan_equivalent_node(
   equivalences : SimplifyLocalsEquivalentState,
   get_counts : Array[Int],
   tee_defined_locals : Array[Bool],
+  protect_tee_defined_locals : Bool,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3508,6 +3511,7 @@ fn simplify_locals_scan_equivalent_node(
       let condition_id = @ir.hot_child_get(func, node_id, 0)
       if simplify_locals_scan_equivalent_node(
           env, func, condition_id, equivalences, get_counts, tee_defined_locals,
+          false,
         ) {
         changed = true
       }
@@ -3612,14 +3616,20 @@ fn simplify_locals_scan_equivalent_node(
           continue
         }
         if simplify_locals_scan_equivalent_node(
-            env, func, child_id, equivalences, get_counts, tee_defined_locals,
+            env,
+            func,
+            child_id,
+            equivalences,
+            get_counts,
+            tee_defined_locals,
+            @ir.hot_node_kind_is_call(func, node_id),
           ) {
           changed = true
         }
       }
   }
   if simplify_locals_scan_equivalent_current(
-      env, func, node_id, equivalences, get_counts, tee_defined_locals,
+      env, func, node_id, equivalences, get_counts, tee_defined_locals, protect_tee_defined_locals,
     ) {
     changed = true
   }
