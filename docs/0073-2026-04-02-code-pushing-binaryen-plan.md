@@ -592,6 +592,19 @@
   step is no longer the plain tee-preserving lane; it is the multi-root
   storeback/extraction family that also feeds the later `$2` set before the
   final consumer.
+- That tee-preserving mover is now broader in one safe direction too.
+  `simplify-locals` now admits read-only structured producers, not just
+  result-`if` producers: a root-level `local.set` whose value subtree uses only
+  local reads plus structured control with no explicit exits and no nested
+  local writes can also move into the immediate later use as a `local.tee`
+  under the same single-child-chain / later-same-holder-read constraints. The
+  reduced pure-producer pass test is green, native `--simplify-locals` replay
+  still validates on `tests/node/dist/starshine-debug-wasi.wasm`, and the fresh
+  compare `.tmp/self-opt-simplify-locals-20260408j` cuts Starshine much further
+  from `1958404` to `1950336` bytes. The first direct hunk at `214` is still
+  unchanged though, so this broader read-only structured mover is useful
+  cleanup, not the final fix for the remaining multi-root storeback/extraction
+  family.
 - One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
   proves that `code-pushing` already handles the simpler tee-fed sibling shape
   where the movable `local.set` is followed by a kept condition `local.set`,

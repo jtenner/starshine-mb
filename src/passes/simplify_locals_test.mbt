@@ -296,6 +296,27 @@ test "simplify-locals rewrites result-if producer sets into immediate tees when 
 }
 
 ///|
+test "simplify-locals rewrites pure producer sets into immediate tees when later reads still need the local" {
+  let func = simplify_locals_run_hot(
+    "(module (func (param i32) (result i32) (local i32) (local.set 1 (i32.sub (i32.const 31) (i32.clz (local.get 0)))) (drop (i32.shr_u (i32.const 64) (local.get 1))) (local.get 1)))",
+  )
+
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::Nop => ()
+    op => fail("expected pure producer root to become nop, got \{op}")
+  }
+  let use_root = @ir.hot_root_get(func, 1)
+  let shr_id = @ir.hot_child_get(func, use_root, 0)
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, shr_id, 1)).op {
+    @ir.HotOp::LocalTee => ()
+    op =>
+      fail(
+        "expected pure immediate use to rewrite to local.tee while later reads still need the local, got \{op}",
+      )
+  }
+}
+
+///|
 test "simplify-locals keeps structured producer sets when immediate use has an impure prefix" {
   let func = simplify_locals_run_hot(
     "(module (func (param i32) (result i32) (local i32) (local.set 1 (if (result i32) (local.get 0) (then (i32.const 4)) (else (i32.const 9)))) (i32.add (call 1) (local.get 1))) (func (result i32) (i32.const 7)))",

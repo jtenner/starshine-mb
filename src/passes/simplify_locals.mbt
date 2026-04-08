@@ -173,6 +173,42 @@ fn simplify_locals_has_explicit_exit(func : @ir.HotFunc, node_id : Int) -> Bool 
 }
 
 ///|
+fn simplify_locals_has_nested_local_write(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      continue
+    }
+    if simplify_locals_has_nested_local_write(func, child_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn simplify_locals_is_safe_structured_forward_value(
+  node_masks : Array[@ir.EffectMask],
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let mask = node_masks[node_id]
+  let allowed = @ir.EFFECT_MASK_LOCAL_STATE | @ir.EFFECT_MASK_CONTROL
+  if (mask & allowed) != mask {
+    return false
+  }
+  !simplify_locals_has_nested_local_write(func, node_id)
+}
+
+///|
 fn simplify_locals_single_root_use_path(
   use_def : @ir.HotUseDef,
   node_masks : Array[@ir.EffectMask],
@@ -373,11 +409,10 @@ fn simplify_locals_local_get_rewrite_target(
       let child_id = @ir.hot_child_get(func, set_id, 0)
       if !simplify_locals_is_root_node(func, set_id) ||
         !simplify_locals_is_root_node(func, node_id) {
-        match @ir.hot_node_get(func, child_id).op {
-          @ir.HotOp::If => ()
-          _ => return None
-        }
-        if simplify_locals_has_explicit_exit(func, child_id) {
+        if !simplify_locals_is_safe_structured_forward_value(
+            node_masks, func, child_id,
+          ) ||
+          simplify_locals_has_explicit_exit(func, child_id) {
           return None
         }
         let uses = @ir.ssa_uses_of_value(ssa, value_id)
