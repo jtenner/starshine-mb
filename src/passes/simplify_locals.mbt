@@ -1894,7 +1894,14 @@ fn simplify_locals_scan_region(
       continue
     }
     if simplify_locals_scan_node(
-        func, node_id, sinkables, first_cycle, get_counts, detached,
+        func,
+        node_id,
+        sinkables,
+        first_cycle,
+        get_counts,
+        detached,
+        Some(region_ref),
+        idx,
       ) {
       changed = true
     }
@@ -1910,6 +1917,8 @@ fn simplify_locals_scan_node(
   first_cycle : Bool,
   get_counts : Array[Int],
   detached : Array[Int],
+  parent_region : @ir.HotRegionRef?,
+  root_idx : Int,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1955,7 +1964,14 @@ fn simplify_locals_scan_node(
     @ir.HotOp::If => {
       let condition_id = @ir.hot_child_get(func, node_id, 0)
       if simplify_locals_scan_node(
-          func, condition_id, sinkables, first_cycle, get_counts, detached,
+          func,
+          condition_id,
+          sinkables,
+          first_cycle,
+          get_counts,
+          detached,
+          None,
+          -1,
         ) {
         changed = true
       }
@@ -2054,7 +2070,14 @@ fn simplify_locals_scan_node(
           continue
         }
         if simplify_locals_scan_node(
-            func, scan_child_id, sinkables, first_cycle, get_counts, detached,
+            func,
+            scan_child_id,
+            sinkables,
+            first_cycle,
+            get_counts,
+            detached,
+            None,
+            -1,
           ) {
           changed = true
         }
@@ -2142,6 +2165,38 @@ fn simplify_locals_scan_node(
   current = @ir.hot_node_get(func, node_id)
   match current.op {
     @ir.HotOp::LocalSet => {
+      let value_id = @ir.hot_child_get(func, node_id, 0)
+      if root_idx >= 0 &&
+        get_counts[current.imm0] == 1 &&
+        simplify_locals_value_is_child_inline_safe(func, value_id) {
+        match parent_region {
+          Some(parent_region) =>
+            if simplify_locals_try_inline_following_local_get(
+                func,
+                parent_region,
+                root_idx,
+                current.imm0,
+                value_id,
+                detached,
+              ) {
+              simplify_locals_invalidate_sinkables(
+                func,
+                node_id,
+                current,
+                sinkables,
+                skip_local=current.imm0,
+              )
+              simplify_locals_sinkables_clear_local(sinkables, current.imm0)
+              @ir.hot_replace_node(
+                func,
+                node_id,
+                simplify_locals_make_nop(func),
+              )
+              return true
+            }
+          None => ()
+        }
+      }
       simplify_locals_invalidate_sinkables(
         func,
         node_id,

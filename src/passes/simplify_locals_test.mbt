@@ -33,6 +33,24 @@ test "simplify-locals sinks single-use if results into later call arguments" {
 }
 
 ///|
+test "simplify-locals sinks pure single-use locals into later call arguments" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $side (result i32) i32.const 7) (func $use (param i32 i32 i32) (result i32) local.get 0 local.get 1 local.get 2 i32.add i32.add) (func (param i32) (result i32) (local i32) i32.const 10000 local.set 1 local.get 0 call $side local.get 1 call $use))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected pure call-arg simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("I32(10000)"), msg=pretty)
+}
+
+///|
 test "simplify-locals does not move stacked multivalue if results out of place" {
   let optimized = match
     pass_test_run_pipeline(
