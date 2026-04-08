@@ -52,6 +52,25 @@ test "simplify-locals does not move stacked multivalue if results out of place" 
 }
 
 ///|
+test "simplify-locals does not sink loop-carried initializers into loop headers" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (result i32) (local i32) i32.const 0 local.set 1 loop local.get 1 local.get 0 i32.lt_s if local.get 1 i32.const 1 i32.add local.set 1 br 1 end end local.get 1))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected loop-carried initializer simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.tee (Local 1)"), msg=pretty)
+}
+
+///|
 test "simplify-locals sinks a multi-use local through a tee" {
   let optimized = match
     pass_test_run_pipeline(

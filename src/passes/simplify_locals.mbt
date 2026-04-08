@@ -1725,10 +1725,11 @@ fn simplify_locals_scan_node(
       return changed
     }
     @ir.HotOp::Loop => {
+      let loop_sinkables = simplify_locals_new_sinkables(func)
       if simplify_locals_scan_region(
           func,
           @ir.hot_region_body_ref(func, node_id),
-          sinkables,
+          loop_sinkables,
           first_cycle,
           get_counts,
           detached,
