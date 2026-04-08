@@ -15,6 +15,25 @@ fn simplify_locals_run_hot(text : String) -> @ir.HotFunc {
 }
 
 ///|
+fn simplify_locals_run_hot_rounds(text : String, rounds : Int) -> @ir.HotFunc {
+  let func = pass_test_lift_first_func(text)
+  for _ in 0..<rounds {
+    let ctx = HotPassContext::new(
+      simplify_locals_descriptor(),
+      @ir.HotAnalysisCache::new(),
+      HotPipelineVerifyPolicy::after_each_pass(),
+      false,
+      fn(_) { () },
+    )
+    match hot_pass_run(ctx, func) {
+      Ok(_) => ()
+      Err(err) => abort("unexpected simplify-locals hot test failure: \{err}")
+    }
+  }
+  func
+}
+
+///|
 test "simplify-locals rewrites dead local.set roots" {
   let optimized = match
     pass_test_run_pipeline(
@@ -333,6 +352,34 @@ test "simplify-locals keeps the live multi-root storeback extraction frontier" {
   match @ir.hot_node_get(func, @ir.hot_root_get(func, 2)).op {
     @ir.HotOp::LocalSet => ()
     op => fail("expected live frontier root 2 to remain local.set, got \{op}")
+  }
+}
+
+///|
+test "simplify-locals keeps the live multi-root storeback extraction frontier after two rounds" {
+  let func = simplify_locals_run_hot_rounds(
+    "(module (func (param i32) (result i32) (local i32 i32) (local.set 1 (if (result i32) (local.get 0) (then (nop) (i32.sub (i32.add (local.get 1) (i32.shl (i32.const 1) (i32.sub (i32.const 27) (i32.clz (local.get 1))))) (i32.const 1))) (else (local.get 1)))) (local.set 2 (i32.sub (i32.const 31) (i32.clz (local.get 1)))) (local.set 1 (i32.xor (i32.shr_u (local.get 1) (i32.sub (local.get 2) (i32.const 4))) (i32.const 16))) (i32.sub (local.get 2) (i32.const 7))))",
+    2,
+  )
+
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::If => ()
+    op =>
+      fail("expected two-round live frontier root 0 to remain if, got \{op}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).op {
+    @ir.HotOp::LocalSet => ()
+    op =>
+      fail(
+        "expected two-round live frontier root 1 to remain local.set, got \{op}",
+      )
+  }
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 2)).op {
+    @ir.HotOp::LocalSet => ()
+    op =>
+      fail(
+        "expected two-round live frontier root 2 to remain local.set, got \{op}",
+      )
   }
 }
 

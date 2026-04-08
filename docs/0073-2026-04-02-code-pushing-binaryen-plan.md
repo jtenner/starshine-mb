@@ -615,6 +615,15 @@
   deliberate multi-root extraction rewrite or a bounded second
   `simplify-locals` round, instead of reopening more one-root forwarding
   variants blindly.
+- That decision point is now explicit too. `src/passes/simplify_locals_test.mbt`
+  also reruns that closer multi-root fixture for two consecutive hot rounds,
+  and it still leaves the later two `local.set` roots in place. The direct
+  artifact experiment says the same thing:
+  `.tmp/self-opt-simplify-locals-twice-20260408` shrinks further from
+  `1950336` to `1950197`, but the first direct hunk at `214` is still
+  unchanged. So the remaining frontier is not just "run simplify-locals
+  again"; it needs a deliberate multi-root extraction rewrite if we want to
+  move that family.
 - One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
   proves that `code-pushing` already handles the simpler tee-fed sibling shape
   where the movable `local.set` is followed by a kept condition `local.set`,
