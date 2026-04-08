@@ -513,6 +513,66 @@ test "hot lower live repro validates live-like dropped-owner predecessor chain" 
 }
 
 ///|
+test "hot lower live repro validates extracting an alias local.set out of a dropped carrier" {
+  let source =
+    #|(module
+    #|  (func $touch (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (local.get 1)
+    #|          (local.set 4)
+    #|          (local.get 4)
+    #|          (local.set 2)
+    #|          (br $outer (i32.const 0))))
+    #|      (local.get 1)
+    #|      (local.set 3)
+    #|      (local.get 3)
+    #|      (if
+    #|        (then
+    #|          (call $touch (local.get 3))))
+    #|      (local.get 2)))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source, code_idx=1)
+  assert_eq(hot_root_count(fixture.hot_func), 1)
+  let holder_body = hot_region_body_ref(
+    fixture.hot_func,
+    hot_root_get(fixture.hot_func, 0),
+  )
+  let drop_id = hot_region_get(fixture.hot_func, holder_body, 0)
+  let used_set = hot_region_get(fixture.hot_func, holder_body, 1)
+  let if_id = hot_region_get(fixture.hot_func, holder_body, 2)
+  let next_get = hot_region_get(fixture.hot_func, holder_body, 3)
+  let outer = hot_child_get(fixture.hot_func, drop_id, 0)
+  let outer_body = hot_region_body_ref(fixture.hot_func, outer)
+  let producer_set = hot_region_get(fixture.hot_func, outer_body, 0)
+  let moved_set = hot_region_get(fixture.hot_func, outer_body, 1)
+  let br_id = hot_region_get(fixture.hot_func, outer_body, 2)
+
+  hot_region_replace_body(fixture.hot_func, outer_body, [producer_set, br_id])
+  hot_region_replace_body(fixture.hot_func, holder_body, [
+    drop_id, used_set, if_id, moved_set, next_get,
+  ])
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "hot lower live repro validates self-and-dropped-owner block root before later if sink" {
   let source =
     #|(module

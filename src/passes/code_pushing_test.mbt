@@ -1933,6 +1933,74 @@ test "code-pushing rewrites a live-like dropped-owner predecessor chain" {
 }
 
 ///|
+test "code-pushing does not extract an alias local.set out of a dropped carrier" {
+  let source =
+    #|(module
+    #|  (func $touch (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (local.get 1)
+    #|          (local.set 4)
+    #|          (local.get 4)
+    #|          (local.set 2)
+    #|          (br $outer (i32.const 0))))
+    #|      (local.get 1)
+    #|      (local.set 3)
+    #|      (local.get 3)
+    #|      (if
+    #|        (then
+    #|          (call $touch (local.get 3))))
+    #|      (local.get 2)))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 1)
+  let mut holder_body : @ir.HotRegionRef? = None
+  let candidate_tags : Array[String] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block =>
+        if @ir.hot_node_result_arity(func, node_id) == 1 {
+          let region = @ir.hot_region_body_ref(func, node_id)
+          let tags = code_pushing_test_region_tags(func, region)
+          candidate_tags.push(tags.to_string())
+          if tags == ["Drop", "LocalSet(3)", "If", "LocalGet(2)"] {
+            holder_body = Some(region)
+            break
+          }
+        }
+      _ => ()
+    }
+  }
+  let holder_body = match holder_body {
+    Some(region) => region
+    None => fail("expected dropped-carrier holder body: \{candidate_tags}")
+  }
+  let outer = @ir.hot_child_get(
+    func,
+    @ir.hot_region_get(func, holder_body, 0),
+    0,
+  )
+  let outer_body = @ir.hot_region_body_ref(func, outer)
+
+  assert_eq(code_pushing_test_region_tags(func, holder_body), [
+    "Drop", "LocalSet(3)", "If", "LocalGet(2)",
+  ])
+  assert_eq(code_pushing_test_region_tags(func, outer_body), [
+    "LocalSet(4)", "LocalSet(2)", "Br",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing rewrites past a self-and-dropped-owner block root" {
   let source =
     #|(module

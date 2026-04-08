@@ -463,6 +463,15 @@
   terminal-owner frontier. The next useful correctness work therefore stays on
   the distinct `48981` dropped-carrier / root-splitting frontier in
   `func $127`.
+- The first explicit extraction boundary for that `48981` frontier is now
+  pinned too. A smaller dropped-carrier reducer now exists where an alias
+  `LocalSet(2)` still lives inside the dropped carrier while the later `if`
+  sits outside it. `src/passes/code_pushing_test.mbt` keeps the current pass
+  unchanged on that shape, and `src/ir/hot_lower_live_repro_test.mbt` proves
+  that manually extracting the alias `local.set` across the carrier boundary
+  still lowers and validates. That means the next real CP004 step is no longer
+  another same-region sink rule; it is a deliberate dropped-carrier extraction
+  rewrite.
 - The random-corpus dead-gap family that briefly reopened parity is now closed
   again. After narrowing the dead-gap conflict check so pure crossed
   `global.get` reads do not block a dead `local.set`, the exact saved shape is
