@@ -605,6 +605,16 @@
   unchanged though, so this broader read-only structured mover is useful
   cleanup, not the final fix for the remaining multi-root storeback/extraction
   family.
+- That remaining multi-root family is now pinned more directly too.
+  `src/passes/simplify_locals_test.mbt` now keeps a closer `214`-style chain
+  in-tree: same-local result-`if` storeback, then the `$2`-style pure
+  local-set fed by the updated local, then the final consumer local-set.
+  Current behavior is explicit there now: `simplify-locals` narrows the first
+  root into a void `if`, but still leaves the later two `local.set` roots in
+  place. So the next useful step is to decide whether that live family wants a
+  deliberate multi-root extraction rewrite or a bounded second
+  `simplify-locals` round, instead of reopening more one-root forwarding
+  variants blindly.
 - One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
   proves that `code-pushing` already handles the simpler tee-fed sibling shape
   where the movable `local.set` is followed by a kept condition `local.set`,
