@@ -2573,6 +2573,24 @@ fn hot_lower_impl_count_local_gets_in_body(
 ) -> Unit {
   for instr in body {
     hot_lower_impl_count_local_gets_in_instr(instr, counts)
+    if hot_lower_impl_instr_stops_following_body_instrs(instr) {
+      break
+    }
+  }
+}
+
+///|
+fn hot_lower_impl_instr_stops_following_body_instrs(
+  instr : Instruction,
+) -> Bool {
+  match instr {
+    Br(_) | BrTable(_, _) | Return | Throw(_) | ThrowRef | Unreachable => true
+    Block(_, Expr(body)) | Loop(_, Expr(body)) =>
+      hot_lower_impl_body_is_nonfallthrough(body)
+    If(_, then_, Some(else_)) =>
+      hot_lower_impl_body_is_nonfallthrough(then_) &&
+      hot_lower_impl_body_is_nonfallthrough(else_)
+    _ => false
   }
 }
 
