@@ -5746,6 +5746,101 @@ fn run_hot_pipeline_simplify_locals_lowered_cleanup_instr(
 }
 
 ///|
+fn run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
+  instrs : Array[@lib.Instruction],
+) -> Array[@lib.Instruction] {
+  let normalized : Array[@lib.Instruction] = []
+  for instr in instrs {
+    match instr {
+      @lib.Block(bt, @lib.Expr(body)) =>
+        normalized.push(
+          @lib.Instruction::block(
+            bt,
+            @lib.Expr::new(
+              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
+                body,
+              ),
+            ),
+          ),
+        )
+      @lib.Loop(bt, @lib.Expr(body)) =>
+        normalized.push(
+          @lib.Instruction::loop_(
+            bt,
+            @lib.Expr::new(
+              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
+                body,
+              ),
+            ),
+          ),
+        )
+      @lib.TryTable(bt, catches, @lib.Expr(body)) =>
+        normalized.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            @lib.Expr::new(
+              run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
+                body,
+              ),
+            ),
+          ),
+        )
+      @lib.If(bt, then_body, else_body) =>
+        normalized.push(
+          @lib.Instruction::if_(
+            bt,
+            run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
+              then_body,
+            ),
+            match else_body {
+              Some(else_body) =>
+                Some(
+                  run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
+                    else_body,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      _ => normalized.push(instr)
+    }
+  }
+  let rewritten : Array[@lib.Instruction] = []
+  let mut idx = 0
+  while idx < normalized.length() {
+    if idx + 1 < normalized.length() {
+      match (normalized[idx], normalized[idx + 1]) {
+        (
+          @lib.LocalSet(@lib.LocalIdx(raw)),
+          @lib.LocalGet(@lib.LocalIdx(next_raw)),
+        ) =>
+          if raw == next_raw &&
+            !run_hot_pipeline_raw_instrs_have_later_local_read(
+              normalized,
+              idx + 2,
+              raw.reinterpret_as_int(),
+            ) {
+            idx = idx + 2
+          } else {
+            rewritten.push(normalized[idx])
+            idx = idx + 1
+          }
+        _ => {
+          rewritten.push(normalized[idx])
+          idx = idx + 1
+        }
+      }
+    } else {
+      rewritten.push(normalized[idx])
+      idx = idx + 1
+    }
+  }
+  rewritten
+}
+
+///|
 fn run_hot_pipeline_simplify_locals_lowered_cleanup_body(
   body : Array[@lib.Instruction],
   counts : Array[Int],
@@ -5770,17 +5865,22 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
     return func
   }
   let @lib.Func(locals, @lib.Expr(body)) = func
-  let max_local_idx = run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
+  let rewritten_body = run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
     body,
+  )
+  let max_local_idx = run_hot_pipeline_simplify_locals_lowered_max_local_idx_in_body(
+    rewritten_body,
   )
   let counts = Array::make(max_local_idx + 1, 0)
   run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
-    body, counts,
+    rewritten_body, counts,
   )
   @lib.Func::new(
     locals,
     @lib.Expr::new(
-      run_hot_pipeline_simplify_locals_lowered_cleanup_body(body, counts),
+      run_hot_pipeline_simplify_locals_lowered_cleanup_body(
+        rewritten_body, counts,
+      ),
     ),
   )
 }

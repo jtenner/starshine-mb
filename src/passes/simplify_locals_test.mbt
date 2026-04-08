@@ -320,6 +320,26 @@ test "simplify-locals drops dead copied local.tee stores after writeback" {
 }
 
 ///|
+test "simplify-locals drops dead lowered call-result temps in conditions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func $f (param i32) (result i32) local.get 0) (func (param i32) (result i32) (local i32) local.get 0 call $f local.set 1 local.get 1 i32.const 0 i32.gt_s if (result i32) i32.const 1 else i32.const 0 end))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected condition-temp simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("call"), msg=pretty)
+  assert_true(pretty.contains("i32.gt_s"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(pretty.contains("local.tee (Local 1)"), msg=pretty)
+}
+
+///|
 test "simplify-locals removes overwritten pending local sets" {
   let optimized = match
     pass_test_run_pipeline(
