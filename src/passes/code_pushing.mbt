@@ -2293,6 +2293,185 @@ fn cp_try_sink_into_if(
 }
 
 ///|
+fn cp_node_single_result_val_type(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> @lib.ValType? {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return None
+  }
+  let result_types = @ir.hot_type_results(func, func.nodes[node_id].ty)
+  if result_types.length() != 1 {
+    return None
+  }
+  Some(result_types[0])
+}
+
+///|
+fn cp_try_extract_local_set_from_dropped_carrier(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  roots_view : CpRegionRootsView,
+  region_ref : @ir.HotRegionRef,
+  target_idx : Int,
+  reachable_prefix_start_idx : Int,
+  infos : Array[CpLocalInfo],
+  cache : CpSummaryCache,
+) -> Bool {
+  if target_idx <= 0 ||
+    (
+      cp_region_has_nonvoid_result(func, region_ref) &&
+      cp_nonvoid_prefix_has_explicit_exit_guard(
+        cache, func, roots_view, region_ref, reachable_prefix_start_idx, target_idx,
+      )
+    ) {
+    return false
+  }
+  let target_root_id = cp_region_root_get(func, roots_view, target_idx)
+  let target_if_id = match cp_root_if_pushpoint_id(func, target_root_id) {
+    Some(if_id) => if_id
+    None => return false
+  }
+  if cp_node_has_nonvoid_result(func, target_if_id) {
+    return false
+  }
+  let target_summary = cp_effect_summary_for_node(cache, func, target_root_id)
+  let mut scan = 0
+  while scan < target_idx {
+    let drop_root_id = cp_region_root_get(func, roots_view, scan)
+    let drop_root = func.nodes[drop_root_id]
+    match drop_root.op {
+      @ir.HotOp::Drop => ()
+      _ => {
+        scan = scan + 1
+        continue
+      }
+    }
+    if drop_root.child_count == 0 {
+      scan = scan + 1
+      continue
+    }
+    let carrier_id = func.children[drop_root.child_base]
+    if carrier_id < 0 || !@ir.hot_node_is_live(func, carrier_id) {
+      scan = scan + 1
+      continue
+    }
+    let carrier = func.nodes[carrier_id]
+    match carrier.op {
+      @ir.HotOp::Block => ()
+      _ => {
+        scan = scan + 1
+        continue
+      }
+    }
+    let carrier_body = @ir.hot_region_body_ref(func, carrier_id)
+    let carrier_roots_view = cp_region_roots_view(func, carrier_body)
+    let mut carrier_idx = 0
+    while carrier_idx < carrier_roots_view.root_count {
+      let candidate_root_id = cp_region_root_get(
+        func, carrier_roots_view, carrier_idx,
+      )
+      let candidate_root = func.nodes[candidate_root_id]
+      match candidate_root.op {
+        @ir.HotOp::LocalSet => ()
+        _ => {
+          carrier_idx = carrier_idx + 1
+          continue
+        }
+      }
+      let local_id = candidate_root.imm0
+      if local_id < 0 ||
+        local_id >= infos.length() ||
+        !infos[local_id].sfa ||
+        candidate_root.child_count == 0 {
+        carrier_idx = carrier_idx + 1
+        continue
+      }
+      let value_id = func.children[candidate_root.child_base]
+      if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+        carrier_idx = carrier_idx + 1
+        continue
+      }
+      let mut carrier_prefix_has_explicit_exit = false
+      let mut prefix_idx = 0
+      while prefix_idx <= carrier_idx {
+        let prefix_root_id = cp_region_root_get(
+          func, carrier_roots_view, prefix_idx,
+        )
+        if cp_node_has_explicit_exit(cache, func, prefix_root_id) {
+          carrier_prefix_has_explicit_exit = true
+          break
+        }
+        prefix_idx = prefix_idx + 1
+      }
+      if carrier_prefix_has_explicit_exit ||
+        cp_region_reads_local_after_index(
+          cache,
+          func,
+          carrier_body,
+          carrier_idx + 1,
+          local_id,
+        ) ||
+        cp_summary_reads_local(target_summary, local_id) ||
+        cp_summary_writes_local(target_summary, local_id) ||
+        !cp_region_reads_local_after_index(
+          cache,
+          func,
+          region_ref,
+          target_idx + 1,
+          local_id,
+        ) {
+        carrier_idx = carrier_idx + 1
+        continue
+      }
+      match func.nodes[value_id].op {
+        @ir.HotOp::LocalGet => {
+          ignore(
+            @ir.hot_region_set(
+              func,
+              carrier_body,
+              carrier_idx,
+              @ir.hot_build_nop(func),
+            ),
+          )
+          @ir.hot_region_insert(func, region_ref, target_idx + 1, [
+            candidate_root_id,
+          ])
+          pass_mark_mutated(ctx, func)
+          return true
+        }
+        @ir.HotOp::Call => {
+          let value_ty = match cp_node_single_result_val_type(func, value_id) {
+            Some(value_ty) if value_ty == @lib.ValType::i32() => value_ty
+            _ => {
+              carrier_idx = carrier_idx + 1
+              continue
+            }
+          }
+          let temp_local = @ir.hot_local_count(func)
+          func.locals.locals.push(value_ty)
+          let moved_tee = @ir.hot_build_local_tee(func, temp_local, value_id)
+          let extracted_set = @ir.hot_build_local_set(
+            func,
+            local_id,
+            @ir.hot_build_local_get(func, temp_local),
+          )
+          ignore(@ir.hot_region_set(func, carrier_body, carrier_idx, moved_tee))
+          @ir.hot_region_insert(func, region_ref, target_idx + 1, [
+            extracted_set,
+          ])
+          pass_mark_mutated(ctx, func)
+          return true
+        }
+        _ => ()
+      }
+    }
+    scan = scan + 1
+  }
+  false
+}
+
+///|
 fn cp_try_push_to_pushpoint(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -2533,6 +2712,10 @@ fn cp_try_rewrite_region(
   while idx < root_count {
     let root_id = cp_region_root_get(func, roots_view, idx)
     if cp_try_sink_into_if(ctx, func, roots_view, region_ref, idx, infos, cache) ||
+      cp_try_extract_local_set_from_dropped_carrier(
+        ctx, func, roots_view, region_ref, idx, reachable_prefix_start_idx, infos,
+        cache,
+      ) ||
       cp_try_push_to_pushpoint(
         ctx, func, roots_view, region_ref, idx, reachable_prefix_start_idx, infos,
         cache,

@@ -485,13 +485,21 @@
   failures, and `.tmp/pass-fuzz-code-pushing-smith-1000-20260408b` reaches
   `165/165` normalized matches before the same parser ceiling.
 - The remaining CP004 blocker is therefore back to the direct artifact compare.
-  The latest replay is `.tmp/self-opt-code-pushing-20260408c`, where canonical
-  wasm and normalized WAT still differ, the first normalized WAT deltas remain
-  at `48981`, `72005`, `105621`, and `126757`, and Starshine is still slower
-  than Binaryen (`1129.958 ms` vs `56.281 ms` pass; `3979.064 ms` vs
-  `430.897 ms` total). The first surviving family is still the printed
-  `func $127` / pipeline `Func 148` nested dropped-carrier shape around
-  `LocalSet $310`.
+  The latest replay is `.tmp/self-opt-code-pushing-call-fed-carrier-20260408`,
+  where canonical wasm and normalized WAT still differ, but the old `48981` /
+  printed `func $127` / pipeline `Func 148` dropped-carrier family is now gone.
+  The first normalized WAT deltas are now `72005`, `105621`, and `126757`, and
+  Starshine is still slower than Binaryen (`1190.423 ms` vs `55.888 ms` pass;
+  `4033.438 ms` vs `431.717 ms` total).
+- The `func $127` family moved because the dropped-carrier frontier is now
+  partially landed, not only reduced. `code-pushing` now performs direct alias
+  `LocalSet(LocalGet ...)` extraction across a dropped carrier, and it also
+  performs a narrow `i32` call-fed `LocalSet(Call ...)` extraction by
+  splitting the root into `LocalTee(temp, Call ...)` inside the carrier plus a
+  later alias `LocalSet(LocalGet temp)` after the sibling `if`. Both new
+  reducers are covered in `src/passes/code_pushing_test.mbt` and
+  `src/ir/hot_lower_live_repro_test.mbt`, and the carrier prefix still has to
+  stay free of explicit exits for the call-fed form.
 - The larger structural families are now classified more tightly too. The
   `105621` and `126757` diffs in printed `func $314` and `func $366` are not
   just more same-root reorder misses. In both cases Binaryen increases the
@@ -501,13 +509,13 @@
   parity on those families matters, the missing capability may be local
   synthesis or a neighboring canonicalization pass, not another guard-only
   widening inside the current `code-pushing` rewrite.
-- One more smaller non-repro is now pinned too. `src/passes/code_pushing_test.mbt`
-  now proves that `code-pushing` already handles the simpler tee-fed sibling
-  shape where the movable `local.set` is followed by a kept condition
-  `local.set`, then the later `if`, then later reads. That means the surviving
-  `48981` direct-artifact family is narrower again and still points at the
-  dropped-carrier / extraction frontier rather than plain same-region sibling
-  motion.
+- One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
+  proves that `code-pushing` already handles the simpler tee-fed sibling shape
+  where the movable `local.set` is followed by a kept condition `local.set`,
+  then the later `if`, then later reads. That is now mostly historical context:
+  the surviving direct-artifact blocker is no longer `48981`, because the
+  dropped-carrier extraction frontier has moved far enough to remove that live
+  family entirely.
 - The next live family at `72005` is narrower in the same way. A new reducer in
   `src/passes/code_pushing_test.mbt` proves the pass already handles the
   simpler alias-set form from that diff too: alias `local.set`, then a kept

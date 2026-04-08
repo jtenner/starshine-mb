@@ -573,6 +573,85 @@ test "hot lower live repro validates extracting an alias local.set out of a drop
 }
 
 ///|
+test "hot lower live repro validates extracting a call-fed local.set out of a dropped carrier" {
+  let source =
+    #|(module
+    #|  (func $mk (param i32) (result i32)
+    #|    (local.get 0))
+    #|  (func $touch (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (block $prefix
+    #|            nop)
+    #|          (local.set 2
+    #|            (call $mk
+    #|              (local.get 1)))
+    #|          (call $touch
+    #|            (local.get 1))
+    #|          (br $outer
+    #|            (i32.const 0))))
+    #|      (local.get 1)
+    #|      (local.set 3)
+    #|      (local.get 3)
+    #|      (if
+    #|        (then
+    #|          (call $touch
+    #|            (local.get 3))))
+    #|      (local.get 2)))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source, code_idx=2)
+  let temp_local = hot_local_count(fixture.hot_func)
+  fixture.hot_func.locals.locals.push(@lib.ValType::i32())
+  assert_eq(hot_root_count(fixture.hot_func), 1)
+  let holder_body = hot_region_body_ref(
+    fixture.hot_func,
+    hot_root_get(fixture.hot_func, 0),
+  )
+  let drop_id = hot_region_get(fixture.hot_func, holder_body, 0)
+  let used_set = hot_region_get(fixture.hot_func, holder_body, 1)
+  let if_id = hot_region_get(fixture.hot_func, holder_body, 2)
+  let next_get = hot_region_get(fixture.hot_func, holder_body, 3)
+  let outer = hot_child_get(fixture.hot_func, drop_id, 0)
+  let outer_body = hot_region_body_ref(fixture.hot_func, outer)
+  let prefix_block = hot_region_get(fixture.hot_func, outer_body, 0)
+  let moved_set = hot_region_get(fixture.hot_func, outer_body, 1)
+  let call_id = hot_region_get(fixture.hot_func, outer_body, 2)
+  let br_id = hot_region_get(fixture.hot_func, outer_body, 3)
+  let moved_value = hot_child_get(fixture.hot_func, moved_set, 0)
+  let moved_tee = hot_build_local_tee(fixture.hot_func, temp_local, moved_value)
+  let extracted_set = hot_build_local_set(
+    fixture.hot_func,
+    2,
+    hot_build_local_get(fixture.hot_func, temp_local),
+  )
+
+  hot_region_replace_body(fixture.hot_func, outer_body, [
+    prefix_block, moved_tee, call_id, br_id,
+  ])
+  hot_region_replace_body(fixture.hot_func, holder_body, [
+    drop_id, used_set, if_id, extracted_set, next_get,
+  ])
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "hot lower live repro validates self-and-dropped-owner block root before later if sink" {
   let source =
     #|(module
