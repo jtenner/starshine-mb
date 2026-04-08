@@ -522,6 +522,21 @@
   loaded condition `local.set`, then the later `if`, then later reads. So the
   surviving `72005` artifact family also still depends on broader artifact
   context than ordinary same-region sibling motion.
+- One narrower terminal-owner subfamily is now landed too. `code-pushing` now
+  admits the exact earlier explicit-exit `LocalSet(Block(...), LocalGet)`
+  carrier whose payload `if` has one terminal arm and one direct inner-owner
+  exit arm, but only when the trailing `local.get` is the same payload-written
+  local. The focused pass reducer is green and the kept replay
+  `.tmp/self-opt-code-pushing-terminal-inner-owner-20260408` stays valid while
+  preserving the same live frontier (`72005`, `105621`, `126757`), so that
+  exact family is safe but still not the real artifact blocker.
+- The closer live-shaped retry is now explicitly blocked too. A fresh probe on
+  `Func 238` showed that the actual `72005` blocker is an earlier explicit-exit
+  `LocalSet` whose value block has a call-prefixed inner block before the final
+  payload `br`. Widening that exact call-prefixed carrier wrote
+  `.tmp/self-opt-code-pushing-call-prefixed-carrier-20260408` and reintroduced
+  an earlier structural drift around printed line `71748`, so that broader
+  terminal-inner-owner family was rolled back immediately.
 - A fresh retry confirmed that the terminal-owner family is still not ready to
   land, even under a narrower local-type fence. Re-admitting only the `i32`
   version of that direct inner-owner plus terminal-exit carrier still

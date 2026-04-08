@@ -1639,7 +1639,7 @@ test "code-pushing rewrites past an earlier explicit-exit if root" {
 }
 
 ///|
-test "code-pushing does not rewrite past an earlier explicit-exit local.set block carrier" {
+test "code-pushing rewrites past an earlier explicit-exit local.set block carrier when the crossed gap itself is safe" {
   let source =
     #|(module
     #|  (func $side (param i32))
@@ -1670,7 +1670,7 @@ test "code-pushing does not rewrite past an earlier explicit-exit local.set bloc
   let func = code_pushing_test_run_hot_code(source, 1)
 
   assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
-    "LocalSet(2)", "LocalSet(3)", "LocalSet(4)", "If", "LocalGet(3)",
+    "LocalSet(2)", "LocalSet(4)", "If", "LocalSet(3)", "LocalGet(3)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {

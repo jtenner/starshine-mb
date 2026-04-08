@@ -1505,6 +1505,125 @@ fn cp_local_set_value_block_is_simple_owner_if_payload_carrier(
 }
 
 ///|
+fn cp_region_is_exact_local_set_then_br_to_owner(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  local_id : Int,
+  owner_id : Int,
+) -> Bool {
+  let roots_view = cp_region_roots_view(func, region_ref)
+  if roots_view.root_count != 2 {
+    return false
+  }
+  let set_id = cp_region_root_get(func, roots_view, 0)
+  let br_id = cp_region_root_get(func, roots_view, 1)
+  if set_id < 0 ||
+    br_id < 0 ||
+    !cp_node_is_live(cache, set_id) ||
+    !cp_node_is_live(cache, br_id) {
+    return false
+  }
+  let set_node = func.nodes[set_id]
+  let br_node = func.nodes[br_id]
+  match set_node.op {
+    @ir.HotOp::LocalSet if set_node.imm0 == local_id => ()
+    _ => return false
+  }
+  match br_node.op {
+    @ir.HotOp::Br => ()
+    _ => return false
+  }
+  if br_node.child_count != 0 ||
+    br_node.imm0 < 0 ||
+    br_node.imm0 >= func.labels.length() {
+    return false
+  }
+  func.labels[br_node.imm0].owner == owner_id
+}
+
+///|
+fn cp_local_set_value_block_is_terminal_inner_owner_payload_carrier(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Bool {
+  if root_id < 0 || !cp_node_is_live(cache, root_id) {
+    return false
+  }
+  let outer = func.nodes[root_id]
+  match outer.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if outer.child_count != 2 {
+    return false
+  }
+  let inner_block_id = func.children[outer.child_base]
+  let trailing_id = func.children[outer.child_base + 1]
+  if inner_block_id < 0 ||
+    trailing_id < 0 ||
+    !cp_node_is_live(cache, inner_block_id) ||
+    !cp_node_is_live(cache, trailing_id) {
+    return false
+  }
+  let inner_block = func.nodes[inner_block_id]
+  let trailing = func.nodes[trailing_id]
+  let trailing_local_id = match trailing.op {
+    @ir.HotOp::LocalGet => trailing.imm0
+    _ => return false
+  }
+  match inner_block.op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  if inner_block.child_count != 1 {
+    return false
+  }
+  let br_id = func.children[inner_block.child_base]
+  if br_id < 0 || !cp_node_is_live(cache, br_id) {
+    return false
+  }
+  let br = func.nodes[br_id]
+  match br.op {
+    @ir.HotOp::Br => ()
+    _ => return false
+  }
+  if br.imm0 < 0 || br.imm0 >= func.labels.length() {
+    return false
+  }
+  if func.labels[br.imm0].owner != root_id || br.child_count != 1 {
+    return false
+  }
+  let payload_id = func.children[br.child_base]
+  if payload_id < 0 || !cp_node_is_live(cache, payload_id) {
+    return false
+  }
+  let payload = func.nodes[payload_id]
+  match payload.op {
+    @ir.HotOp::If => ()
+    _ => return false
+  }
+  if !cp_node_has_nonvoid_result(func, payload_id) {
+    return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, payload_id)
+  let else_ref = match @ir.hot_region_else_ref(func, payload_id) {
+    Some(region_ref) => region_ref
+    None => return false
+  }
+  let then_inner_owner = cp_region_is_exact_local_set_then_br_to_owner(
+    cache, func, then_ref, trailing_local_id, inner_block_id,
+  )
+  let else_inner_owner = cp_region_is_exact_local_set_then_br_to_owner(
+    cache, func, else_ref, trailing_local_id, inner_block_id,
+  )
+  let then_terminal = cp_region_has_terminal_last_live_root(func, then_ref)
+  let else_terminal = cp_region_has_terminal_last_live_root(func, else_ref)
+  (then_inner_owner && else_terminal) || (else_inner_owner && then_terminal)
+}
+
+///|
 fn cp_if_has_only_self_contained_explicit_exits(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
@@ -1578,12 +1697,16 @@ fn cp_local_set_value_has_only_safe_explicit_exits(
   let simple_owner_if_payload_carrier = cp_local_set_value_block_is_simple_owner_if_payload_carrier(
     cache, func, root_id,
   )
+  let terminal_inner_owner_payload_carrier = cp_local_set_value_block_is_terminal_inner_owner_payload_carrier(
+    cache, func, root_id,
+  )
   let result = !summary.has_unsafe_branch_exit &&
     (
       !summary.has_owner_exit ||
       summary.has_dropped_owner_exit ||
       summary.has_terminal_exit ||
-      simple_owner_if_payload_carrier
+      simple_owner_if_payload_carrier ||
+      terminal_inner_owner_payload_carrier
     )
   if root_id >= 0 && root_id < cache.local_set_value_block_guard_ready.length() {
     cache.local_set_value_block_guard_ready[root_id] = true
