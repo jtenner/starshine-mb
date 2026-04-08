@@ -156,6 +156,23 @@ test "simplify-locals sinks trapping reads across read-only traps with a tee" {
 }
 
 ///|
+test "simplify-locals preserves tee-backed copied locals for later branch uses" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (memory 1) (func $dec (param i32)) (func (param i32) (result i32) (local i32 i32 i32) local.get 0 local.set 1 local.get 1 i32.load offset=8 align=1 local.set 2 local.get 0 i32.load align=1 local.tee 3 i32.const 1 i32.gt_s if nop else local.get 3 i32.const 1 i32.eq if local.get 1 call $dec end end local.get 2))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected tee-backed branch-use simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("local.tee (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+}
+
+///|
 test "simplify-locals does not sink trapping reads across memory writes" {
   let optimized = match
     pass_test_run_pipeline(

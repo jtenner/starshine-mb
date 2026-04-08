@@ -3380,6 +3380,7 @@ fn simplify_locals_scan_equivalent_region(
   region_ref : @ir.HotRegionRef,
   equivalences : SimplifyLocalsEquivalentState,
   get_counts : Array[Int],
+  tee_defined_locals : Array[Bool],
 ) -> Bool {
   let mut changed = false
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
@@ -3388,7 +3389,7 @@ fn simplify_locals_scan_equivalent_region(
       continue
     }
     if simplify_locals_scan_equivalent_node(
-        env, func, node_id, equivalences, get_counts,
+        env, func, node_id, equivalences, get_counts, tee_defined_locals,
       ) {
       changed = true
     }
@@ -3403,6 +3404,7 @@ fn simplify_locals_scan_equivalent_current(
   node_id : Int,
   equivalences : SimplifyLocalsEquivalentState,
   get_counts : Array[Int],
+  tee_defined_locals : Array[Bool],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3434,6 +3436,12 @@ fn simplify_locals_scan_equivalent_current(
       let best = simplify_locals_pick_best_equivalent_local(
         env, func, equivalences, get_counts, local_id,
       )
+      if local_id >= 0 &&
+        local_id < tee_defined_locals.length() &&
+        tee_defined_locals[local_id] &&
+        best != local_id {
+        return false
+      }
       if best == local_id ||
         !simplify_locals_local_type_is_subtype(env, func, best, local_id) {
         return false
@@ -3475,6 +3483,7 @@ fn simplify_locals_scan_equivalent_node(
   node_id : Int,
   equivalences : SimplifyLocalsEquivalentState,
   get_counts : Array[Int],
+  tee_defined_locals : Array[Bool],
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -3489,6 +3498,7 @@ fn simplify_locals_scan_equivalent_node(
           @ir.hot_region_body_ref(func, node_id),
           equivalences,
           get_counts,
+          tee_defined_locals,
         ) {
         changed = true
       }
@@ -3497,7 +3507,7 @@ fn simplify_locals_scan_equivalent_node(
     @ir.HotOp::If => {
       let condition_id = @ir.hot_child_get(func, node_id, 0)
       if simplify_locals_scan_equivalent_node(
-          env, func, condition_id, equivalences, get_counts,
+          env, func, condition_id, equivalences, get_counts, tee_defined_locals,
         ) {
         changed = true
       }
@@ -3508,6 +3518,7 @@ fn simplify_locals_scan_equivalent_node(
           @ir.hot_region_then_ref(func, node_id),
           then_equivalences,
           get_counts,
+          tee_defined_locals,
         ) {
         changed = true
       }
@@ -3517,7 +3528,7 @@ fn simplify_locals_scan_equivalent_node(
             equivalences,
           )
           if simplify_locals_scan_equivalent_region(
-              env, func, else_ref, else_equivalences, get_counts,
+              env, func, else_ref, else_equivalences, get_counts, tee_defined_locals,
             ) {
             changed = true
           }
@@ -3535,6 +3546,7 @@ fn simplify_locals_scan_equivalent_node(
           @ir.hot_region_body_ref(func, node_id),
           loop_equivalences,
           get_counts,
+          tee_defined_locals,
         ) {
         changed = true
       }
@@ -3549,6 +3561,7 @@ fn simplify_locals_scan_equivalent_node(
           @ir.hot_region_body_ref(func, node_id),
           body_equivalences,
           get_counts,
+          tee_defined_locals,
         ) {
         changed = true
       }
@@ -3556,7 +3569,7 @@ fn simplify_locals_scan_equivalent_node(
         Some(catch_ref) => {
           let catch_equivalences = simplify_locals_new_equivalences(func)
           if simplify_locals_scan_equivalent_region(
-              env, func, catch_ref, catch_equivalences, get_counts,
+              env, func, catch_ref, catch_equivalences, get_counts, tee_defined_locals,
             ) {
             changed = true
           }
@@ -3574,6 +3587,7 @@ fn simplify_locals_scan_equivalent_node(
           @ir.hot_region_body_ref(func, node_id),
           body_equivalences,
           get_counts,
+          tee_defined_locals,
         ) {
         changed = true
       }
@@ -3584,6 +3598,7 @@ fn simplify_locals_scan_equivalent_node(
           @ir.hot_region_catch_list_ref(func, node_id),
           catch_equivalences,
           get_counts,
+          tee_defined_locals,
         ) {
         changed = true
       }
@@ -3597,14 +3612,14 @@ fn simplify_locals_scan_equivalent_node(
           continue
         }
         if simplify_locals_scan_equivalent_node(
-            env, func, child_id, equivalences, get_counts,
+            env, func, child_id, equivalences, get_counts, tee_defined_locals,
           ) {
           changed = true
         }
       }
   }
   if simplify_locals_scan_equivalent_current(
-      env, func, node_id, equivalences, get_counts,
+      env, func, node_id, equivalences, get_counts, tee_defined_locals,
     ) {
     changed = true
   }
@@ -3650,17 +3665,48 @@ fn simplify_locals_run_main_cycle(
 }
 
 ///|
+fn simplify_locals_collect_equivalent_tee_defined_locals(
+  func : @ir.HotFunc,
+) -> Array[Bool] {
+  let tee_defined = Array::make(@ir.hot_local_count(func), false)
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalTee => {
+        let value_id = @ir.hot_child_get(func, node_id, 0)
+        match simplify_locals_equivalent_local_get_value(func, value_id) {
+          Some(_) =>
+            if node.imm0 >= 0 && node.imm0 < tee_defined.length() {
+              tee_defined[node.imm0] = true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  tee_defined
+}
+
+///|
 fn simplify_locals_run_equivalent_cleanup(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> Bool {
   let env = simplify_locals_type_env(ctx)
+  let tee_defined_locals = simplify_locals_collect_equivalent_tee_defined_locals(
+    func,
+  )
   simplify_locals_scan_equivalent_region(
     env,
     func,
     @ir.HotRegionRef::root(),
     simplify_locals_new_equivalences(func),
     simplify_locals_count_local_gets(func),
+    tee_defined_locals,
   )
 }
 
