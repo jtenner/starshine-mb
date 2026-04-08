@@ -893,6 +893,61 @@ test "hot lower live repro validates direct payload branch back to inner block b
 }
 
 ///|
+test "hot lower live repro validates earlier explicit-exit local.set block carrier before later if sink" {
+  let source =
+    #|(module
+    #|  (func $side (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $block1 (result i32)
+    #|        (block $block
+    #|          (br $block1
+    #|            (if (result i32)
+    #|              (local.get 0)
+    #|              (then
+    #|                (return (i32.const 7)))
+    #|              (else
+    #|                (local.set 5 (local.get 1))
+    #|                (br $block)))))
+    #|        (local.get 5)))
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 1)
+    #|    (local.set 4)
+    #|    (local.get 4)
+    #|    (if
+    #|      (then
+    #|        (call $side (local.get 4))))
+    #|    (local.get 3))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source, code_idx=1)
+  assert_eq(hot_root_count(fixture.hot_func), 5)
+  let carrier_set = hot_root_get(fixture.hot_func, 0)
+  let moved_set = hot_root_get(fixture.hot_func, 1)
+  let used_set = hot_root_get(fixture.hot_func, 2)
+  let if_id = hot_root_get(fixture.hot_func, 3)
+  let next_get = hot_root_get(fixture.hot_func, 4)
+  hot_region_replace_body(fixture.hot_func, HotRegionRef::root(), [
+    carrier_set, used_set, if_id, moved_set, next_get,
+  ])
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "hot lower live repro validates direct payload branch back to inner block with unrelated trailing local.get before later if sink" {
   let source =
     #|(module

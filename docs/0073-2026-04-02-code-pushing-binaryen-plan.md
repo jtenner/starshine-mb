@@ -444,6 +444,17 @@
   shape directly. But widening the pass for that family removed the `48978`
   diff only by introducing a worse earlier structural mismatch around printed
   line `44251`, so the pass stays conservative there for now.
+- That same blocked frontier is now pinned one step smaller too. A more direct
+  explicit-exit `LocalSet(Block(...), LocalGet)` carrier with a terminal arm
+  and an inner-owner `br` arm also lowers and validates after the same manual
+  reorder, and `src/passes/code_pushing_test.mbt` now keeps that reducer as an
+  explicit negative pass boundary while
+  `src/ir/hot_lower_live_repro_test.mbt` keeps the HOT-valid manual reorder.
+  A fresh retry that widened this exact block-carrier family wrote
+  `.tmp/self-opt-code-pushing-20260408d` and immediately reintroduced the same
+  earlier printed `44251` drift in `func $127`, so this smaller block-carrier
+  shape now clearly belongs to the same not-kept terminal-owner family as the
+  earlier condition-set reducer.
 - The random-corpus dead-gap family that briefly reopened parity is now closed
   again. After narrowing the dead-gap conflict check so pure crossed
   `global.get` reads do not block a dead `local.set`, the exact saved shape is
