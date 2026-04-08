@@ -570,6 +570,16 @@
   immediate-use case and the nested-explicit-exit variant as current negatives,
   and the next useful step is a reducer for the real `641` artifact family
   rather than another broad control-value clone probe.
+- One narrower immediate-use forwarding slice is now landed safely though.
+  `src/passes/simplify_locals.mbt` now moves a root-level `local.set` of a
+  result-`if` into the lone immediate later use slot when the consumer path is
+  unique, the crossed prefix is pure, and the producer `if` has no nested
+  explicit exits. The kept rewrite reuses the original HOT producer node
+  instead of cloning it, so native `--simplify-locals` replay on
+  `tests/node/dist/starshine-debug-wasi.wasm` stays valid. The fresh compare
+  `.tmp/self-opt-simplify-locals-20260408h` trims Starshine from `1958511` to
+  `1958408` bytes, but it still does not move the old `641` hunk, so that
+  direct frontier remains the next meaningful simplify-locals reducer target.
 - One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
   proves that `code-pushing` already handles the simpler tee-fed sibling shape
   where the movable `local.set` is followed by a kept condition `local.set`,

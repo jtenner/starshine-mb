@@ -3,6 +3,7 @@ pub fn simplify_locals_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
     "simplify-locals",
     requires=[
+      @ir.HotAnalysis::effects(),
       @ir.HotAnalysis::use_def(),
       @ir.HotAnalysis::liveness(),
       @ir.HotAnalysis::ssa(),
@@ -29,6 +30,21 @@ priv struct SimplifyLocalsDetachedControlOwner {
   replacement_id : Int
   detached_id : Int
 }
+
+///|
+enum SimplifyLocalsForwardRewrite {
+  ReplaceNode(Int)
+  ReplaceChild(Int, Int)
+} derive(Eq, Show, Debug)
+
+///|
+struct SimplifyLocalsForwardTarget {
+  def_id : Int
+  value_id : Int
+  cleanup_id : Int
+  cleanup_is_set : Bool
+  rewrite : SimplifyLocalsForwardRewrite
+} derive(Eq, Show, Debug)
 
 ///|
 fn simplify_locals_is_trivially_removable_value(
@@ -112,12 +128,131 @@ fn simplify_locals_same_local_storeback_if_target(
 }
 
 ///|
+fn simplify_locals_has_explicit_exit(func : @ir.HotFunc, node_id : Int) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Delegate
+    | @ir.HotOp::Return
+    | @ir.HotOp::Throw
+    | @ir.HotOp::ThrowRef
+    | @ir.HotOp::Rethrow => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      continue
+    }
+    if simplify_locals_has_explicit_exit(func, child_id) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn simplify_locals_immediate_next_root_use_rewrite(
+  use_def : @ir.HotUseDef,
+  node_masks : Array[@ir.EffectMask],
+  func : @ir.HotFunc,
+  def_id : Int,
+  use_id : Int,
+) -> SimplifyLocalsForwardRewrite? {
+  let def_sites = @ir.node_use_sites_borrowed(use_def, def_id)
+  if def_sites.length() != 1 {
+    return None
+  }
+  let def_site = def_sites[0]
+  match def_site.kind {
+    @ir.HotUseSlotKind::RootUseSlot => ()
+    _ => return None
+  }
+  simplify_locals_immediate_next_root_use_rewrite_step(
+    use_def, node_masks, func, def_site, use_id, use_id, -1, -1,
+  )
+}
+
+///|
+fn simplify_locals_immediate_next_root_use_rewrite_step(
+  use_def : @ir.HotUseDef,
+  node_masks : Array[@ir.EffectMask],
+  func : @ir.HotFunc,
+  def_site : @ir.HotUseSite,
+  use_id : Int,
+  current_id : Int,
+  replace_parent : Int,
+  replace_slot : Int,
+) -> SimplifyLocalsForwardRewrite? {
+  let sites = @ir.node_use_sites_borrowed(use_def, current_id)
+  if sites.length() != 1 {
+    return None
+  }
+  let site = sites[0]
+  match site.kind {
+    @ir.HotUseSlotKind::RootUseSlot =>
+      if current_id == use_id ||
+        site.user != def_site.user ||
+        site.slot != def_site.slot + 1 {
+        None
+      } else {
+        Some(
+          SimplifyLocalsForwardRewrite::ReplaceChild(
+            replace_parent, replace_slot,
+          ),
+        )
+      }
+    @ir.HotUseSlotKind::ChildUseSlot => {
+      let next_replace_parent = if replace_parent < 0 {
+        site.user
+      } else {
+        replace_parent
+      }
+      let next_replace_slot = if replace_parent < 0 {
+        site.slot
+      } else {
+        replace_slot
+      }
+      for slot = 0; slot < site.slot; slot = slot + 1 {
+        let sibling_id = @ir.hot_child_get(func, site.user, slot)
+        if sibling_id < 0 || !@ir.hot_node_is_live(func, sibling_id) {
+          continue
+        }
+        if !@ir.effects_is_pure(node_masks[sibling_id]) {
+          return None
+        }
+      }
+      if @ir.node_use_count(use_def, site.user) != 1 {
+        return None
+      }
+      simplify_locals_immediate_next_root_use_rewrite_step(
+        use_def,
+        node_masks,
+        func,
+        def_site,
+        use_id,
+        site.user,
+        next_replace_parent,
+        next_replace_slot,
+      )
+    }
+  }
+}
+
+///|
 fn simplify_locals_local_get_rewrite_target(
   ssa : @ir.HotLocalSsa,
   use_def : @ir.HotUseDef,
+  node_masks : Array[@ir.EffectMask],
   func : @ir.HotFunc,
   node_id : Int,
-) -> (Int, Int, Int, Bool)? {
+) -> SimplifyLocalsForwardTarget? {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
     @ir.HotOp::LocalGet => ()
@@ -157,18 +292,50 @@ fn simplify_locals_local_get_rewrite_target(
       if !simplify_locals_is_trivially_forwardable_value(func, child_id) {
         return None
       }
-      Some((tee_id, child_id, site.user, false))
+      Some({
+        def_id: tee_id,
+        value_id: child_id,
+        cleanup_id: site.user,
+        cleanup_is_set: false,
+        rewrite: SimplifyLocalsForwardRewrite::ReplaceNode(node_id),
+      })
     }
     @ir.HotSsaValueOrigin::LocalSetDef(set_id) => {
+      let child_id = @ir.hot_child_get(func, set_id, 0)
       if !simplify_locals_is_root_node(func, set_id) ||
         !simplify_locals_is_root_node(func, node_id) {
-        return None
+        match @ir.hot_node_get(func, child_id).op {
+          @ir.HotOp::If => ()
+          _ => return None
+        }
+        if simplify_locals_has_explicit_exit(func, child_id) {
+          return None
+        }
+        return match
+          simplify_locals_immediate_next_root_use_rewrite(
+            use_def, node_masks, func, set_id, node_id,
+          ) {
+          Some(rewrite) =>
+            Some({
+              def_id: set_id,
+              value_id: child_id,
+              cleanup_id: set_id,
+              cleanup_is_set: true,
+              rewrite,
+            })
+          None => None
+        }
       }
-      let child_id = @ir.hot_child_get(func, set_id, 0)
       if !simplify_locals_is_trivially_forwardable_value(func, child_id) {
         return None
       }
-      Some((set_id, child_id, set_id, true))
+      Some({
+        def_id: set_id,
+        value_id: child_id,
+        cleanup_id: set_id,
+        cleanup_is_set: true,
+        rewrite: SimplifyLocalsForwardRewrite::ReplaceNode(node_id),
+      })
     }
     _ => None
   }
@@ -296,12 +463,13 @@ fn simplify_locals_run(
 ) -> HotPassResult {
   let ssa = pass_require_ssa(ctx, func)
   let use_def = pass_require_use_def(ctx, func)
+  let node_masks = pass_require_effect_node_masks(ctx, func)
   let dead_nodes : Array[Int] = []
   let detached_tee_nodes : Array[Int] = []
   let detached_control_owners : Array[SimplifyLocalsDetachedControlOwner] = []
   let noppable_local_set_nodes : Array[Int] = []
   let noppable_drop_nodes : Array[Int] = []
-  let forwarded_local_gets : Array[(Int, Int)] = []
+  let forwarded_local_gets : Array[SimplifyLocalsForwardTarget] = []
   let forwarded_drop_nodes : Array[Int] = []
   let storeback_if_roots : Array[(Int, Int)] = []
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
@@ -315,14 +483,16 @@ fn simplify_locals_run(
       continue
     }
     match
-      simplify_locals_local_get_rewrite_target(ssa, use_def, func, node_id) {
-      Some((def_id, child_id, cleanup_id, cleanup_is_set)) => {
-        dead_nodes.push(def_id)
-        forwarded_local_gets.push((node_id, child_id))
-        if cleanup_is_set {
-          noppable_local_set_nodes.push(cleanup_id)
+      simplify_locals_local_get_rewrite_target(
+        ssa, use_def, node_masks, func, node_id,
+      ) {
+      Some(target) => {
+        dead_nodes.push(target.def_id)
+        forwarded_local_gets.push(target)
+        if target.cleanup_is_set {
+          noppable_local_set_nodes.push(target.cleanup_id)
         } else {
-          forwarded_drop_nodes.push(cleanup_id)
+          forwarded_drop_nodes.push(target.cleanup_id)
         }
       }
       None => ()
@@ -409,10 +579,22 @@ fn simplify_locals_run(
     }
   }
   for forwarded in forwarded_local_gets {
-    let (node_id, child_id) = forwarded
-    if @ir.hot_node_is_live(func, node_id) &&
-      @ir.hot_node_is_live(func, child_id) {
-      @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, child_id))
+    if !@ir.hot_node_is_live(func, forwarded.value_id) {
+      continue
+    }
+    match forwarded.rewrite {
+      SimplifyLocalsForwardRewrite::ReplaceNode(node_id) =>
+        if @ir.hot_node_is_live(func, node_id) {
+          @ir.hot_replace_node(
+            func,
+            node_id,
+            @ir.hot_node_get(func, forwarded.value_id),
+          )
+        }
+      SimplifyLocalsForwardRewrite::ReplaceChild(parent_id, slot) =>
+        if @ir.hot_node_is_live(func, parent_id) {
+          @ir.hot_child_set(func, parent_id, slot, forwarded.value_id)
+        }
     }
   }
   for node_id in noppable_local_set_nodes {

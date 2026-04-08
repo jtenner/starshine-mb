@@ -257,20 +257,20 @@ test "simplify-locals rewrites same-local result-if storeback roots into conditi
 }
 
 ///|
-test "simplify-locals keeps result-if producer sets before immediate later uses for now" {
+test "simplify-locals forwards result-if producer sets into immediate later uses" {
   let func = simplify_locals_run_hot(
     "(module (func (param i32) (result i32) (local i32) (local.set 1 (if (result i32) (local.get 0) (then (i32.const 4)) (else (i32.const 9)))) (i32.add (local.get 1) (i32.const 1))))",
   )
 
   match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
-    @ir.HotOp::LocalSet => ()
-    op => fail("expected producer root to remain local.set, got \{op}")
+    @ir.HotOp::Nop => ()
+    op => fail("expected producer root to become nop, got \{op}")
   }
   let use_root = @ir.hot_root_get(func, 1)
   match @ir.hot_node_get(func, @ir.hot_child_get(func, use_root, 0)).op {
-    @ir.HotOp::LocalGet => ()
+    @ir.HotOp::If => ()
     op =>
-      fail("expected immediate use root to keep local.get for now, got \{op}")
+      fail("expected immediate use root to inline the producer if, got \{op}")
   }
 }
 
