@@ -473,6 +473,13 @@
   parity on those families matters, the missing capability may be local
   synthesis or a neighboring canonicalization pass, not another guard-only
   widening inside the current `code-pushing` rewrite.
+- One more smaller non-repro is now pinned too. `src/passes/code_pushing_test.mbt`
+  now proves that `code-pushing` already handles the simpler tee-fed sibling
+  shape where the movable `local.set` is followed by a kept condition
+  `local.set`, then the later `if`, then later reads. That means the surviving
+  `48981` direct-artifact family is narrower again and still points at the
+  dropped-carrier / extraction frontier rather than plain same-region sibling
+  motion.
 - A fresh retry confirmed that the terminal-owner family is still not ready to
   land, even under a narrower local-type fence. Re-admitting only the `i32`
   version of that direct inner-owner plus terminal-exit carrier still

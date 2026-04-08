@@ -2092,6 +2092,17 @@ test "code-pushing can move a local.set fed by an earlier local.tee past an if" 
 }
 
 ///|
+test "code-pushing moves a tee-fed local.set after an if even with a later kept condition local.set before the if" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32 i32) (local i32 i32 i32) local.get 0 local.tee 4 drop local.get 4 local.set 2 local.get 1 local.set 3 local.get 3 if local.get 3 drop end local.get 2 drop local.get 3 drop))",
+  )
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "Drop", "LocalSet(3)", "If", "LocalSet(2)", "Drop", "Drop",
+  ])
+}
+
+///|
 test "code-pushing allows a later read when the opposite arm is terminal" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop else unreachable end local.get 1 drop))",
