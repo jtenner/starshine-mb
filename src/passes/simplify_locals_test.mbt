@@ -48,6 +48,25 @@ test "simplify-locals skips unreachable local defs outside the ssa overlay" {
 }
 
 ///|
+test "simplify-locals keeps dead local.sets when the local is still read elsewhere" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (result i32) (local i32) i32.const 1 local.set 0 i32.const 2 local.set 0 local.get 0))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected conservative dead local.set simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("I32(1)"))
+  assert_true(pretty.contains("I32(2)"))
+}
+
+///|
 test "simplify-locals keeps shared tee children that remain referenced" {
   let func = @ir.HotFunc::new(
     locals=@ir.HotLocals::new(locals=[@lib.ValType::i32()]),
@@ -118,4 +137,32 @@ test "simplify-locals rehomes dead tee control labels before cleanup" {
         "expected simplify-locals dead-tee control verify success, got \{err}",
       )
   }
+}
+
+///|
+test "simplify-locals rewrites dead local.tee roots with structured children" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32)
+    #|    (block (result i32)
+    #|      (if (result i32)
+    #|        (local.get 0)
+    #|        (then
+    #|          (i32.const 1))
+    #|        (else
+    #|          (i32.const 2))))
+    #|    (local.tee 1)
+    #|    drop
+    #|    (i32.const 7)))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected structured-child simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("local.tee"))
+  assert_true(pretty.contains("I32(7)"))
 }

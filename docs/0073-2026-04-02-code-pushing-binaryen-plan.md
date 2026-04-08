@@ -509,6 +509,21 @@
   parity on those families matters, the missing capability may be local
   synthesis or a neighboring canonicalization pass, not another guard-only
   widening inside the current `code-pushing` rewrite.
+- The downstream cleanup oracle is open again. `simplify-locals` no longer
+  aborts or emits invalid wasm on the debug artifact: dead `local.tee`
+  rewrites are now limited to a sole `Drop` stack use, dead `local.set`
+  rewrites are now limited to locals that are unread anywhere in the function,
+  and `src/cmd/cmd_test.mbt` now has a native debug-artifact regression for
+  direct `--simplify-locals`. Fresh native `cmd` runs validate both
+  `--simplify-locals` and `--code-pushing --simplify-locals`, so the combined
+  replay `.tmp/self-opt-code-pushing-plus-simplify-locals-20260408` now
+  completes instead of failing early.
+- That combined replay is still very much not a parity signoff though. Canonical
+  wasm and normalized WAT both remain red, Starshine is still larger
+  (`1956918` bytes vs `1791630`), and pass time is still behind (`1145.246 ms`
+  vs `399.478 ms`). So the simplify-locals fix is a correctness repair and
+  oracle unblocker, not evidence that the remaining `105621` / `126757`
+  structural families belong inside `code-pushing`.
 - One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
   proves that `code-pushing` already handles the simpler tee-fed sibling shape
   where the movable `local.set` is followed by a kept condition `local.set`,

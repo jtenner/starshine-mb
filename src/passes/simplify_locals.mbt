@@ -115,11 +115,43 @@ fn simplify_locals_delete_detached_nodes(
 }
 
 ///|
+fn simplify_locals_dead_local_tee_is_safe(
+  use_def : @ir.HotUseDef,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let sites = @ir.node_use_sites_borrowed(use_def, node_id)
+  if sites.length() != 1 {
+    return false
+  }
+  let site = sites[0]
+  match site.kind {
+    @ir.HotUseSlotKind::ChildUseSlot => ()
+    _ => return false
+  }
+  match @ir.hot_node_get(func, site.user).op {
+    @ir.HotOp::Drop => true
+    _ => false
+  }
+}
+
+///|
+fn simplify_locals_dead_local_set_is_safe(
+  use_def : @ir.HotUseDef,
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  use_def.local_reads[node.imm0].length() == 0
+}
+
+///|
 fn simplify_locals_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
   let ssa = pass_require_ssa(ctx, func)
+  let use_def = pass_require_use_def(ctx, func)
   let dead_nodes : Array[Int] = []
   let detached_tee_nodes : Array[Int] = []
   let detached_control_owners : Array[SimplifyLocalsDetachedControlOwner] = []
@@ -139,7 +171,15 @@ fn simplify_locals_run(
         }
         dead_nodes.push(node_id)
         match node.op {
+          @ir.HotOp::LocalSet =>
+            if !simplify_locals_dead_local_set_is_safe(use_def, func, node_id) {
+              ignore(dead_nodes.pop())
+            }
           @ir.HotOp::LocalTee => {
+            if !simplify_locals_dead_local_tee_is_safe(use_def, func, node_id) {
+              ignore(dead_nodes.pop())
+              continue
+            }
             let child_id = @ir.hot_child_get(func, node_id, 0)
             if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
               detached_tee_nodes.push(child_id)
