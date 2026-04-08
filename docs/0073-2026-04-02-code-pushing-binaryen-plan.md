@@ -553,6 +553,23 @@
   The overall parity story is still open though: size is unchanged, the first
   direct hunk at `214` is still intact, and the later `641` family still wants
   deeper use-site forwarding than this rewrite provides.
+- That next `641`-style frontier is pinned now too. `src/passes/simplify_locals_test.mbt`
+  keeps the simpler producer/use pair unchanged for now: a root-level
+  `local.set` whose child is a result-`if`, followed immediately by a root that
+  consumes that local via `local.get`. That shape is closer to the remaining
+  direct compare lane than the earlier same-local storeback family, so the next
+  meaningful simplify-locals work should target immediate-use forwarding from
+  that producer/use pair instead of reopening the rejected broader dead-local
+  relaxations or nested `local.tee` probes that did not move the artifact.
+- A direct structured-forwarding attempt against that frontier is now explicitly
+  not kept too. Replaying native `--simplify-locals` on
+  `tests/node/dist/starshine-debug-wasi.wasm` aborted during lowering because a
+  cloned control-valued producer still carried live label structure that the
+  local clone helper did not remap. The kept boundary is therefore tighter than
+  "single-use structured producer": the in-tree tests now pin both the simple
+  immediate-use case and the nested-explicit-exit variant as current negatives,
+  and the next useful step is a reducer for the real `641` artifact family
+  rather than another broad control-value clone probe.
 - One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
   proves that `code-pushing` already handles the simpler tee-fed sibling shape
   where the movable `local.set` is followed by a kept condition `local.set`,

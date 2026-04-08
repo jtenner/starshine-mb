@@ -257,6 +257,64 @@ test "simplify-locals rewrites same-local result-if storeback roots into conditi
 }
 
 ///|
+test "simplify-locals keeps result-if producer sets before immediate later uses for now" {
+  let func = simplify_locals_run_hot(
+    "(module (func (param i32) (result i32) (local i32) (local.set 1 (if (result i32) (local.get 0) (then (i32.const 4)) (else (i32.const 9)))) (i32.add (local.get 1) (i32.const 1))))",
+  )
+
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::LocalSet => ()
+    op => fail("expected producer root to remain local.set, got \{op}")
+  }
+  let use_root = @ir.hot_root_get(func, 1)
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, use_root, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    op =>
+      fail("expected immediate use root to keep local.get for now, got \{op}")
+  }
+}
+
+///|
+test "simplify-locals keeps structured producer sets when immediate use has an impure prefix" {
+  let func = simplify_locals_run_hot(
+    "(module (func (param i32) (result i32) (local i32) (local.set 1 (if (result i32) (local.get 0) (then (i32.const 4)) (else (i32.const 9)))) (i32.add (call 1) (local.get 1))) (func (result i32) (i32.const 7)))",
+  )
+
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::LocalSet => ()
+    op => fail("expected producer root to remain local.set, got \{op}")
+  }
+  let use_root = @ir.hot_root_get(func, 1)
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, use_root, 1)).op {
+    @ir.HotOp::LocalGet => ()
+    op => fail("expected impure-prefix use root to keep local.get, got \{op}")
+  }
+}
+
+///|
+test "simplify-locals keeps result-if producer sets with nested explicit exits" {
+  let func = simplify_locals_run_hot(
+    "(module (func (param i32) (result i32) (local i32) (local.set 1 (if (result i32) (local.get 0) (then (block (result i32) (br 0 (i32.const 4)))) (else (i32.const 9)))) (i32.add (local.get 1) (i32.const 1))))",
+  )
+
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::LocalSet => ()
+    op =>
+      fail(
+        "expected explicit-exit producer root to remain local.set, got \{op}",
+      )
+  }
+  let use_root = @ir.hot_root_get(func, 1)
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, use_root, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    op =>
+      fail(
+        "expected explicit-exit immediate use root to keep local.get, got \{op}",
+      )
+  }
+}
+
+///|
 test "simplify-locals rewrites dead local.tee roots with structured children" {
   let source =
     #|(module
