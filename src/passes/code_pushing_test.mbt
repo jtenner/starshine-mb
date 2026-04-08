@@ -625,30 +625,35 @@ test "code-pushing does not move a local.set when a later local.tee rewrites it"
 }
 
 ///|
-test "code-pushing keeps a dead local.set before nontrivial roots when no later read needs it" {
+test "code-pushing moves a dead local.set past pure drops and a later void if before an unrelated final root" {
   let source =
     #|(module
-    #|  (global i64 (i64.const 926))
-    #|  (func (param i64)
+    #|  (global i32 (i32.const 149))
+    #|  (func (param i64) (result i64)
+    #|    (local f32)
     #|    (local f64)
-    #|    (drop
-    #|      (i64.const 211))
-    #|    (f64.const 77)
-    #|    (local.set 1)
-    #|    (drop
-    #|      (global.get 0))
-    #|    (drop
-    #|      (f32.const 73))
     #|    (if (i32.const 0)
     #|      (then
     #|        nop)
     #|      (else
-    #|        nop))))
+    #|        nop))
+    #|    (f32.const 18)
+    #|    (local.set 1)
+    #|    (drop
+    #|      (i32.const 898))
+    #|    (drop
+    #|      (global.get 0))
+    #|    (if (i32.const 0)
+    #|      (then
+    #|        nop)
+    #|      (else
+    #|        nop))
+    #|    (local.get 0)))
     #|)
   let func = code_pushing_test_run_hot(source)
 
   assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
-    "Drop", "LocalSet(1)", "Drop", "Drop", "If",
+    "If", "Drop", "Drop", "If", "LocalSet(1)", "LocalGet(0)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {

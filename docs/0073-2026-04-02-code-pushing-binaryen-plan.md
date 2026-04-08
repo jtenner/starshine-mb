@@ -444,6 +444,35 @@
   shape directly. But widening the pass for that family removed the `48978`
   diff only by introducing a worse earlier structural mismatch around printed
   line `44251`, so the pass stays conservative there for now.
+- The random-corpus dead-gap family that briefly reopened parity is now closed
+  again. After narrowing the dead-gap conflict check so pure crossed
+  `global.get` reads do not block a dead `local.set`, the exact saved shape is
+  pinned in `src/passes/code_pushing_test.mbt`, and the refreshed fuzz lanes
+  are green at `.tmp/pass-fuzz-code-pushing-genvalid-1000-20260408c`
+  (`1000/1000`) plus `.tmp/pass-fuzz-code-pushing-genvalid-10000-20260408b`
+  (`10000/10000`), both with `0` mismatches and no validation or command
+  failures. The mixed and smith-only lanes are semantically green too:
+  `.tmp/pass-fuzz-code-pushing-both-1000-20260408b` reaches `289/289`
+  normalized matches before the usual `20` Binaryen-side `wasm-smith` parser
+  failures, and `.tmp/pass-fuzz-code-pushing-smith-1000-20260408b` reaches
+  `165/165` normalized matches before the same parser ceiling.
+- The remaining CP004 blocker is therefore back to the direct artifact compare.
+  The latest replay is `.tmp/self-opt-code-pushing-20260408c`, where canonical
+  wasm and normalized WAT still differ, the first normalized WAT deltas remain
+  at `48981`, `72005`, `105621`, and `126757`, and Starshine is still slower
+  than Binaryen (`1129.958 ms` vs `56.281 ms` pass; `3979.064 ms` vs
+  `430.897 ms` total). The first surviving family is still the printed
+  `func $127` / pipeline `Func 148` nested dropped-carrier shape around
+  `LocalSet $310`.
+- The larger structural families are now classified more tightly too. The
+  `105621` and `126757` diffs in printed `func $314` and `func $366` are not
+  just more same-root reorder misses. In both cases Binaryen increases the
+  local count, materializes extra alias locals before the shared `if`, and then
+  forwards those aliases after the `if`. Starshine keeps the original smaller
+  local set and only forwards the existing values after the `if`. So if exact
+  parity on those families matters, the missing capability may be local
+  synthesis or a neighboring canonicalization pass, not another guard-only
+  widening inside the current `code-pushing` rewrite.
 - A fresh retry confirmed that the terminal-owner family is still not ready to
   land, even under a narrower local-type fence. Re-admitting only the `i32`
   version of that direct inner-owner plus terminal-exit carrier still

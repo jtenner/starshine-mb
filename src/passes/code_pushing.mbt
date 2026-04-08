@@ -2067,7 +2067,7 @@ fn cp_summary_conflicts_with_dead_move_gap(
   if (gap.mask & blocked_mask) != 0U {
     return true
   }
-  if cp_bitset_any(gap.global_reads) || cp_bitset_any(gap.global_writes) {
+  if cp_bitset_any(gap.global_writes) {
     return true
   }
   if cp_bitset_overlaps(moving.local_writes, gap.local_reads) ||
