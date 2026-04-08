@@ -275,6 +275,27 @@ test "simplify-locals forwards result-if producer sets into immediate later uses
 }
 
 ///|
+test "simplify-locals keeps result-if producer sets when later reads still need the local" {
+  let func = simplify_locals_run_hot(
+    "(module (func (param i32) (result i32) (local i32) (local.set 1 (if (result i32) (local.get 0) (then (i32.const 4)) (else (i32.const 9)))) (drop (i32.add (local.get 1) (i32.const 1))) (local.get 1)))",
+  )
+
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op {
+    @ir.HotOp::LocalSet => ()
+    op => fail("expected producer root to remain local.set, got \{op}")
+  }
+  let use_root = @ir.hot_root_get(func, 1)
+  let add_id = @ir.hot_child_get(func, use_root, 0)
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, add_id, 0)).op {
+    @ir.HotOp::LocalGet => ()
+    op =>
+      fail(
+        "expected immediate use to keep local.get while later reads still need the local, got \{op}",
+      )
+  }
+}
+
+///|
 test "simplify-locals keeps structured producer sets when immediate use has an impure prefix" {
   let func = simplify_locals_run_hot(
     "(module (func (param i32) (result i32) (local i32) (local.set 1 (if (result i32) (local.get 0) (then (i32.const 4)) (else (i32.const 9)))) (i32.add (call 1) (local.get 1))) (func (result i32) (i32.const 7)))",
