@@ -537,6 +537,13 @@
   `.tmp/self-opt-code-pushing-call-prefixed-carrier-20260408` and reintroduced
   an earlier structural drift around printed line `71748`, so that broader
   terminal-inner-owner family was rolled back immediately.
+- That call-prefixed blocker is now pinned directly in the reduced suites too.
+  `src/passes/code_pushing_test.mbt` keeps the pass negative for the
+  call-prefixed terminal-inner-owner carrier, while
+  `src/ir/hot_lower_live_repro_test.mbt` proves the same manual reorder still
+  lowers and validates. So the `72005` frontier is now split cleanly between
+  one exact landed terminal-inner-owner carrier and the closer live-shaped
+  call-prefixed variant that remains intentionally blocked.
 - A fresh retry confirmed that the terminal-owner family is still not ready to
   land, even under a narrower local-type fence. Re-admitting only the `i32`
   version of that direct inner-owner plus terminal-exit carrier still

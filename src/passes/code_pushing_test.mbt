@@ -1680,6 +1680,48 @@ test "code-pushing rewrites past an earlier explicit-exit local.set block carrie
 }
 
 ///|
+test "code-pushing does not rewrite past an earlier explicit-exit local.set block carrier with a call-prefixed inner block" {
+  let source =
+    #|(module
+    #|  (func $side (param i32))
+    #|  (func (param i32 i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (local.set 3
+    #|      (block $block1 (result i32)
+    #|        (block $block
+    #|          (call $side (local.get 2))
+    #|          (br $block1
+    #|            (if (result i32)
+    #|              (local.get 0)
+    #|              (then
+    #|                (return (i32.const 7)))
+    #|              (else
+    #|                (local.set 6 (local.get 1))
+    #|                (br $block)))))
+    #|        (local.get 6)))
+    #|    (local.get 1)
+    #|    (local.set 4)
+    #|    (local.get 1)
+    #|    (local.set 5)
+    #|    (local.get 5)
+    #|    (if
+    #|      (then
+    #|        (call $side (local.get 5))))
+    #|    (local.get 4))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 1)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(3)", "LocalSet(4)", "LocalSet(5)", "If", "LocalGet(4)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing rewrites past an earlier dropped result-carrying block root" {
   let source =
     #|(module
