@@ -580,13 +580,18 @@
   `.tmp/self-opt-simplify-locals-20260408h` trims Starshine from `1958511` to
   `1958408` bytes, but it still does not move the old `641` hunk, so that
   direct frontier remains the next meaningful simplify-locals reducer target.
-- That remaining `641` frontier is pinned more exactly now too.
-  `src/passes/simplify_locals_test.mbt` keeps the case where an immediate use
-  is followed by later reads of the same written local. That is closer to the
-  surviving live Binaryen diff: Binaryen is not only inlining the producer
-  there, it is preserving the local state with a `local.tee`. So the next
-  useful simplify-locals slice is a tee-preserving immediate-use rewrite, not
-  another plain single-use forwarder.
+- One tee-preserving immediate-use slice is now landed too.
+  `simplify-locals` can move a root-level `local.set` of a result-`if` into
+  the immediate later use as a `local.tee` when the crossed path is the single
+  child-chain into the next root and every remaining read of that SSA value
+  stays in a later root of the same holder. The reduced pass test is green,
+  native `--simplify-locals` replay on `tests/node/dist/starshine-debug-wasi.wasm`
+  still validates, and the fresh compare `.tmp/self-opt-simplify-locals-20260408i`
+  trims Starshine again from `1958408` to `1958404` bytes. But it still does
+  not move the first direct hunk at `214`, so the next useful simplify-locals
+  step is no longer the plain tee-preserving lane; it is the multi-root
+  storeback/extraction family that also feeds the later `$2` set before the
+  final consumer.
 - One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
   proves that `code-pushing` already handles the simpler tee-fed sibling shape
   where the movable `local.set` is followed by a kept condition `local.set`,

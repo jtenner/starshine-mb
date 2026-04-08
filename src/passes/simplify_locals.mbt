@@ -35,14 +35,29 @@ priv struct SimplifyLocalsDetachedControlOwner {
 enum SimplifyLocalsForwardRewrite {
   ReplaceNode(Int)
   ReplaceChild(Int, Int)
+  ReplaceNodeWithTee(Int, Int)
+  ReplaceChildWithTee(Int, Int, Int)
+} derive(Eq, Show, Debug)
+
+///|
+enum SimplifyLocalsForwardCleanup {
+  DeadLocalSet(Int)
+  DeadDrop(Int)
+  NopNode(Int)
 } derive(Eq, Show, Debug)
 
 ///|
 struct SimplifyLocalsForwardTarget {
   def_id : Int
   value_id : Int
-  cleanup_id : Int
-  cleanup_is_set : Bool
+  cleanup : SimplifyLocalsForwardCleanup
+  rewrite : SimplifyLocalsForwardRewrite
+} derive(Eq, Show, Debug)
+
+///|
+struct SimplifyLocalsRootUsePath {
+  holder_id : Int
+  slot : Int
   rewrite : SimplifyLocalsForwardRewrite
 } derive(Eq, Show, Debug)
 
@@ -158,56 +173,29 @@ fn simplify_locals_has_explicit_exit(func : @ir.HotFunc, node_id : Int) -> Bool 
 }
 
 ///|
-fn simplify_locals_immediate_next_root_use_rewrite(
+fn simplify_locals_single_root_use_path(
   use_def : @ir.HotUseDef,
   node_masks : Array[@ir.EffectMask],
   func : @ir.HotFunc,
-  def_id : Int,
-  use_id : Int,
-) -> SimplifyLocalsForwardRewrite? {
-  let def_sites = @ir.node_use_sites_borrowed(use_def, def_id)
-  if def_sites.length() != 1 {
-    return None
-  }
-  let def_site = def_sites[0]
-  match def_site.kind {
-    @ir.HotUseSlotKind::RootUseSlot => ()
-    _ => return None
-  }
-  simplify_locals_immediate_next_root_use_rewrite_step(
-    use_def, node_masks, func, def_site, use_id, use_id, -1, -1,
-  )
-}
-
-///|
-fn simplify_locals_immediate_next_root_use_rewrite_step(
-  use_def : @ir.HotUseDef,
-  node_masks : Array[@ir.EffectMask],
-  func : @ir.HotFunc,
-  def_site : @ir.HotUseSite,
-  use_id : Int,
+  origin_id : Int,
   current_id : Int,
   replace_parent : Int,
   replace_slot : Int,
-) -> SimplifyLocalsForwardRewrite? {
+) -> SimplifyLocalsRootUsePath? {
   let sites = @ir.node_use_sites_borrowed(use_def, current_id)
   if sites.length() != 1 {
     return None
   }
   let site = sites[0]
   match site.kind {
-    @ir.HotUseSlotKind::RootUseSlot =>
-      if current_id == use_id ||
-        site.user != def_site.user ||
-        site.slot != def_site.slot + 1 {
-        None
+    @ir.HotUseSlotKind::RootUseSlot => {
+      let rewrite = if current_id == origin_id {
+        SimplifyLocalsForwardRewrite::ReplaceNode(origin_id)
       } else {
-        Some(
-          SimplifyLocalsForwardRewrite::ReplaceChild(
-            replace_parent, replace_slot,
-          ),
-        )
+        SimplifyLocalsForwardRewrite::ReplaceChild(replace_parent, replace_slot)
       }
+      Some({ holder_id: site.user, slot: site.slot, rewrite })
+    }
     @ir.HotUseSlotKind::ChildUseSlot => {
       let next_replace_parent = if replace_parent < 0 {
         site.user
@@ -231,18 +219,100 @@ fn simplify_locals_immediate_next_root_use_rewrite_step(
       if @ir.node_use_count(use_def, site.user) != 1 {
         return None
       }
-      simplify_locals_immediate_next_root_use_rewrite_step(
+      simplify_locals_single_root_use_path(
         use_def,
         node_masks,
         func,
-        def_site,
-        use_id,
+        origin_id,
         site.user,
         next_replace_parent,
         next_replace_slot,
       )
     }
   }
+}
+
+///|
+fn simplify_locals_immediate_next_root_use_path(
+  use_def : @ir.HotUseDef,
+  node_masks : Array[@ir.EffectMask],
+  func : @ir.HotFunc,
+  def_id : Int,
+  use_id : Int,
+) -> SimplifyLocalsRootUsePath? {
+  let def_sites = @ir.node_use_sites_borrowed(use_def, def_id)
+  if def_sites.length() != 1 {
+    return None
+  }
+  let def_site = def_sites[0]
+  match def_site.kind {
+    @ir.HotUseSlotKind::RootUseSlot => ()
+    _ => return None
+  }
+  match
+    simplify_locals_single_root_use_path(
+      use_def, node_masks, func, use_id, use_id, -1, -1,
+    ) {
+    Some(path) =>
+      if path.holder_id != def_site.user || path.slot != def_site.slot + 1 {
+        None
+      } else {
+        Some(path)
+      }
+    None => None
+  }
+}
+
+///|
+fn simplify_locals_forward_rewrite_to_tee(
+  rewrite : SimplifyLocalsForwardRewrite,
+  local_id : Int,
+) -> SimplifyLocalsForwardRewrite {
+  match rewrite {
+    SimplifyLocalsForwardRewrite::ReplaceNode(node_id) =>
+      SimplifyLocalsForwardRewrite::ReplaceNodeWithTee(node_id, local_id)
+    SimplifyLocalsForwardRewrite::ReplaceChild(parent_id, slot) =>
+      SimplifyLocalsForwardRewrite::ReplaceChildWithTee(
+        parent_id, slot, local_id,
+      )
+    SimplifyLocalsForwardRewrite::ReplaceNodeWithTee(_, _)
+    | SimplifyLocalsForwardRewrite::ReplaceChildWithTee(_, _, _) => rewrite
+  }
+}
+
+///|
+fn simplify_locals_can_preserve_later_reads_with_immediate_tee(
+  ssa : @ir.HotLocalSsa,
+  use_def : @ir.HotUseDef,
+  node_masks : Array[@ir.EffectMask],
+  func : @ir.HotFunc,
+  value_id : Int,
+  immediate_use_id : Int,
+  immediate_path : SimplifyLocalsRootUsePath,
+) -> Bool {
+  let uses = @ir.ssa_uses_of_value(ssa, value_id)
+  for value_use in uses {
+    match value_use {
+      @ir.HotSsaUseOrigin::LocalGetUse(get_id) =>
+        if get_id == immediate_use_id {
+          continue
+        } else {
+          match
+            simplify_locals_single_root_use_path(
+              use_def, node_masks, func, get_id, get_id, -1, -1,
+            ) {
+            Some(path) =>
+              if path.holder_id != immediate_path.holder_id ||
+                path.slot <= immediate_path.slot {
+                return false
+              }
+            None => return false
+          }
+        }
+      _ => return false
+    }
+  }
+  true
 }
 
 ///|
@@ -262,19 +332,19 @@ fn simplify_locals_local_get_rewrite_target(
   if value_id < 0 {
     return None
   }
-  let uses = @ir.ssa_uses_of_value(ssa, value_id)
-  if uses.length() != 1 {
-    return None
-  }
-  match uses[0] {
-    @ir.HotSsaUseOrigin::LocalGetUse(get_id) =>
-      if get_id != node_id {
-        return None
-      }
-    _ => return None
-  }
   match ssa.value_origins[value_id] {
     @ir.HotSsaValueOrigin::LocalTeeDef(tee_id) => {
+      let uses = @ir.ssa_uses_of_value(ssa, value_id)
+      if uses.length() != 1 {
+        return None
+      }
+      match uses[0] {
+        @ir.HotSsaUseOrigin::LocalGetUse(get_id) =>
+          if get_id != node_id {
+            return None
+          }
+        _ => return None
+      }
       let sites = @ir.node_use_sites_borrowed(use_def, tee_id)
       if sites.length() != 1 {
         return None
@@ -295,8 +365,7 @@ fn simplify_locals_local_get_rewrite_target(
       Some({
         def_id: tee_id,
         value_id: child_id,
-        cleanup_id: site.user,
-        cleanup_is_set: false,
+        cleanup: SimplifyLocalsForwardCleanup::DeadDrop(site.user),
         rewrite: SimplifyLocalsForwardRewrite::ReplaceNode(node_id),
       })
     }
@@ -311,20 +380,47 @@ fn simplify_locals_local_get_rewrite_target(
         if simplify_locals_has_explicit_exit(func, child_id) {
           return None
         }
-        return match
-          simplify_locals_immediate_next_root_use_rewrite(
+        let uses = @ir.ssa_uses_of_value(ssa, value_id)
+        let immediate_path = match
+          simplify_locals_immediate_next_root_use_path(
             use_def, node_masks, func, set_id, node_id,
           ) {
-          Some(rewrite) =>
-            Some({
-              def_id: set_id,
-              value_id: child_id,
-              cleanup_id: set_id,
-              cleanup_is_set: true,
-              rewrite,
-            })
-          None => None
+          Some(path) => path
+          None => return None
         }
+        if uses.length() == 1 {
+          return Some({
+            def_id: set_id,
+            value_id: child_id,
+            cleanup: SimplifyLocalsForwardCleanup::DeadLocalSet(set_id),
+            rewrite: immediate_path.rewrite,
+          })
+        }
+        if !simplify_locals_can_preserve_later_reads_with_immediate_tee(
+            ssa, use_def, node_masks, func, value_id, node_id, immediate_path,
+          ) {
+          return None
+        }
+        return Some({
+          def_id: set_id,
+          value_id: child_id,
+          cleanup: SimplifyLocalsForwardCleanup::NopNode(set_id),
+          rewrite: simplify_locals_forward_rewrite_to_tee(
+            immediate_path.rewrite,
+            @ir.hot_node_get(func, set_id).imm0,
+          ),
+        })
+      }
+      let uses = @ir.ssa_uses_of_value(ssa, value_id)
+      if uses.length() != 1 {
+        return None
+      }
+      match uses[0] {
+        @ir.HotSsaUseOrigin::LocalGetUse(get_id) =>
+          if get_id != node_id {
+            return None
+          }
+        _ => return None
       }
       if !simplify_locals_is_trivially_forwardable_value(func, child_id) {
         return None
@@ -332,8 +428,7 @@ fn simplify_locals_local_get_rewrite_target(
       Some({
         def_id: set_id,
         value_id: child_id,
-        cleanup_id: set_id,
-        cleanup_is_set: true,
+        cleanup: SimplifyLocalsForwardCleanup::DeadLocalSet(set_id),
         rewrite: SimplifyLocalsForwardRewrite::ReplaceNode(node_id),
       })
     }
@@ -471,6 +566,7 @@ fn simplify_locals_run(
   let noppable_drop_nodes : Array[Int] = []
   let forwarded_local_gets : Array[SimplifyLocalsForwardTarget] = []
   let forwarded_drop_nodes : Array[Int] = []
+  let forwarded_nop_nodes : Array[Int] = []
   let storeback_if_roots : Array[(Int, Int)] = []
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
     match simplify_locals_same_local_storeback_if_target(func, root_idx) {
@@ -487,12 +583,18 @@ fn simplify_locals_run(
         ssa, use_def, node_masks, func, node_id,
       ) {
       Some(target) => {
-        dead_nodes.push(target.def_id)
         forwarded_local_gets.push(target)
-        if target.cleanup_is_set {
-          noppable_local_set_nodes.push(target.cleanup_id)
-        } else {
-          forwarded_drop_nodes.push(target.cleanup_id)
+        match target.cleanup {
+          SimplifyLocalsForwardCleanup::DeadLocalSet(node_id) => {
+            dead_nodes.push(target.def_id)
+            noppable_local_set_nodes.push(node_id)
+          }
+          SimplifyLocalsForwardCleanup::DeadDrop(node_id) => {
+            dead_nodes.push(target.def_id)
+            forwarded_drop_nodes.push(node_id)
+          }
+          SimplifyLocalsForwardCleanup::NopNode(node_id) =>
+            forwarded_nop_nodes.push(node_id)
         }
       }
       None => ()
@@ -542,7 +644,9 @@ fn simplify_locals_run(
       _ => ()
     }
   }
-  if dead_nodes.length() == 0 && storeback_if_roots.length() == 0 {
+  if dead_nodes.length() == 0 &&
+    storeback_if_roots.length() == 0 &&
+    forwarded_local_gets.length() == 0 {
     return HotPassResult::unchanged()
   }
   @ir.ssa_remove_dead_local_defs(func, dead_nodes)
@@ -595,8 +699,23 @@ fn simplify_locals_run(
         if @ir.hot_node_is_live(func, parent_id) {
           @ir.hot_child_set(func, parent_id, slot, forwarded.value_id)
         }
+      SimplifyLocalsForwardRewrite::ReplaceNodeWithTee(node_id, local_id) =>
+        if @ir.hot_node_is_live(func, node_id) {
+          let tee = @ir.hot_build_local_tee(func, local_id, forwarded.value_id)
+          @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, tee))
+        }
+      SimplifyLocalsForwardRewrite::ReplaceChildWithTee(
+        parent_id,
+        slot,
+        local_id
+      ) =>
+        if @ir.hot_node_is_live(func, parent_id) {
+          let tee = @ir.hot_build_local_tee(func, local_id, forwarded.value_id)
+          @ir.hot_child_set(func, parent_id, slot, tee)
+        }
     }
   }
+  @ir.ssa_remove_dead_local_defs(func, dead_nodes)
   for node_id in noppable_local_set_nodes {
     if @ir.hot_node_is_live(func, node_id) {
       match @ir.hot_node_get(func, node_id).op {
@@ -619,6 +738,11 @@ fn simplify_locals_run(
         @ir.HotOp::Drop => simplify_locals_replace_with_nop(func, node_id)
         _ => ()
       }
+    }
+  }
+  for node_id in forwarded_nop_nodes {
+    if @ir.hot_node_is_live(func, node_id) {
+      simplify_locals_replace_with_nop(func, node_id)
     }
   }
   @ir.cache_invalidate_all(ctx.cache)
