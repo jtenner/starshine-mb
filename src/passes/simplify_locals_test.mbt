@@ -235,6 +235,23 @@ test "simplify-locals forwards pure local.set values into the lone later local.g
 }
 
 ///|
+test "simplify-locals keeps same-local result-if storeback roots for now" {
+  let func = simplify_locals_run_hot(
+    "(module (func (param i32 i32) (result i32) (local.set 0 (if (result i32) (local.get 1) (then (i32.const 2)) (else (local.get 0)))) (local.get 0)))",
+  )
+
+  let store = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, store).op {
+    @ir.HotOp::LocalSet => ()
+    op => fail("expected storeback root to remain a local.set, got \{op}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_child_get(func, store, 0)).op {
+    @ir.HotOp::If => ()
+    op => fail("expected storeback local.set child to remain if, got \{op}")
+  }
+}
+
+///|
 test "simplify-locals rewrites dead local.tee roots with structured children" {
   let source =
     #|(module

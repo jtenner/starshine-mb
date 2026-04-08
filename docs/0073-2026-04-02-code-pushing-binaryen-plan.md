@@ -535,6 +535,14 @@
   the saved fuzz alias case, but the remaining named `gen-valid` mismatches are
   still mostly `nop` vs `drop (const ...)` cleanup differences where Starshine
   is smaller than Binaryen rather than less safe.
+- The next direct `simplify-locals` artifact frontier is pinned now too.
+  `src/passes/simplify_locals_test.mbt` keeps the same-local result-`if`
+  storeback shape unchanged: `local.set L (if (result T) cond then V else
+  (local.get L))`, followed by a later `local.get L`. That matches the early
+  direct compare families in `.tmp/self-opt-simplify-locals-20260408c`, where
+  Binaryen narrows the storeback `if (result)` into a conditional update or a
+  use-site forward. So the next meaningful simplify-locals work should reduce
+  that storeback family, not reopen broader dead-local-set relaxations.
 - One more smaller non-repro is still relevant too. `src/passes/code_pushing_test.mbt`
   proves that `code-pushing` already handles the simpler tee-fed sibling shape
   where the movable `local.set` is followed by a kept condition `local.set`,
