@@ -1785,6 +1785,25 @@ fn run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_dense_structured_call_heavy_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count >= 320 &&
+  stats.locals_count <= 640 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 768 &&
+  stats.if_count >= 48 &&
+  stats.if_count <= 160 &&
+  stats.block_count >= 16 &&
+  stats.block_count <= 64 &&
+  stats.loop_count <= 2 &&
+  stats.local_set_count >= 128 &&
+  stats.local_get_count >= 512 &&
+  stats.call_count >= 160 &&
+  stats.return_count <= 40
+}
+
+///|
 #cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_branchy_decode_structured_call_heavy(
   locals : @lib.Locals,
@@ -1818,6 +1837,16 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_branchy_structured_call_heav
   run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats(
     stats,
   )
+}
+
+///|
+#cfg(target="native")
+fn run_hot_pipeline_raw_simplify_locals_should_skip_dense_structured_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  run_hot_pipeline_raw_simplify_locals_dense_structured_call_heavy_stats(stats)
 }
 
 ///|
@@ -2994,6 +3023,9 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.call_count <= 144 &&
     stats.return_count >= 4 &&
     stats.return_count <= 8
+  let should_skip_dense_structured_call_heavy = run_hot_pipeline_raw_simplify_locals_dense_structured_call_heavy_stats(
+    stats,
+  )
   let should_skip_stringview_trim_loop_churn = stats.locals_count >= 34 &&
     stats.locals_count <= 40 &&
     stats.has_structured_control &&
@@ -3220,6 +3252,14 @@ fn run_hot_pipeline_raw_simplify_locals(
     if should_skip_branchy_structured_call_heavy {
       return Some({
         reason: "branchy-structured-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_dense_structured_call_heavy {
+      return Some({
+        reason: "dense-structured-call-heavy",
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,
