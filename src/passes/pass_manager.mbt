@@ -1919,6 +1919,25 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_straight_line_builder_churn(
 
 ///|
 #cfg(target="native")
+fn run_hot_pipeline_raw_simplify_locals_should_skip_huge_straight_line_call_builder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  stats.locals_count >= 768 &&
+  !stats.has_structured_control &&
+  stats.instr_count >= 2048 &&
+  stats.if_count == 0 &&
+  stats.block_count == 0 &&
+  stats.loop_count == 0 &&
+  stats.local_set_count <= 16 &&
+  stats.local_get_count >= 1536 &&
+  stats.call_count >= 1024 &&
+  stats.return_count == 0
+}
+
+///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_should_skip_medium_structured_call_heavy(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -3021,6 +3040,16 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.call_count >= 24 &&
     stats.call_count <= 48 &&
     stats.return_count <= 4
+  let should_skip_huge_straight_line_call_builder = stats.locals_count >= 768 &&
+    !stats.has_structured_control &&
+    stats.instr_count >= 2048 &&
+    stats.if_count == 0 &&
+    stats.block_count == 0 &&
+    stats.loop_count == 0 &&
+    stats.local_set_count <= 16 &&
+    stats.local_get_count >= 1536 &&
+    stats.call_count >= 1024 &&
+    stats.return_count == 0
   let should_skip_medium_structured_call_heavy = stats.locals_count >= 176 &&
     stats.locals_count <= 320 &&
     stats.has_structured_control &&
@@ -3113,6 +3142,14 @@ fn run_hot_pipeline_raw_simplify_locals(
     if should_skip_straight_line_builder_churn {
       return Some({
         reason: "straight-line-builder-churn",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_huge_straight_line_call_builder {
+      return Some({
+        reason: "huge-straight-line-call-builder",
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,

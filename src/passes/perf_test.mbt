@@ -1178,6 +1178,79 @@ fn perf_test_make_simplify_locals_straight_line_builder_module() -> String {
 }
 
 ///|
+fn perf_test_make_simplify_locals_huge_straight_line_call_builder_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string(
+    "(module\n  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 1024 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 256 {
+    let a = i * 4 + 1
+    let b = a + 1
+    let c = b + 1
+    let d = c + 1
+    out.write_string("    local.get 0\n")
+    out.write_string("    call 0\n")
+    out.write_string("    local.tee ")
+    out.write_string(a.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get ")
+    out.write_string(a.to_string())
+    out.write_string("\n")
+    out.write_string("    call 0\n")
+    out.write_string("    local.tee ")
+    out.write_string(b.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get ")
+    out.write_string(b.to_string())
+    out.write_string("\n")
+    out.write_string("    call 0\n")
+    out.write_string("    local.tee ")
+    out.write_string(c.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get ")
+    out.write_string(c.to_string())
+    out.write_string("\n")
+    out.write_string("    call 0\n")
+    out.write_string("    local.tee ")
+    out.write_string(d.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get ")
+    out.write_string(d.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get ")
+    out.write_string(c.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get ")
+    out.write_string(b.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    out.write_string("    local.get ")
+    out.write_string(a.to_string())
+    out.write_string("\n")
+    out.write_string("    drop\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_simplify_locals_lane_builder_module() -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -5034,6 +5107,37 @@ test "simplify-locals skips straight-line builder churn without hot lift" {
   assert_true(
     text.contains(
       "pass[simplify-locals]:skip-raw reason=straight-line-builder-churn",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips huge straight-line call builders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_huge_straight_line_call_builder_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected huge straight-line builder simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=huge-straight-line-call-builder",
     ),
     msg=text,
   )
