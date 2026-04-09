@@ -804,6 +804,19 @@ test "remove-unused-brs voidifies nested tail return-wrapped if ladders" {
 }
 
 ///|
+test "remove-unused-brs preserves dropped typed if carriers that still need their drop" {
+  let input = "(module (func (param i32 i32) (block $exit (block $then_exit (drop (if (result i32) (local.get 0) (then (br $then_exit)) (else (block $carry (result i32) (if (local.get 1) (then (br $carry (i32.const 1)))) (br $exit)))))))))"
+  let optimized = match pass_test_run_pipeline(input, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs dropped-carrier success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites tail return ifs with simple payload arms" {
   let optimized = match
     pass_test_run_pipeline(
@@ -1301,7 +1314,7 @@ test "remove-unused-brs rewrites one-arm payload branch ladders into br_if plus 
 }
 
 ///|
-test "remove-unused-brs rewrites block-carried one-arm payload branches into nested typed ifs" {
+test "remove-unused-brs simplifies block-carried one-arm payload branches into value selection" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param i32 i32 i32) (result i32) (if (result i32) (local.get 0) (then (i32.const 1)) (else (block $carry (result i32) (if (local.get 1) (then (i32.const 1) (br $carry))) (local.get 2))))))",
@@ -1316,23 +1329,274 @@ test "remove-unused-brs rewrites block-carried one-arm payload branches into nes
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("(br "), msg=pretty)
-  assert_false(pretty.contains("(block I32"), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
 }
 
 ///|
-test "remove-unused-brs rewrites prefix-heavy block-carried one-arm payload branches into nested typed ifs" {
+test "remove-unused-brs preserves prefix-heavy block-carried one-arm payload wrappers for oracle parity" {
   let source = "(module (func (param i32 i32 i32 i32) (result i32) (local i32) (block $carry (result i32) (block $inner (local.get 0) (i32.const 0) i32.eq (if (result i32) (then (local.get 1)) (else (local.get 2) drop (local.get 3) (local.set 4) (br $inner))) (br $carry)) (local.get 4))))"
   let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
     Ok(mod_) => mod_
     Err(err) =>
       fail(
-        "expected remove-unused-brs prefix-heavy block-carried payload branch success, got \{err}",
+        "expected remove-unused-brs prefix-heavy block-carried payload wrapper success, got \{err}",
       )
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_false(pretty.contains("(br "), msg=pretty)
-  assert_false(pretty.contains("(block I32"), msg=pretty)
+  assert_true(pretty.contains("(br "), msg=pretty)
+  assert_true(pretty.contains("(block I32"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites sibling carried guard blocks into one-arm ifs" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32) (block $carry (result i32) (block $guard (br_if $guard (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 2 (local.get 1)) (local.get 2)))) (drop (i32.const 0))) (drop (br $carry (i32.const 7))))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs sibling carried guard rewrite success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites carried guard blocks into one-arm ifs under result blocks" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32) (block $carry (result i32) (block $guard (br_if $guard (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 2 (local.get 1)) (local.get 2)))) (drop (i32.const 0)) (br $carry (i32.const 7))) (i32.const 9))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs carried guard result-block rewrite success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites dropped result-block guard carriers into one-arm ifs" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32) (drop (block $carry (result i32) (block $guard (br_if $guard (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 2 (local.get 1)) (local.get 2)))) (drop (i32.const 0))) (br $carry (i32.const 7)))) (i32.const 9)))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs dropped result-block guard rewrite success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites dropped result-block guard carriers under local.set" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32 i32) (local.set 3 (block $carry (result i32) (if (local.get 0) (then (drop (block (result i32) (block $guard (br_if $guard (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 2 (local.get 1)) (local.get 2)))) (drop (i32.const 0))) (br $carry (i32.const 7)))))) (i32.const 9))) (local.get 3)))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs local.set dropped result-block guard rewrite success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites prefixed dropped carried guards inside then arms" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32 i32) (block $carry (result i32) (if (local.get 0) (then (local.set 2 (i32.const 5)) (drop (block (result i32) (block $guard (br_if $guard (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 3 (local.get 1)) (local.get 3)))) (drop (i32.const 0))) (br $carry (local.get 2)))))) (i32.const 9))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs prefixed dropped carried guard success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs rewrites sibling carried guards with removable self tails" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32) (block $carry (result i32) (if (local.get 0) (then (block $guard (br_if $guard (if (result i32) (local.get 0) (then (i32.const 1)) (else (local.set 2 (local.get 1)) (local.get 2)))) (drop (i32.const 0)) (br $guard)) (drop (br $carry (i32.const 7))))) (i32.const 9))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs sibling carried guard self-tail rewrite success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs lowers carried guard blocks in result-block then arms" {
+  let source =
+    #|(module
+    #|  (func (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func (param i32 i32 i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32)
+    #|    (block
+    #|      (local.set 4
+    #|        (block (result i32)
+    #|          (if
+    #|            (local.get 0)
+    #|            (then
+    #|              (local.set 1 (local.get 1))
+    #|              (block
+    #|                (br_if 0
+    #|                  (if (result i32)
+    #|                    (local.get 0)
+    #|                    (then
+    #|                      (i32.const 1))
+    #|                    (else
+    #|                      (local.set 2 (local.get 2))
+    #|                      (local.set 3 (local.get 3))
+    #|                      (i32.le_s
+    #|                        (local.get 2)
+    #|                        (local.get 3)))))
+    #|                (call 0
+    #|                  (local.get 1))
+    #|                (drop
+    #|                  (i32.const 0))
+    #|                (local.set 2
+    #|                  (local.get 2))
+    #|                (call 0
+    #|                  (local.get 0))
+    #|                (local.set 3
+    #|                  (call 1
+    #|                    (local.get 0)
+    #|                    (local.get 2)))
+    #|                (drop
+    #|                  (br 1
+    #|                    (local.tee 4
+    #|                      (i32.add
+    #|                        (local.get 1)
+    #|                        (i32.const 1)))))))
+    #|            (else
+    #|              (call 0
+    #|                (local.get 2))
+    #|              (call 0
+    #|                (local.get 3))))
+    #|          (br 1))))
+    #|    (i32.const 0)))
+  let mod_ = pass_test_module_from_wat(source)
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(2U))
+  let trace_lines : Array[String] = []
+  let ctx = HotPassContext::new(
+    remove_unused_brs_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(msg) { trace_lines.push(msg) },
+  )
+
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected carried-guard result-block remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let out = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[2] = @ir.hot_lower_func(func)
+      mod_.with_code_sec(@lib.CodeSec::new(next_defs))
+    }
+    None => fail("expected fixture code sec")
+  }
+  let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
+  let trace_text = "\{trace_lines}"
+  assert_true(pretty.contains("(if (Void)"), msg="\{pretty}\n\{trace_text}")
+  assert_false(pretty.contains("br_if"), msg="\{pretty}\n\{trace_text}")
+}
+
+///|
+test "remove-unused-brs drops carried result wrappers after lowering then-arm guards" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (drop
+    #|      (local.get 0)))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local.get 0))
+    #|  (func (param i32 i32 i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32)
+    #|    (block (result i32)
+    #|      (if
+    #|        (local.get 0)
+    #|        (then
+    #|          (local.set 1
+    #|            (local.get 1))
+    #|          (drop
+    #|            (block (result i32)
+    #|              (block
+    #|                (br_if 0
+    #|                  (if (result i32)
+    #|                    (local.get 0)
+    #|                    (then
+    #|                      (i32.const 1))
+    #|                    (else
+    #|                      (local.set 2
+    #|                        (local.get 2))
+    #|                      (local.set 3
+    #|                        (local.get 3))
+    #|                      (i32.le_s
+    #|                        (local.get 2)
+    #|                        (local.get 3)))))
+    #|                (call 0
+    #|                  (local.get 1))
+    #|                (drop
+    #|                  (i32.const 0))
+    #|                (local.set 2
+    #|                  (local.get 2))
+    #|                (call 0
+    #|                  (local.get 0))
+    #|                (local.set 3
+    #|                  (call 1
+    #|                    (local.get 0)
+    #|                    (local.get 2))))
+    #|              (br 1
+    #|                (local.tee 4
+    #|                  (i32.add
+    #|                    (local.get 1)
+    #|                    (i32.const 1)))))))
+    #|        (else
+    #|          (call 0
+    #|            (local.get 2))
+    #|          (call 0
+    #|            (local.get 3))))
+    #|      (i32.const 0))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs dropped wrapper lowering success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("(drop (block I32"), msg=pretty)
 }
 
 ///|
