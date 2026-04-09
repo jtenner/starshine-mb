@@ -655,6 +655,10 @@
   outer result block rather than the local carrier itself. So the first
   remaining direct `214` family is narrower again: it is not explained by the
   plain parent-exit carried-tail form either.
+- The function-body version is green too. The same HOT file now proves that the
+  sink still lowers and validates when the suffix ends in a top-level `return`
+  instead of a carrier `br`. So the first remaining direct `214` family is not
+  explained by any of these plain terminal-tail carrier shapes by themselves.
 - The next live family at `72005` is narrower in the same way. A new reducer in
   `src/passes/code_pushing_test.mbt` proves the pass already handles the
   simpler alias-set form from that diff too: alias `local.set`, then a kept
