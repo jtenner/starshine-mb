@@ -165,7 +165,7 @@ fn cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
 
 ///|
 #cfg(target="native")
-test "run_cmd_with_adapter tuple-optimization rematerializes old source lanes before chained host-copy tail-live0 output" {
+test "run_cmd_with_adapter tuple-optimization keeps chained host-copy tail-live0 source lanes live through downstream tees" {
   let input_mod = match
     @wast.wast_to_binary_module(
       "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
@@ -207,16 +207,16 @@ test "run_cmd_with_adapter tuple-optimization rematerializes old source lanes be
   assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
-    "call 0", "local.set 8", "local.set 7", "local.tee 6", "local.set 11", "local.get 7",
-    "local.set 10", "local.get 8", "local.set 14", "local.get 10", "local.set 13",
-    "local.get 11", "local.tee 12", "local.set 19", "local.get 14", "local.set 5",
-    "local.get 13", "local.set 4", "local.get 19", "local.tee 3", "local.set 18",
+    "call 0", "local.set 8", "local.set 7", "local.tee 6", "local.set 10", "local.get 7",
+    "local.set 9", "local.get 10", "local.get 9", "local.get 8", "local.tee 3",
+    "local.set 11", "local.get 3", "local.get 4", "local.get 5", "local.tee 0",
+    "local.set 12", "local.get 12", "drop", "local.get 11", "drop",
   ])
 }
 
 ///|
 #cfg(target="native")
-test "run_cmd_with_adapter tuple-optimization threads intermediate host carriers through chained host-copy tail-live0 repro" {
+test "run_cmd_with_adapter tuple-optimization keeps chained host-copy tail-live0 downstream tees and drop tails" {
   let input_mod = match
     @wast.wast_to_binary_module(
       "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
@@ -261,11 +261,123 @@ test "run_cmd_with_adapter tuple-optimization threads intermediate host carriers
   assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
-    "local.get 11", "local.tee 12", "local.set 19", "local.get 19", "local.tee 3",
-    "local.set 18", "local.get 3", "local.tee 15", "local.set 21", "local.get 21",
-    "local.tee 0", "local.set 20", "local.get 20", "drop", "local.get 18", "drop",
+    "local.tee 6", "local.set 10", "local.get 7", "local.set 9", "local.tee 3",
+    "local.set 11", "local.tee 0", "local.set 12", "local.get 12", "drop",
+    "local.get 11", "drop",
   ])
-  assert_eq(cnw_count_substring(printed, "local.tee "), 5, msg=printed)
+  assert_eq(cnw_count_substring(printed, "local.tee "), 3, msg=printed)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization matches Binaryen for mixed scalar-forward bridges from direct producers" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 8 local.get 7 local.get 6 call 1 local.set 0 local.get 0))",
+      filename="tuple-direct-mixed-forward.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected mixed direct-producer parity fixture parse failure: \{err}",
+      )
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail(
+        "unexpected mixed direct-producer parity fixture encode failure: \{err}",
+      )
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-direct-mixed-forward.wasm"] },
+    file_exists=fn(path) { path == "tuple-direct-mixed-forward.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-direct-mixed-forward.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-direct-mixed-forward.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected mixed direct-producer tuple-optimization failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 2)
+  let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
+  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization matches Binaryen for chained mixed scalar-forward bridges" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 7 local.set 9 local.get 8 local.get 9 local.get 6 call 1 local.set 0 local.get 0))",
+      filename="tuple-direct-chained-forward.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected chained direct-producer parity fixture parse failure: \{err}",
+      )
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail(
+        "unexpected chained direct-producer parity fixture encode failure: \{err}",
+      )
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-direct-chained-forward.wasm"] },
+    file_exists=fn(path) { path == "tuple-direct-chained-forward.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-direct-chained-forward.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-direct-chained-forward.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected chained direct-producer tuple-optimization failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 2)
+  let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
+  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -325,7 +437,7 @@ test "run_cmd_with_adapter tuple-optimization keeps no-host exact-copy chains fr
 
 ///|
 #cfg(target="native")
-test "run_cmd_with_adapter tuple-optimization leaves terminal drop-only host copy groups scalarized" {
+test "run_cmd_with_adapter tuple-optimization matches Binaryen for terminal drop-only host copy groups" {
   let input_mod = match
     @wast.wast_to_binary_module(
       "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 local.get 7 local.set 5 local.get 8 local.set 4 local.get 6 local.set 3 block (result i32 i32 i32) local.get 3 local.get 5 local.get 4 end local.set 2 local.set 1 local.tee 0 local.get 1 drop local.get 2 drop))",
@@ -368,18 +480,9 @@ test "run_cmd_with_adapter tuple-optimization leaves terminal drop-only host cop
       fail("unexpected tuple-optimization drop-only host copy failure: \{e}")
   }
   assert_eq(writes.length(), 1)
-  let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
-  cnw_assert_occurs_in_order(printed, [
-    "call 0", "local.set 8", "local.set 7", "local.set 6", "local.get 7", "local.set 5",
-    "local.get 8", "local.set 4", "local.get 6", "local.set 3", "local.get 1", "drop",
-    "local.get 2", "drop", "local.get 4", "local.set 2", "local.get 5", "local.set 1",
-    "local.get 3", "local.tee 0",
-  ])
-  assert_eq(
-    cnw_count_substring(printed, "block (type 2) (result i32 i32 i32)"),
-    0,
-    msg=printed,
-  )
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 1)
+  let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 1)
+  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -637,4 +740,59 @@ test "run_cmd_with_adapter tuple-optimization leaves debug artifact func 1930 un
     1930,
   )
   assert_eq(tuple_func, no_pass_func, msg=tuple_func)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization matches Binaryen for debug artifact func 3598" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let wasm = match cmd_native_read_file(input_path) {
+    Ok(bytes) => bytes
+    Err(err) => fail("expected checked-in artifact at \{input_path}: \{err}")
+  }
+  let no_pass_writes : Array[(String, Bytes)] = []
+  let tuple_writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { [input_path] },
+    file_exists=fn(path) { path == input_path },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      if path == "out-no-pass.wasm" {
+        no_pass_writes.push((path, bytes))
+      } else {
+        tuple_writes.push((path, bytes))
+      }
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["--out", "out-no-pass.wasm", input_path], io) {
+    Ok(_) => ()
+    Err(e) => fail("unexpected debug-artifact no-pass replay failure: \{e}")
+  }
+  match
+    run_cmd_with_adapter(
+      ["--tuple-optimization", "--out", "out-pass.wasm", input_path],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail("unexpected tuple-optimization debug-artifact replay failure: \{e}")
+  }
+  assert_eq(no_pass_writes.length(), 1)
+  assert_eq(tuple_writes.length(), 1)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
+    no_pass_writes[0].1,
+    3598,
+  )
+  let tuple_func = cmd_native_wbtest_normalize_func_by_index(
+    tuple_writes[0].1,
+    3598,
+  )
+  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }

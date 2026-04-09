@@ -649,6 +649,38 @@ test "tuple-optimization keeps terminal two-hop scalar forwarding copy groups wi
 }
 
 ///|
+test "tuple-optimization rewrite carries terminal host results past trailing drop roots" {
+  let fixture = tuple_optimization_test_rewrite(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 local.get 7 local.set 5 local.get 8 local.set 4 local.get 6 local.set 3 block (result i32 i32 i32) local.get 3 local.get 5 local.get 4 end local.set 2 local.set 1 local.tee 0 local.get 1 drop local.get 2 drop))",
+  )
+  let func = fixture.hot_func
+  let root_ref = @ir.HotRegionRef::root()
+  let root_count = @ir.hot_region_root_count(func, root_ref)
+  assert_true(root_count >= 3)
+  let last_root = @ir.hot_region_get(func, root_ref, root_count - 1)
+  let last_node = @ir.hot_node_get(func, last_root)
+  assert_eq(last_node.op.to_string(), "LocalGet")
+  let result_local = last_node.imm0
+  assert_not_eq(result_local, 0)
+  let mut saw_result_set = false
+  let mut trailing_drop_count = 0
+  for slot = 0; slot + 1 < root_count; slot = slot + 1 {
+    let root_id = @ir.hot_region_get(func, root_ref, slot)
+    let root_node = @ir.hot_node_get(func, root_id)
+    match root_node.op {
+      @ir.HotOp::LocalSet =>
+        if root_node.imm0 == result_local {
+          saw_result_set = true
+        }
+      @ir.HotOp::Drop => trailing_drop_count += 1
+      _ => ()
+    }
+  }
+  assert_true(saw_result_set)
+  assert_true(trailing_drop_count >= 2)
+}
+
+///|
 test "tuple-optimization keeps terminal drop-only no-host exact copy groups rewriteable" {
   let analysis = tuple_optimization_test_analyze(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 block (result i32 i32 i32) local.get 6 local.get 7 local.get 8 end local.set 2 local.set 1 local.set 0 local.get 1 drop local.get 2 drop local.get 0))",
@@ -897,10 +929,22 @@ test "tuple-optimization analysis links mixed scalar-forward bridges from direct
   assert_eq(copy.copy_source, Some(0))
   assert_eq(tuple_optimization_group_host_lane(copy), Some(0))
   assert_true(tuple_optimization_group_should_rewrite(copy))
+  let fixture = @ir.ir_test_build_hot_from_wat(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 8 local.get 7 local.get 6 call 1 local.set 0 local.get 0))",
+  )
+  let use_def = @ir.use_def_build(fixture.hot_func)
+  assert_false(
+    tuple_optimization_group_should_rewrite_in_func(
+      fixture.hot_func,
+      use_def,
+      analysis.groups,
+      1,
+    ),
+  )
 }
 
 ///|
-test "tuple-optimization pipeline rewrites mixed scalar-forward bridges from direct producers" {
+test "tuple-optimization pipeline keeps mixed scalar-forward bridges from direct producers on scalar locals" {
   let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 8 local.get 7 local.get 6 call 1 local.set 0 local.get 0))"
   let input_mod = pass_test_module_from_wat(source)
   let optimized = match pass_test_run_pipeline(source, ["tuple-optimization"]) {
@@ -911,10 +955,13 @@ test "tuple-optimization pipeline rewrites mixed scalar-forward bridges from dir
       )
   }
 
-  assert_not_eq(
-    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
-    input_mod.pretty_print_func(@lib.FuncIdx::new(2U)),
-  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 8)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 7)"), msg=pretty)
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_false(pretty.contains("tuple.extract"), msg=pretty)
 }
 
 ///|
@@ -940,10 +987,22 @@ test "tuple-optimization analysis links chained mixed scalar-forward bridges" {
   assert_eq(second.copy_source, Some(1))
   assert_eq(tuple_optimization_group_host_lane(second), Some(0))
   assert_true(tuple_optimization_group_should_rewrite(second))
+  let fixture = @ir.ir_test_build_hot_from_wat(
+    "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 7 local.set 9 local.get 8 local.get 9 local.get 6 call 1 local.set 0 local.get 0))",
+  )
+  let use_def = @ir.use_def_build(fixture.hot_func)
+  assert_false(
+    tuple_optimization_group_should_rewrite_in_func(
+      fixture.hot_func,
+      use_def,
+      analysis.groups,
+      2,
+    ),
+  )
 }
 
 ///|
-test "tuple-optimization pipeline rewrites chained mixed scalar-forward bridges" {
+test "tuple-optimization pipeline keeps chained mixed scalar-forward bridges on scalar locals" {
   let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 7 local.set 9 local.get 8 local.get 9 local.get 6 call 1 local.set 0 local.get 0))"
   let input_mod = pass_test_module_from_wat(source)
   let optimized = match pass_test_run_pipeline(source, ["tuple-optimization"]) {
@@ -954,8 +1013,11 @@ test "tuple-optimization pipeline rewrites chained mixed scalar-forward bridges"
       )
   }
 
-  assert_not_eq(
-    optimized.pretty_print_func(@lib.FuncIdx::new(2U)),
-    input_mod.pretty_print_func(@lib.FuncIdx::new(2U)),
-  )
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 8)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 9)"), msg=pretty)
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_false(pretty.contains("tuple.extract"), msg=pretty)
 }

@@ -1989,7 +1989,7 @@ test "run_cmd_with_adapter tuple-optimization rewrites root local.set copy group
 }
 
 ///|
-test "run_cmd_with_adapter tuple-optimization rewrites mixed scalar-forward bridges from direct producers" {
+test "run_cmd_with_adapter tuple-optimization keeps mixed scalar-forward bridges from direct producers on scalar locals" {
   let input_mod = match
     @wast.wast_to_binary_module(
       "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 8 local.get 7 local.get 6 call 1 local.set 0 local.get 0))",
@@ -2034,16 +2034,23 @@ test "run_cmd_with_adapter tuple-optimization rewrites mixed scalar-forward brid
   assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_not_eq(pretty, input_mod.pretty_print_func(@lib.FuncIdx::new(2U)))
-  assert_true(pretty.contains("(block (Type 3)"), msg=pretty)
-  assert_true(pretty.contains("(local.set (Local 12))"), msg=pretty)
-  assert_true(pretty.contains("(local.set (Local 13))"), msg=pretty)
-  assert_true(pretty.contains("(local.set (Local 14))"), msg=pretty)
-  assert_true(pretty.contains("drop(local.get (Local 8))"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 8)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 7)"), msg=pretty)
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_false(pretty.contains("tuple.extract"), msg=pretty)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected mixed direct-producer scalar bridge output to validate, got \{err}",
+      )
+  }
 }
 
 ///|
-test "run_cmd_with_adapter tuple-optimization rewrites chained mixed scalar-forward bridges" {
+test "run_cmd_with_adapter tuple-optimization keeps chained mixed scalar-forward bridges on scalar locals" {
   let input_mod = match
     @wast.wast_to_binary_module(
       "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 7 local.set 9 local.get 8 local.get 9 local.get 6 call 1 local.set 0 local.get 0))",
@@ -2088,8 +2095,19 @@ test "run_cmd_with_adapter tuple-optimization rewrites chained mixed scalar-forw
   assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_not_eq(pretty, input_mod.pretty_print_func(@lib.FuncIdx::new(2U)))
-  assert_true(pretty.contains("(block (Type 3)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 8)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 9)"), msg=pretty)
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_false(pretty.contains("tuple.extract"), msg=pretty)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected chained direct-producer scalar bridge output to validate, got \{err}",
+      )
+  }
 }
 
 ///|
