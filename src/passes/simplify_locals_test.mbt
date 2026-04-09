@@ -276,6 +276,28 @@ test "simplify-locals rewrites same-local result-if storeback roots into conditi
 }
 
 ///|
+test "simplify-locals keeps terminal if tails as a blocked frontier" {
+  let func = simplify_locals_run_hot(
+    "(module (func (param i32) (result i32) (local i32 i32) (if (local.get 0) (then (return (i32.const 7)))) (local.set 1 (i32.const 3)) (local.set 2 (i32.add (local.get 1) (i32.const 1))) (local.get 2)))",
+  )
+
+  assert_eq(@ir.hot_root_count(func), 4)
+  let frontier = @ir.hot_root_get(func, 0)
+  match @ir.hot_node_get(func, frontier).op {
+    @ir.HotOp::If => ()
+    op => fail("expected frontier root 0 to remain if, got \{op}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 1)).op {
+    @ir.HotOp::Nop => ()
+    op => fail("expected frontier root 1 to become nop, got \{op}")
+  }
+  match @ir.hot_node_get(func, @ir.hot_root_get(func, 2)).op {
+    @ir.HotOp::LocalSet => ()
+    op => fail("expected frontier root 2 to remain local.set, got \{op}")
+  }
+}
+
+///|
 test "simplify-locals forwards result-if producer sets into immediate later uses" {
   let func = simplify_locals_run_hot(
     "(module (func (param i32) (result i32) (local i32) (local.set 1 (if (result i32) (local.get 0) (then (i32.const 4)) (else (i32.const 9)))) (i32.add (local.get 1) (i32.const 1))))",

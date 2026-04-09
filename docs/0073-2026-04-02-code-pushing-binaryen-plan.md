@@ -444,6 +444,18 @@
   shape directly. But widening the pass for that family removed the `48978`
   diff only by introducing a worse earlier structural mismatch around printed
   line `44251`, so the pass stays conservative there for now.
+- The neighboring `simplify-locals` cleanup frontier is narrower too. A closer
+  terminal-`if` tail reducer is now pinned in `src/passes/simplify_locals_test.mbt`:
+  root `if` with a terminal `return` arm, then the same pure tail locals that
+  feed the first direct `214` artifact family. Current behavior there is now
+  explicit: `simplify-locals` still leaves the carried tail at top level except
+  for the already-landed one-root cleanup (`root 1` becomes `nop`). A direct
+  widening that tried to sink those tails into an explicit `else` branch was
+  not kept because native `--simplify-locals` replay on
+  `tests/node/dist/starshine-debug-wasi.wasm` reintroduced body-result stack
+  underflow (`Func 40`, then `Func 141`). So that remaining lane is not “sink
+  terminal tails under `if`”; it is “reduce the carried-result form that HOT
+  lifting actually uses on the artifact.”
 - That same blocked frontier is now pinned one step smaller too. A more direct
   explicit-exit `LocalSet(Block(...), LocalGet)` carrier with a terminal arm
   and an inner-owner `br` arm also lowers and validates after the same manual
