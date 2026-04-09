@@ -643,6 +643,13 @@
   the surviving direct-artifact blocker is no longer `48981`, because the
   dropped-carrier extraction frontier has moved far enough to remove that live
   family entirely.
+- The analogous `simplify-locals` carried-tail assumption is narrower now too.
+  `src/ir/hot_lower_live_repro_test.mbt` now proves that a direct carried block
+  with body roots `If, LocalSet, LocalSet, LocalSet, Br` still lowers and
+  validates after those terminal tail roots are sunk into an explicit `else`.
+  So the first remaining direct `214` family is not blocked by the plain direct
+  carried-tail form itself; it needs extra lifted carrier scaffolding above
+  that simpler shape.
 - The next live family at `72005` is narrower in the same way. A new reducer in
   `src/passes/code_pushing_test.mbt` proves the pass already handles the
   simpler alias-set form from that diff too: alias `local.set`, then a kept

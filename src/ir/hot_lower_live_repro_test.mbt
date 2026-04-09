@@ -1296,6 +1296,64 @@ test "hot lower live repro validates direct payload inner-block exit plus termin
 }
 
 ///|
+test "hot lower live repro validates sinking a direct carried terminal tail into an explicit else" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (block $carry (result i32)
+    #|      (if (local.get 0)
+    #|        (then
+    #|          (return (i32.const 7))))
+    #|      (local.set 1 (i32.const 3))
+    #|      (local.set 2 (i32.add (local.get 1) (i32.const 1)))
+    #|      (local.set 3 (i32.add (local.get 2) (i32.const 4)))
+    #|      (br $carry (local.get 3)))))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  let carry = hot_root_get(fixture.hot_func, 0)
+  let carry_body = hot_region_body_ref(fixture.hot_func, carry)
+  assert_eq(hot_region_root_count(fixture.hot_func, carry_body), 5)
+  let if_id = hot_region_get(fixture.hot_func, carry_body, 0)
+  let tail0 = hot_region_get(fixture.hot_func, carry_body, 1)
+  let tail1 = hot_region_get(fixture.hot_func, carry_body, 2)
+  let tail2 = hot_region_get(fixture.hot_func, carry_body, 3)
+  let tail3 = hot_region_get(fixture.hot_func, carry_body, 4)
+  let condition = hot_child_get(fixture.hot_func, if_id, 0)
+  let then_ref = hot_region_then_ref(fixture.hot_func, if_id)
+  let then_body : Array[Int] = []
+  for idx = 0
+      idx < hot_region_root_count(fixture.hot_func, then_ref)
+      idx = idx + 1 {
+    then_body.push(hot_region_get(fixture.hot_func, then_ref, idx))
+  }
+  let sunk_if = hot_build_if(
+    fixture.hot_func,
+    @lib.BlockType::void_(),
+    condition,
+    then_body,
+    else_body=Some([tail0, tail1, tail2, tail3]),
+  )
+
+  hot_region_replace_body(fixture.hot_func, carry_body, [sunk_if])
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "hot lower live repro validates earlier explicit-exit if root before later if sink" {
   let source =
     #|(module
