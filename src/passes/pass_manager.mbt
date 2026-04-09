@@ -3130,10 +3130,13 @@ fn run_hot_pipeline_raw_simplify_locals(
       })
     }
     if should_skip_validator_structured_call_heavy {
+      let (cleaned, changed) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
+        original,
+      )
       return Some({
         reason: "validator-structured-call-heavy",
-        func: original,
-        unchanged_original: true,
+        func: cleaned,
+        unchanged_original: !changed,
         trace_skip_raw: true,
       })
     }
@@ -5857,13 +5860,9 @@ fn run_hot_pipeline_simplify_locals_lowered_cleanup_body(
 }
 
 ///|
-fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
+fn run_hot_pipeline_simplify_locals_cleanup_exact_func(
   func : @lib.Func,
-  descriptor_name : String,
-) -> @lib.Func {
-  if descriptor_name != "simplify-locals" {
-    return func
-  }
+) -> (@lib.Func, Bool) {
   let @lib.Func(locals, @lib.Expr(body)) = func
   let rewritten_body = run_hot_pipeline_simplify_locals_lowered_drop_dead_adjacent_local_set_get_pairs(
     body,
@@ -5875,14 +5874,25 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   run_hot_pipeline_simplify_locals_lowered_count_local_gets_in_body(
     rewritten_body, counts,
   )
-  @lib.Func::new(
-    locals,
-    @lib.Expr::new(
-      run_hot_pipeline_simplify_locals_lowered_cleanup_body(
-        rewritten_body, counts,
-      ),
-    ),
+  let cleaned_body = run_hot_pipeline_simplify_locals_lowered_cleanup_body(
+    rewritten_body, counts,
   )
+  (
+    @lib.Func::new(locals, @lib.Expr::new(cleaned_body)),
+    rewritten_body != body || cleaned_body != rewritten_body,
+  )
+}
+
+///|
+fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
+  func : @lib.Func,
+  descriptor_name : String,
+) -> @lib.Func {
+  if descriptor_name != "simplify-locals" {
+    return func
+  }
+  let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(func)
+  cleaned
 }
 
 ///|
