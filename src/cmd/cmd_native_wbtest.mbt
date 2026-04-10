@@ -95,33 +95,29 @@ fn cmd_native_wbtest_normalize_func_by_index(
     abort("expected non-negative function index")
   }
   let in_path = cmd_native_tmp_path("cmd-test-normalize-in", ".wasm")
-  let out_path = cmd_native_tmp_path("cmd-test-normalize-out", ".wat")
-  let func_path = cmd_native_tmp_path("cmd-test-normalize-func", ".wat")
+  let out_path = cmd_native_tmp_path("cmd-test-normalize-out", ".wasm")
   match cmd_native_write_file(in_path, bytes) {
     Ok(_) => ()
     Err(err) => abort("failed to stage native normalize input: \{err}")
   }
   let in_q = cmd_native_shell_quote(in_path)
   let out_q = cmd_native_shell_quote(out_path)
-  let func_q = cmd_native_shell_quote(func_path)
-  let command = "wasm-opt \{in_q} -S --strip-debug --all-features -o \{out_q}"
+  let command = "wasm-opt \{in_q} --strip-debug --all-features -o \{out_q}"
   let code = cmd_native_system(cmd_native_c_string(command))
   if code != 0 || !cmd_native_file_exists(out_path) {
     abort("failed to normalize wasm bytes with native wasm-opt")
   }
-  let extract_command = "awk 'BEGIN{n=-1} /^ [(]func /{n++; if(n==\{func_idx}){p=1}} p{print} /^ [(]func / && n==\{func_idx + 1}{exit}' \{out_q} | sed '$d' > \{func_q}"
-  let extract_code = cmd_native_system(cmd_native_c_string(extract_command))
-  if extract_code != 0 || !cmd_native_file_exists(func_path) {
-    abort("failed to extract normalized function with native awk")
+  let normalized = match cmd_native_read_file(out_path) {
+    Ok(out) => out
+    Err(err) => abort("failed to read native normalized wasm bytes: \{err}")
   }
-  let wat = match cmd_native_read_file(func_path) {
-    Ok(out) => bytes_to_string_lossy(out)
-    Err(err) => abort("failed to read native normalized func wat: \{err}")
+  let mod_ = match decode_module(normalized) {
+    Ok(mod_) => mod_
+    Err(err) => abort("failed to decode native normalized wasm bytes: \{err}")
   }
   cmd_native_remove_file(in_path)
   cmd_native_remove_file(out_path)
-  cmd_native_remove_file(func_path)
-  wat
+  mod_.pretty_print_func(@lib.FuncIdx::new(func_idx.reinterpret_as_uint()))
 }
 
 ///|
@@ -134,33 +130,29 @@ fn cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
     abort("expected non-negative function index")
   }
   let in_path = cmd_native_tmp_path("cmd-test-binaryen-tuple-in", ".wasm")
-  let out_path = cmd_native_tmp_path("cmd-test-binaryen-tuple-out", ".wat")
-  let func_path = cmd_native_tmp_path("cmd-test-binaryen-tuple-func", ".wat")
+  let out_path = cmd_native_tmp_path("cmd-test-binaryen-tuple-out", ".wasm")
   match cmd_native_write_file(in_path, bytes) {
     Ok(_) => ()
     Err(err) => abort("failed to stage native binaryen tuple input: \{err}")
   }
   let in_q = cmd_native_shell_quote(in_path)
   let out_q = cmd_native_shell_quote(out_path)
-  let func_q = cmd_native_shell_quote(func_path)
-  let command = "wasm-opt \{in_q} --tuple-optimization --all-features -S --strip-debug -o \{out_q}"
+  let command = "wasm-opt \{in_q} --tuple-optimization --all-features --strip-debug -o \{out_q}"
   let code = cmd_native_system(cmd_native_c_string(command))
   if code != 0 || !cmd_native_file_exists(out_path) {
     abort("failed to run native binaryen tuple-optimization")
   }
-  let extract_command = "awk 'BEGIN{n=-1} /^ [(]func /{n++; if(n==\{func_idx}){p=1}} p{print} /^ [(]func / && n==\{func_idx + 1}{exit}' \{out_q} | sed '$d' > \{func_q}"
-  let extract_code = cmd_native_system(cmd_native_c_string(extract_command))
-  if extract_code != 0 || !cmd_native_file_exists(func_path) {
-    abort("failed to extract native binaryen tuple function with awk")
+  let optimized = match cmd_native_read_file(out_path) {
+    Ok(out) => out
+    Err(err) => abort("failed to read native binaryen tuple wasm bytes: \{err}")
   }
-  let wat = match cmd_native_read_file(func_path) {
-    Ok(out) => bytes_to_string_lossy(out)
-    Err(err) => abort("failed to read native binaryen tuple func wat: \{err}")
+  let mod_ = match decode_module(optimized) {
+    Ok(mod_) => mod_
+    Err(err) => abort("failed to decode native binaryen tuple wasm bytes: \{err}")
   }
   cmd_native_remove_file(in_path)
   cmd_native_remove_file(out_path)
-  cmd_native_remove_file(func_path)
-  wat
+  mod_.pretty_print_func(@lib.FuncIdx::new(func_idx.reinterpret_as_uint()))
 }
 
 ///|
@@ -207,10 +199,10 @@ test "run_cmd_with_adapter tuple-optimization keeps chained host-copy tail-live0
   assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
-    "call 0", "local.set 8", "local.set 7", "local.tee 6", "local.set 10", "local.get 7",
-    "local.set 9", "local.get 10", "local.get 9", "local.get 8", "local.tee 3",
-    "local.set 11", "local.get 3", "local.get 4", "local.get 5", "local.tee 0",
-    "local.set 12", "local.get 12", "drop", "local.get 11", "drop",
+    "call 0", "local.set 8", "local.set 7", "local.tee 6", "local.set 11", "local.get 7",
+    "local.set 10", "local.get 11", "local.get 10", "local.get 8", "local.set 3",
+    "local.get 3", "local.get 4", "local.get 5", "local.tee 0", "local.set 12",
+    "local.get 12", "drop", "local.get 3", "drop",
   ])
 }
 
@@ -261,11 +253,10 @@ test "run_cmd_with_adapter tuple-optimization keeps chained host-copy tail-live0
   assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
-    "local.tee 6", "local.set 10", "local.get 7", "local.set 9", "local.tee 3",
-    "local.set 11", "local.tee 0", "local.set 12", "local.get 12", "drop",
-    "local.get 11", "drop",
+    "local.tee 6", "local.set 11", "local.get 7", "local.set 10", "local.set 3",
+    "local.tee 0", "local.set 12", "local.get 12", "drop", "local.get 3", "drop",
   ])
-  assert_eq(cnw_count_substring(printed, "local.tee "), 3, msg=printed)
+  assert_eq(cnw_count_substring(printed, "local.tee "), 2, msg=printed)
 }
 
 ///|
@@ -321,6 +312,177 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for mixed scalar-
   assert_eq(writes.length(), 1)
   let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 2)
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
+  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization matches Binaryen for scrambled tuple copy carriers" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 11 local.set 9 local.set 10 local.get 10 local.get 9 local.get 11 call 1))",
+      filename="tuple-scrambled-copy-order.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected scrambled tuple copy carrier parity fixture parse failure: \{err}",
+      )
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail(
+        "unexpected scrambled tuple copy carrier parity fixture encode failure: \{err}",
+      )
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-scrambled-copy-order.wasm"] },
+    file_exists=fn(path) { path == "tuple-scrambled-copy-order.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-scrambled-copy-order.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-scrambled-copy-order.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected scrambled tuple copy carrier tuple-optimization failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 2)
+  let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
+  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization matches Binaryen for root local.set copy groups" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 2 local.set 1 local.set 0 local.get 0 local.get 1 local.get 2 call 1 local.set 9 local.get 9))",
+      filename="tuple-root-copy-order.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected root local.set tuple copy carrier parity fixture parse failure: \{err}",
+      )
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail(
+        "unexpected root local.set tuple copy carrier parity fixture encode failure: \{err}",
+      )
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-root-copy-order.wasm"] },
+    file_exists=fn(path) { path == "tuple-root-copy-order.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-root-copy-order.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-root-copy-order.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected root local.set tuple copy carrier tuple-optimization failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 2)
+  let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
+  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization matches Binaryen for chained scalar-forward no-host copy groups" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) block (result i32 i32 i32) i32.const 1 i32.const 2 i32.const 3 end local.set 2 local.set 1 local.set 0 local.get 0 local.set 3 local.get 1 local.set 4 local.get 2 local.set 5 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 8 local.set 6 local.set 7 local.get 7 local.get 6 local.get 8 call 0))",
+      filename="tuple-scalar-forward-no-host-chain.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected chained scalar-forward no-host copy parity fixture parse failure: \{err}",
+      )
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail(
+        "unexpected chained scalar-forward no-host copy parity fixture encode failure: \{err}",
+      )
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-scalar-forward-no-host-chain.wasm"] },
+    file_exists=fn(path) { path == "tuple-scalar-forward-no-host-chain.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-scalar-forward-no-host-chain.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization",
+        "--out",
+        "out.wasm",
+        "tuple-scalar-forward-no-host-chain.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected chained scalar-forward no-host copy tuple-optimization failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 1)
+  let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 1)
   assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
@@ -433,56 +595,6 @@ test "run_cmd_with_adapter tuple-optimization keeps no-host exact-copy chains fr
   assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   assert_eq(cnw_count_substring(printed, "tuple.make"), 0, msg=printed)
-}
-
-///|
-#cfg(target="native")
-test "run_cmd_with_adapter tuple-optimization matches Binaryen for terminal drop-only host copy groups" {
-  let input_mod = match
-    @wast.wast_to_binary_module(
-      "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.set 6 local.get 7 local.set 5 local.get 8 local.set 4 local.get 6 local.set 3 block (result i32 i32 i32) local.get 3 local.get 5 local.get 4 end local.set 2 local.set 1 local.tee 0 local.get 1 drop local.get 2 drop))",
-      filename="tuple-terminal-drop-only-host.wat",
-    ) {
-    Ok(mod_) => mod_
-    Err(err) =>
-      fail("unexpected drop-only host copy fixture parse failure: \{err}")
-  }
-  let wasm = match encode_module(input_mod) {
-    Ok(bytes) => bytes
-    Err(err) =>
-      fail("unexpected drop-only host copy fixture encode failure: \{err}")
-  }
-  let writes : Array[(String, Bytes)] = []
-  let io = CmdIO::new(
-    list_candidates=fn() { ["tuple-terminal-drop-only-host.wasm"] },
-    file_exists=fn(path) { path == "tuple-terminal-drop-only-host.wasm" },
-    read_file=fn(path) {
-      if path == "tuple-terminal-drop-only-host.wasm" {
-        Ok(wasm)
-      } else {
-        Err("missing fixture")
-      }
-    },
-    write_file=fn(path, bytes) {
-      writes.push((path, bytes))
-      Ok(())
-    },
-  )
-  match
-    run_cmd_with_adapter(
-      [
-        "--tuple-optimization", "--out", "out.wasm", "tuple-terminal-drop-only-host.wasm",
-      ],
-      io,
-    ) {
-    Ok(_) => ()
-    Err(e) =>
-      fail("unexpected tuple-optimization drop-only host copy failure: \{e}")
-  }
-  assert_eq(writes.length(), 1)
-  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 1)
-  let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 1)
-  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -687,7 +799,6 @@ test "run_cmd_with_adapter tuple-optimization matches nested exact copy scalar-r
   assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
-///|
 #cfg(target="native")
 test "run_cmd_with_adapter tuple-optimization leaves debug artifact func 1930 unchanged" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"

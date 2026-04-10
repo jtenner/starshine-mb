@@ -390,7 +390,6 @@ test "tuple-optimization analysis links nested exact copy groups through scalar 
   assert_true(tuple_optimization_group_should_rewrite(copy))
 }
 
-///|
 test "tuple-optimization rewrite scalarizes single-use exact copy groups from a host tee source" {
   let pretty = tuple_optimization_test_pipeline_pretty(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 11 local.set 9 local.set 10 local.get 9 local.get 10 local.get 11 call 1))",
@@ -536,7 +535,6 @@ test "tuple-optimization pipeline lowers nested scalar result spill bridges with
   assert_false(pretty.contains("tuple.extract"), msg=pretty)
 }
 
-///|
 test "tuple-optimization pipeline leaves nested no-host source copy chains scalar" {
   let optimized = match
     pass_test_run_pipeline(
