@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-09 Docs: ingest Binaryen pathway and IR2 wiki notes
+
+- **Binaryen pathway + IR2 wiki batch** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md), and added [`docs/wiki/binaryen/passes/duplicate-function-elimination/parity.md`](./docs/wiki/binaryen/passes/duplicate-function-elimination/parity.md), [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md`](./docs/wiki/binaryen/no-dwarf-default-optimize-path.md), [`docs/wiki/ir2/execution-plan.md`](./docs/wiki/ir2/execution-plan.md), and [`docs/wiki/ir2/test-matrix.md`](./docs/wiki/ir2/test-matrix.md) to crystallize the next four recent research docs into living Binaryen and IR2 wiki pages with code and test backlinks.
+
 ## 2026-04-09 Docs: ingest four more pass notes into the wiki
 
 - **Second Binaryen pass wiki batch** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md), and added [`docs/wiki/binaryen/passes/remove-unused-brs/parity.md`](./docs/wiki/binaryen/passes/remove-unused-brs/parity.md), [`docs/wiki/binaryen/passes/remove-unused-brs/returned-ladder-hot-shapes.md`](./docs/wiki/binaryen/passes/remove-unused-brs/returned-ladder-hot-shapes.md), [`docs/wiki/binaryen/passes/pick-load-signs/parity.md`](./docs/wiki/binaryen/passes/pick-load-signs/parity.md), and [`docs/wiki/binaryen/passes/global-struct-inference/parity.md`](./docs/wiki/binaryen/passes/global-struct-inference/parity.md) to crystallize four more recent research docs into living Binaryen pass pages under the committed wiki namespace.

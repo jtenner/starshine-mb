@@ -10,7 +10,10 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Concepts
 
+- [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md) - Canonical phase split, ordered pass path, and nested rerun rules for Binaryen's no-DWARF `-O` / `-Os` optimize pipeline on the MoonBit debug artifact.
 - [`binaryen/passes/remove-unused-brs/returned-ladder-hot-shapes.md`](binaryen/passes/remove-unused-brs/returned-ladder-hot-shapes.md) - Lifted HOT shape guide for the remaining returned-ladder `remove-unused-brs` families.
+- [`ir2/execution-plan.md`](ir2/execution-plan.md) - Current IR2 handoff contract, active registry surface, and preferred next slice order for future pass migration.
+- [`ir2/test-matrix.md`](ir2/test-matrix.md) - Shared helper and golden matrix for deterministic IR2 lift, analysis, lowering, and pass-trace coverage.
 
 ## Entities
 
@@ -22,6 +25,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Comparisons
 
+- [`binaryen/passes/duplicate-function-elimination/parity.md`](binaryen/passes/duplicate-function-elimination/parity.md) - Current module-wide merge contract, metadata rewrite rules, and remaining artifact parity gap for `duplicate-function-elimination`.
 - [`binaryen/passes/heap2local/parity.md`](binaryen/passes/heap2local/parity.md) - Current Binaryen parity surface, in-tree coverage, and remaining fixup gap for `heap2local`.
 - [`binaryen/passes/global-struct-inference/parity.md`](binaryen/passes/global-struct-inference/parity.md) - Closed-world direct-global slice, current parity result, and scope limit for `global-struct-inference`.
 - [`binaryen/passes/pick-load-signs/parity.md`](binaryen/passes/pick-load-signs/parity.md) - Active rewrite rules, current signoff, and pass-manager fast-skip behavior for `pick-load-signs`.
