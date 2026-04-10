@@ -952,6 +952,40 @@ test "raw simplify-locals rewrites structured debug artifact Func 225" {
 
 ///|
 #cfg(target="native")
+test "simplify-locals rewrites split-wrapper debug artifact Func 50" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let pipeline_result = match
+    run_hot_pipeline_func(
+      mod_,
+      @lib.FuncIdx::new(50U),
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      { module_ctx: None },
+      HotPipelineOptions::new(),
+    ) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected simplify-locals hot pipeline success, got \{err}")
+  }
+  assert_false(
+    pipeline_result.trace_skip_raw,
+    msg="unexpected raw skip reason=\{pipeline_result.reason}",
+  )
+  assert_false(
+    pipeline_result.unchanged_original,
+    msg="expected Func 50 split-wrapper rewrite, reason=\{pipeline_result.reason}",
+  )
+}
+
+///|
+#cfg(target="native")
 test "raw simplify-locals skips giant debug artifact Func 501" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {

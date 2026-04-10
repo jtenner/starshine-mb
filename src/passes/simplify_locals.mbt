@@ -61,6 +61,13 @@ priv struct SimplifyLocalsBranchExit {
 }
 
 ///|
+priv struct SimplifyLocalsStackedForwarderTail {
+  payload_if : Int
+  rewrite_region : @ir.HotRegionRef
+  rewrite_idx : Int
+}
+
+///|
 fn simplify_locals_new_sinkables(func : @ir.HotFunc) -> SimplifyLocalsSinkables {
   {
     entries: Array::make(@ir.hot_local_count(func), None),
@@ -814,15 +821,55 @@ fn simplify_locals_effects_readonly_trap_commutable(
 }
 
 ///|
+fn simplify_locals_effects_local_state_only(mask : @ir.EffectMask) -> Bool {
+  (
+    mask &
+    (
+      @ir.EFFECT_MASK_CALL |
+      @ir.EFFECT_MASK_CONTROL |
+      @ir.EFFECT_MASK_THROW |
+      @ir.EFFECT_MASK_TRAP |
+      @ir.EFFECT_MASK_GLOBAL_STATE |
+      @ir.EFFECT_MASK_MEMORY_READ |
+      @ir.EFFECT_MASK_MEMORY_WRITE |
+      @ir.EFFECT_MASK_TABLE_READ |
+      @ir.EFFECT_MASK_TABLE_WRITE
+    )
+  ) ==
+  0U
+}
+
+///|
 fn simplify_locals_effects_ordered_before(
   lhs : SimplifyLocalsEffects,
   rhs_mask : @ir.EffectMask,
   rhs_local_read : Int,
   rhs_local_write : Int,
 ) -> Bool {
-  if simplify_locals_effects_has(lhs.mask, @ir.EFFECT_MASK_CALL) ||
-    simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_CALL) {
-    return true
+  let lhs_has_call = simplify_locals_effects_has(lhs.mask, @ir.EFFECT_MASK_CALL)
+  let rhs_has_call = simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_CALL)
+  if lhs_has_call || rhs_has_call {
+    let local_state_conflict = simplify_locals_effects_has(
+        lhs.mask,
+        @ir.EFFECT_MASK_LOCAL_STATE,
+      ) &&
+      simplify_locals_effects_has(rhs_mask, @ir.EFFECT_MASK_LOCAL_STATE) &&
+      simplify_locals_effects_conflict_exact_local(
+        lhs, rhs_local_read, rhs_local_write,
+      )
+    if lhs_has_call &&
+      !rhs_has_call &&
+      simplify_locals_effects_local_state_only(rhs_mask) &&
+      !local_state_conflict {
+      ()
+    } else if rhs_has_call &&
+      !lhs_has_call &&
+      simplify_locals_effects_local_state_only(lhs.mask) &&
+      !local_state_conflict {
+      ()
+    } else {
+      return true
+    }
   }
 
   let lhs_non_linear = simplify_locals_effects_has(
@@ -1394,6 +1441,447 @@ fn simplify_locals_control_has_typed_branch_payload(
 ) -> Bool {
   @ir.hot_label_branch_arity(func, @ir.hot_control_node_label(func, node_id)) !=
   0
+}
+
+///|
+fn SimplifyLocalsStackedForwarderTail::new(
+  payload_if : Int,
+  rewrite_region : @ir.HotRegionRef,
+  rewrite_idx : Int,
+) -> SimplifyLocalsStackedForwarderTail {
+  { payload_if, rewrite_region, rewrite_idx }
+}
+
+///|
+fn simplify_locals_branch_payload_count(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Int {
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br | @ir.HotOp::Delegate => node.child_count
+    @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail =>
+      if node.child_count == 0 {
+        0
+      } else {
+        node.child_count - 1
+      }
+    _ => 0
+  }
+}
+
+///|
+fn simplify_locals_build_i32_eqz(func : @ir.HotFunc, operand : Int) -> Int {
+  @ir.hot_build_select(
+    func,
+    @lib.ValType::i32(),
+    @ir.hot_build_const_i32(func, @lib.I32(0)),
+    @ir.hot_build_const_i32(func, @lib.I32(1)),
+    operand,
+  )
+}
+
+///|
+fn simplify_locals_try_extract_stacked_forwarder_tail(
+  func : @ir.HotFunc,
+  candidate_node : Int,
+  rewrite_region : @ir.HotRegionRef,
+  rewrite_idx : Int,
+) -> SimplifyLocalsStackedForwarderTail? {
+  if candidate_node < 0 ||
+    !@ir.hot_node_is_live(func, candidate_node) ||
+    @ir.hot_node_result_arity(func, candidate_node) == 0 {
+    return None
+  }
+  match @ir.hot_node_get(func, candidate_node).op {
+    @ir.HotOp::If =>
+      Some(
+        SimplifyLocalsStackedForwarderTail::new(
+          candidate_node, rewrite_region, rewrite_idx,
+        ),
+      )
+    @ir.HotOp::Block => {
+      let wrapper_body = @ir.hot_region_body_ref(func, candidate_node)
+      let wrapper_root_count = @ir.hot_region_root_count(func, wrapper_body)
+      if wrapper_root_count == 0 || wrapper_root_count > 2 {
+        return None
+      }
+      let wrapper_prefix = @ir.hot_region_get(func, wrapper_body, 0)
+      if wrapper_prefix < 0 || !@ir.hot_node_is_live(func, wrapper_prefix) {
+        return None
+      }
+      match @ir.hot_node_get(func, wrapper_prefix).op {
+        @ir.HotOp::Block => ()
+        _ => return None
+      }
+      let wrapper_prefix_body = @ir.hot_region_body_ref(func, wrapper_prefix)
+      let wrapper_prefix_root_count = @ir.hot_region_root_count(
+        func, wrapper_prefix_body,
+      )
+      if wrapper_prefix_root_count < 2 {
+        return None
+      }
+      let wrapper_br_idx = wrapper_prefix_root_count - 1
+      let wrapper_br = @ir.hot_region_get(
+        func, wrapper_prefix_body, wrapper_br_idx,
+      )
+      if wrapper_br < 0 ||
+        !@ir.hot_node_is_live(func, wrapper_br) ||
+        @ir.hot_branch_target(func, wrapper_br) !=
+        Some(@ir.hot_control_node_label(func, candidate_node)) ||
+        simplify_locals_branch_payload_count(func, wrapper_br) != 0 {
+        return None
+      }
+      match @ir.hot_node_get(func, wrapper_br).op {
+        @ir.HotOp::Br => ()
+        _ => return None
+      }
+      simplify_locals_try_extract_stacked_forwarder_tail(
+        func,
+        @ir.hot_region_get(func, wrapper_prefix_body, wrapper_br_idx - 1),
+        wrapper_prefix_body,
+        wrapper_br_idx,
+      )
+    }
+    _ => None
+  }
+}
+
+///|
+fn simplify_locals_try_rewrite_split_local_set_wrapper_forwarder(
+  func : @ir.HotFunc,
+  node_id : Int,
+  detached : Array[Int],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, node_id).op {
+    @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => ()
+    _ => return false
+  }
+  if @ir.hot_child_count(func, node_id) == 0 {
+    return false
+  }
+  let value_id = @ir.hot_child_get(func, node_id, 0)
+  if value_id < 0 ||
+    !@ir.hot_node_is_live(func, value_id) ||
+    @ir.hot_node_result_arity(func, value_id) == 0 {
+    return false
+  }
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+
+  let outer_body = @ir.hot_region_body_ref(func, value_id)
+  let outer_root_count = @ir.hot_region_root_count(func, outer_body)
+  if outer_root_count == 0 {
+    return false
+  }
+  let outer_wrapper = @ir.hot_region_get(func, outer_body, 0)
+  if outer_wrapper < 0 || !@ir.hot_node_is_live(func, outer_wrapper) {
+    return false
+  }
+  match @ir.hot_node_get(func, outer_wrapper).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let outer_wrapper_body = @ir.hot_region_body_ref(func, outer_wrapper)
+  let outer_wrapper_root_count = @ir.hot_region_root_count(
+    func, outer_wrapper_body,
+  )
+  if outer_wrapper_root_count == 0 {
+    return false
+  }
+
+  let mut payload_block = -1
+  let mut outer_br = -1
+  if outer_wrapper_root_count == 1 {
+    outer_br = @ir.hot_region_get(func, outer_wrapper_body, 0)
+    if outer_br < 0 || !@ir.hot_node_is_live(func, outer_br) {
+      return false
+    }
+    match @ir.hot_node_get(func, outer_br).op {
+      @ir.HotOp::Br => ()
+      _ => return false
+    }
+    if @ir.hot_branch_target(func, outer_br) !=
+      Some(@ir.hot_control_node_label(func, value_id)) ||
+      simplify_locals_branch_payload_count(func, outer_br) != 1 {
+      return false
+    }
+    payload_block = @ir.hot_child_get(func, outer_br, 0)
+  } else {
+    payload_block = @ir.hot_region_get(
+      func,
+      outer_wrapper_body,
+      outer_wrapper_root_count - 2,
+    )
+    outer_br = @ir.hot_region_get(
+      func,
+      outer_wrapper_body,
+      outer_wrapper_root_count - 1,
+    )
+    if payload_block < 0 ||
+      outer_br < 0 ||
+      !@ir.hot_node_is_live(func, payload_block) ||
+      !@ir.hot_node_is_live(func, outer_br) ||
+      @ir.hot_branch_target(func, outer_br) !=
+      Some(@ir.hot_control_node_label(func, value_id)) ||
+      simplify_locals_branch_payload_count(func, outer_br) != 0 {
+      return false
+    }
+    match @ir.hot_node_get(func, outer_br).op {
+      @ir.HotOp::Br => ()
+      _ => return false
+    }
+  }
+  if payload_block < 0 ||
+    !@ir.hot_node_is_live(func, payload_block) ||
+    @ir.hot_node_result_arity(func, payload_block) == 0 {
+    return false
+  }
+  match @ir.hot_node_get(func, payload_block).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+
+  let payload_body = @ir.hot_region_body_ref(func, payload_block)
+  let payload_root_count = @ir.hot_region_root_count(func, payload_body)
+  if payload_root_count == 0 || payload_root_count > 2 {
+    return false
+  }
+  let payload_forwarder = @ir.hot_region_get(func, payload_body, 0)
+  if payload_forwarder < 0 || !@ir.hot_node_is_live(func, payload_forwarder) {
+    return false
+  }
+  match @ir.hot_node_get(func, payload_forwarder).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let payload_forwarder_body = @ir.hot_region_body_ref(func, payload_forwarder)
+  let payload_forwarder_root_count = @ir.hot_region_root_count(
+    func, payload_forwarder_body,
+  )
+  if payload_forwarder_root_count == 1 {
+    let direct_br = @ir.hot_region_get(func, payload_forwarder_body, 0)
+    if direct_br >= 0 && @ir.hot_node_is_live(func, direct_br) {
+      match @ir.hot_node_get(func, direct_br).op {
+        @ir.HotOp::Br =>
+          if simplify_locals_branch_payload_count(func, direct_br) == 1 {
+            let direct_if = @ir.hot_child_get(func, direct_br, 0)
+            if direct_if >= 0 &&
+              @ir.hot_node_is_live(func, direct_if) &&
+              @ir.hot_node_result_arity(func, direct_if) == 1 {
+              match @ir.hot_node_get(func, direct_if).op {
+                @ir.HotOp::If => {
+                  let then_region = @ir.hot_region_then_ref(func, direct_if)
+                  let else_region = match
+                    @ir.hot_region_else_ref(func, direct_if) {
+                    Some(else_region) => else_region
+                    None => return false
+                  }
+                  let if_label = @ir.hot_control_node_label(func, direct_if)
+                  let direct_target = match
+                    @ir.hot_branch_target(func, direct_br) {
+                    Some(target) => target
+                    None => return false
+                  }
+                  let try_build = fn(
+                    branch_ref : @ir.HotRegionRef,
+                    body_ref : @ir.HotRegionRef,
+                    negate_condition : Bool,
+                  ) -> Bool {
+                    if @ir.hot_region_root_count(func, branch_ref) != 1 ||
+                      @ir.hot_region_root_count(func, body_ref) == 0 {
+                      return false
+                    }
+                    let branch_root = @ir.hot_region_get(func, branch_ref, 0)
+                    if branch_root < 0 ||
+                      !@ir.hot_node_is_live(func, branch_root) {
+                      return false
+                    }
+                    let branch_node = @ir.hot_node_get(func, branch_root)
+                    match branch_node.op {
+                      @ir.HotOp::Br if branch_node.child_count == 0 => ()
+                      _ => return false
+                    }
+                    if branch_node.imm0 == if_label {
+                      return false
+                    }
+                    let body_tail_idx = @ir.hot_region_root_count(
+                        func, body_ref,
+                      ) -
+                      1
+                    let body_payload = @ir.hot_region_get(
+                      func, body_ref, body_tail_idx,
+                    )
+                    if body_payload < 0 ||
+                      !@ir.hot_node_is_live(func, body_payload) ||
+                      @ir.hot_node_result_arity(func, body_payload) != 1 {
+                      return false
+                    }
+                    let body_prefix : Array[Int] = []
+                    for root_idx = 0
+                        root_idx < body_tail_idx
+                        root_idx = root_idx + 1 {
+                      let root_id = @ir.hot_region_get(func, body_ref, root_idx)
+                      if @ir.cfg_terminator_edge_kinds(
+                          @ir.hot_node_get(func, root_id).op,
+                        ).length() >
+                        0 {
+                        return false
+                      }
+                      body_prefix.push(root_id)
+                    }
+                    let guard_condition = if negate_condition {
+                      simplify_locals_build_i32_eqz(
+                        func,
+                        @ir.hot_child_get(func, direct_if, 0),
+                      )
+                    } else {
+                      @ir.hot_child_get(func, direct_if, 0)
+                    }
+                    let replacement = [
+                        @ir.hot_build_br_if(
+                          func,
+                          branch_node.imm0,
+                          guard_condition,
+                        ),
+                      ] +
+                      body_prefix +
+                      [
+                        @ir.hot_build_br(func, direct_target, values=[
+                          body_payload,
+                        ]),
+                        @ir.hot_build_unreachable(func),
+                      ]
+                    for
+                      removed_id in @ir.hot_region_splice(
+                        func, payload_forwarder_body, 0, 1, replacement,
+                      ) {
+                      detached.push(removed_id)
+                    }
+                    return true
+                  }
+                  if try_build(else_region, then_region, true) ||
+                    try_build(then_region, else_region, false) {
+                    return true
+                  }
+                }
+                _ => ()
+              }
+            }
+          }
+        _ => ()
+      }
+    }
+  }
+  if payload_forwarder_root_count < 2 {
+    return false
+  }
+  let match_ = match
+    simplify_locals_try_extract_stacked_forwarder_tail(
+      func,
+      @ir.hot_region_get(
+        func,
+        payload_forwarder_body,
+        payload_forwarder_root_count - 2,
+      ),
+      payload_forwarder_body,
+      payload_forwarder_root_count - 1,
+    ) {
+    Some(match_) => match_
+    None => return false
+  }
+  let inner_br = @ir.hot_region_get(
+    func,
+    match_.rewrite_region,
+    match_.rewrite_idx,
+  )
+  if inner_br < 0 ||
+    !@ir.hot_node_is_live(func, inner_br) ||
+    @ir.hot_branch_target(func, inner_br) !=
+    Some(@ir.hot_control_node_label(func, payload_block)) {
+    return false
+  }
+  match @ir.hot_node_get(func, inner_br).op {
+    @ir.HotOp::Br => ()
+    _ => return false
+  }
+
+  let node_roots : Array[Int] = []
+  for root_idx = 0; root_idx < payload_root_count; root_idx = root_idx + 1 {
+    node_roots.push(@ir.hot_region_get(func, payload_body, root_idx))
+  }
+  for root_idx = 1; root_idx < outer_root_count; root_idx = root_idx + 1 {
+    node_roots.push(@ir.hot_region_get(func, outer_body, root_idx))
+  }
+
+  @ir.hot_control_result_type_set(
+    func,
+    match_.payload_if,
+    @ir.hot_type_void(func),
+  )
+  let outer_br_replacement = @ir.hot_build_br(
+    func,
+    @ir.hot_control_node_label(func, payload_block),
+  )
+  @ir.hot_replace_node(
+    func,
+    outer_br,
+    @ir.hot_node_get(func, outer_br_replacement),
+  )
+  let inner_br_replacement = @ir.hot_build_br(
+    func,
+    @ir.hot_control_node_label(func, value_id),
+  )
+  @ir.hot_replace_node(
+    func,
+    inner_br,
+    @ir.hot_node_get(func, inner_br_replacement),
+  )
+
+  let wrapper_roots : Array[Int] = []
+  let wrapper_prefix_count = if outer_wrapper_root_count == 1 {
+    0
+  } else {
+    outer_wrapper_root_count - 2
+  }
+  for root_idx = 0; root_idx < wrapper_prefix_count; root_idx = root_idx + 1 {
+    wrapper_roots.push(@ir.hot_region_get(func, outer_wrapper_body, root_idx))
+  }
+  wrapper_roots.push(value_id)
+  wrapper_roots.push(outer_br)
+  @ir.hot_region_replace_body(func, outer_wrapper_body, wrapper_roots)
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, value_id),
+    node_roots,
+  )
+  @ir.hot_region_replace_body(
+    func,
+    @ir.hot_region_body_ref(func, payload_block),
+    [outer_wrapper],
+  )
+  @ir.hot_child_set(func, node_id, 0, payload_block)
+  for
+    removed_id in @ir.hot_region_splice(
+      func,
+      match_.rewrite_region,
+      match_.rewrite_idx,
+      1,
+      [@ir.hot_build_unreachable(func)],
+    ) {
+    detached.push(removed_id)
+  }
+  true
 }
 
 ///|
@@ -3051,6 +3539,11 @@ fn simplify_locals_try_structure_rewrite_region(
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
       continue
+    }
+    if simplify_locals_try_rewrite_split_local_set_wrapper_forwarder(
+        func, node_id, detached,
+      ) {
+      return true
     }
     if simplify_locals_try_rewrite_nested_one_armed_if_children(
         func, node_id, get_counts, detached,

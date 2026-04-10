@@ -2242,6 +2242,36 @@ fn run_hot_pipeline_raw_simplify_locals_take_value_suffix(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Array[@lib.Instruction]) {
+  let mut end = 1
+  while end <= instrs.length() {
+    let prefix : Array[@lib.Instruction] = []
+    for idx = 0; idx < end; idx = idx + 1 {
+      prefix.push(instrs[idx])
+    }
+    let init_state = @validate.make_state(env, [])
+    match @validate.Typecheck::typecheck(@lib.Expr::new(prefix), init_state) {
+      Ok(state) =>
+        if state.reachable &&
+          state.escape == @validate.tc_escape_none() &&
+          state.stack.length() == 0 {
+          let tail : Array[@lib.Instruction] = []
+          for idx = end; idx < instrs.length(); idx = idx + 1 {
+            tail.push(instrs[idx])
+          }
+          return (prefix, tail)
+        }
+      Err(_) => ()
+    }
+    end = end + 1
+  }
+  ([], instrs.copy())
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
   instr : @lib.Instruction,
 ) -> Bool {
@@ -2263,6 +2293,25 @@ fn run_hot_pipeline_raw_simplify_locals_instr_source_local(
     @lib.LocalGet(@lib.LocalIdx(raw)) => Some(raw.reinterpret_as_int())
     _ => None
   }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_instr_source_locals(
+  instrs : Array[@lib.Instruction],
+) -> Array[Int] {
+  let source_locals : Array[Int] = []
+  for instr in instrs {
+    match instr {
+      @lib.LocalGet(@lib.LocalIdx(raw)) => {
+        let local_id = raw.reinterpret_as_int()
+        if !source_locals.any(fn(existing) { existing == local_id }) {
+          source_locals.push(local_id)
+        }
+      }
+      _ => ()
+    }
+  }
+  source_locals
 }
 
 ///|
@@ -2317,6 +2366,85 @@ fn run_hot_pipeline_raw_simplify_locals_instr_writes_local(
       raw.reinterpret_as_int() == local_id
     _ => false
   }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_instrs_have_nested_early_terminator(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(instr) {
+      return true
+    }
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_simplify_locals_instrs_have_nested_early_terminator(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_simplify_locals_instrs_have_nested_early_terminator(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(body) =>
+            if run_hot_pipeline_raw_simplify_locals_instrs_have_nested_early_terminator(
+                body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_statement_is_safe_copy_if_barrier(
+  statement : Array[@lib.Instruction],
+  target_local : Int,
+  source_local : Int,
+) -> Bool {
+  if statement.length() == 0 {
+    return false
+  }
+  let mut if_count = 0
+  for idx = 0; idx < statement.length(); idx = idx + 1 {
+    match statement[idx] {
+      @lib.If(_, _, _) => {
+        if_count = if_count + 1
+        if idx != statement.length() - 1 {
+          return false
+        }
+      }
+      instr =>
+        if run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) {
+          return false
+        }
+    }
+  }
+  if if_count != 1 {
+    return false
+  }
+  !run_hot_pipeline_raw_simplify_locals_instrs_have_nested_early_terminator(
+    statement,
+  ) &&
+  !run_hot_pipeline_raw_instrs_have_later_local_read(statement, 0, target_local) &&
+  !run_hot_pipeline_raw_instrs_have_later_local_write(
+    statement, 0, target_local,
+  ) &&
+  !run_hot_pipeline_raw_instrs_have_later_local_read(statement, 0, source_local) &&
+  !run_hot_pipeline_raw_instrs_have_later_local_write(
+    statement, 0, source_local,
+  )
 }
 
 ///|
@@ -2408,6 +2536,412 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
     }
   }
   (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut cursor = 0
+  let mut scan_idx = 0
+  let mut rewrite_count = 0
+  while scan_idx < instrs.length() {
+    let mut rewritten_here = false
+    match instrs[scan_idx] {
+      @lib.LocalSet(@lib.LocalIdx(target_raw)) => {
+        let producer_instrs : Array[@lib.Instruction] = []
+        for prefix_idx = 0; prefix_idx < scan_idx; prefix_idx = prefix_idx + 1 {
+          producer_instrs.push(instrs[prefix_idx])
+        }
+        let (head, producer_suffix) = run_hot_pipeline_raw_simplify_locals_take_value_suffix(
+          producer_instrs, 1, env,
+        )
+        let producer_start = head.length()
+        if producer_suffix.length() > 0 &&
+          producer_start >= cursor &&
+          run_hot_pipeline_raw_simplify_locals_instrs_all_pure_movable_values(
+            producer_suffix,
+          ) {
+          let target_local = target_raw.reinterpret_as_int()
+          let source_locals = run_hot_pipeline_raw_simplify_locals_instr_source_locals(
+            producer_suffix,
+          )
+          let movable_middle : Array[@lib.Instruction] = []
+          let mut sink_idx = scan_idx + 1
+          while sink_idx < instrs.length() {
+            let remaining : Array[@lib.Instruction] = []
+            for idx = sink_idx; idx < instrs.length(); idx = idx + 1 {
+              remaining.push(instrs[idx])
+            }
+            let (statement, _) = run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
+              remaining, env,
+            )
+            if statement.length() == 0 ||
+              statement.any(fn(instr) {
+                run_hot_pipeline_raw_simplify_locals_instr_is_structured(instr) ||
+                run_hot_pipeline_raw_simplify_locals_instr_is_early_terminator(
+                  instr,
+                )
+              }) ||
+              run_hot_pipeline_raw_instrs_have_later_local_read(
+                statement, 0, target_local,
+              ) ||
+              run_hot_pipeline_raw_instrs_have_later_local_write(
+                statement, 0, target_local,
+              ) ||
+              source_locals.any(fn(local_id) {
+                run_hot_pipeline_raw_instrs_have_later_local_write(
+                  statement, 0, local_id,
+                )
+              }) {
+              break
+            }
+            let statement_len = statement.length()
+            for instr in statement {
+              movable_middle.push(instr)
+            }
+            sink_idx = sink_idx + statement_len
+          }
+          if movable_middle.length() > 0 {
+            for idx = cursor; idx < producer_start; idx = idx + 1 {
+              rewritten.push(instrs[idx])
+            }
+            for instr in movable_middle {
+              rewritten.push(instr)
+            }
+            for instr in producer_suffix {
+              rewritten.push(instr)
+            }
+            rewritten.push(instrs[scan_idx])
+            cursor = sink_idx
+            scan_idx = sink_idx
+            rewrite_count = rewrite_count + 1
+            rewritten_here = true
+          }
+          if !rewritten_here &&
+            movable_middle.length() == 0 &&
+            producer_suffix.length() == 1 {
+            match
+              run_hot_pipeline_raw_simplify_locals_instr_source_local(
+                producer_suffix[0],
+              ) {
+              Some(source_local) => {
+                let remaining : Array[@lib.Instruction] = []
+                for idx = scan_idx + 1; idx < instrs.length(); idx = idx + 1 {
+                  remaining.push(instrs[idx])
+                }
+                let (statement, _) = run_hot_pipeline_raw_simplify_locals_take_statement_prefix(
+                  remaining, env,
+                )
+                if run_hot_pipeline_raw_simplify_locals_statement_is_safe_copy_if_barrier(
+                    statement, target_local, source_local,
+                  ) {
+                  for idx = cursor; idx < producer_start; idx = idx + 1 {
+                    rewritten.push(instrs[idx])
+                  }
+                  for instr in statement {
+                    rewritten.push(instr)
+                  }
+                  for instr in producer_suffix {
+                    rewritten.push(instr)
+                  }
+                  rewritten.push(instrs[scan_idx])
+                  cursor = scan_idx + 1 + statement.length()
+                  scan_idx = cursor
+                  rewrite_count = rewrite_count + 1
+                  rewritten_here = true
+                }
+              }
+              None => ()
+            }
+          }
+        }
+      }
+      _ => ()
+    }
+    if !rewritten_here {
+      scan_idx = scan_idx + 1
+    }
+  }
+  for idx = cursor; idx < instrs.length(); idx = idx + 1 {
+    rewritten.push(instrs[idx])
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+          then_body, env,
+        )
+        rewrite_count = rewrite_count + then_rewrites
+        let rewritten_else = match else_body {
+          Some(else_body) => {
+            let (rewritten_else, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+              else_body, env,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        normalized.push(
+          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
+        )
+      }
+      _ => normalized.push(instr)
+    }
+  }
+  let (rewritten, flat_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_flat(
+    normalized, env,
+  )
+  (rewritten, rewrite_count + flat_rewrites)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_instrs_all_pure_movable_values(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    if !run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(instr) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_pure_prefix_can_append_local_set_barrier(
+  pure_prefix : Array[@lib.Instruction],
+  target_local : Int,
+  source_locals : Array[Int],
+  barrier_local : Int,
+  env : @validate.Env,
+) -> Bool {
+  if barrier_local == target_local ||
+    source_locals.any(fn(local_id) { local_id == barrier_local }) {
+    return false
+  }
+  let (_, barrier_producer) = run_hot_pipeline_raw_simplify_locals_take_value_suffix(
+    pure_prefix, 1, env,
+  )
+  if barrier_producer.length() == 0 {
+    return false
+  }
+  !run_hot_pipeline_raw_simplify_locals_instr_source_locals(barrier_producer).any(fn(
+      local_id,
+    ) {
+      local_id == target_local
+    },
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Int) {
+  let rewritten : Array[@lib.Instruction] = []
+  let mut cursor = 0
+  let mut scan_idx = 0
+  let mut rewrite_count = 0
+  while scan_idx < instrs.length() {
+    let mut rewritten_here = false
+    match instrs[scan_idx] {
+      @lib.LocalSet(@lib.LocalIdx(target_raw)) => {
+        let producer_instrs : Array[@lib.Instruction] = []
+        for prefix_idx = 0; prefix_idx < scan_idx; prefix_idx = prefix_idx + 1 {
+          producer_instrs.push(instrs[prefix_idx])
+        }
+        let (head, producer_suffix) = run_hot_pipeline_raw_simplify_locals_take_value_suffix(
+          producer_instrs, 1, env,
+        )
+        let producer_start = head.length()
+        if producer_suffix.length() > 0 &&
+          producer_start >= cursor &&
+          !run_hot_pipeline_raw_simplify_locals_instrs_all_pure_movable_values(
+            producer_suffix,
+          ) {
+          let target_local = target_raw.reinterpret_as_int()
+          let source_locals = run_hot_pipeline_raw_simplify_locals_instr_source_locals(
+            producer_suffix,
+          )
+          let pure_prefix : Array[@lib.Instruction] = []
+          let mut use_idx = scan_idx + 1
+          while use_idx < instrs.length() {
+            match instrs[use_idx] {
+              @lib.LocalGet(@lib.LocalIdx(read_raw)) =>
+                if read_raw.reinterpret_as_int() == target_local {
+                  if !run_hot_pipeline_raw_instrs_have_later_local_read(
+                      instrs,
+                      use_idx + 1,
+                      target_local,
+                    ) {
+                    for idx = cursor; idx < producer_start; idx = idx + 1 {
+                      rewritten.push(instrs[idx])
+                    }
+                    for instr in pure_prefix {
+                      rewritten.push(instr)
+                    }
+                    for instr in producer_suffix {
+                      rewritten.push(instr)
+                    }
+                    cursor = use_idx + 1
+                    scan_idx = cursor
+                    rewrite_count = rewrite_count + 1
+                    rewritten_here = true
+                  }
+                  break
+                } else {
+                  pure_prefix.push(instrs[use_idx])
+                }
+              @lib.LocalSet(@lib.LocalIdx(barrier_raw)) =>
+                if run_hot_pipeline_raw_simplify_locals_pure_prefix_can_append_local_set_barrier(
+                    pure_prefix,
+                    target_local,
+                    source_locals,
+                    barrier_raw.reinterpret_as_int(),
+                    env,
+                  ) {
+                  pure_prefix.push(instrs[use_idx])
+                } else {
+                  break
+                }
+              instr =>
+                if run_hot_pipeline_raw_simplify_locals_instr_is_pure_movable_value(
+                    instr,
+                  ) {
+                  pure_prefix.push(instr)
+                } else {
+                  break
+                }
+            }
+            if rewritten_here {
+              break
+            }
+            use_idx = use_idx + 1
+          }
+        }
+      }
+      _ => ()
+    }
+    if !rewritten_here {
+      scan_idx = scan_idx + 1
+    }
+  }
+  for idx = cursor; idx < instrs.length(); idx = idx + 1 {
+    rewritten.push(instrs[idx])
+  }
+  (rewritten, rewrite_count)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+  instrs : Array[@lib.Instruction],
+  env : @validate.Env,
+) -> (Array[@lib.Instruction], Int) {
+  let normalized : Array[@lib.Instruction] = []
+  let mut rewrite_count = 0
+  for instr in instrs {
+    match instr {
+      @lib.Block(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::block(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.Loop(bt, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::loop_(bt, @lib.Expr::new(rewritten_body)),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.TryTable(bt, catches, @lib.Expr(body)) => {
+        let (rewritten_body, nested_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+          body, env,
+        )
+        normalized.push(
+          @lib.Instruction::try_table(
+            bt,
+            catches,
+            @lib.Expr::new(rewritten_body),
+          ),
+        )
+        rewrite_count = rewrite_count + nested_rewrites
+      }
+      @lib.If(bt, then_body, else_body) => {
+        let (rewritten_then, then_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+          then_body, env,
+        )
+        rewrite_count = rewrite_count + then_rewrites
+        let rewritten_else = match else_body {
+          Some(else_body) => {
+            let (rewritten_else, else_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+              else_body, env,
+            )
+            rewrite_count = rewrite_count + else_rewrites
+            Some(rewritten_else)
+          }
+          None => None
+        }
+        normalized.push(
+          @lib.Instruction::if_(bt, rewritten_then, rewritten_else),
+        )
+      }
+      _ => normalized.push(instr)
+    }
+  }
+  let (rewritten, flat_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_flat(
+    normalized, env,
+  )
+  (rewritten, rewrite_count + flat_rewrites)
 }
 
 ///|
@@ -2747,10 +3281,23 @@ fn run_hot_pipeline_raw_simplify_locals_rewrite_instrs(
   let (pure_call_tail_rewritten, pure_call_tail_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails(
     normalized,
   )
-  let (rewritten, tail_rewrites) = run_hot_pipeline_raw_simplify_locals_try_rewrite_tail(
+  let (pure_suffix_rewritten, pure_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
     pure_call_tail_rewritten, env,
   )
-  (rewritten, rewrite_count + pure_call_tail_rewrites + tail_rewrites)
+  let (effectful_suffix_rewritten, effectful_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+    pure_suffix_rewritten, env,
+  )
+  let (rewritten, tail_rewrites) = run_hot_pipeline_raw_simplify_locals_try_rewrite_tail(
+    effectful_suffix_rewritten, env,
+  )
+  (
+    rewritten,
+    rewrite_count +
+    pure_call_tail_rewrites +
+    pure_suffix_rewrites +
+    effectful_suffix_rewrites +
+    tail_rewrites,
+  )
 }
 
 ///|
@@ -3199,13 +3746,31 @@ fn run_hot_pipeline_raw_simplify_locals(
       })
     }
     if should_skip_validator_structured_call_heavy {
+      let module_ctx = run_hot_pipeline_require_module_ctx(
+        mod_, module_state, options,
+      )
+      let env = run_hot_pipeline_raw_simplify_locals_func_env(
+        mod_, func_idx, module_ctx, locals,
+      )
+      let (pure_suffix_instrs, pure_suffix_rewrites) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+        instrs, env,
+      )
+      let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets(
+        pure_suffix_instrs, env,
+      )
+      let total_rewrites = pure_suffix_rewrites + rewrite_count
+      let rewritten_func = if total_rewrites > 0 {
+        @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs))
+      } else {
+        original
+      }
       let (cleaned, changed) = run_hot_pipeline_simplify_locals_cleanup_exact_func(
-        original,
+        rewritten_func,
       )
       return Some({
         reason: "validator-structured-call-heavy",
         func: cleaned,
-        unchanged_original: !changed,
+        unchanged_original: total_rewrites == 0 && !changed,
         trace_skip_raw: true,
       })
     }

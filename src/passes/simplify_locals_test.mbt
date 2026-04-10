@@ -18,6 +18,386 @@ fn simplify_locals_test_count_substring(text : String, needle : String) -> Int {
 }
 
 ///|
+fn simplify_locals_test_make_large_structured_raw_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 128 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    block\n")
+  let mut i = 0
+  while i < 40 {
+    let local_idx = 2 + i
+    out.write_string("      i32.const ")
+    out.write_string((100 + i).to_string())
+    out.write_string("\n")
+    out.write_string("      local.set ")
+    out.write_string(local_idx.to_string())
+    out.write_string("\n")
+    out.write_string("      local.get 0\n")
+    out.write_string("      drop\n")
+    out.write_string("      local.get ")
+    out.write_string(local_idx.to_string())
+    out.write_string("\n")
+    out.write_string("      call $use\n")
+    out.write_string("      drop\n")
+    i = i + 1
+  }
+  out.write_string("      local.get 0\n")
+  out.write_string("      call $side\n")
+  out.write_string("      local.set 126\n")
+  out.write_string("      local.get 1\n")
+  out.write_string("      local.get 126\n")
+  out.write_string("      i32.lt_s\n")
+  out.write_string("      if\n")
+  out.write_string("        nop\n")
+  out.write_string("      end\n")
+  out.write_string("    end\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_copy_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    call $side\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    call $use\n")
+  out.write_string("    drop\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    local.set 251\n")
+  out.write_string("    (local.set 252\n")
+  out.write_string("      (call $side\n")
+  out.write_string("        (local.get 0)\n")
+  out.write_string("      )\n")
+  out.write_string("    )\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    call $use\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_if_copy_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    call $side\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    call $use\n")
+  out.write_string("    drop\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    local.set 251\n")
+  out.write_string("    local.get 1\n")
+  out.write_string("    if\n")
+  out.write_string("      local.get 0\n")
+  out.write_string("      call $side\n")
+  out.write_string("      local.set 252\n")
+  out.write_string("      local.get 252\n")
+  out.write_string("      call $use\n")
+  out.write_string("      drop\n")
+  out.write_string("    end\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    call $use\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_condition_temp_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    call $side\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    local.get 1\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    i32.lt_s\n")
+  out.write_string("    if\n")
+  out.write_string("      nop\n")
+  out.write_string("    end\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_loop_temp_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (memory 1)\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $touch (param i32) nop)\n")
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    loop $loop\n")
+  out.write_string("      local.get 1\n")
+  out.write_string("      local.set 249\n")
+  out.write_string("      local.get 0\n")
+  out.write_string("      call $touch\n")
+  out.write_string("      local.get 0\n")
+  out.write_string("      call $side\n")
+  out.write_string("      local.set 250\n")
+  out.write_string("      local.get 249\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      i32.lt_s\n")
+  out.write_string("      if\n")
+  out.write_string("        local.get 249\n")
+  out.write_string("        i32.const 1\n")
+  out.write_string("        i32.add\n")
+  out.write_string("        local.set 251\n")
+  out.write_string("        local.get 0\n")
+  out.write_string("        local.get 251\n")
+  out.write_string("        i32.store align=1\n")
+  out.write_string("        nop\n")
+  out.write_string("        br $loop\n")
+  out.write_string("      else\n")
+  out.write_string("        nop\n")
+  out.write_string("      end\n")
+  out.write_string("    end\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 test "simplify-locals sinks a single-use local.set into the later get" {
   let optimized = match
     pass_test_run_pipeline(
@@ -67,6 +447,169 @@ test "simplify-locals sinks pure single-use locals into later call arguments" {
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
   assert_true(pretty.contains("I32(10000)"), msg=pretty)
+}
+
+///|
+test "simplify-locals raw structured pure-tail shortcut still sinks effectful temps" {
+  let input = simplify_locals_test_make_large_structured_raw_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail("expected traced raw-structured simplify-locals success, got \{err}")
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=structured-pure-copy-call-tail",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected raw-structured simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("local.set (Local 126)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 126)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
+}
+
+///|
+test "simplify-locals validator structured skip still sinks copied locals" {
+  let input = simplify_locals_test_make_large_validator_structured_copy_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected validator-structured simplify-locals success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 251)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 0)"), msg=pretty)
+}
+
+///|
+test "simplify-locals validator structured skip sinks copied locals across a cleanup if" {
+  let input = simplify_locals_test_make_large_validator_structured_if_copy_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured cleanup-if simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured cleanup-if simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 251)"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+}
+
+///|
+test "simplify-locals validator structured skip keeps nop when sinking condition temps" {
+  let input = simplify_locals_test_make_large_validator_structured_condition_temp_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured condition-temp simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured condition-temp simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("local.set (Local 250)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 250)"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+}
+
+///|
+test "simplify-locals validator structured skip sinks loop temps into conditions and stores" {
+  let input = simplify_locals_test_make_large_validator_structured_loop_temp_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured loop-temp simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured loop-temp simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_false(pretty.contains("local.set (Local 250)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 250)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 251)"), msg=pretty)
+  assert_true(pretty.contains("i32.store"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
 }
 
 ///|
@@ -334,6 +877,7 @@ test "simplify-locals drops dead lowered call-result temps in conditions" {
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("call"), msg=pretty)
   assert_true(pretty.contains("i32.gt_s"), msg=pretty)
+  assert_true(pretty.contains("nop"), msg=pretty)
   assert_false(pretty.contains("local.set (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
   assert_false(pretty.contains("local.tee (Local 1)"), msg=pretty)
