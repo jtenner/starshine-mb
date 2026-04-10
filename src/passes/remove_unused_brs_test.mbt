@@ -1314,6 +1314,24 @@ test "remove-unused-brs rewrites one-arm payload branch ladders into br_if plus 
 }
 
 ///|
+test "remove-unused-brs rewrites prefixed one-arm payload branches into br_if plus fallthrough" {
+  let source =
+    "(module (func $side (param i32) (drop (local.get 0))) (func (param i32 i32) (result i32) (block $carry (result i32) (call $side (local.get 1)) (if (local.get 0) (then (i32.const 1) (br $carry))) (i32.const 2))))"
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs prefixed one-arm payload branch success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("br_if"), msg=pretty)
+  assert_false(pretty.contains("(if (Void)"), msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs simplifies block-carried one-arm payload branches into value selection" {
   let optimized = match
     pass_test_run_pipeline(

@@ -2390,6 +2390,76 @@ fn remove_unused_brs_try_rewrite_one_arm_payload_branch_if(
 }
 
 ///|
+fn remove_unused_brs_try_rewrite_prefixed_one_arm_payload_branch_if_suffix(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_refs : Array[Int],
+  reorder_cache : Array[Int],
+) -> Bool {
+  if @ir.hot_region_result_arity(func, region_ref) != 1 {
+    return false
+  }
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if idx <= 0 || idx >= root_count - 1 {
+    return false
+  }
+  let holder = match @ir.hot_region_holder_block_root(func, region_ref) {
+    Some(holder) => holder
+    None => return false
+  }
+  if @ir.hot_node_result_arity(func, holder) != 1 {
+    return false
+  }
+  let if_id = @ir.hot_region_get(func, region_ref, idx)
+  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  let if_node = @ir.hot_node_get(func, if_id)
+  match if_node.op {
+    @ir.HotOp::If =>
+      if @ir.hot_node_result_arity(func, if_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  match @ir.hot_region_else_ref(func, if_id) {
+    Some(_) => return false
+    None => ()
+  }
+  let if_label = @ir.hot_control_node_label(func, if_id)
+  if remove_unused_brs_label_is_used(label_refs, if_label) {
+    return false
+  }
+  let target = @ir.hot_control_node_label(func, holder)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let result_type = @ir.hot_type_results(func, @ir.hot_node_type(func, holder))[0]
+  let payload_value = match
+    remove_unused_brs_build_stack_exit_region_value_expr(
+      ctx,
+      func,
+      then_ref,
+      BranchTarget(target),
+      result_type,
+      reorder_cache,
+    ) {
+    Some(payload_value) => payload_value
+    None => return false
+  }
+  let guard_branch = @ir.hot_build_br_if(
+    func,
+    target,
+    @ir.hot_child_get(func, if_id, 0),
+    values=[payload_value],
+  )
+  let dropped_guard = @ir.hot_build_drop(func, guard_branch)
+  ignore(pass_splice_region(ctx, func, region_ref, idx, 1, [dropped_guard]))
+  remove_unused_brs_delete_unused_nodes(ctx, func, [if_id, then_ref.holder])
+  true
+}
+
+///|
 fn remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4709,6 +4779,12 @@ fn remove_unused_brs_visit_region(
       @ir.HotOp::If => {
         if remove_unused_brs_try_restructure_one_arm_return_if_suffix(
             ctx, func, region_ref, idx, label_refs,
+          ) {
+          changed = true
+          continue
+        }
+        if remove_unused_brs_try_rewrite_prefixed_one_arm_payload_branch_if_suffix(
+            ctx, func, region_ref, idx, label_refs, reorder_cache,
           ) {
           changed = true
           continue
