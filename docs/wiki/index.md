@@ -21,6 +21,10 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/remove-unused-module-elements/binaryen-strategy.md`](binaryen/passes/remove-unused-module-elements/binaryen-strategy.md) - Upstream `version_129` RUME strategy: three-state liveness, module-wide reachability, and more than just dead-function removal.
 - [`binaryen/passes/remove-unused-module-elements/starshine-hot-ir-strategy.md`](binaryen/passes/remove-unused-module-elements/starshine-hot-ir-strategy.md) - Current in-tree Starshine strategy for RUME and why it remains a module pass instead of a HOT-IR pass.
 - [`binaryen/passes/remove-unused-module-elements/retention-and-index-rewrites.md`](binaryen/passes/remove-unused-module-elements/retention-and-index-rewrites.md) - Concrete rewrite surface for surviving func, global, table, memory, tag, elem, data, name, and annotation indices in RUME.
+- [`binaryen/passes/tuple-optimization/wat-shapes.md`](binaryen/passes/tuple-optimization/wat-shapes.md) - Exact tuple-like raw-WAT and reduced HOT-native bridge families that should rewrite, the deliberate bailouts, and why each family matters.
+- [`binaryen/passes/tuple-optimization/binaryen-strategy.md`](binaryen/passes/tuple-optimization/binaryen-strategy.md) - Upstream `version_129` tuple-local strategy: use counting, valid-use filtering, badness propagation, and tee-preserving scalar-local rewrites.
+- [`binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md`](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md) - Current in-tree HOT-native tuple-opt algorithm: seed collection, copy-group linking, rewrite suppression, carrier construction, and cleanup.
+- [`binaryen/passes/tuple-optimization/scheduler-and-gates.md`](binaryen/passes/tuple-optimization/scheduler-and-gates.md) - Exact Binaryen slot and multivalue gate, plus the current reason Starshine keeps tuple-opt off public presets.
 - [`binaryen/passes/remove-unused-brs/returned-ladder-hot-shapes.md`](binaryen/passes/remove-unused-brs/returned-ladder-hot-shapes.md) - Lifted HOT shape guide for the remaining returned-ladder `remove-unused-brs` families.
 - [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md) - Native static-harness policy and validator lessons for `descriptors.wast` and `exact.wast`.
 - [`custom-descriptors/ref-get-desc-fixture-path.md`](custom-descriptors/ref-get-desc-fixture-path.md) - The full-stack parser, lowering, exactness, and bottom-null rules needed to keep `ref_get_desc.wast` green.
@@ -40,6 +44,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/index.md`](binaryen/passes/index.md) - Namespace catalog for all active implemented Binaryen pass folders and their current documentation status.
 - [`binaryen/passes/duplicate-function-elimination/index.md`](binaryen/passes/duplicate-function-elimination/index.md) - Hub page for DFE overview, shapes, upstream strategy, Starshine strategy, metadata rules, and parity status.
 - [`binaryen/passes/remove-unused-module-elements/index.md`](binaryen/passes/remove-unused-module-elements/index.md) - Hub page for RUME overview, shapes, upstream strategy, Starshine strategy, retention and rewrite rules, and parity status.
+- [`binaryen/passes/tuple-optimization/index.md`](binaryen/passes/tuple-optimization/index.md) - Hub page for tuple-opt overview, WAT families, Binaryen strategy, Starshine HOT-native strategy, scheduler notes, reduced repros, and parity status.
 
 ## Decisions
 
@@ -57,6 +62,8 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/remove-unused-brs/parity.md`](binaryen/passes/remove-unused-brs/parity.md) - Current Binaryen phase model, in-tree coverage, and the remaining final-shape gap for `remove-unused-brs`.
 - [`binaryen/passes/ssa-nomerge/parity.md`](binaryen/passes/ssa-nomerge/parity.md) - Current `ssa-nomerge` signoff state, the valid-debug-artifact final-validation failure at `Func 523`, and the rule that direct artifact replay remains mandatory.
 - [`binaryen/passes/reorder-locals/parity.md`](binaryen/passes/reorder-locals/parity.md) - Exact Binaryen ordering rule, module-pass scope, and current stable-boundary signoff rule for `reorder-locals`.
+- [`binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md`](binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md) - The reduced repro families, retired artifact blockers, current exact-shape drift families, and where the evidence lives in-tree.
+- [`binaryen/passes/tuple-optimization/parity.md`](binaryen/passes/tuple-optimization/parity.md) - Current tuple-opt Binaryen signoff state: green isolated compare lanes, red exact-shape families, unscheduled preset slot, and open artifact/runtime debt.
 - [`binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md`](binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md) - Treat `invalid tag index` `remove-unused-names` failures as Binaryen parser-family gaps, not Starshine semantic mismatches.
 - [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md) - Committed corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines for validator trace work.
 

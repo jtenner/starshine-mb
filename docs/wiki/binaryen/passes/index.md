@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-10
 sources:
   - ../../../../src/passes/optimize.mbt
   - ../../../../src/passes/registry_test.mbt
@@ -41,6 +41,7 @@ related:
 - [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Scaffolded folder for future heap-store-optimization research and strategy notes.
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
+- [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with WAT shapes, Binaryen strategy, Starshine HOT-native strategy, scheduler and feature-gate notes, reduced repro tracking, and current parity status.
 - [`precompute/index.md`](precompute/index.md) - Scaffolded folder for future precompute research and strategy notes.
 - [`simplify-locals/index.md`](simplify-locals/index.md) - Scaffolded folder for future simplify-locals research and strategy notes.
 

@@ -119,3 +119,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated `binaryen/passes/ssa-nomerge/parity.md` and raw research note `0076-2026-04-10-ssa-nomerge-parity-investigation.md` after the current source build stopped letting the `Func 523` invalid writeback survive to final module validation.
 - Recorded the new source-mode artifact replay evidence: `Func 523` now fails closed as `writeback-validate:type mismatch`, `Func 3773` is also visible as `writeback-validate:stack underflow`, and final module validation completes.
 - Updated `agent-todo.md` so the shared post-SSA blocker note no longer claims `ssa-nomerge` safety without the newer per-function writeback-validation evidence.
+
+## [2026-04-10] expand | turn tuple-optimization into a full pass folder
+
+- Added `binaryen/passes/tuple-optimization/index.md` as the canonical landing page for tuple-opt documentation.
+- Added `tuple-optimization/wat-shapes.md`, `binaryen-strategy.md`, and `starshine-hot-ir-strategy.md` to split the old monolithic `0076` note into concrete transform families, upstream strategy, and current HOT-native implementation strategy.
+- Added `tuple-optimization/scheduler-and-gates.md` to separate explicit-pass correctness from still-pending preset-slot parity.
+- Added `tuple-optimization/reduced-repros-and-evidence.md` and `tuple-optimization/parity.md` to capture the current direct native-compare status, the still-red exact-shape families, and the standing artifact/runtime gap.
+- Updated `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md` so the new tuple-opt folder is discoverable from the main wiki catalog and pass namespace catalog.
