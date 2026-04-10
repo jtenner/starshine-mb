@@ -16,13 +16,14 @@ related:
 
 ## Durable Conclusions
 
-- For `wasm-opt version 125`, `-O` and `-Os` both mean `optimizeLevel=2` and `shrinkLevel=1`.
+- For Binaryen `version_129`, `-O` and `-Os` both mean `optimizeLevel=2` and `shrinkLevel=1`.
 - The default optimizer is phase-structured, not a flat pass bag:
   - global pre-passes
   - function optimization passes
   - global post-passes
 - The MoonBit debug artifact at `tests/node/dist/starshine-debug-wasi.wasm` has a `name` section but no `.debug_*` sections, so Binaryen takes the unrestricted no-DWARF path.
 - Feature gates matter. The observed artifact enables the GC-, multivalue-, and string-gated passes that appear in the real pathway.
+- A `2026-04-09` source review found the open-world no-DWARF `-O` / `-Os` path for this artifact unchanged between the archived `version_125` note and upstream `version_129`.
 
 ## Canonical Top-Level Shape
 
@@ -43,12 +44,18 @@ related:
 ## Current Project Rule
 
 - Keep this pathway as the main orientation page for Binaryen optimize parity.
+- Use Binaryen `version_129` as the upstream source oracle for new pass research.
 - Treat repeated cleanup slots as intentional, not accidental duplication.
 - Preserve the phase split, feature gates, and nested reruns before trying to tune performance or collapse preset shape.
-- The active backlog in [`../../../agent-todo.md`](../../../agent-todo.md) still points at the numbered research doc for line-anchored slice planning until dedicated per-pass pages exist for more of the path.
+- The archived `0066` note remains the historical line-anchored source for older work, but new conclusions should be checked against `version_129` source first.
+- The local workspace `wasm-opt` binary is still `version_125`, so command-based parity runs are not yet `version_129` signoff until the toolchain is upgraded.
 
 ## Sources
 
 - Archived research doc: [`../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md)
+- Binaryen `version_129` release: <https://github.com/WebAssembly/binaryen/releases/tag/version_129>
+- Binaryen `version_129` preset source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- Binaryen `version_129` DWARF gate: <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm-debug.cpp>
+- Binaryen `version_129` nested rerun helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
 - Scheduler surface: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
 - Preset coverage: [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt)

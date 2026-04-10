@@ -17,7 +17,8 @@ related:
 ## Durable Conclusions
 
 - Binaryen `duplicate-function-elimination` is a module pass, not a lifted-function hot pass.
-- The direct pass is single-pass: it merges currently visible duplicates, rewrites references once, and stops.
+- The direct explicit pass at default options is one visible merge round, but Binaryen can iterate internally at higher optimize or shrink levels.
+- For the no-DWARF `-O` / `-Os` pipeline, each DFE slot should be treated as an option-dependent iterative module pass, not a hardcoded single round.
 - Defined functions are the only merge candidates. Imports are not candidates.
 - Parity depends on a three-part equality contract:
   - canonical simple function type index
@@ -52,6 +53,7 @@ related:
 ## Active Gap
 
 - Direct debug-artifact replay is still not normalized-WAT-equal to Binaryen.
+- The current in-tree Starshine pass is still a one-iteration module strategy, so future no-DWARF pipeline parity work must decide how to model Binaryen's larger option-dependent iteration budget.
 - The largest raw size delta is explained by Binaryen dropping the `name` section on direct DFE output.
 - The remaining open drift is not element shape anymore:
   - Starshine compacts simple function types more aggressively

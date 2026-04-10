@@ -13,6 +13,14 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [`ir2/architecture-rules.md`](ir2/architecture-rules.md) - Single-owned `HotFunc` contract, overlay model, and module-split rule for IR2.
 - [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md) - Canonical phase split, ordered pass path, and nested rerun rules for Binaryen's no-DWARF `-O` / `-Os` optimize pipeline on the MoonBit debug artifact.
+- [`binaryen/passes/duplicate-function-elimination/wat-shapes.md`](binaryen/passes/duplicate-function-elimination/wat-shapes.md) - Module and WAT shapes that create DFE merge candidates, rewrites, transitive unlocks, and deliberate non-merges.
+- [`binaryen/passes/duplicate-function-elimination/binaryen-strategy.md`](binaryen/passes/duplicate-function-elimination/binaryen-strategy.md) - Upstream `version_129` DFE strategy: hash buckets, option-dependent iteration budget, and whole-module rewrite behavior.
+- [`binaryen/passes/duplicate-function-elimination/starshine-hot-ir-strategy.md`](binaryen/passes/duplicate-function-elimination/starshine-hot-ir-strategy.md) - Current in-tree Starshine strategy for DFE, including the explicit reason it stays a module pass instead of a HOT-IR pass.
+- [`binaryen/passes/duplicate-function-elimination/type-compaction-and-metadata.md`](binaryen/passes/duplicate-function-elimination/type-compaction-and-metadata.md) - DFE-specific rules for simple-type compaction, name handling, annotation-map rewrites, and compact element forms.
+- [`binaryen/passes/remove-unused-module-elements/wat-shapes.md`](binaryen/passes/remove-unused-module-elements/wat-shapes.md) - Module layouts and instruction carriers that determine imported-parent retention, active-segment liveness, and survivor remaps for RUME.
+- [`binaryen/passes/remove-unused-module-elements/binaryen-strategy.md`](binaryen/passes/remove-unused-module-elements/binaryen-strategy.md) - Upstream `version_129` RUME strategy: three-state liveness, module-wide reachability, and more than just dead-function removal.
+- [`binaryen/passes/remove-unused-module-elements/starshine-hot-ir-strategy.md`](binaryen/passes/remove-unused-module-elements/starshine-hot-ir-strategy.md) - Current in-tree Starshine strategy for RUME and why it remains a module pass instead of a HOT-IR pass.
+- [`binaryen/passes/remove-unused-module-elements/retention-and-index-rewrites.md`](binaryen/passes/remove-unused-module-elements/retention-and-index-rewrites.md) - Concrete rewrite surface for surviving func, global, table, memory, tag, elem, data, name, and annotation indices in RUME.
 - [`binaryen/passes/remove-unused-brs/returned-ladder-hot-shapes.md`](binaryen/passes/remove-unused-brs/returned-ladder-hot-shapes.md) - Lifted HOT shape guide for the remaining returned-ladder `remove-unused-brs` families.
 - [`custom-descriptors/static-fixtures.md`](custom-descriptors/static-fixtures.md) - Native static-harness policy and validator lessons for `descriptors.wast` and `exact.wast`.
 - [`custom-descriptors/ref-get-desc-fixture-path.md`](custom-descriptors/ref-get-desc-fixture-path.md) - The full-stack parser, lowering, exactness, and bottom-null rules needed to keep `ref_get_desc.wast` green.
@@ -29,7 +37,9 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Entities
 
-- No pages yet.
+- [`binaryen/passes/index.md`](binaryen/passes/index.md) - Namespace catalog for all active implemented Binaryen pass folders and their current documentation status.
+- [`binaryen/passes/duplicate-function-elimination/index.md`](binaryen/passes/duplicate-function-elimination/index.md) - Hub page for DFE overview, shapes, upstream strategy, Starshine strategy, metadata rules, and parity status.
+- [`binaryen/passes/remove-unused-module-elements/index.md`](binaryen/passes/remove-unused-module-elements/index.md) - Hub page for RUME overview, shapes, upstream strategy, Starshine strategy, retention and rewrite rules, and parity status.
 
 ## Decisions
 
@@ -40,6 +50,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 ## Comparisons
 
 - [`binaryen/passes/duplicate-function-elimination/parity.md`](binaryen/passes/duplicate-function-elimination/parity.md) - Current module-wide merge contract, metadata rewrite rules, and remaining artifact parity gap for `duplicate-function-elimination`.
+- [`binaryen/passes/remove-unused-module-elements/parity.md`](binaryen/passes/remove-unused-module-elements/parity.md) - Current RUME signoff state, focused rewrite coverage, and the remaining non-semantic compare noise.
 - [`binaryen/passes/heap2local/parity.md`](binaryen/passes/heap2local/parity.md) - Current Binaryen parity surface, in-tree coverage, and remaining fixup gap for `heap2local`.
 - [`binaryen/passes/global-struct-inference/parity.md`](binaryen/passes/global-struct-inference/parity.md) - Closed-world direct-global slice, current parity result, and scope limit for `global-struct-inference`.
 - [`binaryen/passes/pick-load-signs/parity.md`](binaryen/passes/pick-load-signs/parity.md) - Active rewrite rules, current signoff, and pass-manager fast-skip behavior for `pick-load-signs`.

@@ -87,3 +87,22 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated `docs/0059-2026-03-24-ir2-architecture-rules.md` and `ir2/architecture-rules.md` so the architecture contract reflects the current split `src/ir` module map, the live post-dominance overlay, and `hot.mbt`'s current role as facade glue instead of an in-progress monolith.
 - Updated `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` and `ir2/registry-map.md` so the canonical registry surface now matches code for active `precompute`, `heap2local`, `reorder-locals`, and the real preset expansion.
 - Updated `docs/0065-2026-03-24-ir2-execution-plan.md` and `ir2/execution-plan.md` so the handoff plan matches the current active pass surface and the real `optimize` / `shrink` sequence.
+
+## [2026-04-09] refresh | switch living Binaryen oracle references to version_129
+
+- Updated the living Binaryen no-DWARF orientation page and active backlog to use Binaryen `version_129` as the upstream source oracle for new pass research.
+- Confirmed from upstream `version_129` source that the open-world no-DWARF `-O` / `-Os` path for the MoonBit debug artifact still matches the archived `version_125` top-level shape used by the current wiki.
+- Marked the saved `heap2local` and `reorder-locals` compare evidence as historical `version_125` command output until the local `wasm-opt` toolchain is upgraded.
+
+## [2026-04-09] organize | scaffold pass-folder indexes and expand duplicate-function-elimination
+
+- Added `docs/wiki/binaryen/passes/index.md` as the namespace catalog for active implemented pass folders.
+- Added pass-folder landing pages for every currently implemented active pass so each pass now has a stable wiki home even where detailed subpages are still pending.
+- Expanded `duplicate-function-elimination` into a multi-entry folder with `index.md`, `wat-shapes.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, and `type-compaction-and-metadata.md`.
+- Refreshed `duplicate-function-elimination/parity.md` to distinguish direct explicit-pass behavior from the larger option-dependent iteration budget Binaryen uses inside `-O` / `-Os`.
+
+## [2026-04-09] maintain | expand remove-unused-module-elements into a real pass folder
+
+- Expanded `remove-unused-module-elements` from a stub landing page into a multi-entry folder with `index.md`, `wat-shapes.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, `retention-and-index-rewrites.md`, and `parity.md`.
+- Documented RUME's imported-parent retention rules, explicit module-index rewrite surface, and the current in-tree coverage for empty active data, no-op active elem segments, and imported survivor remaps.
+- Updated the root wiki catalog and pass-folder catalog so the expanded RUME pages are discoverable.

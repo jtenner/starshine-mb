@@ -15,11 +15,12 @@ related:
 
 ## Durable Conclusions
 
-- Binaryen `version_125` rewrites exclusive, nonescaping struct allocations and small eligible arrays into scalar locals.
+- Binaryen `version_129` rewrites exclusive, nonescaping struct allocations and small eligible arrays into scalar locals.
 - Arrays only enter the transform when the size is constant and `< 20`, the element type is local-representable, and indexed traffic stays constant.
 - Safe flow-through cases include direct local owners, exclusive local-copy chains, direct tees, simple block or loop result flow, `ref.as_non_null`, `ref.eq`, `ref.test`, successful `ref.cast`, and descriptor-bearing `ref.get_desc` cases.
 - Immediate bailout families include escapes through calls or returns, mixed local provenance, `if`-mediated value mixing, nonconstant array sizes or indexes, and atomic array access.
 - Binaryen runs the array lowering first, then the struct rewrite, and each invocation is intentionally single-iteration.
+- A `2026-04-09` review of `version_129/src/passes/Heap2Local.cpp` kept the same non-escape plus exclusive-use strategy this page already tracks.
 
 ## Current In-Tree Status
 
@@ -45,12 +46,14 @@ The current Starshine slice covers the full in-tree primary suite:
 
 ## Current Evidence
 
+- The saved compare numbers below were collected with local `wasm-opt version_125`, so they are historical parity evidence rather than `version_129` signoff.
 - The `2026-04-03` `gen-valid` compare run recorded `10000 / 10000` compared cases, `10000` normalized matches, `0` mismatches, and `0` validation or command failures.
 - The `2026-04-03` mixed-generator sample recorded `950 / 1000` compared cases, `950` normalized matches, `0` mismatches, and `50` command failures that were all Binaryen parser rejects rather than Starshine output failures.
 
 ## Sources
 
 - Archived research doc: [`../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md`](../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md)
+- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Heap2Local.cpp>
 - Implementation: [`../../../../../src/passes/heap2local.mbt`](../../../../../src/passes/heap2local.mbt)
 - Focused tests: [`../../../../../src/passes/heap2local_test.mbt`](../../../../../src/passes/heap2local_test.mbt)
 - Primary parity suite: [`../../../../../src/passes/heap2local_primary_test.mbt`](../../../../../src/passes/heap2local_primary_test.mbt)
