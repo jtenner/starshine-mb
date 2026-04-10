@@ -286,6 +286,86 @@ test "hot lower live repro validates moving a set past an earlier branch root wh
 }
 
 ///|
+test "hot lower live repro validates moving an alias local.set past a later if with an earlier block-loop return root" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $mk (result i32)
+    #|    (i32.const 4))
+    #|  (func $touch (param i32))
+    #|  (func $dropref (param i32))
+    #|  (func $join (param i32 i32) (result i32)
+    #|    (local.get 0))
+    #|  (func (param i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (block $done
+    #|      (loop $label
+    #|        (if
+    #|          (local.get 0)
+    #|          (then
+    #|            (return
+    #|              (i32.const 7))))
+    #|        (br $done)))
+    #|    (call $mk)
+    #|    (local.set 1)
+    #|    (local.get 1)
+    #|    (local.set 2)
+    #|    (i32.load
+    #|      (local.get 0))
+    #|    (local.set 3)
+    #|    (if
+    #|      (i32.gt_s
+    #|        (i32.load
+    #|          (local.get 0))
+    #|        (i32.const 1))
+    #|      (then
+    #|        (call $touch
+    #|          (local.get 3)))
+    #|      (else
+    #|        (if
+    #|          (i32.eq
+    #|            (i32.load
+    #|              (local.get 0))
+    #|            (i32.const 1))
+    #|          (then
+    #|            (call $dropref
+    #|              (local.get 0))))))
+    #|    (local.get 3)
+    #|    (local.set 4)
+    #|    (call $join
+    #|      (local.get 2)
+    #|      (local.get 4)))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source, code_idx=4)
+  let block_id = hot_root_get(fixture.hot_func, 0)
+  let setup_set = hot_root_get(fixture.hot_func, 1)
+  let moved_set = hot_root_get(fixture.hot_func, 2)
+  let used_set = hot_root_get(fixture.hot_func, 3)
+  let if_id = hot_root_get(fixture.hot_func, 4)
+  let tail_set = hot_root_get(fixture.hot_func, 5)
+  let join_call = hot_root_get(fixture.hot_func, 6)
+
+  hot_region_replace_body(fixture.hot_func, HotRegionRef::root(), [
+    block_id, setup_set, used_set, if_id, moved_set, tail_set, join_call,
+  ])
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "hot lower live repro validates earlier zero-result branch root inside an outer result carrier" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $done (br_if $done (local.get 0))) (local.set 2 (i32.const 7)) (if (local.get 0) (then (drop (local.get 1)))) (br $outer (local.get 2)))))",
@@ -631,6 +711,171 @@ test "hot lower live repro validates extracting a call-fed local.set out of a dr
   hot_region_replace_body(fixture.hot_func, outer_body, [
     prefix_block, moved_tee, call_id, br_id,
   ])
+  hot_region_replace_body(fixture.hot_func, holder_body, [
+    drop_id, used_set, if_id, extracted_set, next_get,
+  ])
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot lower live repro validates extracting a call-fed local.set out of a dropped carrier after a safe explicit-exit prefix" {
+  let source =
+    #|(module
+    #|  (func $mk (param i32) (result i32)
+    #|    (local.get 0))
+    #|  (func $touch (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (local.set 4
+    #|            (block $carry (result i32)
+    #|              (block $mid
+    #|                (br $carry
+    #|                  (if (result i32)
+    #|                    (local.get 0)
+    #|                    (then
+    #|                      (local.set 5 (local.get 1))
+    #|                      (local.get 5))
+    #|                    (else
+    #|                      (local.set 5 (i32.const 5))
+    #|                      (local.get 5)))))
+    #|              (local.get 1)))
+    #|          (local.set 2
+    #|            (call $mk
+    #|              (local.get 1)))
+    #|          (call $touch
+    #|            (local.get 1))
+    #|          (br $outer
+    #|            (i32.const 0))))
+    #|      (local.get 1)
+    #|      (local.set 3)
+    #|      (local.get 3)
+    #|      (if
+    #|        (then
+    #|          (call $touch
+    #|            (local.get 3))))
+    #|      (local.get 2)))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source, code_idx=2)
+  let temp_local = hot_local_count(fixture.hot_func)
+  fixture.hot_func.locals.locals.push(@lib.ValType::i32())
+  assert_eq(hot_root_count(fixture.hot_func), 1)
+  let holder_body = hot_region_body_ref(
+    fixture.hot_func,
+    hot_root_get(fixture.hot_func, 0),
+  )
+  let drop_id = hot_region_get(fixture.hot_func, holder_body, 0)
+  let used_set = hot_region_get(fixture.hot_func, holder_body, 1)
+  let if_id = hot_region_get(fixture.hot_func, holder_body, 2)
+  let next_get = hot_region_get(fixture.hot_func, holder_body, 3)
+  let outer = hot_child_get(fixture.hot_func, drop_id, 0)
+  let outer_body = hot_region_body_ref(fixture.hot_func, outer)
+  let prefix_set = hot_region_get(fixture.hot_func, outer_body, 0)
+  let moved_set = hot_region_get(fixture.hot_func, outer_body, 1)
+  let call_id = hot_region_get(fixture.hot_func, outer_body, 2)
+  let br_id = hot_region_get(fixture.hot_func, outer_body, 3)
+  let moved_value = hot_child_get(fixture.hot_func, moved_set, 0)
+  let moved_tee = hot_build_local_tee(fixture.hot_func, temp_local, moved_value)
+  let extracted_set = hot_build_local_set(
+    fixture.hot_func,
+    2,
+    hot_build_local_get(fixture.hot_func, temp_local),
+  )
+
+  hot_region_replace_body(fixture.hot_func, outer_body, [
+    prefix_set, moved_tee, call_id, br_id,
+  ])
+  hot_region_replace_body(fixture.hot_func, holder_body, [
+    drop_id, used_set, if_id, extracted_set, next_get,
+  ])
+
+  let lowered = hot_lower_func(fixture.hot_func)
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "hot lower live repro validates extracting a nested call-fed local.set out of a dropped carrier" {
+  let source =
+    #|(module
+    #|  (func $mk (param i32) (result i32)
+    #|    (local.get 0))
+    #|  (func $touch (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (block $nested
+    #|            (local.set 4
+    #|              (call $mk
+    #|                (local.get 1))))
+    #|          (call $touch
+    #|            (local.get 1))
+    #|          (br $outer
+    #|            (i32.const 0))))
+    #|      (local.get 1)
+    #|      (local.set 3)
+    #|      (local.get 3)
+    #|      (if
+    #|        (then
+    #|          (call $touch
+    #|            (local.get 3))))
+    #|      (local.get 4)))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source, code_idx=2)
+  let temp_local = hot_local_count(fixture.hot_func)
+  fixture.hot_func.locals.locals.push(@lib.ValType::i32())
+  assert_eq(hot_root_count(fixture.hot_func), 1)
+  let holder_body = hot_region_body_ref(
+    fixture.hot_func,
+    hot_root_get(fixture.hot_func, 0),
+  )
+  let drop_id = hot_region_get(fixture.hot_func, holder_body, 0)
+  let used_set = hot_region_get(fixture.hot_func, holder_body, 1)
+  let if_id = hot_region_get(fixture.hot_func, holder_body, 2)
+  let next_get = hot_region_get(fixture.hot_func, holder_body, 3)
+  let outer = hot_child_get(fixture.hot_func, drop_id, 0)
+  let outer_body = hot_region_body_ref(fixture.hot_func, outer)
+  let nested = hot_region_get(fixture.hot_func, outer_body, 0)
+  let nested_body = hot_region_body_ref(fixture.hot_func, nested)
+  let moved_set = hot_region_get(fixture.hot_func, nested_body, 0)
+  let moved_value = hot_child_get(fixture.hot_func, moved_set, 0)
+  let moved_tee = hot_build_local_tee(fixture.hot_func, temp_local, moved_value)
+  let extracted_set = hot_build_local_set(
+    fixture.hot_func,
+    4,
+    hot_build_local_get(fixture.hot_func, temp_local),
+  )
+
+  hot_region_replace_body(fixture.hot_func, nested_body, [moved_tee])
   hot_region_replace_body(fixture.hot_func, holder_body, [
     drop_id, used_set, if_id, extracted_set, next_get,
   ])

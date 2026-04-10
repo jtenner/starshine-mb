@@ -512,6 +512,38 @@
   reducers are covered in `src/passes/code_pushing_test.mbt` and
   `src/ir/hot_lower_live_repro_test.mbt`, and the carrier prefix still has to
   stay free of explicit exits for the call-fed form.
+- One smaller dropped-carrier subcase is landed now too. The call-fed
+  extraction path now ignores earlier prefix roots whose explicit exits
+  already satisfy the same safe-explicit rules that the main non-void prefix
+  guard uses for `LocalSet(If ...)`, `If`, and safe owner-only carriers. The
+  new reduced pass and HOT-lowering repros are green, and the refreshed named
+  lane `.tmp/pass-fuzz-code-pushing-genvalid-20260409b` stays `1000/1000`
+  with `0` mismatches, validation failures, or command failures. But the fresh
+  direct replay `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2`
+  still begins at `48978`, `72005`, `105621`, and `126757`, so the live
+  `func $127` blocker is still broader than this safe-prefix dropped-carrier
+  variant.
+- One nested dropped-carrier wrapper slice is landed now too. `code-pushing`
+  can extract the same narrow `i32` call-fed `LocalSet(Call ...)` when that
+  set lives one region deeper under a carrier-local `Block` or `Drop(Block)`
+  root inside the dropped carrier: the pass now rewrites the nested body in
+  place and still inserts the later alias `LocalSet(LocalGet temp)` after the
+  sibling `if`. The new pass and HOT-lowering reducers are green, and the
+  refreshed named lane `.tmp/pass-fuzz-code-pushing-genvalid-20260409c` stays
+  `1000/1000` with `0` mismatches, validation failures, generator failures,
+  or command failures. But the direct replay `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2`
+  is still red at the same first two hunk starts `48978` and `72005`, so this
+  nested-wrapper extraction is another safe reduced slice rather than the
+  remaining live frontier.
+- The first live hunk diagnosis is sharper again too. In the current replay,
+  the visible `48978` delta is no longer explained by the simpler follow-on
+  move `local.set $310 (local.get $397)` crossing a later `if` whose arms
+  contain calls: a new direct pass regression already proves Starshine handles
+  that plain local-only case. So the remaining `48978` blocker still needs
+  extra artifact context beyond "alias `local.set(local.get ...)` across a
+  call-containing `if`", likely in the extracted-alias predecessor chain
+  around the real `func $127` / `Func 148` shape rather than in the plain
+  barrier rule alone.
 - The larger structural families are now classified more tightly too. The
   `105621` and `126757` diffs in printed `func $314` and `func $366` are not
   just more same-root reorder misses. In both cases Binaryen increases the
@@ -673,20 +705,40 @@
   `.tmp/self-opt-code-pushing-terminal-inner-owner-20260408` stays valid while
   preserving the same live frontier (`72005`, `105621`, `126757`), so that
   exact family is safe but still not the real artifact blocker.
-- The closer live-shaped retry is now explicitly blocked too. A fresh probe on
-  `Func 238` showed that the actual `72005` blocker is an earlier explicit-exit
-  `LocalSet` whose value block has a call-prefixed inner block before the final
-  payload `br`. Widening that exact call-prefixed carrier wrote
-  `.tmp/self-opt-code-pushing-call-prefixed-carrier-20260408` and reintroduced
-  an earlier structural drift around printed line `71748`, so that broader
-  terminal-inner-owner family was rolled back immediately.
-- That call-prefixed blocker is now pinned directly in the reduced suites too.
-  `src/passes/code_pushing_test.mbt` keeps the pass negative for the
-  call-prefixed terminal-inner-owner carrier, while
-  `src/ir/hot_lower_live_repro_test.mbt` proves the same manual reorder still
-  lowers and validates. So the `72005` frontier is now split cleanly between
-  one exact landed terminal-inner-owner carrier and the closer live-shaped
-  call-prefixed variant that remains intentionally blocked.
+- The current artifact blocker is earlier again now. On the current tree,
+  native `--code-pushing --out .tmp/code-pushing-restore-check.wasm
+  tests/node/dist/starshine-debug-wasi.wasm` no longer gets as far as the old
+  WAT diff checkpoints; it fails final validation with `stack underflow` in
+  `Func 1977`. The refreshed named compare-pass lane
+  `.tmp/pass-fuzz-code-pushing-genvalid-20260409j` is still `1000/1000` with
+  `0` mismatches, validation failures, or command failures, so the actionable
+  split is now explicit again: reduced pass parity remains green while the real
+  debug artifact is blocked on a larger invalid-module family.
+- A narrower unary `Call(LocalTee(Call ...))` extraction probe was reduced
+  during this checkpoint too, because the remaining `Func 238` structural diff
+  still looks like Binaryen alias-local forwarding more than another plain
+  `local.set(local.get ...)` reorder. The small reducer plus HOT-lowering proof
+  were both green, but the real debug artifact still re-hit the same `Func
+  1977` stack-underflow cliff, so that probe was rolled back instead of being
+  kept as another local extraction rule. That makes the next correctness target
+  clearer: regain direct artifact validity on the live `Func 1977` family
+  first, then revisit the broader `Func 238` alias-local synthesis lane.
+- The closer call-prefixed carrier slice is landed now too. `code-pushing`
+  still requires the same terminal-inner-owner local-match rule, but it no
+  longer rejects the carrier just because the inner owner block does extra
+  non-exiting work before the final payload `br`. The updated pass regression
+  is green, the existing HOT-lowering proof for the same manual reorder still
+  validates, and the refreshed named lane
+  `.tmp/pass-fuzz-code-pushing-genvalid-20260409d` stays `1000/1000` with `0`
+  mismatches, validation failures, or command failures.
+- That means the old `72005` checkpoint is no longer the right description of
+  the remaining `Func 238` family. After landing the call-prefixed carrier
+  slice, the direct debug-artifact replay still differs in `Func 238`, but the
+  visible mismatch has widened into a broader root-structure hunk starting at
+  printed line `71748` instead of the old smaller `local.set`-only `72005`
+  delta. So this family is still live, but it has moved past the exact
+  call-prefixed terminal-inner-owner carrier that used to be intentionally
+  blocked.
 - A fresh retry confirmed that the terminal-owner family is still not ready to
   land, even under a narrower local-type fence. Re-admitting only the `i32`
   version of that direct inner-owner plus terminal-exit carrier still

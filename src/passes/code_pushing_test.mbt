@@ -305,6 +305,90 @@ test "code-pushing does not move a call-fed local.set before a later if" {
 }
 
 ///|
+test "code-pushing moves a local-get local.set past an if with calls in its arms" {
+  let source =
+    #|(module
+    #|  (func $touch (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32)
+    #|    (local.get 1)
+    #|    (local.set 2)
+    #|    (if
+    #|      (local.get 0)
+    #|      (then
+    #|        (call $touch
+    #|          (local.get 1)))
+    #|      (else
+    #|        (call $touch
+    #|          (local.get 0))))
+    #|    (local.get 2)))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 1)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "If", "LocalSet(2)", "LocalGet(2)",
+  ])
+}
+
+///|
+test "code-pushing moves an alias local.set past a later if even with an earlier block-loop return root" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $mk (result i32)
+    #|    (i32.const 4))
+    #|  (func $touch (param i32))
+    #|  (func $dropref (param i32))
+    #|  (func $join (param i32 i32) (result i32)
+    #|    (local.get 0))
+    #|  (func (param i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (block $done
+    #|      (loop $label
+    #|        (if
+    #|          (local.get 0)
+    #|          (then
+    #|            (return
+    #|              (i32.const 7))))
+    #|        (br $done)))
+    #|    (call $mk)
+    #|    (local.set 1)
+    #|    (local.get 1)
+    #|    (local.set 2)
+    #|    (i32.load
+    #|      (local.get 0))
+    #|    (local.set 3)
+    #|    (if
+    #|      (i32.gt_s
+    #|        (i32.load
+    #|          (local.get 0))
+    #|        (i32.const 1))
+    #|      (then
+    #|        (call $touch
+    #|          (local.get 3)))
+    #|      (else
+    #|        (if
+    #|          (i32.eq
+    #|            (i32.load
+    #|              (local.get 0))
+    #|            (i32.const 1))
+    #|          (then
+    #|            (call $dropref
+    #|              (local.get 0))))))
+    #|    (local.get 3)
+    #|    (local.set 4)
+    #|    (call $join
+    #|      (local.get 2)
+    #|      (local.get 4)))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 4)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "Block", "LocalSet(1)", "LocalSet(3)", "If", "LocalSet(2)", "LocalSet(4)", "Call",
+  ])
+}
+
+///|
 test "code-pushing does not move a local.set when no later target root exists" {
   let func = code_pushing_test_run_hot(
     "(module (func (local i32) i32.const 7 local.set 0 local.get 0 drop))",
@@ -1680,7 +1764,60 @@ test "code-pushing rewrites past an earlier explicit-exit local.set block carrie
 }
 
 ///|
-test "code-pushing does not rewrite past an earlier explicit-exit local.set block carrier with a call-prefixed inner block" {
+test "code-pushing rewrites past an earlier explicit-exit local.set carrier before a loaded condition-set and later if" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $side (param i32))
+    #|  (func $join (param i32 i32) (result i32)
+    #|    (local.get 0))
+    #|  (func (param i32 i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32)
+    #|    (local.set 3
+    #|      (block $block1 (result i32)
+    #|        (block $block
+    #|          (br $block1
+    #|            (if (result i32)
+    #|              (local.get 0)
+    #|              (then
+    #|                (return (i32.const 7)))
+    #|              (else
+    #|                (local.set 6 (local.get 1))
+    #|                (br $block)))))
+    #|        (local.get 6)))
+    #|    (local.get 2)
+    #|    (local.set 4)
+    #|    (i32.load
+    #|      (local.get 1))
+    #|    (local.set 5)
+    #|    (if
+    #|      (local.get 0)
+    #|      (then
+    #|        (call $side (local.get 5)))
+    #|      (else
+    #|        (if (local.get 0)
+    #|          (then
+    #|            (call $side (local.get 1))))))
+    #|    (local.get 5)
+    #|    (local.set 7)
+    #|    (call $join
+    #|      (local.get 4)
+    #|      (local.get 7)))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 2)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(3)", "LocalSet(5)", "If", "LocalSet(4)", "LocalSet(7)", "Call",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing rewrites past an earlier explicit-exit local.set block carrier with a call-prefixed inner block when the crossed gap is safe" {
   let source =
     #|(module
     #|  (func $side (param i32))
@@ -1712,7 +1849,7 @@ test "code-pushing does not rewrite past an earlier explicit-exit local.set bloc
   let func = code_pushing_test_run_hot_code(source, 1)
 
   assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
-    "LocalSet(3)", "LocalSet(4)", "LocalSet(5)", "If", "LocalGet(4)",
+    "LocalSet(3)", "LocalSet(5)", "If", "LocalSet(4)", "LocalGet(4)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {
@@ -2114,6 +2251,175 @@ test "code-pushing extracts a call-fed local.set out of a dropped carrier" {
   assert_eq(code_pushing_test_region_tags(func, outer_body), [
     "Block", "LocalTee(4)", "Call", "Br",
   ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing extracts a call-fed local.set out of a dropped carrier after a safe explicit-exit prefix" {
+  let source =
+    #|(module
+    #|  (func $mk (param i32) (result i32)
+    #|    (local.get 0))
+    #|  (func $touch (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (local.set 4
+    #|            (block $carry (result i32)
+    #|              (block $mid
+    #|                (br $carry
+    #|                  (if (result i32)
+    #|                    (local.get 0)
+    #|                    (then
+    #|                      (local.set 5 (local.get 1))
+    #|                      (local.get 5))
+    #|                    (else
+    #|                      (local.set 5 (i32.const 5))
+    #|                      (local.get 5)))))
+    #|              (local.get 1)))
+    #|          (local.set 2
+    #|            (call $mk
+    #|              (local.get 1)))
+    #|          (call $touch
+    #|            (local.get 1))
+    #|          (br $outer
+    #|            (i32.const 0))))
+    #|      (local.get 1)
+    #|      (local.set 3)
+    #|      (local.get 3)
+    #|      (if
+    #|        (then
+    #|          (call $touch
+    #|            (local.get 3))))
+    #|      (local.get 2)))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 2)
+  let mut holder_body : @ir.HotRegionRef? = None
+  let candidate_tags : Array[String] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block =>
+        if @ir.hot_node_result_arity(func, node_id) == 1 {
+          let region = @ir.hot_region_body_ref(func, node_id)
+          let tags = code_pushing_test_region_tags(func, region)
+          candidate_tags.push(tags.to_string())
+          if tags == ["Drop", "LocalSet(3)", "If", "LocalSet(2)", "LocalGet(2)"] {
+            holder_body = Some(region)
+            break
+          }
+        }
+      _ => ()
+    }
+  }
+  let holder_body = match holder_body {
+    Some(region) => region
+    None =>
+      fail(
+        "expected call-fed dropped-carrier holder body with safe prefix: \{candidate_tags}",
+      )
+  }
+  let outer = @ir.hot_child_get(
+    func,
+    @ir.hot_region_get(func, holder_body, 0),
+    0,
+  )
+  let outer_body = @ir.hot_region_body_ref(func, outer)
+
+  assert_eq(code_pushing_test_region_tags(func, holder_body), [
+    "Drop", "LocalSet(3)", "If", "LocalSet(2)", "LocalGet(2)",
+  ])
+  assert_eq(code_pushing_test_region_tags(func, outer_body), [
+    "LocalSet(4)", "LocalTee(6)", "Call", "Br",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+test "code-pushing extracts a nested call-fed local.set out of a dropped carrier" {
+  let source =
+    #|(module
+    #|  (func $mk (param i32) (result i32)
+    #|    (local.get 0))
+    #|  (func $touch (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32)
+    #|    (block $holder (result i32)
+    #|      (drop
+    #|        (block $outer (result i32)
+    #|          (block $nested
+    #|            (local.set 4
+    #|              (call $mk
+    #|                (local.get 1))))
+    #|          (call $touch
+    #|            (local.get 1))
+    #|          (br $outer
+    #|            (i32.const 0))))
+    #|      (local.get 1)
+    #|      (local.set 3)
+    #|      (local.get 3)
+    #|      (if
+    #|        (then
+    #|          (call $touch
+    #|            (local.get 3))))
+    #|      (local.get 4)))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 2)
+  let mut holder_body : @ir.HotRegionRef? = None
+  let candidate_tags : Array[String] = []
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block =>
+        if @ir.hot_node_result_arity(func, node_id) == 1 {
+          let region = @ir.hot_region_body_ref(func, node_id)
+          let tags = code_pushing_test_region_tags(func, region)
+          candidate_tags.push(tags.to_string())
+          if tags == ["Drop", "LocalSet(3)", "If", "LocalSet(4)", "LocalGet(4)"] {
+            holder_body = Some(region)
+            break
+          }
+        }
+      _ => ()
+    }
+  }
+  let holder_body = match holder_body {
+    Some(region) => region
+    None =>
+      fail(
+        "expected nested call-fed dropped-carrier holder body: \{candidate_tags}",
+      )
+  }
+  let outer = @ir.hot_child_get(
+    func,
+    @ir.hot_region_get(func, holder_body, 0),
+    0,
+  )
+  let outer_body = @ir.hot_region_body_ref(func, outer)
+  let nested = @ir.hot_region_get(func, outer_body, 0)
+  let nested_body = @ir.hot_region_body_ref(func, nested)
+
+  assert_eq(code_pushing_test_region_tags(func, holder_body), [
+    "Drop", "LocalSet(3)", "If", "LocalSet(4)", "LocalGet(4)",
+  ])
+  assert_eq(code_pushing_test_region_tags(func, outer_body), [
+    "Block", "Call", "Br",
+  ])
+  assert_eq(code_pushing_test_region_tags(func, nested_body), ["LocalTee(5)"])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {
     Ok(_) => ()
