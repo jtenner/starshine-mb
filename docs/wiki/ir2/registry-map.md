@@ -31,17 +31,12 @@ related:
 - Active module passes currently include:
   `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `duplicate-function-elimination`, and `remove-unused-module-elements`.
 - Active presets are still `optimize` and `shrink`.
-- `optimize` and `shrink` currently expand to the same implemented pass list.
+- `optimize` and `shrink` currently expand to the same implemented pass list, including the extra `remove-unused-brs` replay before `heap2local` and the two `precompute` slots.
 - `reorder-locals` is active as an explicit module pass but still stays out of both presets until its neighboring local-pass slots can be modeled honestly.
-
-## Current Caveat
-
-- The March batch-map doc was a useful handoff snapshot, but parts of it are now stale relative to current code.
-- In particular, `precompute` and `heap2local` have since moved from planned or removed status into the active hot registry and preset expansions.
-- Use this page plus the current registry tests for exact answers about what flags and presets are live today.
 
 ## Current In-Tree Status
 
+- The numbered root doc and the live registry now agree on the active categories and preset expansion.
 - The registry truth lives in [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt).
 - Category and preset coverage live in [`../../../src/passes/registry_test.mbt`](../../../src/passes/registry_test.mbt) and [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt).
 - [`./execution-plan.md`](./execution-plan.md) remains the handoff page for slice order and pipeline orientation, but it is not the exact per-flag registry inventory.

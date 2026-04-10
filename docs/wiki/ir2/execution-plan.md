@@ -23,12 +23,13 @@ related:
 ## Current Active Surface
 
 - Module passes:
-  `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `duplicate-function-elimination`, `remove-unused-module-elements`
+  `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `duplicate-function-elimination`, `remove-unused-module-elements`
 - Hot passes:
-  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `pick-load-signs`, `simplify-locals`
+  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`
 - Presets:
   `optimize`, `shrink`
-- `optimize` and `shrink` currently expand to the implemented mixed batch-1 sequence, including all currently modeled `remove-unused-names` slots.
+- `optimize` and `shrink` currently expand to the implemented mixed batch-1 sequence, including all currently modeled `remove-unused-names` slots, all `remove-unused-brs` replays, both `precompute` slots, and the mid-function `heap2local` slot.
+- `reorder-locals` is active as an explicit module pass, but it still stays out of both presets until its neighboring local-pass slots can be modeled honestly.
 
 ## Next Slice Order
 

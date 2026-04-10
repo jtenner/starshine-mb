@@ -7,7 +7,7 @@ Lock the optimizer rebuild around exactly two owned representations: boundary mo
 ## Current Behavior
 
 - Boundary parsing, validation, encode/decode, and debug surfaces already operate on `@lib.Module` and `@lib.Expr`.
-- `src/ir/hot.mbt` already owns the current hot function body representation, but the repo had no canonical ADR stating that later work must not recreate deleted recursive ownership layers.
+- `src/ir` now has dedicated architecture, cache, CFG, SSA, lift/lower, and hot-storage modules, while `src/ir/hot.mbt` acts as a compatibility-free facade over them.
 - Pass execution now routes through the real `jtenner/starshine/passes` hot pipeline, and deleted compatibility shims must not return.
 
 ## Architecture Rules
@@ -17,6 +17,7 @@ Lock the optimizer rebuild around exactly two owned representations: boundary mo
 - Derived analyses are overlays keyed by `revision`, not owned IR:
   - CFG
   - dominance
+  - post-dominance
   - liveness
   - use-def
   - effects
@@ -28,9 +29,13 @@ Lock the optimizer rebuild around exactly two owned representations: boundary mo
 
 ## Package Split
 
-The `src/ir` package should grow by dedicated modules, not by extending one monolithic file indefinitely.
+The `src/ir` package should continue to grow by dedicated modules, not by extending one monolithic file indefinitely.
 
 - `architecture.mbt`: architecture helpers that later pass-manager and cache slices share now.
+- `analysis_cache.mbt`: revision-keyed cached overlays for CFG, dominance, post-dominance, loop info, use-def, liveness, effects, and SSA.
+- `cfg*.mbt`: CFG construction plus the locked control-flow contract and traversal-order helpers.
+- `dominators.mbt`, `postdominators.mbt`, `loop_info.mbt`, `use_def.mbt`, `liveness.mbt`, `effects.mbt`: derived analysis overlays.
+- `ssa_policy.mbt`, `ssa_local.mbt`, `ssa_destroy.mbt`: locals-only SSA policy, construction, and destruction.
 - `hot_core.mbt`: owned dense storage contract.
 - `hot_flags.mbt`: opcode-local raw flag model.
 - `hot_types.mbt`: deterministic type interning.
@@ -39,8 +44,9 @@ The `src/ir` package should grow by dedicated modules, not by extending one mono
 - `hot_builders.mbt`: safe public constructors.
 - `hot_mutate.mbt`: authoritative semantic mutation surface.
 - `hot_query.mbt`: stable structural queries.
+- `hot_walk.mbt`, `hot_region_edit.mbt`, `hot_module_context.mbt`, `hot_verify.mbt`, `hot_lift.mbt`, and `hot_lower.mbt`: shared traversal, region-edit, module-context, verification, and boundary conversion layers.
 
-Until those slices land, `hot.mbt` remains the transitional implementation file for the already-existing behavior.
+`hot.mbt` now acts as facade glue over the split modules; it should keep shrinking, not re-accumulate ownership or analysis logic.
 
 ## Correctness Constraints
 
@@ -62,4 +68,4 @@ This slice is architectural only. Runtime impact is negligible because it adds r
 ## Open Questions
 
 - Whether revision invalidation stays conservative for all semantic mutation in v1 or becomes more granular once analysis caches land.
-- How much of the current `hot.mbt` file should move during `IR2 - 010` versus waiting until `IR2 - 020` and `IR2 - 030`.
+- Whether the remaining facade helpers in `hot.mbt` should split further or stay as a thin convenience layer once downstream consumers stabilize.

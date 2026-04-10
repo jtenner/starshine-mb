@@ -8,7 +8,7 @@
 ## Current Registry Contract
 
 - Active hot passes:
-  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `pick-load-signs`, `simplify-locals`.
+  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`.
 - Active module passes:
   `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `duplicate-function-elimination`, `remove-unused-module-elements`.
 - Active presets:
@@ -19,7 +19,7 @@
 ## Batch 1
 
 - Current hot passes:
-  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `pick-load-signs`, `simplify-locals`.
+  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`.
 - Current first-batch implementations:
   [`src/passes/global_refining.mbt`](../src/passes/global_refining.mbt),
   [`src/passes/global_struct_inference.mbt`](../src/passes/global_struct_inference.mbt),
@@ -33,11 +33,13 @@
   [`src/passes/remove_unused_brs.mbt`](../src/passes/remove_unused_brs.mbt),
   [`src/passes/optimize_instructions.mbt`](../src/passes/optimize_instructions.mbt),
   [`src/passes/heap_store_optimization.mbt`](../src/passes/heap_store_optimization.mbt),
+  [`src/passes/heap2local.mbt`](../src/passes/heap2local.mbt),
   [`src/passes/pick_load_signs.mbt`](../src/passes/pick_load_signs.mbt),
+  [`src/passes/precompute.mbt`](../src/passes/precompute.mbt),
   [`src/passes/remove_unused_module_elements.mbt`](../src/passes/remove_unused_module_elements.mbt),
   [`src/passes/simplify_locals.mbt`](../src/passes/simplify_locals.mbt).
 - Removed until hot implementation lands:
-  `avoid-reinterprets`, `coalesce-locals`, `code-folding`, `code-pushing`, `const-hoisting`, `dataflow-optimization`, `local-cse`, `merge-locals`, `optimize-added-constants`, `optimize-added-constants-propagate`, `precompute`, `precompute-propagate`, `simplify-locals-no-tee`, `simplify-locals-no-structure`, `simplify-locals-no-tee-no-structure`, `simplify-locals-no-nesting`, `untee`, `de-nan`.
+  `avoid-reinterprets`, `coalesce-locals`, `code-folding`, `code-pushing`, `const-hoisting`, `dataflow-optimization`, `local-cse`, `merge-locals`, `optimize-added-constants`, `optimize-added-constants-propagate`, `precompute-propagate`, `simplify-locals-no-tee`, `simplify-locals-no-structure`, `simplify-locals-no-tee-no-structure`, `simplify-locals-no-nesting`, `untee`, `de-nan`.
 
 ## Batch 2
 
@@ -54,14 +56,14 @@
 - Type, global, and signature shaping:
   `abstract-type-refining`, `constant-field-propagation`, `constant-field-null-test-folding`, `dead-argument-elimination`, `dead-argument-elimination-optimizing`, `signature-pruning`, `signature-refining`, `global-struct-inference-desc-cast`, `global-type-optimization`, `simplify-globals`, `simplify-globals-optimizing`, `global-effects`, `propagate-globals-globally`, `type-refining`, `type-generalizing`, `type-finalizing`, `type-un-finalizing`, `unsubtyping`.
 - Whole-module or layout transforms:
-  `alignment-lowering`, `duplicate-import-elimination`, `directize`, `heap2local`, `inlining`, `inlining-optimizing`, `inline-main`, `merge-similar-functions`, `minimize-rec-groups`, `type-merging`, `monomorphize`, `monomorphize-always`, `gufa`, `gufa-optimizing`, `gufa-cast-all`, `i64-to-i32-lowering`.
+  `alignment-lowering`, `duplicate-import-elimination`, `directize`, `inlining`, `inlining-optimizing`, `inline-main`, `merge-similar-functions`, `minimize-rec-groups`, `type-merging`, `monomorphize`, `monomorphize-always`, `gufa`, `gufa-optimizing`, `gufa-cast-all`, `i64-to-i32-lowering`.
 - Boundary cleanup and ordering:
   `reorder-types`, `reorder-globals`, `reorder-globals-always`, `reorder-functions`, `reorder-functions-by-name`, `remove-unused-types`, `remove-unused`, `remove-unused-non-function-elements`.
 
 ## Preset Composition
 
-- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "precompute", "simplify-locals", "remove-unused-brs", "precompute", "remove-unused-names"]`.
-- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "precompute", "simplify-locals", "remove-unused-brs", "precompute", "remove-unused-names"]`.
+- `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs", "heap2local", "simplify-locals", "precompute", "remove-unused-names"]`.
+- `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs", "heap2local", "simplify-locals", "precompute", "remove-unused-names"]`.
 - `reorder-locals` is an active explicit module pass, but it stays out of both presets until `simplify-locals-nostructure`, `local-subtyping`, and `coalesce-locals` exist in-tree and the Binaryen-adjacent slots can be wired honestly.
 - Future preset growth must only add implemented module or hot passes or explicitly documented boundary-only phases.
 

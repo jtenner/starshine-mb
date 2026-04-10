@@ -18,7 +18,7 @@ related:
 
 - `HotFunc` is the only owned optimizer body representation.
 - Boundary decode, encode, validation, printing, and debug stay on raw `@lib.Module` / `@lib.Expr` forms.
-- CFG, dominance, liveness, use-def, effects, loop info, and SSA are revision-keyed overlays, not alternate owned IR layers.
+- CFG, dominance, post-dominance, liveness, use-def, effects, loop info, and SSA are revision-keyed overlays, not alternate owned IR layers.
 - The pass contract is `lift -> verify -> analyze -> mutate -> verify -> lower`.
 - Semantic mutation must go through the public hot-IR mutation surface and bump `revision`.
 - Deleted recursive optimizer-body compatibility layers must not return.
@@ -26,7 +26,7 @@ related:
 ## Current Module Map Rule
 
 - Grow `src/ir` through dedicated modules such as `architecture`, `hot_core`, `hot_mutate`, `hot_query`, and the analysis/cache slices instead of rebuilding one large monolithic file.
-- Treat `hot.mbt` as a transitional facade over the split modules, not as permission to re-centralize ownership or analysis logic there.
+- Treat `hot.mbt` as a compatibility-free facade over the split modules, not as permission to re-centralize ownership or analysis logic there.
 
 ## Practical Rule
 

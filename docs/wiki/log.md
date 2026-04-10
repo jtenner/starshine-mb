@@ -81,3 +81,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added `custom-descriptors/exact-reference-equivalence.md` from `0029`, `0030`, and `0031` as the rule page for passive typed empty `elem` surface plus structural exact-reference matching for structs and functions.
 - Added `strings/string-const-surface.md` from `0052` as the living page for the public `string.const` surface, binary string-literal section, constant-expression rule, and IR payload handling.
 - Updated `docs/wiki/index.md` so the new WAST, custom-descriptor, and string pages are discoverable from the catalog.
+
+## [2026-04-09] refresh | resync IR2 root contracts with current hot-IR code
+
+- Updated `docs/0059-2026-03-24-ir2-architecture-rules.md` and `ir2/architecture-rules.md` so the architecture contract reflects the current split `src/ir` module map, the live post-dominance overlay, and `hot.mbt`'s current role as facade glue instead of an in-progress monolith.
+- Updated `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` and `ir2/registry-map.md` so the canonical registry surface now matches code for active `precompute`, `heap2local`, `reorder-locals`, and the real preset expansion.
+- Updated `docs/0065-2026-03-24-ir2-execution-plan.md` and `ir2/execution-plan.md` so the handoff plan matches the current active pass surface and the real `optimize` / `shrink` sequence.

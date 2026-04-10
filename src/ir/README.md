@@ -6,7 +6,7 @@ IR2 owns exactly one optimizer body representation: `HotFunc`.
 
 - Boundary decode, encode, validation, printing, and debug-module views stay on raw `@lib.Module` / `@lib.Expr` forms.
 - `HotFunc` is the only owned optimizer body representation.
-- CFG, dominance, liveness, use-def, effects, loop info, and SSA are derived overlays keyed by `revision`; they do not own bodies.
+- CFG, dominance, post-dominance, liveness, use-def, effects, loop info, and SSA are derived overlays keyed by `revision`; they do not own bodies.
 - Semantic mutation must go through public hot-IR mutation APIs and must bump `revision`.
 - There is no compatibility surface for deleted recursive optimizer-body ownership layers.
 
