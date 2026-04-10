@@ -418,7 +418,7 @@ Observed unique-pass order
 
 #### SL - Simplify Locals
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0073](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/docs/0073-2026-04-01-simplify-locals-binaryen-research-plan.md)
+   - Research exactly how it works with a document: [`docs/wiki/binaryen/passes/simplify-locals/index.md`](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/docs/wiki/binaryen/passes/simplify-locals/index.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [SL]004 - Slot Validation and Artifact Replay - Lock the completed pass into the late slot and prove parity against Binaryen on both focused and large-artifact lanes.
      - Deliverables: add focused regressions for late-slot cleanup plus surrounding `vacuum` / `reorder-locals` behavior; verify scheduler placement; run pass-fuzz parity and `--simplify-locals` artifact compare.
@@ -427,7 +427,7 @@ Observed unique-pass order
      - Reproduce post-perf smoke lane: `bun scripts/pass-fuzz-compare.ts --pass simplify-locals --generator gen-valid --count 100 --min-compared 100 --max-failures 20 --out-dir .tmp/simplify-locals-perf-smoke`
     - Reproduce 30s traced runtime checkpoint: `timeout 30s env STARSHINE_TRACING=pass _build/native/release/build/cmd/cmd.exe --simplify-locals --out /home/jtenner/sl-artifact-trace-30s-current.raw.wasm /home/jtenner/Projects/starshine-mb/tests/node/dist/starshine-debug-wasi.wasm > /home/jtenner/sl-artifact-trace-30s-current.log 2>&1`
      - Reproduce sibling-artifact runtime blocker: `bun scripts/self-optimize-compare.ts /home/jtenner/Projects/starshine-mb/tests/node/dist/starshine-debug-wasi.wasm --simplify-locals`
-     - Doc: [0073](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/docs/0073-2026-04-01-simplify-locals-binaryen-research-plan.md)
+     - Doc: [`docs/wiki/binaryen/passes/simplify-locals/index.md`](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/docs/wiki/binaryen/passes/simplify-locals/index.md) and [`docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md`](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/docs/wiki/raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.

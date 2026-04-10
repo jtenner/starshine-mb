@@ -261,5 +261,5 @@ Validation while implementing:
   - port the Binaryen-style stack/local materialization layer that surrounds this pass, or
   - redefine pass-level parity signoff around a representation-stable boundary instead of raw emitted wasm.
 - The detailed source-level explanation for that boundary gap now lives in
-  [0074](./0074-2026-04-02-binaryen-multivalue-call-local-disparity.md):
+  [`./0074-2026-04-02-binaryen-multivalue-call-local-disparity.md`](./0074-2026-04-02-binaryen-multivalue-call-local-disparity.md):
   the extra locals come from Binaryen's multivalue call packaging and StackIR writeback, not from `ReorderLocals.cpp`.

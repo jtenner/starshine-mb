@@ -277,6 +277,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded the staged Binaryen sink and cleanup model, the repo's no-structure-first HOT-IR port strategy, and the fact that the archived note is a historical source while living Binaryen pass pages now track the shared `version_129` oracle.
 - Updated `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md` so the new simplify-locals pages are discoverable.
 
+## [2026-04-10] expand | turn simplify-locals into a full pass dossier
+
+- Expanded `binaryen/passes/simplify-locals/` beyond the initial landing page into a full pass folder with `wat-shapes.md`, `implementation-map.md`, `effect-ordering-and-barriers.md`, `raw-lane-and-writeback.md`, `validation-and-signoff.md`, `performance-and-artifact-frontiers.md`, and `parity.md`.
+- Rewrote `binaryen-strategy.md` and `starshine-hot-ir-strategy.md` into detailed maintenance pages instead of short orientation notes.
+- Captured the exact WAT families, the actual helper ownership map in `simplify_locals.mbt` and `pass_manager.mbt`, the raw skip-reason taxonomy, and the dated artifact hotspot/frontier status that had previously only lived in backlog notes.
+- Updated the pass-folder catalog and root wiki index so the full simplify-locals dossier is discoverable from the shared wiki entrypoints.
+
 ## [2026-04-10] research | map MoonBit formal proof rollout
 
 - Added archived research note `docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md` covering the current official `moon prove` workflow, local CLI/toolchain evidence, proof-model constraints, and a Starshine target matrix.
