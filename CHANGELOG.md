@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-09 Docs: ingest four more pass notes into the wiki
+
+- **Second Binaryen pass wiki batch** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md), and added [`docs/wiki/binaryen/passes/remove-unused-brs/parity.md`](./docs/wiki/binaryen/passes/remove-unused-brs/parity.md), [`docs/wiki/binaryen/passes/remove-unused-brs/returned-ladder-hot-shapes.md`](./docs/wiki/binaryen/passes/remove-unused-brs/returned-ladder-hot-shapes.md), [`docs/wiki/binaryen/passes/pick-load-signs/parity.md`](./docs/wiki/binaryen/passes/pick-load-signs/parity.md), and [`docs/wiki/binaryen/passes/global-struct-inference/parity.md`](./docs/wiki/binaryen/passes/global-struct-inference/parity.md) to crystallize four more recent research docs into living Binaryen pass pages under the committed wiki namespace.
+
 ## 2026-04-09 Docs: ingest recent Binaryen pass notes into the wiki
 
 - **Binaryen pass wiki bootstrap** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md), and added [`docs/wiki/binaryen/passes/heap2local/parity.md`](./docs/wiki/binaryen/passes/heap2local/parity.md), [`docs/wiki/binaryen/passes/reorder-locals/parity.md`](./docs/wiki/binaryen/passes/reorder-locals/parity.md), [`docs/wiki/binaryen/passes/reorder-locals/multivalue-call-scope.md`](./docs/wiki/binaryen/passes/reorder-locals/multivalue-call-scope.md), and [`docs/wiki/binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md`](./docs/wiki/binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md) to crystallize the newest pass research docs into living wiki pages under a stable `binaryen/passes/<pass>/...` namespace.
