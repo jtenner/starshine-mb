@@ -25,20 +25,20 @@ priv struct DeadCodeEliminationNodeUseCache {
 ///|
 priv struct DeadCodeEliminationFallthroughCache {
   revision : Array[Int]
-  result : Array[Bool]
+  result : @bitset.BitSet
 }
 
 ///|
 priv struct DeadCodeEliminationBranchUserCache {
   mut has_any_branch : Bool?
-  mut has_incoming_by_label : Array[Bool]?
+  mut has_incoming_by_label : @bitset.BitSet?
   mut by_label : Array[Array[Int]]?
 }
 
 ///|
 priv struct DeadCodeEliminationPurityCache {
   revision : Array[Int]
-  result : Array[Bool]
+  result : @bitset.BitSet
 }
 
 ///|
@@ -85,12 +85,8 @@ fn dead_code_elimination_invalidate_branch_user_cache(
 fn dead_code_elimination_new_fallthrough_cache(
   func : @ir.HotFunc,
 ) -> DeadCodeEliminationFallthroughCache {
-  let revision : Array[Int] = []
-  let result : Array[Bool] = []
-  for _ in 0..<@ir.hot_node_count(func) {
-    revision.push(-1)
-    result.push(false)
-  }
+  let revision = Array::make(@ir.hot_node_count(func), -1)
+  let result = @bitset.BitSet::new(@ir.hot_node_count(func))
   { revision, result }
 }
 
@@ -101,20 +97,16 @@ fn dead_code_elimination_ensure_fallthrough_cache_capacity(
 ) -> Unit {
   while cache.revision.length() <= node_id {
     cache.revision.push(-1)
-    cache.result.push(false)
   }
+  cache.result.grow(cache.revision.length())
 }
 
 ///|
 fn dead_code_elimination_new_purity_cache(
   func : @ir.HotFunc,
 ) -> DeadCodeEliminationPurityCache {
-  let revision : Array[Int] = []
-  let result : Array[Bool] = []
-  for _ in 0..<@ir.hot_node_count(func) {
-    revision.push(-1)
-    result.push(false)
-  }
+  let revision = Array::make(@ir.hot_node_count(func), -1)
+  let result = @bitset.BitSet::new(@ir.hot_node_count(func))
   { revision, result }
 }
 
@@ -125,8 +117,8 @@ fn dead_code_elimination_ensure_purity_cache_capacity(
 ) -> Unit {
   while cache.revision.length() <= node_id {
     cache.revision.push(-1)
-    cache.result.push(false)
   }
+  cache.result.grow(cache.revision.length())
 }
 
 ///|
@@ -261,10 +253,7 @@ fn dead_code_elimination_delete_unused_nodes(
   }
   let node_count = @ir.hot_node_count(func)
   let candidates : Array[Int] = []
-  let in_candidate : Array[Bool] = []
-  for idx = 0; idx < node_count; idx = idx + 1 {
-    in_candidate.push(false)
-  }
+  let in_candidate = @bitset.BitSet::new(node_count)
   for node_id in node_ids {
     if node_id < 0 ||
       node_id >= node_count ||
@@ -388,7 +377,7 @@ fn dead_code_elimination_record_branch_target(
 
 ///|
 fn dead_code_elimination_record_incoming_branch_target(
-  has_incoming_by_label : Array[Bool],
+  has_incoming_by_label : @bitset.BitSet,
   target : Int,
 ) -> Unit {
   if target < 0 || target >= has_incoming_by_label.length() {
@@ -432,11 +421,8 @@ fn dead_code_elimination_build_branch_users_by_label(
 ///|
 fn dead_code_elimination_build_has_incoming_branches_by_label(
   func : @ir.HotFunc,
-) -> Array[Bool] {
-  let has_incoming_by_label : Array[Bool] = []
-  for _ in 0..<func.labels.length() {
-    has_incoming_by_label.push(false)
-  }
+) -> @bitset.BitSet {
+  let has_incoming_by_label = @bitset.BitSet::new(func.labels.length())
   for branch_id = 0
       branch_id < @ir.hot_node_count(func)
       branch_id = branch_id + 1 {
@@ -473,12 +459,8 @@ fn dead_code_elimination_build_empty_branch_users_by_label(
 ///|
 fn dead_code_elimination_build_empty_incoming_branches_by_label(
   func : @ir.HotFunc,
-) -> Array[Bool] {
-  let has_incoming_by_label : Array[Bool] = []
-  for _ in 0..<func.labels.length() {
-    has_incoming_by_label.push(false)
-  }
-  has_incoming_by_label
+) -> @bitset.BitSet {
+  @bitset.BitSet::new(func.labels.length())
 }
 
 ///|
@@ -507,7 +489,7 @@ fn dead_code_elimination_require_has_any_branch(
 fn dead_code_elimination_require_has_incoming_branches_by_label(
   cache : DeadCodeEliminationBranchUserCache,
   func : @ir.HotFunc,
-) -> Array[Bool] {
+) -> @bitset.BitSet {
   match cache.has_incoming_by_label {
     Some(existing) => existing
     None => {
@@ -585,7 +567,7 @@ fn dead_code_elimination_can_voidify_control(
 
 ///|
 fn dead_code_elimination_label_has_incoming_branch(
-  has_incoming_by_label : Array[Bool],
+  has_incoming_by_label : @bitset.BitSet,
   label_id : Int,
 ) -> Bool {
   label_id >= 0 &&
@@ -596,7 +578,7 @@ fn dead_code_elimination_label_has_incoming_branch(
 ///|
 fn dead_code_elimination_region_has_incoming_branches(
   func : @ir.HotFunc,
-  has_incoming_by_label : Array[Bool],
+  has_incoming_by_label : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   if region_ref == @ir.HotRegionRef::root() {
@@ -611,7 +593,7 @@ fn dead_code_elimination_region_has_incoming_branches(
 ///|
 fn dead_code_elimination_has_incoming_internal_region_branches(
   func : @ir.HotFunc,
-  has_incoming_by_label : Array[Bool],
+  has_incoming_by_label : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   match @ir.hot_node_get(func, node_id).op {

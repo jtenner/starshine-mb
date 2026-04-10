@@ -106,3 +106,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Expanded `remove-unused-module-elements` from a stub landing page into a multi-entry folder with `index.md`, `wat-shapes.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, `retention-and-index-rewrites.md`, and `parity.md`.
 - Documented RUME's imported-parent retention rules, explicit module-index rewrite surface, and the current in-tree coverage for empty active data, no-op active elem segments, and imported survivor remaps.
 - Updated the root wiki catalog and pass-folder catalog so the expanded RUME pages are discoverable.
+
+## [2026-04-10] investigate | record the current ssa-nomerge artifact parity blocker
+
+- Added `binaryen/passes/ssa-nomerge/parity.md` plus raw research note `0076-2026-04-10-ssa-nomerge-parity-investigation.md` for the current `ssa-nomerge` evidence.
+- Recorded that the checked-in debug CLI artifact now validates as input, Binaryen `--ssa-nomerge` succeeds on it, but direct Starshine `--ssa-nomerge` still fails final module validation at `Func 523`.
+- Recorded that the seeded random compare rerun stayed semantically clean and only hit a Binaryen `binaryen-rec-group-zero` parser-gap case, so direct artifact replay remains mandatory for `ssa-nomerge` signoff.
+- Updated the root wiki catalog and the Binaryen pass-folder catalog so the new parity page is discoverable.

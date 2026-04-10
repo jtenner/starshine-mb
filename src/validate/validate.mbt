@@ -2380,7 +2380,7 @@ fn validate_name_sec(
 }
 
 ///|
-fn mark_declared_func(declared : Array[Bool], f : FuncIdx) -> Unit {
+fn mark_declared_func(declared : @bitset.BitSet, f : FuncIdx) -> Unit {
   let FuncIdx(i) = f
   let ii = i.reinterpret_as_int()
   if ii >= 0 && ii < declared.length() {
@@ -2391,7 +2391,7 @@ fn mark_declared_func(declared : Array[Bool], f : FuncIdx) -> Unit {
 ///|
 fn mark_declared_ref_funcs_in_instr(
   instr : Instruction,
-  declared : Array[Bool],
+  declared : @bitset.BitSet,
 ) -> Unit {
   match instr {
     RefFunc(f) => mark_declared_func(declared, f)
@@ -2420,7 +2420,7 @@ fn mark_declared_ref_funcs_in_instr(
 }
 
 ///|
-fn mark_declared_ref_funcs_in_expr(expr : Expr, declared : Array[Bool]) -> Unit {
+fn mark_declared_ref_funcs_in_expr(expr : Expr, declared : @bitset.BitSet) -> Unit {
   let Expr(instrs) = expr
   for instr in instrs {
     mark_declared_ref_funcs_in_instr(instr, declared)
@@ -2428,8 +2428,8 @@ fn mark_declared_ref_funcs_in_expr(expr : Expr, declared : Array[Bool]) -> Unit 
 }
 
 ///|
-fn collect_declared_funcs_bitmap(mod : Module, env : Env) -> Array[Bool] {
-  let declared = Array::make(env.funcs.length(), false)
+fn collect_declared_funcs_bitmap(mod : Module, env : Env) -> @bitset.BitSet {
+  let declared = @bitset.BitSet::new(env.funcs.length())
 
   // Declaration sources are module sites outside function bodies, excluding
   // start. This includes exports, const-expression ref.funcs in globals/tables
@@ -2488,7 +2488,7 @@ fn collect_declared_funcs_bitmap(mod : Module, env : Env) -> Array[Bool] {
 }
 
 ///|
-fn is_declared_ref_func(declared : Array[Bool], f : FuncIdx) -> Bool {
+fn is_declared_ref_func(declared : @bitset.BitSet, f : FuncIdx) -> Bool {
   let FuncIdx(i) = f
   let ii = i.reinterpret_as_int()
   ii >= 0 && ii < declared.length() && declared[ii]
@@ -2498,7 +2498,7 @@ fn is_declared_ref_func(declared : Array[Bool], f : FuncIdx) -> Bool {
 fn validate_ref_func_declarations_in_instr(
   instr : Instruction,
   env : Env,
-  declared : Array[Bool],
+  declared : @bitset.BitSet,
 ) -> Result[Unit, String] {
   match instr {
     RefFunc(f) => {
@@ -2552,7 +2552,7 @@ fn validate_ref_func_declarations_in_instr(
 fn validate_ref_func_declarations_in_expr(
   expr : Expr,
   env : Env,
-  declared : Array[Bool],
+  declared : @bitset.BitSet,
 ) -> Result[Unit, String] {
   let Expr(instrs) = expr
   for instr in instrs {
@@ -2568,7 +2568,7 @@ fn validate_ref_func_declarations_in_module(
   mod : Module,
   env : Env,
   imported_func_count : Int,
-  declared : Array[Bool],
+  declared : @bitset.BitSet,
   trace? : (String) -> Unit = validate_trace_noop,
   trace_all_funcs? : Bool = false,
   trace_enabled? : Bool = false,

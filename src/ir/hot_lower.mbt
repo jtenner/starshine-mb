@@ -532,11 +532,8 @@ fn hot_lower_impl_preserve_region_result_roots(
   use_def : HotUseDef,
   root_ids : Array[NodeId],
   region_result_arity : Int,
-) -> Array[Bool] {
-  let preserve : Array[Bool] = []
-  for _ in 0..<root_ids.length() {
-    preserve.push(false)
-  }
+) -> @bitset.BitSet {
+  let preserve = @bitset.BitSet::new(root_ids.length())
   let mut remaining = region_result_arity
   for i = root_ids.length() - 1; i >= 0; i = i - 1 {
     if remaining <= 0 {

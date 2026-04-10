@@ -92,7 +92,7 @@ fn use_def_visit_region(
   node_uses : Array[Array[HotUseSite]],
   local_reads : Array[Array[NodeId]],
   local_writes : Array[Array[NodeId]],
-  seen : Array[Bool],
+  seen : @bitset.BitSet,
 ) -> Unit {
   for slot = 0; slot < hot_region_root_count(func, region_ref); slot = slot + 1 {
     let root_id = hot_region_get(func, region_ref, slot)
@@ -117,7 +117,7 @@ fn use_def_visit_node(
   node_uses : Array[Array[HotUseSite]],
   local_reads : Array[Array[NodeId]],
   local_writes : Array[Array[NodeId]],
-  seen : Array[Bool],
+  seen : @bitset.BitSet,
 ) -> Unit {
   if seen[node_id] {
     return
@@ -268,10 +268,9 @@ fn use_def_build_node_and_local_uses(
   func : HotFunc,
 ) -> (Array[Array[HotUseSite]], Array[Array[NodeId]], Array[Array[NodeId]]) {
   let node_uses : Array[Array[HotUseSite]] = []
-  let seen : Array[Bool] = []
+  let seen = @bitset.BitSet::new(hot_node_count(func))
   for _ in 0..<hot_node_count(func) {
     node_uses.push([])
-    seen.push(false)
   }
   let local_reads : Array[Array[NodeId]] = []
   let local_writes : Array[Array[NodeId]] = []

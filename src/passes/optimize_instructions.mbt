@@ -19,7 +19,7 @@ pub fn optimize_instructions_summary() -> String {
 ///|
 priv struct OptimizeInstructionsScratch {
   cross_seen_stamps : Array[Int]
-  loop_input_nodes : Array[Bool]
+  loop_input_nodes : @bitset.BitSet
   mut loop_input_nodes_ready : Bool
   mut next_cross_seen_stamp : Int
 }
@@ -30,7 +30,7 @@ fn OptimizeInstructionsScratch::new(
 ) -> OptimizeInstructionsScratch {
   {
     cross_seen_stamps: Array::make(node_count, -1),
-    loop_input_nodes: Array::make(node_count, false),
+    loop_input_nodes: @bitset.BitSet::new(node_count),
     loop_input_nodes_ready: false,
     next_cross_seen_stamp: 0,
   }
@@ -48,7 +48,7 @@ fn optimize_instructions_alloc_cross_seen_stamp(
 ///|
 fn optimize_instructions_mark_loop_input_nodes(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
 ) -> Unit {
   if scratch.loop_input_nodes_ready {
@@ -80,7 +80,7 @@ fn optimize_instructions_mark_loop_input_nodes(
 ///|
 fn optimize_instructions_node_is_live(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if node_id < 0 {
@@ -202,7 +202,7 @@ fn optimize_instructions_rewrite_exact_with_children(
 fn optimize_instructions_try_fold_constant_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
@@ -262,7 +262,7 @@ fn optimize_instructions_try_fold_constant_if_condition(
 ///|
 fn optimize_instructions_i32_const(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> @lib.I32? {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -286,7 +286,7 @@ fn optimize_instructions_i32_const(
 ///|
 fn optimize_instructions_i64_const(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> @lib.I64? {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -400,7 +400,7 @@ fn optimize_instructions_is_commutative_instr(instr : @lib.Instruction) -> Bool 
 ///|
 fn optimize_instructions_local_get_id(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Int? {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -420,7 +420,7 @@ fn optimize_instructions_local_get_id(
 ///|
 fn optimize_instructions_is_constlike(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -440,7 +440,7 @@ fn optimize_instructions_is_constlike(
 ///|
 fn optimize_instructions_is_shared_cross_safe_leaf(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -464,12 +464,12 @@ fn optimize_instructions_is_shared_cross_safe_leaf(
 ///|
 fn optimize_instructions_can_cross_local_get(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   use_def : @ir.HotUseDef,
   node_id : Int,
   local_id : Int,
   under_local_tee_payload : Bool,
-  loop_input_nodes : Array[Bool],
+  loop_input_nodes : @bitset.BitSet,
   seen_stamps : Array[Int],
   seen_stamp : Int,
 ) -> Bool {
@@ -566,7 +566,7 @@ fn optimize_instructions_commutative_node_kind_rank(op : @ir.HotOp) -> Int? {
 ///|
 fn optimize_instructions_should_swap_commutative_node_kinds(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
@@ -604,7 +604,7 @@ fn optimize_instructions_should_swap_commutative_node_kinds(
 fn optimize_instructions_try_canonicalize_commutative(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
@@ -711,7 +711,7 @@ fn optimize_instructions_try_canonicalize_commutative(
 ///|
 fn optimize_instructions_is_trivially_pure_value(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -735,7 +735,7 @@ fn optimize_instructions_is_trivially_pure_value(
 ///|
 fn optimize_instructions_is_side_effect_free_expr(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -775,7 +775,7 @@ fn optimize_instructions_is_side_effect_free_expr(
 ///|
 fn optimize_instructions_negate_boolean_expr(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Int? {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -798,7 +798,7 @@ fn optimize_instructions_negate_boolean_expr(
 ///|
 fn optimize_instructions_negate_boolean_expr_recursive(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Int? {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -846,7 +846,7 @@ fn optimize_instructions_negate_boolean_expr_recursive(
 ///|
 fn optimize_instructions_is_boolean_constant_tree(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   match optimize_instructions_i32_const(func, dead, node_id) {
@@ -884,7 +884,7 @@ fn optimize_instructions_is_boolean_constant_tree(
 ///|
 fn optimize_instructions_boolean_tree_if_nodes_are_unshared(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   use_def : @ir.HotUseDef,
   node_id : Int,
 ) -> Bool {
@@ -933,7 +933,7 @@ fn optimize_instructions_boolean_tree_if_nodes_are_unshared(
 ///|
 fn optimize_instructions_same_branch_shape(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
@@ -962,7 +962,7 @@ fn optimize_instructions_same_branch_shape(
 fn optimize_instructions_try_collapse_duplicate_then_branch(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   let then_region = @ir.hot_region_then_ref(func, node_id)
@@ -1087,7 +1087,7 @@ fn optimize_instructions_holder_flows_to_drop(
 ///|
 fn optimize_instructions_region_exits_to_label(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
   label_id : Int,
 ) -> Bool {
@@ -1106,7 +1106,7 @@ fn optimize_instructions_region_exits_to_label(
 ///|
 fn optimize_instructions_region_never_falls_through(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -1123,7 +1123,7 @@ fn optimize_instructions_region_never_falls_through(
 ///|
 fn optimize_instructions_node_never_falls_through(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -1158,7 +1158,7 @@ fn optimize_instructions_node_never_falls_through(
 ///|
 fn optimize_instructions_region_never_falls_through_to_label(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
   label_id : Int,
 ) -> Bool {
@@ -1177,7 +1177,7 @@ fn optimize_instructions_region_never_falls_through_to_label(
 ///|
 fn optimize_instructions_node_never_falls_through_to_label(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   label_id : Int,
 ) -> Bool {
@@ -1214,7 +1214,7 @@ fn optimize_instructions_node_never_falls_through_to_label(
 ///|
 fn optimize_instructions_node_exits_to_label(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   label_id : Int,
 ) -> Bool {
@@ -1251,7 +1251,7 @@ fn optimize_instructions_node_exits_to_label(
 ///|
 fn optimize_instructions_region_exits_only_via_branches(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -1268,7 +1268,7 @@ fn optimize_instructions_region_exits_only_via_branches(
 ///|
 fn optimize_instructions_node_exits_only_via_branches(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -1297,7 +1297,7 @@ fn optimize_instructions_node_exits_only_via_branches(
 ///|
 fn optimize_instructions_node_branches_to_label(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   label_id : Int,
 ) -> Bool {
@@ -1328,7 +1328,7 @@ fn optimize_instructions_node_branches_to_label(
 ///|
 fn optimize_instructions_region_branches_to_label(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
   label_id : Int,
 ) -> Bool {
@@ -1347,7 +1347,7 @@ fn optimize_instructions_region_branches_to_label(
 ///|
 fn optimize_instructions_node_exits_via_nonbranch_terminal(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -1387,7 +1387,7 @@ fn optimize_instructions_node_exits_via_nonbranch_terminal(
 ///|
 fn optimize_instructions_region_exits_via_nonbranch_terminal(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
 ) -> Bool {
   let root_count = @ir.hot_region_root_count(func, region_ref)
@@ -1413,7 +1413,7 @@ fn optimize_instructions_region_exits_via_nonbranch_terminal(
 fn optimize_instructions_try_collapse_dead_region_suffix(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   region_ref : @ir.HotRegionRef,
   label_id : Int,
 ) -> Bool {
@@ -1587,7 +1587,7 @@ fn optimize_instructions_reverse_relational_instr(
 fn optimize_instructions_try_canonicalize_relational_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
@@ -1616,7 +1616,7 @@ fn optimize_instructions_try_canonicalize_relational_const(
 fn optimize_instructions_try_canonicalize_relational_operands(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
@@ -1720,7 +1720,7 @@ fn optimize_instructions_try_canonicalize_relational_operands(
 fn optimize_instructions_try_canonicalize_compare_const(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
@@ -1954,7 +1954,7 @@ fn optimize_instructions_try_canonicalize_compare_const(
 fn optimize_instructions_try_optimize_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
@@ -2067,7 +2067,7 @@ fn optimize_instructions_try_optimize_if_condition(
 fn optimize_instructions_try_wrap_boolean_if_value_in_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if @ir.hot_node_result_arity(func, node_id) != 1 {
@@ -2144,7 +2144,7 @@ fn optimize_instructions_try_wrap_boolean_if_value_in_eqz(
 fn optimize_instructions_try_invert_nested_if_condition(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   cond_id : Int,
   then_region : Int,
@@ -2203,7 +2203,7 @@ fn optimize_instructions_try_invert_nested_if_condition(
 fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   cond_id : Int,
   else_region : Int,
@@ -2261,7 +2261,7 @@ fn optimize_instructions_try_negate_nested_if_condition_to_eqz(
 fn optimize_instructions_try_fold_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   operand_id : Int,
@@ -2388,7 +2388,7 @@ fn optimize_instructions_try_fold_eqz(
 fn optimize_instructions_try_fold_exact_const_binary(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
@@ -2436,7 +2436,7 @@ fn optimize_instructions_try_fold_exact_const_binary(
 fn optimize_instructions_try_rewrite_add_sub(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
@@ -2589,7 +2589,7 @@ fn optimize_instructions_try_rewrite_add_sub(
 fn optimize_instructions_try_rewrite_mul_shift(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
@@ -2635,7 +2635,7 @@ fn optimize_instructions_try_rewrite_mul_shift(
 fn optimize_instructions_try_rewrite_shift(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
@@ -2749,7 +2749,7 @@ fn optimize_instructions_try_rewrite_shift(
 fn optimize_instructions_try_fold_compare_zero(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
@@ -2818,7 +2818,7 @@ fn optimize_instructions_try_fold_compare_zero(
 ///|
 fn optimize_instructions_is_remainder_instr(
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -2844,7 +2844,7 @@ fn optimize_instructions_is_remainder_instr(
 fn optimize_instructions_try_rewrite_compare_eqz(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
@@ -2924,9 +2924,9 @@ fn optimize_instructions_try_rewrite_compare_eqz(
 fn optimize_instructions_visit_node(
   ctx : HotPassContext,
   func : @ir.HotFunc,
-  dead : Array[Bool],
+  dead : @bitset.BitSet,
   node_id : Int,
-  seen : Array[Bool],
+  seen : @bitset.BitSet,
   scratch : OptimizeInstructionsScratch,
 ) -> Bool {
   if !optimize_instructions_node_is_live(func, dead, node_id) {
@@ -3152,8 +3152,8 @@ fn optimize_instructions_run(
 ) -> HotPassResult {
   let mut changed = false
   let node_count = @ir.hot_node_count(func)
-  let seen = Array::make(node_count, false)
-  let dead = Array::make(node_count, false)
+  let seen = @bitset.BitSet::new(node_count)
+  let dead = @bitset.BitSet::new(node_count)
   let scratch = OptimizeInstructionsScratch::new(node_count)
   for free_id in func.free_nodes {
     if free_id >= 0 && free_id < dead.length() {

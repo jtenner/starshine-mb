@@ -1572,7 +1572,7 @@ fn run_hot_pipeline_raw_append_local_read(
   out : Array[@lib.Instruction],
   source_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
-  initialized_locals : Array[Bool],
+  initialized_locals : @bitset.BitSet,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   local_id : Int,
@@ -1647,7 +1647,7 @@ fn run_hot_pipeline_raw_append_alias_merge_copies(
   source_aliases : Array[@lib.LocalIdx],
   target_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
-  initialized_locals : Array[Bool],
+  initialized_locals : @bitset.BitSet,
   result_types : Array[@lib.ValType],
   params : Array[@lib.ValType],
   locals : @lib.Locals,
@@ -1687,7 +1687,7 @@ fn run_hot_pipeline_raw_append_alias_copies(
   source_aliases : Array[@lib.LocalIdx],
   target_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
-  initialized_locals : Array[Bool],
+  initialized_locals : @bitset.BitSet,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
 ) -> Unit {
@@ -1718,10 +1718,10 @@ fn run_hot_pipeline_raw_canonical_aliases(
 fn run_hot_pipeline_raw_initialized_locals(
   base_local_count : Int,
   param_count : Int,
-) -> Array[Bool] {
-  let initialized : Array[Bool] = []
+) -> @bitset.BitSet {
+  let initialized = @bitset.BitSet::new(base_local_count)
   for local_id = 0; local_id < base_local_count; local_id = local_id + 1 {
-    initialized.push(local_id < param_count)
+    initialized[local_id] = local_id < param_count
   }
   initialized
 }
@@ -1880,18 +1880,14 @@ fn run_hot_pipeline_raw_label_inc(label_idx : @lib.LabelIdx) -> @lib.LabelIdx {
 ///|
 fn run_hot_pipeline_raw_empty_exit_depths(
   label_stack : Array[RawSsaLabelTarget],
-) -> Array[Bool] {
-  let exit_depths : Array[Bool] = []
-  for _ in label_stack {
-    exit_depths.push(false)
-  }
-  exit_depths
+) -> @bitset.BitSet {
+  @bitset.BitSet::new(label_stack.length())
 }
 
 ///|
 fn run_hot_pipeline_raw_propagate_outer_exits(
-  exit_depths : Array[Bool],
-  nested_exit_depths : Array[Bool],
+  exit_depths : @bitset.BitSet,
+  nested_exit_depths : @bitset.BitSet,
 ) -> Unit {
   for depth = 1; depth < nested_exit_depths.length(); depth = depth + 1 {
     if nested_exit_depths[depth] {
@@ -1928,7 +1924,7 @@ fn run_hot_pipeline_raw_rewrite_br_if(
   label_target : RawSsaLabelTarget,
   source_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
-  initialized_locals : Array[Bool],
+  initialized_locals : @bitset.BitSet,
   params : Array[@lib.ValType],
   locals : @lib.Locals,
   extra_local_types : Array[@lib.ValType],
@@ -2001,15 +1997,15 @@ fn run_hot_pipeline_raw_rewrite_instrs(
   locals : @lib.Locals,
   local_aliases : Array[@lib.LocalIdx],
   canonical_aliases : Array[@lib.LocalIdx],
-  initialized_locals : Array[Bool],
+  initialized_locals : @bitset.BitSet,
   label_stack : Array[RawSsaLabelTarget],
   extra_local_types : Array[@lib.ValType],
 ) -> (
   Array[@lib.Instruction],
   Array[@lib.LocalIdx],
-  Array[Bool],
+  @bitset.BitSet,
   Bool,
-  Array[Bool],
+  @bitset.BitSet,
 )? {
   let rewritten : Array[@lib.Instruction] = []
   let mut aliases = local_aliases

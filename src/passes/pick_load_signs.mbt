@@ -567,11 +567,8 @@ fn pls_analyze_candidates(
   use_def : @ir.HotUseDef,
 ) -> PLSAnalysis {
   let usage_by_local = pls_make_usage_by_local(@ir.hot_local_count(func))
-  let seen_local : Array[Bool] = []
+  let seen_local = @bitset.BitSet::new(usage_by_local.length())
   let local_work_list : Array[Int] = []
-  for _ in 0..<usage_by_local.length() {
-    seen_local.push(false)
-  }
   let shift_ext_cache = pls_shift_ext_cache_make_empty(@ir.hot_node_count(func))
   for candidate in candidates {
     let local_idx = candidate.local_idx

@@ -159,7 +159,7 @@ fn effects_accumulate_node_cached(
   func : HotFunc,
   node_id : NodeId,
   node_masks : Array[EffectMask],
-  ready : Array[Bool],
+  ready : @bitset.BitSet,
 ) -> EffectMask {
   if ready[node_id] {
     return node_masks[node_id]
@@ -182,7 +182,7 @@ fn effects_accumulate_node_cached(
 ///|
 fn effects_build_node_masks(func : HotFunc) -> Array[EffectMask] {
   let node_masks = Array::make(hot_node_count(func), 0U)
-  let ready = Array::make(hot_node_count(func), false)
+  let ready = @bitset.BitSet::new(hot_node_count(func))
   for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
     if !hot_node_is_live(func, node_id) {
       continue
@@ -198,7 +198,7 @@ pub fn effects_for_node(func : HotFunc, node_id : NodeId) -> EffectMask {
     func,
     node_id,
     Array::make(hot_node_count(func), 0U),
-    Array::make(hot_node_count(func), false),
+    @bitset.BitSet::new(hot_node_count(func)),
   )
 }
 

@@ -23,9 +23,9 @@ pub fn heap_store_optimization_summary() -> String {
 ///|
 priv struct HsoPredicateCache {
   readonly_revision : Array[Int]
-  readonly_result : Array[Bool]
+  readonly_result : @bitset.BitSet
   skip_revision : Array[Int]
-  skip_result : Array[Bool]
+  skip_result : @bitset.BitSet
 }
 
 ///|
@@ -37,9 +37,9 @@ priv struct HsoTypeCache {
 fn hso_new_predicate_cache(func : @ir.HotFunc) -> HsoPredicateCache {
   {
     readonly_revision: Array::make(@ir.hot_node_count(func), -1),
-    readonly_result: Array::make(@ir.hot_node_count(func), false),
+    readonly_result: @bitset.BitSet::new(@ir.hot_node_count(func)),
     skip_revision: Array::make(@ir.hot_node_count(func), -1),
-    skip_result: Array::make(@ir.hot_node_count(func), false),
+    skip_result: @bitset.BitSet::new(@ir.hot_node_count(func)),
   }
 }
 
@@ -55,10 +55,10 @@ fn hso_ensure_predicate_cache_capacity(
 ) -> Unit {
   while cache.readonly_revision.length() <= node_id {
     cache.readonly_revision.push(-1)
-    cache.readonly_result.push(false)
     cache.skip_revision.push(-1)
-    cache.skip_result.push(false)
   }
+  cache.readonly_result.grow(cache.readonly_revision.length())
+  cache.skip_result.grow(cache.skip_revision.length())
 }
 
 ///|

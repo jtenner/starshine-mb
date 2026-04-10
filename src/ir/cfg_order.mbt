@@ -9,7 +9,7 @@ fn cfg_order_is_traversable_edge(
 ///|
 fn cfg_order_push_root(
   stack : Array[(BlockId, Bool)],
-  visited : Array[Bool],
+  visited : @bitset.BitSet,
   block_id : BlockId,
 ) -> Unit {
   if block_id < 0 || block_id >= visited.length() || visited[block_id] {
@@ -25,7 +25,7 @@ fn cfg_order_postorder_from_roots(
   reverse? : Bool = false,
   include_exceptional? : Bool = false,
 ) -> Array[BlockId] {
-  let visited = Array::make(cfg_block_count(cfg), false)
+  let visited = @bitset.BitSet::new(cfg_block_count(cfg))
   let stack : Array[(BlockId, Bool)] = []
   let postorder : Array[BlockId] = []
   for idx = roots.length() - 1; idx >= 0; idx = idx - 1 {

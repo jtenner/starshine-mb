@@ -206,7 +206,7 @@ fn gsi_merge_field_values(
 ///|
 fn gsi_mark_type_subtypes(
   env : @validate.Env,
-  has_subtypes : Array[Bool],
+  has_subtypes : @bitset.BitSet,
 ) -> Unit {
   for subtype_idx = 0
       subtype_idx < env.global_types.length()
@@ -223,8 +223,8 @@ fn gsi_mark_type_subtypes(
 ///|
 fn gsi_scan_struct_allocations(
   instrs : Array[@lib.Instruction],
-  candidate_types : Array[Bool],
-  blocked_types : Array[Bool],
+  candidate_types : @bitset.BitSet,
+  blocked_types : @bitset.BitSet,
   ignored_top_level_slot? : Int = -1,
 ) -> Unit {
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
@@ -304,7 +304,7 @@ fn gsi_packed_expr(expr : @lib.Expr, bits : Int, signed : Bool) -> @lib.Expr? {
 fn gsi_folded_field_expr(
   fields_by_type : Array[Array[@lib.FieldType]?],
   values_by_type : Array[Array[@lib.Expr?]?],
-  blocked_types : Array[Bool],
+  blocked_types : @bitset.BitSet,
   type_idx : @lib.TypeIdx,
   field_idx : @lib.U32,
   signed : Bool,
@@ -355,7 +355,7 @@ fn gsi_folded_field_expr(
 ///|
 fn gsi_folded_field_result_type(
   fields_by_type : Array[Array[@lib.FieldType]?],
-  blocked_types : Array[Bool],
+  blocked_types : @bitset.BitSet,
   type_idx : @lib.TypeIdx,
   field_idx : @lib.U32,
   signed : Bool,

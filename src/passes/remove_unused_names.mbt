@@ -40,8 +40,8 @@ fn remove_unused_names_same_control_block_type(
 }
 
 ///|
-fn remove_unused_names_compute_label_used(func : @ir.HotFunc) -> Array[Bool] {
-  let label_used = Array::make(func.labels.length(), false)
+fn remove_unused_names_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
+  let label_used = @bitset.BitSet::new(func.labels.length())
   let mark_label = fn(label_id : Int) {
     if label_id >= 0 && label_id < label_used.length() {
       label_used[label_id] = true
@@ -87,7 +87,7 @@ fn remove_unused_names_compute_label_used(func : @ir.HotFunc) -> Array[Bool] {
 ///|
 fn remove_unused_names_label_is_used(
   label_id : Int,
-  label_used : Array[Bool],
+  label_used : @bitset.BitSet,
 ) -> Bool {
   label_id >= 0 && label_id < label_used.length() && label_used[label_id]
 }
@@ -96,7 +96,7 @@ fn remove_unused_names_label_is_used(
 fn remove_unused_names_any_removed_label_used(
   func : @ir.HotFunc,
   removed_ids : Array[Int],
-  label_used : Array[Bool],
+  label_used : @bitset.BitSet,
 ) -> Bool {
   for removed_id in removed_ids {
     if remove_unused_names_label_is_used(
@@ -203,7 +203,7 @@ fn remove_unused_names_has_candidate(func : @ir.HotFunc) -> Bool {
 fn remove_unused_names_visit_region(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
-  label_used : Array[Bool],
+  label_used : @bitset.BitSet,
   removed_ids : Array[Int],
   peeled_roots : Array[Int],
 ) -> Bool {
@@ -242,7 +242,7 @@ fn remove_unused_names_visit_control_node(
   func : @ir.HotFunc,
   node_id : Int,
   node : @ir.HotNode,
-  label_used : Array[Bool],
+  label_used : @bitset.BitSet,
   removed_ids : Array[Int],
   peeled_roots : Array[Int],
 ) -> Bool {

@@ -2413,7 +2413,7 @@ fn dfe_rewrite_module_type_idxs(
   mod_ : @lib.Module,
   remap : Map[UInt, UInt],
   perf? : HotPerfSession? = None,
-  code_rewrite_flags? : Array[Bool]? = None,
+  code_rewrite_flags? : @bitset.BitSet? = None,
 ) -> @lib.Module {
   let mut rewritten = mod_
   match mod_.type_sec {
@@ -3052,7 +3052,7 @@ fn dfe_trace_opt(perf : HotPerfSession?, msg : String) -> Unit {
 ///|
 priv struct DfeIterationResult {
   mod_ : @lib.Module
-  kept_type_rewrite_flags : Array[Bool]
+  kept_type_rewrite_flags : @bitset.BitSet
 }
 
 ///|
@@ -3241,7 +3241,7 @@ fn dfe_canonical_local_idx(replacements : Array[Int], local_idx : Int) -> Int {
 fn dfe_canonicalize_duplicate_simple_type_indices(
   mod_ : @lib.Module,
   perf? : HotPerfSession? = None,
-  code_rewrite_flags? : Array[Bool]? = None,
+  code_rewrite_flags? : @bitset.BitSet? = None,
 ) -> @lib.Module {
   match mod_.type_sec {
     Some(@lib.TypeSec(rec_types)) => {
@@ -3331,19 +3331,18 @@ fn dfe_iteration(
       let annotations_by_abs_idx = dfe_func_annotation_map(mod_)
       let normalize_timer = dfe_perf_start_timer_opt(perf, "normalize-funcs")
       let mut normalized_rewrite_count = 0
-      let normalized_mentions_type_idxs : Array[Bool] = Array::new(
-        capacity=funcs.length(),
-      )
+      let normalized_mentions_type_idxs = @bitset.BitSet::new(funcs.length())
       let normalized_funcs : Array[@lib.Func] = if type_canon.length() == 0 {
-        for _ in funcs {
-          normalized_mentions_type_idxs.push(false)
+        for idx = 0; idx < funcs.length(); idx = idx + 1 {
+          normalized_mentions_type_idxs[idx] = false
         }
         funcs
       } else {
         let rewritten : Array[@lib.Func] = Array::new(capacity=funcs.length())
-        for func in funcs {
+        for idx = 0; idx < funcs.length(); idx = idx + 1 {
+          let func = funcs[idx]
           let scan = dfe_scan_rewrite_func_type_idxs(func, type_canon)
-          normalized_mentions_type_idxs.push(scan.mentions_type_idxs)
+          normalized_mentions_type_idxs[idx] = scan.mentions_type_idxs
           match scan.rewritten {
             Some(next) => {
               normalized_rewrite_count += 1
@@ -3502,9 +3501,7 @@ fn dfe_iteration(
       let rebuild_timer = dfe_perf_start_timer_opt(perf, "rebuild")
       let kept_types : Array[@lib.TypeIdx] = Array::new(capacity=funcs.length())
       let kept_funcs : Array[@lib.Func] = Array::new(capacity=funcs.length())
-      let kept_type_rewrite_flags : Array[Bool] = Array::new(
-        capacity=funcs.length(),
-      )
+      let kept_type_rewrite_flags = @bitset.BitSet::new(0)
       let track_kept_type_rewrite_flags = type_canon.length() != 0
       let kept_abs : Array[Int] = Array::make(funcs.length(), -1)
       let kept_timer = dfe_perf_start_timer_opt(perf, "rebuild:kept")
@@ -3515,9 +3512,10 @@ fn dfe_iteration(
           kept_abs[idx] = next_abs.reinterpret_as_int()
           kept_types.push(type_idxs[idx])
           kept_funcs.push(normalized_funcs[idx])
-          kept_type_rewrite_flags.push(
-            track_kept_type_rewrite_flags && normalized_mentions_type_idxs[idx],
-          )
+          let kept_idx = kept_funcs.length() - 1
+          kept_type_rewrite_flags.grow(kept_idx + 1)
+          kept_type_rewrite_flags[kept_idx] =
+            track_kept_type_rewrite_flags && normalized_mentions_type_idxs[idx]
           next_abs += 1U
         }
         idx += 1

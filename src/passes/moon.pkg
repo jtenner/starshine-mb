@@ -1,5 +1,6 @@
 import {
   "jtenner/starshine/binary",
+  "jtenner/starshine/bitset" @bitset,
   "jtenner/starshine/fs" @sfs,
   "jtenner/starshine/ir",
   "jtenner/starshine/lib",

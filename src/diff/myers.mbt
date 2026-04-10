@@ -59,16 +59,13 @@ pub fn DiffChange::new(
 ///|
 priv struct MyersContext {
   codes : Array[Int]
-  modified : Array[Bool]
+  modified : @bitset.BitSet
   parts : Array[String]
 }
 
 ///|
 fn MyersContext::new(codes : Array[Int], parts : Array[String]) -> MyersContext {
-  let modified : Array[Bool] = []
-  for _ in 0..<codes.length() {
-    modified.push(false)
-  }
+  let modified = @bitset.BitSet::new(codes.length())
   { codes, modified, parts }
 }
 

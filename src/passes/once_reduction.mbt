@@ -36,12 +36,8 @@ fn or_imported_global_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
-fn or_bool_array_copy(values : Array[Bool]) -> Array[Bool] {
-  let copied = Array::make(values.length(), false)
-  for i = 0; i < values.length(); i = i + 1 {
-    copied[i] = values[i]
-  }
-  copied
+fn or_bool_array_copy(values : @bitset.BitSet) -> @bitset.BitSet {
+  values.copy()
 }
 
 ///|
@@ -54,7 +50,7 @@ fn or_min_int(left : Int, right : Int) -> Int {
 }
 
 ///|
-fn or_bool_array_equal(left : Array[Bool], right : Array[Bool]) -> Bool {
+fn or_bool_array_equal(left : @bitset.BitSet, right : @bitset.BitSet) -> Bool {
   if left.length() != right.length() {
     return false
   }
@@ -67,7 +63,7 @@ fn or_bool_array_equal(left : Array[Bool], right : Array[Bool]) -> Bool {
 }
 
 ///|
-fn or_bool_array_union_into(target : Array[Bool], source : Array[Bool]) -> Unit {
+fn or_bool_array_union_into(target : @bitset.BitSet, source : @bitset.BitSet) -> Unit {
   let limit = or_min_int(target.length(), source.length())
   for i = 0; i < limit; i = i + 1 {
     if source[i] {
@@ -78,11 +74,11 @@ fn or_bool_array_union_into(target : Array[Bool], source : Array[Bool]) -> Unit 
 
 ///|
 fn or_bool_array_intersection(
-  left : Array[Bool],
-  right : Array[Bool],
-) -> Array[Bool] {
+  left : @bitset.BitSet,
+  right : @bitset.BitSet,
+) -> @bitset.BitSet {
   let limit = or_min_int(left.length(), right.length())
-  let out = Array::make(limit, false)
+  let out = @bitset.BitSet::new(limit)
   for i = 0; i < limit; i = i + 1 {
     out[i] = left[i] && right[i]
   }
@@ -93,8 +89,8 @@ fn or_bool_array_intersection(
 fn or_initial_func_set(
   total_once_globals : Int,
   once_global_slot : Int,
-) -> Array[Bool] {
-  let globals = Array::make(total_once_globals, false)
+) -> @bitset.BitSet {
+  let globals = @bitset.BitSet::new(total_once_globals)
   if once_global_slot >= 0 && once_global_slot < total_once_globals {
     globals[once_global_slot] = true
   }
@@ -239,11 +235,11 @@ fn or_scan_instrs(
 ///|
 fn or_analyze_instrs(
   instrs : Array[@lib.Instruction],
-  incoming : Array[Bool],
+  incoming : @bitset.BitSet,
   once_global_slots : Array[Int],
   once_func_slots : Array[Int],
-  func_once_sets : Array[Array[Bool]],
-) -> Array[Bool] {
+  func_once_sets : Array[@bitset.BitSet],
+) -> @bitset.BitSet {
   let current = or_bool_array_copy(incoming)
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -299,11 +295,11 @@ fn or_analyze_instrs(
 ///|
 fn or_rewrite_instrs(
   instrs : Array[@lib.Instruction],
-  incoming : Array[Bool],
+  incoming : @bitset.BitSet,
   once_global_slots : Array[Int],
   once_func_slots : Array[Int],
-  func_once_sets : Array[Array[Bool]],
-) -> Array[Bool] {
+  func_once_sets : Array[@bitset.BitSet],
+) -> @bitset.BitSet {
   let current = or_bool_array_copy(incoming)
   for idx = 0; idx < instrs.length(); idx = idx + 1 {
     match instrs[idx] {
@@ -401,7 +397,7 @@ fn or_optimize_once_bodies(
   imported_func_count : Int,
   once_func_globals : Array[Int],
 ) -> Bool {
-  let removed_exit_logic = Array::make(once_func_globals.length(), false)
+  let removed_exit_logic = @bitset.BitSet::new(once_func_globals.length())
   let mut changed = false
   for defined_idx = 0
       defined_idx < funcs.length()
@@ -461,7 +457,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     None => return mod_
   }
 
-  let exported_globals = Array::make(total_globals, false)
+  let exported_globals = @bitset.BitSet::new(total_globals)
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) =>
       for export_ in exports {
@@ -493,7 +489,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
   }
 
   let once_func_globals = Array::make(total_funcs, -1)
-  let func_needs_dataflow = Array::make(funcs.length(), false)
+  let func_needs_dataflow = @bitset.BitSet::new(funcs.length())
   let read_counts = Array::make(candidate_global_count, 0)
   for defined_idx = 0
       defined_idx < funcs.length()
@@ -550,7 +546,7 @@ pub fn once_reduction_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     return mod_
   }
 
-  let func_once_sets : Array[Array[Bool]] = []
+  let func_once_sets : Array[@bitset.BitSet] = []
   for func_idx = 0; func_idx < total_funcs; func_idx = func_idx + 1 {
     func_once_sets.push(
       or_initial_func_set(active_global_count, once_func_slots[func_idx]),

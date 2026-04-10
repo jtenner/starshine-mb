@@ -1,4 +1,5 @@
 import {
+  "jtenner/starshine/bitset" @bitset,
   "jtenner/starshine/lib",
   "moonbitlang/core/quickcheck/splitmix",
 }
