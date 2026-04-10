@@ -2,6 +2,7 @@
 target
 .mooncakes/
 .moonagent/
+.codex
 _build
 uncovered.log
 trace.json

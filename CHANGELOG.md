@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-09 Docs: ingest four more IR2 wiki notes
+
+- **IR2 policy + workflow wiki batch** by **@jtenner**. Updated [`.gitignore`](./.gitignore), [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md), and added [`docs/wiki/ir2/registry-map.md`](./docs/wiki/ir2/registry-map.md), [`docs/wiki/ir2/pass-porting-checklist.md`](./docs/wiki/ir2/pass-porting-checklist.md), [`docs/wiki/ir2/local-ssa-policy.md`](./docs/wiki/ir2/local-ssa-policy.md), and [`docs/wiki/ir2/cfg-contract.md`](./docs/wiki/ir2/cfg-contract.md) to crystallize docs `0063` through `0060` into living IR2 pages. This change also ignores the mounted `.codex` artifact so it stops polluting status output.
+
 ## 2026-04-09 Docs: ingest Binaryen pathway and IR2 wiki notes
 
 - **Binaryen pathway + IR2 wiki batch** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md), and added [`docs/wiki/binaryen/passes/duplicate-function-elimination/parity.md`](./docs/wiki/binaryen/passes/duplicate-function-elimination/parity.md), [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md`](./docs/wiki/binaryen/no-dwarf-default-optimize-path.md), [`docs/wiki/ir2/execution-plan.md`](./docs/wiki/ir2/execution-plan.md), and [`docs/wiki/ir2/test-matrix.md`](./docs/wiki/ir2/test-matrix.md) to crystallize the next four recent research docs into living Binaryen and IR2 wiki pages with code and test backlinks.
