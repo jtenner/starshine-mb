@@ -1680,6 +1680,36 @@ test "code-pushing does not rewrite past a nested branch that only appears in an
 }
 
 ///|
+test "code-pushing does not sink into a nested if when the local is still read after the enclosing block" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (local i32)
+    #|    (block
+    #|      (i32.const 7)
+    #|      (local.set 1)
+    #|      (local.get 0)
+    #|      (if
+    #|        (then
+    #|          (drop (local.get 1)))))
+    #|    (local.get 1)))
+    #|)
+  let func = code_pushing_test_run_hot(source)
+  let block_id = @ir.hot_root_get(func, 0)
+
+  assert_eq(code_pushing_test_node_tag(func, block_id), "Block")
+  assert_eq(
+    code_pushing_test_region_tags(func, @ir.hot_region_body_ref(func, block_id)),
+    ["LocalSet(1)", "If"],
+  )
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing rewrites past an earlier explicit-exit local.set if carrier" {
   let source =
     #|(module

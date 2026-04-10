@@ -100,6 +100,14 @@ related:
   lower/writeback.
   That makes the next performance target much sharper than it was on the older
   four-function safe branch.
+- The newer nested-block outer-read bailout did not materially change the live
+  runtime picture.
+  The refreshed direct compare at
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-4176613` still
+  takes `4135.998 ms` in Starshine's pass vs `53.811 ms` in Binaryen, and the
+  refreshed serial trace at `/tmp/code-pushing-trace-20260410aa.log` still
+  shows the same two changed functions (`Func 148`, `Func 1948`) plus the same
+  huge unchanged hotspot `Func 3665` at about `3337746 us`.
 - The new same-tree correctness fix did not change that performance story much.
   The first live direct compare blocker moved later inside `Func 148`, but total
   runtime stayed in the same multi-second range, so the pass is still missing a

@@ -737,6 +737,17 @@
   `tests/node/dist/starshine-debug-wasi.wasm`, and `src/cmd/cmd_test.mbt` now
   pins both artifact facts directly: traced replay still rewrites `Func 1948`,
   and it no longer reports `skip-invalid-lower` for `Func 1977`.
+- One smaller Binaryen mismatch is now closed explicitly. A reduced nested-block
+  repro showed that Binaryen keeps a `local.set` outside a nested `if` when the
+  same local is still read after the enclosing block; Starshine used to sink
+  that set anyway because it only checked later reads inside the nested region.
+  `src/passes/code_pushing.mbt` now tracks ancestor-continuation reads through
+  cached region-parent links before treating a nested-region `local.set` as
+  pushable, the new regression in `src/passes/code_pushing_test.mbt` is green,
+  and the direct reduced WAT now matches Binaryen exactly. The refreshed
+  compare-pass lane `.tmp/pass-fuzz-code-pushing-genvalid-20260410aa` is also
+  `10000/10000` with `0` mismatches, validation failures, generator failures,
+  or command failures.
 - Traced serial replay is now tighter than the older writeback-validation
   checkpoint. On `/tmp/code-pushing-native-trace-20260410w.log`,
   `code-pushing` changes only `Func 148` and `Func 1948`, `Func 1977` stays
@@ -756,6 +767,15 @@
   about `125.0 ms` in `code-pushing` on the serial trace, so future
   performance work should stay focused on that now-smaller changed set instead
   of broad whole-module scans.
+- The reduced nested-block outer-read fix did not change the current artifact
+  frontier. Direct compare at
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-4176613` is still
+  canonically and normalized red with the first hunk at `44251`, and the newer
+  serial trace `/tmp/code-pushing-trace-20260410aa.log` still changes only
+  `Func 148` and `Func 1948` while spending most of its time in unchanged
+  `Func 3665` (`3337746 us`). The current run happened to come in a bit faster
+  at `4135.998 ms` vs Binaryen `53.811 ms`, but that is still far outside the
+  target bar and does not represent a frontier move by itself.
 - One more reduced lowering family is now closed, but the artifact frontier did
   not disappear with it. `src/ir/hot_lower.mbt` now rebases label depths when a
   parent-exit `br` is sunk into an `if` arm, and it keeps the original

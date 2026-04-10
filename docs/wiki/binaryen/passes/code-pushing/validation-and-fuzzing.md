@@ -145,6 +145,17 @@ bun scripts/self-optimize-compare.ts \
   - Binaryen no-pass writeback still does not converge within five roundtrips on
     this artifact, so direct whole-artifact WAT must still be interpreted with
     that boundary noise in mind
+  - a newer reduced regression now pins the Binaryen-matched nested-`if`
+    outer-read bailout directly: if a local is still read after the enclosing
+    block, Starshine no longer sinks the set into that nested arm
+  - the refreshed compare-pass lane
+    `.tmp/pass-fuzz-code-pushing-genvalid-20260410aa` is clean at
+    `10000/10000` with `0` mismatches, `0` validation failures, `0` generator
+    failures, and `0` command failures
+  - the refreshed whole-artifact compare at
+    `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-4176613` is
+    still red, which confirms that the reduced nested-block fix is real but not
+    the current debug-artifact frontier
 
 ## What Each Layer Catches Best
 

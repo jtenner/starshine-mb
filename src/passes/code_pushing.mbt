@@ -40,6 +40,8 @@ priv struct CpSummaryCache {
   explicit_exit_values : Array[Bool]
   dropped_region_owner_values : Array[Int]
   region_last_local_read_root_idxs : Array[Array[Int]?]
+  region_parent_holders : Array[Int]
+  region_parent_root_idxs : Array[Int]
   pushable_local_ready : Array[Bool]
   pushable_local_values : Array[Int]
   trivial_dead_move_gap_ready : Array[Bool]
@@ -261,6 +263,14 @@ fn cp_new_summary_cache(
         func,
       )
   }
+  let region_parent_holders = Array::make(node_count + 1, -1)
+  let region_parent_root_idxs = Array::make(node_count + 1, -1)
+  cp_collect_region_parent_links(
+    func,
+    @ir.HotRegionRef::root(),
+    region_parent_holders,
+    region_parent_root_idxs,
+  )
   let ready = Array::make(node_count, false)
   let summaries = Array::make(node_count, cp_empty_effect_summary(0, 0))
   {
@@ -275,6 +285,8 @@ fn cp_new_summary_cache(
     explicit_exit_values: Array::make(node_count, false),
     dropped_region_owner_values: static_scan.dropped_region_owner_values,
     region_last_local_read_root_idxs: Array::make(node_count + 1, None),
+    region_parent_holders,
+    region_parent_root_idxs,
     pushable_local_ready: Array::make(node_count, false),
     pushable_local_values: Array::make(node_count, -1),
     trivial_dead_move_gap_ready: Array::make(node_count, false),
@@ -918,7 +930,14 @@ fn cp_region_roots_view(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
 ) -> CpRegionRootsView {
-  let holder_id = region_ref.holder
+  cp_region_roots_view_from_holder(func, region_ref.holder)
+}
+
+///|
+fn cp_region_roots_view_from_holder(
+  func : @ir.HotFunc,
+  holder_id : Int,
+) -> CpRegionRootsView {
   if holder_id < 0 {
     return { root_count: func.roots.length(), base: 0, uses_func_roots: true }
   }
@@ -948,6 +967,87 @@ fn cp_region_root_get(
     func.roots[idx]
   } else {
     func.children[roots.base + idx]
+  }
+}
+
+///|
+fn cp_collect_region_parent_links_under_root(
+  func : @ir.HotFunc,
+  root_id : Int,
+  parent_region_ref : @ir.HotRegionRef,
+  parent_root_idx : Int,
+  region_parent_holders : Array[Int],
+  region_parent_root_idxs : Array[Int],
+) -> Unit {
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return
+  }
+  let note_child_region = fn(child_region_ref : @ir.HotRegionRef) {
+    let slot = child_region_ref.holder + 1
+    if slot <= 0 || slot >= region_parent_holders.length() {
+      return
+    }
+    region_parent_holders[slot] = parent_region_ref.holder
+    region_parent_root_idxs[slot] = parent_root_idx
+    cp_collect_region_parent_links(
+      func, child_region_ref, region_parent_holders, region_parent_root_idxs,
+    )
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Drop =>
+      if @ir.hot_child_count(func, root_id) != 0 {
+        cp_collect_region_parent_links_under_root(
+          func,
+          @ir.hot_child_get(func, root_id, 0),
+          parent_region_ref,
+          parent_root_idx,
+          region_parent_holders,
+          region_parent_root_idxs,
+        )
+      }
+    @ir.HotOp::Block | @ir.HotOp::Loop =>
+      note_child_region(@ir.hot_region_body_ref(func, root_id))
+    @ir.HotOp::If => {
+      note_child_region(@ir.hot_region_then_ref(func, root_id))
+      match @ir.hot_region_else_ref(func, root_id) {
+        Some(else_ref) => note_child_region(else_ref)
+        None => ()
+      }
+    }
+    @ir.HotOp::Try => {
+      note_child_region(@ir.hot_region_body_ref(func, root_id))
+      match @ir.hot_region_catch_ref(func, root_id) {
+        Some(catch_ref) => note_child_region(catch_ref)
+        None => ()
+      }
+    }
+    @ir.HotOp::TryTable => {
+      note_child_region(@ir.hot_region_body_ref(func, root_id))
+      note_child_region(@ir.hot_region_catch_list_ref(func, root_id))
+    }
+    _ => ()
+  }
+}
+
+///|
+fn cp_collect_region_parent_links(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  region_parent_holders : Array[Int],
+  region_parent_root_idxs : Array[Int],
+) -> Unit {
+  let roots_view = cp_region_roots_view(func, region_ref)
+  let mut idx = 0
+  while idx < roots_view.root_count {
+    cp_collect_region_parent_links_under_root(
+      func,
+      cp_region_root_get(func, roots_view, idx),
+      region_ref,
+      idx,
+      region_parent_holders,
+      region_parent_root_idxs,
+    )
+    idx = idx + 1
   }
 }
 
@@ -2153,6 +2253,7 @@ fn cp_root_pushable_local(
   infos : Array[CpLocalInfo],
   cache : CpSummaryCache,
   func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
   root_id : Int,
 ) -> Int? {
   if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
@@ -2175,6 +2276,18 @@ fn cp_root_pushable_local(
     }
   }
   if node.imm0 < 0 || node.imm0 >= infos.length() || !infos[node.imm0].sfa {
+    if root_id < cache.pushable_local_ready.length() {
+      cache.pushable_local_ready[root_id] = true
+      cache.pushable_local_values[root_id] = -1
+    }
+    return None
+  }
+  if cp_region_has_later_local_read_in_ancestor_continuations(
+      cache,
+      func,
+      region_ref,
+      node.imm0,
+    ) {
     if root_id < cache.pushable_local_ready.length() {
       cache.pushable_local_ready[root_id] = true
       cache.pushable_local_values[root_id] = -1
@@ -2258,13 +2371,13 @@ fn cp_drop_carrier_nested_block_body(
 }
 
 ///|
-fn cp_region_last_local_read_root_idxs(
+fn cp_region_last_local_read_root_idxs_for_holder(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
+  holder_id : Int,
 ) -> Array[Int] {
-  let roots_view = cp_region_roots_view(func, region_ref)
-  let cache_slot = region_ref.holder + 1
+  let roots_view = cp_region_roots_view_from_holder(func, holder_id)
+  let cache_slot = holder_id + 1
   if cache_slot >= 0 &&
     cache_slot < cache.region_last_local_read_root_idxs.length() {
     match cache.region_last_local_read_root_idxs[cache_slot] {
@@ -2295,6 +2408,15 @@ fn cp_region_last_local_read_root_idxs(
 }
 
 ///|
+fn cp_region_last_local_read_root_idxs(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Array[Int] {
+  cp_region_last_local_read_root_idxs_for_holder(cache, func, region_ref.holder)
+}
+
+///|
 fn cp_region_reads_local(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
@@ -2312,12 +2434,31 @@ fn cp_region_reads_local(
   match cache.region_last_local_read_root_idxs[cache_slot] {
     Some(last_read_root_idxs) => last_read_root_idxs[local_id] >= 0
     None => {
-      let last_read_root_idxs = cp_region_last_local_read_root_idxs(
-        cache, func, region_ref,
+      let last_read_root_idxs = cp_region_last_local_read_root_idxs_for_holder(
+        cache,
+        func,
+        region_ref.holder,
       )
       last_read_root_idxs[local_id] >= 0
     }
   }
+}
+
+///|
+fn cp_region_reads_local_after_holder_index(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  holder_id : Int,
+  start_idx : Int,
+  local_id : Int,
+) -> Bool {
+  if local_id < 0 || local_id >= cache.local_count {
+    return false
+  }
+  let last_read_root_idxs = cp_region_last_local_read_root_idxs_for_holder(
+    cache, func, holder_id,
+  )
+  last_read_root_idxs[local_id] >= start_idx
 }
 
 ///|
@@ -2328,13 +2469,48 @@ fn cp_region_reads_local_after_index(
   start_idx : Int,
   local_id : Int,
 ) -> Bool {
+  cp_region_reads_local_after_holder_index(
+    cache,
+    func,
+    region_ref.holder,
+    start_idx,
+    local_id,
+  )
+}
+
+///|
+fn cp_region_has_later_local_read_in_ancestor_continuations(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  local_id : Int,
+) -> Bool {
   if local_id < 0 || local_id >= cache.local_count {
     return false
   }
-  let last_read_root_idxs = cp_region_last_local_read_root_idxs(
-    cache, func, region_ref,
-  )
-  last_read_root_idxs[local_id] >= start_idx
+  let mut current_holder = region_ref.holder
+  while current_holder >= 0 {
+    let slot = current_holder + 1
+    if slot <= 0 || slot >= cache.region_parent_holders.length() {
+      return false
+    }
+    let parent_root_idx = cache.region_parent_root_idxs[slot]
+    if parent_root_idx < 0 {
+      return false
+    }
+    let parent_holder = cache.region_parent_holders[slot]
+    if cp_region_reads_local_after_holder_index(
+        cache,
+        func,
+        parent_holder,
+        parent_root_idx + 1,
+        local_id,
+      ) {
+      return true
+    }
+    current_holder = parent_holder
+  }
+  false
 }
 
 ///|
@@ -2799,7 +2975,7 @@ fn cp_try_sink_into_if(
   while scan >= 0 {
     let root_id = cp_region_root_get(func, roots_view, scan)
     let root_summary = cp_effect_summary_for_node(cache, func, root_id)
-    match cp_root_pushable_local(infos, cache, func, root_id) {
+    match cp_root_pushable_local(infos, cache, func, region_ref, root_id) {
       Some(local_id) => {
         let then_reads = cp_region_reads_local(cache, func, then_ref, local_id)
         let else_reads = match else_ref {
@@ -3195,7 +3371,7 @@ fn cp_try_push_to_pushpoint(
     let root_id = cp_region_root_get(func, roots_view, scan)
     let root_summary = cp_effect_summary_for_node(cache, func, root_id)
     let move_after_target = match
-      cp_root_pushable_local(infos, cache, func, root_id) {
+      cp_root_pushable_local(infos, cache, func, region_ref, root_id) {
       Some(local_id) => {
         let barrier_conflict = cp_summary_conflicts_with_barrier(
           root_summary, barrier,

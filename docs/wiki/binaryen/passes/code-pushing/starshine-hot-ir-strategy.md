@@ -69,6 +69,11 @@ related:
   Binaryen's weaker candidate rule, not to invent a stronger Starshine-only one.
 - `local.tee` counts as a set in this analysis, matching the Binaryen-style
   surface that the focused tests pin explicitly.
+- The kept implementation now also mirrors Binaryen's "no remaining uses after
+  the current block" rule in the rewrite gate itself.
+  If a nested region still has ancestor-continuation reads of the same local
+  after the enclosing block root, Starshine no longer treats that `local.set`
+  as pushable inside the nested region.
 
 ## Phase 2: Cheap Traversal Gating
 
@@ -128,6 +133,8 @@ related:
   - one arm reads the local
   - the opposite arm does not
   - later reads are either absent or only reachable through the target arm
+  - the local is also dead after the enclosing region boundary, not merely after
+    the nested `if` body
   - the move does not conflict with the condition or accumulated barrier
 - On success the old slot becomes `nop` and the set is prepended to the chosen
   arm with direct region mutation.

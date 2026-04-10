@@ -95,6 +95,10 @@ related:
 ## Current Signoff Gap
 
 - Whole-artifact parity is still open.
+- One smaller stable Binaryen mismatch is now closed.
+  Binaryen leaves a nested-block `local.set` in place when the same local is
+  still read after the enclosing block, and Starshine now matches that behavior
+  instead of sinking the set into the inner `if` arm.
 - The current direct debug-artifact path is valid again, but still not close to
   Binaryen parity.
 - Native `--code-pushing` output on `tests/node/dist/starshine-debug-wasi.wasm`
@@ -135,6 +139,12 @@ related:
   remaining whole-artifact gap is still mixed with Binaryen's multivalue /
   local writeback behavior, so reduced pass or HOT proofs still matter more than
   raw WAT shape alone.
+- The new reduced parity fix did not move that artifact frontier.
+  The refreshed direct compare at
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-4176613` is still
+  canonically and normalized red at the same `44251` / `44254` local and tuple
+  materialization family, even though the reduced nested-`if` outer-read case
+  now matches Binaryen exactly.
 
 ## Scope Boundaries That Are Still Deliberate
 

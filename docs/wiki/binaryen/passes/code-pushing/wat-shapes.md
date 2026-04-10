@@ -381,6 +381,9 @@ Why this transforms:
   arms.
 - If there is a later read after the `if` and the opposite arm can still fall
   through, one-arm sinking is blocked.
+- If the local is still read after the enclosing block that contains the nested
+  `if`, the pass also blocks the sink even when that nested block has no later
+  same-region read after the `if`.
 - Reads or writes in the `if` condition itself can block both sinking and
   reordering.
 - Result-producing `if` roots are currently not sink targets in Starshine.

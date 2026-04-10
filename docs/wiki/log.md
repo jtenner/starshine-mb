@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-10] maintain | close the reduced nested-block code-pushing outer-read mismatch
+
+- Recorded the new Binaryen-matched bailout: when a nested block still has an outer read of the same local after the enclosing block, `code-pushing` must not sink the `local.set` into the inner `if` arm.
+- Recorded the implementation detail too: `src/passes/code_pushing.mbt` now caches region-parent links and checks ancestor-continuation reads before marking a nested-region `local.set` pushable.
+- Recorded the refreshed compare-pass lane `pass-fuzz-code-pushing-genvalid-20260410aa` at `10000/10000` with `0` mismatches, `0` validation failures, `0` generator failures, and `0` command failures.
+- Recorded that the whole-artifact frontier did not move: `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-4176613` is still canonically and normalized red at the same `44251` / `44254` `func $127` local-materialization family, and the refreshed serial trace still changes only `Func 148` plus `Func 1948` while spending most time in unchanged `Func 3665`.
+
 ## [2026-04-10] maintain | fix the live-carried code-pushing parent-exit lowering family
 
 - Recorded the new lowering rule in `hot_lower`: when a parent-exit `br` is sunk into an `if` arm, its label depth must be rebased for the extra `if` label, and the voidification is now skipped when exactly one arm already has a nonfallthrough tail.
