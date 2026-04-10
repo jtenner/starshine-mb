@@ -1709,6 +1709,16 @@ test "hot lower avoids wrapping parent-exit payloads in extra result blocks" {
 }
 
 ///|
+test "hot lower debug chained nested exact copy constants" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (type (func (result i32 i32 i32))) (func (result i32) (local i32 i32 i32 i32 i32 i32) block block block (result i32) block (result i32 i32 i32) i32.const 1 i32.const 2 i32.const 3 end local.set 5 local.set 4 end local.set 3 local.get 5 local.set 2 local.get 4 local.set 1 end local.get 3 local.set 0 end local.get 0))",
+  )
+  let lowered = ir_test_assert_verify_and_lower(fixture)
+  let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(0U))
+  fail(pretty)
+}
+
+///|
 test "hot lower does not reintroduce dead drops after non-fallthrough block exits" {
   let body = @lib.Expr::new([
     @lib.Instruction::block(

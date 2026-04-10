@@ -178,8 +178,8 @@ pub fn run_hot_pipeline_debug_dump_enabled(
   descriptor_name : String,
 ) -> Bool {
   options.trace_enabled &&
-  (descriptor_name == "vacuum" || descriptor_name == "dead-code-elimination") &&
-  (func_idx == @lib.FuncIdx::new(2941U) || func_idx == @lib.FuncIdx::new(2944U))
+  descriptor_name == "tuple-optimization" &&
+  func_idx == @lib.FuncIdx::new(3660U)
 }
 
 ///|
@@ -205,15 +205,16 @@ fn pass_manager_debug_dump_target_regions_visit(
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     let tag = pass_manager_debug_node_tag(func, node_id)
     roots.push(tag)
-    if tag.contains("(35)") ||
-      tag.contains("(36)") ||
-      tag.contains("(37)") ||
-      tag.contains("(38)") ||
-      tag.contains("(39)") ||
-      tag.contains("(40)") ||
-      tag.contains("(97)") ||
-      tag.contains("(98)") ||
-      tag.contains("(99)") {
+    if tag.contains("(363)") ||
+      tag.contains("(364)") ||
+      tag.contains("(365)") ||
+      tag.contains("(366)") ||
+      tag.contains("(367)") ||
+      tag.contains("(368)") ||
+      tag.contains("(369)") ||
+      tag.contains("(370)") ||
+      tag.contains("(371)") ||
+      tag.contains("(372)") {
       saw_target = true
     }
     match @ir.hot_node_get(func, node_id).op {
@@ -330,11 +331,45 @@ fn pass_manager_debug_dump_matching_nodes(
       continue
     }
     let tag = pass_manager_debug_node_tag(func, node_id)
-    if tag.contains("LocalSet(35)") ||
-      tag.contains("LocalSet(36)") ||
-      tag.contains("LocalSet(37)") {
+    if tag.contains("LocalSet(363)") ||
+      tag.contains("LocalSet(364)") ||
+      tag.contains("LocalSet(365)") ||
+      tag.contains("LocalSet(366)") ||
+      tag.contains("LocalSet(367)") ||
+      tag.contains("LocalSet(368)") ||
+      tag.contains("LocalSet(369)") ||
+      tag.contains("LocalSet(370)") ||
+      tag.contains("LocalSet(371)") ||
+      tag.contains("LocalSet(372)") ||
+      tag.contains("LocalTee(363)") ||
+      tag.contains("LocalTee(364)") ||
+      tag.contains("LocalTee(365)") ||
+      tag.contains("LocalTee(366)") ||
+      tag.contains("LocalTee(367)") ||
+      tag.contains("LocalTee(368)") ||
+      tag.contains("LocalTee(369)") ||
+      tag.contains("LocalTee(370)") ||
+      tag.contains("LocalTee(371)") ||
+      tag.contains("LocalTee(372)") {
       pass_manager_debug_dump_node(trace, func, use_def, stage, node_id)
     }
+  }
+}
+
+///|
+fn pass_manager_debug_dump_live_nodes(
+  trace : (String) -> Unit,
+  func : @ir.HotFunc,
+  stage : String,
+) -> Unit {
+  trace("debug[\{stage}]:roots \{@ir.hot_root_span(func)}")
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    trace(
+      "debug[\{stage}]:node \{node_id} \{@ir.hot_node_get(func, node_id)} children=\{@ir.hot_child_span(func, node_id)}",
+    )
   }
 }
 
@@ -3113,166 +3148,22 @@ fn run_hot_pipeline_func(
     }
   }
   if run_hot_pipeline_debug_dump_enabled(options, func_idx, descriptor.name) &&
-    func_idx == @lib.FuncIdx::new(2941U) {
+    func_idx == @lib.FuncIdx::new(3660U) {
     let use_def = @ir.use_def_build(func)
-    pass_manager_debug_dump_target_regions(
-      options.trace,
-      func,
-      "after-lift:\{descriptor.name}",
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
+    let analysis = tuple_optimization_analyze(func, use_def)
+    let rewrite_mask = tuple_optimization_build_group_rewrite_mask(
       func,
       use_def,
-      "after-lift:\{descriptor.name}",
-      581,
+      analysis.groups,
     )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      582,
+    (options.trace)(
+      "debug[after-lift:\{descriptor.name}]:group-count \{analysis.groups.length()} rewrite-mask=\{rewrite_mask}",
     )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1253,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1254,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1255,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1256,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1257,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1258,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1259,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1260,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1261,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1262,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1263,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1264,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1265,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1266,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1267,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1268,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1269,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1270,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-      1271,
-    )
-    pass_manager_debug_dump_matching_nodes(
-      options.trace,
-      func,
-      use_def,
-      "after-lift:\{descriptor.name}",
-    )
+    for group_id = 0; group_id < analysis.groups.length(); group_id = group_id + 1 {
+      (options.trace)(
+        "debug[after-lift:\{descriptor.name}]:group \{group_id} rewrite=\{rewrite_mask[group_id]} \{analysis.groups[group_id]}",
+      )
+    }
   }
   match options.perf {
     Some(perf) => {
@@ -3385,165 +3276,9 @@ fn run_hot_pipeline_func(
     }
   }
   if run_hot_pipeline_debug_dump_enabled(options, func_idx, descriptor.name) &&
-    func_idx == @lib.FuncIdx::new(2941U) {
-    let use_def = @ir.use_def_build(func)
-    pass_manager_debug_dump_target_regions(
-      options.trace,
-      func,
-      "after-pass:\{descriptor.name}",
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      581,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      582,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1253,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1254,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1255,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1256,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1257,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1258,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1259,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1260,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1261,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1262,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1263,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1264,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1265,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1266,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1267,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1268,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1269,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1270,
-    )
-    pass_manager_debug_dump_node(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
-      1271,
-    )
-    pass_manager_debug_dump_matching_nodes(
-      options.trace,
-      func,
-      use_def,
-      "after-pass:\{descriptor.name}",
+    func_idx == @lib.FuncIdx::new(3660U) {
+    (options.trace)(
+      "debug[after-pass:\{descriptor.name}]:core \{@ir.hot_debug_dump_core(func)}",
     )
   }
   match options.verify_policy {
