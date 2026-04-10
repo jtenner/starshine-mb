@@ -63,3 +63,21 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Moved the non-normative numbered docs out of root `docs/` into `docs/wiki/raw/research/`.
 - Repointed `agent-todo.md`, `CHANGELOG.md`, and the Binaryen wiki pages so live references and archived sources still resolve after the move.
 - Updated `docs/wiki/index.md` so the research archive rules are discoverable from the catalog.
+
+## [2026-04-09] ingest | crystallize IR2 and validator tooling docs into wiki pages
+
+- Added `ir2/architecture-rules.md` from `0059` as the living digest of the single-owned `HotFunc` contract, overlay model, and module-split rule.
+- Added `tooling/fuzz-runner.md` from `0003` as the standing workflow page for keeping heavy randomized work in `src/fuzz` with reproducible suite, profile, and seed entrypoints.
+- Added `tooling/tracing-playbook.md` from `0001` as the shared pass and validator trace contract for `key=value` logs, timing helpers, hotspot summaries, and indirect testing.
+- Added `validate/trace-benchmark-baseline.md` from `0010` as the committed baseline page for validator trace corpora, phase totals, helper totals, and hotspot interpretation.
+- Added `validate/fuzz-hardening.md` from `0058` as the current hardening plan for validator fuzz trust, generator breadth, diagnostic matching, and repro ergonomics.
+- Updated `docs/wiki/index.md` so the new IR2, tooling, and validator pages are discoverable from the catalog.
+
+## [2026-04-09] ingest | crystallize GC text, descriptor, and string docs into wiki pages
+
+- Added `wast/gc-type-authoring.md` from `0018`, `0019`, `0020`, and `0026` as the standing higher-level WAST rule page for GC type defs, `rec` groups, descriptor metadata, and flat type indexing.
+- Added `custom-descriptors/static-fixtures.md` from `0021` and `0032` as the harness-policy page for the native static `descriptors.wast` and `exact.wast` fixtures.
+- Added `custom-descriptors/ref-get-desc-fixture-path.md` from `0022` through `0028` as the full-stack compatibility page for `ref.get_desc`, legacy GC aliases, exact `ref.null`, bottom-null operands, and the mixed-runtime fixture path.
+- Added `custom-descriptors/exact-reference-equivalence.md` from `0029`, `0030`, and `0031` as the rule page for passive typed empty `elem` surface plus structural exact-reference matching for structs and functions.
+- Added `strings/string-const-surface.md` from `0052` as the living page for the public `string.const` surface, binary string-literal section, constant-expression rule, and IR payload handling.
+- Updated `docs/wiki/index.md` so the new WAST, custom-descriptor, and string pages are discoverable from the catalog.
