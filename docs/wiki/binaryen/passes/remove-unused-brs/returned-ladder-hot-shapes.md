@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-09
 sources:
-  - ../../../../0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
+  - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
 related:
   - ./parity.md
   - ../../../../../src/passes/remove_unused_brs_test.mbt
@@ -37,6 +37,6 @@ A representative lifted shape is:
 
 ## Sources
 
-- Numbered research doc: [`../../../../0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md`](../../../../0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md)
+- Archived research doc: [`../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md`](../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md)
 - Related pass page: [`./parity.md`](./parity.md)
 - Focused tests: [`../../../../../src/passes/remove_unused_brs_test.mbt`](../../../../../src/passes/remove_unused_brs_test.mbt)

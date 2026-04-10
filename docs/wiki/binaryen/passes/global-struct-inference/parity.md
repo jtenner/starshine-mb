@@ -3,7 +3,7 @@ kind: comparison
 status: supported
 last_reviewed: 2026-04-09
 sources:
-  - ../../../../0068-2026-03-25-global-struct-inference.md
+  - ../../../raw/research/0068-2026-03-25-global-struct-inference.md
 related:
   - ../../../../../src/passes/global_struct_inference.mbt
   - ../../../../../src/passes/global_struct_inference_test.mbt
@@ -45,6 +45,6 @@ The first safe Starshine slice is intentionally narrower than full Binaryen pari
 
 ## Sources
 
-- Numbered research doc: [`../../../../0068-2026-03-25-global-struct-inference.md`](../../../../0068-2026-03-25-global-struct-inference.md)
+- Archived research doc: [`../../../raw/research/0068-2026-03-25-global-struct-inference.md`](../../../raw/research/0068-2026-03-25-global-struct-inference.md)
 - Implementation: [`../../../../../src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt)
 - Focused tests: [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt)

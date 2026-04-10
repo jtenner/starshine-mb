@@ -3,7 +3,7 @@ kind: comparison
 status: supported
 last_reviewed: 2026-04-09
 sources:
-  - ../../../../0073-2026-04-02-reorder-locals-binaryen-comparison.md
+  - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
 related:
   - ./multivalue-call-scope.md
   - ../../../../../src/passes/reorder_locals.mbt
@@ -51,7 +51,7 @@ Use the Binaryen boundary controls when comparing this pass:
 
 ## Sources
 
-- Numbered research doc: [`../../../../0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../../0073-2026-04-02-reorder-locals-binaryen-comparison.md)
+- Archived research doc: [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
 - Scope decision: [`./multivalue-call-scope.md`](./multivalue-call-scope.md)
 - Implementation: [`../../../../../src/passes/reorder_locals.mbt`](../../../../../src/passes/reorder_locals.mbt)
 - CLI coverage: [`../../../../../src/cmd/cmd_test.mbt`](../../../../../src/cmd/cmd_test.mbt)

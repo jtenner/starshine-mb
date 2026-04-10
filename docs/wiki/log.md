@@ -55,3 +55,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added `ir2/local-ssa-policy.md` from `0061` as the current locals-only SSA policy page covering entry defs, overlay-only phis, rename policy, and predecessor-copy destruction.
 - Added `ir2/cfg-contract.md` from `0060` as the normative CFG boundary and explicit-edge policy page for `HotFunc`.
 - Updated `docs/wiki/index.md` so the new IR2 concept and decision pages are discoverable from the catalog.
+
+## [2026-04-09] organize | reserve root docs for normative material
+
+- Updated `AGENTS.md`, `docs/README.md`, and `docs/wiki/raw/README.md` so `docs/` is now the home for normative docs only, while numbered one-off investigations live under `docs/wiki/raw/research/`.
+- Added `docs/wiki/raw/research/README.md` to define the absorbed-research archive rules.
+- Moved the non-normative numbered docs out of root `docs/` into `docs/wiki/raw/research/`.
+- Repointed `agent-todo.md`, `CHANGELOG.md`, and the Binaryen wiki pages so live references and archived sources still resolve after the move.
+- Updated `docs/wiki/index.md` so the research archive rules are discoverable from the catalog.

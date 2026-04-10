@@ -3,7 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-09
 sources:
-  - ../../0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
+  - ../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
 related:
   - ../../../agent-todo.md
   - ../../../src/passes/optimize.mbt
@@ -49,6 +49,6 @@ related:
 
 ## Sources
 
-- Numbered research doc: [`../../0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](../../0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md)
+- Archived research doc: [`../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`](../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md)
 - Scheduler surface: [`../../../src/passes/optimize.mbt`](../../../src/passes/optimize.mbt)
 - Preset coverage: [`../../../src/passes/optimize_test.mbt`](../../../src/passes/optimize_test.mbt)

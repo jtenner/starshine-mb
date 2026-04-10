@@ -3,7 +3,7 @@ kind: comparison
 status: supported
 last_reviewed: 2026-04-09
 sources:
-  - ../../../../0069-2026-03-26-pick-load-signs.md
+  - ../../../raw/research/0069-2026-03-26-pick-load-signs.md
 related:
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pick_load_signs_test.mbt
@@ -42,7 +42,7 @@ Recognized usage evidence comes from:
 
 ## Sources
 
-- Numbered research doc: [`../../../../0069-2026-03-26-pick-load-signs.md`](../../../../0069-2026-03-26-pick-load-signs.md)
+- Archived research doc: [`../../../raw/research/0069-2026-03-26-pick-load-signs.md`](../../../raw/research/0069-2026-03-26-pick-load-signs.md)
 - Implementation: [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt)
 - Focused tests: [`../../../../../src/passes/pick_load_signs_test.mbt`](../../../../../src/passes/pick_load_signs_test.mbt)
 - CLI coverage: [`../../../../../src/cmd/cmd_test.mbt`](../../../../../src/cmd/cmd_test.mbt)

@@ -3,7 +3,7 @@ kind: comparison
 status: supported
 last_reviewed: 2026-04-09
 sources:
-  - ../../../../0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
+  - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
 related:
   - ./returned-ladder-hot-shapes.md
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -49,7 +49,7 @@ The oracle shape is:
 
 ## Sources
 
-- Numbered research doc: [`../../../../0070-2026-03-27-remove-unused-brs-binaryen-comparison.md`](../../../../0070-2026-03-27-remove-unused-brs-binaryen-comparison.md)
+- Archived research doc: [`../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md`](../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md)
 - HOT shape note: [`./returned-ladder-hot-shapes.md`](./returned-ladder-hot-shapes.md)
 - Implementation: [`../../../../../src/passes/remove_unused_brs.mbt`](../../../../../src/passes/remove_unused_brs.mbt)
 - Focused tests: [`../../../../../src/passes/remove_unused_brs_test.mbt`](../../../../../src/passes/remove_unused_brs_test.mbt)

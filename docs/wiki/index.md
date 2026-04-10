@@ -7,6 +7,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`../../AGENTS.md`](../../AGENTS.md) - Short operational contract for repo work and wiki maintenance.
 - [`../README.md`](../README.md) - Canonical docs and wiki schema for this repo.
 - [`raw/README.md`](raw/README.md) - Rules for committed raw sources.
+- [`raw/research/README.md`](raw/research/README.md) - Rules for the archived numbered research notes moved out of `docs/`.
 
 ## Concepts
 

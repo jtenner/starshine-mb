@@ -3,7 +3,7 @@ kind: comparison
 status: supported
 last_reviewed: 2026-04-09
 sources:
-  - ../../../../0075-2026-04-03-heap2local-binaryen-comparison.md
+  - ../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md
 related:
   - ../../../../../src/passes/heap2local.mbt
   - ../../../../../src/passes/heap2local_test.mbt
@@ -50,7 +50,7 @@ The current Starshine slice covers the full in-tree primary suite:
 
 ## Sources
 
-- Numbered research doc: [`../../../../0075-2026-04-03-heap2local-binaryen-comparison.md`](../../../../0075-2026-04-03-heap2local-binaryen-comparison.md)
+- Archived research doc: [`../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md`](../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md)
 - Implementation: [`../../../../../src/passes/heap2local.mbt`](../../../../../src/passes/heap2local.mbt)
 - Focused tests: [`../../../../../src/passes/heap2local_test.mbt`](../../../../../src/passes/heap2local_test.mbt)
 - Primary parity suite: [`../../../../../src/passes/heap2local_primary_test.mbt`](../../../../../src/passes/heap2local_primary_test.mbt)

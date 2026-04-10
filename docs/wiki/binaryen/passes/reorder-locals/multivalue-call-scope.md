@@ -3,8 +3,8 @@ kind: decision
 status: supported
 last_reviewed: 2026-04-09
 sources:
-  - ../../../../0074-2026-04-02-binaryen-multivalue-call-local-disparity.md
-  - ../../../../0073-2026-04-02-reorder-locals-binaryen-comparison.md
+  - ../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md
+  - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
 related:
   - ./parity.md
   - ../../../../../scripts/lib/self-optimize-compare-task.ts
@@ -43,5 +43,5 @@ related:
 
 ## Sources
 
-- Numbered research doc: [`../../../../0074-2026-04-02-binaryen-multivalue-call-local-disparity.md`](../../../../0074-2026-04-02-binaryen-multivalue-call-local-disparity.md)
+- Archived research doc: [`../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md`](../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md)
 - Related parity page: [`./parity.md`](./parity.md)

@@ -3,7 +3,7 @@ kind: comparison
 status: working
 last_reviewed: 2026-04-09
 sources:
-  - ../../../../0067-2026-03-24-duplicate-function-elimination.md
+  - ../../../raw/research/0067-2026-03-24-duplicate-function-elimination.md
 related:
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
@@ -66,6 +66,6 @@ related:
 
 ## Sources
 
-- Numbered research doc: [`../../../../0067-2026-03-24-duplicate-function-elimination.md`](../../../../0067-2026-03-24-duplicate-function-elimination.md)
+- Archived research doc: [`../../../raw/research/0067-2026-03-24-duplicate-function-elimination.md`](../../../raw/research/0067-2026-03-24-duplicate-function-elimination.md)
 - Implementation: [`../../../../../src/passes/duplicate_function_elimination.mbt`](../../../../../src/passes/duplicate_function_elimination.mbt)
 - Focused tests: [`../../../../../src/passes/duplicate_function_elimination_test.mbt`](../../../../../src/passes/duplicate_function_elimination_test.mbt)

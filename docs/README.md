@@ -12,9 +12,10 @@ If `AGENTS.md` and this file ever diverge, update both in the same change. Keep 
 - Tests live beside implementation as `*_test.mbt` or `*_wbtest.mbt`.
 - Package imports live in `package*/imports.mbt`.
 - `docs/README.md`: canonical docs and wiki schema.
-- `docs/[serial]-[YYYY-MM-DD]-[kebab-title].md`: one-off research, plan, audit, and benchmark docs.
+- `docs/`: normative docs only: schema, policies, ADRs, and active handoff docs.
 - `docs/wiki/`: living wasm knowledge base.
 - `docs/wiki/raw/`: committed raw sources; treat as immutable except for redaction or format normalization.
+- `docs/wiki/raw/research/[serial]-[YYYY-MM-DD]-[kebab-title].md`: one-off research, plan, audit, and benchmark docs, including absorbed investigations moved out of `docs/`.
 - `docs/wiki/index.md`: human-readable wiki catalog.
 - `docs/wiki/log.md`: append-only wiki history.
 - `src/`: active packages are `binary`, `cli`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `spec_runner`, `validate`, `validate_trace`, `wast`, `wat`.
@@ -45,12 +46,13 @@ If `AGENTS.md` and this file ever diverge, update both in the same change. Keep 
 #### Docs And Wiki
 
 - `AGENTS.md` is the short operational contract; `docs/README.md` is the full docs and wiki schema. If one changes, update both in the same change.
-- Use numbered `docs/[serial]-[YYYY-MM-DD]-[kebab-title].md` files for substantial one-off investigations; use `docs/wiki/` for living concepts, decisions, comparisons, and reusable wasm knowledge.
+- Keep `docs/` for normative docs only; put one-off investigations under `docs/wiki/raw/research/` and living concepts, decisions, comparisons, and reusable wasm knowledge under `docs/wiki/`.
 - Every wiki schema, ingest, query-fileback, or lint change must keep `docs/wiki/index.md` and `docs/wiki/log.md` current.
 - Prefer updating an existing wiki page over creating a near-duplicate page.
 - Cite supporting numbered docs, raw sources, tests, or source files.
 - Record uncertainty, contradictions, and supersession explicitly; do not silently overwrite stale claims.
 - Treat completed debugging, research, and design threads as sources; file durable conclusions back into the wiki.
+- Once a research note has been fully absorbed into the wiki and is no longer the active normative contract, move it out of `docs/` into `docs/wiki/raw/research/` and repoint live references.
 - Do not commit secrets, credentials, tokens, or other private material into `docs/wiki/` or `docs/wiki/raw/`.
 
 #### Working On Passes
@@ -80,9 +82,9 @@ If `AGENTS.md` and this file ever diverge, update both in the same change. Keep 
 #### Research
 
 - Use the next zero-padded serial with commit date and short kebab title.
-- Scan `docs/` and `docs/wiki/` for matching topics, pass names, and legacy aliases first.
+- Scan `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/` for matching topics, pass names, and legacy aliases first.
 - Cover scope, current behavior, correctness constraints, validation plan, performance impact, and open questions.
-- Put substantial investigations in numbered `docs/` files; also update `docs/wiki/` when the conclusions should stay live and reusable.
+- Put substantial investigations in numbered `docs/wiki/raw/research/` files; also update `docs/wiki/` when the conclusions should stay live and reusable.
 - Update README and code references when replacing legacy path notes.
 
 #### Backlog
@@ -146,7 +148,8 @@ If `AGENTS.md` and this file ever diverge, update both in the same change. Keep 
 ### Scope
 
 - The wiki exists to accumulate durable WebAssembly knowledge for this repo: spec semantics, Binaryen parity findings, Starshine invariants, pass behavior, debugging lessons, tooling quirks, and decision history.
-- Use numbered `docs/[serial]-[YYYY-MM-DD]-[kebab-title].md` files for one-off research, plans, audits, and benchmarks.
+- Keep `docs/` for normative docs only: schema, policies, ADRs, and active handoff docs.
+- Use numbered `docs/wiki/raw/research/[serial]-[YYYY-MM-DD]-[kebab-title].md` files for one-off research, plans, audits, and benchmarks.
 - Use `docs/wiki/` for living pages that should be updated over time instead of replaced.
 
 ### Architecture
@@ -154,6 +157,7 @@ If `AGENTS.md` and this file ever diverge, update both in the same change. Keep 
 Keep three layers in the wiki architecture:
 
 - Raw sources: immutable inputs captured under `docs/wiki/raw/` when they belong in the repo.
+- Research archive: repo-authored numbered investigations under `docs/wiki/raw/research/`.
 - Wiki pages: maintained markdown under `docs/wiki/`.
 - Schema: this file, which defines layout, workflows, and quality standards.
 - Treat raw sources as read-only after capture except for redaction or format normalization needed to remove sensitive data.
@@ -178,11 +182,12 @@ Keep three layers in the wiki architecture:
 
 ### Ingest Rules
 
-- On new source, read it, extract the durable takeaways, and decide whether it belongs as a raw source, a numbered research doc, an update to existing wiki pages, or all three.
+- On new source, read it, extract the durable takeaways, and decide whether it belongs as a raw source, a numbered research doc under `docs/wiki/raw/research/`, an update to existing wiki pages, or all three.
 - Update the affected wiki pages instead of creating near-duplicate pages for the same concept.
 - Add or refresh the relevant entry in `docs/wiki/index.md`.
 - Append a dated entry to `docs/wiki/log.md`.
 - If the source changes an existing belief, mark the previous claim stale or superseded instead of silently overwriting history.
+- If an old numbered doc in `docs/` has become absorbed research rather than active policy or handoff material, move it into `docs/wiki/raw/research/` in the same change.
 
 ### Query Rules
 
@@ -252,7 +257,7 @@ Keep three layers in the wiki architecture:
 
 - Completed research, debugging, or design threads are sources too.
 - Distill them into durable digests that capture the question, findings, files involved, lessons learned, and follow-up questions.
-- Use numbered `docs/` research docs when the output is a substantial investigation; use `docs/wiki/` when the result is a living concept or decision page.
+- Use numbered `docs/wiki/raw/research/` docs when the output is a substantial investigation; use `docs/wiki/` when the result is a living concept or decision page.
 
 ### Wasm-Specific Priorities
 

@@ -4,9 +4,10 @@
 - Tests live beside implementation as `*_test.mbt` or `*_wbtest.mbt`.
 - Package imports live in `package*/imports.mbt`.
 - `docs/README.md`: canonical docs and wiki schema.
-- `docs/[serial]-[YYYY-MM-DD]-[kebab-title].md`: one-off research, plan, audit, and benchmark docs.
+- `docs/`: normative docs only: schema, policies, ADRs, and active handoff docs.
 - `docs/wiki/`: living wasm knowledge base.
 - `docs/wiki/raw/`: committed raw sources; treat as immutable except for redaction or format normalization.
+- `docs/wiki/raw/research/[serial]-[YYYY-MM-DD]-[kebab-title].md`: one-off research, plan, audit, and benchmark docs, including absorbed investigations moved out of `docs/`.
 - `docs/wiki/index.md`: human-readable wiki catalog.
 - `docs/wiki/log.md`: append-only wiki history.
 - `src/`: active packages are `binary`, `cli`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `spec_runner`, `validate`, `validate_trace`, `wast`, `wat`.
@@ -37,12 +38,13 @@
 ## Docs And Wiki
 
 - `AGENTS.md` is the short operational contract; `docs/README.md` is the full docs and wiki schema. If one changes, update both in the same change.
-- Use numbered `docs/[serial]-[YYYY-MM-DD]-[kebab-title].md` files for substantial one-off investigations; use `docs/wiki/` for living concepts, decisions, comparisons, and reusable wasm knowledge.
+- Keep `docs/` for normative docs only; put one-off investigations under `docs/wiki/raw/research/` and living concepts, decisions, comparisons, and reusable wasm knowledge under `docs/wiki/`.
 - Every wiki schema, ingest, query-fileback, or lint change must keep `docs/wiki/index.md` and `docs/wiki/log.md` current.
 - Prefer updating an existing wiki page over creating a near-duplicate page.
 - Cite supporting numbered docs, raw sources, tests, or source files.
 - Record uncertainty, contradictions, and supersession explicitly; do not silently overwrite stale claims.
 - Treat completed debugging, research, and design threads as sources; file durable conclusions back into the wiki.
+- Once a research note has been fully absorbed into the wiki and is no longer the active normative contract, move it out of `docs/` into `docs/wiki/raw/research/` and repoint live references.
 - Do not commit secrets, credentials, tokens, or other private material into `docs/wiki/` or `docs/wiki/raw/`.
 
 ## Working On Passes
@@ -72,9 +74,9 @@
 ## Research
 
 - Use the next zero-padded serial with commit date and short kebab title.
-- Scan `docs/` and `docs/wiki/` for matching topics, pass names, and legacy aliases first.
+- Scan `docs/`, `docs/wiki/`, and `docs/wiki/raw/research/` for matching topics, pass names, and legacy aliases first.
 - Cover scope, current behavior, correctness constraints, validation plan, performance impact, and open questions.
-- Put substantial investigations in numbered `docs/` files; also update `docs/wiki/` when the conclusions should stay live and reusable.
+- Put substantial investigations in numbered `docs/wiki/raw/research/` files; also update `docs/wiki/` when the conclusions should stay live and reusable.
 - Update README and code references when replacing legacy path notes.
 
 ## Backlog

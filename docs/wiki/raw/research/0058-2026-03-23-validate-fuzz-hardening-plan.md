@@ -11,7 +11,7 @@ Status: research pass only. No implementation in this change.
   - code smells that make the lanes hard to trust or extend
   - missing feature work that would materially improve fuzzing depth
   - concrete validation gaps versus the validator surface already present in this repo
-- Keep the recommendations compatible with the existing fuzz migration in [docs/0003-2026-03-12-fuzz-migration.md](./0003-2026-03-12-fuzz-migration.md): heavy workloads stay in `src/fuzz`, not `moon test`.
+- Keep the recommendations compatible with the existing fuzz migration in [docs/wiki/raw/research/0003-2026-03-12-fuzz-migration.md](./0003-2026-03-12-fuzz-migration.md): heavy workloads stay in `src/fuzz`, not `moon test`.
 
 ## Current Behavior
 - `run_validate_valid_fuzz` lowercases the profile, generates modules with `gen_valid_module`, and only asserts that `validate_module` accepts them.
