@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-09 Docs: establish the wasm knowledge-base contract
+
+- **Wasm knowledge-base schema bootstrap** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`AGENTS.md`](./AGENTS.md), [`docs/README.md`](./docs/README.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`docs/wiki/raw/README.md`](./docs/wiki/raw/README.md) to define a compact repo-level contract for wiki maintenance, distinguish one-off numbered `docs/` investigations from living `docs/wiki/` knowledge pages, require `index.md` and `log.md` updates on wiki maintenance changes, and scaffold the initial raw-source/catalog/audit files for a committed wasm knowledge base.
+
 ## 2026-04-03 Checkpoint: record `heap2local` compare-pass evidence
 
 - **`heap2local` parity-evidence checkpoint** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`docs/0075-2026-04-03-heap2local-binaryen-comparison.md`](./docs/0075-2026-04-03-heap2local-binaryen-comparison.md) to record direct Binaryen compare-pass evidence for `heap2local`: a clean `10000`-case `gen-valid` run with zero mismatches or failures, plus a `1000`-case mixed-generator sample with zero mismatches and only Binaryen wasm-smith parser rejects on the non-compared cases. The remaining Heap2Local follow-up is Binaryen's non-nullable-local/refinalization fixup behavior and the wider neighboring-pass parity needed for the full no-DWARF pipeline.

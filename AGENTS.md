@@ -3,7 +3,12 @@
 - MoonBit workspace with directory-scoped packages via `moon.pkg` under `moon.mod.json`.
 - Tests live beside implementation as `*_test.mbt` or `*_wbtest.mbt`.
 - Package imports live in `package*/imports.mbt`.
-- `docs/`: canonical research, plan, audit, and benchmark docs as `docs/[serial]-[YYYY-MM-DD]-[kebab-title].md`.
+- `docs/README.md`: canonical docs and wiki schema.
+- `docs/[serial]-[YYYY-MM-DD]-[kebab-title].md`: one-off research, plan, audit, and benchmark docs.
+- `docs/wiki/`: living wasm knowledge base.
+- `docs/wiki/raw/`: committed raw sources; treat as immutable except for redaction or format normalization.
+- `docs/wiki/index.md`: human-readable wiki catalog.
+- `docs/wiki/log.md`: append-only wiki history.
 - `src/`: active packages are `binary`, `cli`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `spec_runner`, `validate`, `validate_trace`, `wast`, `wat`.
 - `src/node_api/`, `src/optimization/`, `src/transformer/`: empty compatibility or staging dirs; do not describe as active unless rebuilt.
 - `examples/`: runnable examples.
@@ -16,10 +21,11 @@
 
 # Tasks And Rules
 
-## Work
+## Core Work
 
 - Use TDD: write tests first, confirm failure, then implement.
-- Start from `docs/` for major architecture, ABI, release, or planning work.
+- Start from `docs/` for major architecture, ABI, release, planning, or wiki-schema work.
+- For knowledge-base ingest, query, lint, or schema work, read `docs/README.md` first.
 - Keep docs concise; update relevant docs for behavior or API changes.
 - Review `.mbti` diffs for public API changes.
 - Update pass tests in the implementing file and active dispatcher.
@@ -27,6 +33,17 @@
 - Do not remove features, disable passing tests, add telemetry-only tests, or add shell scripts under `scripts/`.
 - Gitignore new non-repo build or cache dirs when needed.
 - Do not use destructive git commands unless explicitly requested.
+
+## Docs And Wiki
+
+- `AGENTS.md` is the short operational contract; `docs/README.md` is the full docs and wiki schema. If one changes, update both in the same change.
+- Use numbered `docs/[serial]-[YYYY-MM-DD]-[kebab-title].md` files for substantial one-off investigations; use `docs/wiki/` for living concepts, decisions, comparisons, and reusable wasm knowledge.
+- Every wiki schema, ingest, query-fileback, or lint change must keep `docs/wiki/index.md` and `docs/wiki/log.md` current.
+- Prefer updating an existing wiki page over creating a near-duplicate page.
+- Cite supporting numbered docs, raw sources, tests, or source files.
+- Record uncertainty, contradictions, and supersession explicitly; do not silently overwrite stale claims.
+- Treat completed debugging, research, and design threads as sources; file durable conclusions back into the wiki.
+- Do not commit secrets, credentials, tokens, or other private material into `docs/wiki/` or `docs/wiki/raw/`.
 
 ## Working On Passes
 
@@ -55,8 +72,9 @@
 ## Research
 
 - Use the next zero-padded serial with commit date and short kebab title.
-- Scan `docs/` for matching topics, pass names, and legacy aliases first.
+- Scan `docs/` and `docs/wiki/` for matching topics, pass names, and legacy aliases first.
 - Cover scope, current behavior, correctness constraints, validation plan, performance impact, and open questions.
+- Put substantial investigations in numbered `docs/` files; also update `docs/wiki/` when the conclusions should stay live and reusable.
 - Update README and code references when replacing legacy path notes.
 
 ## Backlog
