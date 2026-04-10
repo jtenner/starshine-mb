@@ -206,22 +206,46 @@ Fresh full-artifact reruns on `2026-04-10`:
   - `Starshine pass runtime (ms): 965.752`
   - `Binaryen pass runtime (ms): 2.666`
 
-Fresh current-tree trace evidence on the same artifact:
+Fresh kept-tree trace evidence on the same artifact:
 
 - `_build/native/release/build/cmd/cmd.exe --tracing pass --debug-serial-passes --tuple-optimization ...`
 - result:
   - `4462` functions visited
-  - `27` functions changed
-  - total tuple pass time `960971 us`
+  - `18` functions changed
+  - total tuple pass time `277790 us`
   - hottest functions:
-    - `Func 3612`: `261893 us`
-    - `Func 1553`: `162180 us`
-    - `Func 1525`: `121435 us`
-    - `Func 1673`: `100895 us`
-    - `Func 3660`: `6121 us`
+    - `Func 1673`: `101831 us`
+    - `Func 148`: `14719 us`
+    - `Func 2389`: `10152 us`
+    - `Func 1905`: `6557 us`
+    - `Func 3660`: `5725 us`
 - interpretation:
-  - the current runtime debt is concentrated in unchanged giant functions
-  - the old `Func[3660]` parity focus is no longer where most of tuple-opt time is going
+  - the old unchanged-function hot quartet is no longer dominating after the shared seed-scan rewrite
+  - the current runtime debt is narrower and now concentrated in one real outlier (`Func 1673`) plus a smaller tail of candidate-heavy functions
+  - the old `Func[3660]` parity focus is still not where most of tuple-opt time is going
+
+Fresh current-tree full-artifact reruns after the candidate-filter rewrite:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --starshine-bin _build/native/release/build/cmd/cmd.exe --out-dir /tmp/self-opt-tuple-full-candidatefilter-2026-04-10 --tuple-optimization`
+- result:
+  - `Canonical function compare equal: yes`
+  - `Normalized WAT equal: yes`
+  - `Starshine runtime (ms): 5634.347`
+  - `Binaryen runtime (ms): 406.502`
+  - `Starshine pass runtime (ms): 361.452`
+  - `Binaryen pass runtime (ms): 3.711`
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --starshine-bin _build/native/release/build/cmd/cmd.exe --out-dir /tmp/self-opt-tuple-full-candidatefilter-rerun-2026-04-10 --tuple-optimization`
+- result:
+  - `Canonical function compare equal: yes`
+  - `Normalized WAT equal: yes`
+  - `Starshine runtime (ms): 5114.578`
+  - `Binaryen runtime (ms): 377.363`
+  - `Starshine pass runtime (ms): 325.221`
+  - `Binaryen pass runtime (ms): 3.741`
+- interpretation:
+  - this slice finally moved the full-artifact runtime needle, not just reduced micro-repros
+  - the strongest evidence is the drop from the earlier `~966 ms` full pass band to a repeated `325-361 ms` band without any parity regression
+  - the newer cleaned direct pass trace at `277790 us` across `4462` visited / `18` changed is consistent with that saved self-opt win even though this doc update did not rerun the full self-opt compare after backing out the non-winning experiments
 
 Fresh reduced repro performance evidence on `2026-04-10`:
 

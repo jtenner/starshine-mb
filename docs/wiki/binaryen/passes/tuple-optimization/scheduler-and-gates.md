@@ -100,6 +100,48 @@ Starshine already enforces the most important practical gate on the explicit pas
 
 This is not yet the same as final preset-level multivalue scheduling parity, but it does preserve the intended safety envelope for direct invocation.
 
+## Current Function-Local Candidate Gate
+
+The practical runtime gate inside `src/passes/tuple_optimization.mbt` changed materially on `2026-04-10`.
+
+The old structure was:
+
+- run a weak whole-function screen looking only for any live multivalue node plus any local write
+- inside analysis, run that same weak screen again
+- then run a full seed-group collection walk
+
+Why that was bad:
+
+- unchanged functions paid multiple whole-function walks before tuple-opt could prove there was nothing to do
+- the weak screen was not specific to actual Binaryen-style tuple seeds
+- seed discovery itself rebuilt temporary arrays and used linear duplicate-local checks per producer, which turned high-arity or candidate-heavy functions into avoidable GC churn
+
+The current structure is:
+
+- build or reuse `use-def`
+- run one precise seed scan
+- bail out immediately if the scan finds no seed groups
+- reuse those already-collected groups for the rest of analysis and rewrite
+
+The precise scan now matches the real seed contract:
+
+- producer result arity must be `> 1`
+- use count must equal result arity
+- every use must be child slot `0`
+- every user must be `local.set` or `local.tee`
+- lane locals must be unique
+
+The current collector also uses stamped local marks instead of repeated linear searches, so the per-producer duplicate-local check is no longer quadratic in lane count.
+
+Practical consequence on the debug artifact:
+
+- tuple-opt still visits `4462` functions and changes only `18`
+- and the cleaned direct pass trace is now `277790 us`, down from the old `960971 us` band
+- the old unchanged-function hot quartet mostly disappeared, so the remaining runtime debt is no longer dominated by obvious no-op screening churn
+- the newer per-function trace split also clarified that the remaining tuple-pass cost and the surrounding pipeline cost are not the same thing:
+  - inside `pass:tuple-optimization`, `Func 1673` now dominates at roughly `101831 us`, with the next tier far behind (`148` at `14719 us`, `2389` at `10152 us`, `1905` at `6557 us`, `3660` at `5725 us`, `147` at `5556 us`)
+  - outside the pass timer, `analysis:use-def` still spends most of its time in different functions (`3612`, `1553`, `1525`), so future tuple runtime work should keep those two costs separate instead of treating aggregate wall time as pure tuple-pass debt
+
 ## Required Future Conditions Before Preset Enablement
 
 Before tuple-opt should move into public presets, the branch still needs all of:
@@ -121,4 +163,3 @@ Before tuple-opt should move into public presets, the branch still needs all of:
 - Current Starshine registry and preset surface: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - Explicit scheduler dispatch: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - Canonical Binaryen no-DWARF pathway page: [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-

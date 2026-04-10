@@ -95,15 +95,16 @@ fn tuple_optimization_assert_local_traffic(
 }
 
 ///|
-test "tuple-optimization no-op screen rejects scalar-only functions" {
+test "tuple-optimization seed-group scan rejects scalar-only functions" {
   let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (func (result i32) i32.const 7))",
   )
-  assert_false(tuple_optimization_may_have_candidates(fixture.hot_func))
-  let analysis = tuple_optimization_analyze(
-    fixture.hot_func,
-    @ir.use_def_build(fixture.hot_func),
+  let use_def = @ir.use_def_build(fixture.hot_func)
+  assert_eq(
+    tuple_optimization_collect_seed_groups(fixture.hot_func, use_def).length(),
+    0,
   )
+  let analysis = tuple_optimization_analyze(fixture.hot_func, use_def)
   assert_eq(analysis.groups.length(), 0)
 }
 
@@ -167,10 +168,19 @@ test "tuple-optimization analysis rejects mixed bridge and non-bridge consumers"
   let fixture = @ir.ir_test_build_hot_from_wat(
     "(module (func (result i32) (local i32) block (result i32 i32) i32.const 1 i32.const 2 end local.set 0 drop local.get 0))",
   )
-  assert_true(tuple_optimization_may_have_candidates(fixture.hot_func))
-  let analysis = tuple_optimization_analyze(
-    fixture.hot_func,
-    @ir.use_def_build(fixture.hot_func),
+  let use_def = @ir.use_def_build(fixture.hot_func)
+  assert_eq(
+    tuple_optimization_collect_seed_groups(fixture.hot_func, use_def).length(),
+    0,
+  )
+  let analysis = tuple_optimization_analyze(fixture.hot_func, use_def)
+  assert_eq(analysis.groups.length(), 0)
+}
+
+///|
+test "tuple-optimization analysis rejects duplicate lane locals in a seed group" {
+  let analysis = tuple_optimization_test_analyze(
+    "(module (func (result i32) (local i32) block (result i32 i32) i32.const 1 i32.const 2 end local.set 0 local.set 0 local.get 0))",
   )
   assert_eq(analysis.groups.length(), 0)
 }
@@ -198,6 +208,19 @@ test "tuple-optimization analysis links pure lane-forwarding copy groups" {
   assert_eq(copy.valid_uses, 2)
   assert_eq(copy.neighbors, [0])
   assert_false(copy.bad)
+}
+
+///|
+test "tuple-optimization analysis rejects result-block copy groups with duplicate lane locals" {
+  let analysis = tuple_optimization_test_analyze(
+    "(module (func (result i32) (local i32 i32 i32) block (result i32 i32) i32.const 1 i32.const 2 end local.set 1 local.set 0 block (result i32 i32) local.get 0 local.get 1 end local.set 2 local.set 2 local.get 2))",
+  )
+
+  assert_eq(analysis.groups.length(), 1)
+  let source = analysis.groups[0]
+  assert_eq(source.lane_locals, [0, 1])
+  assert_eq(source.copy_source, None)
+  assert_eq(source.neighbors, [])
 }
 
 ///|

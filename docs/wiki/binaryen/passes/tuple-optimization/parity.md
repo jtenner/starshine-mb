@@ -194,18 +194,40 @@ Fresh full-artifact evidence on `2026-04-10`:
   - `Starshine pass runtime (ms): 965.752`
   - `Binaryen pass runtime (ms): 2.666`
 
-Fresh current-tree pass-trace diagnosis on the same artifact:
+Fresh kept-tree pass-trace diagnosis on the same artifact:
 
 - `cmd.exe --tracing pass --debug-serial-passes --tuple-optimization ...`
   - `4462` functions visited
-  - `27` functions changed
-  - total tuple pass time `960971 us`
-  - the dominant costs are unchanged giant functions, not the old `Func[3660]` parity target:
-    - `Func 3612`: `261893 us`
-    - `Func 1553`: `162180 us`
-    - `Func 1525`: `121435 us`
-    - `Func 1673`: `100895 us`
-    - `Func 3660`: `6121 us`
+  - `18` functions changed
+  - total tuple pass time `277790 us`
+  - the previous unchanged-function hot quartet (`Func 3612`, `1553`, `1525`, `1673`) is no longer the main story after the shared seed-scan plus stamped duplicate-lane slices
+  - the current hot functions are:
+    - `Func 1673`: `101831 us`
+    - `Func 148`: `14719 us`
+    - `Func 2389`: `10152 us`
+    - `Func 1905`: `6557 us`
+    - `Func 3660`: `5725 us`
+
+Fresh current-tree full-artifact reruns after the candidate-filter rewrite:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --starshine-bin _build/native/release/build/cmd/cmd.exe --out-dir /tmp/self-opt-tuple-full-candidatefilter-2026-04-10 --tuple-optimization`
+  - `Canonical wasm equal: no`
+  - `Normalized WAT text equal: no`
+  - `Canonical function compare equal: yes`
+  - `Normalized WAT equal: yes`
+  - `Starshine runtime (ms): 5634.347`
+  - `Binaryen runtime (ms): 406.502`
+  - `Starshine pass runtime (ms): 361.452`
+  - `Binaryen pass runtime (ms): 3.711`
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --starshine-bin _build/native/release/build/cmd/cmd.exe --out-dir /tmp/self-opt-tuple-full-candidatefilter-rerun-2026-04-10 --tuple-optimization`
+  - `Canonical wasm equal: no`
+  - `Normalized WAT text equal: no`
+  - `Canonical function compare equal: yes`
+  - `Normalized WAT equal: yes`
+  - `Starshine runtime (ms): 5114.578`
+  - `Binaryen runtime (ms): 377.363`
+  - `Starshine pass runtime (ms): 325.221`
+  - `Binaryen pass runtime (ms): 3.741`
 
 Fresh reduced performance evidence taken on `2026-04-10`:
 
@@ -264,14 +286,25 @@ Accuracy notes:
 - this doc update did rerun the reduced self-opt compare on the committed `tail-live0` repro
 - this doc update also reran the isolated fuzz lanes after the newer direct-use summary, forwarded-use memoization, no-group summary-skip, and small-locals analysis slices
 - this doc update did rerun the full `tests/node/dist/starshine-debug-wasi.wasm --tuple-optimization` pipeline with the upgraded canonical fallback, and the full-artifact parity claim above now comes from that fresh rerun rather than only from the saved pair replay
+- this doc update also reran the full artifact after replacing the weak no-op screen plus duplicated seed walk with a shared precise seed scan
+- this doc update reran the direct debug-artifact tuple pass trace on the cleaned kept tree after backing out the child-index, incremental local-group-id, and prescan experiments
 - the reduced timing ladder now has a clearer shape:
   - stamped visit-buffer reuse was parity-safe but did not materially improve the reduced timing gap
   - direct-use summary construction alone regressed the reduced timing repro
   - forwarded-use memoization recovered most of that regression
   - skipping summary construction for no-group functions brought reduced pass time down further to `0.511 ms`, slightly better than the earlier visit-buffer-only `0.547 ms`
 - the later shared-mark and cleanup-fast-path experiments did not improve the reduced repro beyond that `0.511 ms` checkpoint
-- the later small-locals / single-write caching slice is correctness-safe and keeps the full-artifact runtime effectively flat, but it does not change the larger conclusion that tuple-opt time is dominated by unchanged giant functions
-- the next performance slice should therefore target unchanged-function candidate analysis and candidate-heavy query-summary cost, not more local scratch-array cleanup alone
+- the newer candidate-filter slice did materially improve the full artifact:
+  - full tuple pass time dropped from roughly `966 ms` to a `325-361 ms` band on repeated reruns
+  - the key code change was structural, not heuristic: tuple-opt now performs one shared precise seed scan instead of a weak whole-function screen plus a second weak screen plus a second seed walk, and seed discovery now uses stamped local marks instead of per-producer linear duplicate-local checks plus reverse-array rebuilding
+  - the old unchanged-function hot quartet mostly disappeared from the pass trace, which is strong evidence that the earlier runtime debt really was candidate-screen churn rather than later rewrite work
+- the later stamped duplicate-lane work in result-block and scalar-forward collectors is also kept:
+  - the cleaned direct pass trace now totals `277790 us` across `4462` visited functions with `18` changed
+  - that is lower than the earlier `340626 us` candidate-filter trace and consistent with the saved full-artifact self-opt win
+- the next performance slice should therefore target candidate-heavy query-summary and copy-link work inside the remaining outlier `Func 1673`, not more no-group screening or scratch-array cleanup alone
+- the current kept-tree trace keeps the same diagnosis:
+  - `Func 1673` remains the real tuple-pass bottleneck at `101831 us`
+  - the heaviest `analysis:use-def` functions are different (`3612`, `1553`, `1525`), which matters for total pipeline wall time but not for the tuple pass timer that self-opt compare reports
 - the full-artifact claims above and the reduced timing numbers are both fresh local measurements from this round
 
 ## Signoff Rule

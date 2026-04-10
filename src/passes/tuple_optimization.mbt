@@ -72,28 +72,6 @@ pub fn tuple_optimization_summary() -> String {
 }
 
 ///|
-fn tuple_optimization_may_have_candidates(func : @ir.HotFunc) -> Bool {
-  let mut has_multivalue = false
-  let mut has_local_writes = false
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    if @ir.hot_node_result_arity(func, node_id) > 1 {
-      has_multivalue = true
-    }
-    match @ir.hot_node_get(func, node_id).op {
-      @ir.HotOp::LocalSet | @ir.HotOp::LocalTee => has_local_writes = true
-      _ => ()
-    }
-    if has_multivalue && has_local_writes {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn tuple_optimization_count_tee_defs(
   func : @ir.HotFunc,
   defining_nodes : Array[Int],
@@ -109,20 +87,12 @@ fn tuple_optimization_count_tee_defs(
 }
 
 ///|
-fn tuple_optimization_seen_local(locals : Array[Int], local_id : Int) -> Bool {
-  for existing in locals {
-    if existing == local_id {
-      return true
-    }
-  }
-  false
-}
-
-///|
 fn tuple_optimization_collect_seed_group(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
   producer : Int,
+  local_seen_marks : Array[Int],
+  seen_mark : Int,
 ) -> HotTupleOptimizationGroup? {
   let result_arity = @ir.hot_node_result_arity(func, producer)
   if result_arity <= 1 {
@@ -132,9 +102,12 @@ fn tuple_optimization_collect_seed_group(
   if use_sites.length() != result_arity {
     return None
   }
-  let lane_locals_rev : Array[Int] = []
-  let defining_nodes_rev : Array[Int] = []
-  for site in use_sites {
+  let lane_locals = Array::make(result_arity, -1)
+  let defining_nodes = Array::make(result_arity, -1)
+  let mut host_lane : Int? = None
+  let mut tee_defs = 0
+  for site_idx = 0; site_idx < use_sites.length(); site_idx = site_idx + 1 {
+    let site = use_sites[site_idx]
     match site.kind {
       @ir.HotUseSlotKind::ChildUseSlot => if site.slot != 0 { return None }
       _ => return None
@@ -145,26 +118,23 @@ fn tuple_optimization_collect_seed_group(
       _ => return None
     }
     let local_id = user.imm0
-    if local_id < 0 || tuple_optimization_seen_local(lane_locals_rev, local_id) {
+    if local_id < 0 ||
+      local_id >= local_seen_marks.length() ||
+      local_seen_marks[local_id] == seen_mark {
       return None
     }
-    lane_locals_rev.push(local_id)
-    defining_nodes_rev.push(site.user)
-  }
-  let lane_locals : Array[Int] = []
-  let defining_nodes : Array[Int] = []
-  for idx = lane_locals_rev.length() - 1; idx >= 0; idx = idx - 1 {
-    lane_locals.push(lane_locals_rev[idx])
-    defining_nodes.push(defining_nodes_rev[idx])
-  }
-  let mut host_lane : Int? = None
-  for lane_idx = 0; lane_idx < defining_nodes.length(); lane_idx = lane_idx + 1 {
-    match @ir.hot_node_get(func, defining_nodes[lane_idx]).op {
-      @ir.HotOp::LocalTee =>
+    local_seen_marks[local_id] = seen_mark
+    let lane_idx = result_arity - 1 - site_idx
+    lane_locals[lane_idx] = local_id
+    defining_nodes[lane_idx] = site.user
+    match user.op {
+      @ir.HotOp::LocalTee => {
+        tee_defs = tee_defs + 1
         match host_lane {
           Some(_) => ()
           None => host_lane = Some(lane_idx)
         }
+      }
       _ => ()
     }
   }
@@ -175,8 +145,8 @@ fn tuple_optimization_collect_seed_group(
     host_lane,
     copy_source: None,
     copy_payload_locals: None,
-    uses: 1 + tuple_optimization_count_tee_defs(func, defining_nodes),
-    valid_uses: 1 + tuple_optimization_count_tee_defs(func, defining_nodes),
+    uses: 1 + tee_defs,
+    valid_uses: 1 + tee_defs,
     neighbors: [],
     bad: false,
   })
@@ -188,11 +158,21 @@ fn tuple_optimization_collect_seed_groups(
   use_def : @ir.HotUseDef,
 ) -> Array[HotTupleOptimizationGroup] {
   let groups : Array[HotTupleOptimizationGroup] = []
+  let local_seen_marks = Array::make(@ir.hot_local_count(func), 0)
+  let mut next_seen_mark = 1
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
       continue
     }
-    match tuple_optimization_collect_seed_group(func, use_def, node_id) {
+    if @ir.hot_node_result_arity(func, node_id) <= 1 {
+      continue
+    }
+    let seen_mark = next_seen_mark
+    next_seen_mark = next_seen_mark + 1
+    match
+      tuple_optimization_collect_seed_group(
+        func, use_def, node_id, local_seen_marks, seen_mark,
+      ) {
       Some(group) => groups.push(group)
       None => ()
     }
@@ -495,6 +475,8 @@ fn tuple_optimization_collect_result_block_copy_group(
   groups : Array[HotTupleOptimizationGroup],
   local_group_ids : Array[Int],
   carrier_id : Int,
+  local_seen_marks : Array[Int],
+  seen_mark : Int,
 ) -> (HotTupleOptimizationGroup, Array[Int])? {
   let carrier = @ir.hot_node_get(func, carrier_id)
   match carrier.op {
@@ -651,15 +633,18 @@ fn tuple_optimization_collect_result_block_copy_group(
       if ok && source_group >= 0 {
         let lane_locals = [outer_local]
         let defining_nodes = [outer_def]
-        if outer_local < 0 {
+        if outer_local < 0 || outer_local >= local_seen_marks.length() {
           return None
         }
+        local_seen_marks[outer_local] = seen_mark
         for idx = prefix_defs.length() - 1; idx >= 0; idx = idx - 1 {
           let local_id = prefix_locals_rev[idx]
           if local_id < 0 ||
-            tuple_optimization_seen_local(lane_locals, local_id) {
+            local_id >= local_seen_marks.length() ||
+            local_seen_marks[local_id] == seen_mark {
             return None
           }
+          local_seen_marks[local_id] = seen_mark
           lane_locals.push(local_id)
           defining_nodes.push(prefix_defs[idx])
         }
@@ -777,14 +762,18 @@ fn tuple_optimization_collect_result_block_copy_group(
   }
   let lane_locals = [outer_local]
   let defining_nodes = [outer_def]
-  if outer_local < 0 {
+  if outer_local < 0 || outer_local >= local_seen_marks.length() {
     return None
   }
+  local_seen_marks[outer_local] = seen_mark
   for idx = 0; idx < trailing_defs.length(); idx = idx + 1 {
     let local_id = trailing_locals[idx]
-    if local_id < 0 || tuple_optimization_seen_local(lane_locals, local_id) {
+    if local_id < 0 ||
+      local_id >= local_seen_marks.length() ||
+      local_seen_marks[local_id] == seen_mark {
       return None
     }
+    local_seen_marks[local_id] = seen_mark
     lane_locals.push(local_id)
     defining_nodes.push(trailing_defs[idx])
   }
@@ -816,15 +805,20 @@ fn tuple_optimization_link_result_block_copy_groups(
   local_group_ids : Array[Int],
   copy_read_nodes : Array[Bool],
 ) -> Unit {
+  let local_seen_marks = Array::make(@ir.hot_local_count(func), 0)
+  let mut next_seen_mark = 1
   for carrier_id = 0
       carrier_id < @ir.hot_node_count(func)
       carrier_id = carrier_id + 1 {
     if !@ir.hot_node_is_live(func, carrier_id) {
       continue
     }
+    let seen_mark = next_seen_mark
+    next_seen_mark = next_seen_mark + 1
     match
       tuple_optimization_collect_result_block_copy_group(
-        func, use_def, summary, groups, local_group_ids, carrier_id,
+        func, use_def, summary, groups, local_group_ids, carrier_id, local_seen_marks,
+        seen_mark,
       ) {
       Some((group, read_nodes)) => {
         let new_group_id = groups.length()
@@ -861,6 +855,8 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
   local_group_ids : Array[Int],
   copy_read_nodes : Array[Bool],
   source_group_id : Int,
+  local_seen_marks : Array[Int],
+  seen_mark : Int,
 ) -> (HotTupleOptimizationGroup, Array[Int], Int)? {
   if source_group_id < 0 || source_group_id >= groups.length() {
     return None
@@ -899,7 +895,8 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
             next_local < 0 ||
             next_local >= local_group_ids.length() ||
             local_group_ids[next_local] >= 0 ||
-            tuple_optimization_seen_local(lane_locals, next_local) {
+            next_local >= local_seen_marks.length() ||
+            local_seen_marks[next_local] == seen_mark {
             return None
           }
           found = true
@@ -912,7 +909,9 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
     }
     if !found {
       if direct_non_forward_reads == 1 {
-        if local_id < 0 || tuple_optimization_seen_local(lane_locals, local_id) {
+        if local_id < 0 ||
+          local_id >= local_seen_marks.length() ||
+          local_seen_marks[local_id] == seen_mark {
           return None
         }
         found = true
@@ -938,7 +937,8 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
                 if next_local < 0 ||
                   next_local >= local_group_ids.length() ||
                   local_group_ids[next_local] >= 0 ||
-                  tuple_optimization_seen_local(lane_locals, next_local) ||
+                  next_local >= local_seen_marks.length() ||
+                  local_seen_marks[next_local] == seen_mark ||
                   next_local >= summary.local_single_write_nodes.length() ||
                   summary.local_single_write_nodes[next_local] < 0 {
                   return None
@@ -958,6 +958,7 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
     if !found {
       return None
     }
+    local_seen_marks[forwarded_local] = seen_mark
     lane_locals.push(forwarded_local)
     defining_nodes.push(forwarding_def)
     if forwarding_read >= 0 {
@@ -999,6 +1000,8 @@ fn tuple_optimization_link_scalar_forward_copy_groups(
   local_group_ids : Array[Int],
   copy_read_nodes : Array[Bool],
 ) -> Unit {
+  let local_seen_marks = Array::make(@ir.hot_local_count(func), 0)
+  let mut next_seen_mark = 1
   let mut group_id = 0
   while group_id < groups.length() {
     let group = groups[group_id]
@@ -1031,9 +1034,12 @@ fn tuple_optimization_link_scalar_forward_copy_groups(
       group_id = group_id + 1
       continue
     }
+    let seen_mark = next_seen_mark
+    next_seen_mark = next_seen_mark + 1
     match
       tuple_optimization_collect_scalar_forward_copy_group(
         func, use_def, summary, groups, local_group_ids, copy_read_nodes, group_id,
+        local_seen_marks, seen_mark,
       ) {
       Some((group, read_nodes, consumed_source_tees)) => {
         let new_group_id = groups.length()
@@ -1836,26 +1842,25 @@ fn tuple_optimization_propagate_badness(
 }
 
 ///|
-fn tuple_optimization_analyze(
+fn tuple_optimization_empty_analysis(
+  func : @ir.HotFunc,
+) -> HotTupleOptimizationAnalysis {
+  {
+    groups: [],
+    local_group_ids: Array::make(@ir.hot_local_count(func), -1),
+    copy_read_nodes: Array::make(@ir.hot_node_count(func), false),
+    query_summary: tuple_optimization_empty_query_summary(),
+  }
+}
+
+///|
+fn tuple_optimization_analyze_with_groups(
   func : @ir.HotFunc,
   use_def : @ir.HotUseDef,
+  groups : Array[HotTupleOptimizationGroup],
 ) -> HotTupleOptimizationAnalysis {
-  if !tuple_optimization_may_have_candidates(func) {
-    return {
-      groups: [],
-      local_group_ids: Array::make(@ir.hot_local_count(func), -1),
-      copy_read_nodes: Array::make(@ir.hot_node_count(func), false),
-      query_summary: tuple_optimization_empty_query_summary(),
-    }
-  }
-  let groups = tuple_optimization_collect_seed_groups(func, use_def)
   if groups.is_empty() {
-    return {
-      groups,
-      local_group_ids: Array::make(@ir.hot_local_count(func), -1),
-      copy_read_nodes: Array::make(@ir.hot_node_count(func), false),
-      query_summary: tuple_optimization_empty_query_summary(),
-    }
+    return tuple_optimization_empty_analysis(func)
   }
   let query_summary = tuple_optimization_build_query_summary(func, use_def)
   let mut local_group_ids = tuple_optimization_build_local_group_ids(
@@ -1880,6 +1885,15 @@ fn tuple_optimization_analyze(
   tuple_optimization_finalize_host_lanes(func, use_def, query_summary, groups)
   tuple_optimization_propagate_badness(groups)
   { groups, local_group_ids, copy_read_nodes, query_summary }
+}
+
+///|
+fn tuple_optimization_analyze(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+) -> HotTupleOptimizationAnalysis {
+  let groups = tuple_optimization_collect_seed_groups(func, use_def)
+  tuple_optimization_analyze_with_groups(func, use_def, groups)
 }
 
 ///|
@@ -5194,13 +5208,12 @@ fn tuple_optimization_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  if !tuple_optimization_may_have_candidates(func) {
+  let use_def = pass_require_use_def(ctx, func)
+  let groups = tuple_optimization_collect_seed_groups(func, use_def)
+  if groups.is_empty() {
     return HotPassResult::unchanged()
   }
-  let analysis = tuple_optimization_analyze(
-    func,
-    pass_require_use_def(ctx, func),
-  )
+  let analysis = tuple_optimization_analyze_with_groups(func, use_def, groups)
   if tuple_optimization_rewrite_good_components(ctx, func, analysis) {
     HotPassResult::changed()
   } else {
