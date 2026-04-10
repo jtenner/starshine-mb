@@ -107,6 +107,11 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Documented RUME's imported-parent retention rules, explicit module-index rewrite surface, and the current in-tree coverage for empty active data, no-op active elem segments, and imported survivor remaps.
 - Updated the root wiki catalog and pass-folder catalog so the expanded RUME pages are discoverable.
 
+## [2026-04-09] maintain | expand remove-unused-brs into a full pass folder
+
+- Expanded `remove-unused-brs` from a stub landing page plus two narrow notes into a multi-entry folder with `index.md`, `pattern-catalog.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, `tail-and-return-cleanups.md`, `select-and-condition-rewrites.md`, `branch-exit-and-payload-rewrites.md`, `carried-guards-and-result-blocks.md`, `returned-ladder-hot-shapes.md`, `visit-order-and-bailouts.md`, and a refreshed `parity.md`.
+- Documented every currently modeled rewrite family, the raw fast path, the HOT fixpoint strategy, the returned-ladder lift shapes, the carried-guard/result-block families, and the current artifact blocker order from the active RUB backlog.
+- Updated the root wiki catalog and Binaryen pass-folder catalog so the expanded RUB pages are discoverable.
 ## [2026-04-10] investigate | record the current ssa-nomerge artifact parity blocker
 
 - Added `binaryen/passes/ssa-nomerge/parity.md` plus raw research note `0076-2026-04-10-ssa-nomerge-parity-investigation.md` for the current `ssa-nomerge` evidence.

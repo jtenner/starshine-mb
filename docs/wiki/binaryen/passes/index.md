@@ -36,7 +36,7 @@ related:
 - [`vacuum/index.md`](vacuum/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy and parity notes are still pending.
 - [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass with registry dispatch and implemented behavior; detailed strategy/parity notes are still pending.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
-- [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Folder now has a landing page plus parity and returned-ladder shape notes.
+- [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with a hub page, exhaustive pattern catalog, Binaryen strategy, Starshine HOT-IR strategy, detailed rewrite-family pages, returned-ladder shape notes, bailout notes, and parity status.
 - [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
 - [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note.
