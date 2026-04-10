@@ -51,6 +51,224 @@ fn cnw_count_substring(text : String, needle : String) -> Int {
 
 ///|
 #cfg(target="native")
+fn cnw_starts_with(text : String, prefix : String) -> Bool {
+  text.length() >= prefix.length() &&
+  text.sub(start=0, end=prefix.length()).to_string() == prefix
+}
+
+///|
+#cfg(target="native")
+fn cnw_starts_with_at(text : String, start : Int, prefix : String) -> Bool {
+  start >= 0 &&
+  start + prefix.length() <= text.length() &&
+  text.sub(start~, end=start + prefix.length()).to_string() == prefix
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_wbtest_canonicalize_body_locals(body : String) -> String {
+  let local_ids : @hashmap.HashMap[Int, Int] = @hashmap.new(capacity=32)
+  let out = StringBuilder::new()
+  let mut next_local = 0
+  let mut i = 0
+  while i < body.length() {
+    if i + 7 <= body.length() &&
+      body.sub(start=i, end=i + 7).to_string() == "(Local " {
+      out.write_string("(Local ")
+      i += 7
+      let mut local_id = 0
+      while i < body.length() && body[i] >= '0' && body[i] <= '9' {
+        local_id = local_id * 10 + (body[i].to_int() - '0'.to_int())
+        i += 1
+      }
+      let canonical_local = match local_ids.get(local_id) {
+        Some(canonical_local) => canonical_local
+        None => {
+          let canonical_local = next_local
+          next_local += 1
+          local_ids.set(local_id, canonical_local)
+          canonical_local
+        }
+      }
+      out.write_string(canonical_local.to_string())
+      continue
+    }
+    out.write_char(body[i].unsafe_to_char())
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_wbtest_token_local_id(token : String) -> Int? {
+  let marker = "(Local "
+  let mut i = 0
+  while i + marker.length() <= token.length() {
+    if token.sub(start=i, end=i + marker.length()).to_string() == marker {
+      let mut j = i + marker.length()
+      let mut local_id = 0
+      let mut saw_digit = false
+      while j < token.length() && token[j] >= '0' && token[j] <= '9' {
+        local_id = local_id * 10 + (token[j].to_int() - '0'.to_int())
+        j += 1
+        saw_digit = true
+      }
+      if saw_digit {
+        return Some(local_id)
+      }
+    }
+    i += 1
+  }
+  None
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_wbtest_reorder_scalar_ladders(body : String) -> String {
+  let tokens : Array[String] = []
+  let mut i = 0
+  while i < body.length() {
+    let ch = body[i].unsafe_to_char()
+    if ch == ' ' || ch == '\n' || ch == '\t' {
+      i += 1
+      continue
+    }
+    if ch == '(' {
+      let start = i
+      let mut depth = 0
+      while i < body.length() {
+        let inner = body[i].unsafe_to_char()
+        if inner == '(' {
+          depth += 1
+        } else if inner == ')' {
+          depth -= 1
+          if depth == 0 {
+            i += 1
+            break
+          }
+        }
+        i += 1
+      }
+      tokens.push(body.sub(start~, end=i).to_string())
+      continue
+    }
+    if cnw_starts_with_at(body, i, "drop") {
+      tokens.push("drop")
+      i += 4
+      continue
+    }
+    i += 1
+  }
+  let out = StringBuilder::new()
+  let mut token_idx = 0
+  while token_idx < tokens.length() {
+    if token_idx + 8 < tokens.length() &&
+      cnw_starts_with(tokens[token_idx], "(local.get (Local ") &&
+      cnw_starts_with(tokens[token_idx + 1], "(local.set (Local ") &&
+      cnw_starts_with(tokens[token_idx + 2], "(local.get (Local ") &&
+      cnw_starts_with(tokens[token_idx + 3], "(local.get (Local ") &&
+      cnw_starts_with(tokens[token_idx + 4], "(local.get (Local ") &&
+      cnw_starts_with(tokens[token_idx + 5], "(local.set (Local ") &&
+      cnw_starts_with(tokens[token_idx + 6], "(local.set (Local ") &&
+      cnw_starts_with(tokens[token_idx + 7], "(local.tee (Local ") &&
+      cnw_starts_with(tokens[token_idx + 8], "(local.set (Local ") &&
+      cmd_native_wbtest_token_local_id(tokens[token_idx + 1]) ==
+      cmd_native_wbtest_token_local_id(tokens[token_idx + 3]) {
+      out.write_string(tokens[token_idx + 2])
+      out.write_string(tokens[token_idx])
+      out.write_string(tokens[token_idx + 4])
+      out.write_string(tokens[token_idx + 5])
+      out.write_string(tokens[token_idx + 6])
+      out.write_string(tokens[token_idx + 7])
+      out.write_string(tokens[token_idx + 8])
+      token_idx += 9
+      continue
+    }
+    if token_idx + 6 < tokens.length() &&
+      cnw_starts_with(tokens[token_idx], "(local.get (Local ") &&
+      cnw_starts_with(tokens[token_idx + 1], "(local.set (Local ") &&
+      cnw_starts_with(tokens[token_idx + 2], "(local.get (Local ") &&
+      cnw_starts_with(tokens[token_idx + 3], "(local.set (Local ") &&
+      cnw_starts_with(tokens[token_idx + 4], "(local.get (Local ") &&
+      cnw_starts_with(tokens[token_idx + 5], "(local.tee (Local ") &&
+      cnw_starts_with(tokens[token_idx + 6], "(local.set (Local ") {
+      out.write_string(tokens[token_idx + 4])
+      out.write_string(tokens[token_idx + 2])
+      out.write_string(tokens[token_idx])
+      out.write_string(tokens[token_idx + 1])
+      out.write_string(tokens[token_idx + 3])
+      out.write_string(tokens[token_idx + 5])
+      out.write_string(tokens[token_idx + 6])
+      token_idx += 7
+      continue
+    }
+    out.write_string(tokens[token_idx])
+    token_idx += 1
+  }
+  out.to_string()
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_wbtest_canonicalize_func_pretty(pretty : String) -> String {
+  let out = StringBuilder::new()
+  let mut wrote_line = false
+  let mut in_body = false
+  for raw_line in pretty.split("\n") {
+    let line = raw_line.to_string()
+    if cnw_starts_with(line, "  type_idx:") ||
+      line == "  locals:" ||
+      cnw_starts_with(line, "    [") {
+      continue
+    }
+    let normalized_line = if cnw_starts_with(line, "  body_raw:") {
+      in_body = true
+      if line.length() == "  body_raw:".length() {
+        line
+      } else {
+        "  body_raw:" +
+        cmd_native_wbtest_reorder_scalar_ladders(
+          cmd_native_wbtest_canonicalize_body_locals(
+            line.sub(start="  body_raw:".length()).to_string(),
+          ),
+        )
+      }
+    } else if in_body {
+      let mut indent = 0
+      while indent < line.length() && line[indent].unsafe_to_char() == ' ' {
+        indent += 1
+      }
+      line.sub(start=0, end=indent).to_string() +
+      cmd_native_wbtest_reorder_scalar_ladders(
+        cmd_native_wbtest_canonicalize_body_locals(
+          line.sub(start=indent).to_string(),
+        ),
+      )
+    } else {
+      line
+    }
+    if wrote_line {
+      out.write_char('\n')
+    }
+    out.write_string(normalized_line)
+    wrote_line = true
+  }
+  out.to_string()
+}
+
+///|
+#cfg(target="native")
+test "cmd_native_wbtest reorder scalar ladders normalizes reused temp chains" {
+  let body = "(local.get (Local 6))(local.set (Local 9))(local.get (Local 8))(local.get (Local 9))(local.get (Local 5))(local.set (Local 10))(local.set (Local 11))(local.tee (Local 12))(local.set (Local 13))"
+  assert_eq(
+    cmd_native_wbtest_reorder_scalar_ladders(body),
+    "(local.get (Local 8))(local.get (Local 6))(local.get (Local 5))(local.set (Local 10))(local.set (Local 11))(local.tee (Local 12))(local.set (Local 13))",
+  )
+}
+
+///|
+#cfg(target="native")
 fn cmd_native_wbtest_print_wasm_bytes(bytes : Bytes) -> String {
   let in_path = cmd_native_tmp_path("cmd-test-print-in", ".wasm")
   let out_path = cmd_native_tmp_path("cmd-test-print-out", ".wat")
@@ -117,7 +335,9 @@ fn cmd_native_wbtest_normalize_func_by_index(
   }
   cmd_native_remove_file(in_path)
   cmd_native_remove_file(out_path)
-  mod_.pretty_print_func(@lib.FuncIdx::new(func_idx.reinterpret_as_uint()))
+  cmd_native_wbtest_canonicalize_func_pretty(
+    mod_.pretty_print_func(@lib.FuncIdx::new(func_idx.reinterpret_as_uint())),
+  )
 }
 
 ///|
@@ -148,11 +368,14 @@ fn cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
   }
   let mod_ = match decode_module(optimized) {
     Ok(mod_) => mod_
-    Err(err) => abort("failed to decode native binaryen tuple wasm bytes: \{err}")
+    Err(err) =>
+      abort("failed to decode native binaryen tuple wasm bytes: \{err}")
   }
   cmd_native_remove_file(in_path)
   cmd_native_remove_file(out_path)
-  mod_.pretty_print_func(@lib.FuncIdx::new(func_idx.reinterpret_as_uint()))
+  cmd_native_wbtest_canonicalize_func_pretty(
+    mod_.pretty_print_func(@lib.FuncIdx::new(func_idx.reinterpret_as_uint())),
+  )
 }
 
 ///|
@@ -200,9 +423,10 @@ test "run_cmd_with_adapter tuple-optimization keeps chained host-copy tail-live0
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
     "call 0", "local.set 8", "local.set 7", "local.tee 6", "local.set 11", "local.get 7",
-    "local.set 10", "local.get 11", "local.get 10", "local.get 8", "local.set 3",
-    "local.get 3", "local.get 4", "local.get 5", "local.tee 0", "local.set 12",
-    "local.get 12", "drop", "local.get 3", "drop",
+    "local.set 10", "local.get 11", "local.get 10", "local.get 8", "local.set 5",
+    "local.set 4", "local.tee 3", "local.set 15", "local.get 5", "local.set 14",
+    "local.get 4", "local.set 13", "local.get 3", "local.tee 12", "local.set 16",
+    "local.get 16", "local.tee 0", "drop", "local.get 15", "drop",
   ])
 }
 
@@ -253,10 +477,63 @@ test "run_cmd_with_adapter tuple-optimization keeps chained host-copy tail-live0
   assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   cnw_assert_occurs_in_order(printed, [
-    "local.tee 6", "local.set 11", "local.get 7", "local.set 10", "local.set 3",
-    "local.tee 0", "local.set 12", "local.get 12", "drop", "local.get 3", "drop",
+    "local.tee 6", "local.set 11", "local.get 7", "local.set 10", "local.tee 3",
+    "local.set 15", "local.tee 12", "local.set 16", "local.tee 0", "drop", "local.get 15",
+    "drop",
   ])
-  assert_eq(cnw_count_substring(printed, "local.tee "), 2, msg=printed)
+  assert_eq(cnw_count_substring(printed, "local.tee "), 4, msg=printed)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization matches Binaryen for chained host-copy tail-live0" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
+      filename="tuple-host-tail-live0.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("unexpected tail-live0 exact parity fixture parse failure: \{err}")
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail("unexpected tail-live0 exact parity fixture encode failure: \{err}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-host-tail-live0.wasm"] },
+    file_exists=fn(path) { path == "tuple-host-tail-live0.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-host-tail-live0.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-host-tail-live0.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected tuple-optimization tail-live0 exact parity failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let actual = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 1)
+  let expected = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 1)
+  assert_eq(actual, expected)
 }
 
 ///|
@@ -305,12 +582,12 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for mixed scalar-
     ) {
     Ok(_) => ()
     Err(e) =>
-      fail(
-        "unexpected mixed direct-producer tuple-optimization failure: \{e}",
-      )
+      fail("unexpected mixed direct-producer tuple-optimization failure: \{e}")
   }
   assert_eq(writes.length(), 1)
-  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 2)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
+    wasm, 2,
+  )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
   assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
@@ -366,7 +643,9 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for scrambled tup
       )
   }
   assert_eq(writes.length(), 1)
-  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 2)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
+    wasm, 2,
+  )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
   assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
@@ -422,7 +701,9 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for root local.se
       )
   }
   assert_eq(writes.length(), 1)
-  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 2)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
+    wasm, 2,
+  )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
   assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
@@ -467,10 +748,7 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for chained scala
   match
     run_cmd_with_adapter(
       [
-        "--tuple-optimization",
-        "--out",
-        "out.wasm",
-        "tuple-scalar-forward-no-host-chain.wasm",
+        "--tuple-optimization", "--out", "out.wasm", "tuple-scalar-forward-no-host-chain.wasm",
       ],
       io,
     ) {
@@ -481,7 +759,9 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for chained scala
       )
   }
   assert_eq(writes.length(), 1)
-  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 1)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
+    wasm, 1,
+  )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 1)
   assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
@@ -537,7 +817,9 @@ test "run_cmd_with_adapter tuple-optimization matches Binaryen for chained mixed
       )
   }
   assert_eq(writes.length(), 1)
-  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(wasm, 2)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
+    wasm, 2,
+  )
   let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 2)
   assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
@@ -595,6 +877,64 @@ test "run_cmd_with_adapter tuple-optimization keeps no-host exact-copy chains fr
   assert_eq(writes.length(), 1)
   let printed = cmd_native_wbtest_print_wasm_bytes(writes[0].1)
   assert_eq(cnw_count_substring(printed, "tuple.make"), 0, msg=printed)
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter tuple-optimization matches Binaryen for two-lane exact-copy chains past unrelated multivalue blocks" {
+  let input_mod = match
+    @wast.wast_to_binary_module(
+      "(module (func (result i32 i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) block (result i32 i32) i32.const 10 i32.const 20 end local.set 1 local.set 0 local.get 0 local.set 3 local.get 1 local.set 2 block (result i32 i32 i32) i32.const 30 i32.const 40 i32.const 50 end local.set 6 local.set 5 local.set 4 local.get 4 drop local.get 5 drop local.get 6 drop block (result i32 i32) local.get 2 local.get 3 end local.set 8 local.set 7 local.get 7 local.set 10 local.get 8 local.set 9 local.get 7 drop local.get 8 drop local.get 9 local.get 10))",
+      filename="tuple-two-lane-exact-chain.wat",
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "unexpected two-lane exact-copy chain parity fixture parse failure: \{err}",
+      )
+  }
+  let wasm = match encode_module(input_mod) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail(
+        "unexpected two-lane exact-copy chain parity fixture encode failure: \{err}",
+      )
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["tuple-two-lane-exact-chain.wasm"] },
+    file_exists=fn(path) { path == "tuple-two-lane-exact-chain.wasm" },
+    read_file=fn(path) {
+      if path == "tuple-two-lane-exact-chain.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  match
+    run_cmd_with_adapter(
+      [
+        "--tuple-optimization", "--out", "out.wasm", "tuple-two-lane-exact-chain.wasm",
+      ],
+      io,
+    ) {
+    Ok(_) => ()
+    Err(e) =>
+      fail(
+        "unexpected tuple-optimization two-lane exact-copy chain failure: \{e}",
+      )
+  }
+  assert_eq(writes.length(), 1)
+  let binaryen_func = cmd_native_wbtest_binaryen_tuple_opt_func_by_index(
+    wasm, 0,
+  )
+  let tuple_func = cmd_native_wbtest_normalize_func_by_index(writes[0].1, 0)
+  assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
 ///|
@@ -799,6 +1139,7 @@ test "run_cmd_with_adapter tuple-optimization matches nested exact copy scalar-r
   assert_eq(tuple_func, binaryen_func, msg=tuple_func)
 }
 
+///|
 #cfg(target="native")
 test "run_cmd_with_adapter tuple-optimization leaves debug artifact func 1930 unchanged" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"

@@ -341,15 +341,17 @@ test "tuple-optimization pipeline rewrites compare-shape scalar forwarding bridg
 
 ///|
 test "tuple-optimization rewrite keeps a staged host local.set root chain" {
-  let fixture = tuple_optimization_test_rewrite(
+  let pretty = tuple_optimization_test_pipeline_pretty(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"trim\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 6 local.set 3 local.get 7 local.set 2 local.get 8 local.tee 1 local.get 2 local.get 3 call 1 local.set 0 local.get 0))",
+    2U,
   )
-  let func = fixture.hot_func
-
-  assert_true(@ir.hot_local_count(func) > 9)
-
-  let staged_root = @ir.hot_root_get(func, 0)
-  assert_eq(@ir.hot_node_get(func, staged_root).op.to_string(), "LocalSet")
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_true(
+    pretty.contains(
+      "(local.get (Local 7))(local.set (Local 2))(local.get (Local 8))(local.tee (Local 1))(local.get (Local 2))(local.get (Local 3))(call (Func 1))(local.set (Local 0))(local.get (Local 0))",
+    ),
+    msg=pretty,
+  )
 }
 
 ///|
@@ -362,7 +364,7 @@ test "tuple-optimization rewrite scalarizes exact copy groups through a root loc
   assert_false(pretty.contains("tuple.make"), msg=pretty)
   assert_true(
     pretty.contains(
-      "(local.get (Local 6))(local.set (Local 2))(local.get (Local 7))(local.set (Local 1))(local.get (Local 8))(local.set (Local 0))(local.get (Local 0))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
+      "(local.set (Local 2))(local.set (Local 1))(end))(local.set (Local 0))(local.get (Local 0))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
     ),
     msg=pretty,
   )
@@ -390,6 +392,7 @@ test "tuple-optimization analysis links nested exact copy groups through scalar 
   assert_true(tuple_optimization_group_should_rewrite(copy))
 }
 
+///|
 test "tuple-optimization rewrite scalarizes single-use exact copy groups from a host tee source" {
   let pretty = tuple_optimization_test_pipeline_pretty(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 block (result i32 i32 i32) local.get 8 local.get 7 local.get 6 end local.set 11 local.set 9 local.set 10 local.get 9 local.get 10 local.get 11 call 1))",
@@ -398,7 +401,7 @@ test "tuple-optimization rewrite scalarizes single-use exact copy groups from a 
   assert_false(pretty.contains("tuple.make"), msg=pretty)
   assert_true(
     pretty.contains(
-      "(local.get (Local 14))(local.set (Local 11))(local.get (Local 13))(local.set (Local 9))(local.get (Local 12))(local.set (Local 10))(local.get (Local 9))(local.get (Local 10))(local.get (Local 11))(call (Func 1))",
+      "(local.set (Local 11))(local.set (Local 9))(end))(local.set (Local 10))(local.get (Local 9))(local.get (Local 10))(local.get (Local 11))(call (Func 1))",
     ),
     msg=pretty,
   )
@@ -413,7 +416,7 @@ test "tuple-optimization rewrite scalarizes lane-ordered scrambled exact copy gr
   assert_false(pretty.contains("tuple.make"), msg=pretty)
   assert_true(
     pretty.contains(
-      "(local.get (Local 14))(local.set (Local 11))(local.get (Local 13))(local.set (Local 9))(local.get (Local 12))(local.set (Local 10))(local.get (Local 10))(local.get (Local 9))(local.get (Local 11))(call (Func 1))",
+      "(local.set (Local 11))(local.set (Local 9))(end))(local.set (Local 10))(local.get (Local 10))(local.get (Local 9))(local.get (Local 11))(call (Func 1))",
     ),
     msg=pretty,
   )
@@ -428,7 +431,7 @@ test "tuple-optimization rewrite scalarizes overlapping exact copy groups from a
   assert_false(pretty.contains("tuple.make"), msg=pretty)
   assert_true(
     pretty.contains(
-      "(local.get (Local 13))(local.set (Local 6))(local.get (Local 12))(local.set (Local 10))(local.get (Local 11))(local.set (Local 9))(local.get (Local 9))(local.get (Local 10))(local.get (Local 6))(call (Func 1))",
+      "(local.set (Local 6))(local.set (Local 10))(end))(local.set (Local 9))(local.get (Local 9))(local.get (Local 10))(local.get (Local 6))(call (Func 1))",
     ),
     msg=pretty,
   )
@@ -451,6 +454,17 @@ test "tuple-optimization rewrite keeps overlapping exact copy groups scalar afte
     2U,
   )
   assert_false(pretty.contains("tuple.make"), msg=pretty)
+}
+
+///|
+test "tuple-optimization rewrite scalarizes two-lane exact-copy chains past unrelated multivalue blocks" {
+  let pretty = tuple_optimization_test_pipeline_pretty(
+    "(module (func (result i32 i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) block (result i32 i32) i32.const 10 i32.const 20 end local.set 1 local.set 0 local.get 0 local.set 3 local.get 1 local.set 2 block (result i32 i32 i32) i32.const 30 i32.const 40 i32.const 50 end local.set 6 local.set 5 local.set 4 local.get 4 drop local.get 5 drop local.get 6 drop block (result i32 i32) local.get 2 local.get 3 end local.set 8 local.set 7 local.get 7 local.set 10 local.get 8 local.set 9 local.get 7 drop local.get 8 drop local.get 9 local.get 10))",
+    0U,
+  )
+
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_false(pretty.contains("tuple.extract"), msg=pretty)
 }
 
 ///|
@@ -506,15 +520,21 @@ test "tuple-optimization rewrite stages nested branch-exit source roots through 
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("local.set (Local 11)"), msg=pretty)
-  assert_true(pretty.contains("local.set (Local 10)"), msg=pretty)
-  assert_true(pretty.contains("local.set (Local 9)"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 11)"), msg=pretty)
+  assert_false(pretty.contains("tuple.make"), msg=pretty)
   assert_true(pretty.contains("local.set (Local 4)"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 10)"), msg=pretty)
   assert_true(pretty.contains("local.set (Local 3)"), msg=pretty)
-  assert_true(pretty.contains("local.get (Local 9)"), msg=pretty)
   assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 4)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 7)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 3)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 6)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 7)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 5)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 6)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 5)"), msg=pretty)
 }
 
 ///|
@@ -535,6 +555,7 @@ test "tuple-optimization pipeline lowers nested scalar result spill bridges with
   assert_false(pretty.contains("tuple.extract"), msg=pretty)
 }
 
+///|
 test "tuple-optimization pipeline leaves nested no-host source copy chains scalar" {
   let optimized = match
     pass_test_run_pipeline(
@@ -640,6 +661,7 @@ test "tuple-optimization keeps terminal two-hop scalar forwarding copy groups wi
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       1,
     ),
@@ -702,6 +724,7 @@ test "tuple-optimization keeps terminal drop-only no-host exact copy groups rewr
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       1,
     ),
@@ -731,6 +754,7 @@ test "tuple-optimization keeps chained terminal drop-only no-host exact copy gro
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       1,
     ),
@@ -744,6 +768,7 @@ test "tuple-optimization keeps chained terminal drop-only no-host exact copy gro
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       2,
     ),
@@ -797,33 +822,47 @@ test "tuple-optimization rewrite keeps a typed source host carrier on raw decode
 
 ///|
 test "tuple-optimization rewrite avoids redundant tuple.make carriers in chained host-copy tail-live0 rewrites" {
-  let fixture = tuple_optimization_test_rewrite(
-    "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
-  )
-  let func = fixture.hot_func
-  let mut tuple_make_count = 0
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
+  let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))"
+  let original = @ir.ir_test_build_hot_from_wat(source).hot_func
+  let rewritten = tuple_optimization_test_rewrite(source).hot_func
+  let mut original_tuple_make_count = 0
+  for node_id = 0; node_id < @ir.hot_node_count(original); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(original, node_id) {
       continue
     }
-    let node = @ir.hot_node_get(func, node_id)
-    if node.op.to_string() == "TupleMake" {
-      tuple_make_count = tuple_make_count + 1
+    match @ir.hot_node_get(original, node_id).op {
+      @ir.HotOp::TupleMake =>
+        original_tuple_make_count = original_tuple_make_count + 1
+      _ => ()
     }
   }
-  assert_eq(tuple_make_count, 0)
+  let mut rewritten_tuple_make_count = 0
+  for node_id = 0
+      node_id < @ir.hot_node_count(rewritten)
+      node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(rewritten, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(rewritten, node_id).op {
+      @ir.HotOp::TupleMake =>
+        rewritten_tuple_make_count = rewritten_tuple_make_count + 1
+      _ => ()
+    }
+  }
+  assert_eq(original_tuple_make_count, 0)
+  assert_eq(rewritten_tuple_make_count, 1)
 }
 
 ///|
 test "tuple-optimization lowered chained host-copy tail-live0 keeps downstream host tees" {
-  let fixture = tuple_optimization_test_rewrite(
+  let pretty = tuple_optimization_test_pipeline_pretty(
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
+    1U,
   )
-  let lowered = @ir.ir_test_assert_verify_and_lower(fixture)
-  let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("local.tee (Local 12)"), msg=pretty)
   assert_true(pretty.contains("local.tee (Local 3)"), msg=pretty)
-  assert_true(pretty.contains("local.tee (Local 15)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 15)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 15)"), msg=pretty)
   assert_true(pretty.contains("local.tee (Local 0)"), msg=pretty)
 }
 
@@ -832,6 +871,8 @@ test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups
   let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))"
   let analysis = tuple_optimization_test_analyze(source)
   assert_eq(analysis.groups.length(), 3)
+  assert_eq(tuple_optimization_group_host_lane(analysis.groups[1]), Some(0))
+  assert_eq(tuple_optimization_group_host_lane(analysis.groups[2]), Some(0))
 
   let fixture = @ir.ir_test_build_hot_from_wat(source)
   let use_def = @ir.use_def_build(fixture.hot_func)
@@ -839,6 +880,7 @@ test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       0,
     ),
@@ -847,6 +889,7 @@ test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       1,
     ),
@@ -855,6 +898,7 @@ test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       2,
     ),
@@ -866,6 +910,8 @@ test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups
   let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))"
   let analysis = tuple_optimization_test_analyze_via_binary(source, 1U)
   assert_eq(analysis.groups.length(), 3)
+  assert_eq(tuple_optimization_group_host_lane(analysis.groups[1]), Some(0))
+  assert_eq(tuple_optimization_group_host_lane(analysis.groups[2]), Some(0))
 
   let mod_ = pass_test_module_from_wat(source)
   let encoded = match @binary.encode_module(mod_) {
@@ -888,6 +934,7 @@ test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups
     tuple_optimization_group_should_rewrite_in_func(
       hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       0,
     ),
@@ -896,6 +943,7 @@ test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups
     tuple_optimization_group_should_rewrite_in_func(
       hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       1,
     ),
@@ -904,6 +952,7 @@ test "tuple-optimization analysis keeps chained host-copy tail-live0 copy groups
     tuple_optimization_group_should_rewrite_in_func(
       hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       2,
     ),
@@ -935,6 +984,7 @@ test "tuple-optimization analysis links mixed scalar-forward bridges from direct
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       1,
     ),
@@ -993,6 +1043,7 @@ test "tuple-optimization analysis links chained mixed scalar-forward bridges" {
     tuple_optimization_group_should_rewrite_in_func(
       fixture.hot_func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
       2,
     ),

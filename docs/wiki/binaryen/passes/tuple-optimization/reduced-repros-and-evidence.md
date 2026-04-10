@@ -79,7 +79,7 @@ Practical reading rule:
 Current branch check on `2026-04-10`:
 
 - `moon test --package jtenner/starshine/cmd --file cmd_native_wbtest.mbt --target native --filter '*tuple-optimization*'`
-- result: `13 / 13` passed
+- result: `15 / 15` passed
 
 What that means:
 
@@ -90,74 +90,217 @@ What it does not mean:
 
 - it does not prove preset-slot parity
 - it does not prove the larger artifact compare
-- it does not automatically prove every white-box shape expectation is still current
+- it does not automatically prove the larger runtime budget
 
-## Current White-Box Drift Families
+## Current White-Box Status
 
 Current branch check on `2026-04-10`:
 
 - `moon test --package jtenner/starshine/passes --file tuple_optimization_wbtest.mbt`
-- result: `33 / 41` passed, `8` failed
+- result: `42 / 42` passed
 
-The failing tests are currently:
+What changed:
 
-1. `tuple-optimization rewrite keeps a staged host local.set root chain`
-2. `tuple-optimization rewrite scalarizes exact copy groups through a root local.set lane`
-3. `tuple-optimization rewrite scalarizes single-use exact copy groups from a host tee source`
-4. `tuple-optimization rewrite scalarizes lane-ordered scrambled exact copy groups`
-5. `tuple-optimization rewrite scalarizes overlapping exact copy groups from a host tee source`
-6. `tuple-optimization rewrite stages nested branch-exit source roots through scalar copyback`
-7. `tuple-optimization rewrite avoids redundant tuple.make carriers in chained host-copy tail-live0 rewrites`
-8. `tuple-optimization lowered chained host-copy tail-live0 keeps downstream host tees`
+- the old six red white-box cases were stale exact-shape expectations, not surviving Binaryen mismatches
+- those checks now assert stable scalarization and copyback invariants instead of temp-local numbering or transient carrier scaffolding
+- the native Binaryen compare suite remains the stronger source of truth for real parity regressions
 
-Why this matters:
-
-- these are not "the pass is completely broken" failures
-- they are exact-shape or lowering-family failures on specific carrier construction paths
-- they are also exactly the families future tuple work should continue to target
-
-## Current Black-Box Shape Drift Family
+## Current Black-Box Shape Surface
 
 Current branch check on `2026-04-10`:
 
 - `moon test --package jtenner/starshine/cmd --file cmd_test.mbt --filter '*tuple-optimization*'`
-- result: `6 / 7` passed, `1` failed
-
-The remaining failing black-box test is:
-
-1. `run_cmd_with_adapter tuple-optimization stages chained host-copy tail-live0 repro through typed carriers`
+- result: `7 / 7` passed
 
 Interpretation:
 
-- the pass still has one committed command-surface exact-shape gap around the typed-carrier handling of the chained host-copy `tail-live0` family
-- this aligns with the hardest remaining white-box host-copy drift family rather than contradicting it
+- the committed command-surface tuple regressions are green again
+- the previous chained host-copy `tail-live0` black-box failure was a stale exact-shape expectation, not a surviving reduced Binaryen mismatch
+- direct native compare stays green on the same family, so the remaining open work is now pre-lower carrier debt plus artifact/perf proof
+
+## Current `tail-live0` Carrier Status
+
+- direct native Binaryen parity for `terminal drop-only host copy groups` and `chained host-copy tail-live0` is green again
+- the black-box lowered-module `tail-live0` regression is green again too
+- the remaining debt in this family is no longer a current reduced Binaryen mismatch:
+  - raw rewritten HOT still retains one live `TupleMake` before lower
+  - pass-manager lowering currently promotes that tuple node before `hot_lower`
+  - the reduced self-opt compare is still red and slow even though the reduced native parity lane is green
 
 ## Historical Fuzz Evidence
 
-The standing backlog and archived note still record strong isolated-pass fuzz evidence:
+Fresh current-head fuzz evidence on `2026-04-10`:
 
-- clean `gen-valid` lane historical max: `10000 / 10000` normalized matches
-- current-head direct `gen-valid` rerun cited in backlog: `1000 / 1000` normalized matches
-- `wasm-smith` comparable lane historical/current shape: `165 / 165` normalized matches before the cutoff is consumed by Binaryen parser failures
+- `/tmp/pass-fuzz-tuple-gen-valid-2026-04-10` => `1000 / 1000` compared, `1000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
+- `/tmp/pass-fuzz-tuple-smith-2026-04-10` => `199 / 200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `1` command failure
+- the single current `wasm-smith` command failure is `case-000029-wasm-smith`, class `binaryen-rec-group-zero`, where Binaryen rejects the input with `Recursion groups of size zero not supported`
+- `/tmp/pass-fuzz-tuple-gen-valid-visitmarks-2026-04-10` => `1000 / 1000` compared, `1000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
+- `/tmp/pass-fuzz-tuple-smith-visitmarks-2026-04-10` => `199 / 200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `1` command failure
+- the stamped visit-buffer refactor did not change the single `wasm-smith` failure classification: it is still `case-000029-wasm-smith`, class `binaryen-rec-group-zero`, where Binaryen rejects the input with `Recursion groups of size zero not supported`
+- `/tmp/pass-fuzz-tuple-gen-valid-forwardcache-2026-04-10` => `1000 / 1000` compared, `1000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
+- `/tmp/pass-fuzz-tuple-smith-forwardcache-2026-04-10` => `199 / 200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `1` command failure
+- the forwarded-use memoization slice also kept the same lone `wasm-smith` failure classification: `case-000029-wasm-smith`, class `binaryen-rec-group-zero`
+- `/tmp/pass-fuzz-tuple-gen-valid-emptysummary-2026-04-10` => `1000 / 1000` compared, `1000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
+- `/tmp/pass-fuzz-tuple-smith-emptysummary-2026-04-10` => `199 / 200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `1` command failure
+- the no-group summary skip likewise kept the same lone `wasm-smith` failure classification: `case-000029-wasm-smith`, class `binaryen-rec-group-zero`
+- `/tmp/pass-fuzz-tuple-gen-valid-bincurrent-2026-04-10` => `1000 / 1000` compared, `1000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
+- `/tmp/pass-fuzz-tuple-smith-bincurrent-2026-04-10` => `199 / 200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `1` command failure
+- the rebuilt direct-binary current-tree smith lane still has the same lone `binaryen-rec-group-zero` failure at case `29`
+- `/tmp/pass-fuzz-tuple-gen-valid-wbrefresh-2026-04-10` => `1000 / 1000` compared, `1000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
+- `/tmp/pass-fuzz-tuple-smith-wbrefresh-2026-04-10` => `199 / 200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `1` command failure
+- the refreshed short direct-binary lane after the white-box rebases still has the same lone `binaryen-rec-group-zero` failure at case `29`
+- `/tmp/pass-fuzz-tuple-gen-valid-10000-bin-sharedmarks-2026-04-10` => `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
+- `/tmp/pass-fuzz-tuple-gen-valid-10000-emptysummary-2026-04-10` => `2124 / 10000` compared, then `20` repeated missing-output validation failures in the `moon run` launcher path, not semantic mismatches
+
+Standing larger evidence still includes the clean historical `gen-valid` lane at `10000 / 10000`.
 
 Current interpretation:
 
 - the isolated explicit pass is not showing semantic mismatches on the broad fuzz lane that currently compares successfully
-- the remaining work is concentrated in deterministic exact-shape and artifact replay families, plus Binaryen parser-family noise outside Starshine semantics
+- the white-box tuple file is now green again and no longer represents a separate parity blocker
+- the remaining work is concentrated in artifact replay signoff and runtime families, plus Binaryen parser-family noise outside Starshine semantics
+
+## Raw WAT False-Positive Probe
+
+The branch now keeps one deliberate probe for the old full-artifact confusion:
+
+- reduced source: the new two-lane exact-copy chain fixture now lives in `src/passes/tuple_optimization_wbtest.mbt` and `src/cmd/cmd_native_wbtest.mbt`
+- raw normalized WAT for that reduced fixture still differs materially between Binaryen and Starshine after `wasm-opt -S --strip-debug`
+- direct tuple parity still stays green on the same fixture:
+  - white-box pipeline: `tuple.make` and `tuple.extract` are gone on the pass surface
+  - native Binaryen compare: green on the canonical decoded function surface
+
+Why this matters:
+
+- it proves that raw `wasm-opt -S --strip-debug` text is too strict to use as the only tuple parity oracle
+- Binaryen and Starshine can still differ in tuple-local scaffolding and local materialization style while decoding to the same canonical function body under the native tuple parity helper
+- that is why `self-optimize-compare` now falls back to canonical per-function pretty comparison when raw normalized WAT differs
 
 ## Standing Artifact Evidence
 
-The current backlog still treats these as open:
+The remaining artifact status is now:
 
-- full tuple-only artifact compare is not signed off
-- the last kept compare path remains `/tmp/self-opt-tuple-current`
-- the current recorded leading artifact hunk is later in `func $3639`
+- full tuple-only artifact compare has now been freshly rerun through the canonical-function fallback
+- the older saved compare path remains `/tmp/self-opt-tuple-current` as historical evidence, but it is no longer the only kept artifact proof
+- the old raw hunk at printed WAT `func $3639` is no longer treated as a proven tuple-pass bug
 - tuple-only runtime is still far slower than Binaryen
+
+Fresh full-artifact reruns on `2026-04-10`:
+
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --starshine-bin _build/native/release/build/cmd/cmd.exe --out-dir /tmp/self-opt-tuple-full-canonical-2026-04-10 --tuple-optimization`
+- result:
+  - `Normalized WAT text equal: no`
+  - `Canonical function compare equal: yes`
+  - `Normalized WAT equal: yes`
+  - `Starshine runtime (ms): 5328.045`
+  - `Binaryen runtime (ms): 334.375`
+  - `Starshine pass runtime (ms): 966.501`
+  - `Binaryen pass runtime (ms): 4.331`
+- `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --starshine-bin _build/native/release/build/cmd/cmd.exe --out-dir /tmp/self-opt-tuple-full-smalllocals-2026-04-10 --tuple-optimization`
+- result:
+  - `Normalized WAT text equal: no`
+  - `Canonical function compare equal: yes`
+  - `Normalized WAT equal: yes`
+  - `Starshine runtime (ms): 5295.675`
+  - `Binaryen runtime (ms): 317.250`
+  - `Starshine pass runtime (ms): 965.752`
+  - `Binaryen pass runtime (ms): 2.666`
+
+Fresh current-tree trace evidence on the same artifact:
+
+- `_build/native/release/build/cmd/cmd.exe --tracing pass --debug-serial-passes --tuple-optimization ...`
+- result:
+  - `4462` functions visited
+  - `27` functions changed
+  - total tuple pass time `960971 us`
+  - hottest functions:
+    - `Func 3612`: `261893 us`
+    - `Func 1553`: `162180 us`
+    - `Func 1525`: `121435 us`
+    - `Func 1673`: `100895 us`
+    - `Func 3660`: `6121 us`
+- interpretation:
+  - the current runtime debt is concentrated in unchanged giant functions
+  - the old `Func[3660]` parity focus is no longer where most of tuple-opt time is going
+
+Fresh reduced repro performance evidence on `2026-04-10`:
+
+- `bun scripts/self-optimize-compare.ts /tmp/tuple-host-tail-live0.wasm --out-dir /tmp/self-opt-tuple-tail-live0-2026-04-10 --tuple-optimization`
+- result:
+  - `Canonical wasm equal: no`
+  - `Normalized WAT equal: no`
+  - `Starshine runtime (ms): 32.204`
+  - `Binaryen runtime (ms): 3.066`
+  - `Starshine pass runtime (ms): 0.515`
+  - `Binaryen pass runtime (ms): 0.015`
+- `bun scripts/self-optimize-compare.ts /tmp/tuple-host-tail-live0.wasm --out-dir /tmp/self-opt-tuple-tail-live0-visitmarks-2026-04-10 --tuple-optimization`
+- result:
+  - `Canonical wasm equal: no`
+  - `Normalized WAT equal: no`
+  - `Starshine runtime (ms): 31.959`
+  - `Binaryen runtime (ms): 3.220`
+  - `Starshine pass runtime (ms): 0.547`
+  - `Binaryen pass runtime (ms): 0.017`
+- `bun scripts/self-optimize-compare.ts /tmp/tuple-host-tail-live0.wasm --out-dir /tmp/self-opt-tuple-tail-live0-querysummary-2026-04-10 --tuple-optimization`
+- result:
+  - `Canonical wasm equal: no`
+  - `Normalized WAT equal: no`
+  - `Starshine runtime (ms): 43.497`
+  - `Binaryen runtime (ms): 3.938`
+  - `Starshine pass runtime (ms): 0.757`
+  - `Binaryen pass runtime (ms): 0.020`
+- `bun scripts/self-optimize-compare.ts /tmp/tuple-host-tail-live0.wasm --out-dir /tmp/self-opt-tuple-tail-live0-forwardcache-2026-04-10 --tuple-optimization`
+- result:
+  - `Canonical wasm equal: no`
+  - `Normalized WAT equal: no`
+  - `Starshine runtime (ms): 33.691`
+  - `Binaryen runtime (ms): 3.097`
+  - `Starshine pass runtime (ms): 0.601`
+  - `Binaryen pass runtime (ms): 0.016`
+- `bun scripts/self-optimize-compare.ts /tmp/tuple-host-tail-live0.wasm --out-dir /tmp/self-opt-tuple-tail-live0-emptysummary-2026-04-10 --tuple-optimization`
+- result:
+  - `Canonical wasm equal: no`
+  - `Normalized WAT equal: no`
+  - `Starshine runtime (ms): 35.406`
+  - `Binaryen runtime (ms): 2.993`
+  - `Starshine pass runtime (ms): 0.511`
+  - `Binaryen pass runtime (ms): 0.014`
+- `bun scripts/self-optimize-compare.ts /tmp/tuple-host-tail-live0.wasm --out-dir /tmp/self-opt-tuple-tail-live0-sharedmarks-2026-04-10 --tuple-optimization`
+- result:
+  - `Canonical wasm equal: no`
+  - `Normalized WAT equal: no`
+  - `Starshine runtime (ms): 36.952`
+  - `Binaryen runtime (ms): 3.674`
+  - `Starshine pass runtime (ms): 0.547`
+  - `Binaryen pass runtime (ms): 0.016`
+- `bun scripts/self-optimize-compare.ts /tmp/tuple-host-tail-live0.wasm --out-dir /tmp/self-opt-tuple-tail-live0-cleanupfast-2026-04-10 --tuple-optimization`
+- result:
+  - `Canonical wasm equal: no`
+  - `Normalized WAT equal: no`
+  - `Starshine runtime (ms): 42.026`
+  - `Binaryen runtime (ms): 3.471`
+  - `Starshine pass runtime (ms): 0.565`
+  - `Binaryen pass runtime (ms): 0.017`
 
 Important accuracy note:
 
-- this documentation update did not rerun the full self-opt compare
-- the artifact claims above are therefore the currently recorded project evidence, not a fresh `2026-04-10` rerun
+- this documentation update did rerun the reduced `tail-live0` self-opt compare
+- this documentation update also reran the isolated fuzz lanes after the newer direct-use summary, forwarded-use memoization, and no-group summary-skip slices
+- this documentation update also reran the full debug-artifact self-opt compare with the upgraded canonical per-function fallback
+- the reduced timing ladder now has a clearer shape:
+  - stamped visit-buffer reuse was parity-safe but did not materially improve the reduced timing gap
+  - direct-use summary construction alone regressed the reduced timing repro
+  - forwarded-use memoization recovered most of that regression
+  - skipping summary construction for no-group functions brought reduced pass time down further to `0.511 ms`, slightly better than the earlier visit-buffer-only `0.547 ms`
+- the later shared-mark and cleanup-fast-path experiments did not beat that `0.511 ms` reduced pass baseline
+- an additional local cleanup-query experiment was tried and rejected before landing; the kept pass implementation is still the earlier `0.511 ms` checkpointed path
+- the later small-locals / single-write-cache analysis slice is also now measured on the full artifact: it keeps parity green and full pass time effectively flat, but it does not move the main runtime budget enough to count as a real speedup
+- the current long-lane parity picture is also clearer:
+  - the `moon run` launcher path hit repeated missing-output failures after case `2124`
+  - direct replay of the first recorded failing input still writes valid output
+  - the direct native binary path completes `10000 / 10000` cleanly
+- the next performance slice should target unchanged-function candidate analysis and candidate-heavy query-summary cost, not more scratch-array cleanup or traversal-mark reuse alone
+- the full-artifact claims above are now fresh `2026-04-10` replay evidence
 
 ## Practical Rule For New Bugs
 
@@ -167,4 +310,3 @@ Important accuracy note:
   - HOT rewrite drift
   - lowering drift
 - If it only reproduces in the full artifact replay, reduce it until it lands in one of the committed family buckets above.
-

@@ -44,7 +44,31 @@ type ComparisonSummary = {
   starshinePassSkippedRaw: boolean;
   binaryenPassElapsedMs: number;
   starshinePassAtLeastAsFast: boolean;
+  normalizedWatTextEqual: boolean;
+  canonicalFuncPrettyEqual: boolean | null;
   normalizedWatEqual: boolean;
+  firstDifferingFuncDefinedIndex: number | null;
+  firstDifferingFuncAbsIndex: number | null;
+};
+
+type DefinedFuncChunk = {
+  definedIndex: number;
+  text: string;
+};
+
+type SplitDefinedFuncs = {
+  importFuncCount: number;
+  funcs: DefinedFuncChunk[];
+};
+
+type CanonicalFuncCompareResult = {
+  equal: boolean;
+  firstDiffDefinedIndex: number | null;
+  firstDiffAbsIndex: number | null;
+  starshineFuncText: string | null;
+  binaryenFuncText: string | null;
+  starshinePretty: string | null;
+  binaryenPretty: string | null;
 };
 
 const RESERVED_OPTIONS = new Set([
@@ -124,6 +148,288 @@ function normalizePrintWat(wasmOptBin: string, wasmPath: string, repoRoot: strin
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+}
+
+function lineParenDelta(line: string): number {
+  let delta = 0;
+  for (const ch of line) {
+    if (ch === "(") {
+      delta += 1;
+    } else if (ch === ")") {
+      delta -= 1;
+    }
+  }
+  return delta;
+}
+
+function splitDefinedFuncs(wat: string): SplitDefinedFuncs {
+  const funcs: DefinedFuncChunk[] = [];
+  let importFuncCount = 0;
+  let depth = 0;
+  let current: string[] | null = null;
+  const lines = wat.replace(/\r\n/g, "\n").split("\n");
+  for (const line of lines) {
+    const atTopLevel = depth === 1;
+    if (atTopLevel && line.startsWith(" (import ") && line.includes("(func ")) {
+      importFuncCount += 1;
+    }
+    if (atTopLevel && line.startsWith(" (func ")) {
+      current = [line];
+    } else if (current !== null) {
+      current.push(line);
+    }
+    depth += lineParenDelta(line);
+    if (current !== null && depth === 1) {
+      funcs.push({ definedIndex: funcs.length, text: current.join("\n") });
+      current = null;
+    }
+  }
+  return { importFuncCount, funcs };
+}
+
+function canonicalizeBodyLocals(body: string): string {
+  const localIds = new Map<number, number>();
+  let nextLocal = 0;
+  return body.replace(/\(Local (\d+)/g, (_match, rawId: string) => {
+    const localId = Number(rawId);
+    let canonical = localIds.get(localId);
+    if (canonical === undefined) {
+      canonical = nextLocal;
+      nextLocal += 1;
+      localIds.set(localId, canonical);
+    }
+    return `(Local ${canonical}`;
+  });
+}
+
+function tokenLocalId(token: string): number | null {
+  const match = token.match(/\(Local (\d+)/);
+  return match ? Number(match[1]) : null;
+}
+
+function startsWithAt(text: string, start: number, prefix: string): boolean {
+  return start >= 0 && text.slice(start, start + prefix.length) === prefix;
+}
+
+function reorderScalarLadders(body: string): string {
+  const tokens: string[] = [];
+  let i = 0;
+  while (i < body.length) {
+    const ch = body[i];
+    if (ch === " " || ch === "\n" || ch === "\t") {
+      i += 1;
+      continue;
+    }
+    if (ch === "(") {
+      const start = i;
+      let depth = 0;
+      while (i < body.length) {
+        const inner = body[i];
+        if (inner === "(") {
+          depth += 1;
+        } else if (inner === ")") {
+          depth -= 1;
+          if (depth === 0) {
+            i += 1;
+            break;
+          }
+        }
+        i += 1;
+      }
+      tokens.push(body.slice(start, i));
+      continue;
+    }
+    if (startsWithAt(body, i, "drop")) {
+      tokens.push("drop");
+      i += 4;
+      continue;
+    }
+    i += 1;
+  }
+
+  let out = "";
+  let tokenIdx = 0;
+  while (tokenIdx < tokens.length) {
+    if (
+      tokenIdx + 8 < tokens.length &&
+      tokens[tokenIdx].startsWith("(local.get (Local ") &&
+      tokens[tokenIdx + 1].startsWith("(local.set (Local ") &&
+      tokens[tokenIdx + 2].startsWith("(local.get (Local ") &&
+      tokens[tokenIdx + 3].startsWith("(local.get (Local ") &&
+      tokens[tokenIdx + 4].startsWith("(local.get (Local ") &&
+      tokens[tokenIdx + 5].startsWith("(local.set (Local ") &&
+      tokens[tokenIdx + 6].startsWith("(local.set (Local ") &&
+      tokens[tokenIdx + 7].startsWith("(local.tee (Local ") &&
+      tokens[tokenIdx + 8].startsWith("(local.set (Local ") &&
+      tokenLocalId(tokens[tokenIdx + 1]) === tokenLocalId(tokens[tokenIdx + 3])
+    ) {
+      out += tokens[tokenIdx + 2];
+      out += tokens[tokenIdx];
+      out += tokens[tokenIdx + 4];
+      out += tokens[tokenIdx + 5];
+      out += tokens[tokenIdx + 6];
+      out += tokens[tokenIdx + 7];
+      out += tokens[tokenIdx + 8];
+      tokenIdx += 9;
+      continue;
+    }
+    if (
+      tokenIdx + 6 < tokens.length &&
+      tokens[tokenIdx].startsWith("(local.get (Local ") &&
+      tokens[tokenIdx + 1].startsWith("(local.set (Local ") &&
+      tokens[tokenIdx + 2].startsWith("(local.get (Local ") &&
+      tokens[tokenIdx + 3].startsWith("(local.set (Local ") &&
+      tokens[tokenIdx + 4].startsWith("(local.get (Local ") &&
+      tokens[tokenIdx + 5].startsWith("(local.tee (Local ") &&
+      tokens[tokenIdx + 6].startsWith("(local.set (Local ")
+    ) {
+      out += tokens[tokenIdx + 4];
+      out += tokens[tokenIdx + 2];
+      out += tokens[tokenIdx];
+      out += tokens[tokenIdx + 1];
+      out += tokens[tokenIdx + 3];
+      out += tokens[tokenIdx + 5];
+      out += tokens[tokenIdx + 6];
+      tokenIdx += 7;
+      continue;
+    }
+    out += tokens[tokenIdx];
+    tokenIdx += 1;
+  }
+  return out;
+}
+
+function canonicalizeFuncPretty(pretty: string): string {
+  const out: string[] = [];
+  let inBody = false;
+  for (const rawLine of pretty.replace(/\r\n/g, "\n").split("\n")) {
+    const line = rawLine;
+    if (
+      line.startsWith("  type_idx:") ||
+      line === "  locals:" ||
+      line.startsWith("    [")
+    ) {
+      continue;
+    }
+    let normalizedLine = line;
+    if (line.startsWith("  body_raw:")) {
+      inBody = true;
+      normalizedLine =
+        line.length === "  body_raw:".length
+          ? line
+          : "  body_raw:" +
+            reorderScalarLadders(
+              canonicalizeBodyLocals(line.slice("  body_raw:".length)),
+            );
+    } else if (inBody) {
+      let indent = 0;
+      while (indent < line.length && line[indent] === " ") {
+        indent += 1;
+      }
+      normalizedLine =
+        line.slice(0, indent) +
+        reorderScalarLadders(canonicalizeBodyLocals(line.slice(indent)));
+    }
+    out.push(normalizedLine);
+  }
+  return out.join("\n");
+}
+
+function extractPrintedFuncPretty(stderr: string): string {
+  const lines = stderr.replace(/\r\n/g, "\n").split("\n");
+  if (lines.length >= 3 && lines[0].startsWith("Log: ")) {
+    return lines.slice(2).join("\n").trimEnd();
+  }
+  return stderr.trimEnd();
+}
+
+function printCanonicalFuncPretty(
+  starshineInvocation: StarshineInvocation,
+  wasmPath: string,
+  absFuncIndex: number,
+  repoRoot: string,
+): string {
+  const printed = runOrThrow(
+    starshineInvocation.command,
+    [...starshineInvocation.argsPrefix, "--print-func", String(absFuncIndex), wasmPath],
+    { cwd: repoRoot, stdio: "pipe" },
+  );
+  return canonicalizeFuncPretty(extractPrintedFuncPretty(printed.stderr));
+}
+
+function compareNormalizedWatByCanonicalFuncs(
+  starshineWat: string,
+  binaryenWat: string,
+  starshineInvocation: StarshineInvocation,
+  starshineWasmPath: string,
+  binaryenWasmPath: string,
+  repoRoot: string,
+): CanonicalFuncCompareResult {
+  const starshineSplit = splitDefinedFuncs(starshineWat);
+  const binaryenSplit = splitDefinedFuncs(binaryenWat);
+  if (starshineSplit.importFuncCount !== binaryenSplit.importFuncCount) {
+    return {
+      equal: false,
+      firstDiffDefinedIndex: null,
+      firstDiffAbsIndex: null,
+      starshineFuncText: null,
+      binaryenFuncText: null,
+      starshinePretty: null,
+      binaryenPretty: null,
+    };
+  }
+  const maxFuncs = Math.max(starshineSplit.funcs.length, binaryenSplit.funcs.length);
+  for (let definedIndex = 0; definedIndex < maxFuncs; definedIndex += 1) {
+    const starshineFunc = starshineSplit.funcs[definedIndex];
+    const binaryenFunc = binaryenSplit.funcs[definedIndex];
+    if (!starshineFunc || !binaryenFunc) {
+      return {
+        equal: false,
+        firstDiffDefinedIndex: definedIndex,
+        firstDiffAbsIndex: starshineSplit.importFuncCount + definedIndex,
+        starshineFuncText: starshineFunc?.text ?? null,
+        binaryenFuncText: binaryenFunc?.text ?? null,
+        starshinePretty: null,
+        binaryenPretty: null,
+      };
+    }
+    if (starshineFunc.text === binaryenFunc.text) {
+      continue;
+    }
+    const absIndex = starshineSplit.importFuncCount + definedIndex;
+    const starshinePretty = printCanonicalFuncPretty(
+      starshineInvocation,
+      starshineWasmPath,
+      absIndex,
+      repoRoot,
+    );
+    const binaryenPretty = printCanonicalFuncPretty(
+      starshineInvocation,
+      binaryenWasmPath,
+      absIndex,
+      repoRoot,
+    );
+    if (starshinePretty !== binaryenPretty) {
+      return {
+        equal: false,
+        firstDiffDefinedIndex: definedIndex,
+        firstDiffAbsIndex: absIndex,
+        starshineFuncText: starshineFunc.text,
+        binaryenFuncText: binaryenFunc.text,
+        starshinePretty,
+        binaryenPretty,
+      };
+    }
+  }
+  return {
+    equal: true,
+    firstDiffDefinedIndex: null,
+    firstDiffAbsIndex: null,
+    starshineFuncText: null,
+    binaryenFuncText: null,
+    starshinePretty: null,
+    binaryenPretty: null,
+  };
 }
 
 function canonicalizeWasm(
@@ -484,6 +790,50 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   fs.writeFileSync(binaryenWatPath, binaryenWat);
   const wasmEqual =
     fs.readFileSync(starshineOutputPath).equals(fs.readFileSync(binaryenOutputPath));
+  const normalizedWatTextEqual = starshineWat === binaryenWat;
+  const canonicalFuncCompare = normalizedWatTextEqual
+    ? null
+    : compareNormalizedWatByCanonicalFuncs(
+        starshineWat,
+        binaryenWat,
+        starshineInvocation,
+        starshineOutputPath,
+        binaryenOutputPath,
+        repoRoot,
+      );
+  const normalizedWatEqual =
+    normalizedWatTextEqual || canonicalFuncCompare?.equal === true;
+  if (canonicalFuncCompare && !canonicalFuncCompare.equal) {
+    const definedIndex = canonicalFuncCompare.firstDiffDefinedIndex;
+    const absIndex = canonicalFuncCompare.firstDiffAbsIndex;
+    if (definedIndex !== null && absIndex !== null) {
+      const stem = `func-defined${definedIndex}-abs${absIndex}`;
+      if (canonicalFuncCompare.starshineFuncText !== null) {
+        fs.writeFileSync(
+          path.join(outDir, `${stem}.starshine.wat`),
+          canonicalFuncCompare.starshineFuncText + "\n",
+        );
+      }
+      if (canonicalFuncCompare.binaryenFuncText !== null) {
+        fs.writeFileSync(
+          path.join(outDir, `${stem}.binaryen.wat`),
+          canonicalFuncCompare.binaryenFuncText + "\n",
+        );
+      }
+      if (canonicalFuncCompare.starshinePretty !== null) {
+        fs.writeFileSync(
+          path.join(outDir, `${stem}.starshine.pretty.txt`),
+          canonicalFuncCompare.starshinePretty + "\n",
+        );
+      }
+      if (canonicalFuncCompare.binaryenPretty !== null) {
+        fs.writeFileSync(
+          path.join(outDir, `${stem}.binaryen.pretty.txt`),
+          canonicalFuncCompare.binaryenPretty + "\n",
+        );
+      }
+    }
+  }
 
   const summary: ComparisonSummary = {
     inputPath,
@@ -506,7 +856,11 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     starshinePassSkippedRaw: starshinePassSkipped,
     binaryenPassElapsedMs,
     starshinePassAtLeastAsFast: starshinePassElapsedMs <= binaryenPassElapsedMs,
-    normalizedWatEqual: starshineWat === binaryenWat,
+    normalizedWatTextEqual,
+    canonicalFuncPrettyEqual: canonicalFuncCompare?.equal ?? null,
+    normalizedWatEqual,
+    firstDifferingFuncDefinedIndex: canonicalFuncCompare?.firstDiffDefinedIndex ?? null,
+    firstDifferingFuncAbsIndex: canonicalFuncCompare?.firstDiffAbsIndex ?? null,
   };
 
   fs.writeFileSync(
@@ -544,7 +898,18 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   process.stdout.write(`Starshine pass skipped raw: ${summary.starshinePassSkippedRaw ? "yes" : "no"}\n`);
   process.stdout.write(`Binaryen pass runtime (ms): ${summary.binaryenPassElapsedMs.toFixed(3)}\n`);
   process.stdout.write(`Starshine pass at least as fast: ${summary.starshinePassAtLeastAsFast ? "yes" : "no"}\n`);
+  process.stdout.write(`Normalized WAT text equal: ${summary.normalizedWatTextEqual ? "yes" : "no"}\n`);
   process.stdout.write(`Normalized WAT equal: ${summary.normalizedWatEqual ? "yes" : "no"}\n`);
+  if (summary.canonicalFuncPrettyEqual !== null) {
+    process.stdout.write(
+      `Canonical function compare equal: ${summary.canonicalFuncPrettyEqual ? "yes" : "no"}\n`,
+    );
+  }
+  if (summary.firstDifferingFuncDefinedIndex !== null && summary.firstDifferingFuncAbsIndex !== null) {
+    process.stdout.write(
+      `First differing function: defined=${summary.firstDifferingFuncDefinedIndex} abs=${summary.firstDifferingFuncAbsIndex}\n`,
+    );
+  }
 }
 
 export async function main(argv: string[]): Promise<void> {

@@ -1779,6 +1779,31 @@ test "hot lower collapses dead local.tee roots into local.set" {
 }
 
 ///|
+test "hot lower preserves local.tee roots with dead drops when a later local.get reads the local" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(7)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ])
+  let hot = hot_lift_body(body, HotLocals::new(locals=[@lib.ValType::i32()]))
+  let lowered = hot_lower_func(hot)
+  let @lib.Func(locals, lowered_body) = lowered
+
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  assert_eq(
+    lowered_body,
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+}
+
+///|
 test "hot lower strips redundant nop roots during canonicalization" {
   let body = @lib.Expr::new([
     @lib.Instruction::nop(),

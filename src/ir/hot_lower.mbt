@@ -831,7 +831,7 @@ fn hot_lower_impl_emit_instruction(
         hot_lower_impl_pop_label(label_frames, next_stack)
       }
     }
-    _ => abort("unsupported node for hot lowering")
+    _ => abort("unsupported node for hot lowering: id=\{id} op=\{node.op}")
   }
 }
 
@@ -2309,6 +2309,11 @@ fn hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
       LocalTee(local_) if i + 1 < body.length() =>
         match body[i + 1] {
           Drop => {
+            if hot_lower_impl_body_has_later_local_get(body, i + 2, local_) {
+              stripped.push(body[i])
+              i = i + 1
+              continue
+            }
             stripped.push(Instruction::local_set(local_))
             i = i + 2
             continue

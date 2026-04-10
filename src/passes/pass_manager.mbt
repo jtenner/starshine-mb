@@ -3154,12 +3154,15 @@ fn run_hot_pipeline_func(
     let rewrite_mask = tuple_optimization_build_group_rewrite_mask(
       func,
       use_def,
+      analysis.query_summary,
       analysis.groups,
     )
     (options.trace)(
       "debug[after-lift:\{descriptor.name}]:group-count \{analysis.groups.length()} rewrite-mask=\{rewrite_mask}",
     )
-    for group_id = 0; group_id < analysis.groups.length(); group_id = group_id + 1 {
+    for group_id = 0
+        group_id < analysis.groups.length()
+        group_id = group_id + 1 {
       (options.trace)(
         "debug[after-lift:\{descriptor.name}]:group \{group_id} rewrite=\{rewrite_mask[group_id]} \{analysis.groups[group_id]}",
       )
