@@ -88,7 +88,7 @@ pub fn pass_require_cfg(HotPassContext, @ir.HotFunc) -> @ir.HotCfg
 
 pub fn pass_require_dom(HotPassContext, @ir.HotFunc) -> @ir.HotDominators
 
-pub fn pass_require_effect_node_masks(HotPassContext, @ir.HotFunc) -> Array[@ir.EffectMask]
+pub fn pass_require_effect_node_masks(HotPassContext, @ir.HotFunc) -> Array[UInt]
 
 pub fn pass_require_effects(HotPassContext, @ir.HotFunc) -> @ir.HotEffectsSummary
 
@@ -316,6 +316,26 @@ type HotTupleOptimizationGroup derive(Eq, Show, @debug.Debug)
 type HotTupleOptimizationQuerySummary derive(Eq, @debug.Debug)
 
 type HotTupleOptimizationRootSlot derive(Eq, Show, @debug.Debug)
+
+type SimplifyLocalsForwardCleanup
+pub impl Eq for SimplifyLocalsForwardCleanup
+pub impl Show for SimplifyLocalsForwardCleanup
+pub impl @debug.Debug for SimplifyLocalsForwardCleanup
+
+type SimplifyLocalsForwardRewrite
+pub impl Eq for SimplifyLocalsForwardRewrite
+pub impl Show for SimplifyLocalsForwardRewrite
+pub impl @debug.Debug for SimplifyLocalsForwardRewrite
+
+type SimplifyLocalsForwardTarget
+pub impl Eq for SimplifyLocalsForwardTarget
+pub impl Show for SimplifyLocalsForwardTarget
+pub impl @debug.Debug for SimplifyLocalsForwardTarget
+
+type SimplifyLocalsRootUsePath
+pub impl Eq for SimplifyLocalsRootUsePath
+pub impl Show for SimplifyLocalsRootUsePath
+pub impl @debug.Debug for SimplifyLocalsRootUsePath
 
 // Type aliases
 

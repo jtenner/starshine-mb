@@ -2,6 +2,40 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-10] maintain | fix the live-carried code-pushing parent-exit lowering family
+
+- Recorded the new lowering rule in `hot_lower`: when a parent-exit `br` is sunk into an `if` arm, its label depth must be rebased for the extra `if` label, and the voidification is now skipped when exactly one arm already has a nonfallthrough tail.
+- Recorded the reduced same-tree pass regression for the repaired live-carried call-prefixed family and the refreshed compare-pass lane `pass-fuzz-code-pushing-genvalid-20260410x` at `10000/10000` with `0` mismatches, `0` validation failures, and `0` command failures.
+- Recorded that the native debug-artifact `cmd` lane is green again at `3/3`.
+- Recorded the refreshed direct compare output at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3313274`: canonical and normalized WAT still differ, but the old top-of-`Func 148` dropped-live-value corruption is no longer the first live blocker. The first visible line is now `44254`, where Binaryen and Starshine still disagree on later local / tuple temp materialization, and runtime remains poor (`4611.631 ms` vs `55.247 ms` in the pass; `7421.741 ms` vs `407.483 ms` total).
+
+## [2026-04-10] maintain | readmit repeated code-pushing alias-if ladders without reopening the invalid tail
+
+- Recorded the new same-tree compare-pass lane `pass-fuzz-code-pushing-genvalid-20260410w` at `10000/10000` with `0` mismatches, `0` validation failures, and `0` command failures.
+- Recorded the new live trace split: `code-pushing` now changes only `Func 148` and `Func 1948`, `Func 1977` stays unchanged, and the current traced artifact replay has `0` `skip-invalid-lower` lines.
+- Recorded the current direct compare output at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1655370`: canonical and normalized WAT still differ, the first hunk is still `44251`, and runtime is still far behind Binaryen (`4413.342 ms` vs `51.978 ms` in the pass; `7013.947 ms` vs `370.277 ms` total).
+
+## [2026-04-10] maintain | separate code-pushing frontier from Binaryen writeback noise
+
+- Recorded that Binaryen no-pass writeback still does not converge within five roundtrips on the debug artifact for `--code-pushing`, so the reopened raw `44251` hunk in printed `func $127` is not a fully stable pass-only frontier by itself.
+- Recorded the fixed `nop5` replay result too: the first normalized WAT hunks move to `27790`, `27841`, `28246`, and later `45771` / `46157`, which makes the remaining raw artifact drift look partly like Binaryen multivalue/local-materialization noise.
+- Recorded the refreshed mixed compare-pass lane `pass-fuzz-code-pushing-both-20260410s` at `998/998` normalized matches with only `2` known Binaryen `rec-group-zero` parser failures.
+- Recorded and rejected one performance probe: memoizing prefix carrier-shape checks slowed serial `pass:code-pushing` from `4198179 us` to `4552778 us` and worsened `Func 3665`, so that idea was rolled back instead of being kept.
+
+## [2026-04-10] maintain | admit writeback-valid suspicious code-pushing carriers
+
+- Recorded the new whitebox fact that one terminal-owner parent-escape carrier still lowers and validates even though its lowered Wasm matches the coarse suspicious escape-carrier heuristic.
+- Updated the `code-pushing` strategy, frontier, parity, validation, performance, and WAT-shape pages after narrowing the fallback: suspicious `code-pushing` lowers are now rechecked with full-module writeback validation before Starshine keeps the original.
+- Recorded the current same-tree compare-pass lane `pass-fuzz-code-pushing-genvalid-20260410n` at `10000/10000` with `0` mismatches.
+- Recorded the new live trace facts: `code-pushing` now changes `Func 148`, `Func 1948`, and `Func 1977`, only `Func 1977` still skips, the first direct-artifact diff moved from `48978` to `44251`, and Starshine still runs at `4115.090 ms` pass time vs Binaryen `49.905 ms`.
+
+## [2026-04-10] maintain | restore valid code-pushing artifact replay and reopen direct parity
+
+- Updated the `code-pushing` frontier, parity, validation, HOT-strategy, WAT-shape, and performance pages after restoring valid direct debug-artifact replay on the safe branch.
+- Recorded the same-tree compare-pass lane `pass-fuzz-code-pushing-genvalid-20260410h` at `10000/10000` with `0` mismatches.
+- Recorded the current safe-branch trace facts: only four debug-artifact functions change, and only `Func 1948` plus `Func 1977` are skipped as `suspicious-escape-carrier`.
+- Kept the reopened live parity and runtime facts explicit: direct compare validates again, but the first normalized WAT delta is back at `48978`, and Starshine is still far slower than Binaryen on the real artifact.
+
 ## [2026-04-09] bootstrap | initialize wasm knowledge base
 
 - Added `docs/README.md` as the canonical docs and wiki schema.
@@ -78,6 +112,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added `wast/gc-type-authoring.md` from `0018`, `0019`, `0020`, and `0026` as the standing higher-level WAST rule page for GC type defs, `rec` groups, descriptor metadata, and flat type indexing.
 - Added `custom-descriptors/static-fixtures.md` from `0021` and `0032` as the harness-policy page for the native static `descriptors.wast` and `exact.wast` fixtures.
 - Added `custom-descriptors/ref-get-desc-fixture-path.md` from `0022` through `0028` as the full-stack compatibility page for `ref.get_desc`, legacy GC aliases, exact `ref.null`, bottom-null operands, and the mixed-runtime fixture path.
+
+## [2026-04-10] maintain | record the latest `code-pushing` live frontier
+
+- Updated the `code-pushing` parity, frontier, WAT-shape, HOT-strategy, and validation pages after another live pass investigation.
+- Recorded the new same-tree reduced evidence from `pass-fuzz-code-pushing-genvalid-20260410d`.
+- Filed the landed branch-payload explicit-exit fix and the new control-region-body explicit-exit fix as living rules in the pass wiki instead of leaving them only in code and tests.
+- Kept the remaining whole-artifact blocker explicit: native `--code-pushing` still fails validation in `Func 1977`, and the next target is now documented as the broader block-root / outer-result version of the same parent-result mechanism.
 - Added `custom-descriptors/exact-reference-equivalence.md` from `0029`, `0030`, and `0031` as the rule page for passive typed empty `elem` surface plus structural exact-reference matching for structs and functions.
 - Added `strings/string-const-surface.md` from `0052` as the living page for the public `string.const` surface, binary string-literal section, constant-expression rule, and IR payload handling.
 - Updated `docs/wiki/index.md` so the new WAST, custom-descriptor, and string pages are discoverable from the catalog.

@@ -99,9 +99,9 @@ bun scripts/pass-fuzz-compare.ts \
 - Historical larger `gen-valid` evidence:
   - `pass-fuzz-code-pushing-genvalid-10000-20260408b` completed `10000/10000`
     with `0` mismatches after the dead-gap correction
-- Current named reduced lane:
-  - `pass-fuzz-code-pushing-genvalid-20260409j` completed `1000/1000` with `0`
-    mismatches, `0` validation failures, and `0` command failures
+- Current same-tree lane:
+  - `pass-fuzz-code-pushing-genvalid-20260410x` completed `10000/10000` with
+    `0` mismatches, `0` validation failures, and `0` command failures
 - Mixed-generator and smith-only lanes have also stayed semantically clean on the
   kept pass surface, with remaining failures attributed to Binaryen-side parser or
   canonicalization rejects such as invalid type-index families
@@ -119,8 +119,32 @@ bun scripts/self-optimize-compare.ts \
 - The current practical workflow is:
   - first ensure native `--code-pushing` output validates at all
   - only then trust normalized WAT and timing deltas from the compare output
-- This distinction matters because the current branch is blocked before honest WAT
-  comparison: the output fails validation with `stack underflow` in `Func 1977`.
+- The current same-tree state is therefore:
+  - reduced compare-pass parity is green on the kept safe tree
+  - the current named compare-pass lane
+    `pass-fuzz-code-pushing-genvalid-20260410x` is `10000/10000` with
+    `0` mismatches, validation failures, and command failures
+  - the reduced live-carried call-prefixed carrier is now also pinned directly
+    in-tree through the repaired lowered raw shape, not only through artifact
+    replay
+  - the current mixed-generator lane
+    `pass-fuzz-code-pushing-both-20260410s` is `998/998` with `0` mismatches,
+    `0` validation failures, and only `2` Binaryen parser failures
+    (`binaryen-rec-group-zero`)
+  - native `--code-pushing` replay `.tmp/code-pushing-native-20260410w.wasm`
+    validates again
+  - native `cmd` regressions now pin the two live artifact facts directly:
+    `Func 1948` still rewrites, and `Func 1977` no longer reports
+    `skip-invalid-lower`
+  - traced serial replay changes only two functions:
+    - `Func 148` -> changed and written back
+    - `Func 1948` -> changed and written back
+  - traced serial replay contains `0` `skip-invalid-lower` lines
+  - whole-artifact direct compare is still red, but now as a valid semantic diff
+    whose first hunk is back at `44251` rather than the newer `48978` family
+  - Binaryen no-pass writeback still does not converge within five roundtrips on
+    this artifact, so direct whole-artifact WAT must still be interpreted with
+    that boundary noise in mind
 
 ## What Each Layer Catches Best
 

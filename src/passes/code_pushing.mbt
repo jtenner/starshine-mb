@@ -73,6 +73,7 @@ priv struct CpLocalSetValueBlockExitSummary {
   mut has_owner_exit : Bool
   mut has_dropped_owner_exit : Bool
   mut has_terminal_exit : Bool
+  mut has_inner_owner_exit : Bool
   mut has_unsafe_branch_exit : Bool
 }
 
@@ -951,6 +952,24 @@ fn cp_region_root_get(
 }
 
 ///|
+fn cp_region_has_explicit_exit(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if cp_node_has_explicit_exit(
+        cache,
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn cp_node_has_explicit_exit(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
@@ -991,6 +1010,56 @@ fn cp_node_has_explicit_exit(
           ) {
           saw_exit = true
           break
+        }
+      }
+      if !saw_exit {
+        match node.op {
+          @ir.HotOp::Block | @ir.HotOp::Loop =>
+            saw_exit = cp_region_has_explicit_exit(
+              cache,
+              func,
+              @ir.hot_region_body_ref(func, node_id),
+            )
+          @ir.HotOp::If => {
+            saw_exit = cp_region_has_explicit_exit(
+              cache,
+              func,
+              @ir.hot_region_then_ref(func, node_id),
+            )
+            if !saw_exit {
+              saw_exit = match @ir.hot_region_else_ref(func, node_id) {
+                Some(else_ref) =>
+                  cp_region_has_explicit_exit(cache, func, else_ref)
+                None => false
+              }
+            }
+          }
+          @ir.HotOp::Try => {
+            saw_exit = cp_region_has_explicit_exit(
+              cache,
+              func,
+              @ir.hot_region_body_ref(func, node_id),
+            )
+            if !saw_exit {
+              saw_exit = match @ir.hot_region_catch_ref(func, node_id) {
+                Some(catch_ref) =>
+                  cp_region_has_explicit_exit(cache, func, catch_ref)
+                None => false
+              }
+            }
+          }
+          @ir.HotOp::TryTable =>
+            saw_exit = cp_region_has_explicit_exit(
+                cache,
+                func,
+                @ir.hot_region_body_ref(func, node_id),
+              ) ||
+              cp_region_has_explicit_exit(
+                cache,
+                func,
+                @ir.hot_region_catch_list_ref(func, node_id),
+              )
+          _ => ()
         }
       }
       saw_exit
@@ -1223,6 +1292,20 @@ fn cp_collect_block_owner_exit_summary(
     | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
     | @ir.HotOp::BrOnCastFail => {
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        cp_collect_block_owner_exit_summary(
+          cache,
+          func,
+          func.children[node.child_base + slot],
+          owner_id,
+          active_owner_marks,
+          dropped_region_owner_id,
+          summary,
+        )
+        if summary.has_unsafe_explicit_exit {
+          return
+        }
+      }
       cp_collect_block_owner_exit_summary_for_branch(
         func, owner_id, active_owner_marks, dropped_region_owner_id, node_id, summary,
       )
@@ -1287,14 +1370,15 @@ fn cp_collect_local_set_value_exit_summary_for_branch(
       summary.has_owner_exit = true
       return
     }
-    if target_owner_id >= 0 &&
-      target_owner_id < active_owner_marks.length() &&
-      active_owner_marks[target_owner_id] {
-      return
-    }
     if dropped_region_owner_id >= 0 &&
       target_owner_id == dropped_region_owner_id {
       summary.has_dropped_owner_exit = true
+      return
+    }
+    if target_owner_id >= 0 &&
+      target_owner_id < active_owner_marks.length() &&
+      active_owner_marks[target_owner_id] {
+      summary.has_inner_owner_exit = true
       return
     }
     summary.has_unsafe_branch_exit = true
@@ -1342,6 +1426,20 @@ fn cp_collect_local_set_value_exit_summary(
     | @ir.HotOp::BrOnNonNull
     | @ir.HotOp::BrOnCast
     | @ir.HotOp::BrOnCastFail => {
+      for slot = 0; slot < node.child_count; slot = slot + 1 {
+        cp_collect_local_set_value_exit_summary(
+          cache,
+          func,
+          func.children[node.child_base + slot],
+          owner_id,
+          active_owner_marks,
+          dropped_region_owner_id,
+          summary,
+        )
+        if summary.has_unsafe_branch_exit {
+          return
+        }
+      }
       cp_collect_local_set_value_exit_summary_for_branch(
         func, owner_id, active_owner_marks, dropped_region_owner_id, node_id, summary,
       )
@@ -1448,6 +1546,7 @@ fn cp_block_root_has_only_self_and_terminal_explicit_exits(
     has_owner_exit: false,
     has_dropped_owner_exit: false,
     has_terminal_exit: false,
+    has_inner_owner_exit: false,
     has_unsafe_branch_exit: false,
   }
   let active_owner_marks = cache.owner_exit_active_marks
@@ -1696,6 +1795,7 @@ fn cp_if_has_only_self_contained_explicit_exits(
     has_owner_exit: false,
     has_dropped_owner_exit: false,
     has_terminal_exit: false,
+    has_inner_owner_exit: false,
     has_unsafe_branch_exit: false,
   }
   let active_owner_marks = cache.owner_exit_active_marks
@@ -1738,6 +1838,7 @@ fn cp_local_set_value_has_only_safe_explicit_exits(
     has_owner_exit: false,
     has_dropped_owner_exit: false,
     has_terminal_exit: false,
+    has_inner_owner_exit: false,
     has_unsafe_branch_exit: false,
   }
   let active_owner_marks = cache.owner_exit_active_marks
@@ -1752,19 +1853,81 @@ fn cp_local_set_value_has_only_safe_explicit_exits(
   let terminal_inner_owner_payload_carrier = cp_local_set_value_block_is_terminal_inner_owner_payload_carrier(
     cache, func, root_id,
   )
+  let whitelisted_inner_owner_exit = simple_owner_if_payload_carrier ||
+    terminal_inner_owner_payload_carrier
+  let has_mixed_nonwhitelisted_inner_owner_exit = summary.has_inner_owner_exit &&
+    (
+      summary.has_owner_exit ||
+      summary.has_dropped_owner_exit ||
+      summary.has_terminal_exit
+    ) &&
+    !whitelisted_inner_owner_exit
   let result = !summary.has_unsafe_branch_exit &&
     (
       !summary.has_owner_exit ||
       summary.has_dropped_owner_exit ||
       summary.has_terminal_exit ||
-      simple_owner_if_payload_carrier ||
-      terminal_inner_owner_payload_carrier
-    )
+      whitelisted_inner_owner_exit
+    ) &&
+    !has_mixed_nonwhitelisted_inner_owner_exit
   if root_id >= 0 && root_id < cache.local_set_value_block_guard_ready.length() {
     cache.local_set_value_block_guard_ready[root_id] = true
     cache.local_set_value_block_guard_values[root_id] = result
   }
   result
+}
+
+///|
+fn cp_root_is_ignorable_nonvoid_prefix_terminal_owner_carrier(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  root_id : Int,
+  dropped_region_owner_id : Int,
+) -> Bool {
+  if root_id < 0 || !cp_node_is_live(cache, root_id) {
+    return false
+  }
+  let root = func.nodes[root_id]
+  match root.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if root.child_count == 0 {
+    return false
+  }
+  let value_id = func.children[root.child_base]
+  if value_id < 0 || !cp_node_is_live(cache, value_id) {
+    return false
+  }
+  match func.nodes[value_id].op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let summary = {
+    has_owner_exit: false,
+    has_dropped_owner_exit: false,
+    has_terminal_exit: false,
+    has_inner_owner_exit: false,
+    has_unsafe_branch_exit: false,
+  }
+  let active_owner_marks = cache.owner_exit_active_marks
+  active_owner_marks[value_id] = true
+  cp_collect_local_set_value_exit_summary(
+    cache, func, value_id, value_id, active_owner_marks, dropped_region_owner_id,
+    summary,
+  )
+  active_owner_marks[value_id] = false
+  !summary.has_unsafe_branch_exit &&
+  summary.has_owner_exit &&
+  !summary.has_dropped_owner_exit &&
+  summary.has_terminal_exit &&
+  summary.has_inner_owner_exit &&
+  !cp_local_set_value_block_is_simple_owner_if_payload_carrier(
+    cache, func, value_id,
+  ) &&
+  !cp_local_set_value_block_is_terminal_inner_owner_payload_carrier(
+    cache, func, value_id,
+  )
 }
 
 ///|
@@ -1790,6 +1953,7 @@ fn cp_if_root_has_only_safe_explicit_exits(
     has_owner_exit: false,
     has_dropped_owner_exit: false,
     has_terminal_exit: false,
+    has_inner_owner_exit: false,
     has_unsafe_branch_exit: false,
   }
   let active_owner_marks = cache.owner_exit_active_marks
@@ -2444,6 +2608,133 @@ fn cp_root_if_pushpoint_id(func : @ir.HotFunc, root_id : Int) -> Int? {
 }
 
 ///|
+fn cp_root_is_local_set_of_local_get(func : @ir.HotFunc, root_id : Int) -> Bool {
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return false
+  }
+  let root = @ir.hot_node_get(func, root_id)
+  match root.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if root.child_count == 0 {
+    return false
+  }
+  let value_id = @ir.hot_child_get(func, root_id, 0)
+  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::LocalGet => true
+    _ => false
+  }
+}
+
+///|
+fn cp_push_to_pushpoint_has_high_risk_alias_if_tail(
+  func : @ir.HotFunc,
+  roots_view : CpRegionRootsView,
+  target_idx : Int,
+  moved_idxs_rev : Array[Int],
+) -> Bool {
+  if moved_idxs_rev.length() != 1 {
+    return false
+  }
+  let moved_idx = moved_idxs_rev[0]
+  if moved_idx <= 0 || target_idx - moved_idx != 2 {
+    return false
+  }
+  if target_idx + 1 >= roots_view.root_count {
+    return false
+  }
+  let before_id = cp_region_root_get(func, roots_view, moved_idx - 1)
+  let moved_id = cp_region_root_get(func, roots_view, moved_idx)
+  let crossed_id = cp_region_root_get(func, roots_view, moved_idx + 1)
+  let target_id = cp_region_root_get(func, roots_view, target_idx)
+  let after_id = cp_region_root_get(func, roots_view, target_idx + 1)
+  if before_id < 0 || !@ir.hot_node_is_live(func, before_id) {
+    return false
+  }
+  let before_is_if = match @ir.hot_node_get(func, before_id).op {
+    @ir.HotOp::If => true
+    _ => false
+  }
+  if !before_is_if || !cp_root_is_local_set_of_local_get(func, moved_id) {
+    return false
+  }
+  if crossed_id < 0 || !@ir.hot_node_is_live(func, crossed_id) {
+    return false
+  }
+  let crossed_is_local_set = match @ir.hot_node_get(func, crossed_id).op {
+    @ir.HotOp::LocalSet => true
+    _ => false
+  }
+  if !crossed_is_local_set {
+    return false
+  }
+  if target_id < 0 || !@ir.hot_node_is_live(func, target_id) {
+    return false
+  }
+  let target_is_if = match @ir.hot_node_get(func, target_id).op {
+    @ir.HotOp::If => true
+    _ => false
+  }
+  if !target_is_if {
+    return false
+  }
+  if after_id < 0 || !@ir.hot_node_is_live(func, after_id) {
+    return false
+  }
+  let after_is_local_set = match @ir.hot_node_get(func, after_id).op {
+    @ir.HotOp::LocalSet => true
+    _ => false
+  }
+  if !after_is_local_set {
+    return false
+  }
+  let next_crossed_idx = target_idx + 2
+  let next_target_idx = target_idx + 3
+  let next_after_idx = target_idx + 4
+  if cp_root_is_local_set_of_local_get(func, after_id) &&
+    next_after_idx < roots_view.root_count {
+    let next_crossed_id = cp_region_root_get(func, roots_view, next_crossed_idx)
+    let next_target_id = cp_region_root_get(func, roots_view, next_target_idx)
+    let next_after_id = cp_region_root_get(func, roots_view, next_after_idx)
+    let next_crossed_is_local_set = if next_crossed_id >= 0 &&
+      @ir.hot_node_is_live(func, next_crossed_id) {
+      match @ir.hot_node_get(func, next_crossed_id).op {
+        @ir.HotOp::LocalSet => true
+        _ => false
+      }
+    } else {
+      false
+    }
+    let next_target_is_if = if next_target_id >= 0 &&
+      @ir.hot_node_is_live(func, next_target_id) {
+      match @ir.hot_node_get(func, next_target_id).op {
+        @ir.HotOp::If => true
+        _ => false
+      }
+    } else {
+      false
+    }
+    let next_after_is_local_set = if next_after_id >= 0 &&
+      @ir.hot_node_is_live(func, next_after_id) {
+      match @ir.hot_node_get(func, next_after_id).op {
+        @ir.HotOp::LocalSet => true
+        _ => false
+      }
+    } else {
+      false
+    }
+    if next_crossed_is_local_set && next_target_is_if && next_after_is_local_set {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn cp_if_sink_allows_later_reads(
   cache : CpSummaryCache,
   func : @ir.HotFunc,
@@ -2861,10 +3152,23 @@ fn cp_try_push_to_pushpoint(
   let root_count = roots_view.root_count
   let target_root_id = cp_region_root_get(func, roots_view, target_idx)
   if cp_region_has_nonvoid_result(func, region_ref) {
-    if cp_nonvoid_prefix_has_explicit_exit_guard(
-        cache, func, roots_view, region_ref, reachable_prefix_start_idx, target_idx,
-      ) {
-      return false
+    let dropped_region_owner_id = match
+      cp_dropped_region_owner_id(cache, func, region_ref) {
+      Some(owner_id) => owner_id
+      None => -1
+    }
+    let mut prefix_idx = reachable_prefix_start_idx
+    while prefix_idx <= target_idx && prefix_idx < roots_view.root_count {
+      let prefix_root_id = cp_region_root_get(func, roots_view, prefix_idx)
+      if cp_prefix_root_has_unsafe_explicit_exit(
+          cache, func, prefix_root_id, dropped_region_owner_id,
+        ) &&
+        !cp_root_is_ignorable_nonvoid_prefix_terminal_owner_carrier(
+          cache, func, prefix_root_id, dropped_region_owner_id,
+        ) {
+        return false
+      }
+      prefix_idx = prefix_idx + 1
     }
   }
   let target_if_id = cp_root_if_pushpoint_id(func, target_root_id)
@@ -2892,8 +3196,11 @@ fn cp_try_push_to_pushpoint(
     let root_summary = cp_effect_summary_for_node(cache, func, root_id)
     let move_after_target = match
       cp_root_pushable_local(infos, cache, func, root_id) {
-      Some(local_id) =>
-        if cp_summary_conflicts_with_barrier(root_summary, barrier) {
+      Some(local_id) => {
+        let barrier_conflict = cp_summary_conflicts_with_barrier(
+          root_summary, barrier,
+        )
+        if barrier_conflict {
           None
         } else {
           match target_if_id {
@@ -2923,6 +3230,7 @@ fn cp_try_push_to_pushpoint(
             None => Some(false)
           }
         }
+      }
       None => None
     }
     match move_after_target {
@@ -2965,6 +3273,11 @@ fn cp_try_push_to_pushpoint(
     idx = idx + 1
   }
   if cp_region_node_ids_equal(func, roots_view, next) {
+    return false
+  }
+  if cp_push_to_pushpoint_has_high_risk_alias_if_tail(
+      func, roots_view, target_idx, moved_idxs_rev,
+    ) {
     return false
   }
   @ir.hot_region_replace_body(func, region_ref, next)

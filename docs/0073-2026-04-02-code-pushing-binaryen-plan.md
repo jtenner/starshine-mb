@@ -705,15 +705,118 @@
   `.tmp/self-opt-code-pushing-terminal-inner-owner-20260408` stays valid while
   preserving the same live frontier (`72005`, `105621`, `126757`), so that
   exact family is safe but still not the real artifact blocker.
-- The current artifact blocker is earlier again now. On the current tree,
-  native `--code-pushing --out .tmp/code-pushing-restore-check.wasm
-  tests/node/dist/starshine-debug-wasi.wasm` no longer gets as far as the old
-  WAT diff checkpoints; it fails final validation with `stack underflow` in
-  `Func 1977`. The refreshed named compare-pass lane
-  `.tmp/pass-fuzz-code-pushing-genvalid-20260409j` is still `1000/1000` with
-  `0` mismatches, validation failures, or command failures, so the actionable
-  split is now explicit again: reduced pass parity remains green while the real
-  debug artifact is blocked on a larger invalid-module family.
+- The current tree is fail-closed again on the real artifact. `src/passes/pass_manager.mbt`
+  now keeps the original function when lowered `code-pushing` output trips the
+  existing suspicious escape-carrier guard, and fresh native replay
+  `.tmp/code-pushing-native-20260410h.wasm` validates again on
+  `tests/node/dist/starshine-debug-wasi.wasm`.
+- The kept fallback is intentionally narrower than a whole-function validation
+  fence. A temporary variant that also revalidated every changed lowered
+  function against the module environment restored validity too, but traced
+  replay showed the debug artifact only ever skipped `Func 1948` and `Func
+  1977`, both for `suspicious-escape-carrier`, and direct compare stayed very
+  slow. The kept version therefore reuses only the existing invalid/suspicious
+  escape-carrier detectors instead of layering a broader writeback-validation
+  barrier on top of every changed `code-pushing` function.
+- The newer fallback is still narrow, but it is no longer a blind heuristic
+  veto. `src/passes/code_pushing_wbtest.mbt` now proves one real terminal-owner
+  / parent-escape carrier still lowers and validates even though the lowered
+  Wasm matches the coarse suspicious escape-carrier heuristic.
+  `src/passes/pass_manager.mbt` therefore now rechecks suspicious
+  `code-pushing` lowers with
+  `run_hot_pipeline_precompute_writeback_validation_error`, and it only keeps
+  the original when that full-module writeback validation still fails.
+- The current guard is narrower again. `src/passes/code_pushing.mbt` now keeps
+  the one-off high-risk alias-if-tail fence for the old `Func 1977` invalid
+  family, but it no longer blocks repeated alias-if ladders. That readmits the
+  earlier valid `Func 1948` rewrite chain while still keeping `Func 1977`
+  unchanged before lower/writeback. The refreshed named lane
+  `.tmp/pass-fuzz-code-pushing-genvalid-20260410w` stays `10000/10000` with
+  `0` mismatches, validation failures, or command failures, native replay
+  `.tmp/code-pushing-native-20260410w.wasm` validates on
+  `tests/node/dist/starshine-debug-wasi.wasm`, and `src/cmd/cmd_test.mbt` now
+  pins both artifact facts directly: traced replay still rewrites `Func 1948`,
+  and it no longer reports `skip-invalid-lower` for `Func 1977`.
+- Traced serial replay is now tighter than the older writeback-validation
+  checkpoint. On `/tmp/code-pushing-native-trace-20260410w.log`,
+  `code-pushing` changes only `Func 148` and `Func 1948`, `Func 1977` stays
+  unchanged, and there are `0` `skip-invalid-lower` lines in the whole replay.
+- Direct compare is still red, but the first reopened family moved again.
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1655370` now
+  reaches normalized WAT with the first hunk at `44251` in printed `func $127`
+  instead of the newer `48978` alias move. The visible shape is broader too:
+  Binaryen is materializing extra locals and a carried
+  `block $block1 (result i32)` / `br` structure around the earlier
+  terminal-owner family, while Starshine still keeps the older straight-line
+  local setup there.
+- Runtime is still well outside the target bar. The current direct compare
+  reports Starshine pass time `4413.342 ms` vs Binaryen `51.978 ms`, and total
+  runtime `7013.947 ms` vs `370.277 ms`. Traced serial replay says that runtime
+  is still concentrated in the same live function set: `Func 1948` alone spends
+  about `125.0 ms` in `code-pushing` on the serial trace, so future
+  performance work should stay focused on that now-smaller changed set instead
+  of broad whole-module scans.
+- One more reduced lowering family is now closed, but the artifact frontier did
+  not disappear with it. `src/ir/hot_lower.mbt` now rebases label depths when a
+  parent-exit `br` is sunk into an `if` arm, and it keeps the original
+  result-`if` plus trailing-`br` form when exactly one arm is already
+  nonfallthrough. The new reduced regression in
+  `src/passes/code_pushing_test.mbt` is green, `moon test src/passes` is back
+  at `507/507`, `moon test src/ir` is back at `234/234`, the native
+  debug-artifact `cmd` lane is `3/3`, and the refreshed compare-pass lane
+  `.tmp/pass-fuzz-code-pushing-genvalid-20260410x` is `10000/10000` with `0`
+  mismatches.
+- That repair changed what the first live artifact blocker is. Direct compare at
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3313274` is still
+  red, but the old top-of-`func $127` dropped-live-value corruption is no
+  longer the first actionable issue. The first visible diff is now later in the
+  same function at `44254`, where Binaryen and Starshine still disagree on
+  local / tuple temp materialization (`local $474` / `$475` `i32` vs `i64`,
+  plus later tuple temp numbering), while runtime is still poor at
+  `4611.631 ms` vs `55.247 ms` in the pass and `7421.741 ms` vs `407.483 ms`
+  overall.
+- The reopened `44251` direct hunk is not a stable raw-oracle boundary by
+  itself. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --binaryen-nop-until-stable 5 --require-binaryen-nop-converged --code-pushing`
+  fails because Binaryen no-pass writeback still does not converge within five
+  roundtrips on this artifact (`/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2309436/binaryen.nop5.wasm`).
+  A fixed-roundtrip replay at
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2325799` is still
+  red, but its first normalized WAT hunks move up to `27790`, `27841`,
+  `28246`, and later `45771` / `46157` instead of starting at `44251`. So part
+  of the reopened raw WAT drift is still mixed with Binaryen's own multivalue /
+  local-materialization writeback noise rather than being a stable pass-only
+  frontier.
+- One obvious performance idea was tested and rejected. A temporary memoization
+  of the simple-owner payload, terminal-inner-owner payload, and ignorable
+  non-void prefix-carrier shape checks made traced serial replay slower, not
+  faster: total `pass:code-pushing` rose from `4198179 us` on
+  `/tmp/code-pushing-trace-20260410n.log` to `4552778 us` on
+  `/tmp/code-pushing-trace-20260410r.log`, the unchanged hotspot `Func 3665`
+  worsened from `3139111 us` to `3466464 us`, and the live changed `Func 1948`
+  barely moved (`118911 us` to `119868 us`). That probe was rolled back. The
+  next performance work should therefore avoid more prefix-carrier memoization
+  and instead target the remaining huge unchanged whole-function cost directly.
+- Traced serial replay on the current safe tree shows that `code-pushing` only
+  changes four functions on the debug artifact: `Func 737`, `Func 1566`,
+  `Func 1948`, and `Func 1977`. The latter two then hit
+  `pass[code-pushing]:skip-invalid-lower` for `suspicious-escape-carrier`. So
+  the current runtime and parity gap is concentrated in a very small live set,
+  not in broad whole-module churn.
+- One more real blind spot is gone now, but it was not the whole live family.
+  `src/passes/code_pushing.mbt` now walks branch payload children before
+  classifying explicit-exit carrier safety, and it now treats block / loop /
+  if / try region bodies as part of explicit-exit detection instead of only
+  scanning node children. The new reduced regressions in
+  `src/passes/code_pushing_test.mbt` plus
+  `src/passes/code_pushing_wbtest.mbt` prove two narrower risks are gone: the
+  pass no longer trusts an earlier `LocalSet(Block(...))` prefix that mixes an
+  owner exit, a terminal path, and a hidden parent-escape branch inside the
+  carried branch payload, and it no longer rewrites past an earlier nested
+  branch that appears only in a block body region. The refreshed named lane
+  `.tmp/pass-fuzz-code-pushing-genvalid-20260410h` stays `10000/10000` with
+  `0` mismatches, validation failures, or command failures on the kept safe
+  tree. So reduced parity is still clean even though whole-artifact parity is
+  not.
 - A narrower unary `Call(LocalTee(Call ...))` extraction probe was reduced
   during this checkpoint too, because the remaining `Func 238` structural diff
   still looks like Binaryen alias-local forwarding more than another plain
@@ -721,8 +824,22 @@
   were both green, but the real debug artifact still re-hit the same `Func
   1977` stack-underflow cliff, so that probe was rolled back instead of being
   kept as another local extraction rule. That makes the next correctness target
-  clearer: regain direct artifact validity on the live `Func 1977` family
-  first, then revisit the broader `Func 238` alias-local synthesis lane.
+  clearer historically: regain direct artifact validity on the live `Func 1977`
+  family first, then revisit the broader `Func 238` alias-local synthesis lane.
+- Direct compare is honest again now, and it reopens the older semantic
+  frontier. `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1323760`
+  validates to completion but is still canonically and normalized red, with the
+  first WAT hunk back at `48978` in printed `func $127`, followed by a broader
+  cluster at `136878`, `137324`, and `137684` in printed `func $393`, then
+  later families at `146681`, `150584`, `152641`, `166964`, and beyond. So the
+  current branch is no longer blocked on invalid output; it is blocked on a
+  still-open missed-move / ordering frontier.
+- Runtime is still well outside the target bar even after restoring validity.
+  The current valid compare reports Starshine pass time `4640.306 ms` vs
+  Binaryen `59.083 ms`, and whole-command time `7306.772 ms` vs `396.894 ms`.
+  Because trace shows only four changed functions, the next runtime work should
+  focus on those few live hot functions and their root-motion scans rather than
+  on whole-pass policy plumbing.
 - The closer call-prefixed carrier slice is landed now too. `code-pushing`
   still requires the same terminal-inner-owner local-match rule, but it no
   longer rejects the carrier just because the inner owner block does extra

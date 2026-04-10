@@ -76,7 +76,7 @@ related:
 ## Current Reduced Evidence
 
 - The current named `gen-valid` compare-pass lane still reports a clean reduced
-  surface: `pass-fuzz-code-pushing-genvalid-20260409j` finished `1000/1000`
+  surface: `pass-fuzz-code-pushing-genvalid-20260410x` finished `10000/10000`
   with `0` mismatches, `0` validation failures, and `0` command failures.
 - Earlier, after the dead-gap fix, the larger historical `gen-valid` lane
   `pass-fuzz-code-pushing-genvalid-10000-20260408b` also finished `10000/10000`
@@ -85,19 +85,56 @@ related:
 - Mixed and smith-only lanes have also stayed semantically green on the kept pass
   surface, with the remaining failures attributed to Binaryen parser or
   canonicalization rejects rather than Starshine output mismatches.
+- The newer explicit-exit branch-payload / body-region fixes remain part of that
+  same clean reduced surface.
+- The newer lowering-side live-carried fix is part of that same clean surface
+  too: the reduced call-prefixed parent-exit family no longer drops the live
+  carried value on the branch-taking arm, and the in-tree regression now pins
+  the repaired raw lowered form directly.
 
 ## Current Signoff Gap
 
 - Whole-artifact parity is still open.
-- The current direct debug-artifact path is blocked even before normalized WAT
-  comparison finishes: native `--code-pushing` on
-  `tests/node/dist/starshine-debug-wasi.wasm` currently fails final validation
-  with `stack underflow` in `Func 1977`.
-- Because of that invalid output, the current branch does not yet have an honest
-  direct-pass signoff against Binaryen for the real artifact.
-- Once that invalid family is fixed, the next expected semantic frontier is still
-  the broader terminal-owner / alias-local-synthesis area described in
+- The current direct debug-artifact path is valid again, but still not close to
+  Binaryen parity.
+- Native `--code-pushing` output on `tests/node/dist/starshine-debug-wasi.wasm`
+  now validates, and traced serial replay now shows only two changed
+  functions:
+  - `Func 148`
+  - `Func 1948`
+- `Func 1977` is now kept unchanged earlier in the pass, and the current trace
+  has `0` `skip-invalid-lower` lines.
+- Direct compare at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3313274`
+  still differs canonically and in normalized WAT, with the first visible
+  reopened line now at `44254` in printed `func $127`.
+- The old top-of-`Func 148` live-carried control-flow corruption is no longer
+  the first actionable blocker. The remaining visible drift is later local /
+  tuple temp materialization inside the same function.
+- That raw hunk is not a fully stable oracle boundary yet: Binaryen no-pass
+  writeback does not converge within five roundtrips on this artifact, and a
+  fixed `nop5` replay shifts the first normalized hunks away from `44251`.
+- Runtime is also still far outside the target bar:
+  - Starshine pass time: `4611.631 ms`
+  - Binaryen pass time: `55.247 ms`
+  - Starshine total: `7421.741 ms`
+  - Binaryen total: `407.483 ms`
+- The latest kept fallback is narrower semantically too: suspicious
+  `code-pushing` lowers are no longer skipped blindly. The pass now lets them
+  through when full-module writeback validation succeeds, which is how the old
+  `48978` family was admitted without reopening the still-invalid `Func 1977`
+  family.
+- A second narrowing is now live too: the pass keeps the one-off high-risk
+  alias-if tail fenced, but it no longer blocks repeated alias-if ladders.
+  That is why `Func 1948` rewrites again on the real artifact while `Func 1977`
+  no longer reaches `skip-invalid-lower`.
+- The next expected semantic frontier is therefore the reopened `44251`
+  `func $127` terminal-owner / local-synthesis family and the later valid
+  direct-artifact clusters described in
   [`./artifact-frontiers.md`](./artifact-frontiers.md).
+- The honest reading is narrower than that raw diff suggests: some part of the
+  remaining whole-artifact gap is still mixed with Binaryen's multivalue /
+  local writeback behavior, so reduced pass or HOT proofs still matter more than
+  raw WAT shape alone.
 
 ## Scope Boundaries That Are Still Deliberate
 

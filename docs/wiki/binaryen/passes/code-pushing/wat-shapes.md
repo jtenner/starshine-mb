@@ -388,12 +388,41 @@ Why this transforms:
 ### Carrier and result-structure blockers
 
 - Unsafe explicit-exit prefixes still block extraction and non-void-region motion.
+- A carried branch payload is part of the prefix shape.
+  If a prefix root reaches an outer owner exit through a `br` payload, and that
+  payload itself hides another parent-escape branch, Starshine now treats that
+  as an unsafe mixed explicit-exit carrier instead of pretending the outer `br`
+  is a leaf. The pass has a reduced regression and whitebox proof for this
+  exact `LocalSet(Block(...))` shape now.
+- A control-region body is part of the prefix shape too.
+  If an earlier `block` or similar control root hides its only branch inside the
+  body region, that branch still counts as an explicit exit for non-void-region
+  fencing. The pass now has both a whitebox helper proof and a pass regression
+  for this nested body-region form.
 - Parent-escape carrier families where the outer escape block would become
-  result-producing are still intentionally blocked. Those are tied directly to
-  the current `Func 1977` invalid-artifact frontier.
+  result-producing are still intentionally fail-closed. On the current debug
+  artifact, only `Func 1977` is still kept for that reason. `code-pushing` now
+  rechecks suspicious lowered carriers against full-module writeback validation,
+  so one writeback-valid terminal-owner / parent-escape family is now admitted
+  even though the coarse suspicious-carrier heuristic still matches its lowered
+  Wasm.
+- One more live shape split is now explicit too:
+  repeated alias-if ladders are not the same thing as the one-off terminal tail.
+  Starshine now readmits the repeated ladder shape that `Func 1948` needs while
+  still fencing the one-off `Func 1977` tail before lowering.
 - Call-fed extraction is currently fenced to a narrow single-result `i32` slice.
 - The pass does not currently synthesize the larger alias-local webs Binaryen
   appears to materialize in the later `105621` and `126757` artifact families.
+- The first reopened valid direct-artifact family is now an earlier
+  terminal-owner shape again:
+  - Binaryen materializes extra locals before the carrier
+  - Binaryen wraps the moved region in a carried `block (result)` with a
+    `br` payload
+  - Starshine still keeps the older straight-line local setup in the same
+    `func $127` region
+  That means the next frontier is not just another one-root alias sink. It
+  likely needs either a broader terminal-owner rule or explicit alias-local
+  synthesis.
 
 ## Practical Rule For Future Tests
 

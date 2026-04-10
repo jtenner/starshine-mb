@@ -1148,6 +1148,83 @@ fn hot_lower_impl_shift_positive_catch_depth(catch_ : Catch) -> Catch {
 }
 
 ///|
+fn hot_lower_impl_raise_label_depth(li : LabelIdx) -> LabelIdx {
+  let depth = hot_lower_impl_decoded_label_depth(li)
+  LabelIdx::new((depth + 1).reinterpret_as_uint())
+}
+
+///|
+fn hot_lower_impl_raise_catch_depth(catch_ : Catch) -> Catch {
+  match catch_ {
+    Catch(tag, li) => Catch::new(tag, hot_lower_impl_raise_label_depth(li))
+    CatchRef(tag, li) => Catch::ref_(tag, hot_lower_impl_raise_label_depth(li))
+    CatchAll(li) => Catch::all(hot_lower_impl_raise_label_depth(li))
+    CatchAllRef(li) => Catch::all_ref(hot_lower_impl_raise_label_depth(li))
+  }
+}
+
+///|
+fn hot_lower_impl_raise_branch_depths_instr(instr : Instruction) -> Instruction {
+  match instr {
+    Br(li) => Instruction::br(hot_lower_impl_raise_label_depth(li))
+    BrIf(li) => Instruction::br_if(hot_lower_impl_raise_label_depth(li))
+    BrTable(labels, fallback) => {
+      let raised : Array[LabelIdx] = []
+      for li in labels {
+        raised.push(hot_lower_impl_raise_label_depth(li))
+      }
+      Instruction::br_table(raised, hot_lower_impl_raise_label_depth(fallback))
+    }
+    BrOnNull(li) =>
+      Instruction::br_on_null(hot_lower_impl_raise_label_depth(li))
+    BrOnNonNull(li) =>
+      Instruction::br_on_non_null(hot_lower_impl_raise_label_depth(li))
+    Block(bt, Expr(body)) =>
+      Instruction::block(
+        bt,
+        Expr::new(hot_lower_impl_raise_branch_depths(body)),
+      )
+    Loop(bt, Expr(body)) =>
+      Instruction::loop_(
+        bt,
+        Expr::new(hot_lower_impl_raise_branch_depths(body)),
+      )
+    If(bt, then_, else_) =>
+      Instruction::if_(
+        bt,
+        hot_lower_impl_raise_branch_depths(then_),
+        match else_ {
+          Some(else_body) => Some(hot_lower_impl_raise_branch_depths(else_body))
+          None => None
+        },
+      )
+    TryTable(bt, catches, Expr(body)) => {
+      let raised_catches : Array[Catch] = []
+      for catch_ in catches {
+        raised_catches.push(hot_lower_impl_raise_catch_depth(catch_))
+      }
+      Instruction::try_table(
+        bt,
+        raised_catches,
+        Expr::new(hot_lower_impl_raise_branch_depths(body)),
+      )
+    }
+    _ => instr
+  }
+}
+
+///|
+fn hot_lower_impl_raise_branch_depths(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  let raised : Array[Instruction] = []
+  for instr in body {
+    raised.push(hot_lower_impl_raise_branch_depths_instr(instr))
+  }
+  raised
+}
+
+///|
 fn hot_lower_impl_shift_positive_branch_depths_instr(
   instr : Instruction,
 ) -> Instruction {
@@ -1580,7 +1657,7 @@ fn hot_lower_impl_try_sink_terminal_exit_into_arm(
   for instr in body {
     rewritten.push(instr)
   }
-  rewritten.push(exit_)
+  rewritten.push(hot_lower_impl_raise_branch_depths_instr(exit_))
   Some(rewritten)
 }
 
@@ -1626,32 +1703,40 @@ fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
         }
       }
       match
-        hot_lower_impl_try_sink_terminal_exit_into_arm(
-          then_,
-          body[body.length() - 1],
+        (
+          hot_lower_impl_body_terminal_branch_depth(then_),
+          hot_lower_impl_body_terminal_branch_depth(else_),
         ) {
-        Some(rewritten_then) =>
+        (Some(_), None) | (None, Some(_)) => None
+        _ =>
           match
             hot_lower_impl_try_sink_terminal_exit_into_arm(
-              else_,
+              then_,
               body[body.length() - 1],
             ) {
-            Some(rewritten_else) => {
-              rewritten.push(
-                Instruction::if_(
-                  @lib.BlockType::void_(),
-                  rewritten_then,
-                  Some(rewritten_else),
-                ),
-              )
-              if append_unreachable {
-                rewritten.push(Instruction::unreachable_())
+            Some(rewritten_then) =>
+              match
+                hot_lower_impl_try_sink_terminal_exit_into_arm(
+                  else_,
+                  body[body.length() - 1],
+                ) {
+                Some(rewritten_else) => {
+                  rewritten.push(
+                    Instruction::if_(
+                      @lib.BlockType::void_(),
+                      rewritten_then,
+                      Some(rewritten_else),
+                    ),
+                  )
+                  if append_unreachable {
+                    rewritten.push(Instruction::unreachable_())
+                  }
+                  Some(rewritten)
+                }
+                None => None
               }
-              Some(rewritten)
-            }
             None => None
           }
-        None => None
       }
     }
     _ => None

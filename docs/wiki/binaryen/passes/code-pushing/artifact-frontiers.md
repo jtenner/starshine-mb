@@ -122,16 +122,24 @@ Current interpretation:
   - bounded local synthesis inside `code-pushing`
   - or accepting that a neighboring pass owns part of the final shape
 
-## Frontier 4: The Current Hard Blocker, `Func 1977`
+## Frontier 4: The Current Safety Fence, `Func 1948` And `Func 1977`
 
 Status:
 
-- Current top blocker.
+- No longer a live writeback-validation blocker.
+- Still the main in-tree safety fence for the old invalid one-off tail family.
 
 Observed failure:
 
-- Native `--code-pushing` output on the debug artifact currently fails final
-  validation with `stack underflow` in `Func 1977`.
+- Native `--code-pushing` output on the debug artifact still validates.
+- The current kept tree now reaches that state earlier in the pass:
+  repeated alias-if ladders are admitted again, but the one-off terminal
+  alias-if-tail family stays fenced before lowering.
+- Traced serial replay on the current tree changes:
+  - `Func 148`
+  - `Func 1948`
+- `Func 1977` is no longer a `skip-invalid-lower` case at all.
+  It now stays unchanged earlier in `code-pushing`.
 
 What the reductions proved:
 
@@ -140,9 +148,34 @@ What the reductions proved:
 - Smaller parent-escape extractions validate in isolation.
 - Real-carrier scaffolds can still validate in isolation after several narrower
   reorder steps.
-- The failure appears only when the outer rewrite path goes far enough to turn a
-  parent escape block into a result-producing block after carried payload
-  extraction and inner carried-`if` demotion.
+- One more subtle point is now reduced in-tree too: a lowered terminal-owner
+  parent-escape carrier can still be writeback-valid even when the lowered Wasm
+  matches the coarse suspicious escape-carrier heuristic. That is why the kept
+  `code-pushing` fallback now rechecks suspicious lowers against full-module
+  writeback validation instead of treating the heuristic itself as final truth.
+- One narrower explicit-exit blind spot is now gone too: a mixed
+  `LocalSet(Block(...))` carrier with an outer owner exit, a terminal path, and
+  a hidden parent-escape branch inside the carried branch payload no longer
+  counts as a safe prefix after the summary walk was taught to recurse into
+  branch payload children.
+- Another explicit-exit blind spot is gone too: a nested branch that exists only
+  inside an earlier block body region now fences later non-void-region motion,
+  because explicit-exit detection no longer treats control-region bodies as
+  invisible just because they are not direct node children.
+- The new live reducer split is now clearer too:
+  repeated alias-if ladders are not inherently invalid.
+  The pass can keep rewriting those safely, and the real remaining danger is the
+  terminal one-off alias-if tail where no later ladder continuation exists.
+- One more reduced live-carried family is now closed too:
+  the old call-prefixed parent-exit corruption at the top of `Func 148` is no
+  longer the first live blocker. `hot_lower` now rebases a sunk parent-exit
+  branch when it moves under an `if` arm, and it keeps the original result-`if`
+  plus trailing-`br` form when only one arm already has a nonfallthrough tail.
+  The reduced pass regression for that family is green, and the debug-artifact
+  compare no longer first fails on the old dropped-live-value shape.
+- The historical invalid failure appeared when the outer rewrite path went far
+  enough to turn a parent escape block into a result-producing block after
+  carried payload extraction and inner carried-`if` demotion.
 
 The current mechanism hypothesis is no longer vague:
 
@@ -152,15 +185,67 @@ The current mechanism hypothesis is no longer vague:
   payload
 - that jump skips the payload site and leaves branch arity at `0` where the outer
   block now expects `1`
+
+Current first live diff after that fix:
+
+- Direct compare at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3313274`
+  still first diverges inside printed `func $127`, but the first visible line is
+  now `44254`, not the old top-of-function carrier corruption.
+- The remaining visible drift is later local / tuple temp materialization:
+  Binaryen gives `local $474` / `$475` `i32`, while Starshine still materializes
+  those slots as `i64` and shifts the later tuple temp numbering around the same
+  parse helper chain.
 - HOT verification sees the same mechanism as `InvalidBranchArity(_, _, 0, 1)`
 - the native module later reports the same class as `stack underflow`
 
 What this means for next work:
 
-- The next reducer must preserve the outer result-block rewrite, not just the
-  inner carrier reorder.
-- Widening more local-only extraction or terminal-owner rules before fixing this
-  family is likely to waste time.
+- This family is now fenced only at the one-off tail form, not across the
+  repeated-ladder form that `Func 1948` needs.
+- That is a correctness improvement, not a parity completion.
+- The remaining semantic blocker is no longer a live invalid-output cliff.
+  It is the reopened valid `44251` frontier plus the still-deliberate
+  one-off `Func 1977` fence.
+
+## Frontier 5: The Reopened Terminal-Owner Direct Frontier
+
+Status:
+
+- Current first semantic blocker.
+
+Observed failure:
+
+- Direct compare now validates all the way through and shows the first
+  normalized WAT delta at `44251` in printed `func $127`.
+- The next cluster starts at `44284`, `44644`, `44881`, and `44894` in that
+  same early function before the larger later clusters.
+- That raw frontier is not stable under Binaryen's own no-pass boundary:
+  `--binaryen-nop-until-stable 5` does not converge on this artifact, and a
+  fixed `--binaryen-nop-roundtrips 5` replay moves the first hunks to
+  `27790`, `27841`, `28246`, and later `45771` / `46157` instead.
+
+Observed shape:
+
+- This is no longer the newer top-level alias move at `48978`.
+- Binaryen is now materializing extra locals ahead of the early carrier and
+  wrapping the segment in a carried `block $block1 (result i32)` with a
+  `br` payload.
+- Starshine still keeps the older straight-line local setup plus sibling
+  terminal-owner structure in the same area.
+- So the current live gap is not just a missed one-root reorder. It now looks
+  like a broader terminal-owner / local-synthesis family again.
+
+What this means for next work:
+
+- Do not treat `44251` as a pure pass-only reducer target until the same family
+  survives a more stable Binaryen boundary.
+- The right question is now whether this family belongs inside `code-pushing`
+  proper or needs explicit alias-local synthesis from a neighboring pass.
+- The next reducer should therefore separate "real carrier motion drift" from
+  "Binaryen writeback-local materialization drift" before widening the pass.
+- Runtime work should measure those few changed functions together with this
+  reopened semantic frontier, because the safe tree now changes only three
+  functions on the whole artifact and `Func 1948` is the clear hot member.
 
 ## What Has Been Explicitly Ruled Out
 

@@ -63,6 +63,21 @@ related:
   - `1208.159 ms` vs `55.135 ms`
   - `808.760 ms` vs `51.461 ms`
   - `898.592 ms` vs `61.162 ms`
+- The current valid-safe branch is still much slower again:
+  - `4640.306 ms` vs `59.083 ms` pass time
+  - `7306.772 ms` vs `396.894 ms` total time
+- The newer writeback-valid suspicious-carrier gate improves correctness again
+  without fixing runtime:
+  - `4115.090 ms` vs `49.905 ms` pass time
+  - `6590.874 ms` vs `316.897 ms` total time
+- The current repeated-ladder-aware guard keeps the artifact valid while
+  readmitting `Func 1948`:
+  - `4413.342 ms` vs `51.978 ms` pass time
+  - `7013.947 ms` vs `370.277 ms` total time
+- The new live-carried lowering fix closes one correctness family without
+  helping runtime yet:
+  - `4611.631 ms` vs `55.247 ms` pass time
+  - `7421.741 ms` vs `407.483 ms` total time
 
 ## What Those Numbers Actually Mean
 
@@ -70,11 +85,36 @@ related:
   multi-second-to-tens-of-seconds range on every reduced valid replay.
 - The bad news is that even the best valid direct-artifact checkpoints are still
   an order of magnitude slower than Binaryen, not merely somewhat slower.
-- The current branch does not even have a new trustworthy direct runtime number on
-  the real artifact because the output is invalid before compare can finish.
+- The current branch does have a trustworthy direct runtime number again because
+  artifact replay validates to completion.
+- But traced serial replay now shows only two changed functions and no
+  `skip-invalid-lower` lines, which means the current runtime gap is
+  concentrated in an even smaller live set of large changed functions rather
+  than in broad whole-module pass churn.
+- A temporary experiment that also revalidated every changed lowered function
+  against the module environment did not materially improve the valid replay
+  story and stayed extremely slow, so the current kept slowdown is not explained
+  solely by whole-function writeback validation.
+- The hottest changed function in the latest serial trace is still `Func 1948`,
+  which now spends about `125.0 ms` in `code-pushing` by itself before
+  lower/writeback.
+  That makes the next performance target much sharper than it was on the older
+  four-function safe branch.
+- The new same-tree correctness fix did not change that performance story much.
+  The first live direct compare blocker moved later inside `Func 148`, but total
+  runtime stayed in the same multi-second range, so the pass is still missing a
+  large runtime win even after the repaired lowering family.
+- One tempting cache micro-optimization has now been ruled out too. Memoizing
+  the simple-owner payload, terminal-inner-owner payload, and ignorable
+  non-void prefix-carrier checks made the live trace worse, pushing total
+  `pass:code-pushing` from `4198179 us` to `4552778 us` and the unchanged
+  hotspot `Func 3665` from `3139111 us` to `3466464 us`. That probe was
+  reverted.
 
 ## Current Hot Spots
 
+- Huge unchanged whole-function cost in `Func 3665`.
+- The few real changed functions on the debug artifact.
 - Prefix explicit-exit analysis in non-void or owner-sensitive regions.
 - Repeated scans through dropped-carrier bodies while hunting extractable sets.
 - Rebuilding summaries across repeated rewrite rounds in large functions.
@@ -83,6 +123,8 @@ related:
 
 ## Performance Work That Is Safe To Prioritize Only After Correctness
 
+- Reduce the valid direct-artifact frontier from `func $127` downward so fewer
+  large functions stay in the expensive changed set.
 - Cache more prefix explicit-exit facts so repeated scans do not walk the same
   owner trees on every candidate.
 - Narrow dropped-carrier probes earlier with cheaper shape tests before building
@@ -98,13 +140,16 @@ related:
 - Do not throw away HOT-lowering proofs because the fuzz lane is cheaper to run.
 - Do not treat the older `808 ms` or `898 ms` checkpoints as final improvement
   proof while the current branch is still invalid on the real artifact.
+- Do not assume more carrier-shape memoization is helpful just because those
+  helpers look hot on paper; the reverted probe showed the live unchanged
+  hotspot can get worse.
 
 ## Honest Current Rule
 
 - Correctness remains primary.
 - Performance is still a live, documented secondary gap.
 - The right near-term goal is:
-  - restore valid direct-artifact output
-  - close the remaining correctness frontier
-  - then remeasure on the real artifact and only optimize the actual remaining
-    hot spots
+  - keep valid direct-artifact output on the safe branch
+  - separate the reopened `func $127` pass frontier from Binaryen boundary noise
+  - then optimize the actual remaining hot spots, starting with `Func 3665` and
+    the smaller changed-function set

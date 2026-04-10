@@ -76,7 +76,7 @@ pub fn cache_get_or_build_cfg(HotAnalysisCache, HotFunc) -> HotCfg
 
 pub fn cache_get_or_build_dom(HotAnalysisCache, HotFunc) -> HotDominators
 
-pub fn cache_get_or_build_effect_node_masks(HotAnalysisCache, HotFunc) -> Array[EffectMask]
+pub fn cache_get_or_build_effect_node_masks(HotAnalysisCache, HotFunc) -> Array[UInt]
 
 pub fn cache_get_or_build_effects(HotAnalysisCache, HotFunc) -> HotEffectsSummary
 
@@ -867,7 +867,7 @@ pub struct HotAnalysisCache {
   mut loop_info : HotCacheEntry[HotLoopInfo]?
   mut use_def : HotCacheEntry[HotUseDef]?
   mut liveness : HotCacheEntry[HotLiveness]?
-  mut effect_node_masks : HotCacheEntry[Array[EffectMask]]?
+  mut effect_node_masks : HotCacheEntry[Array[UInt]]?
   mut effects : HotCacheEntry[HotEffectsSummary]?
   mut ssa : HotCacheEntry[HotLocalSsa]?
 } derive(Eq, Show, @debug.Debug)

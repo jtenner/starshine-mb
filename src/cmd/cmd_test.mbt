@@ -1610,6 +1610,25 @@ fn has_string(values : Array[String], needle : String) -> Bool {
 }
 
 ///|
+fn cmd_test_trace_func_changed(stderr_text : String, func_idx : Int) -> Bool {
+  let marker = "pass[code-pushing]:func func_idx=(Func \{func_idx})"
+  let mut in_func = false
+  for line in stderr_text.split("\n") {
+    if line.contains(marker) {
+      in_func = true
+      continue
+    }
+    if in_func && line.contains("pass[code-pushing]:done changed=true") {
+      return true
+    }
+    if in_func && line.contains("pass[code-pushing]:func func_idx=(Func ") {
+      return false
+    }
+  }
+  false
+}
+
+///|
 test "run_cmd_with_adapter infers optimize preset from -O level flags" {
   let wasm = encode_module_bytes(fixture_i32_const_module(31))
   let writes : Array[(String, Bytes)] = []
@@ -5689,6 +5708,113 @@ test "run_cmd_with_adapter validates code-pushing on debug artifact" {
   assert_eq(writes.length(), 1)
   assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter code-pushing does not skip Func 1977 on the debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let stderr_writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+    write_stderr=fn(bytes) {
+      stderr_writes.push(bytes)
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--debug-serial-passes", "--tracing", "pass", "--code-pushing", "--out",
+        output_path, input_path,
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected traced code-pushing artifact replay success, got \{e}")
+  }
+  let stderr_text = concat_ascii_bytes(stderr_writes)
+
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["code-pushing"])
+  assert_eq(writes.length(), 1)
+  assert_false(
+    stderr_text.contains(
+      "pass[code-pushing]:skip-invalid-lower func=(Func 1977) reason=suspicious-escape-carrier",
+    ),
+    msg=stderr_text,
+  )
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter code-pushing still rewrites Func 1948 on the debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let stderr_writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+    write_stderr=fn(bytes) {
+      stderr_writes.push(bytes)
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--debug-serial-passes", "--tracing", "pass", "--code-pushing", "--out",
+        output_path, input_path,
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected traced code-pushing artifact replay success, got \{e}")
+  }
+  let stderr_text = concat_ascii_bytes(stderr_writes)
+
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["code-pushing"])
+  assert_eq(writes.length(), 1)
+  assert_true(cmd_test_trace_func_changed(stderr_text, 1948), msg=stderr_text)
 }
 
 ///|

@@ -202,13 +202,39 @@ related:
   [`src/ir/hot_lower_live_repro_test.mbt`](../../../../../src/ir/hot_lower_live_repro_test.mbt).
 - Those repros are not optional decoration. They are the only honest way to show
   that a HOT rewrite is semantically fine and still lowers to valid Wasm.
-- The current global blocker proves why this matters:
+- The historical `Func 1977` blocker proved why this matters:
   - if a parent escape block is rewritten to become result-producing after a
     carried payload extraction and inner carried-`if` demotion, a branch can be
     retargeted around the payload site
   - HOT verification then sees `InvalidBranchArity(_, _, 0, 1)`
   - the native artifact later surfaces that same class as a final `stack
     underflow` in `Func 1977`
+- One concrete implementation rule came out of that work:
+  explicit-exit summaries cannot treat branch roots as leaves.
+  Starshine now walks the payload children of `br`-family nodes before deciding
+  whether an earlier carrier prefix is safe, because a parent-escape hidden
+  inside that payload is still semantically part of the prefix.
+- A second concrete rule is now explicit too:
+  explicit-exit detection cannot treat control-region bodies as optional.
+  If a `block`, `loop`, `if`, or `try` hides the branch only in its region body,
+  that branch still has to fence later non-void-region rewrites.
+- A third lowering rule is now explicit too:
+  once a parent-exit `br` is sunk under an `if` arm, its label depth has to be
+  rebased for the extra `if` label. Starshine now does that rebasing directly in
+  `hot_lower_impl_try_sink_terminal_exit_into_arm`.
+- A fourth rule is paired with it:
+  that same parent-exit voidification is now skipped when exactly one `if` arm
+  already has a nonfallthrough tail and the other still falls through with the
+  carried value. In that mixed case, keeping the original result-`if` plus
+  trailing-`br` form is both safer and closer to Binaryen's shape.
+- The current kept branch adds one more operational rule at the pass-manager
+  boundary:
+  if lowered `code-pushing` output still matches the suspicious escape-carrier
+  pattern, keep the original function instead of shipping invalid Wasm.
+  On the current same-tree debug artifact that fallback no longer fires at all.
+  The current kept tree now fences the one-off `Func 1977` alias-if-tail family
+  earlier in `code-pushing`, while repeated ladders like `Func 1948` are
+  admitted again and validate to completion.
 
 ## Current Deliberate Divergences From Binaryen
 
@@ -225,12 +251,30 @@ related:
 
 ## Practical Strategy For Next Work
 
-- Keep reducing the real `Func 1977` invalid family before widening any more
-  local-only extraction or terminal-owner rules.
+- Keep the one-off `Func 1977` fence in place while reducing that carrier
+  family into a direct HOT-lowering fix.
+- Treat the suspicious escape-carrier heuristic as a coarse signal, not a final
+  verdict. `code-pushing` now rechecks those suspicious lowered functions
+  against full-module writeback validation before deciding whether to keep the
+  original.
+- Treat the now-admitted repeated alias-if ladders as a separate class from the
+  one-off tail fence. `Func 1948` proved those ladders can be valid even when
+  the smaller local ordering pattern superficially resembles the old invalid
+  `Func 1977` tail.
+- Treat the reopened `44251` direct hunk as only a provisional frontier. A
+  fixed Binaryen `nop5` replay moves the first hunks elsewhere, so some of that
+  drift is still Binaryen writeback-local noise rather than a stable
+  `code-pushing` rule gap.
+- Reduce the first reopened valid parity family only after isolating the part
+  that survives that Binaryen boundary noise; do not widen more local-only
+  extraction or terminal-owner rules blindly.
 - Prefer new rules that can be stated in terms of:
   - owner identity
   - payload-site preservation
   - branch-result arity
+- If the frontier also requires new alias locals or carried `block (result)` /
+  `br` structure, stop and decide whether that belongs in `code-pushing` or in a
+  neighboring synthesis pass before copying Binaryen's output shape blindly.
 - Do not reopen broad "non-void regions are probably fine" relaxations. The pass
   has already shown that those broad relaxations can look safe in small reducers
   and still fail on the real artifact.
