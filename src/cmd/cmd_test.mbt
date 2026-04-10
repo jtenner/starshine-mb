@@ -3859,6 +3859,111 @@ test "run_cmd_with_adapter accepts remove-unused-brs" {
 }
 
 ///|
+#cfg(target="native")
+test "run_cmd_with_adapter dumps lowered remove-unused-brs carried guard wrappers without br_if" {
+  let source =
+    #|(module
+    #|  (func (param i32)
+    #|    (drop
+    #|      (local.get 0)))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local.get 0))
+    #|  (func (param i32 i32 i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32)
+    #|    (block (result i32)
+    #|      (if
+    #|        (local.get 0)
+    #|        (then
+    #|          (local.set 1
+    #|            (local.get 1))
+    #|          (drop
+    #|            (block (result i32)
+    #|              (block
+    #|                (br_if 0
+    #|                  (if (result i32)
+    #|                    (local.get 0)
+    #|                    (then
+    #|                      (i32.const 1))
+    #|                    (else
+    #|                      (local.set 2
+    #|                        (local.get 2))
+    #|                      (local.set 3
+    #|                        (local.get 3))
+    #|                      (i32.le_s
+    #|                        (local.get 2)
+    #|                        (local.get 3)))))
+    #|                (call 0
+    #|                  (local.get 1))
+    #|                (drop
+    #|                  (i32.const 0))
+    #|                (local.set 2
+    #|                  (local.get 2))
+    #|                (call 0
+    #|                  (local.get 0))
+    #|                (local.set 3
+    #|                  (call 1
+    #|                    (local.get 0)
+    #|                    (local.get 2))))
+    #|              (br 1
+    #|                (local.tee 4
+    #|                  (i32.add
+    #|                    (local.get 1)
+    #|                    (i32.const 1)))))))
+    #|        (else
+    #|          (call 0
+    #|            (local.get 2))
+    #|          (call 0
+    #|            (local.get 3))))
+    #|      (i32.const 0))))
+  let input_wasm = match native_wat_to_wasm_bytes_for_test(source) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail(
+        "expected carried guard wrapper fixture lowering success, got \{err}",
+      )
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(input_wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--remove-unused-brs", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(summary) => summary
+    Err(err) =>
+      fail(
+        "expected carried guard wrapper remove-unused-brs cli success, got \{err}",
+      )
+  }
+  assert_eq(summary.resolved_passes, ["remove-unused-brs"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, "out.wasm")
+  let wat = match native_normalize_wasm_bytes_to_wat_for_test(writes[0].1) {
+    Ok(text) => text
+    Err(err) =>
+      fail(
+        "expected carried guard wrapper normalization success, got \{err}",
+      )
+  }
+  assert_false(wat.contains("br_if"), msg=wat)
+  ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
 test "run_cmd_with_adapter preserves repeated pass flags in cli order" {
   let wasm = encode_module_bytes(fixture_i32_const_module(4))
   let io = CmdIO::new(
@@ -4940,6 +5045,12 @@ fn native_tmp_file(name : String) -> String {
 
 ///|
 #cfg(target="native")
+fn native_tmp_path(name : String, ext : String) -> String {
+  "/tmp/starshine-cmd-\{name}-\{native_now_ms()}\{ext}"
+}
+
+///|
+#cfg(target="native")
 fn native_write_bytes(path : String, bytes : Bytes) -> Bool {
   let c_path = native_c_string(path)
   let c_mode = native_c_string("wb")
@@ -4960,6 +5071,11 @@ fn native_write_bytes(path : String, bytes : Bytes) -> Bool {
     wrote == expected.to_uint64() && close_code == 0
   }
 }
+
+///|
+#cfg(target="native")
+#borrow(command)
+extern "c" fn native_system(command : Bytes) -> Int = "system"
 
 ///|
 #cfg(target="native")
@@ -5001,6 +5117,54 @@ fn native_read_bytes(path : String) -> Bytes? {
     return None
   }
   Some(out)
+}
+
+///|
+#cfg(target="native")
+fn native_normalize_wasm_bytes_to_wat_for_test(bytes : Bytes) -> Result[String, String] {
+  let in_path = native_tmp_path("normalize-in", ".wasm")
+  let out_path = native_tmp_path("normalize-out", ".wat")
+  if !native_write_bytes(in_path, bytes) {
+    return Err("failed to stage wasm normalization input")
+  }
+  let command = native_c_string(
+    "wasm-opt \{in_path} -S --strip-debug -o \{out_path}",
+  )
+  let code = native_system(command)
+  let result = if code == 0 {
+    match native_read_bytes(out_path) {
+      Some(text) => Ok(bytes_to_ascii_string(text))
+      None => Err("failed to read normalized wat output")
+    }
+  } else {
+    Err("failed to normalize wasm via wasm-opt")
+  }
+  native_remove_if_exists(in_path)
+  native_remove_if_exists(out_path)
+  result
+}
+
+///|
+#cfg(target="native")
+fn native_wat_to_wasm_bytes_for_test(source : String) -> Result[Bytes, String] {
+  let wat_path = native_tmp_path("fixture-in", ".wat")
+  let wasm_path = native_tmp_path("fixture-out", ".wasm")
+  if !native_write_bytes(wat_path, bytes_from_string(source)) {
+    return Err("failed to stage wat fixture input")
+  }
+  let command = native_c_string("wasm-opt \{wat_path} -o \{wasm_path}")
+  let code = native_system(command)
+  let result = if code == 0 {
+    match native_read_bytes(wasm_path) {
+      Some(bytes) => Ok(bytes)
+      None => Err("failed to read lowered wasm fixture")
+    }
+  } else {
+    Err("failed to lower wat fixture via wasm-opt")
+  }
+  native_remove_if_exists(wat_path)
+  native_remove_if_exists(wasm_path)
+  result
 }
 
 ///|

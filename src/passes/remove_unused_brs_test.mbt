@@ -1614,6 +1614,7 @@ test "remove-unused-brs drops carried result wrappers after lowering then-arm gu
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("br_if"), msg=pretty)
   assert_false(pretty.contains("(drop (block I32"), msg=pretty)
 }
 

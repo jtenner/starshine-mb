@@ -2835,6 +2835,26 @@ fn remove_unused_brs_try_rewrite_block_prefix_payload_branch_root(
       None => ()
     }
   }
+  if !matched_payload_tail &&
+    idx + 1 < @ir.hot_region_root_count(func, region_ref) {
+    let suffix_tail_root = @ir.hot_region_get(
+      func,
+      region_ref,
+      @ir.hot_region_root_count(func, region_ref) - 1,
+    )
+    match remove_unused_brs_root_branch_tail(func, suffix_tail_root) {
+      Some((branch_id, target)) =>
+        if target != block_label {
+          let target_arity = @ir.hot_label_branch_arity(func, target)
+          let branch_child_count = @ir.hot_node_get(func, branch_id).child_count
+          if (target_arity > 0 && branch_child_count == target_arity) ||
+            branch_child_count == 0 {
+            matched_payload_tail = true
+          }
+        }
+      None => ()
+    }
+  }
   if !matched_payload_tail {
     (ctx.trace)(
       "rub-prefix-root reject=payload-tail block=\{block_id} roots=\{root_count}",
@@ -4762,13 +4782,14 @@ fn remove_unused_brs_visit_region(
           continue
         }
       }
-      @ir.HotOp::Drop =>
+      @ir.HotOp::Drop => {
         if remove_unused_brs_try_rewrite_drop_result_block_if_tail_branch(
             ctx, func, region_ref, idx, label_refs,
           ) {
           changed = true
           continue
         }
+      }
       @ir.HotOp::Br =>
         if remove_unused_brs_try_rewrite_branch_payload_if(
             ctx, func, region_ref, idx, label_refs,
