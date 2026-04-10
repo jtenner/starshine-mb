@@ -18,11 +18,13 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Decisions
 
-- No pages yet.
+- [`binaryen/passes/reorder-locals/multivalue-call-scope.md`](binaryen/passes/reorder-locals/multivalue-call-scope.md) - Current project decision: non-converging Binaryen multivalue-call writeback stays out of scope for `reorder-locals` parity.
 
 ## Comparisons
 
-- No pages yet.
+- [`binaryen/passes/heap2local/parity.md`](binaryen/passes/heap2local/parity.md) - Current Binaryen parity surface, in-tree coverage, and remaining fixup gap for `heap2local`.
+- [`binaryen/passes/reorder-locals/parity.md`](binaryen/passes/reorder-locals/parity.md) - Exact Binaryen ordering rule, module-pass scope, and current stable-boundary signoff rule for `reorder-locals`.
+- [`binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md`](binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md) - Treat `invalid tag index` `remove-unused-names` failures as Binaryen parser-family gaps, not Starshine semantic mismatches.
 
 ## Sessions
 

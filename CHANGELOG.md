@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-09 Docs: ingest recent Binaryen pass notes into the wiki
+
+- **Binaryen pass wiki bootstrap** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md), and added [`docs/wiki/binaryen/passes/heap2local/parity.md`](./docs/wiki/binaryen/passes/heap2local/parity.md), [`docs/wiki/binaryen/passes/reorder-locals/parity.md`](./docs/wiki/binaryen/passes/reorder-locals/parity.md), [`docs/wiki/binaryen/passes/reorder-locals/multivalue-call-scope.md`](./docs/wiki/binaryen/passes/reorder-locals/multivalue-call-scope.md), and [`docs/wiki/binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md`](./docs/wiki/binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md) to crystallize the newest pass research docs into living wiki pages under a stable `binaryen/passes/<pass>/...` namespace.
+
 ## 2026-04-09 Docs: establish the wasm knowledge-base contract
 
 - **Wasm knowledge-base schema bootstrap** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`AGENTS.md`](./AGENTS.md), [`docs/README.md`](./docs/README.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`docs/wiki/raw/README.md`](./docs/wiki/raw/README.md) to define a compact repo-level contract for wiki maintenance, distinguish one-off numbered `docs/` investigations from living `docs/wiki/` knowledge pages, require `index.md` and `log.md` updates on wiki maintenance changes, and scaffold the initial raw-source/catalog/audit files for a committed wasm knowledge base.
