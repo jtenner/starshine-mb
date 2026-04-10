@@ -97,10 +97,8 @@ pub fn validation_issue_message(ValidationIssue) -> String
 // Errors
 pub suberror ValidationError {
   Validation(ValidationDiagnostic)
-}
-pub impl Eq for ValidationError
+} derive(Eq, @debug.Debug)
 pub impl Show for ValidationError
-pub impl @debug.Debug for ValidationError
 
 // Types and methods
 pub(all) struct Env {
@@ -117,7 +115,7 @@ pub(all) struct Env {
   locals : @lib.Locals
   labels : LabelStack
   return_type : Array[@lib.ValType]?
-}
+} derive(Hash, Show)
 pub fn Env::append_rectype_types(Self, @lib.RecType) -> Self
 pub fn Env::descriptor_result_type(Self, @lib.TypeIdx, @lib.RefType?) -> Result[@lib.ValType, String]
 pub fn Env::expand_blocktype(Self, @lib.BlockType) -> Result[(Array[@lib.ValType], Array[@lib.ValType]), String]
@@ -169,8 +167,6 @@ pub fn Env::with_return_type(Self, Array[@lib.ValType]?) -> Self
 pub fn Env::with_tables(Self, Array[@lib.TableType]) -> Self
 pub fn Env::with_tags(Self, Array[@lib.TagType]) -> Self
 pub fn Env::with_types(Self, Array[@lib.SubType]) -> Self
-pub impl Hash for Env
-pub impl Show for Env
 
 type GenValidContext
 
@@ -179,24 +175,20 @@ pub(all) struct LabelStack {
   parents : Array[Int]
   mut head : Int
   mut len : Int
-}
+} derive(Hash, Show)
 pub fn LabelStack::copy(Self) -> Self
 pub fn LabelStack::from_labels(Array[Array[@lib.ValType]]) -> Self
 pub fn LabelStack::get(Self, Int) -> Array[@lib.ValType]?
 pub fn LabelStack::length(Self) -> Int
 pub fn LabelStack::new() -> Self
 pub fn LabelStack::push(Self, Array[@lib.ValType]) -> Unit
-pub impl Hash for LabelStack
-pub impl Show for LabelStack
 
 pub enum TcEscape {
   NoTcEscape
   BranchTcEscape(Int)
   TerminalTcEscape
-}
-pub impl Eq for TcEscape
+} derive(Eq, @debug.Debug)
 pub impl Show for TcEscape
-pub impl @debug.Debug for TcEscape
 
 pub struct TcState {
   env : Env
@@ -211,19 +203,14 @@ pub struct ValidateValidFuzzStats {
   seed : UInt64
   attempts : Int
   validated : Int
-}
-pub impl Eq for ValidateValidFuzzStats
-pub impl Show for ValidateValidFuzzStats
-pub impl @debug.Debug for ValidateValidFuzzStats
+} derive(Eq, Show, @debug.Debug)
 
 pub struct ValidationDiagnostic {
   issue : ValidationIssue
   func_idx : @lib.FuncIdx?
-}
+} derive(Eq, @debug.Debug)
 pub fn ValidationDiagnostic::new(ValidationIssue, func_idx? : @lib.FuncIdx?) -> Self
-pub impl Eq for ValidationDiagnostic
 pub impl Show for ValidationDiagnostic
-pub impl @debug.Debug for ValidationDiagnostic
 
 pub enum ValidationIssue {
   TypeSection(String)
@@ -241,10 +228,8 @@ pub enum ValidationIssue {
   CodeSection(String)
   NameSection(String)
   FunctionBody(String)
-}
-pub impl Eq for ValidationIssue
+} derive(Eq, @debug.Debug)
 pub impl Show for ValidationIssue
-pub impl @debug.Debug for ValidationIssue
 
 // Type aliases
 pub type TcResult = Result[TcState, String]

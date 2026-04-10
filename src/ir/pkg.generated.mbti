@@ -602,6 +602,8 @@ pub fn hot_simple_value_key(HotFunc, Int) -> HotSimpleValueKey?
 
 pub fn hot_split_trailing_payload_roots(HotFunc, Array[Int], Int) -> (Array[Int], Array[Int])?
 
+pub fn hot_tuple_make_promote_to_block(HotFunc, Int, @lib.BlockType) -> Unit
+
 pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
 
 pub fn hot_type_intern_block_result(HotFunc, @lib.BlockType) -> Int
@@ -790,10 +792,7 @@ pub fn use_def_build_node_uses(HotFunc) -> HotUseDef
 pub struct Bitset {
   size : Int
   words : Array[UInt64]
-}
-pub impl Eq for Bitset
-pub impl Show for Bitset
-pub impl @debug.Debug for Bitset
+} derive(Eq, Show, @debug.Debug)
 
 pub enum CfgBlockBoundaryReason {
   RootEntry
@@ -805,28 +804,19 @@ pub enum CfgBlockBoundaryReason {
   CatchRegionEntry
   CatchListRegionEntry
   Terminator
-}
-pub impl Eq for CfgBlockBoundaryReason
-pub impl Show for CfgBlockBoundaryReason
-pub impl @debug.Debug for CfgBlockBoundaryReason
+} derive(Eq, Show, @debug.Debug)
 
 pub enum CfgControlSuccessorPolicy {
   InlineBodyRegion
   SplitThenElse
   SplitBodyCatch
   SplitBodyCatchList
-}
-pub impl Eq for CfgControlSuccessorPolicy
-pub impl Show for CfgControlSuccessorPolicy
-pub impl @debug.Debug for CfgControlSuccessorPolicy
+} derive(Eq, Show, @debug.Debug)
 
 pub struct CfgEdge {
   kind : CfgEdgeKind
   block : Int
-}
-pub impl Eq for CfgEdge
-pub impl Show for CfgEdge
-pub impl @debug.Debug for CfgEdge
+} derive(Eq, Show, @debug.Debug)
 
 pub enum CfgEdgeKind {
   FallthroughEdge
@@ -834,10 +824,7 @@ pub enum CfgEdgeKind {
   ReturnEdge
   ExceptionalEdge
   UnreachableExitEdge
-}
-pub impl Eq for CfgEdgeKind
-pub impl Show for CfgEdgeKind
-pub impl @debug.Debug for CfgEdgeKind
+} derive(Eq, Show, @debug.Debug)
 
 pub enum CfgExceptionTargetPolicy {
   NoExceptionEdge
@@ -845,19 +832,13 @@ pub enum CfgExceptionTargetPolicy {
   ToCatchRegion
   ToCatchListRegion
   DelegateToTarget
-}
-pub impl Eq for CfgExceptionTargetPolicy
-pub impl Show for CfgExceptionTargetPolicy
-pub impl @debug.Debug for CfgExceptionTargetPolicy
+} derive(Eq, Show, @debug.Debug)
 
 pub struct CfgRegionRootBlock {
   region_holder : Int
   slot : Int
   block : Int
-}
-pub impl Eq for CfgRegionRootBlock
-pub impl Show for CfgRegionRootBlock
-pub impl @debug.Debug for CfgRegionRootBlock
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotAnalysis {
   Cfg
@@ -867,7 +848,7 @@ pub enum HotAnalysis {
   Effects
   LoopInfo
   Ssa
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotAnalysis::cfg() -> Self
 pub fn HotAnalysis::dominance() -> Self
 pub fn HotAnalysis::effects() -> Self
@@ -875,9 +856,6 @@ pub fn HotAnalysis::liveness() -> Self
 pub fn HotAnalysis::loop_info() -> Self
 pub fn HotAnalysis::ssa() -> Self
 pub fn HotAnalysis::use_def() -> Self
-pub impl Eq for HotAnalysis
-pub impl Show for HotAnalysis
-pub impl @debug.Debug for HotAnalysis
 
 pub struct HotAnalysisCache {
   mut cfg : HotCacheEntry[HotCfg]?
@@ -889,11 +867,8 @@ pub struct HotAnalysisCache {
   mut liveness : HotCacheEntry[HotLiveness]?
   mut effects : HotCacheEntry[HotEffectsSummary]?
   mut ssa : HotCacheEntry[HotLocalSsa]?
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotAnalysisCache::new() -> Self
-pub impl Eq for HotAnalysisCache
-pub impl Show for HotAnalysisCache
-pub impl @debug.Debug for HotAnalysisCache
 
 pub struct HotBlockInfo {
   id : Int
@@ -904,58 +879,40 @@ pub struct HotBlockInfo {
   region_holder : Int
   start_slot : Int
   end_slot : Int
-}
-pub impl Eq for HotBlockInfo
-pub impl Show for HotBlockInfo
-pub impl @debug.Debug for HotBlockInfo
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotBranchTable {
   targets : Array[Int]
   default_target : Int
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotBranchTable::new(Array[Int], Int) -> Self
-pub impl Eq for HotBranchTable
-pub impl Show for HotBranchTable
-pub impl @debug.Debug for HotBranchTable
 
 pub struct HotCacheEntry[T] {
   built_at_revision : Int
   value : T
-}
-pub impl[T : Eq] Eq for HotCacheEntry[T]
-pub impl[T : Show] Show for HotCacheEntry[T]
-pub impl[T : @debug.Debug] @debug.Debug for HotCacheEntry[T]
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotCallSig {
   type_idx : @lib.TypeIdx
   table_idx : @lib.TableIdx?
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotCallSig::new(@lib.TypeIdx, table_idx? : @lib.TableIdx?) -> Self
-pub impl Eq for HotCallSig
-pub impl Show for HotCallSig
-pub impl @debug.Debug for HotCallSig
 
 pub enum HotCatchArm {
   CatchArm(@lib.TagIdx, Int)
   CatchRefArm(@lib.TagIdx, Int)
   CatchAllArm(Int)
   CatchAllRefArm(Int)
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotCatchArm::all(Int) -> Self
 pub fn HotCatchArm::all_ref(Int) -> Self
 pub fn HotCatchArm::catch_(@lib.TagIdx, Int) -> Self
 pub fn HotCatchArm::catch_ref(@lib.TagIdx, Int) -> Self
-pub impl Eq for HotCatchArm
-pub impl Show for HotCatchArm
-pub impl @debug.Debug for HotCatchArm
 
 pub struct HotCatchInfo {
   catches : Array[HotCatchArm]
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotCatchInfo::new(Array[HotCatchArm]) -> Self
-pub impl Eq for HotCatchInfo
-pub impl Show for HotCatchInfo
-pub impl @debug.Debug for HotCatchInfo
 
 pub struct HotCfg {
   blocks : Array[HotBlockInfo]
@@ -964,10 +921,7 @@ pub struct HotCfg {
   mut entry_block : Int
   mut exit_block : Int
   mut exceptional_exit_block : Int?
-}
-pub impl Eq for HotCfg
-pub impl Show for HotCfg
-pub impl @debug.Debug for HotCfg
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotCfgOrders {
   preorder : Array[Int]
@@ -977,19 +931,13 @@ pub struct HotCfgOrders {
   reverse_exit_postorder : Array[Int]
   reverse_exit_postorder_with_exceptions : Array[Int]
   worklist_seed : Array[Int]
-}
-pub impl Eq for HotCfgOrders
-pub impl Show for HotCfgOrders
-pub impl @debug.Debug for HotCfgOrders
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotChildSpanRewrite {
   node_id : Int
   new_children : Array[Int]
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotChildSpanRewrite::new(Int, Array[Int]) -> Self
-pub impl Eq for HotChildSpanRewrite
-pub impl Show for HotChildSpanRewrite
-pub impl @debug.Debug for HotChildSpanRewrite
 
 pub enum HotConstPayload {
   I32Const(@lib.I32)
@@ -998,16 +946,13 @@ pub enum HotConstPayload {
   F64Const(@lib.F64)
   RefNullConst(@lib.RefType)
   StringConst(Bytes)
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotConstPayload::f32_const(@lib.F32) -> Self
 pub fn HotConstPayload::f64_const(@lib.F64) -> Self
 pub fn HotConstPayload::i32_const(@lib.I32) -> Self
 pub fn HotConstPayload::i64_const(@lib.I64) -> Self
 pub fn HotConstPayload::ref_null_const(@lib.RefType) -> Self
 pub fn HotConstPayload::string_const(Bytes) -> Self
-pub impl Eq for HotConstPayload
-pub impl Show for HotConstPayload
-pub impl @debug.Debug for HotConstPayload
 
 pub enum HotControlRegionRole {
   BodyRegion
@@ -1015,19 +960,13 @@ pub enum HotControlRegionRole {
   ElseRegion
   CatchRegion
   CatchListRegion
-}
-pub impl Eq for HotControlRegionRole
-pub impl Show for HotControlRegionRole
-pub impl @debug.Debug for HotControlRegionRole
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotControlRegionSlotInfo {
   slot : Int
   role : HotControlRegionRole
   required : Bool
-}
-pub impl Eq for HotControlRegionSlotInfo
-pub impl Show for HotControlRegionSlotInfo
-pub impl @debug.Debug for HotControlRegionSlotInfo
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotDominators {
   entry_block : Int
@@ -1037,19 +976,13 @@ pub struct HotDominators {
   frontiers : Array[Array[Int]]
   dom_preorder : Array[Int]
   dom_postorder : Array[Int]
-}
-pub impl Eq for HotDominators
-pub impl Show for HotDominators
-pub impl @debug.Debug for HotDominators
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotEffectsSummary {
   node_masks : Array[UInt]
   block_masks : Array[UInt]
   root_region_mask : UInt
-}
-pub impl Eq for HotEffectsSummary
-pub impl Show for HotEffectsSummary
-pub impl @debug.Debug for HotEffectsSummary
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotFunc {
   nodes : Array[HotNode]
@@ -1073,21 +1006,15 @@ pub fn HotFunc::new(locals? : HotLocals, body_result_type? : Int) -> Self
 
 pub struct HotInstrPayload {
   instr : @lib.Instruction
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotInstrPayload::new(@lib.Instruction) -> Self
-pub impl Eq for HotInstrPayload
-pub impl Show for HotInstrPayload
-pub impl @debug.Debug for HotInstrPayload
 
 pub struct HotLabelInfo {
   kind : HotLabelKind
   result_type : Int
   owner : Int
   branch_arity : Int
-}
-pub impl Eq for HotLabelInfo
-pub impl Show for HotLabelInfo
-pub impl @debug.Debug for HotLabelInfo
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotLabelKind {
   BlockLabel
@@ -1096,10 +1023,7 @@ pub enum HotLabelKind {
   RegionLabel
   TryLabel
   TryTableLabel
-}
-pub impl Eq for HotLabelKind
-pub impl Show for HotLabelKind
-pub impl @debug.Debug for HotLabelKind
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotLiftError {
   InvalidLabelDepth(Int)
@@ -1109,19 +1033,13 @@ pub enum HotLiftError {
   InvalidBodyState(String)
   TypecheckFailure(String, String)
   UnsupportedInstruction(String)
-}
-pub impl Eq for HotLiftError
-pub impl Show for HotLiftError
-pub impl @debug.Debug for HotLiftError
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotLiveness {
   include_exceptional_edges : Bool
   live_in_sets : Array[Bitset]
   live_out_sets : Array[Bitset]
-}
-pub impl Eq for HotLiveness
-pub impl Show for HotLiveness
-pub impl @debug.Debug for HotLiveness
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotLocalSsa {
   revision : Int
@@ -1135,38 +1053,26 @@ pub struct HotLocalSsa {
   local_get_values : Array[Int]
   local_write_defs : Array[Int]
   value_uses : Array[Array[HotSsaUseOrigin]]
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotLocalSsa::new(revision? : Int, value_types? : Array[@lib.ValType], value_origins? : Array[HotSsaValueOrigin], phis? : Array[HotSsaPhi], entry_defs? : Array[Int], phi_value_ids? : Array[Int], block_phis? : Array[Array[Int]], phi_inputs? : Array[Array[HotSsaPhiInput]], local_get_values? : Array[Int], local_write_defs? : Array[Int], value_uses? : Array[Array[HotSsaUseOrigin]]) -> Self
-pub impl Eq for HotLocalSsa
-pub impl Show for HotLocalSsa
-pub impl @debug.Debug for HotLocalSsa
 
 pub struct HotLocals {
   param_count : Int
   params : Array[@lib.ValType]
   locals : Array[@lib.ValType]
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotLocals::new(param_count? : Int, params? : Array[@lib.ValType], locals? : Array[@lib.ValType]) -> Self
-pub impl Eq for HotLocals
-pub impl Show for HotLocals
-pub impl @debug.Debug for HotLocals
 
 pub struct HotLoopExit {
   from : Int
   edge : CfgEdge
-}
-pub impl Eq for HotLoopExit
-pub impl Show for HotLoopExit
-pub impl @debug.Debug for HotLoopExit
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotLoopInfo {
   loops : Array[HotLoopSummary]
   block_to_loop : Array[Int]
   block_depth : Array[Int]
-}
-pub impl Eq for HotLoopInfo
-pub impl Show for HotLoopInfo
-pub impl @debug.Debug for HotLoopInfo
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotLoopSummary {
   header : Int
@@ -1175,18 +1081,12 @@ pub struct HotLoopSummary {
   exits : Array[HotLoopExit]
   parent : Int
   depth : Int
-}
-pub impl Eq for HotLoopSummary
-pub impl Show for HotLoopSummary
-pub impl @debug.Debug for HotLoopSummary
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotMemArg {
   memarg : @lib.MemArg
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotMemArg::new(@lib.MemArg) -> Self
-pub impl Eq for HotMemArg
-pub impl Show for HotMemArg
-pub impl @debug.Debug for HotMemArg
 
 pub struct HotModuleContext {
   subtypes : Array[@lib.SubType]
@@ -1200,9 +1100,7 @@ pub struct HotModuleContext {
   elems : Array[@lib.Elem]
   datas : Array[@lib.Data]
   tags : Array[@lib.TagType]
-}
-pub impl Eq for HotModuleContext
-pub impl @debug.Debug for HotModuleContext
+} derive(Eq, @debug.Debug)
 
 pub struct HotNode {
   op : HotOp
@@ -1212,10 +1110,7 @@ pub struct HotNode {
   imm1 : Int
   child_base : Int
   child_count : Int
-}
-pub impl Eq for HotNode
-pub impl Show for HotNode
-pub impl @debug.Debug for HotNode
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotOp {
   Nop
@@ -1287,20 +1182,14 @@ pub enum HotOp {
   CatchAll
   Atomic
   Simd
-}
-pub impl Eq for HotOp
-pub impl Show for HotOp
-pub impl @debug.Debug for HotOp
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotPassDescriptor {
   name : String
   requires : Array[HotAnalysis]
   invalidates : Array[HotAnalysis]
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotPassDescriptor::new(String, requires? : Array[HotAnalysis], invalidates? : Array[HotAnalysis]) -> Self
-pub impl Eq for HotPassDescriptor
-pub impl Show for HotPassDescriptor
-pub impl @debug.Debug for HotPassDescriptor
 
 pub struct HotPostDominators {
   roots : Array[Int]
@@ -1309,18 +1198,12 @@ pub struct HotPostDominators {
   ipdoms : Array[Int]
   children : Array[Array[Int]]
   frontiers : Array[Array[Int]]
-}
-pub impl Eq for HotPostDominators
-pub impl Show for HotPostDominators
-pub impl @debug.Debug for HotPostDominators
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotRegionRef {
   holder : Int
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotRegionRef::root() -> Self
-pub impl Eq for HotRegionRef
-pub impl Show for HotRegionRef
-pub impl @debug.Debug for HotRegionRef
 
 pub enum HotRewriteCtl[S, E] {
   Same(S)
@@ -1336,103 +1219,64 @@ pub enum HotSideTableKind {
   CatchInfoTable
   CallSigTable
   InstrPayloadTable
-}
-pub impl Eq for HotSideTableKind
-pub impl Show for HotSideTableKind
-pub impl @debug.Debug for HotSideTableKind
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotSimpleValueKey {
   ConstValue(HotConstPayload)
   LocalGetValue(Int)
-}
-pub impl Eq for HotSimpleValueKey
-pub impl Show for HotSimpleValueKey
-pub impl @debug.Debug for HotSimpleValueKey
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotSsaConcreteLocals {
   value_locals : Array[Int]
   extra_local_types : Array[@lib.ValType]
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotSsaConcreteLocals::new(value_locals? : Array[Int], extra_local_types? : Array[@lib.ValType]) -> Self
-pub impl Eq for HotSsaConcreteLocals
-pub impl Show for HotSsaConcreteLocals
-pub impl @debug.Debug for HotSsaConcreteLocals
 
 pub struct HotSsaCopy {
   source_local : Int
   target_local : Int
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotSsaCopy::new(Int, Int) -> Self
-pub impl Eq for HotSsaCopy
-pub impl Show for HotSsaCopy
-pub impl @debug.Debug for HotSsaCopy
 
 pub enum HotSsaDestroyPolicy {
   ReusePhiLocals
-}
-pub impl Eq for HotSsaDestroyPolicy
-pub impl Show for HotSsaDestroyPolicy
-pub impl @debug.Debug for HotSsaDestroyPolicy
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotSsaDestructionPolicy {
   ParallelCopiesInPredecessors
-}
-pub impl Eq for HotSsaDestructionPolicy
-pub impl Show for HotSsaDestructionPolicy
-pub impl @debug.Debug for HotSsaDestructionPolicy
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotSsaExcludedFeature {
   ExceptionalEdges
   PersistentHotPhiNodes
   IrOwnedSsaBodies
   NonLocalValues
-}
-pub impl Eq for HotSsaExcludedFeature
-pub impl Show for HotSsaExcludedFeature
-pub impl @debug.Debug for HotSsaExcludedFeature
+} derive(Eq, Show, @debug.Debug)
 
-type HotSsaPendingInsert
-pub impl Eq for HotSsaPendingInsert
-pub impl Show for HotSsaPendingInsert
-pub impl @debug.Debug for HotSsaPendingInsert
+type HotSsaPendingInsert derive(Eq, Show, @debug.Debug)
 
 pub struct HotSsaPhi {
   block : Int
   local_id : Int
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotSsaPhi::new(Int, Int) -> Self
-pub impl Eq for HotSsaPhi
-pub impl Show for HotSsaPhi
-pub impl @debug.Debug for HotSsaPhi
 
 pub struct HotSsaPhiInput {
   predecessor : Int
   value_id : Int
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotSsaPhiInput::new(Int, Int) -> Self
-pub impl Eq for HotSsaPhiInput
-pub impl Show for HotSsaPhiInput
-pub impl @debug.Debug for HotSsaPhiInput
 
-type HotSsaRegionInsertGroup
-pub impl Eq for HotSsaRegionInsertGroup
-pub impl Show for HotSsaRegionInsertGroup
-pub impl @debug.Debug for HotSsaRegionInsertGroup
+type HotSsaRegionInsertGroup derive(Eq, Show, @debug.Debug)
 
 pub enum HotSsaRenamePolicy {
   DominatorTreeRename
-}
-pub impl Eq for HotSsaRenamePolicy
-pub impl Show for HotSsaRenamePolicy
-pub impl @debug.Debug for HotSsaRenamePolicy
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotSsaUseOrigin {
   LocalGetUse(Int)
   PhiInputUse(Int, Int)
-}
-pub impl Eq for HotSsaUseOrigin
-pub impl Show for HotSsaUseOrigin
-pub impl @debug.Debug for HotSsaUseOrigin
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotSsaValueOrigin {
   EntryParamDef(Int)
@@ -1440,17 +1284,11 @@ pub enum HotSsaValueOrigin {
   LocalSetDef(Int)
   LocalTeeDef(Int)
   PhiDef(Int)
-}
-pub impl Eq for HotSsaValueOrigin
-pub impl Show for HotSsaValueOrigin
-pub impl @debug.Debug for HotSsaValueOrigin
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotStringBuiltin {
   NewWtf16Array
-}
-pub impl Eq for HotStringBuiltin
-pub impl Show for HotStringBuiltin
-pub impl @debug.Debug for HotStringBuiltin
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotTypeInfo {
   VoidType
@@ -1458,10 +1296,7 @@ pub enum HotTypeInfo {
   BlockResultResolved(@lib.BlockType, Array[@lib.ValType])
   Value(@lib.ValType)
   Results(Array[@lib.ValType])
-}
-pub impl Eq for HotTypeInfo
-pub impl Show for HotTypeInfo
-pub impl @debug.Debug for HotTypeInfo
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotUseDef {
   node_uses : Array[Array[HotUseSite]]
@@ -1470,27 +1305,18 @@ pub struct HotUseDef {
   local_reads : Array[Array[Int]]
   local_writes : Array[Array[Int]]
   local_write_blocks : Array[Array[Int]]
-}
-pub impl Eq for HotUseDef
-pub impl Show for HotUseDef
-pub impl @debug.Debug for HotUseDef
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotUseSite {
   user : Int
   slot : Int
   kind : HotUseSlotKind
-}
-pub impl Eq for HotUseSite
-pub impl Show for HotUseSite
-pub impl @debug.Debug for HotUseSite
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotUseSlotKind {
   ChildUseSlot
   RootUseSlot
-}
-pub impl Eq for HotUseSlotKind
-pub impl Show for HotUseSlotKind
-pub impl @debug.Debug for HotUseSlotKind
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotVerifyError {
   InvalidBodyResultType(Int)
@@ -1510,10 +1336,7 @@ pub enum HotVerifyError {
   InvalidControlChild(Int, Int, Int)
   InvalidBranchTarget(Int, Int)
   InvalidBranchArity(Int, Int, Int, Int)
-}
-pub impl Eq for HotVerifyError
-pub impl Show for HotVerifyError
-pub impl @debug.Debug for HotVerifyError
+} derive(Eq, Show, @debug.Debug)
 
 pub enum HotVisitCtl[S, E] {
   Continue(S)

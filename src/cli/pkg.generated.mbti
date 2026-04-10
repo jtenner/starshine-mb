@@ -37,37 +37,28 @@ pub enum CliInputFormat {
   Wasm
   Wat
   Wast
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn CliInputFormat::wasm() -> Self
 pub fn CliInputFormat::wast() -> Self
 pub fn CliInputFormat::wat() -> Self
-pub impl Eq for CliInputFormat
-pub impl Show for CliInputFormat
-pub impl @debug.Debug for CliInputFormat
 
 pub enum CliOptimizationFlag {
   OptimizePreset
   ShrinkPreset
   OLevel(Int, Bool)
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn CliOptimizationFlag::olevel(Int, Bool) -> Self
 pub fn CliOptimizationFlag::optimize() -> Self
 pub fn CliOptimizationFlag::shrink() -> Self
-pub impl Eq for CliOptimizationFlag
-pub impl Show for CliOptimizationFlag
-pub impl @debug.Debug for CliOptimizationFlag
 
 pub enum CliOutputTarget {
   StdoutOutput
   FileOutput(String)
   DirOutput(String)
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn CliOutputTarget::dir(String) -> Self
 pub fn CliOutputTarget::file(String) -> Self
 pub fn CliOutputTarget::stdout() -> Self
-pub impl Eq for CliOutputTarget
-pub impl Show for CliOutputTarget
-pub impl @debug.Debug for CliOutputTarget
 
 pub enum CliParseError {
   MissingFlagValue(String)
@@ -80,7 +71,7 @@ pub enum CliParseError {
   InvalidOptimizationFlag(String)
   InvalidTrapMode(String)
   InvalidTracingLevel(String)
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn CliParseError::invalid_dump_path(String) -> Self
 pub fn CliParseError::invalid_input_format(String) -> Self
 pub fn CliParseError::invalid_long_flag(String) -> Self
@@ -91,9 +82,6 @@ pub fn CliParseError::missing_flag_value(String) -> Self
 pub fn CliParseError::stdin_needs_format() -> Self
 pub fn CliParseError::unexpected_flag_value(String) -> Self
 pub fn CliParseError::unknown_short_flag(Char) -> Self
-pub impl Eq for CliParseError
-pub impl Show for CliParseError
-pub impl @debug.Debug for CliParseError
 
 pub struct CliParseResult {
   mut config_path : String?
@@ -113,33 +101,24 @@ pub struct CliParseResult {
   mut low_memory_bound : UInt64?
   mut closed_world : Bool?
   mut tracing : CliTracingLevel?
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn CliParseResult::new(config_path? : String?, input_globs? : Array[String], glob_enabled? : Bool, help_requested? : Bool, version_requested? : Bool, debug_serial_passes? : Bool, read_stdin? : Bool, input_format? : CliInputFormat?, output_targets? : Array[CliOutputTarget], pass_flags? : Array[String], optimize_flags? : Array[CliOptimizationFlag], trap_mode? : TrapMode?, monomorphize_min_benefit? : Int?, low_memory_unused? : Bool?, low_memory_bound? : UInt64?, closed_world? : Bool?, tracing? : CliTracingLevel?) -> Self
-pub impl Eq for CliParseResult
-pub impl Show for CliParseResult
-pub impl @debug.Debug for CliParseResult
 
 pub enum CliTracingLevel {
   Pass
   Phase
   Helper
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn CliTracingLevel::helper() -> Self
 pub fn CliTracingLevel::pass() -> Self
 pub fn CliTracingLevel::phase() -> Self
-pub impl Eq for CliTracingLevel
-pub impl Show for CliTracingLevel
-pub impl @debug.Debug for CliTracingLevel
 
 pub enum TrapMode {
   Allow
   Never
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn TrapMode::allow() -> Self
 pub fn TrapMode::never() -> Self
-pub impl Eq for TrapMode
-pub impl Show for TrapMode
-pub impl @debug.Debug for TrapMode
 
 // Type aliases
 

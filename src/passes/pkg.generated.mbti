@@ -24,6 +24,12 @@ pub fn global_struct_inference_run_module_pass(@lib.Module, Bool) -> @lib.Module
 
 pub fn global_struct_inference_summary() -> String
 
+pub fn heap2local_descriptor() -> @ir.HotPassDescriptor
+
+pub fn heap2local_run(HotPassContext, @ir.HotFunc) -> HotPassResult
+
+pub fn heap2local_summary() -> String
+
 pub fn heap_store_optimization_descriptor() -> @ir.HotPassDescriptor
 
 pub fn heap_store_optimization_summary() -> String
@@ -168,6 +174,8 @@ pub fn ssa_nomerge_summary() -> String
 
 pub fn tuple_optimization_descriptor() -> @ir.HotPassDescriptor
 
+pub fn tuple_optimization_exact_slot_prereqs_ready() -> Bool
+
 pub fn tuple_optimization_summary() -> String
 
 // Errors
@@ -190,15 +198,12 @@ pub enum HotPassRegistryCategory {
   BoundaryOnly
   Removed
   Preset
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotPassRegistryCategory::boundary_only() -> Self
 pub fn HotPassRegistryCategory::hot_pass() -> Self
 pub fn HotPassRegistryCategory::module_pass() -> Self
 pub fn HotPassRegistryCategory::preset() -> Self
 pub fn HotPassRegistryCategory::removed() -> Self
-pub impl Eq for HotPassRegistryCategory
-pub impl Show for HotPassRegistryCategory
-pub impl @debug.Debug for HotPassRegistryCategory
 
 pub struct HotPassRegistryEntry {
   name : String
@@ -206,19 +211,13 @@ pub struct HotPassRegistryEntry {
   category : HotPassRegistryCategory
   descriptor : @ir.HotPassDescriptor?
   expanded_passes : Array[String]
-}
-pub impl Eq for HotPassRegistryEntry
-pub impl Show for HotPassRegistryEntry
-pub impl @debug.Debug for HotPassRegistryEntry
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotPassResult {
   changed : Bool
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotPassResult::changed() -> Self
 pub fn HotPassResult::unchanged() -> Self
-pub impl Eq for HotPassResult
-pub impl Show for HotPassResult
-pub impl @debug.Debug for HotPassResult
 
 pub struct HotPerfCounters {
   node_allocs : Int
@@ -228,30 +227,21 @@ pub struct HotPerfCounters {
   cfg_builds : Int
   dataflow_builds : Int
   traversal_visits : Int
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotPerfCounters::new(node_allocs? : Int, child_span_allocs? : Int, side_table_allocs? : Int, region_splices? : Int, cfg_builds? : Int, dataflow_builds? : Int, traversal_visits? : Int) -> Self
-pub impl Eq for HotPerfCounters
-pub impl Show for HotPerfCounters
-pub impl @debug.Debug for HotPerfCounters
 
 pub struct HotPerfDumpOptions {
   hot_func : Bool
   cfg : Bool
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotPerfDumpOptions::new(hot_func? : Bool, cfg? : Bool) -> Self
-pub impl Eq for HotPerfDumpOptions
-pub impl Show for HotPerfDumpOptions
-pub impl @debug.Debug for HotPerfDumpOptions
 
 pub struct HotPerfHotSnapshot {
   node_count : Int
   child_span_count : Int
   side_table_count : Int
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotPerfHotSnapshot::empty() -> Self
-pub impl Eq for HotPerfHotSnapshot
-pub impl Show for HotPerfHotSnapshot
-pub impl @debug.Debug for HotPerfHotSnapshot
 
 pub struct HotPerfSession {
   enabled : Bool
@@ -278,27 +268,22 @@ pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validat
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly
   AfterEachPass
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn HotPipelineVerifyPolicy::after_each_pass() -> Self
 pub fn HotPipelineVerifyPolicy::final_module_only() -> Self
-pub impl Eq for HotPipelineVerifyPolicy
-pub impl Show for HotPipelineVerifyPolicy
-pub impl @debug.Debug for HotPipelineVerifyPolicy
 
 pub enum HotPipelineVerifyTarget {
   HotFuncTarget(@ir.HotFunc)
   ModuleTarget(@lib.Module)
 }
 
-type HotTupleOptimizationAnalysis
-pub impl Eq for HotTupleOptimizationAnalysis
-pub impl Show for HotTupleOptimizationAnalysis
-pub impl @debug.Debug for HotTupleOptimizationAnalysis
+type HotTupleOptimizationAnalysis derive(Eq, Show, @debug.Debug)
 
-type HotTupleOptimizationGroup
-pub impl Eq for HotTupleOptimizationGroup
-pub impl Show for HotTupleOptimizationGroup
-pub impl @debug.Debug for HotTupleOptimizationGroup
+type HotTupleOptimizationGroup derive(Eq, Show, @debug.Debug)
+
+type HotTupleOptimizationQuerySummary derive(Eq, Show, @debug.Debug)
+
+type HotTupleOptimizationRootSlot derive(Eq, Show, @debug.Debug)
 
 // Type aliases
 

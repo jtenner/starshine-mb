@@ -36,10 +36,7 @@ pub struct WatRoundtripFuzzStats {
   script_iterations : Int
   module_commands : Int
   rendered_scripts : Int
-}
-pub impl Eq for WatRoundtripFuzzStats
-pub impl Show for WatRoundtripFuzzStats
-pub impl @debug.Debug for WatRoundtripFuzzStats
+} derive(Eq, Show, @debug.Debug)
 
 // Type aliases
 

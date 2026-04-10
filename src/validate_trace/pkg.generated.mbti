@@ -22,27 +22,18 @@ pub struct ValidateTraceBenchmarkResult {
   phase_totals : String
   helper_totals : String
   hotspots : String?
-}
-pub impl Eq for ValidateTraceBenchmarkResult
-pub impl Show for ValidateTraceBenchmarkResult
-pub impl @debug.Debug for ValidateTraceBenchmarkResult
+} derive(Eq, Show, @debug.Debug)
 
 pub struct ValidateTraceCliArgs {
   repeats : Int
   corpora : Array[String]
-}
-pub impl Eq for ValidateTraceCliArgs
-pub impl Show for ValidateTraceCliArgs
-pub impl @debug.Debug for ValidateTraceCliArgs
+} derive(Eq, Show, @debug.Debug)
 
 pub enum ValidateTraceCliCommand {
   Run(ValidateTraceCliArgs)
   Help
   ListCorpora
-}
-pub impl Eq for ValidateTraceCliCommand
-pub impl Show for ValidateTraceCliCommand
-pub impl @debug.Debug for ValidateTraceCliCommand
+} derive(Eq, Show, @debug.Debug)
 
 type ValidateTraceCorpus
 

@@ -23,11 +23,8 @@ pub struct EmitGenValidBatchArgs {
   count : Int
   seed : UInt64
   out_dir : String
-}
+} derive(Eq, Show, @debug.Debug)
 pub fn EmitGenValidBatchArgs::new(Int, UInt64, String) -> Self
-pub impl Eq for EmitGenValidBatchArgs
-pub impl Show for EmitGenValidBatchArgs
-pub impl @debug.Debug for EmitGenValidBatchArgs
 
 pub struct FuzzCliArgs {
   suite : String
@@ -35,10 +32,7 @@ pub struct FuzzCliArgs {
   seed : UInt64
   seed_i64 : Int64
   output_mode : FuzzOutputMode
-}
-pub impl Eq for FuzzCliArgs
-pub impl Show for FuzzCliArgs
-pub impl @debug.Debug for FuzzCliArgs
+} derive(Eq, Show, @debug.Debug)
 
 pub enum FuzzCliCommand {
   Run(FuzzCliArgs)
@@ -46,18 +40,12 @@ pub enum FuzzCliCommand {
   ListSuites
   ListProfiles
   EmitGenValidBatch(EmitGenValidBatchArgs)
-}
-pub impl Eq for FuzzCliCommand
-pub impl Show for FuzzCliCommand
-pub impl @debug.Debug for FuzzCliCommand
+} derive(Eq, Show, @debug.Debug)
 
 pub enum FuzzOutputMode {
   Text
   Jsonl
-}
-pub impl Eq for FuzzOutputMode
-pub impl Show for FuzzOutputMode
-pub impl @debug.Debug for FuzzOutputMode
+} derive(Eq, Show, @debug.Debug)
 
 pub struct FuzzSuiteResult {
   suite : String
@@ -65,10 +53,7 @@ pub struct FuzzSuiteResult {
   seed : Int64
   attempts : Int
   elapsed_ms : UInt64
-}
-pub impl Eq for FuzzSuiteResult
-pub impl Show for FuzzSuiteResult
-pub impl @debug.Debug for FuzzSuiteResult
+} derive(Eq, Show, @debug.Debug)
 
 // Type aliases
 
