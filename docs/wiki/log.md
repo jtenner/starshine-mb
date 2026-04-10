@@ -107,6 +107,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Documented RUME's imported-parent retention rules, explicit module-index rewrite surface, and the current in-tree coverage for empty active data, no-op active elem segments, and imported survivor remaps.
 - Updated the root wiki catalog and pass-folder catalog so the expanded RUME pages are discoverable.
 
+## [2026-04-10] maintain | expand code-pushing into a detailed pass folder
+
+- Added `docs/wiki/binaryen/passes/code-pushing/index.md` as the hub page for the active `code-pushing` hot pass.
+- Added `wat-shapes.md`, `binaryen-strategy.md`, and `starshine-hot-ir-strategy.md` so the exact transformed WAT families, the upstream Binaryen algorithm, and the current HOT realization strategy now live in separate durable pages.
+- Added `parity.md`, `artifact-frontiers.md`, `validation-and-fuzzing.md`, and `performance-and-runtime.md` so the pass folder also captures the current signoff state, live debug-artifact blocker, test and fuzz workflow, and the still-open runtime gap.
+- Updated `docs/wiki/binaryen/passes/index.md` and `docs/wiki/index.md` so the new `code-pushing` folder is discoverable from the shared wiki catalogs.
+
 ## [2026-04-10] investigate | record the current ssa-nomerge artifact parity blocker
 
 - Added `binaryen/passes/ssa-nomerge/parity.md` plus raw research note `0076-2026-04-10-ssa-nomerge-parity-investigation.md` for the current `ssa-nomerge` evidence.
@@ -320,3 +327,4 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   - `vacuum` dispatch lives in `optimize.mbt` + `pass_manager.mbt` (hot path, no dedicated `src/passes/vacuum.mbt`).
 - Updated `docs/wiki/binaryen/passes/index.md` and late-pass landing pages to reflect implemented status while keeping `status: stub` where parity/shape deep docs are still pending.
 - Added `docs/wiki/raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md` to preserve this pass-wiring and wiki-health audit.
+
