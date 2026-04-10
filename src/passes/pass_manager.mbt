@@ -943,6 +943,95 @@ fn run_hot_pipeline_raw_remove_unused_brs_has_hot_only_candidates(
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_block_has_prefix_guard_payload_branch_candidate(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 2 {
+    return false
+  }
+  let first = body[0]
+  let inner_body = match first {
+    @lib.Block(@lib.VoidBlockType, @lib.Expr(inner_body)) => inner_body
+    _ => return false
+  }
+  let zero = @lib.LabelIdx::new(0U)
+  let mut has_guard_prefix = false
+  let mut inner_idx = 0
+  while inner_idx < inner_body.length() {
+    match inner_body[inner_idx] {
+      @lib.BrIf(label_idx) =>
+        if label_idx == zero && inner_idx + 1 < inner_body.length() {
+          has_guard_prefix = true
+          break
+        }
+      _ => ()
+    }
+    inner_idx += 1
+  }
+  if !has_guard_prefix {
+    return false
+  }
+  let mut saw_payload = false
+  let mut body_idx = 1
+  while body_idx < body.length() {
+    match body[body_idx] {
+      @lib.Br(_) =>
+        if saw_payload {
+          return true
+        }
+      _ => saw_payload = true
+    }
+    body_idx += 1
+  }
+  false
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_block_has_prefix_guard_payload_branch_candidate(
+            body,
+          ) ||
+          run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(
+            body,
+          ) {
+          return true
+        }
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(
+            body,
+          ) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -3132,6 +3221,9 @@ fn run_hot_pipeline_raw_remove_unused_brs(
   }
   if run_hot_pipeline_raw_remove_unused_brs_can_skip_unique_loop_select_return_ladder(
       locals, instrs,
+    ) &&
+    !run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(
+      instrs,
     ) {
     return Some({
       reason: "unique-loop-select-return-ladder-noop",
@@ -3144,6 +3236,9 @@ fn run_hot_pipeline_raw_remove_unused_brs(
       locals, instrs,
     ) &&
     !run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate(
+      instrs,
+    ) &&
+    !run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(
       instrs,
     ) {
     return Some({
