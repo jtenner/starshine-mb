@@ -3798,6 +3798,226 @@ fn remove_unused_brs_try_restructure_one_arm_return_if_suffix(
 }
 
 ///|
+fn remove_unused_brs_try_restructure_one_exit_arm_if_suffix(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_refs : Array[Int],
+) -> Bool {
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  if idx < 0 || idx >= root_count - 1 {
+    return false
+  }
+  let if_id = @ir.hot_region_get(func, region_ref, idx)
+  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  let if_node = @ir.hot_node_get(func, if_id)
+  match if_node.op {
+    @ir.HotOp::If =>
+      if @ir.hot_node_result_arity(func, if_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) => else_ref
+    None => return false
+  }
+  let if_label = @ir.hot_control_node_label(func, if_id)
+  if remove_unused_brs_label_is_used(label_refs, if_label) {
+    return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let then_nonfallthrough = remove_unused_brs_tail_is_nonfallthrough(
+    func,
+    then_ref,
+  )
+  let else_nonfallthrough = remove_unused_brs_tail_is_nonfallthrough(
+    func,
+    else_ref,
+  )
+  if then_nonfallthrough == else_nonfallthrough {
+    return false
+  }
+  let suffix_target = match
+    remove_unused_brs_region_enclosing_branch_target(func, region_ref) {
+    Some(label_id) => label_id
+    None => return false
+  }
+  let suffix_roots : Array[Int] = []
+  for root_idx = idx + 1; root_idx < root_count; root_idx = root_idx + 1 {
+    suffix_roots.push(@ir.hot_region_get(func, region_ref, root_idx))
+  }
+  if suffix_roots.is_empty() {
+    return false
+  }
+  for root_idx = 0
+      root_idx < suffix_roots.length() - 1
+      root_idx = root_idx + 1 {
+    if @ir.cfg_terminator_edge_kinds(
+        @ir.hot_node_get(func, suffix_roots[root_idx]).op,
+      ).length() >
+      0 {
+      return false
+    }
+  }
+  let suffix_tail = @ir.hot_node_get(
+    func,
+    suffix_roots[suffix_roots.length() - 1],
+  )
+  match suffix_tail.op {
+    @ir.HotOp::Br if suffix_tail.imm0 == suffix_target &&
+      suffix_tail.child_count == 0 => ()
+    _ => return false
+  }
+  let then_body = remove_unused_brs_region_roots(func, then_ref)
+  let else_body = remove_unused_brs_region_roots(func, else_ref)
+  let moved_suffix : Array[Int] = []
+  for root_id in suffix_roots {
+    moved_suffix.push(root_id)
+  }
+  let replacement = if then_nonfallthrough {
+    @ir.hot_build_if(
+      func,
+      @lib.BlockType::void_(),
+      @ir.hot_child_get(func, if_id, 0),
+      then_body,
+      else_body=Some(else_body + moved_suffix),
+    )
+  } else {
+    @ir.hot_build_if(
+      func,
+      @lib.BlockType::void_(),
+      @ir.hot_child_get(func, if_id, 0),
+      then_body + moved_suffix,
+      else_body=Some(else_body),
+    )
+  }
+  let unreachable_id = @ir.hot_build_unreachable(func)
+  ignore(
+    pass_splice_region(ctx, func, region_ref, idx, root_count - idx, [
+      replacement, unreachable_id,
+    ]),
+  )
+  pass_delete_detached_nodes(ctx, func, [if_id, then_ref.holder, else_ref.holder])
+  true
+}
+
+///|
+fn remove_unused_brs_try_sink_if_arm_self_branch_block(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  idx : Int,
+  label_refs : Array[Int],
+) -> Bool {
+  if idx < 0 || idx >= @ir.hot_region_root_count(func, region_ref) {
+    return false
+  }
+  let block_id = @ir.hot_region_get(func, region_ref, idx)
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block =>
+      if @ir.hot_node_result_arity(func, block_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  let block_label = @ir.hot_control_node_label(func, block_id)
+  if block_label < 0 ||
+    block_label >= label_refs.length() ||
+    label_refs[block_label] != 1 {
+    return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  if @ir.hot_region_root_count(func, body_ref) != 1 {
+    return false
+  }
+  let if_id = @ir.hot_region_get(func, body_ref, 0)
+  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
+    return false
+  }
+  let if_node = @ir.hot_node_get(func, if_id)
+  match if_node.op {
+    @ir.HotOp::If =>
+      if @ir.hot_node_result_arity(func, if_id) != 0 {
+        return false
+      }
+    _ => return false
+  }
+  let if_label = @ir.hot_control_node_label(func, if_id)
+  if remove_unused_brs_label_is_used(label_refs, if_label) {
+    return false
+  }
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) => else_ref
+    None => return false
+  }
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let arm_without_self_branch = fn(
+    arm_ref : @ir.HotRegionRef,
+  ) -> Array[Int]? {
+    let arm_root_count = @ir.hot_region_root_count(func, arm_ref)
+    if arm_root_count == 0 {
+      return None
+    }
+    let tail_id = @ir.hot_region_get(func, arm_ref, arm_root_count - 1)
+    let tail_node = @ir.hot_node_get(func, tail_id)
+    match tail_node.op {
+      @ir.HotOp::Br if tail_node.imm0 == block_label &&
+        tail_node.child_count == 0 => {
+        let roots : Array[Int] = []
+        for root_idx = 0
+            root_idx < arm_root_count - 1
+            root_idx = root_idx + 1 {
+          roots.push(@ir.hot_region_get(func, arm_ref, root_idx))
+        }
+        if roots.is_empty() {
+          return None
+        }
+        Some(roots)
+      }
+      _ => None
+    }
+  }
+  let wrapped_arm = fn(roots : Array[Int]) -> Array[Int] {
+    let inner = @ir.hot_build_block(func, @lib.BlockType::void_(), roots)
+    [@ir.hot_build_block(func, @lib.BlockType::void_(), [inner])]
+  }
+  let then_self = arm_without_self_branch(then_ref)
+  let else_self = arm_without_self_branch(else_ref)
+  if then_self == None && else_self == None {
+    return false
+  }
+  let replacement = @ir.hot_build_if(
+    func,
+    @lib.BlockType::void_(),
+    @ir.hot_child_get(func, if_id, 0),
+    match then_self {
+      Some(roots) => wrapped_arm(roots)
+      None => remove_unused_brs_region_roots(func, then_ref)
+    },
+    else_body=Some(
+      match else_self {
+        Some(roots) => wrapped_arm(roots)
+        None => remove_unused_brs_region_roots(func, else_ref)
+      },
+    ),
+  )
+  let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [replacement])
+  remove_unused_brs_delete_unused_nodes(
+    ctx,
+    func,
+    removed + [block_id, if_id, then_ref.holder, else_ref.holder],
+  )
+  true
+}
+
+///|
 fn remove_unused_brs_try_rotate_void_block_single_loop(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -4763,6 +4983,12 @@ fn remove_unused_brs_visit_region(
     }
     match @ir.hot_node_get(func, node_id).op {
       @ir.HotOp::Block => {
+        if remove_unused_brs_try_sink_if_arm_self_branch_block(
+            ctx, func, region_ref, idx, label_refs,
+          ) {
+          changed = true
+          continue
+        }
         if remove_unused_brs_try_inline_single_br_if_block(
             ctx, func, region_ref, idx, label_refs,
           ) {
@@ -4796,8 +5022,14 @@ fn remove_unused_brs_visit_region(
           ) {
           changed = true
           continue
-        }
+      }
       @ir.HotOp::If => {
+        if remove_unused_brs_try_restructure_one_exit_arm_if_suffix(
+            ctx, func, region_ref, idx, label_refs,
+          ) {
+          changed = true
+          continue
+        }
         if remove_unused_brs_try_restructure_one_arm_return_if_suffix(
             ctx, func, region_ref, idx, label_refs,
           ) {

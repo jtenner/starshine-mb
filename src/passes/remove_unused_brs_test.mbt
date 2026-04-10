@@ -489,6 +489,94 @@ test "remove-unused-brs restructures loop-body one-arm return ifs with nonfallth
 }
 
 ///|
+test "remove-unused-brs restructures loop-body one-exit-arm ifs with carried self tails into fallthrough arms" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (loop $loop (if (local.get 0) (then (local.set 2 (local.get 1)) (drop (i32.const 0))) (else (return (local.get 1)))) (drop (i32.const 0)) (br $loop)) unreachable))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs loop-body one-exit-arm suffix restructure success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let loop_id = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  match @ir.hot_node_get(func, loop_id).op {
+    @ir.HotOp::Loop => ()
+    _ => fail("expected loop root after restructure, got \{@ir.hot_node_get(func, loop_id).op}")
+  }
+  let loop_body = @ir.hot_region_body_ref(func, loop_id)
+  assert_eq(@ir.hot_region_root_count(func, loop_body), 2, msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)))
+
+  let if_id = @ir.hot_region_get(func, loop_body, 0)
+  match @ir.hot_node_get(func, if_id).op {
+    @ir.HotOp::If => ()
+    _ => fail("expected loop-body if after restructure, got \{@ir.hot_node_get(func, if_id).op}")
+  }
+  let loop_tail = @ir.hot_region_get(func, loop_body, 1)
+  match @ir.hot_node_get(func, loop_tail).op {
+    @ir.HotOp::Unreachable => ()
+    _ =>
+      fail(
+        "expected unreachable loop tail after restructure, got \{@ir.hot_node_get(func, loop_tail).op}",
+      )
+  }
+
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let then_tail = @ir.hot_region_get(
+    func,
+    then_ref,
+    @ir.hot_region_root_count(func, then_ref) - 1,
+  )
+  match @ir.hot_node_get(func, then_tail).op {
+    @ir.HotOp::Br => ()
+    _ =>
+      fail(
+        "expected carried loop branch moved into fallthrough arm, got \{@ir.hot_node_get(func, then_tail).op}",
+      )
+  }
+
+  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) => else_ref
+    None => fail("expected else arm after restructure")
+  }
+  let else_tail = @ir.hot_region_get(
+    func,
+    else_ref,
+    @ir.hot_region_root_count(func, else_ref) - 1,
+  )
+  match @ir.hot_node_get(func, else_tail).op {
+    @ir.HotOp::Return => ()
+    _ =>
+      fail(
+        "expected exiting arm to remain a return, got \{@ir.hot_node_get(func, else_tail).op}",
+      )
+  }
+}
+
+///|
+test "remove-unused-brs sinks self-target if-arm block branches into arm-local wrappers" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (block $done (if (local.get 0) (then (drop (i32.const 0)) (br $done)) (else (drop (i32.const 1)))))))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs self-target if-arm block branch rewrite success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(if (Void)"), msg=pretty)
+  assert_false(pretty.contains("(br "), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rotates void block wrappers around single loop bodies" {
   let optimized = match
     pass_test_run_pipeline(
