@@ -5,6 +5,7 @@ last_reviewed: 2026-04-11
 sources:
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
+  - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
@@ -44,7 +45,11 @@ related:
 - It has two execution layers:
   - a raw pre-lift fast path in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
   - the HOT fixpoint in [`../../../../../src/passes/remove_unused_brs.mbt`](../../../../../src/passes/remove_unused_brs.mbt)
-- The implementation is already much broader than "trailing branch stripping", but it is still an in-progress parity pass with active artifact gaps.
+- The implementation is already much broader than "trailing branch stripping", and the old early `br_table` continuation-wrapper artifact gap is now fixed in-source.
+- It is still an in-progress parity pass because the explicit debug-artifact compare remains noisy after that fix:
+  - the saved compare still diverges in normalized WAT
+  - the first remaining hunk now includes module type-order noise before later body-level diffs
+  - self-opt runtime is back near the earlier Starshine baseline, but still well over Binaryen
 
 ## Page Map
 
@@ -77,4 +82,4 @@ related:
   - [`./pattern-catalog.md`](./pattern-catalog.md)
   - the detailed family page that owns the pattern
   - [`./parity.md`](./parity.md) if the current artifact state or active blocker changes
-
+- Any new performance guard should also update [`./visit-order-and-bailouts.md`](./visit-order-and-bailouts.md) if it changes where the pass now fails fast.

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-10
 sources:
+  - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
@@ -203,6 +204,11 @@ Detailed page:
   - `rewrites result-block br_if prefixes with payload bodies into one-arm payload ifs`
   - `rewrites stack-style branch-payload result wrappers around br_if prefixes`
   - `rewrites sibling-carried branch payload wrappers around br_if prefixes`
+- `remove_unused_brs_try_rewrite_br_table_continuation_wrappers(...)`
+  Retargets nested continuation-wrapper `br_table` arms directly to the outer exit when the wrapper labels are only referenced by that `br_table`, then lowers the now-dead forwarding tails to `unreachable`.
+  Covered by:
+  - `retargets br_table continuation wrappers to the outer exit`
+  - perf test `remove-unused-brs rewrites br_table continuation wrappers in one mutation`
 - `remove_unused_brs_try_rewrite_drop_result_block_if_tail_branch(...)`
   Splits `drop(block(result T) (if ...) (br target ...))` into the dropped `if` plus dropped branch payload, removing the extra result wrapper.
 - `remove_unused_brs_try_rewrite_block_prefix_payload_branch_root(...)`
@@ -216,12 +222,14 @@ Detailed page:
   - `rewrites sibling carried guards with removable self tails`
   - `lowers carried guard blocks in result-block then arms`
   - CLI test `run_cmd_with_adapter dumps lowered remove-unused-brs carried guard wrappers without br_if`
+  The matcher now fails fast before label-ref or self-tail analysis when the first inner root is not even a `br_if`.
 - `remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(...)`
   Rewrites the simple direct one-arm payload-`if` result-block family into a value-producing `if`.
   It deliberately preserves the prefix-heavy carried-wrapper oracle family that Binaryen still keeps.
   Covered by:
   - `simplifies block-carried one-arm payload branches into value selection`
   - `preserves prefix-heavy block-carried one-arm payload wrappers for oracle parity`
+  The related result-prefix matcher now also fails fast before label-ref and payload-holder work when the inner prefix does not start with `br_if`.
 
 Detailed page:
 - [`./carried-guards-and-result-blocks.md`](./carried-guards-and-result-blocks.md)
@@ -267,4 +275,3 @@ Detailed pages:
 Detailed pages:
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
 - [`./visit-order-and-bailouts.md`](./visit-order-and-bailouts.md)
-

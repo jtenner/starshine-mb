@@ -1192,6 +1192,153 @@ test "remove-unused-brs trims one mutation step from tail branch payload if clea
 }
 
 ///|
+test "remove-unused-brs rewrites br_table continuation wrappers in one mutation" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (func (param i32 i32) (result i32)
+    #|     (local i32 i32)
+    #|     (block $exit
+    #|       (return
+    #|         (block $carry (result i32)
+    #|           (block $b4
+    #|             (block $b3
+    #|               (block $b0
+    #|                 (block $b1
+    #|                   (block $b2
+    #|                     (br_table $b0 $b1 $b2 $b3 $b4
+    #|                       (i32.sub
+    #|                         (local.get 1)
+    #|                         (i32.const 2))))
+    #|                   (br $exit))
+    #|                 (br $exit))
+    #|               (br $exit))
+    #|             (local.set 2 (i32.const 7))
+    #|             (br $carry (local.get 2)))
+    #|           (drop (local.get 0))
+    #|           (i32.const 0))
+    #|       ))
+    #|     (local.set 3 (i32.const 9))
+    #|     (local.get 3)))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected br_table continuation-wrapper remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  let mutations = perf_test_count_occurrences(
+    text, "pass[remove-unused-brs]:mutated revision=",
+  )
+  assert_false(text.contains("pass[remove-unused-brs]:skip-raw"), msg=text)
+  assert_true(
+    text.contains("pass[remove-unused-brs]:done changed=true"),
+    msg=text,
+  )
+  assert_true(
+    mutations <= 2,
+    msg="unexpected mutation churn: \{mutations}\n\{text}",
+  )
+}
+
+///|
+test "remove-unused-brs skips prefix-root scans for nested block dispatch ladders" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (block $exit
+    #|       (return
+    #|         (block $carry (result i32)
+    #|           (block $b3
+    #|             (block $b2
+    #|               (block $b1
+    #|                 (block $b0
+    #|                   (br_table $b0 $b1 $b2 $b3 $b3 (local.get 0)))
+    #|                 (br $carry (i32.const 11)))
+    #|               (br $carry (i32.const 22)))
+    #|             (br $carry (i32.const 33)))
+    #|           (i32.const 44))))))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested block dispatch remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_false(text.contains("pass[remove-unused-brs]:skip-raw"), msg=text)
+  assert_true(
+    text.contains("pass[remove-unused-brs]:done changed=false"),
+    msg=text,
+  )
+  assert_false(text.contains("rub-prefix-root reject=guard-op"), msg=text)
+}
+
+///|
+test "remove-unused-brs skips result-prefix scans for nested block dispatch ladders" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input =
+    #| (module
+    #|   (func (param i32) (result i32)
+    #|     (block $exit (result i32)
+    #|       (block $inner
+    #|         (block $b2
+    #|           (block $b1
+    #|             (block $b0
+    #|               (br_table $inner $b0 $b1 $b2 $b2 (local.get 0)))
+    #|             (br $exit (i32.const 11)))
+    #|           (br $exit (i32.const 22)))
+    #|         (br $exit (i32.const 33)))
+    #|       (i32.const 44))))
+    #|
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested result-block dispatch remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_false(text.contains("pass[remove-unused-brs]:skip-raw"), msg=text)
+  assert_true(
+    text.contains("pass[remove-unused-brs]:done changed=false"),
+    msg=text,
+  )
+  assert_false(text.contains("rub-result-prefix reject=guard-op"), msg=text)
+}
+
+///|
 test "ssa-nomerge rewrites straight-line local traffic without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }

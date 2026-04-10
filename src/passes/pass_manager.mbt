@@ -975,10 +975,7 @@ fn run_hot_pipeline_raw_remove_unused_brs_block_has_prefix_guard_payload_branch_
   let mut body_idx = 1
   while body_idx < body.length() {
     match body[body_idx] {
-      @lib.Br(_) =>
-        if saw_payload {
-          return true
-        }
+      @lib.Br(_) => if saw_payload { return true }
       _ => saw_payload = true
     }
     body_idx += 1

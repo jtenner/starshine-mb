@@ -506,15 +506,25 @@ test "remove-unused-brs restructures loop-body one-exit-arm ifs with carried sel
   let loop_id = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
   match @ir.hot_node_get(func, loop_id).op {
     @ir.HotOp::Loop => ()
-    _ => fail("expected loop root after restructure, got \{@ir.hot_node_get(func, loop_id).op}")
+    _ =>
+      fail(
+        "expected loop root after restructure, got \{@ir.hot_node_get(func, loop_id).op}",
+      )
   }
   let loop_body = @ir.hot_region_body_ref(func, loop_id)
-  assert_eq(@ir.hot_region_root_count(func, loop_body), 2, msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)))
+  assert_eq(
+    @ir.hot_region_root_count(func, loop_body),
+    2,
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
 
   let if_id = @ir.hot_region_get(func, loop_body, 0)
   match @ir.hot_node_get(func, if_id).op {
     @ir.HotOp::If => ()
-    _ => fail("expected loop-body if after restructure, got \{@ir.hot_node_get(func, if_id).op}")
+    _ =>
+      fail(
+        "expected loop-body if after restructure, got \{@ir.hot_node_get(func, if_id).op}",
+      )
   }
   let loop_tail = @ir.hot_region_get(func, loop_body, 1)
   match @ir.hot_node_get(func, loop_tail).op {
@@ -1403,8 +1413,7 @@ test "remove-unused-brs rewrites one-arm payload branch ladders into br_if plus 
 
 ///|
 test "remove-unused-brs rewrites prefixed one-arm payload branches into br_if plus fallthrough" {
-  let source =
-    "(module (func $side (param i32) (drop (local.get 0))) (func (param i32 i32) (result i32) (block $carry (result i32) (call $side (local.get 1)) (if (local.get 0) (then (i32.const 1) (br $carry))) (i32.const 2))))"
+  let source = "(module (func $side (param i32) (drop (local.get 0))) (func (param i32 i32) (result i32) (block $carry (result i32) (call $side (local.get 1)) (if (local.get 0) (then (i32.const 1) (br $carry))) (i32.const 2))))"
   let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -1723,6 +1732,107 @@ test "remove-unused-brs rewrites repeated branch-target equality ladders into br
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_true(pretty.contains("br_table"), msg=pretty)
   assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs retargets br_table continuation wrappers to the outer exit" {
+  let source =
+    #| (module
+    #|   (func (param i32 i32) (result i32)
+    #|     (local i32 i32)
+    #|     (block $exit
+    #|       (return
+    #|         (block $carry (result i32)
+    #|           (block $b4
+    #|             (block $b3
+    #|               (block $b0
+    #|                 (block $b1
+    #|                   (block $b2
+    #|                     (br_table $b0 $b1 $b2 $b3 $b4
+    #|                       (i32.sub
+    #|                         (local.get 1)
+    #|                         (i32.const 2))))
+    #|                   (br $exit))
+    #|                 (br $exit))
+    #|               (br $exit))
+    #|             (local.set 2 (i32.const 7))
+    #|             (br $carry (local.get 2)))
+    #|           (drop (local.get 0))
+    #|           (i32.const 0))
+    #|       ))
+    #|     (local.set 3 (i32.const 9))
+    #|     (local.get 3)))
+    #|
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs continuation-wrapper br_table success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let exit_block = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let exit_body = @ir.hot_region_body_ref(func, exit_block)
+  let return_root = @ir.hot_region_get(func, exit_body, 0)
+  let carry_block = @ir.hot_child_get(func, return_root, 0)
+  let carry_body = @ir.hot_region_body_ref(func, carry_block)
+  let outer_block = @ir.hot_region_get(func, carry_body, 0)
+  let outer_body = @ir.hot_region_body_ref(func, outer_block)
+  let wrapper0 = @ir.hot_region_get(func, outer_body, 0)
+  let wrapper0_body = @ir.hot_region_body_ref(func, wrapper0)
+  let wrapper1 = @ir.hot_region_get(func, wrapper0_body, 0)
+  let wrapper1_body = @ir.hot_region_body_ref(func, wrapper1)
+  let wrapper2 = @ir.hot_region_get(func, wrapper1_body, 0)
+  let wrapper2_body = @ir.hot_region_body_ref(func, wrapper2)
+  let leaf = @ir.hot_region_get(func, wrapper2_body, 0)
+  let leaf_body = @ir.hot_region_body_ref(func, leaf)
+  let br_table = @ir.hot_region_get(func, leaf_body, 0)
+  let targets = @ir.hot_branch_table_targets_for_node(func, br_table)
+  let exit_label = @ir.hot_control_node_label(func, exit_block)
+
+  assert_eq(targets[0], exit_label)
+  assert_eq(targets[1], exit_label)
+  assert_eq(targets[2], exit_label)
+
+  let wrapper0_tail = @ir.hot_region_get(
+    func,
+    wrapper0_body,
+    @ir.hot_region_root_count(func, wrapper0_body) - 1,
+  )
+  match @ir.hot_node_get(func, wrapper0_tail).op {
+    @ir.HotOp::Unreachable => ()
+    _ =>
+      fail(
+        "expected wrapper0 tail to lower to unreachable, got \{@ir.hot_node_get(func, wrapper0_tail).op}",
+      )
+  }
+
+  let wrapper1_tail = @ir.hot_region_get(
+    func,
+    wrapper1_body,
+    @ir.hot_region_root_count(func, wrapper1_body) - 1,
+  )
+  match @ir.hot_node_get(func, wrapper1_tail).op {
+    @ir.HotOp::Unreachable => ()
+    _ =>
+      fail(
+        "expected wrapper1 tail to lower to unreachable, got \{@ir.hot_node_get(func, wrapper1_tail).op}",
+      )
+  }
+
+  let wrapper2_tail = @ir.hot_region_get(
+    func,
+    wrapper2_body,
+    @ir.hot_region_root_count(func, wrapper2_body) - 1,
+  )
+  match @ir.hot_node_get(func, wrapper2_tail).op {
+    @ir.HotOp::Unreachable => ()
+    _ =>
+      fail(
+        "expected wrapper2 tail to lower to unreachable, got \{@ir.hot_node_get(func, wrapper2_tail).op}",
+      )
+  }
 }
 
 ///|

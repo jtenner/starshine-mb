@@ -3955,9 +3955,7 @@ test "run_cmd_with_adapter dumps lowered remove-unused-brs carried guard wrapper
   let wat = match native_normalize_wasm_bytes_to_wat_for_test(writes[0].1) {
     Ok(text) => text
     Err(err) =>
-      fail(
-        "expected carried guard wrapper normalization success, got \{err}",
-      )
+      fail("expected carried guard wrapper normalization success, got \{err}")
   }
   assert_false(wat.contains("br_if"), msg=wat)
   ignore(decode_module_bytes(writes[0].1))
@@ -5121,7 +5119,9 @@ fn native_read_bytes(path : String) -> Bytes? {
 
 ///|
 #cfg(target="native")
-fn native_normalize_wasm_bytes_to_wat_for_test(bytes : Bytes) -> Result[String, String] {
+fn native_normalize_wasm_bytes_to_wat_for_test(
+  bytes : Bytes,
+) -> Result[String, String] {
   let in_path = native_tmp_path("normalize-in", ".wasm")
   let out_path = native_tmp_path("normalize-out", ".wat")
   if !native_write_bytes(in_path, bytes) {

@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-10
 sources:
+  - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
+  - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/cmd/cmd_test.mbt
   - ../../../../../agent-todo.md
 related:
@@ -69,6 +71,12 @@ The focused regressions include:
 - `rewrites stack-style branch-payload result wrappers around br_if prefixes`
 - `rewrites sibling-carried branch payload wrappers around br_if prefixes`
 
+The matcher now also short-circuits before label-ref work when the first inner root is not a `br_if`.
+
+- That guard is not just trace cleanup.
+- It avoids paying the expensive carried-wrapper discovery path on very large nested block dispatch ladders that were always going to be no-op.
+- The perf lock is `remove-unused-brs skips result-prefix scans for nested block dispatch ladders`.
+
 ## Dropped Result-Block Tail Branch
 
 ### `remove_unused_brs_try_rewrite_drop_result_block_if_tail_branch(...)`
@@ -102,6 +110,39 @@ This is the helper behind most of the backlog language about:
 - dropped carried guards
 - then-arm carried guards
 - removable self tails
+
+Like the result-block helper above, this matcher now also fails fast before label-ref and self-tail analysis when the first inner root is not a `br_if`.
+
+- The perf lock is `remove-unused-brs skips prefix-root scans for nested block dispatch ladders`.
+
+## `br_table` Continuation Wrappers
+
+### `remove_unused_brs_try_rewrite_br_table_continuation_wrappers(...)`
+
+This helper owns the narrower carried-wrapper parity slice that used to block the early artifact compare:
+
+- an outer zero-result block starts with a nested wrapper chain
+- each wrapper only forwards to the same outer continuation
+- the leaf body is a one-root `br_table`
+- the wrapper labels are only referenced by that `br_table`
+
+The rewrite does not delete the wrapper chain outright.
+
+- It retargets the forwarded `br_table` arms and default directly to the outer continuation label.
+- It then lowers the dead forwarding tails to `unreachable`.
+
+That matches Binaryen's behavior on the reduced carrier family now locked by:
+
+- `retargets br_table continuation wrappers to the outer exit`
+- perf test `remove-unused-brs rewrites br_table continuation wrappers in one mutation`
+
+The legality boundary is narrow on purpose:
+
+- wrappers must be strictly nested
+- wrapper tails must be plain zero-arity `br`
+- the forwarded labels must not have extra users
+
+If any of those checks fail, treat the family as still parity-sensitive rather than "obviously simplifiable".
 
 ## Prefixed One-Arm Payload Branch Suffix
 
@@ -169,5 +210,5 @@ This family is not only covered by unit-like pass tests.
   - branch target arity
   - whether the candidate block is still a payload child
   - whether Binaryen intentionally keeps the wrapper longer
+  - whether the family is really a `br_if` carrier rewrite or the newer `br_table` continuation-wrapper family
 - Do not treat these as cosmetic reshapes. This page owns some of the most parity-sensitive correctness work in the pass.
-

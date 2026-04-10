@@ -112,6 +112,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Expanded `remove-unused-brs` from a stub landing page plus two narrow notes into a multi-entry folder with `index.md`, `pattern-catalog.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, `tail-and-return-cleanups.md`, `select-and-condition-rewrites.md`, `branch-exit-and-payload-rewrites.md`, `carried-guards-and-result-blocks.md`, `returned-ladder-hot-shapes.md`, `visit-order-and-bailouts.md`, and a refreshed `parity.md`.
 - Documented every currently modeled rewrite family, the raw fast path, the HOT fixpoint strategy, the returned-ladder lift shapes, the carried-guard/result-block families, and the current artifact blocker order from the active RUB backlog.
 - Updated the root wiki catalog and Binaryen pass-folder catalog so the expanded RUB pages are discoverable.
+
+## [2026-04-10] maintain | retire the early RUB `br_table` carried-wrapper blocker
+
+- Added `raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md` to capture the reduced `br_table` continuation-wrapper mismatch, the follow-up hot-path guard investigation, and the current explicit-pass compare state.
+- Updated the living `remove-unused-brs` hub, parity, pattern-catalog, carried-guards/result-blocks, and visit-order pages so the fixed carried-wrapper family, the new fast structural guards, and the remaining artifact-noise risk are all recorded in the wiki.
+- Updated `docs/wiki/index.md` so the revised RUB parity and carried-wrapper pages are described in terms of the new continuation-wrapper slice instead of the stale early `Func 50` note.
+
 ## [2026-04-10] investigate | record the current ssa-nomerge artifact parity blocker
 
 - Added `binaryen/passes/ssa-nomerge/parity.md` plus raw research note `0076-2026-04-10-ssa-nomerge-parity-investigation.md` for the current `ssa-nomerge` evidence.

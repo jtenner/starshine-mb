@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-10
 sources:
+  - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -60,7 +61,7 @@ The relevant perf tests prove that these families still pay lift cost but skip t
 Instead, it first checks root-local patterns in this rough order:
 
 - `br_if` equality ladder to `br_table`
-- block-root cleanup (`sink_if_arm_self_branch_block`, `inline_single_br_if_block`, `block_prefix_payload_branch_root`, `rotate_void_block_single_loop`)
+- block-root cleanup (`sink_if_arm_self_branch_block`, `inline_single_br_if_block`, `br_table` continuation wrappers, `block_prefix_payload_branch_root`, `rotate_void_block_single_loop`)
 - dropped result-block cleanup
 - outer `br` payload cleanup
 - region-level `if` cleanup
@@ -72,6 +73,24 @@ That ordering is essential:
 
 - root-local rewrites often expose cheaper inner shapes
 - descending first would force the pass to rediscover the same structural cleanup in a more expensive context
+
+## Fast Structural Guards
+
+Two carried-wrapper helpers now intentionally fail fast before label-ref-heavy discovery work:
+
+- `remove_unused_brs_try_rewrite_block_prefix_payload_branch_root(...)`
+- `remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(...)`
+
+The key rule is simple:
+
+- if the first inner root is not already a `br_if`, do not pay the more expensive label-ref, self-tail, or payload-holder checks
+
+That matters on the debug artifact because very large nested block dispatch ladders were repeatedly entering those helpers and bailing only after proving something that the first inner root already made impossible.
+
+The perf locks are:
+
+- `remove-unused-brs skips prefix-root scans for nested block dispatch ladders`
+- `remove-unused-brs skips result-prefix scans for nested block dispatch ladders`
 
 ## Seen Masks Instead Of A Plain Visited Set
 
@@ -106,6 +125,7 @@ There is a dedicated perf regression proving that simple tail-return cleanup doe
 
 - The fixpoint is capped at eight cycles.
 - The perf test `remove-unused-brs trims one mutation step from tail branch payload if cleanup` explicitly watches mutation churn in one cleanup family.
+- The perf test `remove-unused-brs rewrites br_table continuation wrappers in one mutation` now does the same for the new continuation-wrapper parity slice.
 - This is not cosmetic.
 - Several historical parity slices were "correct enough" locally but mutated too many times on the real artifact and blew the pass budget.
 
@@ -139,4 +159,3 @@ If those answers are missing, the next code change is probably premature.
 - Treat execution order, skip heuristics, and mutation count as part of the pass contract.
 - Do not collapse raw and HOT behavior into one conceptual bucket when documenting or debugging the pass.
 - If a new matcher only works after widening the scan surface substantially, add the proof that it belongs in the current visit order and does not just bypass the bailout design.
-
