@@ -605,3 +605,46 @@ test "ssa-nomerge keeps canonical param slots across typed if branch merges" {
     @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
   ])
 }
+
+///|
+test "ssa-nomerge preserves unreachable compare carriers from func 523 shape" {
+  let input =
+    #| (module
+    #|   (func (param i64) (result i32) (local i32 i64)
+    #|     i32.const 7
+    #|     local.set 1
+    #|     block (result i64)
+    #|       block
+    #|         local.get 0
+    #|         i64.const 1
+    #|         i64.eq
+    #|         if
+    #|           i64.const 4
+    #|           local.set 2
+    #|           br 1
+    #|         else
+    #|           i32.const 0
+    #|           return
+    #|         end
+    #|         unreachable
+    #|       end
+    #|       local.get 2
+    #|     end
+    #|     i64.const 0
+    #|     i64.eq
+    #|     if (result i32)
+    #|       i32.const 1
+    #|     else
+    #|       local.get 2
+    #|       i64.const 0
+    #|       i64.gt_u
+    #|     end))
+    #|
+  match pass_test_run_pipeline(input, ["ssa-nomerge"]) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected func 523 followup compare carrier shape to survive ssa-nomerge, got \{err}",
+      )
+  }
+}

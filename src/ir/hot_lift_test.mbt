@@ -819,3 +819,74 @@ test "hot lift tolerates unreachable br payloads with no concrete values" {
   assert_eq(hot_node_result_arity(func, block_id), 1)
   assert_eq(hot_region_root_count(func, hot_region_body_ref(func, block_id)), 2)
 }
+
+///|
+test "hot lift keeps unreachable compare conditions wired to typed block results" {
+  let func = match
+    hot_lift_body_result(
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(7)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+        @lib.Instruction::block(
+          @lib.BlockType::val_type(@lib.ValType::i64()),
+          @lib.Expr::new([
+            @lib.Instruction::block(
+              @lib.BlockType::void_(),
+              @lib.Expr::new([
+                @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                @lib.Instruction::i64_const(@lib.I64(1L)),
+                @lib.Instruction::i64_eq(),
+                @lib.Instruction::if_(
+                  @lib.BlockType::void_(),
+                  [
+                    @lib.Instruction::i64_const(@lib.I64(4L)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                  ],
+                  Some([
+                    @lib.Instruction::i32_const(@lib.I32(0)),
+                    @lib.Instruction::return_(),
+                  ]),
+                ),
+                @lib.Instruction::unreachable_(),
+              ]),
+            ),
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          ]),
+        ),
+        @lib.Instruction::i64_const(@lib.I64(0L)),
+        @lib.Instruction::i64_eq(),
+        @lib.Instruction::if_(
+          @lib.BlockType::val_type(@lib.ValType::i32()),
+          [@lib.Instruction::i32_const(@lib.I32(1))],
+          Some([
+            @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i64_const(@lib.I64(0L)),
+            @lib.Instruction::i64_gt_u(),
+          ]),
+        ),
+      ]),
+      HotLocals::new(params=[@lib.ValType::i64()], locals=[
+        @lib.ValType::i32(),
+        @lib.ValType::i64(),
+      ]),
+      body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+    ) {
+    Ok(func) => func
+    Err(err) => fail(err.to_string())
+  }
+
+  assert_eq(hot_root_count(func), 2)
+  let if_id = hot_root_get(func, 1)
+  assert_eq(hot_node_get(func, if_id).op.to_string(), "If")
+
+  let cond = hot_child_get(func, if_id, 0)
+  assert_eq(hot_node_get(func, cond).op.to_string(), "Compare")
+  assert_eq(hot_node_exact_instr(func, cond), Some(@lib.Instruction::i64_eq()))
+
+  let lhs = hot_child_get(func, cond, 0)
+  let rhs = hot_child_get(func, cond, 1)
+  assert_eq(hot_node_get(func, lhs).op.to_string(), "Block")
+  assert_eq(hot_node_result_arity(func, lhs), 1)
+  assert_eq(hot_node_get(func, rhs).op.to_string(), "Const")
+}

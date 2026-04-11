@@ -265,3 +265,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Rewired `check_pop_types_from_top` in `src/validate/typecheck.mbt` to recover the current stack-top index through the proved `latest_stack_index` helper instead of open-coding `st.stack.length() - 1`.
 - Added direct wrapper-level regressions for `tc_state_validate_end_stack` so reachable empty-stack underflow and unreachable virtual-bottom suffixes are both locked before wider `PRV004` helper extraction.
 - Updated `docs/wiki/validation/moonbit-prove-strategy.md`, archived research note `0077-2026-04-10-moonbit-prove-strategy.md`, and `agent-todo.md` so the current proof rollout now records `latest_stack_index` as active in both branch-label tails and the core typecheck stack walk.
+
+## [2026-04-11] maintain | reduce the `ssa-nomerge` `Func 523` follow-up into executable regressions
+
+- Updated `binaryen/passes/ssa-nomerge/parity.md`, `binaryen/passes/ssa-nomerge/index.md`, archived research note `0076-2026-04-10-ssa-nomerge-parity-investigation.md`, `docs/wiki/index.md`, and `agent-todo.md` after reducing one unreachable compare-carrier slice from the traced `Func 523` family into checked-in lift and pass regressions.
+- Recorded the new focused evidence in `src/ir/hot_lift_test.mbt` and `src/passes/ssa_nomerge_test.mbt`, plus the supporting concrete-pop-count follow-up in `src/ir/hot_lift.mbt`.
+- Recorded that fresh direct artifact replay at `/tmp/ssa-nomerge-func523-followup.log` still exits zero and validates its output module, but still logs the same `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch` plus `228` `suspicious-escape-carrier` skips, so the reduced follow-up narrowed the family without yet closing the remaining artifact-only gap.

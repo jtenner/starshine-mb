@@ -79,6 +79,17 @@
   - Result: success.
 - `2026-04-10`: `wasm-tools validate .tmp/ssa-binaryen.wasm`
   - Result: success.
+- `2026-04-11`: `moon test --package jtenner/starshine/ir --file hot_lift_test.mbt -F '*wired to typed block results*'`
+  - Result: `1 / 1` pass.
+  - This locks a reduced unreachable compare-carrier slice where the concrete unreachable stack is longer than the symbolic stack and the final compare must still consume the typed block result.
+- `2026-04-11`: `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt -F '*func 523 shape*'`
+  - Result: `1 / 1` pass.
+  - This keeps the reduced `Func 523` carrier shape in-tree through `ssa-nomerge`.
+- `2026-04-11`: `moon run src/cmd --target native -- --debug-serial-passes --tracing pass --ssa-nomerge --out /tmp/ssa-nomerge-func523-followup.wasm tests/node/dist/starshine-debug-wasi.wasm`
+  - Result: success and `wasm-tools validate /tmp/ssa-nomerge-func523-followup.wasm` succeeds.
+  - The remaining traced gap is unchanged from the last `2026-04-10` checkpoint:
+    - remaining validation-backed skip: `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch`
+    - `228` `skip-invalid-lower ... reason=suspicious-escape-carrier`
 
 ## Correctness Constraints
 
@@ -93,7 +104,7 @@
 
 - Keep the committed native artifact replay in `src/cmd/cmd_test.mbt` green as the safety regression for current-source `ssa-nomerge`.
 - Keep the `10000 / 10000` `gen-valid` compare-pass lane green as the semantic parity signoff floor for reduced cases.
-- Reduce the remaining `Func 523` validation-backed skip family to a focused repro in `src/passes/ssa_nomerge_test.mbt` or an adjacent lowering test.
+- Keep the new reduced unreachable compare-carrier regressions green in `src/ir/hot_lift_test.mbt` and `src/passes/ssa_nomerge_test.mbt`, and continue reducing the remaining artifact-only `Func 523` delta behind the traced skip.
 - Add artifact-backed assertions that validate the emitted module bytes, not only decode success, whenever a new replay surface is introduced.
 - Keep using `pass-fuzz-compare` for breadth, but pair it with direct debug-artifact replay because the random harness did not expose the original artifact failure and the mixed-generator lane still stops on Binaryen parser gaps.
 - Keep Binaryen parser-gap families, including the empty-`rec` case from the seeded `100`-case run, out of the semantic mismatch bucket unless a newer Binaryen build parses them cleanly.
@@ -106,5 +117,5 @@
 
 ## Open Questions
 
-- What is the minimal reduced repro for the remaining `Func 523` `writeback-validate:type mismatch` family now that the dead-param mismatch is fixed?
+- What is the remaining minimal delta between the new reduced unreachable compare-carrier repro and the still-failing artifact-only `Func 523` `writeback-validate:type mismatch` trace family?
 - Which of the remaining validation-backed and `suspicious-escape-carrier` skips represent genuine Starshine/Binaryen semantic gaps, and which are only representation-boundary differences that should stay out of scope?

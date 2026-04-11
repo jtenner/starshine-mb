@@ -475,6 +475,17 @@ fn hot_lift_impl_resolve_generic_pop_count(
       _ => primary
     }
   }
+  let has_concrete_prefix = concrete_before_types.length() >
+    before_state.stack.length()
+  if has_concrete_prefix {
+    match
+      hot_lift_impl_generic_pop_count(
+        instr, concrete_before_types, before_state, after_state, 1,
+      ) {
+      Ok(promoted) => return Ok(promoted)
+      Err(_) => ()
+    }
+  }
   match primary {
     Ok((count, _)) if count > 0 => primary
     Ok(_) =>

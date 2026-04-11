@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-11 Checkpoint: reduce the `ssa-nomerge` `Func 523` follow-up into focused lift and pass regressions
+
+- **narrowed the remaining `ssa-nomerge` artifact blocker into in-tree follow-up coverage** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/binaryen/passes/ssa-nomerge/index.md`](./docs/wiki/binaryen/passes/ssa-nomerge/index.md), [`docs/wiki/binaryen/passes/ssa-nomerge/parity.md`](./docs/wiki/binaryen/passes/ssa-nomerge/parity.md), [`docs/wiki/raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md`](./docs/wiki/raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md), [`src/ir/hot_lift.mbt`](./src/ir/hot_lift.mbt), [`src/ir/hot_lift_test.mbt`](./src/ir/hot_lift_test.mbt), and [`src/passes/ssa_nomerge_test.mbt`](./src/passes/ssa_nomerge_test.mbt) to cover the reduced unreachable compare-carrier slice behind the traced `Func 523` family, while recording that fresh artifact replay at `/tmp/ssa-nomerge-func523-followup.log` still ends in the same `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch` plus `228` `suspicious-escape-carrier` skips.
+
 ## 2026-04-11 Docs: close the proof-coverage backlog loop
 
 - **made proof-coverage closure explicit in the backlog** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) so the `moon prove` rollout now requires every in-boundary validator/typechecker proof candidate to be either machine-checked or explicitly deferred with rationale, and added `[PRV]006` to track that end-state audit and closure work.
