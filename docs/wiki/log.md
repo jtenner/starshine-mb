@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-11] maintain | close the `func $127` Binaryen-surface ambiguity and restore the crossed-condition-set fence
+
+- Added [`0076`](raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md), which records the direct `version_129` `CodePushing.cpp` reread plus the normalized artifact slice proving Binaryen `--code-pushing` leaves printed `func $127` / `parse__config__json` unchanged.
+- Updated the `code-pushing` strategy, WAT-shape, frontier, parity, validation, and performance pages to treat the old `44251` / `44254` family as a Starshine-only admission fence mixed with Binaryen writeback noise, not as remaining upstream transform coverage.
+- Recorded the in-tree implementation detail: `src/passes/code_pushing.mbt` now restores a narrower guard for the crossed-condition-set terminal-owner alias family, while `src/ir/hot_lower_live_repro_test.mbt` still keeps the HOT-valid manual reorder proof.
+- Updated the pass and CLI regression surfaces in `src/passes/code_pushing_test.mbt` and `src/cmd/cmd_test.mbt` so the current tree expects that `Func 148` fence to stay closed while `Func 1948` remains the live valid rewrite.
+
 ## [2026-04-10] maintain | pin Binaryen expression-position value-block rewrites and keep the runtime gap open
 
 - Recorded the new Binaryen-backed surface: `code-pushing` also rewrites nested `block (result ...)` carriers when they appear under ordinary expression-position wrappers, not only when the region holder is already a root or a dropped carrier.

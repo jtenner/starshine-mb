@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
+  - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
 related:
@@ -467,16 +468,15 @@ Why this transforms:
 - Call-fed extraction is currently fenced to a narrow single-result `i32` slice.
 - The pass does not currently synthesize the larger alias-local webs Binaryen
   appears to materialize in the later `105621` and `126757` artifact families.
-- The first reopened valid direct-artifact family is now an earlier
-  terminal-owner shape again:
-  - Binaryen materializes extra locals before the carrier
-  - Binaryen wraps the moved region in a carried `block (result)` with a
-    `br` payload
-  - Starshine still keeps the older straight-line local setup in the same
-    `func $127` region
-  That means the next frontier is not just another one-root alias sink. It
-  likely needs either a broader terminal-owner rule or explicit alias-local
-  synthesis.
+- The old `func $127` wording here is now superseded by
+  [`0076`](../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md):
+  Binaryen `--code-pushing` leaves that function unchanged on the current
+  artifact.
+- The kept in-tree rule is therefore narrower:
+  when an alias `local.set(local.get ...)` would cross an extra kept
+  condition-set before a later `if`, and that alias comes from an earlier
+  explicit-exit carried-result block, Starshine now keeps the alias where it
+  is instead of treating the shape as more `code-pushing` surface.
 
 ## Practical Rule For Future Tests
 

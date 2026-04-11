@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
+  - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
 related:
   - ./index.md
   - ./wat-shapes.md
@@ -18,15 +19,19 @@ related:
 
 - The repo's canonical Binaryen study for this pass is still
   [`0073`](../../../../0073-2026-04-02-code-pushing-binaryen-plan.md).
-- That study read `Binaryen version_125`, specifically:
+- That study originally read `Binaryen version_125`, specifically:
   - `src/passes/CodePushing.cpp`
   - the default function-pipeline placement in `src/passes/pass.cpp`
   - the nested optimizing rerun helper in `src/passes/opt-utils.h`
   - the pass-specific test corpus for plain control, trap-relaxing, GC, and EH
     cases
-- Unlike some other pass folders in this wiki, this page has not yet been
-  refreshed from a separate direct `version_129` source reread. Treat the notes
-  here as `version_125`-anchored until that happens.
+- A direct `version_129` reread is now also filed in
+  [`0076`](../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md).
+- The important update from that reread is negative, not additive:
+  Binaryen still operates as a flat block-list `local.set` mover plus one-arm
+  `if` sinker. It still does not model Starshine-style explicit-exit carrier
+  summaries or local-synthesis rules, which is why Binaryen leaves the current
+  `parse__config__json` / printed `func $127` artifact frontier unchanged.
 
 ## Pipeline Placement
 

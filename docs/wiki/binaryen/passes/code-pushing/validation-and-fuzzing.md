@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
+  - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -138,12 +139,13 @@ bun scripts/self-optimize-compare.ts \
     (`binaryen-rec-group-zero`)
   - native `--code-pushing` replay `.tmp/code-pushing-native-20260410w.wasm`
     validates again
-  - native `cmd` regressions now pin the two live artifact facts directly:
-    `Func 1948` still rewrites, and `Func 1977` no longer reports
-    `skip-invalid-lower`
-  - traced serial replay changes only two functions:
-    - `Func 148` -> changed and written back
-    - `Func 1948` -> changed and written back
+  - the old live trace fact from `2026-04-10` is still recorded here for
+    provenance: the kept tree at that point changed only `Func 148` and
+    `Func 1948`, while `Func 1977` no longer reported `skip-invalid-lower`
+  - the current tree now adds a stronger artifact contract on top of that:
+    Binaryen `--code-pushing` is a no-op on printed `func $127`, so native
+    `cmd` coverage now expects `Func 148` to stay unchanged while `Func 1948`
+    still rewrites
   - traced serial replay contains `0` `skip-invalid-lower` lines
   - whole-artifact direct compare is still red, but now as a valid semantic diff
     whose first hunk is back at `44251` rather than the newer `48978` family
@@ -212,3 +214,5 @@ bun scripts/self-optimize-compare.ts \
   celebrate the fuzz result as final parity.
 - If the direct artifact output is invalid, fix that before spending time on small
   normalized-WAT deltas somewhere else.
+- If Binaryen itself leaves the frontier function unchanged, treat the shape as
+  a Starshine fence question first, not as missing upstream transform coverage.

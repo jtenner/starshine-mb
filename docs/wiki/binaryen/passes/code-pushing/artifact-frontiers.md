@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
+  - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -214,7 +215,9 @@ What this means for next work:
 
 Status:
 
-- Current first semantic blocker.
+- The old ownership diagnosis is now closed.
+- The current kept fence treats this as a Starshine-only over-admission, not as
+  remaining upstream `code-pushing` surface.
 
 Observed failure:
 
@@ -234,22 +237,28 @@ Observed failure:
 Observed shape:
 
 - This is no longer the newer top-level alias move at `48978`.
-- Binaryen is now materializing extra locals ahead of the early carrier and
-  wrapping the segment in a carried `block $block1 (result i32)` with a
-  `br` payload.
-- Starshine still keeps the older straight-line local setup plus sibling
-  terminal-owner structure in the same area.
-- So the current live gap is not just a missed one-root reorder. It now looks
-  like a broader terminal-owner / local-synthesis family again.
+- A direct Binaryen-side reread changes the interpretation materially:
+  Binaryen `version_129` `CodePushing.cpp` still only moves flat block-list SFA
+  `local.set` roots and one-arm `if` sinks. It does not model Starshine-style
+  explicit-exit carrier summaries or alias-local synthesis.
+- The direct artifact slice from
+  [`0076`](../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md)
+  shows more than that general strategy note: Binaryen `--code-pushing` leaves
+  the printed `func $127` / `parse__config__json` function unchanged.
+- So the earlier `44251` / `44254` family was not "Binaryen rewrites this and
+  Starshine is still missing part of the transform." It was "Starshine rewrites
+  a function that Binaryen leaves alone, and the resulting diff is then blurred
+  by Binaryen's own writeback-local materialization noise."
 
 What this means for next work:
 
-- Do not treat `44251` as a pure pass-only reducer target until the same family
-  survives a more stable Binaryen boundary.
-- The right question is now whether this family belongs inside `code-pushing`
-  proper or needs explicit alias-local synthesis from a neighboring pass.
-- The next reducer should therefore separate "real carrier motion drift" from
-  "Binaryen writeback-local materialization drift" before widening the pass.
+- Do not widen `code-pushing` toward this family again unless Binaryen starts
+  changing the same function on a refreshed artifact replay.
+- Keep the HOT-only manual reorder proof as a lowering fact, but keep the pass
+  fence in place on the crossed-condition-set terminal-owner family.
+- The next reducer should now ask a later question: after `Func 148` stops
+  changing, what semantic delta still survives beyond the Binaryen boundary
+  noise?
 - Runtime work should measure those few changed functions together with this
   reopened semantic frontier, because the safe tree still changes only
   `Func 148` plus `Func 1948`, and `Func 1948` remains the clear hot member

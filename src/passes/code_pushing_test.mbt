@@ -1566,7 +1566,7 @@ test "code-pushing rewrites past an owner-only if payload with a direct inner-ow
 }
 
 ///|
-test "code-pushing rewrites past a terminal owner-carrier when an unrelated condition local.set sits before the later if" {
+test "code-pushing does not rewrite past a terminal owner-carrier when an unrelated condition local.set sits before the later if" {
   let source =
     #|(module
     #|  (func (param i32 i32) (result i32)
@@ -1594,7 +1594,7 @@ test "code-pushing rewrites past a terminal owner-carrier when an unrelated cond
   let func = code_pushing_test_run_hot(source)
 
   assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
-    "LocalSet(2)", "LocalSet(5)", "If", "LocalSet(4)", "LocalGet(4)",
+    "LocalSet(2)", "LocalSet(4)", "LocalSet(5)", "If", "LocalGet(4)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {
@@ -3135,6 +3135,102 @@ test "code-pushing does not extract a carrier payload through a parent err block
   match @validate.validate_module(out) {
     Ok(_) => ()
     Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "code-pushing keeps the real crossed-gap carrier alias before the later if when the kept condition-set aliases the same carried local" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $incref (param i32))
+    #|  (func $decref (param i32))
+    #|  (func $decode (param i32 i32) (result i32)
+    #|    local.get 0)
+    #|  (func $get_tag (param i32) (result i32)
+    #|    i32.const 1)
+    #|  (func (param i32 i32 i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    (block $outer (result i32)
+    #|      (block $err
+    #|        (block $carrier (result i32)
+    #|          (block $work
+    #|            (local.get 1)
+    #|            (i32.load offset=8 align=1)
+    #|            (local.tee 4)
+    #|            (i32.const 1)
+    #|            i32.add
+    #|            (local.set 5)
+    #|            (local.get 0)
+    #|            (call $incref)
+    #|            (local.get 0)
+    #|            (local.get 5)
+    #|            (call $decode)
+    #|            (local.tee 6)
+    #|            (call $get_tag)
+    #|            (i32.const 1)
+    #|            i32.eq
+    #|            (if (result i32)
+    #|              (then
+    #|                (local.get 6)
+    #|                (i32.load offset=12 align=1)
+    #|                (local.set 7)
+    #|                (local.get 6)
+    #|                (i32.load offset=8 align=1)
+    #|                (local.set 8)
+    #|                (local.get 7)
+    #|                (local.get 8)
+    #|                (local.set 3)
+    #|                (local.set 2)
+    #|                (br $work))
+    #|              (else
+    #|                (local.get 0)
+    #|                (call $decref)
+    #|                (local.get 2)
+    #|                (call $decref)
+    #|                (local.get 3)
+    #|                (call $decref)
+    #|                (local.get 1)
+    #|                (call $decref)
+    #|                (local.get 6)
+    #|                (i32.load offset=8 align=1)
+    #|                (local.set 9)
+    #|                (br $err)))
+    #|            unreachable)
+    #|          (block $skip
+    #|            (br_if $skip (local.get 0)))
+    #|          (local.get 2)
+    #|          (local.set 10)
+    #|          (local.get 2)
+    #|          (local.set 5)
+    #|          (local.get 10)
+    #|          (if
+    #|            (then
+    #|              (local.get 10)
+    #|              (call $decref)))
+    #|          (local.get 1)
+    #|          (local.get 5)
+    #|          (i32.store offset=8 align=1)
+    #|          (i32.const 0)
+    #|          drop
+    #|          (local.get 3))
+    #|        br $outer)
+    #|      (local.get 9))))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 4)
+  let carrier_body = code_pushing_test_find_block_body_region(func, 1, [
+    "Block", "Block", "LocalSet(10)", "LocalSet(5)", "If", "Store", "Drop",
+    "LocalGet(3)",
+  ])
+
+  assert_eq(code_pushing_test_region_tags(func, carrier_body), [
+    "Block", "Block", "LocalSet(10)", "LocalSet(5)", "If", "Store", "Drop",
+    "LocalGet(3)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
   }
 }
 

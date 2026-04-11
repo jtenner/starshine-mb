@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
+  - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
 related:
@@ -176,6 +177,8 @@ related:
 - Performance is still a live, documented secondary gap.
 - The right near-term goal is:
   - keep valid direct-artifact output on the safe branch
-  - separate the reopened `func $127` pass frontier from Binaryen boundary noise
+  - keep the restored `Func 148` terminal-owner fence in place unless a
+    refreshed Binaryen replay proves that function should still move
   - then optimize the actual remaining hot spots, starting with the real
-    pushpoint-root work inside `Func 148` / `Func 1948`
+    pushpoint-root work inside `Func 1948` and any later surviving changed
+    functions after that fence

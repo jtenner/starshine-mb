@@ -80,7 +80,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [`binaryen/passes/duplicate-function-elimination/parity.md`](binaryen/passes/duplicate-function-elimination/parity.md) - Current module-wide merge contract, metadata rewrite rules, and remaining artifact parity gap for `duplicate-function-elimination`.
 - [`binaryen/passes/remove-unused-module-elements/parity.md`](binaryen/passes/remove-unused-module-elements/parity.md) - Current RUME signoff state, focused rewrite coverage, and the remaining non-semantic compare noise.
-- [`binaryen/passes/code-pushing/parity.md`](binaryen/passes/code-pushing/parity.md) - Current direct-pass parity state for `code-pushing`, including landed slices, reduced fuzz evidence, and the still-open debug-artifact blocker.
+- [`binaryen/passes/code-pushing/parity.md`](binaryen/passes/code-pushing/parity.md) - Current direct-pass parity state for `code-pushing`, including the Binaryen no-op finding on printed `func $127`, the restored `Func 148` fence, and the remaining artifact/runtime signoff work.
 - [`binaryen/passes/heap2local/parity.md`](binaryen/passes/heap2local/parity.md) - Current Binaryen parity surface, in-tree coverage, and remaining fixup gap for `heap2local`.
 - [`binaryen/passes/global-struct-inference/parity.md`](binaryen/passes/global-struct-inference/parity.md) - Closed-world direct-global slice, current parity result, and scope limit for `global-struct-inference`.
 - [`binaryen/passes/pick-load-signs/parity.md`](binaryen/passes/pick-load-signs/parity.md) - Active rewrite rules, current signoff, and pass-manager fast-skip behavior for `pick-load-signs`.
@@ -91,6 +91,10 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/tuple-optimization/parity.md`](binaryen/passes/tuple-optimization/parity.md) - Current tuple-opt Binaryen signoff state: green isolated compare lanes, red exact-shape families, unscheduled preset slot, and open artifact/runtime debt.
 - [`binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md`](binaryen/passes/remove-unused-names/invalid-tag-index-parser-gap.md) - Treat `invalid tag index` `remove-unused-names` failures as Binaryen parser-family gaps, not Starshine semantic mismatches.
 - [`validate/trace-benchmark-baseline.md`](validate/trace-benchmark-baseline.md) - Committed corpus-specific `phase_totals`, `helper_totals`, and hotspot baselines for validator trace work.
+
+## Research
+
+- [`raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md`](raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md) - Binaryen-side reread and direct artifact slice proving that `--code-pushing` leaves printed `func $127` unchanged, so the old `44251` frontier was a Starshine-only fence question.
 
 ## Sessions
 

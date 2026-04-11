@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
+  - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -275,6 +276,10 @@ related:
   one-off tail fence. `Func 1948` proved those ladders can be valid even when
   the smaller local ordering pattern superficially resembles the old invalid
   `Func 1977` tail.
+- Treat Binaryen no-ops as first-class evidence too. When a direct artifact
+  slice shows Binaryen leaves a function unchanged, Starshine should prefer a
+  new fence over a broader HOT-only explicit-exit rewrite, even if the manual
+  reorder still lowers and validates.
 - Treat the reopened `44251` direct hunk as only a provisional frontier. A
   fixed Binaryen `nop5` replay moves the first hunks elsewhere, so some of that
   drift is still Binaryen writeback-local noise rather than a stable

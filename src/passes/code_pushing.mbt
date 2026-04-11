@@ -2889,6 +2889,146 @@ fn cp_root_is_local_set_of_local_get(func : @ir.HotFunc, root_id : Int) -> Bool 
 }
 
 ///|
+fn cp_root_local_set_local_get_source_local(
+  func : @ir.HotFunc,
+  root_id : Int,
+) -> Int? {
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return None
+  }
+  let root = @ir.hot_node_get(func, root_id)
+  match root.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return None
+  }
+  if root.child_count == 0 {
+    return None
+  }
+  let value_id = @ir.hot_child_get(func, root_id, 0)
+  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+    return None
+  }
+  let value = @ir.hot_node_get(func, value_id)
+  match value.op {
+    @ir.HotOp::LocalGet => Some(value.imm0)
+    _ => None
+  }
+}
+
+///|
+fn cp_block_last_live_root_local_get_local(
+  func : @ir.HotFunc,
+  block_id : Int,
+) -> Int? {
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return None
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return None
+  }
+  let body = @ir.hot_region_body_ref(func, block_id)
+  let roots_view = cp_region_roots_view(func, body)
+  let mut idx = roots_view.root_count - 1
+  while idx >= 0 {
+    let root_id = cp_region_root_get(func, roots_view, idx)
+    if root_id >= 0 && @ir.hot_node_is_live(func, root_id) {
+      let root = @ir.hot_node_get(func, root_id)
+      match root.op {
+        @ir.HotOp::LocalGet => return Some(root.imm0)
+        _ => return None
+      }
+    }
+    idx = idx - 1
+  }
+  None
+}
+
+///|
+fn cp_root_is_explicit_exit_block_carrier_for_local_alias(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  root_id : Int,
+  source_local_id : Int,
+) -> Bool {
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return false
+  }
+  let root = @ir.hot_node_get(func, root_id)
+  match root.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if root.child_count == 0 {
+    return false
+  }
+  let value_id = @ir.hot_child_get(func, root_id, 0)
+  if value_id < 0 || !@ir.hot_node_is_live(func, value_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, value_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  cp_node_has_explicit_exit(cache, func, value_id) &&
+  cp_block_last_live_root_local_get_local(func, value_id) == Some(source_local_id)
+}
+
+///|
+fn cp_push_to_pushpoint_has_condition_set_crossed_carrier_alias_guard(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  roots_view : CpRegionRootsView,
+  reachable_prefix_start_idx : Int,
+  candidate_idx : Int,
+  target_idx : Int,
+  target_if_id : Int,
+) -> Bool {
+  if candidate_idx < 0 || target_idx - candidate_idx < 2 {
+    return false
+  }
+  let candidate_root_id = cp_region_root_get(func, roots_view, candidate_idx)
+  let source_local_id = match
+    cp_root_local_set_local_get_source_local(func, candidate_root_id) {
+    Some(local_id) => local_id
+    None => return false
+  }
+  let crossed_root_id = cp_region_root_get(func, roots_view, target_idx - 1)
+  if crossed_root_id < 0 || !@ir.hot_node_is_live(func, crossed_root_id) {
+    return false
+  }
+  let crossed_root = @ir.hot_node_get(func, crossed_root_id)
+  match crossed_root.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if crossed_root.imm0 < 0 {
+    return false
+  }
+  let cond_id = @ir.hot_child_get(func, target_if_id, 0)
+  if cond_id < 0 || !@ir.hot_node_is_live(func, cond_id) {
+    return false
+  }
+  if !cp_summary_reads_local(
+      cp_effect_summary_for_node(cache, func, cond_id),
+      crossed_root.imm0,
+    ) {
+    return false
+  }
+  let mut idx = reachable_prefix_start_idx
+  while idx < candidate_idx {
+    let prefix_root_id = cp_region_root_get(func, roots_view, idx)
+    if cp_root_is_explicit_exit_block_carrier_for_local_alias(
+        cache, func, prefix_root_id, source_local_id,
+      ) {
+      return true
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
 fn cp_push_to_pushpoint_has_high_risk_alias_if_tail(
   func : @ir.HotFunc,
   roots_view : CpRegionRootsView,
@@ -3469,6 +3609,17 @@ fn cp_try_push_to_pushpoint(
               if !cp_node_has_nonvoid_result(func, if_id) &&
                 !cp_summary_reads_local(pushpoint_summary, local_id) &&
                 !cp_summary_writes_local(pushpoint_summary, local_id) {
+                if cp_push_to_pushpoint_has_condition_set_crossed_carrier_alias_guard(
+                    cache,
+                    func,
+                    roots_view,
+                    reachable_prefix_start_idx,
+                    scan,
+                    target_idx,
+                    if_id,
+                  ) {
+                  None
+                } else {
                 let has_later_read = cp_region_reads_local_after_index(
                   cache,
                   func,
@@ -3484,6 +3635,7 @@ fn cp_try_push_to_pushpoint(
                   Some(true)
                 } else {
                   None
+                }
                 }
               } else {
                 Some(false)

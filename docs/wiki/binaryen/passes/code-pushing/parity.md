@@ -1,9 +1,10 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
+  - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
@@ -102,11 +103,20 @@ related:
 
 ## Current Signoff Gap
 
-- Whole-artifact parity is still open.
+- Reduced and fuzz parity are still green.
+- The old ownership question on the whole-artifact frontier is now resolved:
+  Binaryen `--code-pushing` is a no-op on the printed `func $127` /
+  `parse__config__json` frontier, so that family was not an unported upstream
+  transform surface. It was a Starshine-only admission mixed with Binaryen
+  writeback noise.
 - One smaller stable Binaryen mismatch is now closed.
   Binaryen leaves a nested-block `local.set` in place when the same local is
   still read after the enclosing block, and Starshine now matches that behavior
   instead of sinking the set into the inner `if` arm.
+- The same narrowing is now applied one step later too:
+  `code-pushing` again fences the
+  `candidate-set -> condition-set -> later-if` terminal-owner family when the
+  candidate aliases an earlier explicit-exit carried local.
 - The current direct debug-artifact path is valid again, but still not close to
   Binaryen parity.
 - Native `--code-pushing` output on `tests/node/dist/starshine-debug-wasi.wasm`
@@ -149,10 +159,13 @@ related:
   alias-if tail fenced, but it no longer blocks repeated alias-if ladders.
   That is why `Func 1948` rewrites again on the real artifact while `Func 1977`
   no longer reaches `skip-invalid-lower`.
-- The next expected semantic frontier is therefore the reopened `44251`
-  `func $127` terminal-owner / local-synthesis family and the later valid
-  direct-artifact clusters described in
-  [`./artifact-frontiers.md`](./artifact-frontiers.md).
+- The earlier wiki wording that treated `44251` as the next remaining upstream
+  `code-pushing` surface is now superseded by
+  [`0076`](../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md):
+  Binaryen does not transform that function at all.
+- The next full signoff question is therefore narrower:
+  rerun the real artifact on the kept fence and see whether any later semantic
+  delta survives after `Func 148` stops changing.
 - The honest reading is narrower than that raw diff suggests: some part of the
   remaining whole-artifact gap is still mixed with Binaryen's multivalue /
   local writeback behavior, so reduced pass or HOT proofs still matter more than

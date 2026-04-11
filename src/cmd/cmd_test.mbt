@@ -5768,6 +5768,57 @@ test "run_cmd_with_adapter code-pushing does not skip Func 1977 on the debug art
 
 ///|
 #cfg(target="native")
+test "run_cmd_with_adapter code-pushing no longer rewrites Func 148 on the debug artifact" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let stderr_writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+    write_stderr=fn(bytes) {
+      stderr_writes.push(bytes)
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--debug-serial-passes", "--tracing", "pass", "--code-pushing", "--out",
+        output_path, input_path,
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected traced code-pushing artifact replay success, got \{e}")
+  }
+  let stderr_text = concat_ascii_bytes(stderr_writes)
+
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["code-pushing"])
+  assert_eq(writes.length(), 1)
+  assert_false(cmd_test_trace_func_changed(stderr_text, 148), msg=stderr_text)
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter code-pushing still rewrites Func 1948 on the debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let output_path = "out.wasm"
