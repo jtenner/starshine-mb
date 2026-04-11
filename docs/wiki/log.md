@@ -241,3 +241,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Rewired the remaining name-section bounds checks in `src/validate/validate.mbt` so local, label, and struct-field name indices now all flow through the proved `bounded_index` helper instead of open-coded `idx >= total` comparisons.
 - Kept the proof kernel shape unchanged at `9` goals while widening the validator surface that now relies on the existing helper inventory.
 - Updated `docs/wiki/validation/moonbit-prove-strategy.md` and archived research note `0077-2026-04-10-moonbit-prove-strategy.md` so the living proof docs reflect that broader `bounded_index` usage.
+
+## [2026-04-11] fix | preserve branch-local `LabelStack` semantics while reusing proved reverse-index arithmetic
+
+- Rewired `LabelStack::get` in `src/validate/env.mbt` to compute its reverse offset through the proved `label_stack_storage_index` helper while still traversing `head` / `parents`, instead of indexing the shared `values` backing array directly.
+- Added a divergent-copy regression in `src/validate/env_tests.mbt` proving that `LabelStack.copy` branches can push different tails and still preserve each branch's logical declaration-order lookup.
+- Updated `docs/wiki/validation/moonbit-prove-strategy.md`, archived research note `0077-2026-04-10-moonbit-prove-strategy.md`, and `agent-todo.md` so the proof rollout docs now treat persistent branch semantics as an explicit invariant of the `Env` / `LabelStack` slice.

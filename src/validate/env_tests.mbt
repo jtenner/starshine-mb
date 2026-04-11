@@ -34,6 +34,23 @@ test "LabelStack.from_labels reconstructs the same direct-index view" {
 }
 
 ///|
+test "LabelStack.copy keeps branch-local declaration order after divergent pushes" {
+  let base = LabelStack::new()
+  base.push([ValType::i32()])
+
+  let left = base.copy()
+  left.push([ValType::i64()])
+
+  let right = base.copy()
+  right.push([ValType::f32()])
+
+  assert_eq(left.get(0), Some([ValType::i32()]))
+  assert_eq(left.get(1), Some([ValType::i64()]))
+  assert_eq(right.get(0), Some([ValType::i32()]))
+  assert_eq(right.get(1), Some([ValType::f32()]))
+}
+
+///|
 test "Env.get_label_types uses stack-from-top indexing" {
   let env = Env::new().with_label([ValType::i32()]).with_label([ValType::i64()])
   assert_eq(env.get_label_types(LabelIdx::new(0)), Some([ValType::i64()]))

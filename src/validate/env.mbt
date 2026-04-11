@@ -54,10 +54,10 @@ pub fn LabelStack::length(stack : LabelStack) -> Int {
 
 ///|
 pub fn LabelStack::get(stack : LabelStack, idx : Int) -> Array[ValType]? {
-  if idx < 0 || idx >= stack.len {
-    return None
+  let mut remaining = match label_stack_storage_index(stack.len, idx) {
+    Some(remaining) => remaining
+    None => return None
   }
-  let mut remaining = stack.len - 1 - idx
   let mut cursor = stack.head
   while cursor >= 0 {
     if remaining == 0 {

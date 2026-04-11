@@ -271,6 +271,7 @@ CI order should stay incremental:
   - `bounded_index`
   - `suffix_start_index`
 - Those helpers now cover more than the original `env` pilot:
+  - `LabelStack::get`
   - `Env::get_label_types`
   - `Env::resolve_subtype`
   - `Env::resolve_typeidx_subtype`
@@ -279,6 +280,8 @@ CI order should stay incremental:
   - code-body diagnostic function-index mapping
   - declared-function bounds checks in the `ref.func` declaration pass
 - The current descriptor-metadata base rule is now explicit: if the current rectype is already appended to `env`, recover its suffix start; otherwise treat the current group as a virtual suffix immediately after the existing type space.
+- `LabelStack::copy` also forced a more precise durable rule for the `env` slice: the stack is persistent and branchable because copied stacks share `values` / `parents` backing storage, so proved reverse-index helpers can replace arithmetic but cannot replace the parent-chain traversal in `LabelStack::get`.
+- `src/validate/env_tests.mbt` now carries an explicit divergent-copy regression so proof-kernel reuse cannot silently collapse logical stack lookup into raw backing-array indexing.
 - The direct `moon prove src/validate/env.mbt` path is currently blocked even after narrowing the local proof surface, because the proof-enabled `src/validate` package lowers `jtenner/starshine/lib` into WhyML that Why3 rejects with `unbound type symbol 'name'`.
 - Current keepable workflow:
   - `moon test src/validate_proof`

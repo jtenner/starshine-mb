@@ -28,6 +28,7 @@ related:
 - The validator proof rollout should stay incremental: prove one file or helper slice first, then widen only after the slice is stable.
 - The current in-tree bootstrap landed first in `src/validate_proof`, not directly in `src/validate`, because an attempted proof-enabled `src/validate` run currently fails while lowering `jtenner/starshine/lib` with generated WhyML error `unbound type symbol 'name'`.
 - The active proof kernel currently proves `9` helper goals in `src/validate_proof` and already covers label-stack lookup, current-frame/group index arithmetic, defined-function body/index translation, declared-function bounds checks, and suffix-base recovery used by validator diagnostics.
+- `LabelStack` is a persistent branchable stack: `LabelStack::copy` shares backing storage, so proved reverse-index arithmetic can be reused in `LabelStack::get`, but logical lookup still has to walk `head` / `parents` instead of indexing `values` directly.
 - `proof_axiomatized` should not become a permanent escape hatch in validator-critical code. Every such assumption expands the trusted surface and must stay temporary and explicit.
 
 ## Staged Rollout
@@ -73,6 +74,7 @@ related:
   - `bounded_index`
   - `suffix_start_index`
 - Those helpers currently drive:
+  - `LabelStack::get` parent-chain label lookup in `env.mbt`
   - `Env::get_label_types`
   - `Env::resolve_subtype` and `Env::resolve_typeidx_subtype`
   - descriptor-metadata group indexing in `validate.mbt`

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-11 Fix: preserve branch-local label-stack semantics while reusing proved reverse-index arithmetic
+
+- **restored branch-safe `LabelStack` lookup while keeping proof-backed index math** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](./docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`src/validate/env.mbt`](./src/validate/env.mbt), and [`src/validate/env_tests.mbt`](./src/validate/env_tests.mbt) so `LabelStack::get` now reuses `label_stack_storage_index` without collapsing persistent branch-local lookup into raw backing-array indexing, and a new divergent-copy regression locks that invariant in the executable validator oracle while the proof kernel stays green at `9` goals.
+
 ## 2026-04-11 Feat: widen proved bounds-check reuse in name-section validation
 
 - **reused existing proved bounds helper across remaining name-section checks** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](./docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), and [`src/validate/validate.mbt`](./src/validate/validate.mbt) to route the remaining local-name, label-name, and field-name bounds checks through the existing proved `bounded_index` helper while keeping the proof kernel at `9` goals.
