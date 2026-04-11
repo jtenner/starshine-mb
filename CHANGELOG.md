@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-10 Feat: prove function-body index arithmetic for validator name and code sections
+
+- **proved defined-function index helpers** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/validate/imports.mbt`](./src/validate/imports.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate_proof/func_index.mbt`](./src/validate_proof/func_index.mbt), [`src/validate_proof/func_index_proof.mbtp`](./src/validate_proof/func_index_proof.mbtp), and [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt) to add and prove `defined_func_body_index` plus `defined_func_absolute_index`, reuse that arithmetic in name-section local/label counting and code-section body-to-function mapping, and add imported-function name-section regressions. The sidecar proof kernel now proves `6` goals cleanly.
+
 ## 2026-04-10 Feat: prove descriptor-group index arithmetic for validator metadata
 
 - **proved group-relative descriptor index helpers** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/validate/imports.mbt`](./src/validate/imports.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate_proof/group_index.mbt`](./src/validate_proof/group_index.mbt), [`src/validate_proof/group_index_proof.mbtp`](./src/validate_proof/group_index_proof.mbtp), and [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt) to add and prove `group_relative_absolute_index` plus `group_member_relative_index`, route descriptor metadata validation through those helpers, and add focused `RecIdx` validator regressions for descriptor metadata. The sidecar proof kernel now proves `4` goals cleanly.

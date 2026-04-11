@@ -1,0 +1,20 @@
+predicate defined_func_body_index_post(
+  imported_func_count : Int,
+  func_idx : Int,
+  result : Option[Int],
+) {
+  match result {
+    None => func_idx < imported_func_count
+    Some(body_idx) =>
+      (body_idx == func_idx - imported_func_count) &&
+      (imported_func_count <= func_idx)
+  }
+}
+
+predicate defined_func_absolute_index_post(
+  imported_func_count : Int,
+  body_idx : Int,
+  result : Int,
+) {
+  (result == imported_func_count + body_idx) && (imported_func_count <= result)
+}

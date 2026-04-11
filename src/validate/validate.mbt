@@ -1475,8 +1475,9 @@ fn validate_codesec_diag(
             "func[\{ordinal}] start locals=\{func_locals} top_instrs=\{func_top_instrs}",
           )
         }
-        let func_idx = FuncIdx::new((n_imported + i).reinterpret_as_uint())
-        let ft = match env.funcs.get(n_imported + i) {
+        let func_abs = defined_func_absolute_index(n_imported, i)
+        let func_idx = FuncIdx::new(func_abs.reinterpret_as_uint())
+        let ft = match env.funcs.get(func_abs) {
           Some(x) => x
           None => {
             if log_func {
@@ -2121,16 +2122,16 @@ fn validate_name_sec_total_locals(
     Some(FuncType(params, _)) => params.length()
     None => return None
   }
-  if func_idx_int < imported_func_count {
-    return Some(params_len)
-  }
-  let defined_idx = func_idx_int - imported_func_count
-  match m.code_sec {
-    None => None
-    Some(CodeSec(funcs)) =>
-      match funcs.get(defined_idx) {
-        Some(Func(locals, _)) => Some(params_len + locals.length())
+  match defined_func_body_index(imported_func_count, func_idx_int) {
+    None => Some(params_len)
+    Some(defined_idx) =>
+      match m.code_sec {
         None => None
+        Some(CodeSec(funcs)) =>
+          match funcs.get(defined_idx) {
+            Some(Func(locals, _)) => Some(params_len + locals.length())
+            None => None
+          }
       }
   }
 }
@@ -2177,16 +2178,16 @@ fn validate_name_sec_total_labels(
     return None
   }
   let func_idx_int = func_idx.reinterpret_as_int()
-  if func_idx_int < imported_func_count {
-    return Some(0)
-  }
-  let defined_idx = func_idx_int - imported_func_count
-  match m.code_sec {
-    None => None
-    Some(CodeSec(funcs)) =>
-      match funcs.get(defined_idx) {
-        Some(Func(_, expr)) => Some(validate_name_sec_expr_label_count(expr))
+  match defined_func_body_index(imported_func_count, func_idx_int) {
+    None => Some(0)
+    Some(defined_idx) =>
+      match m.code_sec {
         None => None
+        Some(CodeSec(funcs)) =>
+          match funcs.get(defined_idx) {
+            Some(Func(_, expr)) => Some(validate_name_sec_expr_label_count(expr))
+            None => None
+          }
       }
   }
 }
@@ -5314,6 +5315,24 @@ fn validate_name_section_fixture_module() -> Module {
 }
 
 ///|
+fn validate_import_name_section_fixture_module() -> Module {
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [])),
+  )
+  Module::new()
+  .with_type_sec(TypeSec::new([func_type]))
+  .with_import_sec(
+    ImportSec::new([
+      Import::new(
+        Name::new("env"),
+        Name::new("f"),
+        ExternType::func(TypeIdx::new(0U)),
+      ),
+    ]),
+  )
+}
+
+///|
 test "validate_module accepts structured name section" {
   let mod = validate_name_section_fixture_module()
   assert_eq(validate_module(mod), Ok(()))
@@ -5388,6 +5407,30 @@ test "validate_module rejects out-of-range local name index in name section" {
 }
 
 ///|
+test "validate_module accepts imported function local names for params" {
+  let mod = validate_import_name_section_fixture_module().with_name_sec(
+    NameSec::new(
+      local_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([NameAssoc::new(0U, Name::new("x"))]),
+          ),
+        ]),
+      ),
+    ),
+  )
+
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected imported function local names to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
 test "validate_module rejects out-of-range label name index in name section" {
   let mod = validate_name_section_fixture_module().with_name_sec(
     NameSec::new(
@@ -5445,6 +5488,37 @@ test "validate_module rejects out-of-range label name index in name section" {
         validation_error_diagnostic(err).issue,
         ValidationIssue::NameSection(
           "label name index out of range: func=0 label=3 total_labels=3",
+        ),
+      )
+    }
+  }
+}
+
+///|
+test "validate_module rejects imported function label names because imports have no body labels" {
+  let mod = validate_import_name_section_fixture_module().with_name_sec(
+    NameSec::new(
+      label_names=Some(
+        IndirectNameMap::new([
+          IndirectNameAssoc::new(
+            0U,
+            NameMap::new([NameAssoc::new(0U, Name::new("entry"))]),
+          ),
+        ]),
+      ),
+    ),
+  )
+
+  match validate_module(mod) {
+    Ok(_) => fail("expected invalid imported-function label name section failure")
+    Err(err) => {
+      assert_true(
+        validation_error_message(err).contains("label name index out of range"),
+      )
+      assert_eq(
+        validation_error_diagnostic(err).issue,
+        ValidationIssue::NameSection(
+          "label name index out of range: func=0 label=0 total_labels=0",
         ),
       )
     }
