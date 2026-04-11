@@ -1,0 +1,13 @@
+predicate suffix_start_index_post(
+  total_len : Int,
+  suffix_len : Int,
+  result : Option[Int],
+) {
+  match result {
+    None => total_len < suffix_len
+    Some(start_idx) =>
+      (start_idx == total_len - suffix_len) &&
+      (0 <= start_idx) &&
+      (start_idx <= total_len)
+  }
+}

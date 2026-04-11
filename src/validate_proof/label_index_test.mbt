@@ -65,3 +65,11 @@ test "defined_body_func_index maps a valid code-body ordinal to a module functio
   assert_eq(defined_body_func_index(2, 3, 2), Some(4))
   assert_eq(defined_body_func_index(2, 3, 3), None)
 }
+
+///|
+test "suffix_start_index finds the start of a valid suffix" {
+  assert_eq(suffix_start_index(0, 0), Some(0))
+  assert_eq(suffix_start_index(2, 1), Some(1))
+  assert_eq(suffix_start_index(2, 2), Some(0))
+  assert_eq(suffix_start_index(2, 3), None)
+}

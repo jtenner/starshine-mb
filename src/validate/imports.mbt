@@ -112,4 +112,5 @@ using @validate_proof {
   group_relative_absolute_index,
   label_stack_storage_index,
   latest_stack_index,
+  suffix_start_index,
 }

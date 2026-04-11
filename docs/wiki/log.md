@@ -228,3 +228,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Rewired the remaining code-body diagnostic paths in `src/validate/validate.mbt` to use proved body-to-function index helpers for bulk-memory data-count errors and `ref.func` declaration diagnostics.
 - Added imported-prefix validator regressions so those diagnostics now explicitly pin `FuncIdx(1)` behavior when one imported function precedes the failing defined body.
 - Updated `docs/wiki/validation/moonbit-prove-strategy.md`, archived research note `0077-2026-04-10-moonbit-prove-strategy.md`, and `docs/wiki/index.md` so the living docs reflect the current helper inventory, usage surface, and `8`-goal proof-kernel state.
+
+## [2026-04-11] implement | prove suffix-base recovery and document the virtual-group rule
+
+- Added proved `suffix_start_index` to `src/validate_proof`, bringing the active sidecar helper kernel to `9` proved goals.
+- Rewired `validate_codesec_diag` to recover the imported-function prefix through the proved suffix helper instead of open-coding `total - defined`.
+- Rewired descriptor-metadata validation to use the same helper and documented the real rule: the current rectype group may already be appended to `env`, or it may still be a virtual suffix immediately after the existing type space during standalone `RecType` validation.
+- Updated `docs/wiki/validation/moonbit-prove-strategy.md`, archived research note `0077-2026-04-10-moonbit-prove-strategy.md`, and `docs/wiki/index.md` so the living docs reflect the new helper and the current `9`-goal kernel state.

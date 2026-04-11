@@ -27,7 +27,7 @@ related:
 - Starshine should start in `src/validate`, not in `src/binary`, `src/bitset`, `src/diff`, or the pass pipeline.
 - The validator proof rollout should stay incremental: prove one file or helper slice first, then widen only after the slice is stable.
 - The current in-tree bootstrap landed first in `src/validate_proof`, not directly in `src/validate`, because an attempted proof-enabled `src/validate` run currently fails while lowering `jtenner/starshine/lib` with generated WhyML error `unbound type symbol 'name'`.
-- The active proof kernel currently proves `8` helper goals in `src/validate_proof` and already covers label-stack lookup, current-frame/group index arithmetic, defined-function body/index translation, and declared-function bounds checks used by validator diagnostics.
+- The active proof kernel currently proves `9` helper goals in `src/validate_proof` and already covers label-stack lookup, current-frame/group index arithmetic, defined-function body/index translation, declared-function bounds checks, and suffix-base recovery used by validator diagnostics.
 - `proof_axiomatized` should not become a permanent escape hatch in validator-critical code. Every such assumption expands the trusted surface and must stay temporary and explicit.
 
 ## Staged Rollout
@@ -71,6 +71,7 @@ related:
   - `defined_func_absolute_index`
   - `defined_body_func_index`
   - `bounded_index`
+  - `suffix_start_index`
 - Those helpers currently drive:
   - `Env::get_label_types`
   - `Env::resolve_subtype` and `Env::resolve_typeidx_subtype`
@@ -78,6 +79,7 @@ related:
   - name-section local and label counting
   - code-body diagnostic function-index mapping
   - declared-function bitset bounds checks in the `ref.func` declaration pass
+  - suffix-base recovery for current rectype groups and imported-function prefixes
 
 ## Sources
 

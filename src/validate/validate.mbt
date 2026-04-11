@@ -622,9 +622,13 @@ fn validate_descriptor_metadata_group(
   sts : Array[SubType],
   env : Env,
 ) -> Result[Unit, String] {
-  // The rectype is already in `env`, so recover the starting absolute index of
-  // the current group before comparing metadata targets against sibling types.
-  let base = env.global_types.length() - sts.length()
+  // When the current rectype is already appended to `env`, recover its suffix
+  // start. Standalone `RecType` validation can also call this before append, in
+  // which case the current group starts immediately after the existing types.
+  let base = match suffix_start_index(env.global_types.length(), sts.length()) {
+    Some(base) => base
+    None => env.global_types.length()
+  }
   let mut i = 0
   while i < sts.length() {
     let st = sts[i]
@@ -1440,15 +1444,16 @@ fn validate_codesec_diag(
       }
       let n_defined = bodies.length()
       let n_total = env.funcs.length()
-      let n_imported = n_total - n_defined
-      if n_imported < 0 {
-        return Err(
-          ValidationDiagnostic::new(
-            ValidationIssue::CodeSection(
-              "internal: negative imported func count",
+      let n_imported = match suffix_start_index(n_total, n_defined) {
+        Some(n_imported) => n_imported
+        None =>
+          return Err(
+            ValidationDiagnostic::new(
+              ValidationIssue::CodeSection(
+                "internal: negative imported func count",
+              ),
             ),
-          ),
-        )
+          )
       }
       for i in 0..<bodies.length() {
         let ordinal = i + 1
