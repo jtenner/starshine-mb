@@ -1,0 +1,7 @@
+predicate bounded_index_post(len : Int, idx : Int, result : Option[Int]) {
+  match result {
+    None => (idx < 0) || (len <= idx)
+    Some(valid_idx) =>
+      (valid_idx == idx) && (0 <= valid_idx) && (valid_idx < len)
+  }
+}

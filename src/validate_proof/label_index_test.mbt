@@ -47,3 +47,12 @@ test "defined_func_absolute_index rebuilds the module index from a body slot" {
   assert_eq(defined_func_absolute_index(2, 0), 2)
   assert_eq(defined_func_absolute_index(2, 3), 5)
 }
+
+///|
+test "bounded_index returns the original slot only when it is in range" {
+  assert_eq(bounded_index(0, 0), None)
+  assert_eq(bounded_index(2, -1), None)
+  assert_eq(bounded_index(2, 0), Some(0))
+  assert_eq(bounded_index(2, 1), Some(1))
+  assert_eq(bounded_index(2, 2), None)
+}

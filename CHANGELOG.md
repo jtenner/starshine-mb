@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-10 Feat: prove declared-function bounds checks for ref.func validation
+
+- **proved reusable in-bounds index helper** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/validate/imports.mbt`](./src/validate/imports.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate_proof/bounds_index.mbt`](./src/validate_proof/bounds_index.mbt), [`src/validate_proof/bounds_index_proof.mbtp`](./src/validate_proof/bounds_index_proof.mbtp), and [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt) to add and prove `bounded_index`, reuse it for declared-function bitset marking and lookup in the `ref.func` declaration pass, and keep the sidecar proof kernel green at `7` proved goals.
+
 ## 2026-04-10 Feat: prove function-body index arithmetic for validator name and code sections
 
 - **proved defined-function index helpers** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/validate/imports.mbt`](./src/validate/imports.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate_proof/func_index.mbt`](./src/validate_proof/func_index.mbt), [`src/validate_proof/func_index_proof.mbtp`](./src/validate_proof/func_index_proof.mbtp), and [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt) to add and prove `defined_func_body_index` plus `defined_func_absolute_index`, reuse that arithmetic in name-section local/label counting and code-section body-to-function mapping, and add imported-function name-section regressions. The sidecar proof kernel now proves `6` goals cleanly.

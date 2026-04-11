@@ -2380,9 +2380,9 @@ fn validate_name_sec(
 ///|
 fn mark_declared_func(declared : @bitset.BitSet, f : FuncIdx) -> Unit {
   let FuncIdx(i) = f
-  let ii = i.reinterpret_as_int()
-  if ii >= 0 && ii < declared.length() {
-    declared[ii] = true
+  match bounded_index(declared.length(), i.reinterpret_as_int()) {
+    Some(ii) => declared[ii] = true
+    None => ()
   }
 }
 
@@ -2491,8 +2491,10 @@ fn collect_declared_funcs_bitmap(mod : Module, env : Env) -> @bitset.BitSet {
 ///|
 fn is_declared_ref_func(declared : @bitset.BitSet, f : FuncIdx) -> Bool {
   let FuncIdx(i) = f
-  let ii = i.reinterpret_as_int()
-  ii >= 0 && ii < declared.length() && declared[ii]
+  match bounded_index(declared.length(), i.reinterpret_as_int()) {
+    Some(ii) => declared[ii]
+    None => false
+  }
 }
 
 ///|
