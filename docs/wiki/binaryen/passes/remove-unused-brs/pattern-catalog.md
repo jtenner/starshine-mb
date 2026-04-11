@@ -4,6 +4,14 @@ status: working
 last_reviewed: 2026-04-10
 sources:
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
+  - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
+  - ../../../raw/research/0078-2026-04-10-remove-unused-brs-false-prefix-guard-raw-skip.md
+  - ../../../raw/research/0080-2026-04-10-remove-unused-brs-large-brtable-hot-skip.md
+  - ../../../raw/research/0081-2026-04-10-remove-unused-brs-large-value-if-branch-raw-skip.md
+  - ../../../raw/research/0082-2026-04-10-remove-unused-brs-large-tagged-result-prefix-hot-skip.md
+  - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
+  - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
+  - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
@@ -42,18 +50,57 @@ This page is the exhaustive rewrite inventory for the current tree.
   Rewrites a raw `local.get` / `i32.eq const` / `if(result i32 const else const)` ladder into `select` before lift.
   This is the only real raw transform, and it is intentionally narrow.
   Covered by perf test `remove-unused-brs rewrites decision ladders without hot lift`.
+- `run_hot_pipeline_raw_remove_unused_brs_leading_block_chain_depth(...)`
+  Cheap prefilter for the large result `br_table` dispatch no-op family.
+- `run_hot_pipeline_raw_remove_unused_brs_leading_any_block_chain_depth(...)`
+  Cheap prefilter for the later large typed `br_table` encoder no-op family.
+- `run_hot_pipeline_raw_remove_unused_brs_can_skip_large_result_br_table_dispatch_ladder(...)`
+  Recognizes giant one-result `br_table` dispatch ladders with a deep leading block chain and no HOT-only surface, then skips them before lift.
+  Covered by perf test `remove-unused-brs skips large result br_table dispatch ladders without hot lift`.
+- `run_hot_pipeline_raw_remove_unused_brs_can_skip_large_typed_br_table_encoder_ladder(...)`
+  Recognizes the later deep mixed value/void block shell around a single `br_table` encoder ladder that still matched Binaryen exactly but was paying full lift plus HOT cost on the artifact.
+  Covered by perf test `remove-unused-brs skips large typed br_table encoder ladders without hot lift`.
+- `run_hot_pipeline_raw_remove_unused_brs_can_skip_large_value_if_branch_ladder(...)`
+  Recognizes the later tiny-local `i64` value-`if` / bare-`br` ladder family that still matched Binaryen exactly but was paying full lift plus HOT cost on the artifact.
+  Covered by perf test `remove-unused-brs skips large value-if branch ladders without hot lift`.
+- `run_hot_pipeline_raw_remove_unused_brs_can_skip_large_drop_heavy_branch_ladder(...)`
+  Recognizes the later large-local drop-heavy branch ladder family that still matched Binaryen exactly but was paying full lift plus HOT cost on the artifact.
+  The landed local-set floor is calibrated to the real `Func 145` body, not only the reduced perf lock.
+  Covered by perf test `remove-unused-brs skips large drop-heavy branch ladders without hot lift`.
 - `run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(...)`
   Recognizes structured returned-ladder no-op families that used to waste HOT work.
 - `run_hot_pipeline_raw_remove_unused_brs_can_skip_unique_loop_select_return_ladder(...)`
   Recognizes a narrower loop/select returned-ladder no-op family.
+  The current bounds now intentionally include the measured sixteen-tee mid-band variant.
+  Covered by perf tests `remove-unused-brs skips unique loop-select return ladders without hot lift` and `remove-unused-brs skips mid unique loop-select return ladders without hot lift`.
 - `run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(...)`
   Cancels the raw skip if the function contains the prefix-guard payload branch family that only HOT can rewrite.
+  The detector is now narrower: it ignores reduced false-positive families where the inner prefix already contains a clearly separate void root before the later `br_if`.
+  Covered by perf test `remove-unused-brs skips structured return ladders when a false prefix guard candidate cannot rewrite`.
 - `run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate(...)`
   Cancels the raw structured-return skip if a condition-child value-`if` rewrite still exists.
 - `run_hot_pipeline_raw_remove_unused_brs_has_hot_only_candidates(...)`
   Prevents the decision-ladder raw rewrite from skipping lift when other HOT-only candidates remain.
 - `run_hot_pipeline_instr_has_remove_unused_brs_candidate(...)`
   Final raw "anything interesting left?" gate.
+
+Detailed page:
+- [`./visit-order-and-bailouts.md`](./visit-order-and-bailouts.md)
+
+## HOT No-Op Skip Patterns
+
+- `remove_unused_brs_can_skip_large_br_table_return_ladder(...)`
+  Recognizes lifted large `br_table` / return ladders with no `br_if`, dense void-`if` traffic, and no observed rewrite surface worth traversing.
+  Covered by perf test `remove-unused-brs skips large br_table return ladders after lift`.
+- `remove_unused_brs_can_skip_large_tagged_result_prefix_ladder(...)`
+  Recognizes lifted large carried result-prefix ladders with many tagged non-`Block` prefix roots that repeatedly fail the direct result-prefix rewrite and still exit unchanged.
+  Covered by perf test `remove-unused-brs skips large tagged result-prefix ladders after lift`.
+- `remove_unused_brs_can_skip_large_void_return_ladder(...)`
+  Recognizes older large lifted no-op families that still pay lift cost but should not enter the full RUB walk.
+  Covered by perf tests:
+  - `remove-unused-brs skips large void-if return ladders after lift`
+  - `remove-unused-brs skips single-root value-if ladders after lift`
+  - `remove-unused-brs skips nested constructor ladders after lift`
 
 Detailed page:
 - [`./visit-order-and-bailouts.md`](./visit-order-and-bailouts.md)
@@ -162,8 +209,10 @@ Detailed page:
   - `drains long runs of two-armed branch exits in one region`
 - `remove_unused_brs_try_rewrite_one_arm_payload_branch_if(...)`
   Rewrites a one-arm payload branch `if` into `drop(br_if payload)` plus fallthrough body.
+  Deliberately disabled when the current function contains any `br_table`; the reduced `Func 3771` family proved Binaryen keeps that direct payload-branch `if` conservative in that wider function context.
   Covered by:
   - `rewrites one-arm payload branch ladders into br_if plus fallthrough`
+  - `remove-unused-brs keeps one-arm payload branch ifs in br_table functions`
 - `remove_unused_brs_try_rewrite_branch_payload_if(...)`
   Rewrites an `if` that itself sits inside the payload list of an outer `br`.
   Covered by:

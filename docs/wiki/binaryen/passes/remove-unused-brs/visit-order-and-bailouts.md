@@ -4,6 +4,15 @@ status: working
 last_reviewed: 2026-04-10
 sources:
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
+  - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
+  - ../../../raw/research/0078-2026-04-10-remove-unused-brs-false-prefix-guard-raw-skip.md
+  - ../../../raw/research/0079-2026-04-10-remove-unused-brs-mid-unique-tee-floor.md
+  - ../../../raw/research/0080-2026-04-10-remove-unused-brs-large-brtable-hot-skip.md
+  - ../../../raw/research/0081-2026-04-10-remove-unused-brs-large-value-if-branch-raw-skip.md
+  - ../../../raw/research/0082-2026-04-10-remove-unused-brs-large-tagged-result-prefix-hot-skip.md
+  - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
+  - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
+  - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -29,19 +38,109 @@ The raw pre-lift layer can return early with one of these reasons:
 
 - `decision-ladder-selects`
   a raw decision ladder was rewritten to `select`, and no HOT-only candidates remain
+- `large-result-br-table-dispatch-ladder-noop`
+  a giant one-result `br_table` dispatch ladder is recognized as a Binaryen-compatible no-op before lift
+- `large-value-if-branch-ladder-noop`
+  a deep small-local value-`if` / bare-`br` ladder is recognized as a Binaryen-compatible no-op before lift
+- `large-drop-heavy-branch-ladder-noop`
+  a large-local drop-heavy branch ladder is recognized as a Binaryen-compatible no-op before lift
+- `large-typed-br-table-encoder-ladder-noop`
+  a deep mixed value/void block shell around a single `br_table` encoder ladder is recognized as a Binaryen-compatible no-op before lift
 - `structured-return-ladder-noop`
   a structured returned-ladder family is recognized as no-op unless a HOT-only carried-guard or condition-child family is also present
 - `unique-loop-select-return-ladder-noop`
   a narrower loop/select returned family is recognized as no-op
+  and now accepts the measured sixteen-tee mid-band variant instead of requiring twenty tees
 - `no-remove-unused-brs-candidates`
   the original instruction tree does not contain any RUB-relevant control surface
 
 The perf tests explicitly lock in both the skip reason and the absence of lift/pass timers where appropriate.
 
+## Cheap Raw Prefilters
+
+The large-dispatch raw skip is intentionally two-stage.
+
+- `run_hot_pipeline_raw_remove_unused_brs_leading_block_chain_depth(...)` does a cheap leading-chain probe first.
+- `run_hot_pipeline_raw_remove_unused_brs_can_skip_large_result_br_table_dispatch_ladder(...)` only runs its fuller recursive shape scan after that cheap guard proves the body starts with a very deep plain block chain.
+- `run_hot_pipeline_raw_remove_unused_brs_leading_any_block_chain_depth(...)` plays the same role for the later typed `br_table` encoder family, but it follows any decoded block shell instead of only plain void blocks.
+- `run_hot_pipeline_raw_remove_unused_brs_can_skip_large_typed_br_table_encoder_ladder(...)` only runs its fuller count checks after that cheaper decoded-shell probe proves the body starts with a very deep nested block wrapper.
+
+That design is part of the pass contract.
+
+- The skip is meant to retire giant artifact ladders like `Func 1219` / `Func 1220`, not to add another recursive scan to ordinary result blocks.
+- The perf lock is `remove-unused-brs skips large result br_table dispatch ladders without hot lift`.
+- The later typed encoder skip follows the same rule for `Func 1482`, and its lock is `remove-unused-brs skips large typed br_table encoder ladders without hot lift`.
+
+## Raw Detector Boundaries
+
+The raw layer also has to stay aligned with the real HOT legality surface.
+
+The latest example is the prefix-guard detector that cancels `structured-return-ladder-noop`.
+
+- It used to treat any later `br_if 0` inside the first void block of a result block as a carried-guard candidate.
+- That was too broad: a reduced false-positive family with a standalone `drop` root before the later `br_if` still forced lift even though the real result-prefix matcher could never rewrite it.
+
+The current rule is narrower.
+
+- If the inner prefix before the first matching `br_if 0` already contains a clearly separate void root such as `drop`, `local.set`, `return`, `br`, a void `block` / `if`, `loop`, `try_table`, or `unreachable`, the raw layer no longer treats that block as a carried-guard HOT-only candidate.
+- The perf lock is `remove-unused-brs skips structured return ladders when a false prefix guard candidate cannot rewrite`.
+
+The unique loop/select detector has its own boundary lesson too.
+
+- The measured mid-band family still needed the unique skip even though it only had `16` `local.tee`.
+- The original `>= 20` tee floor was stricter than the real no-op family.
+- The focused lock is `remove-unused-brs skips mid unique loop-select return ladders without hot lift`.
+- The artifact follow-up matters here:
+  - this classifier change reclassifies `Func 1171`
+  - it does not explain the separate `Func 1150` / `wt__lower__module` hotspot
+
+The later large value-`if` / branch raw skip has the same lesson in a different shape family.
+
+- It is not a generic "skip large value ladders" rule.
+- The detector is intentionally narrow:
+  - tiny locals
+  - deep plain leading block chain
+  - nearly one-for-one `if` / `br` counts
+  - `return_count == block_count`
+  - no `local.set`, `br_if`, `br_table`, `select`, or loop surface
+- That is the measured envelope that retired `Func 828`.
+- The perf lock is `remove-unused-brs skips large value-if branch ladders without hot lift`.
+
+The later typed `br_table` encoder raw skip adds the same lesson again with a different cheap probe.
+
+- It is not a generic "skip typed `br_table`" rule.
+- The detector is intentionally narrow:
+  - large locals
+  - very deep decoded block shell
+  - exactly one `br_table`
+  - many calls, `local.set`, `local.tee`, `if`, `br`, `return`, and `drop`
+  - no `br_if`
+  - no `select`
+  - mixed value and void block counts in the measured artifact band
+- The first stricter draft only matched the reduced perf lock and missed the real artifact because it assumed a single reduced typed root.
+- The landed version keys on the decoded any-block shell and retires `Func 1482`.
+- The perf lock is `remove-unused-brs skips large typed br_table encoder ladders without hot lift`.
+
+The later large-local drop-heavy raw skip adds the same calibration lesson one more time.
+
+- It is not a generic "skip large branch ladders" rule.
+- The detector is intentionally narrow:
+  - roughly `470` locals
+  - no `select`
+  - no `br_if`
+  - no `br_table`
+  - measured call / `local.set` / `local.tee` / `if` / `br` / `drop` traffic in the artifact band
+- The first `local_set >= 210` draft still passed the reduced perf lock but missed the real artifact because `Func 145` only measured `local_set=201`.
+- The HOT-only raw guards were both false on that same artifact body, so the miss was classifier width rather than a guard boundary.
+- The landed `local_set >= 200` floor retires `Func 145`.
+- The perf lock is `remove-unused-brs skips large drop-heavy branch ladders without hot lift`.
+
 ## HOT Skip Reasons
 
 After lift, the pass still has hot-only bailouts:
 
+- `large-br-table-return-ladder-noop`
+- `large-tagged-result-prefix-ladder-noop`
 - `large-void-if-return-ladder-noop`
 - `nested-constructor-return-ladder-noop`
 
@@ -49,8 +148,15 @@ Those skips exist because some giant lifted families were repeatedly proven to b
 
 The hot skip is shape-based, not name-based.
 
-- it counts calls, locals, `if`, `return`, `select`, `br_if`, blocks, loops, and plain `br`
+- it counts calls, locals, `if`, `return`, `select`, `br_if`, blocks, loops, plain `br`, `br_table`, and `drop`
+- the tagged result-prefix family also counts one-result blocks whose first roots are not plain prefix `Block`s
 - it matches against specific wide-ladder or constructor-ladder signatures
+- the newer large-`br_table` family specifically retires the traced unchanged pair `Func 1058` / `Func 1150` after lift instead of trying to force another raw skip boundary
+- the same trace also shows why the bounds must be calibrated on lifted shape counts: the working block ceiling had to be wider than the printed WAT shape first suggested
+- the later tagged result-prefix family retires `Func 356` after lift when repeated carried-prefix discovery only yields `reject=inner-op` and the pass still exits unchanged
+- that slice also adds a maintenance rule:
+  - the landed detector reuses the shared lifted shape scan and cheap locals/roots/node guards because the first draft paid a second full walk and moved aggregate trace totals the wrong way
+- after the later typed `br_table` raw skip retires `Func 1482`, the visible runtime budget is now led by `Func 1382`
 
 The relevant perf tests prove that these families still pay lift cost but skip the expensive rewrite walk.
 
@@ -92,6 +198,16 @@ The perf locks are:
 - `remove-unused-brs skips prefix-root scans for nested block dispatch ladders`
 - `remove-unused-brs skips result-prefix scans for nested block dispatch ladders`
 
+## Whole-Function Negative Guards
+
+The direct one-arm payload branch rewrite now also has a whole-function parity guard.
+
+- If the current function contains any `br_table`, `remove_unused_brs_try_rewrite_one_arm_payload_branch_if(...)` returns `false`.
+- The reduced `Func 3771` family proved Binaryen keeps that direct payload-branch `if` conservative instead of lowering it to `drop(br_if ...)`.
+- This is a parity boundary, not a general "`br_table` blocks all RUB work" rule:
+  - the narrower continuation-wrapper rewrite from `0076` still runs on its own legality checks
+  - the large `br_table` families from `0077`, `0080`, and `0083` are still separate no-op skip classes
+
 ## Seen Masks Instead Of A Plain Visited Set
 
 The pass records three visitation modes in `seen`:
@@ -120,6 +236,15 @@ The pass recomputes several cheap caches every fixpoint cycle:
 It only computes the expensive `use-def` analysis on demand for exit-only value-`if` voidification.
 
 There is a dedicated perf regression proving that simple tail-return cleanup does not accidentally build `use-def`.
+
+The branch-payload scan now also carries one broad parity bit.
+
+- `remove_unused_brs_compute_branch_payload_children(...)` returns both:
+  - `branch_payload_children`
+  - `has_br_table`
+- That piggybacked flag replaced the first `Func 3771` fix draft, which added a second whole-function HOT walk just to answer the same question.
+- Maintenance rule:
+  - if a new whole-function negative guard only needs one more cheap fact, extend an existing per-cycle scan instead of adding another walk
 
 ## Mutation Churn Control
 

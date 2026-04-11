@@ -397,6 +397,108 @@ fn perf_test_make_structured_return_ladder_with_guard_carrier_module(
 }
 
 ///|
+fn perf_test_make_structured_return_ladder_with_false_prefix_guard_module(
+  repetitions : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 56 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    local.set 0\n")
+  out.write_string("    block (result i32)\n")
+  out.write_string("      loop\n")
+  let mut i = 0
+  while i < repetitions {
+    let read_local = i % 8
+    let tee_local = i + 8
+    let set_local = i + 20
+    let spill_local = i + 32
+    out.write_string("        local.get 0\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.tee ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(set_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(read_local.to_string())
+    out.write_string("\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("          call 0\n")
+    out.write_string("          local.tee ")
+    out.write_string((tee_local + 1).to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    if i < 3 {
+      out.write_string("          local.get ")
+      out.write_string((tee_local + 1).to_string())
+      out.write_string("\n")
+      out.write_string("          return\n")
+    } else {
+      out.write_string("          local.get ")
+      out.write_string((tee_local + 1).to_string())
+      out.write_string("\n")
+      out.write_string("          drop\n")
+    }
+    out.write_string("        end\n")
+    i = i + 1
+  }
+  out.write_string("        block (result i32)\n")
+  out.write_string("          block\n")
+  out.write_string("            local.get 1\n")
+  out.write_string("            drop\n")
+  out.write_string("            local.get 0\n")
+  out.write_string("            if (result i32)\n")
+  out.write_string("              i32.const 1\n")
+  out.write_string("            else\n")
+  out.write_string("              local.get 1\n")
+  out.write_string("              call 0\n")
+  out.write_string("              local.tee 48\n")
+  out.write_string("              local.set 49\n")
+  out.write_string("              local.get 48\n")
+  out.write_string("            end\n")
+  out.write_string("            br_if 0\n")
+  out.write_string("            local.get 1\n")
+  out.write_string("            call 0\n")
+  out.write_string("            local.tee 50\n")
+  out.write_string("            local.set 51\n")
+  out.write_string("            local.get 50\n")
+  out.write_string("            drop\n")
+  out.write_string("          end\n")
+  out.write_string("          local.get 1\n")
+  out.write_string("          call 0\n")
+  out.write_string("          local.tee 52\n")
+  out.write_string("          br 0\n")
+  out.write_string("        end\n")
+  out.write_string("        local.set 53\n")
+  out.write_string("        local.get 53\n")
+  out.write_string("        local.get 1\n")
+  out.write_string("        local.get 0\n")
+  out.write_string("        select\n")
+  out.write_string("        br 1\n")
+  out.write_string("      end\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("    end)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_unique_loop_select_return_ladder_module() -> String {
   let out = StringBuilder::new()
   out.write_string("(module\n")
@@ -483,6 +585,661 @@ fn perf_test_make_unique_loop_select_return_ladder_module() -> String {
   out.write_string("      end\n")
   out.write_string("      i32.const 0\n")
   out.write_string("    end)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_mid_unique_loop_select_return_ladder_module() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 56 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    local.set 0\n")
+  out.write_string("    block (result i32)\n")
+  out.write_string("      loop\n")
+  let mut i = 0
+  while i < 4 {
+    let tee_local = i + 8
+    let set_local = i + 20
+    let spill_local = i + 32
+    out.write_string("        local.get 0\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.tee ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(set_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("          call 0\n")
+    out.write_string("          local.tee ")
+    out.write_string((tee_local + 1).to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    if i < 3 {
+      out.write_string("          local.get ")
+      out.write_string((tee_local + 1).to_string())
+      out.write_string("\n")
+      out.write_string("          return\n")
+    } else {
+      out.write_string("          local.get ")
+      out.write_string((tee_local + 1).to_string())
+      out.write_string("\n")
+      out.write_string("          drop\n")
+    }
+    out.write_string("        end\n")
+    i = i + 1
+  }
+  let mut j = 0
+  while j < 7 {
+    let tee_local = j % 6 + 40
+    let set_local = j % 6 + 46
+    out.write_string("        local.get 1\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.tee ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(set_local.to_string())
+    out.write_string("\n")
+    j = j + 1
+  }
+  let mut k = 0
+  while k < 21 {
+    let set_local = k % 6 + 46
+    out.write_string("        local.get 1\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.set ")
+    out.write_string(set_local.to_string())
+    out.write_string("\n")
+    k = k + 1
+  }
+  out.write_string("        local.get 0\n")
+  out.write_string("        br_if 0\n")
+  out.write_string("        local.get 1\n")
+  out.write_string("        call 0\n")
+  out.write_string("        local.tee 52\n")
+  out.write_string("        local.set 53\n")
+  out.write_string("        local.get 52\n")
+  out.write_string("        local.get 1\n")
+  out.write_string("        local.get 0\n")
+  out.write_string("        select\n")
+  out.write_string("        br 1\n")
+  out.write_string("      end\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("    end)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_large_result_br_table_dispatch_ladder_module(
+  depth : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    block $exit (result i32)\n")
+  let mut level = depth - 1
+  while level >= 0 {
+    out.write_string("      block $b")
+    out.write_string(level.to_string())
+    out.write_string("\n")
+    level = level - 1
+  }
+  out.write_string("        local.get 0\n")
+  out.write_string("        br_table")
+  for level = 0; level < depth; level = level + 1 {
+    out.write_string(" $b")
+    out.write_string(level.to_string())
+  }
+  out.write_string(" $b")
+  out.write_string((depth - 1).to_string())
+  out.write_string("\n")
+  for case_idx = 0; case_idx < depth; case_idx = case_idx + 1 {
+    out.write_string("      end\n")
+    out.write_string("      i32.const 1\n")
+    out.write_string("      i32.const 0\n")
+    out.write_string("      local.get 1\n")
+    out.write_string("      i32.const ")
+    out.write_string(case_idx.to_string())
+    out.write_string("\n")
+    out.write_string("      i32.eq\n")
+    out.write_string("      select\n")
+    if case_idx + 1 < depth {
+      out.write_string("      br $exit\n")
+    }
+  }
+  out.write_string("    end\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_large_br_table_return_ladder_hot_skip_module(
+  repetitions : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < 160 {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    local.set 0\n")
+  let mut i = 0
+  while i < repetitions {
+    let tee_local = 8 + i % 40
+    let set_local = 56 + i % 40
+    let spill_local = 104 + i % 40
+    out.write_string("    local.get 0\n")
+    out.write_string("    call 0\n")
+    out.write_string("    local.tee ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("    local.set ")
+    out.write_string(set_local.to_string())
+    out.write_string("\n")
+    out.write_string("    block\n")
+    out.write_string("      local.get ")
+    out.write_string(set_local.to_string())
+    out.write_string("\n")
+    out.write_string("      call 0\n")
+    out.write_string("      if\n")
+    out.write_string("        local.get ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.set ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    out.write_string("        call 0\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get ")
+    out.write_string(spill_local.to_string())
+    out.write_string("\n")
+    out.write_string("          return\n")
+    out.write_string("        end\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    block $exit (result i32)\n")
+  let mut depth = 5
+  while depth >= 0 {
+    out.write_string("      block $b")
+    out.write_string(depth.to_string())
+    out.write_string("\n")
+    depth = depth - 1
+  }
+  out.write_string("        local.get 1\n")
+  out.write_string("        br_table")
+  for case_idx = 0; case_idx < 6; case_idx = case_idx + 1 {
+    out.write_string(" $b")
+    out.write_string(case_idx.to_string())
+  }
+  out.write_string(" $b5\n")
+  for case_idx = 0; case_idx < 6; case_idx = case_idx + 1 {
+    out.write_string("      end\n")
+    out.write_string("      local.get ")
+    out.write_string((8 + case_idx).to_string())
+    out.write_string("\n")
+    out.write_string("      local.get 1\n")
+    out.write_string("      i32.const ")
+    out.write_string(case_idx.to_string())
+    out.write_string("\n")
+    out.write_string("      i32.eq\n")
+    out.write_string("      select\n")
+    if case_idx + 1 < 6 {
+      out.write_string("      br $exit\n")
+    }
+  }
+  out.write_string("    end)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_large_typed_br_table_encoder_ladder_module(
+  depth : Int,
+  tails_per_case : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  for local_idx = 0; local_idx < 1800; local_idx = local_idx + 1 {
+    out.write_string(" i32")
+  }
+  out.write_string(")\n")
+  out.write_string("    block $exit (result i32)\n")
+  let mut level = depth - 1
+  while level >= 0 {
+    out.write_string("      block $b")
+    out.write_string(level.to_string())
+    out.write_string("\n")
+    level = level - 1
+  }
+  out.write_string("        local.get 1\n")
+  out.write_string("        br_table")
+  for case_idx = 0; case_idx < depth; case_idx = case_idx + 1 {
+    out.write_string(" $b")
+    out.write_string(case_idx.to_string())
+  }
+  out.write_string(" $b")
+  out.write_string((depth - 1).to_string())
+  out.write_string("\n")
+  for case_idx = 0; case_idx < depth; case_idx = case_idx + 1 {
+    out.write_string("      end\n")
+    for tail_idx = 0; tail_idx < tails_per_case; tail_idx = tail_idx + 1 {
+      let local_base = 2 + (case_idx * tails_per_case + tail_idx) * 6
+      let tee_a = local_base
+      let set_a = local_base + 1
+      let tee_b = local_base + 2
+      let set_b = local_base + 3
+      let spill = local_base + 4
+      out.write_string("      drop\n")
+      out.write_string("        block (result i32)\n")
+      out.write_string("          block\n")
+      out.write_string("            local.get 0\n")
+      out.write_string("            call 0\n")
+      out.write_string("            local.tee ")
+      out.write_string(tee_a.to_string())
+      out.write_string("\n")
+      out.write_string("            local.set ")
+      out.write_string(set_a.to_string())
+      out.write_string("\n")
+      out.write_string("            local.get ")
+      out.write_string(set_a.to_string())
+      out.write_string("\n")
+      out.write_string("            call 0\n")
+      out.write_string("            i32.eqz\n")
+      out.write_string("            if\n")
+      out.write_string("              local.get ")
+      out.write_string(tee_a.to_string())
+      out.write_string("\n")
+      out.write_string("              br 1\n")
+      out.write_string("            end\n")
+      out.write_string("            local.get 1\n")
+      out.write_string("            call 0\n")
+      out.write_string("            local.tee ")
+      out.write_string(tee_b.to_string())
+      out.write_string("\n")
+      out.write_string("            local.set ")
+      out.write_string(set_b.to_string())
+      out.write_string("\n")
+      out.write_string("            local.get ")
+      out.write_string(set_b.to_string())
+      out.write_string("\n")
+      out.write_string("            call 0\n")
+      out.write_string("            local.set ")
+      out.write_string(spill.to_string())
+      out.write_string("\n")
+      out.write_string("            local.get ")
+      out.write_string(spill.to_string())
+      out.write_string("\n")
+      out.write_string("            i32.eqz\n")
+      out.write_string("            if\n")
+      out.write_string("              local.get ")
+      out.write_string(tee_b.to_string())
+      out.write_string("\n")
+      out.write_string("              br 1\n")
+      out.write_string("            end\n")
+      out.write_string("          end\n")
+      out.write_string("          local.get ")
+      out.write_string(tee_b.to_string())
+      out.write_string("\n")
+      out.write_string("          return\n")
+      out.write_string("        end\n")
+    }
+    out.write_string("      local.get 0\n")
+    out.write_string("      call 0\n")
+    out.write_string("      drop\n")
+    out.write_string("      i32.const ")
+    out.write_string(case_idx.to_string())
+    out.write_string("\n")
+    if case_idx + 1 < depth {
+      out.write_string("      br $exit\n")
+    }
+  }
+  out.write_string("    end)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_large_value_if_branch_ladder_module(
+  case_count : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32)\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    drop)\n")
+  out.write_string("  (func (param i32) (result i64)\n")
+  out.write_string("    (local i32)\n")
+  let depth = 10
+  let mut level = depth - 1
+  while level >= 0 {
+    out.write_string("    block $b")
+    out.write_string(level.to_string())
+    out.write_string("\n")
+    level = level - 1
+  }
+  let ladder = StringBuilder::new()
+  ladder.write_string("        local.get 0\n")
+  ladder.write_string("        call 0\n")
+  ladder.write_string("        i64.const 9999\n")
+  let mut case_idx = case_count - 1
+  while case_idx >= 0 {
+    let next = StringBuilder::new()
+    next.write_string("      local.get 1\n")
+    next.write_string("      i32.const ")
+    next.write_string(case_idx.to_string())
+    next.write_string("\n")
+    next.write_string("      i32.eq\n")
+    next.write_string("      if (result i64)\n")
+    if case_idx % 64 == 0 {
+      next.write_string("        local.get 0\n")
+      next.write_string("        call 0\n")
+      next.write_string("        i64.const ")
+      next.write_string((1000 + case_idx).to_string())
+      next.write_string("\n")
+    } else if case_idx % 3 == 0 {
+      next.write_string("        local.get 0\n")
+      next.write_string("        call 0\n")
+      next.write_string("        br $b")
+      next.write_string((case_idx % depth).to_string())
+      next.write_string("\n")
+    } else {
+      next.write_string("        br $b")
+      next.write_string((case_idx % depth).to_string())
+      next.write_string("\n")
+    }
+    next.write_string("      else\n")
+    next.write_string(ladder.to_string())
+    next.write_string("      end\n")
+    ladder.reset()
+    ladder.write_string(next.to_string())
+    case_idx = case_idx - 1
+  }
+  out.write_string("      local.get 0\n")
+  out.write_string("      local.tee 1\n")
+  out.write_string("      drop\n")
+  out.write_string(ladder.to_string())
+  out.write_string("      return\n")
+  for level = 0; level < depth; level = level + 1 {
+    out.write_string("    end\n")
+    if level + 1 < depth {
+      out.write_string("    i64.const ")
+      out.write_string((200 + level).to_string())
+      out.write_string("\n")
+      out.write_string("    return\n")
+    }
+  }
+  out.write_string("    i64.const 300)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_large_drop_heavy_branch_ladder_module(
+  repetitions : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  for local_idx = 0; local_idx < 500; local_idx = local_idx + 1 {
+    out.write_string(" i32")
+  }
+  out.write_string(")\n")
+  for i = 0; i < repetitions; i = i + 1 {
+    let local_base = 2 + i * 10
+    let tee_a = local_base
+    let set_a = local_base + 1
+    let tee_b = local_base + 2
+    let set_b = local_base + 3
+    let tee_c = local_base + 4
+    let set_c = local_base + 5
+    let tee_d = local_base + 6
+    let set_d = local_base + 7
+    let tee_e = local_base + 8
+    let set_e = local_base + 9
+    out.write_string("    block\n")
+    out.write_string("      block\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.tee ")
+    out.write_string(tee_a.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(set_a.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(set_a.to_string())
+    out.write_string("\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get ")
+    out.write_string(tee_a.to_string())
+    out.write_string("\n")
+    out.write_string("          call 0\n")
+    out.write_string("          local.tee ")
+    out.write_string(tee_b.to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(set_b.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(tee_b.to_string())
+    out.write_string("\n")
+    out.write_string("          call 0\n")
+    out.write_string("          drop\n")
+    out.write_string("          local.get ")
+    out.write_string(set_b.to_string())
+    out.write_string("\n")
+    out.write_string("          if\n")
+    out.write_string("            local.get ")
+    out.write_string(tee_b.to_string())
+    out.write_string("\n")
+    out.write_string("            call 0\n")
+    out.write_string("            local.tee ")
+    out.write_string(tee_c.to_string())
+    out.write_string("\n")
+    out.write_string("            local.set ")
+    out.write_string(set_c.to_string())
+    out.write_string("\n")
+    out.write_string("            local.get ")
+    out.write_string(tee_c.to_string())
+    out.write_string("\n")
+    out.write_string("            call 0\n")
+    out.write_string("            drop\n")
+    out.write_string("            br 1\n")
+    out.write_string("          end\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.tee ")
+    out.write_string(tee_d.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(set_d.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(set_d.to_string())
+    out.write_string("\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get ")
+    out.write_string(tee_d.to_string())
+    out.write_string("\n")
+    out.write_string("          call 0\n")
+    out.write_string("          local.tee ")
+    out.write_string(tee_e.to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(set_e.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(tee_e.to_string())
+    out.write_string("\n")
+    out.write_string("          call 0\n")
+    out.write_string("          drop\n")
+    out.write_string("          br 1\n")
+    out.write_string("        end\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+  }
+  out.write_string("    local.get 0)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_large_tagged_result_prefix_ladder_module(
+  case_count : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  for local_idx = 0; local_idx < 520; local_idx = local_idx + 1 {
+    out.write_string(" i32")
+  }
+  out.write_string(")\n")
+  let ladder = StringBuilder::new()
+  ladder.write_string("        i32.const 9999\n")
+  let mut local_base = 2
+  let mut case_idx = case_count - 1
+  while case_idx >= 0 {
+    let next = StringBuilder::new()
+    let local_a = local_base
+    let local_b = local_base + 1
+    let local_c = local_base + 2
+    let local_d = local_base + 3
+    let local_e = local_base + 4
+    let local_f = local_base + 5
+    next.write_string("    block $b")
+    next.write_string(case_idx.to_string())
+    next.write_string(" (result i32)\n")
+    next.write_string("      local.get 0\n")
+    next.write_string("      i32.const ")
+    next.write_string(case_idx.to_string())
+    next.write_string("\n")
+    next.write_string("      i32.eq\n")
+    next.write_string("      if (result i32)\n")
+    next.write_string("        local.get 1\n")
+    next.write_string("        call 0\n")
+    next.write_string("        local.tee ")
+    next.write_string(local_a.to_string())
+    next.write_string("\n")
+    next.write_string("        local.set ")
+    next.write_string(local_b.to_string())
+    next.write_string("\n")
+    next.write_string("        local.get ")
+    next.write_string(local_b.to_string())
+    next.write_string("\n")
+    next.write_string("        call 0\n")
+    next.write_string("        local.tee ")
+    next.write_string(local_c.to_string())
+    next.write_string("\n")
+    next.write_string("        local.set ")
+    next.write_string(local_d.to_string())
+    next.write_string("\n")
+    next.write_string("        local.get ")
+    next.write_string(local_d.to_string())
+    next.write_string("\n")
+    next.write_string("        call 0\n")
+    next.write_string("        local.tee ")
+    next.write_string(local_e.to_string())
+    next.write_string("\n")
+    next.write_string("        local.set ")
+    next.write_string(local_f.to_string())
+    next.write_string("\n")
+    next.write_string("        local.get ")
+    next.write_string(local_f.to_string())
+    next.write_string("\n")
+    next.write_string("        i32.eqz\n")
+    next.write_string("        if\n")
+    next.write_string("          local.get ")
+    next.write_string(local_a.to_string())
+    next.write_string("\n")
+    next.write_string("          drop\n")
+    next.write_string("        end\n")
+    next.write_string("        local.get ")
+    next.write_string(local_e.to_string())
+    next.write_string("\n")
+    next.write_string("        i32.eqz\n")
+    next.write_string("        if\n")
+    next.write_string("          local.get ")
+    next.write_string(local_c.to_string())
+    next.write_string("\n")
+    next.write_string("          drop\n")
+    next.write_string("        end\n")
+    next.write_string("        local.get ")
+    next.write_string(local_a.to_string())
+    next.write_string("\n")
+    next.write_string("        local.get ")
+    next.write_string(local_c.to_string())
+    next.write_string("\n")
+    next.write_string("        i32.add\n")
+    next.write_string("        local.get ")
+    next.write_string(local_e.to_string())
+    next.write_string("\n")
+    next.write_string("        i32.add\n")
+    next.write_string("        i32.const ")
+    next.write_string((1000 + case_idx).to_string())
+    next.write_string("\n")
+    next.write_string("        i32.add\n")
+    next.write_string("      else\n")
+    next.write_string(ladder.to_string())
+    next.write_string("      end\n")
+    next.write_string("      drop\n")
+    next.write_string("      local.get 1\n")
+    next.write_string("      call 0\n")
+    next.write_string("    end\n")
+    ladder.reset()
+    ladder.write_string(next.to_string())
+    local_base = local_base + 6
+    case_idx = case_idx - 1
+  }
+  out.write_string(ladder.to_string())
+  out.write_string("  )\n")
   out.write_string(")\n")
   out.to_string()
 }
@@ -1010,6 +1767,40 @@ test "remove-unused-brs skips unique loop-select return ladders without hot lift
 }
 
 ///|
+test "remove-unused-brs skips mid unique loop-select return ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_mid_unique_loop_select_return_ladder_module()
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected mid unique loop-select return ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=unique-loop-select-return-ladder-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=pass:remove-unused-brs"),
+    msg=text,
+  )
+}
+
+///|
 test "remove-unused-brs skips nested constructor ladders after lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
@@ -1139,6 +1930,42 @@ test "remove-unused-brs lifts structured return ladders when a carried guard blo
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
   assert_false(pretty.contains("br_if"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs skips structured return ladders when a false prefix guard candidate cannot rewrite" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_structured_return_ladder_with_false_prefix_guard_module(
+    6,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected false prefix-guard structured ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=structured-return-ladder-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=pass:remove-unused-brs"),
+    msg=text,
+  )
 }
 
 ///|
@@ -1336,6 +2163,204 @@ test "remove-unused-brs skips result-prefix scans for nested block dispatch ladd
     msg=text,
   )
   assert_false(text.contains("rub-result-prefix reject=guard-op"), msg=text)
+}
+
+///|
+test "remove-unused-brs skips large result br_table dispatch ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_large_result_br_table_dispatch_ladder_module(48)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected large result br_table dispatch remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=large-result-br-table-dispatch-ladder-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=pass:remove-unused-brs"),
+    msg=text,
+  )
+}
+
+///|
+test "remove-unused-brs skips large br_table return ladders after lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_large_br_table_return_ladder_hot_skip_module(36)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected large br_table return ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-hot reason=large-br-table-return-ladder-noop",
+    ),
+    msg=text,
+  )
+  assert_true(text.contains("perf:timer name=lift"), msg=text)
+  assert_true(text.contains("perf:timer name=pass:remove-unused-brs"), msg=text)
+}
+
+///|
+test "remove-unused-brs skips large typed br_table encoder ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_large_typed_br_table_encoder_ladder_module(48, 6)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected large typed br_table encoder ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=large-typed-br-table-encoder-ladder-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=pass:remove-unused-brs"),
+    msg=text,
+  )
+}
+
+///|
+test "remove-unused-brs skips large value-if branch ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_large_value_if_branch_ladder_module(320)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected large value-if branch ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=large-value-if-branch-ladder-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=pass:remove-unused-brs"),
+    msg=text,
+  )
+}
+
+///|
+test "remove-unused-brs skips large drop-heavy branch ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_large_drop_heavy_branch_ladder_module(45)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected large drop-heavy branch ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=large-drop-heavy-branch-ladder-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=pass:remove-unused-brs"),
+    msg=text,
+  )
+}
+
+///|
+test "remove-unused-brs skips large tagged result-prefix ladders after lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_large_tagged_result_prefix_ladder_module(72)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected large tagged result-prefix ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-hot reason=large-tagged-result-prefix-ladder-noop",
+    ),
+    msg=text,
+  )
+  assert_true(text.contains("perf:timer name=lift"), msg=text)
+  assert_true(text.contains("perf:timer name=pass:remove-unused-brs"), msg=text)
 }
 
 ///|

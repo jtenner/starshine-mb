@@ -1,8 +1,15 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-10
 sources:
+  - ../../../raw/research/0079-2026-04-10-remove-unused-brs-mid-unique-tee-floor.md
+  - ../../../raw/research/0080-2026-04-10-remove-unused-brs-large-brtable-hot-skip.md
+  - ../../../raw/research/0081-2026-04-10-remove-unused-brs-large-value-if-branch-raw-skip.md
+  - ../../../raw/research/0082-2026-04-10-remove-unused-brs-large-tagged-result-prefix-hot-skip.md
+  - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
+  - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
+  - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -42,9 +49,39 @@ The raw layer does three kinds of work:
 - Skip decisions.
   The raw layer recognizes several families where lifting used to cost a lot while doing no useful work:
   - `decision-ladder-selects`
+  - `large-result-br-table-dispatch-ladder-noop`
+  - `large-value-if-branch-ladder-noop`
+  - `large-drop-heavy-branch-ladder-noop`
+  - `large-typed-br-table-encoder-ladder-noop`
   - `structured-return-ladder-noop`
   - `unique-loop-select-return-ladder-noop`
   - `no-remove-unused-brs-candidates`
+
+The current unique-loop/select classifier is also slightly wider than the earlier March version.
+
+- it now accepts the measured sixteen-tee mid-band ladder family
+- the artifact follow-up shows that this reclassifies `Func 1171`, not the still-open `Func 1150` hotspot
+
+The later value-`if` / branch raw classifier is intentionally even narrower.
+
+- it targets the tiny-local, deep-block `i64` ladder family that retired `Func 828`
+- it is a raw skip only because the artifact function was still `changed=false` after paying full lift plus HOT traversal
+- after that slice, the leading pass-heavy hotspot moves to `Func 356`
+
+The later typed `br_table` encoder classifier is also intentionally artifact-shaped.
+
+- it targets the deep mixed value/void block shell around a single encoder `br_table` that retired `Func 1482`
+- it reuses a cheap decoded any-block-chain probe before the fuller count checks
+- the first stricter single-root draft only matched the reduced perf lock, so the landed version was calibrated against the traced artifact body instead of freezing the reduced-only approximation
+- after that slice, the visible runtime budget moves to `Func 1382`
+
+The later drop-heavy branch classifier is intentionally artifact-calibrated too.
+
+- it targets the large-local, no-`select`, no-`br_if`, no-`br_table` branch ladder that retired `Func 145`
+- the first `local_set >= 210` draft still passed the reduced lock but missed the real artifact body
+- the traced raw body for `Func 145` measured `local_set=201`, and both HOT-only raw guards were false
+- the landed `local_set >= 200` floor now retires that artifact function before lift
+- after that slice, the remaining pass-heavy work shifts to `Func 96`, `Func 788`, and `Func 1068`, while `Func 1382` remains the separate lift-heavy target
 
 The raw layer is not trying to re-implement the whole pass.
 
@@ -56,6 +93,28 @@ The raw layer is not trying to re-implement the whole pass.
 ## HOT Fixpoint Layer
 
 - The HOT layer is `remove_unused_brs_run(...)`.
+- It also has a small lifted no-op front door before the main walk:
+  - `large-br-table-return-ladder-noop`
+  - `large-tagged-result-prefix-ladder-noop`
+  - `large-void-if-return-ladder-noop`
+  - `nested-constructor-return-ladder-noop`
+- The newer `large-br-table-return-ladder-noop` family exists because some artifact functions still need lift, but RUB itself was doing no useful work after that point.
+- The direct one-arm payload branch cleanup also now has a negative whole-function boundary:
+  - if the function contains any `br_table`, `remove_unused_brs_try_rewrite_one_arm_payload_branch_if(...)` is disabled
+  - the reduced `Func 3771` failure proved Binaryen keeps that family conservative instead of emitting `drop(br_if ...)`
+  - this does not block the narrower continuation-wrapper rewrite from `0076`
+- The current traced debug artifact slice retires:
+  - `Func 1058` / `parse__opcode__instruction`
+  - `Func 1150` / `wt__lower__module`
+- The later lifted tagged result-prefix slice also retires:
+  - `Func 356` / `dfe__try__rewrite__instruction__type__idxs`
+- The raw layer also now retires:
+  - `Func 828` / `hot__lift__impl__exact__family`
+  - `Func 1482`
+- The tagged result-prefix detector carries its own cost lesson:
+  - the landed version piggybacks on the shared lifted ladder-shape scan
+  - it also cheap-fails on locals, roots, and node count before the full walk
+  - the first draft still retired `Func 356`, but it paid a second full scan and moved aggregate trace totals the wrong way
 - It runs a bounded fixpoint:
   - recompute analysis scaffolding
   - walk the root region
@@ -63,7 +122,7 @@ The raw layer is not trying to re-implement the whole pass.
   - repeat up to eight cycles while mutations keep happening
 - Each cycle rebuilds:
   - label reference counts
-  - branch-payload-child marks
+  - branch-payload-child marks plus a piggybacked `has_br_table` flag
   - reorder-safety cache
   - embedded-control cache
   - subtree-return cache
@@ -147,5 +206,6 @@ Several guards recur across the implementation:
 - Keep the two-layer design.
 - Add raw rewrites only when the family is obviously cheap and lift avoidance is the main win.
 - Add HOT rewrites only when the structural guard is narrow enough to preserve current perf behavior and existing returned-ladder regressions.
+- When a new HOT skip only needs one more count from a shape that is already being scanned, extend the shared scan instead of adding another whole-function walk.
+- When a new whole-function negative parity guard only needs one more cheap fact, piggyback it onto an existing per-cycle scan instead of adding a dedicated walk.
 - When a new helper needs broad nested discovery, assume the strategy is wrong until the cost model is proven.
-

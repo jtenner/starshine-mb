@@ -568,6 +568,63 @@ test "remove-unused-brs restructures loop-body one-exit-arm ifs with carried sel
 }
 
 ///|
+test "remove-unused-brs verifies loop-body carried self-tail rewrites from Binaryen-style fallthrough sinks" {
+  let source = "(module (func (param i32 i32) (result i32) (local i32) (loop $loop (if (i32.ge_s (local.get 1) (i32.const 0)) (then (local.set 2 (local.get 1)) (drop (i32.const 0))) (else (return (local.get 0)))) (drop (i32.const 0)) (br $loop)) unreachable))"
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs carried self-tail verifier-safe rewrite success, got \{err}",
+      )
+  }
+
+  let func = @ir.hot_lift_func(optimized, @lib.FuncIdx::new(0U))
+  let loop_id = @ir.hot_region_get(func, @ir.HotRegionRef::root(), 0)
+  let loop_body = @ir.hot_region_body_ref(func, loop_id)
+  assert_eq(
+    @ir.hot_region_root_count(func, loop_body),
+    2,
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+
+  let if_id = @ir.hot_region_get(func, loop_body, 0)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  assert_eq(
+    @ir.hot_region_root_count(func, then_ref),
+    4,
+    msg=optimized.pretty_print_func(@lib.FuncIdx::new(0U)),
+  )
+  let then_tail = @ir.hot_region_get(
+    func,
+    then_ref,
+    @ir.hot_region_root_count(func, then_ref) - 1,
+  )
+  match @ir.hot_node_get(func, then_tail).op {
+    @ir.HotOp::Br => ()
+    _ =>
+      fail(
+        "expected Binaryen-style carried loop branch in fallthrough arm tail, got \{@ir.hot_node_get(func, then_tail).op}",
+      )
+  }
+
+  let loop_tail = @ir.hot_region_get(func, loop_body, 1)
+  match @ir.hot_node_get(func, loop_tail).op {
+    @ir.HotOp::Unreachable => ()
+    _ =>
+      fail(
+        "expected unreachable loop tail after carried self-tail rewrite, got \{@ir.hot_node_get(func, loop_tail).op}",
+      )
+  }
+}
+
+///|
 test "remove-unused-brs sinks self-target if-arm block branches into arm-local wrappers" {
   let optimized = match
     pass_test_run_pipeline(
@@ -716,6 +773,29 @@ test "remove-unused-brs rewrites result-block br_if prefixes with payload bodies
         "expected preserved payload body block wrapper, got \{@ir.hot_node_get(func, then_root).op}",
       )
   }
+}
+
+///|
+test "remove-unused-brs verifies result-block one-arm payload if rewrites without corrupting block labels" {
+  let source = "(module (func (param i32) (result i32) (block $out (result i32) (local.get 0) (if (then (i32.const 7) (br $out))) (i32.const 9))))"
+  let optimized = match
+    pass_test_run_pipeline(
+      source,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(
+        verify_policy=HotPipelineVerifyPolicy::after_each_pass(),
+      ),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs one-arm payload result-block rewrite success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_false(pretty.contains("(br "), msg=pretty)
+  assert_true(pretty.contains("select"), msg=pretty)
 }
 
 ///|
@@ -1643,6 +1723,38 @@ test "remove-unused-brs lowers carried guard blocks in result-block then arms" {
   let trace_text = "\{trace_lines}"
   assert_true(pretty.contains("(if (Void)"), msg="\{pretty}\n\{trace_text}")
   assert_false(pretty.contains("br_if"), msg="\{pretty}\n\{trace_text}")
+}
+
+///|
+test "remove-unused-brs keeps one-arm payload branch ifs in br_table functions" {
+  let source =
+    #|(module
+    #|  (func (param i32) (result i32)
+    #|    (block $exit (result i32)
+    #|      (block $dispatch
+    #|        (block $case0
+    #|          (local.get 0)
+    #|          (br_table $case0 $dispatch))
+    #|        (local.get 0)
+    #|        (if
+    #|          (then
+    #|            (i32.const 1)
+    #|            (br $exit)))
+    #|        (i32.const 2)
+    #|        (br $exit))
+    #|      (i32.const 3))))
+  let optimized = match pass_test_run_pipeline(source, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs br_table one-arm payload if success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("br_table"), msg=pretty)
+  assert_true(pretty.contains("(if"), msg=pretty)
+  assert_false(pretty.contains("drop"), msg=pretty)
 }
 
 ///|

@@ -649,8 +649,11 @@ priv struct RawRemoveUnusedBrsShape {
   mut select_count : Int
   mut br_if_count : Int
   mut block_count : Int
+  mut value_block_count : Int
+  mut void_block_count : Int
   mut loop_count : Int
   mut br_count : Int
+  mut br_table_count : Int
   mut drop_count : Int
 }
 
@@ -665,8 +668,11 @@ fn RawRemoveUnusedBrsShape::new() -> RawRemoveUnusedBrsShape {
     select_count: 0,
     br_if_count: 0,
     block_count: 0,
+    value_block_count: 0,
+    void_block_count: 0,
     loop_count: 0,
     br_count: 0,
+    br_table_count: 0,
     drop_count: 0,
   }
 }
@@ -698,8 +704,16 @@ fn run_hot_pipeline_raw_remove_unused_brs_scan_shape(
       @lib.Return => shape.return_count = shape.return_count + 1
       @lib.Select(_) => shape.select_count = shape.select_count + 1
       @lib.BrIf(_) => shape.br_if_count = shape.br_if_count + 1
-      @lib.Block(_, @lib.Expr(body)) => {
+      @lib.Block(bt, @lib.Expr(body)) => {
         shape.block_count = shape.block_count + 1
+        match bt {
+          @lib.ValTypeBlockType(_) =>
+            shape.value_block_count = shape.value_block_count + 1
+          @lib.TypeIdxBlockType(_) =>
+            shape.value_block_count = shape.value_block_count + 1
+          @lib.VoidBlockType =>
+            shape.void_block_count = shape.void_block_count + 1
+        }
         run_hot_pipeline_raw_remove_unused_brs_scan_shape(body, shape)
       }
       @lib.Loop(_, @lib.Expr(body)) => {
@@ -709,10 +723,208 @@ fn run_hot_pipeline_raw_remove_unused_brs_scan_shape(
       @lib.TryTable(_, _, @lib.Expr(body)) =>
         run_hot_pipeline_raw_remove_unused_brs_scan_shape(body, shape)
       @lib.Br(_) => shape.br_count = shape.br_count + 1
+      @lib.BrTable(_, _) => shape.br_table_count = shape.br_table_count + 1
       @lib.Drop => shape.drop_count = shape.drop_count + 1
       _ => ()
     }
   }
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_leading_block_chain_depth(
+  instrs : Array[@lib.Instruction],
+) -> Int {
+  let mut depth = 0
+  let mut cursor = instrs
+  while cursor.length() > 0 {
+    match cursor[0] {
+      @lib.Block(@lib.VoidBlockType, @lib.Expr(body)) => {
+        depth = depth + 1
+        cursor = body
+      }
+      _ => return depth
+    }
+  }
+  depth
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_leading_any_block_chain_depth(
+  instrs : Array[@lib.Instruction],
+) -> Int {
+  let mut depth = 0
+  let mut cursor = instrs
+  while cursor.length() > 0 {
+    match cursor[0] {
+      @lib.Block(_, @lib.Expr(body)) => {
+        depth = depth + 1
+        cursor = body
+      }
+      _ => return depth
+    }
+  }
+  depth
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_can_skip_large_result_br_table_dispatch_ladder(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if instrs.length() != 1 {
+    return false
+  }
+  let body = match instrs[0] {
+    @lib.Block(@lib.ValTypeBlockType(_), @lib.Expr(body)) => body
+    _ => return false
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_leading_block_chain_depth(body) < 32 {
+    return false
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_has_hot_only_candidates(body) {
+    return false
+  }
+  let shape = RawRemoveUnusedBrsShape::new()
+  run_hot_pipeline_raw_remove_unused_brs_scan_shape(body, shape)
+  shape.block_count >= 32 &&
+  (
+    shape.br_count == shape.block_count ||
+    shape.br_count + 1 == shape.block_count
+  ) &&
+  shape.br_table_count == 1 &&
+  shape.local_set_count == 0 &&
+  shape.local_tee_count == 0 &&
+  shape.if_count == 0 &&
+  shape.return_count == 0 &&
+  shape.br_if_count == 0 &&
+  shape.loop_count == 0 &&
+  shape.drop_count == 0
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_can_skip_large_value_if_branch_ladder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if locals.length() < 1 || locals.length() > 4 || instrs.length() > 2 {
+    return false
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_leading_block_chain_depth(instrs) <
+    8 {
+    return false
+  }
+  let (_, has_structured_control, has_branches, _, _, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  if !has_structured_control ||
+    !has_branches ||
+    instr_count < 600 ||
+    instr_count > 3000 {
+    return false
+  }
+  let shape = RawRemoveUnusedBrsShape::new()
+  run_hot_pipeline_raw_remove_unused_brs_scan_shape(instrs, shape)
+  shape.call_count >= 40 &&
+  shape.call_count <= 160 &&
+  shape.local_set_count == 0 &&
+  shape.local_tee_count == 1 &&
+  shape.if_count >= 128 &&
+  shape.if_count <= 400 &&
+  shape.return_count == shape.block_count &&
+  shape.return_count >= 8 &&
+  shape.return_count <= 16 &&
+  shape.select_count == 0 &&
+  shape.br_if_count == 0 &&
+  shape.block_count >= 8 &&
+  shape.block_count <= 16 &&
+  shape.loop_count == 0 &&
+  shape.br_count >= 120 &&
+  shape.br_count <= shape.if_count &&
+  shape.br_count + 8 >= shape.if_count &&
+  shape.br_table_count == 0 &&
+  shape.drop_count <= 1
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_can_skip_large_drop_heavy_branch_ladder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if locals.length() < 400 || locals.length() > 550 {
+    return false
+  }
+  let (_, has_structured_control, has_branches, has_drop, _, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  if !has_structured_control ||
+    !has_branches ||
+    !has_drop ||
+    instr_count < 1600 ||
+    instr_count > 8000 {
+    return false
+  }
+  let shape = RawRemoveUnusedBrsShape::new()
+  run_hot_pipeline_raw_remove_unused_brs_scan_shape(instrs, shape)
+  shape.call_count >= 300 &&
+  shape.call_count <= 360 &&
+  shape.local_set_count >= 200 &&
+  shape.local_set_count <= 260 &&
+  shape.local_tee_count >= 220 &&
+  shape.local_tee_count <= 300 &&
+  shape.if_count >= 132 &&
+  shape.if_count <= 170 &&
+  shape.return_count <= 4 &&
+  shape.select_count == 0 &&
+  shape.br_if_count == 0 &&
+  shape.block_count >= 90 &&
+  shape.block_count <= 130 &&
+  shape.loop_count <= 2 &&
+  shape.br_count >= 90 &&
+  shape.br_count <= 120 &&
+  shape.br_table_count == 0 &&
+  shape.drop_count >= 90 &&
+  shape.drop_count <= 140
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_can_skip_large_typed_br_table_encoder_ladder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  if locals.length() < 1024 || locals.length() > 5000 {
+    return false
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_leading_any_block_chain_depth(
+      instrs,
+    ) <
+    32 {
+    return false
+  }
+  let (_, has_structured_control, has_branches, has_drop, _, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  if !has_structured_control ||
+    !has_branches ||
+    !has_drop ||
+    instr_count < 3000 ||
+    instr_count > 200000 {
+    return false
+  }
+  let shape = RawRemoveUnusedBrsShape::new()
+  run_hot_pipeline_raw_remove_unused_brs_scan_shape(instrs, shape)
+  shape.call_count >= 1000 &&
+  shape.local_set_count >= 700 &&
+  shape.local_tee_count >= 500 &&
+  shape.if_count >= 500 &&
+  shape.return_count >= 250 &&
+  shape.select_count == 0 &&
+  shape.br_if_count == 0 &&
+  shape.block_count >= 500 &&
+  shape.value_block_count >= 200 &&
+  shape.void_block_count >= 250 &&
+  shape.loop_count <= 4 &&
+  shape.br_count >= 500 &&
+  shape.br_table_count == 1 &&
+  shape.drop_count >= 200
 }
 
 ///|
@@ -774,7 +986,7 @@ fn run_hot_pipeline_raw_remove_unused_brs_can_skip_unique_loop_select_return_lad
   shape.call_count <= 50 &&
   shape.local_set_count >= 30 &&
   shape.local_set_count <= 45 &&
-  shape.local_tee_count >= 20 &&
+  shape.local_tee_count >= 16 &&
   shape.local_tee_count <= 50 &&
   shape.if_count >= 4 &&
   shape.if_count <= 6 &&
@@ -955,20 +1167,31 @@ fn run_hot_pipeline_raw_remove_unused_brs_block_has_prefix_guard_payload_branch_
     _ => return false
   }
   let zero = @lib.LabelIdx::new(0U)
-  let mut has_guard_prefix = false
+  let mut guard_idx = -1
   let mut inner_idx = 0
   while inner_idx < inner_body.length() {
     match inner_body[inner_idx] {
       @lib.BrIf(label_idx) =>
         if label_idx == zero && inner_idx + 1 < inner_body.length() {
-          has_guard_prefix = true
+          guard_idx = inner_idx
           break
         }
+      @lib.Nop
+      | @lib.Drop
+      | @lib.LocalSet(_)
+      | @lib.Br(_)
+      | @lib.BrTable(_, _)
+      | @lib.Return
+      | @lib.Block(@lib.VoidBlockType, _)
+      | @lib.Loop(_, _)
+      | @lib.TryTable(_, _, _)
+      | @lib.If(@lib.VoidBlockType, _, _)
+      | @lib.Unreachable => return false
       _ => ()
     }
     inner_idx += 1
   }
-  if !has_guard_prefix {
+  if guard_idx < 0 {
     return false
   }
   let mut saw_payload = false
@@ -3213,6 +3436,52 @@ fn run_hot_pipeline_raw_remove_unused_brs(
       reason: "decision-ladder-selects",
       func: @lib.Func::new(locals, @lib.Expr::new(rewritten_instrs)),
       unchanged_original: false,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_can_skip_large_result_br_table_dispatch_ladder(
+      instrs,
+    ) {
+    return Some({
+      reason: "large-result-br-table-dispatch-ladder-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_can_skip_large_value_if_branch_ladder(
+      locals, instrs,
+    ) {
+    return Some({
+      reason: "large-value-if-branch-ladder-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_can_skip_large_drop_heavy_branch_ladder(
+      locals, instrs,
+    ) &&
+    !run_hot_pipeline_raw_remove_unused_brs_has_condition_child_value_if_candidate(
+      instrs,
+    ) &&
+    !run_hot_pipeline_raw_remove_unused_brs_has_prefix_guard_payload_branch_candidate(
+      instrs,
+    ) {
+    return Some({
+      reason: "large-drop-heavy-branch-ladder-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_can_skip_large_typed_br_table_encoder_ladder(
+      locals, instrs,
+    ) {
+    return Some({
+      reason: "large-typed-br-table-encoder-ladder-noop",
+      func: original,
+      unchanged_original: true,
       trace_skip_raw: true,
     })
   }

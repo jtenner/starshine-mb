@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-10
 sources:
+  - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
 related:
@@ -112,6 +113,17 @@ The replacement shape is:
 - followed by the surviving body roots
 
 This is the main direct one-arm payload family, but not the only one. More complicated carried-wrapper versions live on the carried-guards page.
+
+The direct rewrite now also has one whole-function negative parity guard.
+
+- If the current function contains any `br_table`, the helper bails out immediately.
+- The reduced `Func 3771` family proved Binaryen keeps that shape as an `if` instead of lowering it to `drop(br_if ...)`.
+- The focused regression is `remove-unused-brs keeps one-arm payload branch ifs in br_table functions`.
+
+The implementation detail matters for performance too.
+
+- The guard reuses the existing `branch_payload_children` scan, which now also returns `has_br_table`.
+- The first correct draft added a second whole-function walk and regressed the full self-opt replay, so future whole-function negative guards should piggyback on an existing scan when possible.
 
 ## Branch-Payload `if`
 
@@ -225,4 +237,3 @@ The rotation is deliberately blocked when nested value control exists, because t
 - Use the helpers on this page when the branch structure is already direct and local.
 - If the branch/payload family still depends on result-block carriers or prefix guards, move to [`./carried-guards-and-result-blocks.md`](./carried-guards-and-result-blocks.md).
 - If the branch family is hidden behind explicit `Return` and holder blocks, check [`./returned-ladder-hot-shapes.md`](./returned-ladder-hot-shapes.md) before widening a matcher here.
-

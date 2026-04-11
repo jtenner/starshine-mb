@@ -4,6 +4,10 @@ status: working
 last_reviewed: 2026-04-10
 sources:
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
+  - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
+  - ../../../raw/research/0078-2026-04-10-remove-unused-brs-false-prefix-guard-raw-skip.md
+  - ../../../raw/research/0082-2026-04-10-remove-unused-brs-large-tagged-result-prefix-hot-skip.md
+  - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -77,6 +81,32 @@ The matcher now also short-circuits before label-ref work when the first inner r
 - It avoids paying the expensive carried-wrapper discovery path on very large nested block dispatch ladders that were always going to be no-op.
 - The perf lock is `remove-unused-brs skips result-prefix scans for nested block dispatch ladders`.
 
+The raw side now has a matching negative rule too.
+
+- `structured-return-ladder-noop` is no longer cancelled just because the first inner void block contains some later `br_if`.
+- If the inner prefix already contains a clearly separate void root before that `br_if`, the raw detector now treats it as a false prefix-guard candidate and lets the structured-return raw skip stand.
+- The perf lock is `remove-unused-brs skips structured return ladders when a false prefix guard candidate cannot rewrite`.
+
+## Large Tagged Result-Prefix Ladders Are Not A Rewrite Family
+
+The later `Func 356` hotspot is related to this page, but it is not a new carried-guard rewrite.
+
+- The repeated cost came from large lifted result-prefix ladders entering `remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(...)`.
+- Those ladders then repeatedly proved that their first interesting inner root was the wrong kind of tagged prefix and emitted `rub-result-prefix reject=inner-op ...`.
+- RUB still finished `changed=false`.
+
+The landed response is a lifted no-op skip instead of a wider rewrite.
+
+- `remove_unused_brs_can_skip_large_tagged_result_prefix_ladder(...)` now recognizes that measured family and reports `skip-hot reason=large-tagged-result-prefix-ladder-noop`.
+- The detector counts one-result blocks whose first roots are not plain prefix `Block`s, alongside the already-shared lifted shape counts.
+- The focused lock is `remove-unused-brs skips large tagged result-prefix ladders after lift`.
+
+The important maintenance lesson is cost, not only legality.
+
+- The first draft retired `Func 356`, but it paid a second full node walk just to count tagged result-prefix blocks.
+- The landed version instead reuses the shared lifted ladder-shape scan and cheap locals/roots/node guards before the full walk.
+- That change keeps the family recorded as a no-op hotspot retirement while explicitly acknowledging that aggregate trace totals still need more work.
+
 ## Dropped Result-Block Tail Branch
 
 ### `remove_unused_brs_try_rewrite_drop_result_block_if_tail_branch(...)`
@@ -144,6 +174,32 @@ The legality boundary is narrow on purpose:
 
 If any of those checks fail, treat the family as still parity-sensitive rather than "obviously simplifiable".
 
+## Large Result `br_table` Dispatch Ladders Are Not This Family
+
+The large one-result `br_table` dispatch ladders retired in `0077` are a different class.
+
+- They are now raw-skipped before lift as `large-result-br-table-dispatch-ladder-noop`.
+- The skip exists because those giant artifact functions were paying carry-wrapper discovery cost even though they had no HOT-only work left.
+- The new perf lock is `remove-unused-brs skips large result br_table dispatch ladders without hot lift`.
+
+Do not treat that raw skip as an extension of the continuation-wrapper rewrite above.
+
+- The continuation-wrapper slice is still a parity rewrite with narrow legality checks and mutation proofs.
+- The large-dispatch slice is a no-op classifier for deep one-result ladders whose final case falls through and whose earlier cases only exit the outer result block.
+
+## Large Typed `br_table` Encoder Ladders Are Not This Family Either
+
+The later `Func 1482` retirement is another `br_table`-shaped no-op family, but it also does not belong to the continuation-wrapper rewrite.
+
+- It is now raw-skipped before lift as `large-typed-br-table-encoder-ladder-noop`.
+- The measured family is a deep mixed value/void block shell around a single encoder `br_table`, with many calls, locals, `if`, `br`, `return`, and `drop`, but no `br_if` or `select`.
+- The first stricter reduced-only detector missed the real artifact because it assumed a single typed root; the landed rule keys on the decoded any-block shell instead.
+
+Do not treat that raw skip as a broadening of the continuation-wrapper legality surface.
+
+- The continuation-wrapper slice still depends on narrow label-owner and forwarding-tail proofs.
+- The typed encoder slice is a no-op classifier for a measured lift-heavy family that RUB already left unchanged.
+
 ## Prefixed One-Arm Payload Branch Suffix
 
 ### `remove_unused_brs_try_rewrite_prefixed_one_arm_payload_branch_if_suffix(...)`
@@ -210,5 +266,5 @@ This family is not only covered by unit-like pass tests.
   - branch target arity
   - whether the candidate block is still a payload child
   - whether Binaryen intentionally keeps the wrapper longer
-  - whether the family is really a `br_if` carrier rewrite or the newer `br_table` continuation-wrapper family
+  - whether the family is really a `br_if` carrier rewrite, the newer `br_table` continuation-wrapper family, or the separate large-dispatch no-op raw skip
 - Do not treat these as cosmetic reshapes. This page owns some of the most parity-sensitive correctness work in the pass.

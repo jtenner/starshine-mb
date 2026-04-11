@@ -2,6 +2,54 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-10] maintain | calibrate RUB drop-heavy raw local-set floor
+
+- Added `raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md` to capture the first reduced-only miss, the traced `Func 145` raw counts, the verified false HOT-only guards, and the landed `local_set >= 200` floor.
+- Updated the living `remove-unused-brs` hub, parity, pattern-catalog, visit-order, and HOT-strategy pages so the new `large-drop-heavy-branch-ladder-noop` retirement, its artifact-calibrated floor, and the latest hotspot order are part of the durable wiki.
+- Updated `docs/wiki/index.md` so the RUB catalog now describes the later drop-heavy `Func 145` raw retirement alongside the earlier `Func 828` and `Func 1482` raw slices.
+
+## [2026-04-10] maintain | record RUB `br_table` one-arm payload parity guard
+
+- Added `raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md` to capture the reduced `Func 3771` parity failure, the Binaryen-side negative boundary for direct one-arm payload branches inside `br_table` functions, the rejected `hot_lower` detour, and the piggyback runtime recovery.
+- Updated the living `remove-unused-brs` hub, parity, branch-exit/payload, visit-order, pattern-catalog, and HOT-strategy pages so the new direct one-arm payload `br_table` guard and the "piggyback broad guards onto an existing scan" lesson are part of the durable wiki.
+- Updated `docs/wiki/index.md` so the RUB catalog now describes the new `Func 3771` parity boundary and the scan-reuse maintenance rule alongside the earlier `br_table` slices.
+
+## [2026-04-10] maintain | record RUB large typed `br_table` encoder raw skip
+
+- Added `raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md` to capture the retired `Func 1482` family, the reduced perf lock, and the decoded-shell detector lesson from the first reduced-only draft that missed the real artifact body.
+- Updated the living `remove-unused-brs` hub, parity, pattern-catalog, carried-guards/result-blocks, visit-order, and HOT-strategy pages so the new `large-typed-br-table-encoder-ladder-noop` raw skip, its `leading_any_block_chain_depth(...)` cheap prefilter, and the remaining `Func 1382` hotspot are part of the durable wiki.
+- Updated `docs/wiki/index.md` so the RUB catalog now describes the typed `br_table` encoder raw skip and the current single-hotspot follow-up state.
+
+## [2026-04-10] maintain | record RUB large tagged result-prefix hot skip
+
+- Added `raw/research/0082-2026-04-10-remove-unused-brs-large-tagged-result-prefix-hot-skip.md` to capture the retired `Func 356` family, the reduced perf lock, the first detector-overhead draft, and the landed fastguard follow-up.
+- Updated the living `remove-unused-brs` hub, parity, visit-order, pattern-catalog, carried-guards/result-blocks, and HOT-strategy pages so the new `large-tagged-result-prefix-ladder-noop` lifted skip and the detector-cost lesson are part of the durable wiki.
+- Updated `docs/wiki/index.md` so the RUB catalog now describes the lifted tagged result-prefix slice and the new `Func 1382` / `Func 1482` hotspot order.
+
+## [2026-04-10] maintain | record RUB large value-`if` / branch raw skip
+
+- Added `raw/research/0081-2026-04-10-remove-unused-brs-large-value-if-branch-raw-skip.md` to capture the retired `Func 828` family, the reduced perf lock, and the updated fuzz plus artifact evidence.
+- Updated the living `remove-unused-brs` hub, parity, visit-order, pattern-catalog, and HOT-strategy pages so the new `large-value-if-branch-ladder-noop` raw skip and the updated hotspot order are part of the durable wiki.
+- Updated `docs/wiki/index.md` so the RUB catalog now describes the later raw value-`if` / branch skip alongside the earlier raw large-dispatch and lifted large-`br_table` slices.
+
+## [2026-04-10] maintain | record RUB large `br_table` hot skip
+
+- Added `raw/research/0080-2026-04-10-remove-unused-brs-large-brtable-hot-skip.md` to capture the new lifted no-op family, the reduced perf lock, and the updated artifact plus fuzz evidence.
+- Updated the living `remove-unused-brs` hub, parity, visit-order, pattern-catalog, and HOT-strategy pages so the new `large-br-table-return-ladder-noop` skip and the retired `Func 1058` / `Func 1150` pair are part of the durable wiki.
+- Updated `docs/wiki/index.md` so the RUB catalog now describes the later lifted `br_table` / return hot skip alongside the earlier raw large-dispatch and tee-floor slices.
+
+## [2026-04-10] maintain | record RUB mid-band unique tee-floor correction
+
+- Added `raw/research/0079-2026-04-10-remove-unused-brs-mid-unique-tee-floor.md` to capture the sixteen-tee unique-loop/select classifier change, the corrected `Func 1171` versus `Func 1150` artifact mapping, and the latest parity plus trace evidence.
+- Updated the living `remove-unused-brs` hub, parity, visit-order, pattern-catalog, and HOT-strategy pages so the wider unique skip boundary and the corrected hotspot attribution are part of the durable wiki instead of a transient trace note.
+- Updated `docs/wiki/index.md` so the RUB catalog entries describe the tee-floor correction as part of the current bailout and parity story.
+
+## [2026-04-10] maintain | record RUB large result `br_table` raw skip
+
+- Added `raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md` and `raw/research/0078-2026-04-10-remove-unused-brs-false-prefix-guard-raw-skip.md` to capture the large-dispatch no-op family, the false-prefix fix, and the kept perf evidence.
+- Updated the living `remove-unused-brs` hub, parity, pattern-catalog, carried-guards/result-blocks, visit-order, and HOT-strategy pages so the large-dispatch no-op skip, the raw false-prefix guard, and the next artifact hotspot order are part of the durable wiki.
+- Updated `docs/wiki/index.md` so the RUB catalog now describes the carried-wrapper plus large-dispatch artifact status instead of the stale early `Func 50` summary.
+
 ## [2026-04-09] bootstrap | initialize wasm knowledge base
 
 - Added `docs/README.md` as the canonical docs and wiki schema.

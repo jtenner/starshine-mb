@@ -6,7 +6,16 @@ sources:
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
+  - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
+  - ../../../raw/research/0078-2026-04-10-remove-unused-brs-false-prefix-guard-raw-skip.md
+  - ../../../raw/research/0079-2026-04-10-remove-unused-brs-mid-unique-tee-floor.md
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
+  - ../../../raw/research/0080-2026-04-10-remove-unused-brs-large-brtable-hot-skip.md
+  - ../../../raw/research/0081-2026-04-10-remove-unused-brs-large-value-if-branch-raw-skip.md
+  - ../../../raw/research/0082-2026-04-10-remove-unused-brs-large-tagged-result-prefix-hot-skip.md
+  - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
+  - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
+  - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -46,10 +55,26 @@ related:
   - a raw pre-lift fast path in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
   - the HOT fixpoint in [`../../../../../src/passes/remove_unused_brs.mbt`](../../../../../src/passes/remove_unused_brs.mbt)
 - The implementation is already much broader than "trailing branch stripping", and the old early `br_table` continuation-wrapper artifact gap is now fixed in-source.
-- It is still an in-progress parity pass because the explicit debug-artifact compare remains noisy after that fix:
+- The raw layer now also skips the large one-result `br_table` dispatch ladders that were dominating no-op artifact cost after the continuation-wrapper slice.
+- The raw layer now also skips the later large typed `br_table` encoder family that was still lifting as `Func 1482` even though RUB left it unchanged.
+- The raw layer now also skips the later tiny-local value-`if` / branch ladder family that was still lifting as `Func 828` even though RUB left it unchanged.
+- The raw layer now also skips the later large-local drop-heavy branch ladder family that was still lifting as `Func 145` even though RUB left it unchanged.
+- The raw structured-return skip now ignores reduced false prefix-guard families that the real HOT result-prefix matcher cannot rewrite anyway.
+- The unique loop/select raw skip now also covers the measured sixteen-tee mid-band ladder family, but that slice only reclassifies `Func 1171`.
+- The direct one-arm payload branch rewrite now also has a negative parity guard in `br_table` functions:
+  - the reduced `Func 3771` family proves Binaryen keeps that `if` conservative
+  - the landed guard piggybacks on the existing branch-payload scan instead of paying a second whole-function walk
+- The hot layer now also skips the large lifted `br_table` / return family that was still paying full traversal after lift:
+  - `Func 1058` / `parse__opcode__instruction`
+  - `Func 1150` / `wt__lower__module`
+- The hot layer now also skips the later tagged result-prefix family that only triggered repeated `rub-result-prefix reject=inner-op` discovery before exiting unchanged:
+  - `Func 356` / `dfe__try__rewrite__instruction__type__idxs`
+- It is still an in-progress parity pass because the explicit debug-artifact compare remains noisy after those fixes:
   - the saved compare still diverges in normalized WAT
-  - the first remaining hunk now includes module type-order noise before later body-level diffs
-  - self-opt runtime is back near the earlier Starshine baseline, but still well over Binaryen
+  - the first inspected remaining hunk `func $384` still traces as `changed=false`, so some early noise is not RUB mutation at all
+  - the latest full self-opt replay `.tmp/self-opt-rub-20260410-drop-heavy-f145` improves to `573.182 ms` Starshine pass time versus `91.702 ms` Binaryen, but is still well over budget
+  - the latest native trace `.tmp/rub-trace-drop-heavy-final-idle.stderr` retires `Func 145` before lift
+  - the next runtime work should split unchanged pass-heavy self-opt functions `Func 96` / `Func 788` / `Func 1068` from the older lift-heavy `Func 1382` trace
 
 ## Page Map
 
