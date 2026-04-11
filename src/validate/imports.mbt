@@ -106,6 +106,7 @@ using @splitmix {type RandomState}
 using @validate_proof {
   bounded_index,
   defined_func_absolute_index,
+  defined_body_func_index,
   defined_func_body_index,
   group_member_relative_index,
   group_relative_absolute_index,

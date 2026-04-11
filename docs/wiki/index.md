@@ -36,7 +36,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`strings/string-const-surface.md`](strings/string-const-surface.md) - Public surface, binary string-literal section, constant-expression rule, and IR payload handling for `string.const`.
 - [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) - Repo rule that heavy fuzz belongs in `src/fuzz`, with reusable suite, profile, and seed workflow.
 - [`tooling/tracing-playbook.md`](tooling/tracing-playbook.md) - Shared `key=value` trace contract, timing helper use, hotspot summaries, and the no-trace-only-tests rule.
-- [`validation/moonbit-prove-strategy.md`](validation/moonbit-prove-strategy.md) - Current `moon prove` toolchain facts, the new `src/validate_proof` bootstrap boundary, and the blocker on proving `src/validate` directly.
+- [`validation/moonbit-prove-strategy.md`](validation/moonbit-prove-strategy.md) - Current `moon prove` toolchain facts, the `8`-goal `src/validate_proof` helper kernel, and the blocker on proving `src/validate` directly.
 - [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) - Current validator fuzz trust gaps and the staged hardening order for strategy accounting, generator breadth, and repro ergonomics.
 - [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md) - Higher-level WAST support for GC type defs, `rec` groups, descriptor metadata, and flat type indexing after grouped entries.
 

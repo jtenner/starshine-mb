@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-11 Feat: prove code-body ordinal mapping for validator diagnostics
+
+- **proved code-body to function-index helper** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](./docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`src/validate/imports.mbt`](./src/validate/imports.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate_proof/func_index.mbt`](./src/validate_proof/func_index.mbt), [`src/validate_proof/func_index_proof.mbtp`](./src/validate_proof/func_index_proof.mbtp), and [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt) to add and prove `defined_body_func_index`, route the remaining code-body diagnostic sites through proved body-index arithmetic, add imported-prefix validator regressions, and refresh the proof wiki to the current `8`-goal kernel state.
+
 ## 2026-04-10 Feat: prove declared-function bounds checks for ref.func validation
 
 - **proved reusable in-bounds index helper** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/validate/imports.mbt`](./src/validate/imports.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate_proof/bounds_index.mbt`](./src/validate_proof/bounds_index.mbt), [`src/validate_proof/bounds_index_proof.mbtp`](./src/validate_proof/bounds_index_proof.mbtp), and [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt) to add and prove `bounded_index`, reuse it for declared-function bitset marking and lookup in the `ref.func` declaration pass, and keep the sidecar proof kernel green at `7` proved goals.

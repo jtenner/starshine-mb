@@ -1,6 +1,6 @@
 # MoonBit `moon prove` Strategy For Starshine
 
-Status: research pass only. No implementation in this change.
+Status: archived investigation with follow-on implementation updates through 2026-04-11.
 
 ## Scope
 
@@ -260,6 +260,23 @@ CI order should stay incremental:
 
 - The first landed proof slice lives in `src/validate_proof`, not directly in `src/validate`.
 - `src/validate_proof/label_index.mbt` now proves a small helper that maps top-of-stack label depth to the underlying declaration-order storage index, and `src/validate/env.mbt` calls that helper for `Env::get_label_types`.
+- As of 2026-04-11, the active `src/validate_proof` kernel proves `8` helper goals:
+  - `label_stack_storage_index`
+  - `latest_stack_index`
+  - `group_relative_absolute_index`
+  - `group_member_relative_index`
+  - `defined_func_body_index`
+  - `defined_func_absolute_index`
+  - `defined_body_func_index`
+  - `bounded_index`
+- Those helpers now cover more than the original `env` pilot:
+  - `Env::get_label_types`
+  - `Env::resolve_subtype`
+  - `Env::resolve_typeidx_subtype`
+  - descriptor-metadata group indexing in `validate.mbt`
+  - name-section local and label counting
+  - code-body diagnostic function-index mapping
+  - declared-function bounds checks in the `ref.func` declaration pass
 - The direct `moon prove src/validate/env.mbt` path is currently blocked even after narrowing the local proof surface, because the proof-enabled `src/validate` package lowers `jtenner/starshine/lib` into WhyML that Why3 rejects with `unbound type symbol 'name'`.
 - Current keepable workflow:
   - `moon test src/validate_proof`

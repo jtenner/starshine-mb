@@ -18,3 +18,18 @@ predicate defined_func_absolute_index_post(
 ) {
   (result == imported_func_count + body_idx) && (imported_func_count <= result)
 }
+
+predicate defined_body_func_index_post(
+  imported_func_count : Int,
+  body_count : Int,
+  body_idx : Int,
+  result : Option[Int],
+) {
+  match result {
+    None => (body_idx < 0) || (body_count <= body_idx)
+    Some(func_idx) =>
+      (func_idx == imported_func_count + body_idx) &&
+      (0 <= body_idx) &&
+      (body_idx < body_count)
+  }
+}

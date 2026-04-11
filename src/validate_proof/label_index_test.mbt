@@ -56,3 +56,12 @@ test "bounded_index returns the original slot only when it is in range" {
   assert_eq(bounded_index(2, 1), Some(1))
   assert_eq(bounded_index(2, 2), None)
 }
+
+///|
+test "defined_body_func_index maps a valid code-body ordinal to a module function index" {
+  assert_eq(defined_body_func_index(0, 0, 0), None)
+  assert_eq(defined_body_func_index(2, 3, -1), None)
+  assert_eq(defined_body_func_index(2, 3, 0), Some(2))
+  assert_eq(defined_body_func_index(2, 3, 2), Some(4))
+  assert_eq(defined_body_func_index(2, 3, 3), None)
+}

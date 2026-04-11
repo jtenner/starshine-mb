@@ -221,3 +221,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added active proof package `src/validate_proof` with a proved `label_stack_storage_index` helper and package-local `moon prove src/validate_proof` entrypoint.
 - Rewired `src/validate/env.mbt` to use the proved helper for `Env::get_label_types`, and added direct `LabelStack` plus helper regression tests beside the validator code.
 - Updated the live proof strategy page and archived research note to record the current blocker on proving `src/validate` directly: the generated WhyML for `jtenner/starshine/lib` currently fails with `unbound type symbol 'name'`.
+
+## [2026-04-11] implement | extend the proof kernel through code-body diagnostics and keep the wiki current
+
+- Added proved `defined_body_func_index` to `src/validate_proof`, bringing the active sidecar helper kernel to `8` proved goals.
+- Rewired the remaining code-body diagnostic paths in `src/validate/validate.mbt` to use proved body-to-function index helpers for bulk-memory data-count errors and `ref.func` declaration diagnostics.
+- Added imported-prefix validator regressions so those diagnostics now explicitly pin `FuncIdx(1)` behavior when one imported function precedes the failing defined body.
+- Updated `docs/wiki/validation/moonbit-prove-strategy.md`, archived research note `0077-2026-04-10-moonbit-prove-strategy.md`, and `docs/wiki/index.md` so the living docs reflect the current helper inventory, usage surface, and `8`-goal proof-kernel state.

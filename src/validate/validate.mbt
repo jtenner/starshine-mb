@@ -2066,12 +2066,15 @@ fn validate_bulk_memory_data_count_requirement(
       for i in 0..<funcs.length() {
         let func = funcs[i]
         if func_uses_bulk_memory_data_count(func) {
+          let func_idx = match
+            defined_body_func_index(imported_func_count, funcs.length(), i) {
+            Some(func_abs) => FuncIdx::new(func_abs.reinterpret_as_uint())
+            None => FuncIdx::new(i.reinterpret_as_uint())
+          }
           return Err(
             ValidationDiagnostic::new(
               ValidationIssue::FunctionBody("data count section required"),
-              func_idx=Some(
-                FuncIdx::new((imported_func_count + i).reinterpret_as_uint()),
-              ),
+              func_idx=Some(func_idx),
             ),
           )
         }
@@ -2697,9 +2700,11 @@ fn validate_ref_func_declarations_in_module(
         if log_func {
           trace("phase=ref_func_declarations:codesec func[\{ordinal}] start")
         }
-        let func_idx = FuncIdx::new(
-          (imported_func_count + i).reinterpret_as_uint(),
-        )
+        let func_idx = match
+          defined_body_func_index(imported_func_count, bodies.length(), i) {
+          Some(func_abs) => FuncIdx::new(func_abs.reinterpret_as_uint())
+          None => FuncIdx::new(i.reinterpret_as_uint())
+        }
         let body_expr = match bodies[i] {
           Func(_, expr) => expr
         }
@@ -3333,6 +3338,50 @@ test "validate_module requires data count section for memory.init and data.drop"
 }
 
 ///|
+test "validate_module reports imported-prefix func idx for missing data count" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mem = MemType::new(Limits::i32(1U, Some(1U)))
+  let data = Data::new(DataMode::passive(), b"x")
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("f"),
+          ExternType::func(TypeIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_mem_sec(MemSec::new([mem]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::i32_const(I32(0)),
+            Instruction::i32_const(I32(0)),
+            Instruction::i32_const(I32(0)),
+            Instruction::memory_init(DataIdx::new(0), MemIdx::new(0)),
+          ]),
+        ),
+      ]),
+    )
+    .with_data_sec(DataSec::new([data]))
+
+  match validate_module(mod) {
+    Ok(_) => fail("expected memory.init without datacount to fail")
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(1U)))
+      assert_true(
+        validation_error_message(err).contains("data count section required"),
+      )
+    }
+  }
+}
+
+///|
 test "validate_module rejects undeclared function reference in body" {
   let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()
@@ -3353,6 +3402,44 @@ test "validate_module rejects undeclared function reference in body" {
     Ok(_) => fail("expected undeclared function reference to fail validation")
     Err(err) => {
       assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      assert_true(
+        validation_error_message(err).contains("undeclared function reference"),
+      )
+    }
+  }
+}
+
+///|
+test "validate_module reports imported-prefix func idx for undeclared ref.func in body" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("f"),
+          ExternType::func(TypeIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::ref_func(FuncIdx::new(1U)),
+            Instruction::drop(),
+          ]),
+        ),
+      ]),
+    )
+
+  match validate_module(mod) {
+    Ok(_) => fail("expected undeclared function reference to fail validation")
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(1U)))
       assert_true(
         validation_error_message(err).contains("undeclared function reference"),
       )
