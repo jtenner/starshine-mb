@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-10] maintain | fast-path code-pushing pushpoint scans and retire the old `48978` false lead
+
+- Recorded the kept runtime fix in `src/passes/code_pushing.mbt`: `cp_try_rewrite_region` now only runs the expensive sink / extract / push probes on real pushpoint roots, and the target-specific extract / push helpers now resolve the target `if` or pushpoint before scanning non-void prefixes.
+- Recorded the refreshed compare-pass lane `pass-fuzz-code-pushing-genvalid-20260410ab` at `10000/10000` with `0` mismatches, `0` validation failures, `0` generator failures, and `0` command failures.
+- Recorded the new traced runtime facts from `/tmp/code-pushing-trace-perf1.log`: the changed set is still only `Func 148` plus `Func 1948`, total traced `pass:code-pushing` drops from `4454138 us` to `934833 us`, and unchanged `Func 3665` drops from `3311870 us` to `858 us`.
+- Recorded the refreshed whole-artifact compare at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3345552`: direct compare is still red at `44251` / `44254`, Starshine pass time improves to `928.451 ms` vs Binaryen `55.628 ms`, and comparing each tool against its own no-pass output shows the historical stable `48978` move on both sides, so that older dropped-carrier family is no longer the main live parity target.
+
 ## [2026-04-10] maintain | close the reduced nested-block code-pushing outer-read mismatch
 
 - Recorded the new Binaryen-matched bailout: when a nested block still has an outer read of the same local after the enclosing block, `code-pushing` must not sink the `local.set` into the inner `if` arm.

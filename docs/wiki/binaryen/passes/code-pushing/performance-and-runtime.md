@@ -78,6 +78,10 @@ related:
   helping runtime yet:
   - `4611.631 ms` vs `55.247 ms` pass time
   - `7421.741 ms` vs `407.483 ms` total time
+- A kept pushpoint-gating fast path now removes the largest unchanged-function
+  scan without changing the changed-function set:
+  - `928.451 ms` vs `55.628 ms` pass time
+  - `3496.840 ms` vs `373.614 ms` total time
 
 ## What Those Numbers Actually Mean
 
@@ -96,7 +100,7 @@ related:
   story and stayed extremely slow, so the current kept slowdown is not explained
   solely by whole-function writeback validation.
 - The hottest changed function in the latest serial trace is still `Func 1948`,
-  which now spends about `125.0 ms` in `code-pushing` by itself before
+  which now spends about `100.1 ms` in `code-pushing` by itself before
   lower/writeback.
   That makes the next performance target much sharper than it was on the older
   four-function safe branch.
@@ -118,16 +122,24 @@ related:
   `pass:code-pushing` from `4198179 us` to `4552778 us` and the unchanged
   hotspot `Func 3665` from `3139111 us` to `3466464 us`. That probe was
   reverted.
+- A different fast path did pay off and is now kept. The pass now only runs the
+  expensive sink / extract / push probes on actual pushpoint roots, and the two
+  target-root-specific probes now resolve the target `if` / pushpoint before
+  doing their non-void-prefix scans. On `/tmp/code-pushing-trace-perf1.log`,
+  that drops traced `pass:code-pushing` from `4454138 us` to `934833 us` and
+  cuts unchanged `Func 3665` from `3311870 us` to `858 us`, while preserving
+  the same changed set (`Func 148`, `Func 1948`) and the same direct-compare
+  frontier at `44251` / `44254`.
 
 ## Current Hot Spots
 
-- Huge unchanged whole-function cost in `Func 3665`.
-- The few real changed functions on the debug artifact.
+- The few real changed functions on the debug artifact, especially `Func 1948`.
 - Prefix explicit-exit analysis in non-void or owner-sensitive regions.
-- Repeated scans through dropped-carrier bodies while hunting extractable sets.
+- Repeated scans through real pushpoint-root dropped-carrier bodies while
+  hunting extractable sets.
 - Rebuilding summaries across repeated rewrite rounds in large functions.
-- Traversal through nested carrier wrappers that turn out not to contain a
-  successful rewrite after all.
+- Traversal through nested carrier wrappers that do sit under pushpoint roots
+  but still turn out not to contain a successful rewrite.
 
 ## Performance Work That Is Safe To Prioritize Only After Correctness
 
@@ -159,5 +171,5 @@ related:
 - The right near-term goal is:
   - keep valid direct-artifact output on the safe branch
   - separate the reopened `func $127` pass frontier from Binaryen boundary noise
-  - then optimize the actual remaining hot spots, starting with `Func 3665` and
-    the smaller changed-function set
+  - then optimize the actual remaining hot spots, starting with the real
+    pushpoint-root work inside `Func 148` / `Func 1948`

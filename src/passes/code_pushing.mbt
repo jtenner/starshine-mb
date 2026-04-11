@@ -3037,13 +3037,7 @@ fn cp_try_extract_local_set_from_dropped_carrier(
   infos : Array[CpLocalInfo],
   cache : CpSummaryCache,
 ) -> Bool {
-  if target_idx <= 0 ||
-    (
-      cp_region_has_nonvoid_result(func, region_ref) &&
-      cp_nonvoid_prefix_has_explicit_exit_guard(
-        cache, func, roots_view, region_ref, reachable_prefix_start_idx, target_idx,
-      )
-    ) {
+  if target_idx <= 0 {
     return false
   }
   let target_root_id = cp_region_root_get(func, roots_view, target_idx)
@@ -3052,6 +3046,12 @@ fn cp_try_extract_local_set_from_dropped_carrier(
     None => return false
   }
   if cp_node_has_nonvoid_result(func, target_if_id) {
+    return false
+  }
+  if cp_region_has_nonvoid_result(func, region_ref) &&
+    cp_nonvoid_prefix_has_explicit_exit_guard(
+      cache, func, roots_view, region_ref, reachable_prefix_start_idx, target_idx,
+    ) {
     return false
   }
   let target_summary = cp_effect_summary_for_node(cache, func, target_root_id)
@@ -3327,6 +3327,14 @@ fn cp_try_push_to_pushpoint(
   }
   let root_count = roots_view.root_count
   let target_root_id = cp_region_root_get(func, roots_view, target_idx)
+  let target_if_id = cp_root_if_pushpoint_id(func, target_root_id)
+  match target_if_id {
+    Some(if_id) if cp_node_has_nonvoid_result(func, if_id) => return false
+    _ => ()
+  }
+  if !cp_root_is_pushpoint(func, target_root_id) {
+    return false
+  }
   if cp_region_has_nonvoid_result(func, region_ref) {
     let dropped_region_owner_id = match
       cp_dropped_region_owner_id(cache, func, region_ref) {
@@ -3346,14 +3354,6 @@ fn cp_try_push_to_pushpoint(
       }
       prefix_idx = prefix_idx + 1
     }
-  }
-  let target_if_id = cp_root_if_pushpoint_id(func, target_root_id)
-  match target_if_id {
-    Some(if_id) if cp_node_has_nonvoid_result(func, if_id) => return false
-    _ => ()
-  }
-  if !cp_root_is_pushpoint(func, target_root_id) {
-    return false
   }
   let barrier = cp_new_barrier_summary(cache.local_count, cache.global_count)
   let dead_move_gap = cp_empty_effect_summary(
@@ -3573,16 +3573,20 @@ fn cp_try_rewrite_region(
   let mut reachable_prefix_start_idx = 0
   while idx < root_count {
     let root_id = cp_region_root_get(func, roots_view, idx)
-    if cp_try_sink_into_if(ctx, func, roots_view, region_ref, idx, infos, cache) ||
-      cp_try_extract_local_set_from_dropped_carrier(
-        ctx, func, roots_view, region_ref, idx, reachable_prefix_start_idx, infos,
-        cache,
-      ) ||
-      cp_try_push_to_pushpoint(
-        ctx, func, roots_view, region_ref, idx, reachable_prefix_start_idx, infos,
-        cache,
-      ) {
-      return true
+    if cp_root_is_pushpoint(func, root_id) {
+      if cp_try_sink_into_if(
+          ctx, func, roots_view, region_ref, idx, infos, cache,
+        ) ||
+        cp_try_extract_local_set_from_dropped_carrier(
+          ctx, func, roots_view, region_ref, idx, reachable_prefix_start_idx, infos,
+          cache,
+        ) ||
+        cp_try_push_to_pushpoint(
+          ctx, func, roots_view, region_ref, idx, reachable_prefix_start_idx, infos,
+          cache,
+        ) {
+        return true
+      }
     }
     if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
       idx = idx + 1

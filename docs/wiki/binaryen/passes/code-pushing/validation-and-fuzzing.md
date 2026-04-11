@@ -156,6 +156,21 @@ bun scripts/self-optimize-compare.ts \
     `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-4176613` is
     still red, which confirms that the reduced nested-block fix is real but not
     the current debug-artifact frontier
+  - the newer kept fast-path lane
+    `.tmp/pass-fuzz-code-pushing-genvalid-20260410ab` is also clean at
+    `10000/10000` with `0` mismatches, `0` validation failures, `0` generator
+    failures, and `0` command failures
+  - the newer whole-artifact compare at
+    `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3345552` is
+    still red at the same `44251` / `44254` family, but Starshine pass time is
+    now down to `928.451 ms` vs Binaryen `55.628 ms`
+  - the newer traced serial replay at `/tmp/code-pushing-trace-perf1.log`
+    still changes only `Func 148` and `Func 1948`, contains `0`
+    `skip-invalid-lower` lines, drops total traced `pass:code-pushing` to
+    `934833 us`, and cuts unchanged `Func 3665` from `3311870 us` to `858 us`
+  - comparing Binaryen no-pass-vs-pass output against Starshine no-pass-vs-pass
+    output now shows the historical stable `48978` move on both sides, so the
+    remaining semantic frontier is later than that old dropped-carrier family
 
 ## What Each Layer Catches Best
 

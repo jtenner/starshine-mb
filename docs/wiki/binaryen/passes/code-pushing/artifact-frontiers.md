@@ -69,6 +69,9 @@ What landed:
 Result:
 
 - The old `48978` / `func $127` family is no longer the primary frontier.
+- Comparing Binaryen no-pass-vs-pass output against Starshine no-pass-vs-pass
+  output on the current tree now shows that stable old move on both sides, so
+  `48978` should no longer be treated as the first live debug-artifact target.
 
 ## Frontier 2: The Old `func $238` Terminal-Owner Family
 
@@ -223,6 +226,10 @@ Observed failure:
   `--binaryen-nop-until-stable 5` does not converge on this artifact, and a
   fixed `--binaryen-nop-roundtrips 5` replay moves the first hunks to
   `27790`, `27841`, `28246`, and later `45771` / `46157` instead.
+- The latest kept replay at
+  `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3345552` is still
+  first red at `44251` / `44254` even after the large runtime win, which is one
+  more reason not to reopen the historical `48978` family as the main target.
 
 Observed shape:
 
@@ -244,8 +251,9 @@ What this means for next work:
 - The next reducer should therefore separate "real carrier motion drift" from
   "Binaryen writeback-local materialization drift" before widening the pass.
 - Runtime work should measure those few changed functions together with this
-  reopened semantic frontier, because the safe tree now changes only three
-  functions on the whole artifact and `Func 1948` is the clear hot member.
+  reopened semantic frontier, because the safe tree still changes only
+  `Func 148` plus `Func 1948`, and `Func 1948` remains the clear hot member
+  after the old unchanged `Func 3665` scan was removed.
 
 ## What Has Been Explicitly Ruled Out
 

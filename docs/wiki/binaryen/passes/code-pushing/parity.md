@@ -108,20 +108,26 @@ related:
   - `Func 1948`
 - `Func 1977` is now kept unchanged earlier in the pass, and the current trace
   has `0` `skip-invalid-lower` lines.
-- Direct compare at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3313274`
+- Direct compare at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3345552`
   still differs canonically and in normalized WAT, with the first visible
-  reopened line now at `44254` in printed `func $127`.
+  reopened lines still at `44251` / `44254` in printed `func $127`.
 - The old top-of-`Func 148` live-carried control-flow corruption is no longer
   the first actionable blocker. The remaining visible drift is later local /
   tuple temp materialization inside the same function.
 - That raw hunk is not a fully stable oracle boundary yet: Binaryen no-pass
   writeback does not converge within five roundtrips on this artifact, and a
   fixed `nop5` replay shifts the first normalized hunks away from `44251`.
+- A kept runtime-only change also clarified which historical family is already
+  done. Comparing Binaryen no-pass-vs-pass output against Starshine no-pass-vs-
+  pass output shows the old stable `48978` dropped-carrier move on both sides,
+  so the current live parity issue is not that earlier alias move anymore. The
+  remaining blocker is the later `44251` / `44254` local and tuple-
+  materialization family that still survives the noisier writeback boundary.
 - Runtime is also still far outside the target bar:
-  - Starshine pass time: `4611.631 ms`
-  - Binaryen pass time: `55.247 ms`
-  - Starshine total: `7421.741 ms`
-  - Binaryen total: `407.483 ms`
+  - Starshine pass time: `928.451 ms`
+  - Binaryen pass time: `55.628 ms`
+  - Starshine total: `3496.840 ms`
+  - Binaryen total: `373.614 ms`
 - The latest kept fallback is narrower semantically too: suspicious
   `code-pushing` lowers are no longer skipped blindly. The pass now lets them
   through when full-module writeback validation succeeds, which is how the old
@@ -145,6 +151,11 @@ related:
   canonically and normalized red at the same `44251` / `44254` local and tuple
   materialization family, even though the reduced nested-`if` outer-read case
   now matches Binaryen exactly.
+- The newer kept performance fix does not change that semantic reading either.
+  The refreshed compare-pass lane
+  `.tmp/pass-fuzz-code-pushing-genvalid-20260410ab` is still `10000/10000`
+  with `0` mismatches, and the faster whole-artifact compare still lands on the
+  same `44251` / `44254` family instead of reopening the older `48978` move.
 
 ## Scope Boundaries That Are Still Deliberate
 

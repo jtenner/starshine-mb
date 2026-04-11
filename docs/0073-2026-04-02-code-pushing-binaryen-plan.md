@@ -748,6 +748,29 @@
   compare-pass lane `.tmp/pass-fuzz-code-pushing-genvalid-20260410aa` is also
   `10000/10000` with `0` mismatches, validation failures, generator failures,
   or command failures.
+- A kept performance slice is landed now too. `cp_try_rewrite_region(...)`
+  only runs `cp_try_sink_into_if(...)`,
+  `cp_try_extract_local_set_from_dropped_carrier(...)`, and
+  `cp_try_push_to_pushpoint(...)` on actual pushpoint roots, and the latter two
+  target-specific helpers now resolve the target `if` / pushpoint before
+  scanning non-void prefixes for explicit exits. The refreshed compare-pass
+  lane `.tmp/pass-fuzz-code-pushing-genvalid-20260410ab` is
+  `10000/10000` with `0` mismatches, validation failures, generator failures,
+  or command failures.
+- That runtime fix also sharpened the remaining parity story. On
+  `/tmp/code-pushing-trace-perf1.log`, traced serial replay still changes only
+  `Func 148` and `Func 1948`, but total `pass:code-pushing` drops from
+  `4454138 us` to `934833 us`, unchanged `Func 3665` drops from `3311870 us`
+  to `858 us`, `Func 148` improves from `16157 us` to `12956 us`, and
+  `Func 1948` improves from `123505 us` to `100100 us`. The refreshed whole
+  compare at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3345552`
+  is still canonically and normalized red at `44251` / `44254`, but runtime is
+  now `928.451 ms` vs Binaryen `55.628 ms` in the pass and `3496.840 ms` vs
+  `373.614 ms` overall. Comparing Binaryen no-pass-vs-pass output against
+  Starshine no-pass-vs-pass output also shows that the old stable `48978`
+  dropped-carrier move is already present on both sides, so the current live
+  frontier really is the later `func $127` local / tuple-materialization family
+  rather than another miss on that historical `48978` alias move.
 - Traced serial replay is now tighter than the older writeback-validation
   checkpoint. On `/tmp/code-pushing-native-trace-20260410w.log`,
   `code-pushing` changes only `Func 148` and `Func 1948`, `Func 1977` stays
