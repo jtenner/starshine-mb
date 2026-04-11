@@ -259,3 +259,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Rewired the `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` helper paths in `src/validate/typecheck.mbt` to recover the trailing label slot through the proved `latest_stack_index` helper instead of open-coding `label_ts.length() - 1`.
 - Added focused typechecker regressions for the empty-label-payload error surface on those three branch helpers so the refactor stays pinned by exact observable errors.
 - Updated `docs/wiki/validation/moonbit-prove-strategy.md` and archived research note `0077-2026-04-10-moonbit-prove-strategy.md` so the living proof docs now treat `latest_stack_index` as active in the first typecheck helper slice as well as `env`.
+
+## [2026-04-11] maintain | widen latest-index proof-helper reuse into core typecheck stack-top recovery
+
+- Rewired `check_pop_types_from_top` in `src/validate/typecheck.mbt` to recover the current stack-top index through the proved `latest_stack_index` helper instead of open-coding `st.stack.length() - 1`.
+- Added direct wrapper-level regressions for `tc_state_validate_end_stack` so reachable empty-stack underflow and unreachable virtual-bottom suffixes are both locked before wider `PRV004` helper extraction.
+- Updated `docs/wiki/validation/moonbit-prove-strategy.md`, archived research note `0077-2026-04-10-moonbit-prove-strategy.md`, and `agent-todo.md` so the current proof rollout now records `latest_stack_index` as active in both branch-label tails and the core typecheck stack walk.

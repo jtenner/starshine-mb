@@ -161,7 +161,10 @@ fn check_pop_types_from_top(
   ts : Array[ValType],
   count : Int,
 ) -> Result[Int, String] {
-  let mut stack_i = st.stack.length() - 1
+  let mut stack_i = match latest_stack_index(st.stack.length()) {
+    Some(idx) => idx
+    None => -1
+  }
   let mut i = count - 1
   while i >= 0 {
     let expected = ts[i]
@@ -3823,6 +3826,25 @@ pub fn tc_state_normalize_untyped_if_branch_exit(
   results : Array[ValType],
 ) -> Result[(Bool, TcEscape), String] {
   normalize_untyped_if_branch_exit(state, results)
+}
+
+///|
+test "tc_state_validate_end_stack reports reachable underflow on empty stack" {
+  let state = tc_state_new(empty_env(), [], true, NoTcEscape)
+  let result = tc_state_validate_end_stack(state, [ValType::i32()])
+  assert_eq(result, Err("stack underflow"))
+}
+
+///|
+test "tc_state_validate_end_stack accepts unreachable virtual-bottom suffixes" {
+  let state = TcState::{
+    env: empty_env(),
+    stack: [],
+    reachable: false,
+    escape: NoTcEscape,
+  }
+  let result = tc_state_validate_end_stack(state, [ValType::i32()])
+  assert_eq(result, Ok(()))
 }
 
 ///|

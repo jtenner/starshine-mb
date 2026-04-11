@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-11 Feat: widen latest-index proof-helper reuse into core typecheck stack-top recovery
+
+- **reused the proved latest-index helper in the core typecheck stack walk** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](./docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), and [`src/validate/typecheck.mbt`](./src/validate/typecheck.mbt) to route `check_pop_types_from_top` through `latest_stack_index`, add direct `tc_state_validate_end_stack` regressions for reachable underflow and unreachable virtual-bottom suffixes, and keep the sidecar proof kernel green at `9` proved goals.
+
 ## 2026-04-11 Feat: widen latest-index proof-helper reuse into typecheck branch-label handling
 
 - **reused the proved latest-index helper in the first typecheck helper slice** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](./docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), and [`src/validate/typecheck.mbt`](./src/validate/typecheck.mbt) to route `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` label-tail recovery through `latest_stack_index`, add focused empty-label regressions, narrow the remaining `PRV004` backlog to the still-open stack-discipline helpers, and keep the sidecar proof kernel green at `9` proved goals.
