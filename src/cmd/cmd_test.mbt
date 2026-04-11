@@ -374,6 +374,184 @@ fn fixture_print_log_module() -> Module {
 }
 
 ///|
+fn fixture_extract_functions_module() -> Module {
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [@lib.ValType::i32()])),
+  )
+  let table_type = @lib.TableType::new(
+    @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::func())),
+    @lib.Limits::i32(1U, None),
+  )
+  let mem_type = @lib.MemType::new(@lib.Limits::i32(1U, None))
+  Module::new()
+  .with_type_sec(@lib.TypeSec::new([func_type]))
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("keep_import"),
+        @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+      ),
+      @lib.Import::new(
+        @lib.Name::new("env"),
+        @lib.Name::new("dead_import"),
+        @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([
+      @lib.TypeIdx::new(0U),
+      @lib.TypeIdx::new(0U),
+      @lib.TypeIdx::new(0U),
+    ]),
+  )
+  .with_table_sec(
+    @lib.TableSec::new([
+      @lib.Table::new(table_type, None),
+      @lib.Table::new(table_type, None),
+    ]),
+  )
+  .with_mem_sec(@lib.MemSec::new([mem_type, mem_type]))
+  .with_global_sec(
+    @lib.GlobalSec::new([
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), false),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(1))]),
+      ),
+      @lib.Global::new(
+        @lib.GlobalType::new(@lib.ValType::i32(), false),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(2))]),
+      ),
+    ]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::new("dead"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::new("keep"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(3U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::new("deadmem"),
+        @lib.ExternIdx::mem(@lib.MemIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(2U)]),
+      ),
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(1U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(4U)]),
+      ),
+    ]),
+  )
+  .with_data_cnt_sec(@lib.DataCntSec::new(@lib.U32(2U)))
+  .with_data_sec(
+    @lib.DataSec::new([
+      @lib.Data::new(
+        @lib.DataMode::active(
+          @lib.MemIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        bytes_from_ints([0]),
+      ),
+      @lib.Data::new(
+        @lib.DataMode::active(
+          @lib.MemIdx::new(1U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        bytes_from_ints([1]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    CodeSec::new([
+      Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(99))]),
+      ),
+      Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::global_get(@lib.GlobalIdx::new(1U)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::memory_size(@lib.MemIdx::new(1U)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::table_size(@lib.TableIdx::new(1U)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::call(@lib.FuncIdx::new(4U)),
+        ]),
+      ),
+      Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::i32_const(@lib.I32(7)),
+        ]),
+      ),
+    ]),
+  )
+  .with_name_sec(
+    @lib.NameSec::new(
+      func_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::new("keep_import")),
+          @lib.NameAssoc::new(1U, @lib.Name::new("dead_import")),
+          @lib.NameAssoc::new(2U, @lib.Name::new("dead")),
+          @lib.NameAssoc::new(3U, @lib.Name::new("keep")),
+          @lib.NameAssoc::new(4U, @lib.Name::new("helper")),
+        ]),
+      ),
+      table_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::new("dead_table")),
+          @lib.NameAssoc::new(1U, @lib.Name::new("live_table")),
+        ]),
+      ),
+      memory_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::new("dead_mem")),
+          @lib.NameAssoc::new(1U, @lib.Name::new("live_mem")),
+        ]),
+      ),
+      global_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::new("dead_global")),
+          @lib.NameAssoc::new(1U, @lib.Name::new("live_global")),
+        ]),
+      ),
+      elem_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::new("dead_elem")),
+          @lib.NameAssoc::new(1U, @lib.Name::new("live_elem")),
+        ]),
+      ),
+      data_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::new("dead_data")),
+          @lib.NameAssoc::new(1U, @lib.Name::new("live_data")),
+        ]),
+      ),
+    ),
+  )
+}
+
+///|
 fn fixture_hso_struct_fields(field_count : Int) -> Array[@lib.FieldType] {
   let fields : Array[@lib.FieldType] = []
   for _ in 0..<field_count {
@@ -3307,6 +3485,129 @@ test "run_cmd_with_adapter interleaves dump validate and optimize steps in cli o
 }
 
 ///|
+test "run_cmd_with_adapter extracts requested functions into a safe minimal module" {
+  let wasm = encode_module_bytes(fixture_extract_functions_module())
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["extract.wasm"] },
+    file_exists=fn(path) { path == "extract.wasm" },
+    read_file=fn(path) {
+      if path == "extract.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--extract-functions=4,3", "--out", "out.wasm", "extract.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected extract-functions pipeline failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["extract-functions=4,3"])
+  assert_eq(writes.length(), 1)
+
+  let optimized = decode_module_bytes(writes[0].1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected extracted module to validate, got \{err}")
+  }
+
+  match optimized.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      assert_eq(imports.length(), 1)
+      match imports[0] {
+        @lib.Import(module_name, field_name, @lib.FuncExternType(type_idx)) => {
+          assert_eq(module_name, @lib.Name::new("env"))
+          assert_eq(field_name, @lib.Name::new("keep_import"))
+          assert_eq(type_idx, @lib.TypeIdx::new(0U))
+        }
+        other => fail("expected single live func import, got \{other}")
+      }
+    }
+    other =>
+      fail("expected extracted module to keep one func import, got \{other}")
+  }
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) =>
+      assert_eq(type_idxs, [@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)])
+    other => fail("expected two extracted defined functions, got \{other}")
+  }
+  match optimized.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      assert_eq(exports.length(), 2)
+      assert_eq(exports, [
+        @lib.Export::new(
+          @lib.Name::new("helper"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+        ),
+        @lib.Export::new(
+          @lib.Name::new("keep"),
+          @lib.ExternIdx::func(@lib.FuncIdx::new(2U)),
+        ),
+      ])
+    }
+    other => fail("expected extracted function exports, got \{other}")
+  }
+  assert_eq(optimized.start_sec, None)
+  assert_eq(
+    optimized.table_sec,
+    Some(
+      @lib.TableSec::new([
+        @lib.Table::new(
+          @lib.TableType::new(
+            @lib.RefType::new(
+              true,
+              @lib.HeapType::abs(@lib.AbsHeapType::func()),
+            ),
+            @lib.Limits::i32(1U, None),
+          ),
+          None,
+        ),
+      ]),
+    ),
+  )
+  assert_eq(
+    optimized.mem_sec,
+    Some(@lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1U, None))])),
+  )
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    other => fail("expected single live global, got \{other}")
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 1)
+    other => fail("expected single live elem segment, got \{other}")
+  }
+  assert_eq(optimized.data_cnt_sec, Some(@lib.DataCntSec::new(@lib.U32(1U))))
+  match optimized.data_sec {
+    Some(@lib.DataSec(datas)) => assert_eq(datas.length(), 1)
+    other => fail("expected single live data segment, got \{other}")
+  }
+
+  let helper_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(helper_pretty.contains("(Func 0)"), msg=helper_pretty)
+  let keep_pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_true(keep_pretty.contains("(Global 0)"), msg=keep_pretty)
+  assert_true(keep_pretty.contains("(Mem 0)"), msg=keep_pretty)
+  assert_true(keep_pretty.contains("(Table 0)"), msg=keep_pretty)
+  assert_true(keep_pretty.contains("(Func 1)"), msg=keep_pretty)
+
+  match module_name_section_order_error(optimized) {
+    Some(err) => fail(err)
+    None => ()
+  }
+}
+
+///|
 test "run_cmd_with_adapter writes wat dumps as text" {
   let wasm = encode_module_bytes(fixture_i32_const_module(41))
   let writes : Array[(String, Bytes)] = []
@@ -4198,6 +4499,7 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   assert_true(help.contains("--version"))
   assert_true(help.contains("--glob"))
   assert_true(help.contains("--dump <PATH>"))
+  assert_true(help.contains("--extract-functions <index,index,...>"))
   assert_true(help.contains("--validate"))
   assert_true(help.contains("--print-func <name|index>"))
   assert_true(help.contains("--print-type <name|index>"))

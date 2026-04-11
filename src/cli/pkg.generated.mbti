@@ -68,11 +68,13 @@ pub enum CliParseError {
   InvalidLongFlag(String)
   UnexpectedFlagValue(String)
   InvalidDumpPath(String)
+  InvalidFunctionIndexList(String)
   InvalidOptimizationFlag(String)
   InvalidTrapMode(String)
   InvalidTracingLevel(String)
 } derive(Eq, Show, @debug.Debug)
 pub fn CliParseError::invalid_dump_path(String) -> Self
+pub fn CliParseError::invalid_function_index_list(String) -> Self
 pub fn CliParseError::invalid_input_format(String) -> Self
 pub fn CliParseError::invalid_long_flag(String) -> Self
 pub fn CliParseError::invalid_optimization_flag(String) -> Self

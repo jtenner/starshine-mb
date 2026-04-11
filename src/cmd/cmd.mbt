@@ -178,6 +178,7 @@ enum CmdPipelinePrintSelector {
 ///|
 enum CmdPipelineStep {
   PipelinePass(String)
+  ExtractFunctions(Array[UInt])
   Dump(String, CmdPipelineDumpFormat)
   Print(String, CmdPipelinePrintSelector)
   Validate
@@ -429,6 +430,7 @@ fn cmd_cli_parse_error_message(err : CliParseError) -> String {
     InvalidLongFlag(flag) => "invalid long flag: --\{flag}"
     UnexpectedFlagValue(flag) => "unexpected value for flag \{flag}"
     InvalidDumpPath(path) => "dump path must end with .wasm or .wat: \{path}"
+    InvalidFunctionIndexList(raw) => "invalid --extract-functions list: \{raw}"
     InvalidOptimizationFlag(flag) => "invalid optimization flag: \{flag}"
     InvalidTrapMode(mode) => "invalid trap mode: \{mode}"
     InvalidTracingLevel(level) => "invalid tracing level: \{level}"
@@ -1471,6 +1473,30 @@ fn cmd_dump_pass_target(flag : String) -> String? {
 }
 
 ///|
+fn cmd_extract_functions_pass_target(flag : String) -> String? {
+  if flag.length() <= 18 || flag.sub(end=18).to_string() != "extract-functions=" {
+    return None
+  }
+  Some(flag.sub(start=18).to_string())
+}
+
+///|
+fn cmd_parse_function_index_list(raw : String) -> Array[UInt]? {
+  let out : Array[UInt] = []
+  for part in raw.split(",") {
+    match parse_non_negative_decimal(part.to_string()) {
+      Some(idx) => out.push(idx.reinterpret_as_uint())
+      None => return None
+    }
+  }
+  if out.is_empty() {
+    None
+  } else {
+    Some(out)
+  }
+}
+
+///|
 fn cmd_print_pass_target(flag : String) -> (String, String)? {
   if !flag.has_prefix("print-") {
     return None
@@ -1536,6 +1562,7 @@ fn cmd_pipeline_step_optimize_count(steps : Array[CmdPipelineStep]) -> Int {
   for step in steps {
     match step {
       PipelinePass(_) => count += 1
+      ExtractFunctions(_) => ()
       _ => ()
     }
   }
@@ -1562,6 +1589,22 @@ fn cmd_resolve_pipeline_steps(
           None =>
             return Err(
               CmdError::CliParse(CliParseError::invalid_dump_path(path)),
+            )
+        }
+      None => ()
+    }
+    match cmd_extract_functions_pass_target(flag) {
+      Some(raw_indices) =>
+        match cmd_parse_function_index_list(raw_indices) {
+          Some(indices) => {
+            out.push(CmdPipelineStep::ExtractFunctions(indices))
+            continue
+          }
+          None =>
+            return Err(
+              CmdError::CliParse(
+                CliParseError::invalid_function_index_list(raw_indices),
+              ),
             )
         }
       None => ()
@@ -1742,6 +1785,21 @@ fn write_pipeline_dump(
   match (io.write_file)(path, bytes) {
     Ok(_) => Ok(())
     Err(err) => Err(CmdError::OutputWriteFailed("\{path}: \{err}"))
+  }
+}
+
+///|
+fn run_extract_functions_step(
+  mod : Module,
+  indices : Array[UInt],
+) -> Result[Module, CmdError] {
+  let roots : Array[@lib.FuncIdx] = []
+  for idx in indices {
+    roots.push(@lib.FuncIdx::new(idx))
+  }
+  match @passes.rume_extract_functions(mod, roots) {
+    Ok(out) => Ok(out)
+    Err(err) => Err(CmdError::OptimizeFailed("extract-functions: \{err}"))
   }
 }
 
@@ -2482,6 +2540,9 @@ pub fn cmd_help_text() -> String {
     out, "--dump <PATH>", "Write the current module state to a .wasm or .wat file at that point in the pass queue.",
   )
   append_help_line(
+    out, "--extract-functions <index,index,...>", "Replace the current module with a safe minimal module rooted at the selected function indices.",
+  )
+  append_help_line(
     out, "--validate", "Run module validation at that point in the pass queue.",
   )
   append_help_line(
@@ -3148,6 +3209,31 @@ pub fn run_cmd_with_adapter(
     for step in pipeline_steps {
       match step {
         PipelinePass(flag) => pending_passes.push(flag)
+        ExtractFunctions(indices) => {
+          optimized = match
+            run_pipeline_pass_segment(
+              io, input_path, optimized, pending_passes, options, trace_optimize,
+              trace_level,
+            ) {
+            Ok(out) => out
+            Err(err) => return Err(err)
+          }
+          pending_passes.clear()
+          cmd_trace_emit(
+            io,
+            trace_optimize,
+            "input \{input_path}:extract-functions:start roots=\{indices.length()}",
+          )
+          optimized = match run_extract_functions_step(optimized, indices) {
+            Ok(out) => out
+            Err(err) => return Err(err)
+          }
+          cmd_trace_emit(
+            io,
+            trace_optimize,
+            "input \{input_path}:extract-functions:done roots=\{indices.length()}",
+          )
+        }
         Dump(path, format) => {
           optimized = match
             run_pipeline_pass_segment(

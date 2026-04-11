@@ -186,6 +186,24 @@ test "parse_cli_args accepts print passes with named and indexed targets" {
 }
 
 ///|
+test "parse_cli_args accepts extract-functions transform flags with separate and inline values" {
+  let parsed = parse_ok([
+    "--extract-functions", "4, 3", "--validate", "--extract-functions=0",
+  ])
+  assert_eq(parsed.pass_flags, [
+    "extract-functions=4,3", "validate", "extract-functions=0",
+  ])
+}
+
+///|
+test "parse_cli_args rejects invalid extract-functions lists" {
+  assert_eq(
+    parse_err(["--extract-functions=1,x"]),
+    CliParseError::invalid_function_index_list("1,x"),
+  )
+}
+
+///|
 test "parse_cli_args accepts global-effects pass flag" {
   let parsed = parse_ok(["--global-effects"])
   assert_eq(parsed.pass_flags, ["global-effects"])

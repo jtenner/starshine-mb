@@ -117,6 +117,7 @@ pub enum CliParseError {
   InvalidLongFlag(String)
   UnexpectedFlagValue(String)
   InvalidDumpPath(String)
+  InvalidFunctionIndexList(String)
   InvalidOptimizationFlag(String)
   InvalidTrapMode(String)
   InvalidTracingLevel(String)
@@ -155,6 +156,13 @@ pub fn CliParseError::unexpected_flag_value(flag : String) -> CliParseError {
 ///|
 pub fn CliParseError::invalid_dump_path(path : String) -> CliParseError {
   InvalidDumpPath(path)
+}
+
+///|
+pub fn CliParseError::invalid_function_index_list(
+  raw : String,
+) -> CliParseError {
+  InvalidFunctionIndexList(raw)
 }
 
 ///|
@@ -372,6 +380,31 @@ fn parse_print_pass_value(
     return Err(CliParseError::missing_flag_value(long_flag_name(flag_name)))
   }
   Ok("\{flag_name}=\{value}")
+}
+
+///|
+fn parse_extract_functions_value(raw : String) -> Result[String, CliParseError] {
+  let normalized_parts : Array[String] = []
+  for part in raw.split(",") {
+    let trimmed = part.to_string().trim().to_string()
+    match parse_non_negative_decimal(trimmed) {
+      Some(idx) => normalized_parts.push("\{idx}")
+      None => return Err(CliParseError::invalid_function_index_list(raw))
+    }
+  }
+  if normalized_parts.is_empty() {
+    return Err(CliParseError::invalid_function_index_list(raw))
+  }
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < normalized_parts.length() {
+    if i > 0 {
+      out.write_char(',')
+    }
+    out.write_string(normalized_parts[i])
+    i += 1
+  }
+  Ok("extract-functions=\{out.to_string()}")
 }
 
 ///|
@@ -798,6 +831,30 @@ pub fn parse_cli_args(
               Err(err) => return Err(err)
             }
             parsed.pass_flags.push(dump_flag)
+            index += if inline_value is None { 2 } else { 1 }
+          }
+          "extract-functions" => {
+            let raw_value = match inline_value {
+              Some(v) if v.length() > 0 => v
+              Some(_) =>
+                return Err(
+                  CliParseError::missing_flag_value("--extract-functions"),
+                )
+              None =>
+                if index + 1 < args.length() &&
+                  !looks_like_option_token(args[index + 1]) {
+                  args[index + 1]
+                } else {
+                  return Err(
+                    CliParseError::missing_flag_value("--extract-functions"),
+                  )
+                }
+            }
+            let extract_flag = match parse_extract_functions_value(raw_value) {
+              Ok(flag) => flag
+              Err(err) => return Err(err)
+            }
+            parsed.pass_flags.push(extract_flag)
             index += if inline_value is None { 2 } else { 1 }
           }
           "optimize" => {

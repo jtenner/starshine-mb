@@ -799,8 +799,9 @@ fn rume_mark_imported_parent_segments(
 }
 
 ///|
-fn rume_collect_liveness(
+fn rume_collect_liveness_with_import_parent_policy(
   mod_ : @lib.Module,
+  keep_import_parent_segments : Bool,
 ) -> (
   @bitset.BitSet,
   @bitset.BitSet,
@@ -865,9 +866,11 @@ fn rume_collect_liveness(
       }
     None => ()
   }
-  rume_mark_imported_parent_segments(
-    mod_, table_imports, mem_imports, queue, used_elems, used_datas,
-  )
+  if keep_import_parent_segments {
+    rume_mark_imported_parent_segments(
+      mod_, table_imports, mem_imports, queue, used_elems, used_datas,
+    )
+  }
 
   let mut cursor = 0
   while cursor < queue.length() {
@@ -907,6 +910,21 @@ fn rume_collect_liveness(
   (
     used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems, used_datas,
   )
+}
+
+///|
+fn rume_collect_liveness(
+  mod_ : @lib.Module,
+) -> (
+  @bitset.BitSet,
+  @bitset.BitSet,
+  @bitset.BitSet,
+  @bitset.BitSet,
+  @bitset.BitSet,
+  @bitset.BitSet,
+  @bitset.BitSet,
+) {
+  rume_collect_liveness_with_import_parent_policy(mod_, true)
 }
 
 ///|
@@ -1519,6 +1537,48 @@ fn rume_rewrite_elem_kind(
 }
 
 ///|
+fn rume_sort_name_assocs(entries : Array[@lib.NameAssoc]) -> Unit {
+  let mut i = 1
+  while i < entries.length() {
+    let current = entries[i]
+    let @lib.NameAssoc(current_idx, _) = current
+    let mut j = i
+    while j > 0 {
+      let @lib.NameAssoc(prev_idx, _) = entries[j - 1]
+      if prev_idx <= current_idx {
+        break
+      }
+      entries[j] = entries[j - 1]
+      j -= 1
+    }
+    entries[j] = current
+    i += 1
+  }
+}
+
+///|
+fn rume_sort_indirect_name_assocs(
+  entries : Array[@lib.IndirectNameAssoc],
+) -> Unit {
+  let mut i = 1
+  while i < entries.length() {
+    let current = entries[i]
+    let @lib.IndirectNameAssoc(current_idx, _) = current
+    let mut j = i
+    while j > 0 {
+      let @lib.IndirectNameAssoc(prev_idx, _) = entries[j - 1]
+      if prev_idx <= current_idx {
+        break
+      }
+      entries[j] = entries[j - 1]
+      j -= 1
+    }
+    entries[j] = current
+    i += 1
+  }
+}
+
+///|
 fn rume_rewrite_name_map(
   names : @lib.NameMap?,
   remap : Array[Int],
@@ -1538,6 +1598,7 @@ fn rume_rewrite_name_map(
       if rewritten.is_empty() {
         None
       } else {
+        rume_sort_name_assocs(rewritten)
         Some(@lib.NameMap::new(rewritten))
       }
     }
@@ -1568,6 +1629,7 @@ fn rume_rewrite_indirect_name_map(
       if rewritten.is_empty() {
         None
       } else {
+        rume_sort_indirect_name_assocs(rewritten)
         Some(@lib.IndirectNameMap::new(rewritten))
       }
     }
@@ -2052,6 +2114,563 @@ fn rume_apply_module_rewrite(
       tag_remap,
     ),
   )
+}
+
+///|
+fn rume_name_to_string(name : @lib.Name) -> String {
+  let @lib.Name(text) = name
+  text.to_string()
+}
+
+///|
+fn rume_lookup_func_export_name(
+  mod_ : @lib.Module,
+  idx : @lib.FuncIdx,
+) -> String? {
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        let @lib.Export(name, extern_idx) = export_
+        match extern_idx {
+          @lib.FuncExternIdx(func_idx) if func_idx == idx =>
+            return Some(rume_name_to_string(name))
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  None
+}
+
+///|
+fn rume_lookup_func_name(mod_ : @lib.Module, idx : @lib.FuncIdx) -> String? {
+  let @lib.FuncIdx(raw_idx) = idx
+  match mod_.name_sec {
+    Some(name_sec) =>
+      match name_sec.func_names {
+        Some(@lib.NameMap(entries)) =>
+          for entry in entries {
+            let @lib.NameAssoc(name_idx, name) = entry
+            if name_idx == raw_idx {
+              return Some(rume_name_to_string(name))
+            }
+          }
+        None => ()
+      }
+    None => ()
+  }
+  None
+}
+
+///|
+fn rume_has_string(strings : Array[String], target : String) -> Bool {
+  for value in strings {
+    if value == target {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn rume_unique_export_name(used : Array[String], base : String) -> String {
+  let stem = if base.length() == 0 { "func" } else { base }
+  if !rume_has_string(used, stem) {
+    return stem
+  }
+  let mut suffix = 1
+  while rume_has_string(used, "\{stem}_\{suffix}") {
+    suffix += 1
+  }
+  "\{stem}_\{suffix}"
+}
+
+///|
+fn rume_export_name_for_root(mod_ : @lib.Module, idx : @lib.FuncIdx) -> String {
+  let @lib.FuncIdx(raw_idx) = idx
+  let base = match rume_lookup_func_export_name(mod_, idx) {
+    Some(name) => name
+    None =>
+      match rume_lookup_func_name(mod_, idx) {
+        Some(name) => name
+        None => "func_\{raw_idx}"
+      }
+  }
+  base
+}
+
+///|
+fn rume_build_extract_export_sec(
+  mod_ : @lib.Module,
+  roots : Array[@lib.FuncIdx],
+) -> @lib.ExportSec {
+  let exports : Array[@lib.Export] = []
+  let used_names : Array[String] = []
+  for root in roots {
+    let export_name = rume_unique_export_name(
+      used_names,
+      rume_export_name_for_root(mod_, root),
+    )
+    used_names.push(export_name)
+    exports.push(
+      @lib.Export::new(@lib.Name::new(export_name), @lib.ExternIdx::func(root)),
+    )
+  }
+  @lib.ExportSec::new(exports)
+}
+
+///|
+fn rume_root_module_for_extract(
+  mod_ : @lib.Module,
+  roots : Array[@lib.FuncIdx],
+) -> @lib.Module {
+  @lib.Module::new(
+    custom_secs=mod_.custom_secs,
+    type_sec=mod_.type_sec,
+    import_sec=mod_.import_sec,
+    func_annotation_sec=mod_.func_annotation_sec,
+    func_sec=mod_.func_sec,
+    table_sec=mod_.table_sec,
+    mem_sec=mod_.mem_sec,
+    tag_sec=mod_.tag_sec,
+    stringrefs_sec=mod_.stringrefs_sec,
+    global_sec=mod_.global_sec,
+    export_sec=Some(rume_build_extract_export_sec(mod_, roots)),
+    start_sec=None,
+    elem_sec=mod_.elem_sec,
+    data_cnt_sec=mod_.data_cnt_sec,
+    code_sec=mod_.code_sec,
+    data_sec=mod_.data_sec,
+    name_sec=mod_.name_sec,
+  )
+}
+
+///|
+fn rume_identity_remap(length : Int) -> Array[Int] {
+  let remap = Array::make(length, 0)
+  let mut idx = 0
+  while idx < length {
+    remap[idx] = idx
+    idx += 1
+  }
+  remap
+}
+
+///|
+fn rume_build_extract_defined_order(
+  mod_ : @lib.Module,
+  kept_defined : @bitset.BitSet,
+  func_imports : Int,
+) -> Array[Int] {
+  let order : Array[Int] = []
+  let seen = @bitset.BitSet::new(kept_defined.length())
+  match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) =>
+      for export_ in exports {
+        let @lib.Export(_, extern_idx) = export_
+        match extern_idx {
+          @lib.FuncExternIdx(@lib.FuncIdx(raw_idx)) => {
+            let def_idx = raw_idx.reinterpret_as_int() - func_imports
+            if def_idx >= 0 &&
+              def_idx < kept_defined.length() &&
+              kept_defined[def_idx] &&
+              !seen[def_idx] {
+              seen[def_idx] = true
+              order.push(def_idx)
+            }
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let mut def_idx = 0
+  while def_idx < kept_defined.length() {
+    if kept_defined[def_idx] && !seen[def_idx] {
+      order.push(def_idx)
+    }
+    def_idx += 1
+  }
+  order
+}
+
+///|
+fn rume_build_extract_func_remap(
+  used_funcs : @bitset.BitSet,
+  func_imports : Int,
+  ordered_defined : Array[Int],
+) -> Array[Int] {
+  let remap = Array::make(used_funcs.length(), -1)
+  let mut next_idx = 0
+  let mut import_idx = 0
+  while import_idx < func_imports {
+    if used_funcs[import_idx] {
+      remap[import_idx] = next_idx
+      next_idx += 1
+    }
+    import_idx += 1
+  }
+  for def_idx in ordered_defined {
+    let abs_idx = func_imports + def_idx
+    if abs_idx >= 0 && abs_idx < used_funcs.length() && used_funcs[abs_idx] {
+      remap[abs_idx] = next_idx
+      next_idx += 1
+    }
+  }
+  remap
+}
+
+///|
+fn rume_rewrite_functions_only(
+  mod_ : @lib.Module,
+  used_funcs : @bitset.BitSet,
+) -> @lib.Module {
+  let func_imports = rume_imported_func_count(mod_)
+  let kept_defined = rume_kept_defined_from_used(used_funcs, func_imports)
+  let ordered_defined = rume_build_extract_defined_order(
+    mod_, kept_defined, func_imports,
+  )
+  let func_remap = rume_build_extract_func_remap(
+    used_funcs, func_imports, ordered_defined,
+  )
+  if rume_remap_is_identity(func_remap) {
+    return mod_
+  }
+
+  let global_remap = rume_identity_remap(
+    rume_imported_global_count(mod_) + rume_defined_global_count(mod_),
+  )
+  let table_remap = rume_identity_remap(
+    rume_imported_table_count(mod_) + rume_defined_table_count(mod_),
+  )
+  let mem_remap = rume_identity_remap(
+    rume_imported_mem_count(mod_) + rume_defined_mem_count(mod_),
+  )
+  let tag_remap = rume_identity_remap(
+    rume_imported_tag_count(mod_) + rume_defined_tag_count(mod_),
+  )
+  let elem_remap = rume_identity_remap(
+    match mod_.elem_sec {
+      Some(@lib.ElemSec(elems)) => elems.length()
+      None => 0
+    },
+  )
+  let data_remap = rume_identity_remap(
+    match mod_.data_sec {
+      Some(@lib.DataSec(datas)) => datas.length()
+      None => 0
+    },
+  )
+
+  let next_import_sec = match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) => {
+      let next : Array[@lib.Import] = []
+      let mut func_idx = 0
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => {
+            if used_funcs[func_idx] {
+              next.push(import_)
+            }
+            func_idx += 1
+          }
+          _ => next.push(import_)
+        }
+      }
+      if next.is_empty() {
+        None
+      } else {
+        Some(@lib.ImportSec::new(next))
+      }
+    }
+    None => None
+  }
+
+  let (next_func_sec, next_code_sec) = match (mod_.func_sec, mod_.code_sec) {
+    (Some(@lib.FuncSec(type_idxs)), Some(@lib.CodeSec(funcs))) => {
+      let next_type_idxs : Array[@lib.TypeIdx] = []
+      let next_funcs : Array[@lib.Func] = []
+      for def_idx in ordered_defined {
+        match (type_idxs.get(def_idx), funcs.get(def_idx)) {
+          (Some(type_idx), Some(@lib.Func(locals, body))) => {
+            next_type_idxs.push(type_idx)
+            next_funcs.push(
+              @lib.Func::new(
+                locals,
+                rume_rewrite_expr(
+                  body, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+                  elem_remap, data_remap,
+                ),
+              ),
+            )
+          }
+          _ => ()
+        }
+      }
+      if next_type_idxs.is_empty() {
+        (None, None)
+      } else {
+        (
+          Some(@lib.FuncSec::new(next_type_idxs)),
+          Some(@lib.CodeSec::new(next_funcs)),
+        )
+      }
+    }
+    _ => (None, None)
+  }
+
+  let next_global_sec = match mod_.global_sec {
+    Some(@lib.GlobalSec(globals)) => {
+      let next : Array[@lib.Global] = []
+      for global in globals {
+        let @lib.Global(global_type, init) = global
+        next.push(
+          @lib.Global::new(
+            global_type,
+            rume_rewrite_expr(
+              init, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+              elem_remap, data_remap,
+            ),
+          ),
+        )
+      }
+      if next.is_empty() {
+        None
+      } else {
+        Some(@lib.GlobalSec::new(next))
+      }
+    }
+    None => None
+  }
+
+  let next_table_sec = match mod_.table_sec {
+    Some(@lib.TableSec(tables)) => {
+      let next : Array[@lib.Table] = []
+      for table in tables {
+        let @lib.Table(table_type, init) = table
+        next.push(
+          @lib.Table::new(
+            table_type,
+            match init {
+              Some(expr) =>
+                Some(
+                  rume_rewrite_expr(
+                    expr, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+                    elem_remap, data_remap,
+                  ),
+                )
+              None => None
+            },
+          ),
+        )
+      }
+      if next.is_empty() {
+        None
+      } else {
+        Some(@lib.TableSec::new(next))
+      }
+    }
+    None => None
+  }
+
+  let next_export_sec = match mod_.export_sec {
+    Some(@lib.ExportSec(exports)) => {
+      let next : Array[@lib.Export] = []
+      for export_ in exports {
+        let @lib.Export(name, extern_idx) = export_
+        next.push(
+          @lib.Export::new(
+            name,
+            match extern_idx {
+              @lib.FuncExternIdx(func_idx) =>
+                @lib.ExternIdx::func(
+                  rume_rewrite_func_idx(func_idx, func_remap),
+                )
+              @lib.GlobalExternIdx(global_idx) =>
+                @lib.ExternIdx::global(
+                  rume_rewrite_global_idx(global_idx, global_remap),
+                )
+              @lib.TableExternIdx(table_idx) =>
+                @lib.ExternIdx::table(
+                  rume_rewrite_table_idx(table_idx, table_remap),
+                )
+              @lib.MemExternIdx(mem_idx) =>
+                @lib.ExternIdx::mem(rume_rewrite_mem_idx(mem_idx, mem_remap))
+              @lib.TagExternIdx(tag_idx) =>
+                @lib.ExternIdx::tag(rume_rewrite_tag_idx(tag_idx, tag_remap))
+            },
+          ),
+        )
+      }
+      if next.is_empty() {
+        None
+      } else {
+        Some(@lib.ExportSec::new(next))
+      }
+    }
+    None => None
+  }
+
+  let next_start_sec = match mod_.start_sec {
+    Some(@lib.StartSec(func_idx)) =>
+      Some(@lib.StartSec::new(rume_rewrite_func_idx(func_idx, func_remap)))
+    None => None
+  }
+
+  let next_elem_sec = match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      let next : Array[@lib.Elem] = []
+      for elem in elems {
+        let @lib.Elem(mode, kind) = elem
+        next.push(
+          @lib.Elem::new(
+            match mode {
+              @lib.Active(table_idx, expr) =>
+                @lib.ElemMode::active(
+                  rume_rewrite_table_idx(table_idx, table_remap),
+                  rume_rewrite_expr(
+                    expr, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+                    elem_remap, data_remap,
+                  ),
+                )
+              _ => mode
+            },
+            rume_rewrite_elem_kind(
+              kind, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+              elem_remap, data_remap,
+            ),
+          ),
+        )
+      }
+      if next.is_empty() {
+        None
+      } else {
+        Some(@lib.ElemSec::new(next))
+      }
+    }
+    None => None
+  }
+
+  let next_data_sec = match mod_.data_sec {
+    Some(@lib.DataSec(datas)) => {
+      let next : Array[@lib.Data] = []
+      for data in datas {
+        let @lib.Data(mode, bytes) = data
+        next.push(
+          @lib.Data::new(
+            match mode {
+              @lib.Active(mem_idx, expr) =>
+                @lib.DataMode::active(
+                  rume_rewrite_mem_idx(mem_idx, mem_remap),
+                  rume_rewrite_expr(
+                    expr, func_remap, global_remap, table_remap, mem_remap, tag_remap,
+                    elem_remap, data_remap,
+                  ),
+                )
+              @lib.Passive => mode
+            },
+            bytes,
+          ),
+        )
+      }
+      if next.is_empty() {
+        None
+      } else {
+        Some(@lib.DataSec::new(next))
+      }
+    }
+    None => None
+  }
+
+  @lib.Module::new(
+    custom_secs=mod_.custom_secs,
+    type_sec=mod_.type_sec,
+    import_sec=next_import_sec,
+    func_annotation_sec=rume_rewrite_func_annotation_sec(
+      mod_.func_annotation_sec,
+      func_remap,
+    ),
+    func_sec=next_func_sec,
+    table_sec=next_table_sec,
+    mem_sec=mod_.mem_sec,
+    tag_sec=mod_.tag_sec,
+    stringrefs_sec=mod_.stringrefs_sec,
+    global_sec=next_global_sec,
+    export_sec=next_export_sec,
+    start_sec=next_start_sec,
+    elem_sec=next_elem_sec,
+    data_cnt_sec=mod_.data_cnt_sec,
+    code_sec=next_code_sec,
+    data_sec=next_data_sec,
+    name_sec=rume_rewrite_name_sec(
+      mod_.name_sec,
+      func_remap,
+      table_remap,
+      mem_remap,
+      global_remap,
+      elem_remap,
+      data_remap,
+      tag_remap,
+    ),
+  )
+}
+
+///|
+fn rume_normalize_extract_roots(
+  mod_ : @lib.Module,
+  roots : Array[@lib.FuncIdx],
+) -> Result[Array[@lib.FuncIdx], String] {
+  let total_funcs = rume_imported_func_count(mod_) +
+    rume_defined_func_count(mod_)
+  let seen = @bitset.BitSet::new(total_funcs)
+  let normalized : Array[@lib.FuncIdx] = []
+  for root in roots {
+    let @lib.FuncIdx(raw_idx) = root
+    let slot = raw_idx.reinterpret_as_int()
+    if slot < 0 || slot >= total_funcs {
+      return Err(
+        "function index \{raw_idx} is out of range for module with \{total_funcs} functions",
+      )
+    }
+    if !seen[slot] {
+      seen[slot] = true
+      normalized.push(root)
+    }
+  }
+  if normalized.is_empty() {
+    Err("function list is empty")
+  } else {
+    Ok(normalized)
+  }
+}
+
+///|
+pub fn rume_extract_functions(
+  mod_ : @lib.Module,
+  roots : Array[@lib.FuncIdx],
+) -> Result[@lib.Module, String] {
+  let normalized_roots = match rume_normalize_extract_roots(mod_, roots) {
+    Ok(value) => value
+    Err(err) => return Err(err)
+  }
+  let rooted = rume_root_module_for_extract(mod_, normalized_roots)
+  let (
+    used_funcs,
+    used_globals,
+    used_tables,
+    used_mems,
+    used_tags,
+    used_elems,
+    used_datas,
+  ) = rume_collect_liveness_with_import_parent_policy(rooted, false)
+  let minimized = rume_apply_module_rewrite(
+    rooted, used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems,
+    used_datas,
+  )
+  let (final_used_funcs, _, _, _, _, _, _) = rume_collect_liveness_with_import_parent_policy(
+    minimized, false,
+  )
+  Ok(rume_rewrite_functions_only(minimized, final_used_funcs))
 }
 
 ///|
