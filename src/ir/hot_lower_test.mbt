@@ -177,7 +177,6 @@ test "hot lower peels typed wrapper blocks that only branch to the parent" {
         ),
         @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-        @lib.Instruction::nop(),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       ]),
     ),
@@ -805,7 +804,6 @@ test "hot lower peels same-typed nested if wrappers when inner label is unused" 
         ),
         @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-        @lib.Instruction::nop(),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       ]),
     ),
@@ -861,7 +859,6 @@ test "hot lower peels escaping wrapper blocks and trims dead tails" {
         ),
         @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-        @lib.Instruction::nop(),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       ]),
     ),
@@ -1060,11 +1057,34 @@ test "hot lower materializes unreachable tails after loop exits to the parent bl
         ),
         @lib.Instruction::struct_new(@lib.TypeIdx::new(0U)),
         @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
-        @lib.Instruction::nop(),
         @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
       ]),
     ),
   )
+}
+
+///|
+test "hot lower keeps terminal unreachable after self-looping loop bodies" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::loop_(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::block(
+          @lib.BlockType::void_(),
+          @lib.Expr::new([@lib.Instruction::br(@lib.LabelIdx::new(1U))]),
+        ),
+        @lib.Instruction::unreachable_(),
+      ]),
+    ),
+    @lib.Instruction::unreachable_(),
+  ])
+  let hot = hot_lift_body(
+    body,
+    HotLocals::new(),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+
+  assert_eq(hot_lower_body(hot), body)
 }
 
 ///|

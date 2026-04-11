@@ -64,7 +64,48 @@ test "ssa-nomerge keeps the latest straight-line local alias live" {
 }
 
 ///|
-test "ssa-nomerge reuses canonical param slots through structured no-merge writes" {
+test "ssa-nomerge rewrites dead param sets through fresh locals" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i64) (result i32) i64.const 756 local.set 0 i32.const 700))",
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dead param set rewrite success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i64()]))
+  assert_eq(instrs, [
+    @lib.Instruction::i64_const(@lib.I64(756L)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(700)),
+  ])
+}
+
+///|
+test "ssa-nomerge rewrites dead param tees through fresh locals" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param f64) (result f32) f64.const 17 local.tee 0 drop f32.const 92))",
+      ["ssa-nomerge"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected dead param tee rewrite success, got \{err}")
+  }
+
+  let (locals, instrs) = try! ssa_test_first_defined_func(optimized)
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::f64()]))
+  assert_eq(instrs, [
+    @lib.Instruction::f64_const(@lib.F64(17.0)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::f32_const(@lib.F32::new(92.0)),
+  ])
+}
+
+///|
+test "ssa-nomerge keeps structured param writes on the canonical slot" {
   let input =
     #| (module
     #|   (func (param i32) (result i32)
@@ -520,7 +561,7 @@ test "ssa-nomerge rewrites structured branch merges with result-typed ifs" {
 }
 
 ///|
-test "ssa-nomerge reuses canonical param slots across typed if branch merges" {
+test "ssa-nomerge keeps canonical param slots across typed if branch merges" {
   let input =
     #| (module
     #|   (func (param i32) (result i32)

@@ -32,7 +32,7 @@ related:
 
 ## Active Hot Passes
 
-- [`ssa-nomerge/index.md`](ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the remaining debug-artifact validation blocker.
+- [`ssa-nomerge/index.md`](ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family, green compare evidence, and the remaining trace-level raw-lowering skips.
 - [`vacuum/index.md`](vacuum/index.md) - Scaffolded folder for future vacuum research and strategy notes.
 - [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Scaffolded folder for future DCE research and strategy notes.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.

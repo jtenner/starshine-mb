@@ -1473,25 +1473,6 @@ fn hot_lower_impl_body_terminal_branch_depth(body : Array[Instruction]) -> Int? 
 }
 
 ///|
-fn hot_lower_impl_body_exits_without_outer_branch(
-  body : Array[Instruction],
-) -> Bool {
-  if body.length() == 0 {
-    return false
-  }
-  match body[body.length() - 1] {
-    Br(li) => hot_lower_impl_decoded_label_depth(li) == 0
-    Return | Throw(_) | ThrowRef | Unreachable => true
-    Block(_, Expr(inner)) | Loop(_, Expr(inner)) =>
-      hot_lower_impl_body_exits_without_outer_branch(inner)
-    If(_, then_, Some(else_)) =>
-      hot_lower_impl_body_exits_without_outer_branch(then_) &&
-      hot_lower_impl_body_exits_without_outer_branch(else_)
-    _ => false
-  }
-}
-
-///|
 fn hot_lower_impl_needs_explicit_unreachable_after_peeled_prefix(
   body : Array[Instruction],
 ) -> Bool {
@@ -1553,10 +1534,7 @@ fn hot_lower_impl_trim_redundant_unreachable_tail(
         return body
       }
       match prev {
-        Loop(_, Expr(loop_body)) =>
-          if !hot_lower_impl_body_exits_without_outer_branch(loop_body) {
-            return body
-          }
+        Loop(_, _) => return body
         If(_, _, _) | Block(_, _) => return body
         Br(_) =>
           if body.length() >= 3 {

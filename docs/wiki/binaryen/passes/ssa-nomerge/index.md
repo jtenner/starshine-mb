@@ -15,4 +15,4 @@ related:
 - Active hot pass in the Starshine registry.
 - Current summary: untangle hot locals into semi-SSA form and lower overlay phis through predecessor copies.
 - Current durable page: [`./parity.md`](./parity.md).
-- The current artifact-backed blocker is a final-module validation failure on the checked-in debug CLI artifact; see the parity page for the current repro and signoff rule.
+- The current output-facing artifact blocker is fixed on current source, but trace-level raw-lowering skips still remain; see the parity page for the current repros and signoff rule.

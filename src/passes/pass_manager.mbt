@@ -1997,6 +1997,70 @@ fn run_hot_pipeline_raw_instrs_have_later_local_write(
 }
 
 ///|
+fn run_hot_pipeline_raw_mark_future_local_accesses(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+  accesses : @bitset.BitSet,
+  reads : Bool,
+) -> Unit {
+  for idx = start_idx; idx < instrs.length(); idx = idx + 1 {
+    match instrs[idx] {
+      @lib.Block(_, @lib.Expr(body)) =>
+        run_hot_pipeline_raw_mark_future_local_accesses(
+          body,
+          0,
+          accesses,
+          reads,
+        )
+      @lib.If(_, then_body, else_body) => {
+        run_hot_pipeline_raw_mark_future_local_accesses(
+          then_body,
+          0,
+          accesses,
+          reads,
+        )
+        match else_body {
+          Some(body) =>
+            run_hot_pipeline_raw_mark_future_local_accesses(
+              body,
+              0,
+              accesses,
+              reads,
+            )
+          None => ()
+        }
+      }
+      @lib.LocalGet(@lib.LocalIdx(raw)) =>
+        if reads {
+          accesses[raw.reinterpret_as_int()] = true
+        }
+      @lib.LocalSet(@lib.LocalIdx(raw)) | @lib.LocalTee(@lib.LocalIdx(raw)) =>
+        if !reads {
+          accesses[raw.reinterpret_as_int()] = true
+        }
+      _ => ()
+    }
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_future_local_accesses(
+  instrs : Array[@lib.Instruction],
+  start_idx : Int,
+  inherited : @bitset.BitSet,
+  reads : Bool,
+) -> @bitset.BitSet {
+  let future = inherited.copy()
+  run_hot_pipeline_raw_mark_future_local_accesses(
+    instrs,
+    start_idx,
+    future,
+    reads,
+  )
+  future
+}
+
+///|
 fn run_hot_pipeline_raw_label_target(
   module_ctx : @ir.HotModuleContext,
   block_type : @lib.BlockType,
@@ -2160,6 +2224,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
   canonical_aliases : Array[@lib.LocalIdx],
   initialized_locals : @bitset.BitSet,
   label_stack : Array[RawSsaLabelTarget],
+  future_reads : @bitset.BitSet,
+  future_writes : @bitset.BitSet,
   extra_local_types : Array[@lib.ValType],
 ) -> (
   Array[@lib.Instruction],
@@ -2183,6 +2249,18 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           Some(label_target) => label_target
           None => return None
         }
+        let child_future_reads = run_hot_pipeline_raw_future_local_accesses(
+          instrs,
+          idx + 1,
+          future_reads,
+          true,
+        )
+        let child_future_writes = run_hot_pipeline_raw_future_local_accesses(
+          instrs,
+          idx + 1,
+          future_writes,
+          false,
+        )
         match
           run_hot_pipeline_raw_rewrite_instrs(
             body,
@@ -2193,6 +2271,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             canonical_aliases,
             initialized.copy(),
             run_hot_pipeline_raw_push_label_target(label_stack, label_target),
+            child_future_reads,
+            child_future_writes,
             extra_local_types,
           ) {
           Some(
@@ -2265,6 +2345,18 @@ fn run_hot_pipeline_raw_rewrite_instrs(
           Some(label_target) => label_target
           None => return None
         }
+        let child_future_reads = run_hot_pipeline_raw_future_local_accesses(
+          instrs,
+          idx + 1,
+          future_reads,
+          true,
+        )
+        let child_future_writes = run_hot_pipeline_raw_future_local_accesses(
+          instrs,
+          idx + 1,
+          future_writes,
+          false,
+        )
         let then_result = match
           run_hot_pipeline_raw_rewrite_instrs(
             then_body,
@@ -2275,6 +2367,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
             canonical_aliases,
             initialized.copy(),
             run_hot_pipeline_raw_push_label_target(label_stack, label_target),
+            child_future_reads,
+            child_future_writes,
             extra_local_types,
           ) {
           Some(result) => result
@@ -2294,6 +2388,8 @@ fn run_hot_pipeline_raw_rewrite_instrs(
                 run_hot_pipeline_raw_push_label_target(
                   label_stack, label_target,
                 ),
+                child_future_reads,
+                child_future_writes,
                 extra_local_types,
               ) {
               Some(result) => result
@@ -2538,23 +2634,21 @@ fn run_hot_pipeline_raw_rewrite_instrs(
         )
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
-        if local_id < params.length() {
-          aliases[local_id] = canonical_aliases[local_id]
-          initialized[local_id] = true
-          rewritten.push(
-            @lib.Instruction::local_set(canonical_aliases[local_id]),
-          )
-        } else if aliases[local_id] == canonical_aliases[local_id] &&
-          run_hot_pipeline_raw_instrs_have_later_local_read(
-            instrs,
-            idx + 1,
-            local_id,
-          ) &&
-          !run_hot_pipeline_raw_instrs_have_later_local_write(
-            instrs,
-            idx + 1,
-            local_id,
-          ) {
+        let later_read = run_hot_pipeline_raw_instrs_have_later_local_read(
+          instrs,
+          idx + 1,
+          local_id,
+        ) ||
+          (local_id < params.length() && future_reads[local_id])
+        let later_write = run_hot_pipeline_raw_instrs_have_later_local_write(
+          instrs,
+          idx + 1,
+          local_id,
+        ) ||
+          (local_id < params.length() && future_writes[local_id])
+        if aliases[local_id] == canonical_aliases[local_id] &&
+          later_read &&
+          !later_write {
           initialized[local_id] = true
           rewritten.push(
             @lib.Instruction::local_set(canonical_aliases[local_id]),
@@ -2570,23 +2664,21 @@ fn run_hot_pipeline_raw_rewrite_instrs(
       }
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
-        if local_id < params.length() {
-          aliases[local_id] = canonical_aliases[local_id]
-          initialized[local_id] = true
-          rewritten.push(
-            @lib.Instruction::local_tee(canonical_aliases[local_id]),
-          )
-        } else if aliases[local_id] == canonical_aliases[local_id] &&
-          run_hot_pipeline_raw_instrs_have_later_local_read(
-            instrs,
-            idx + 1,
-            local_id,
-          ) &&
-          !run_hot_pipeline_raw_instrs_have_later_local_write(
-            instrs,
-            idx + 1,
-            local_id,
-          ) {
+        let later_read = run_hot_pipeline_raw_instrs_have_later_local_read(
+          instrs,
+          idx + 1,
+          local_id,
+        ) ||
+          (local_id < params.length() && future_reads[local_id])
+        let later_write = run_hot_pipeline_raw_instrs_have_later_local_write(
+          instrs,
+          idx + 1,
+          local_id,
+        ) ||
+          (local_id < params.length() && future_writes[local_id])
+        if aliases[local_id] == canonical_aliases[local_id] &&
+          later_read &&
+          !later_write {
           initialized[local_id] = true
           rewritten.push(
             @lib.Instruction::local_tee(canonical_aliases[local_id]),
@@ -2641,6 +2733,8 @@ fn run_hot_pipeline_raw_ssa_nomerge_structured(
       canonical_aliases,
       initialized_locals,
       [],
+      @bitset.BitSet::new(base_local_count),
+      @bitset.BitSet::new(base_local_count),
       extra_local_types,
     ) {
     Some((rewritten_instrs, _, _, _, _)) => {
@@ -2687,13 +2781,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
         )
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
-        if local_id < params.length() {
-          initialized_locals[local_id] = true
-          local_aliases[local_id] = canonical_aliases[local_id]
-          rewritten_instrs.push(
-            @lib.Instruction::local_set(canonical_aliases[local_id]),
-          )
-        } else if local_aliases[local_id] == canonical_aliases[local_id] &&
+        if local_aliases[local_id] == canonical_aliases[local_id] &&
           run_hot_pipeline_raw_instrs_have_later_local_read(
             instrs,
             idx + 1,
@@ -2724,13 +2812,7 @@ fn run_hot_pipeline_raw_ssa_nomerge_straight_line(
       }
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
-        if local_id < params.length() {
-          initialized_locals[local_id] = true
-          local_aliases[local_id] = canonical_aliases[local_id]
-          rewritten_instrs.push(
-            @lib.Instruction::local_tee(canonical_aliases[local_id]),
-          )
-        } else if local_aliases[local_id] == canonical_aliases[local_id] &&
+        if local_aliases[local_id] == canonical_aliases[local_id] &&
           run_hot_pipeline_raw_instrs_have_later_local_read(
             instrs,
             idx + 1,
