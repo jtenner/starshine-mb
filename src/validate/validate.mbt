@@ -2242,10 +2242,12 @@ fn validate_name_sec(
         }
         for local_entry in local_entries {
           let NameAssoc(local_idx, _) = local_entry
-          if local_idx.reinterpret_as_int() >= total_locals {
-            return Err(
-              "local name index out of range: func=\{func_idx} local=\{local_idx} total_locals=\{total_locals}",
-            )
+          match bounded_index(total_locals, local_idx.reinterpret_as_int()) {
+            Some(_) => ()
+            None =>
+              return Err(
+                "local name index out of range: func=\{func_idx} local=\{local_idx} total_locals=\{total_locals}",
+              )
           }
         }
       }
@@ -2265,10 +2267,12 @@ fn validate_name_sec(
         }
         for label_entry in label_entries {
           let NameAssoc(label_idx, _) = label_entry
-          if label_idx.reinterpret_as_int() >= total_labels {
-            return Err(
-              "label name index out of range: func=\{func_idx} label=\{label_idx} total_labels=\{total_labels}",
-            )
+          match bounded_index(total_labels, label_idx.reinterpret_as_int()) {
+            Some(_) => ()
+            None =>
+              return Err(
+                "label name index out of range: func=\{func_idx} label=\{label_idx} total_labels=\{total_labels}",
+              )
           }
         }
       }
@@ -2361,10 +2365,12 @@ fn validate_name_sec(
         }
         for field_entry in field_entries {
           let NameAssoc(field_idx, _) = field_entry
-          if field_idx.reinterpret_as_int() >= fields.length() {
-            return Err(
-              "field name index out of range: type=\{type_idx} field=\{field_idx} total_fields=\{fields.length()}",
-            )
+          match bounded_index(fields.length(), field_idx.reinterpret_as_int()) {
+            Some(_) => ()
+            None =>
+              return Err(
+                "field name index out of range: type=\{type_idx} field=\{field_idx} total_fields=\{fields.length()}",
+              )
           }
         }
       }

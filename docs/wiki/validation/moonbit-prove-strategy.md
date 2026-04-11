@@ -76,7 +76,7 @@ related:
   - `Env::get_label_types`
   - `Env::resolve_subtype` and `Env::resolve_typeidx_subtype`
   - descriptor-metadata group indexing in `validate.mbt`
-  - name-section local and label counting
+  - name-section local, label, and field-name bounds checks
   - code-body diagnostic function-index mapping
   - declared-function bitset bounds checks in the `ref.func` declaration pass
   - suffix-base recovery for current rectype groups and imported-function prefixes

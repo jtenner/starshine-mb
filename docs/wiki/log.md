@@ -235,3 +235,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Rewired `validate_codesec_diag` to recover the imported-function prefix through the proved suffix helper instead of open-coding `total - defined`.
 - Rewired descriptor-metadata validation to use the same helper and documented the real rule: the current rectype group may already be appended to `env`, or it may still be a virtual suffix immediately after the existing type space during standalone `RecType` validation.
 - Updated `docs/wiki/validation/moonbit-prove-strategy.md`, archived research note `0077-2026-04-10-moonbit-prove-strategy.md`, and `docs/wiki/index.md` so the living docs reflect the new helper and the current `9`-goal kernel state.
+
+## [2026-04-11] maintain | extend bounded-index reuse through remaining name-section checks
+
+- Rewired the remaining name-section bounds checks in `src/validate/validate.mbt` so local, label, and struct-field name indices now all flow through the proved `bounded_index` helper instead of open-coded `idx >= total` comparisons.
+- Kept the proof kernel shape unchanged at `9` goals while widening the validator surface that now relies on the existing helper inventory.
+- Updated `docs/wiki/validation/moonbit-prove-strategy.md` and archived research note `0077-2026-04-10-moonbit-prove-strategy.md` so the living proof docs reflect that broader `bounded_index` usage.
