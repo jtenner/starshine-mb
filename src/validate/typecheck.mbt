@@ -1032,19 +1032,19 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
   if Validate::validate(ht, st.env) is Err(t) {
     return Err("Invalid heap type in br_on_non_null operand: " + t)
   }
-  if label_ts.length() == 0 {
-    return Err("br_on_non_null label type too short")
+  let end = match latest_stack_index(label_ts.length()) {
+    Some(end) => end
+    None => return Err("br_on_non_null label type too short")
   }
 
   // Label must end with NON-NULLABLE ref of same heap type
   let non_null_rt = RefType::new(false, ht)
   let want_last = ValType::ref_type(non_null_rt)
-  let last = label_ts[label_ts.length() - 1]
+  let last = label_ts[end]
   if not(Match::matches(last, want_last, st.env)) {
     return Err("br_on_non_null label must end with non-nullable ref type")
   }
   if st.reachable {
-    let end = label_ts.length() - 1
     if st1.check_pop_types_prefix(label_ts, end) is Err(t) {
       return Err(t)
     }
@@ -1073,10 +1073,11 @@ fn typecheck_br_on_cast(
     Err(e) => return Err(e)
     Ok(x) => x
   }
-  if label_ts.length() == 0 {
-    return Err("br_on_cast label type too short")
+  let end = match latest_stack_index(label_ts.length()) {
+    Some(end) => end
+    None => return Err("br_on_cast label type too short")
   }
-  let rt_label = match label_ts[label_ts.length() - 1] {
+  let rt_label = match label_ts[end] {
     RefTypeValType(r) => r
     _ => return Err("br_on_cast label must end with a reftype")
   }
@@ -1097,7 +1098,6 @@ fn typecheck_br_on_cast(
   if st.reachable {
     // Check label args excluding rt_label (because branch keeps rt2 / rt_label)
     // Per spec, label is t* rt, so the remaining stack must have t*
-    let end = label_ts.length() - 1
     let _ = match st1.check_pop_types_prefix(label_ts, end) {
       Err(e) => return Err(e)
       Ok(_) => ()
@@ -1133,10 +1133,11 @@ fn typecheck_br_on_cast_fail(
     Err(e) => return Err(e)
     Ok(x) => x
   }
-  if label_ts.length() == 0 {
-    return Err("br_on_cast_fail label type too short")
+  let end = match latest_stack_index(label_ts.length()) {
+    Some(end) => end
+    None => return Err("br_on_cast_fail label type too short")
   }
-  let rt_label = match label_ts[label_ts.length() - 1] {
+  let rt_label = match label_ts[end] {
     RefTypeValType(r) => r
     _ => return Err("br_on_cast_fail label must end with a reftype")
   }
@@ -1157,7 +1158,6 @@ fn typecheck_br_on_cast_fail(
     Ok(s) => s
   }
   if st.reachable {
-    let end = label_ts.length() - 1
     let _ = match st1.check_pop_types_prefix(label_ts, end) {
       Err(e) => return Err(e)
       Ok(_) => ()
@@ -5561,6 +5561,20 @@ test "Typecheck BrOnNonNull with externref" {
 }
 
 ///|
+test "Typecheck BrOnNonNull rejects empty label payloads" {
+  let env = empty_env().with_labels([[]])
+  let state = make_state(env, [nullable_funcref()])
+  let result = Typecheck::typecheck(
+    Instruction::br_on_non_null(LabelIdx::new(0)),
+    state,
+  )
+  match result {
+    Ok(_) => fail("expected empty br_on_non_null label payloads to fail")
+    Err(msg) => assert_eq(msg, "br_on_non_null label type too short")
+  }
+}
+
+///|
 test "Typecheck BrOnNonNull fails with wrong label type" {
   let env = empty_env().with_labels([[ValType::i32()]])
   let state = make_state(env, [nullable_funcref()])
@@ -6520,6 +6534,25 @@ test "Typecheck BrOnCast" {
 }
 
 ///|
+test "Typecheck BrOnCast rejects empty label payloads" {
+  let env = empty_env().with_labels([[]])
+  let state = make_state(env, [anyref_type()])
+  let cast_op = CastOp::new(true, true)
+  let t = Instruction::br_on_cast(
+    LabelIdx::new(0),
+    cast_op.0,
+    HeapType::abs(AbsHeapType::any()),
+    cast_op.1,
+    HeapType::abs(AbsHeapType::i31()),
+  )
+  let result = Typecheck::typecheck(t, state)
+  match result {
+    Ok(_) => fail("expected empty br_on_cast label payloads to fail")
+    Err(msg) => assert_eq(msg, "br_on_cast label type too short")
+  }
+}
+
+///|
 test "Typecheck BrOnCastFail" {
   let env = empty_env().with_labels([[anyref_type()]])
   let state = make_state(env, [anyref_type()])
@@ -6533,6 +6566,25 @@ test "Typecheck BrOnCastFail" {
   )
   let result = Typecheck::typecheck(t, state)
   ignore(assert_ok(result))
+}
+
+///|
+test "Typecheck BrOnCastFail rejects empty label payloads" {
+  let env = empty_env().with_labels([[]])
+  let state = make_state(env, [anyref_type()])
+  let cast_op = CastOp::new(true, true)
+  let t = Instruction::br_on_cast_fail(
+    LabelIdx::new(0),
+    cast_op.0,
+    HeapType::abs(AbsHeapType::any()),
+    cast_op.1,
+    HeapType::abs(AbsHeapType::i31()),
+  )
+  let result = Typecheck::typecheck(t, state)
+  match result {
+    Ok(_) => fail("expected empty br_on_cast_fail label payloads to fail")
+    Err(msg) => assert_eq(msg, "br_on_cast_fail label type too short")
+  }
 }
 
 // =============================================================================

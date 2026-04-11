@@ -253,3 +253,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Rewired the remaining flat name-section bounds checks in `src/validate/validate.mbt` so function, type, table, memory, global, elem, data, and tag name indices now all flow through the proved `bounded_index` helper instead of bespoke per-space lookups.
 - Added focused validator regressions for out-of-range function-name and type-name entries so the widened helper reuse is locked by executable diagnostics, not just by the refactor itself.
 - Updated `docs/wiki/validation/moonbit-prove-strategy.md` and archived research note `0077-2026-04-10-moonbit-prove-strategy.md` so the living proof docs now describe `bounded_index` as the flat name-section index gate across all current validator spaces.
+
+## [2026-04-11] maintain | widen latest-index proof-helper reuse into typecheck branch-label tails
+
+- Rewired the `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` helper paths in `src/validate/typecheck.mbt` to recover the trailing label slot through the proved `latest_stack_index` helper instead of open-coding `label_ts.length() - 1`.
+- Added focused typechecker regressions for the empty-label-payload error surface on those three branch helpers so the refactor stays pinned by exact observable errors.
+- Updated `docs/wiki/validation/moonbit-prove-strategy.md` and archived research note `0077-2026-04-10-moonbit-prove-strategy.md` so the living proof docs now treat `latest_stack_index` as active in the first typecheck helper slice as well as `env`.

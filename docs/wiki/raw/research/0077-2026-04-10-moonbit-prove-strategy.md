@@ -275,6 +275,7 @@ CI order should stay incremental:
   - `Env::get_label_types`
   - `Env::resolve_subtype`
   - `Env::resolve_typeidx_subtype`
+  - `typecheck.mbt` branch-on-null / branch-on-cast label-tail index recovery
   - descriptor-metadata group indexing in `validate.mbt`
   - name-section function, type, table, memory, global, elem, data, tag, local, label, and field-name bounds checks
   - code-body diagnostic function-index mapping

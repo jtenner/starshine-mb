@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-11 Feat: widen latest-index proof-helper reuse into typecheck branch-label handling
+
+- **reused the proved latest-index helper in the first typecheck helper slice** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](./docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), and [`src/validate/typecheck.mbt`](./src/validate/typecheck.mbt) to route `br_on_non_null`, `br_on_cast`, and `br_on_cast_fail` label-tail recovery through `latest_stack_index`, add focused empty-label regressions, narrow the remaining `PRV004` backlog to the still-open stack-discipline helpers, and keep the sidecar proof kernel green at `9` proved goals.
+
 ## 2026-04-11 Feat: widen proved flat-index reuse across the remaining name-section checks
 
 - **reused the proved flat-index helper across the rest of the name-section surface** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](./docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), and [`src/validate/validate.mbt`](./src/validate/validate.mbt) to route the remaining flat function/type/table/memory/global/elem/data/tag name-section bounds checks through `bounded_index`, add focused function-name and type-name regressions, and keep the sidecar proof kernel green at `9` proved goals.

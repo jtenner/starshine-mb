@@ -601,7 +601,7 @@ Suggested Tests
      - Suggested Tests: `moon prove src/validate/match.mbt`, `moon test --package jtenner/starshine/validate --file env_tests.mbt`, focused validator tests that exercise the proved helpers.
 4. Push proofs into the typechecker helper layer, not the whole instruction set.
    - [PRV]004 - `TcState` stack-discipline proof slice.
-     - Deliverables: prove helper-layer facts around `push1`, `pop1`, `pop_expect`, `push_types`, `pop_types`, `validate_end_stack`, and the `normalize_*_if_branch_exit` helpers; extract a smaller proof-friendly helper file first if proving the monolithic `typecheck.mbt` file is too noisy.
+     - Deliverables: widen beyond the already-landed `latest_stack_index` reuse in `br_on_non_null` / `br_on_cast` / `br_on_cast_fail`, prove helper-layer facts around `push1`, `pop1`, `pop_expect`, `push_types`, `pop_types`, `validate_end_stack`, and the `normalize_*_if_branch_exit` helpers, and extract a smaller proof-friendly helper file first if proving the monolithic `typecheck.mbt` file is too noisy.
      - Required APIs: `src/validate/typecheck.mbt` helper surface and the negative tests that already lock unreachable-stack and branch-normalization behavior.
      - Invariants: do not try to prove the whole instruction surface in one slice; keep proof work focused on reusable stack and merge helpers that the instruction cases depend on.
      - Exit Criteria: at least one targeted helper-layer proof run is green and the extracted helper/package boundary, if introduced, is documented and justified.
