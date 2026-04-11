@@ -3514,8 +3514,8 @@ fn dfe_iteration(
           kept_funcs.push(normalized_funcs[idx])
           let kept_idx = kept_funcs.length() - 1
           kept_type_rewrite_flags.grow(kept_idx + 1)
-          kept_type_rewrite_flags[kept_idx] =
-            track_kept_type_rewrite_flags && normalized_mentions_type_idxs[idx]
+          kept_type_rewrite_flags[kept_idx] = track_kept_type_rewrite_flags &&
+            normalized_mentions_type_idxs[idx]
           next_abs += 1U
         }
         idx += 1

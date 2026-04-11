@@ -3158,7 +3158,7 @@ fn run_hot_pipeline_func(
       analysis.groups,
     )
     (options.trace)(
-      "debug[after-lift:\{descriptor.name}]:group-count \{analysis.groups.length()} rewrite-mask=\{rewrite_mask}",
+      "debug[after-lift:\{descriptor.name}]:group-count \{analysis.groups.length()} rewrite-mask=\{tuple_optimization_bitset_debug_string(rewrite_mask)}",
     )
     for group_id = 0
         group_id < analysis.groups.length()

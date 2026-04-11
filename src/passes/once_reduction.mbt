@@ -63,7 +63,10 @@ fn or_bool_array_equal(left : @bitset.BitSet, right : @bitset.BitSet) -> Bool {
 }
 
 ///|
-fn or_bool_array_union_into(target : @bitset.BitSet, source : @bitset.BitSet) -> Unit {
+fn or_bool_array_union_into(
+  target : @bitset.BitSet,
+  source : @bitset.BitSet,
+) -> Unit {
   let limit = or_min_int(target.length(), source.length())
   for i = 0; i < limit; i = i + 1 {
     if source[i] {

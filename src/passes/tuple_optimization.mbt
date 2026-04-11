@@ -14,15 +14,15 @@ struct HotTupleOptimizationGroup {
 
 ///|
 struct HotTupleOptimizationQuerySummary {
-  node_has_direct_non_scalar_use : Array[Bool]
-  node_has_direct_non_drop_use : Array[Bool]
-  node_has_direct_drop_use : Array[Bool]
-  scalar_forward_present : Array[Bool]
+  node_has_direct_non_scalar_use : @bitset.BitSet
+  node_has_direct_non_drop_use : @bitset.BitSet
+  node_has_direct_drop_use : @bitset.BitSet
+  scalar_forward_present : @bitset.BitSet
   scalar_forward_locals : Array[Int]
   scalar_forward_defs : Array[Int]
-  scalar_forward_is_tee : Array[Bool]
+  scalar_forward_is_tee : @bitset.BitSet
   local_single_write_nodes : Array[Int]
-  local_is_locally_tee_defined : Array[Bool]
+  local_is_locally_tee_defined : @bitset.BitSet
   forwarded_non_scalar_use : Array[Int]
   forwarded_non_drop_use : Array[Int]
   forwarded_drop_use : Array[Int]
@@ -32,15 +32,15 @@ struct HotTupleOptimizationQuerySummary {
   mut next_visit_mark : Int
   resolve_visit_marks : Array[Int]
   mut next_resolve_visit_mark : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 struct HotTupleOptimizationAnalysis {
   groups : Array[HotTupleOptimizationGroup]
   local_group_ids : Array[Int]
-  copy_read_nodes : Array[Bool]
+  copy_read_nodes : @bitset.BitSet
   query_summary : HotTupleOptimizationQuerySummary
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 struct HotTupleOptimizationRootSlot {
@@ -354,8 +354,8 @@ fn tuple_optimization_link_copy_groups(
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
   local_group_ids : Array[Int],
-  copy_read_nodes : Array[Bool],
-  copy_write_nodes : Array[Bool],
+  copy_read_nodes : @bitset.BitSet,
+  copy_write_nodes : @bitset.BitSet,
 ) -> Unit {
   for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
     let producer = groups[group_id].producer
@@ -803,7 +803,7 @@ fn tuple_optimization_link_result_block_copy_groups(
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
   local_group_ids : Array[Int],
-  copy_read_nodes : Array[Bool],
+  copy_read_nodes : @bitset.BitSet,
 ) -> Unit {
   let local_seen_marks = Array::make(@ir.hot_local_count(func), 0)
   let mut next_seen_mark = 1
@@ -853,7 +853,7 @@ fn tuple_optimization_collect_scalar_forward_copy_group(
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
   local_group_ids : Array[Int],
-  copy_read_nodes : Array[Bool],
+  copy_read_nodes : @bitset.BitSet,
   source_group_id : Int,
   local_seen_marks : Array[Int],
   seen_mark : Int,
@@ -998,7 +998,7 @@ fn tuple_optimization_link_scalar_forward_copy_groups(
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
   local_group_ids : Array[Int],
-  copy_read_nodes : Array[Bool],
+  copy_read_nodes : @bitset.BitSet,
 ) -> Unit {
   let local_seen_marks = Array::make(@ir.hot_local_count(func), 0)
   let mut next_seen_mark = 1
@@ -1077,15 +1077,15 @@ fn tuple_optimization_build_query_summary(
 ) -> HotTupleOptimizationQuerySummary {
   let node_count = @ir.hot_node_count(func)
   let local_count = @ir.hot_local_count(func)
-  let node_has_direct_non_scalar_use = Array::make(node_count, false)
-  let node_has_direct_non_drop_use = Array::make(node_count, false)
-  let node_has_direct_drop_use = Array::make(node_count, false)
-  let scalar_forward_present = Array::make(node_count, false)
+  let node_has_direct_non_scalar_use = @bitset.BitSet::new(node_count)
+  let node_has_direct_non_drop_use = @bitset.BitSet::new(node_count)
+  let node_has_direct_drop_use = @bitset.BitSet::new(node_count)
+  let scalar_forward_present = @bitset.BitSet::new(node_count)
   let scalar_forward_locals = Array::make(node_count, -1)
   let scalar_forward_defs = Array::make(node_count, -1)
-  let scalar_forward_is_tee = Array::make(node_count, false)
+  let scalar_forward_is_tee = @bitset.BitSet::new(node_count)
   let local_single_write_nodes = Array::make(local_count, -1)
-  let local_is_locally_tee_defined = Array::make(local_count, false)
+  let local_is_locally_tee_defined = @bitset.BitSet::new(local_count)
   let forwarded_non_scalar_use = Array::make(local_count, -1)
   let forwarded_non_drop_use = Array::make(local_count, -1)
   let forwarded_drop_use = Array::make(local_count, -1)
@@ -1195,15 +1195,15 @@ fn tuple_optimization_build_query_summary(
 ///|
 fn tuple_optimization_empty_query_summary() -> HotTupleOptimizationQuerySummary {
   {
-    node_has_direct_non_scalar_use: Array::make(0, false),
-    node_has_direct_non_drop_use: Array::make(0, false),
-    node_has_direct_drop_use: Array::make(0, false),
-    scalar_forward_present: Array::make(0, false),
+    node_has_direct_non_scalar_use: @bitset.BitSet::new(0),
+    node_has_direct_non_drop_use: @bitset.BitSet::new(0),
+    node_has_direct_drop_use: @bitset.BitSet::new(0),
+    scalar_forward_present: @bitset.BitSet::new(0),
     scalar_forward_locals: Array::make(0, -1),
     scalar_forward_defs: Array::make(0, -1),
-    scalar_forward_is_tee: Array::make(0, false),
+    scalar_forward_is_tee: @bitset.BitSet::new(0),
     local_single_write_nodes: Array::make(0, -1),
-    local_is_locally_tee_defined: Array::make(0, false),
+    local_is_locally_tee_defined: @bitset.BitSet::new(0),
     forwarded_non_scalar_use: Array::make(0, -1),
     forwarded_non_drop_use: Array::make(0, -1),
     forwarded_drop_use: Array::make(0, -1),
@@ -1734,8 +1734,8 @@ fn tuple_optimization_count_lane_traffic(
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
   local_group_ids : Array[Int],
-  copy_read_nodes : Array[Bool],
-  copy_write_nodes : Array[Bool],
+  copy_read_nodes : @bitset.BitSet,
+  copy_write_nodes : @bitset.BitSet,
 ) -> Unit {
   for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
     for lane_idx = 0
@@ -1848,7 +1848,7 @@ fn tuple_optimization_empty_analysis(
   {
     groups: [],
     local_group_ids: Array::make(@ir.hot_local_count(func), -1),
-    copy_read_nodes: Array::make(@ir.hot_node_count(func), false),
+    copy_read_nodes: @bitset.BitSet::new(@ir.hot_node_count(func)),
     query_summary: tuple_optimization_empty_query_summary(),
   }
 }
@@ -1866,8 +1866,8 @@ fn tuple_optimization_analyze_with_groups(
   let mut local_group_ids = tuple_optimization_build_local_group_ids(
     func, groups,
   )
-  let copy_read_nodes = Array::make(@ir.hot_node_count(func), false)
-  let copy_write_nodes = Array::make(@ir.hot_node_count(func), false)
+  let copy_read_nodes = @bitset.BitSet::new(@ir.hot_node_count(func))
+  let copy_write_nodes = @bitset.BitSet::new(@ir.hot_node_count(func))
   tuple_optimization_link_copy_groups(
     func, query_summary, groups, local_group_ids, copy_read_nodes, copy_write_nodes,
   )
@@ -2240,21 +2240,38 @@ fn tuple_optimization_build_group_rewrite_mask(
   use_def : @ir.HotUseDef,
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
-) -> Array[Bool] {
+) -> @bitset.BitSet {
   if tuple_optimization_has_nested_rootslot_host_copy_wrapper_group(
       func, use_def, groups,
     ) {
-    return Array::make(groups.length(), false)
+    return @bitset.BitSet::new(groups.length())
   }
-  let rewrite_mask : Array[Bool] = []
+  let rewrite_mask = @bitset.BitSet::new(groups.length())
   for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
-    rewrite_mask.push(
-      tuple_optimization_group_should_rewrite_in_func(
-        func, use_def, summary, groups, group_id,
-      ),
+    rewrite_mask[group_id] = tuple_optimization_group_should_rewrite_in_func(
+      func, use_def, summary, groups, group_id,
     )
   }
   rewrite_mask
+}
+
+///|
+fn tuple_optimization_bitset_debug_string(values : @bitset.BitSet) -> String {
+  let out = StringBuilder::new()
+  out.write_string("[")
+  let mut first = true
+  for idx = 0; idx < values.length(); idx = idx + 1 {
+    if !values[idx] {
+      continue
+    }
+    if !first {
+      out.write_string(", ")
+    }
+    first = false
+    out.write_string(idx.to_string())
+  }
+  out.write_string("]")
+  out.to_string()
 }
 
 ///|
@@ -2263,11 +2280,11 @@ fn tuple_optimization_ensure_split_locals(
   use_def : @ir.HotUseDef,
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
-  copy_read_nodes : Array[Bool],
-  rewrite_mask : Array[Bool],
+  copy_read_nodes : @bitset.BitSet,
+  rewrite_mask : @bitset.BitSet,
   split_locals_by_group : Array[Array[Int]],
-  split_ready : Array[Bool],
-  split_visiting : Array[Bool],
+  split_ready : @bitset.BitSet,
+  split_visiting : @bitset.BitSet,
   group_id : Int,
 ) -> Array[Int] {
   if group_id < 0 || group_id >= groups.length() {
@@ -2343,8 +2360,8 @@ fn tuple_optimization_ensure_split_locals(
 ///|
 fn tuple_optimization_collect_rewrite_order_visit(
   groups : Array[HotTupleOptimizationGroup],
-  rewrite_mask : Array[Bool],
-  seen : Array[Bool],
+  rewrite_mask : @bitset.BitSet,
+  seen : @bitset.BitSet,
   out : Array[Int],
   group_id : Int,
 ) -> Unit {
@@ -2367,10 +2384,10 @@ fn tuple_optimization_collect_rewrite_order_visit(
 ///|
 fn tuple_optimization_collect_rewrite_order(
   groups : Array[HotTupleOptimizationGroup],
-  rewrite_mask : Array[Bool],
+  rewrite_mask : @bitset.BitSet,
 ) -> Array[Int] {
   let order : Array[Int] = []
-  let seen = Array::make(groups.length(), false)
+  let seen = @bitset.BitSet::new(groups.length())
   for group_id = 0; group_id < groups.length(); group_id = group_id + 1 {
     if rewrite_mask[group_id] {
       tuple_optimization_collect_rewrite_order_visit(
@@ -2411,7 +2428,7 @@ fn tuple_optimization_source_group_has_host_copy_consumer(
 ///|
 fn tuple_optimization_source_group_has_rewritten_host_copy_consumer(
   groups : Array[HotTupleOptimizationGroup],
-  rewrite_mask : Array[Bool],
+  rewrite_mask : @bitset.BitSet,
   source_group_id : Int,
 ) -> Bool {
   if source_group_id < 0 || source_group_id >= groups.length() {
@@ -2435,7 +2452,7 @@ fn tuple_optimization_source_group_has_rewritten_host_copy_consumer(
 ///|
 fn tuple_optimization_source_group_has_rewritten_copy_consumer(
   groups : Array[HotTupleOptimizationGroup],
-  rewrite_mask : Array[Bool],
+  rewrite_mask : @bitset.BitSet,
   source_group_id : Int,
 ) -> Bool {
   if source_group_id < 0 || source_group_id >= groups.length() {
@@ -2461,7 +2478,7 @@ fn tuple_optimization_source_group_host_copy_consumer_needs_preserved_lanes(
   use_def : @ir.HotUseDef,
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
-  copy_read_nodes : Array[Bool],
+  copy_read_nodes : @bitset.BitSet,
   source_group_id : Int,
 ) -> Bool {
   if source_group_id < 0 || source_group_id >= groups.length() {
@@ -2551,8 +2568,8 @@ fn tuple_optimization_group_needs_dedicated_split_locals(
   use_def : @ir.HotUseDef,
   summary : HotTupleOptimizationQuerySummary,
   groups : Array[HotTupleOptimizationGroup],
-  copy_read_nodes : Array[Bool],
-  rewrite_mask : Array[Bool],
+  copy_read_nodes : @bitset.BitSet,
+  rewrite_mask : @bitset.BitSet,
   group_id : Int,
   group : HotTupleOptimizationGroup,
 ) -> Bool {
@@ -4699,8 +4716,8 @@ fn tuple_optimization_rewrite_good_components(
     analysis.groups,
   )
   let mut has_rewrites = false
-  for should_rewrite in rewrite_mask {
-    if should_rewrite {
+  for group_id = 0; group_id < rewrite_mask.length(); group_id = group_id + 1 {
+    if rewrite_mask[group_id] {
       has_rewrites = true
       break
     }
@@ -4713,8 +4730,8 @@ fn tuple_optimization_rewrite_good_components(
   for _ in 0..<analysis.groups.length() {
     split_locals_by_group.push([])
   }
-  let split_ready = Array::make(analysis.groups.length(), false)
-  let split_visiting = Array::make(analysis.groups.length(), false)
+  let split_ready = @bitset.BitSet::new(analysis.groups.length())
+  let split_visiting = @bitset.BitSet::new(analysis.groups.length())
   let rewrite_order = tuple_optimization_collect_rewrite_order(
     analysis.groups,
     rewrite_mask,
@@ -5032,7 +5049,7 @@ fn tuple_optimization_cleanup_unused_body_locals(
   if body_local_count <= 0 {
     return
   }
-  let body_local_used = Array::make(body_local_count, false)
+  let body_local_used = @bitset.BitSet::new(body_local_count)
   for body_local_id = 0
       body_local_id < body_local_count
       body_local_id = body_local_id + 1 {

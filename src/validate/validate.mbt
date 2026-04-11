@@ -2420,7 +2420,10 @@ fn mark_declared_ref_funcs_in_instr(
 }
 
 ///|
-fn mark_declared_ref_funcs_in_expr(expr : Expr, declared : @bitset.BitSet) -> Unit {
+fn mark_declared_ref_funcs_in_expr(
+  expr : Expr,
+  declared : @bitset.BitSet,
+) -> Unit {
   let Expr(instrs) = expr
   for instr in instrs {
     mark_declared_ref_funcs_in_instr(instr, declared)
