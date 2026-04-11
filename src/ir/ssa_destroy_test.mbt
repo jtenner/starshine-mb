@@ -222,6 +222,26 @@ test "ssa dead local cleanup tolerates duplicate dead node ids" {
 }
 
 ///|
+test "ssa dead local cleanup preserves writes with later concrete local reads" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let set_id = hot_build_local_set(
+    func,
+    0,
+    hot_build_const_i32(func, @lib.I32(7)),
+  )
+  let get_id = hot_build_local_get(func, 0)
+  let drop_id = hot_build_drop(func, get_id)
+  hot_root_append(func, set_id)
+  hot_root_append(func, drop_id)
+
+  ssa_remove_dead_local_defs(func, [set_id])
+
+  assert_eq(hot_node_get(func, hot_root_get(func, 0)).op.to_string(), "LocalSet")
+  assert_eq(hot_node_get(func, get_id).op.to_string(), "LocalGet")
+  assert_eq(hot_child_get(func, hot_root_get(func, 1), 0), get_id)
+}
+
+///|
 test "ssa destruction does not allocate extra locals for dead local sets" {
   let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
   let set_id = hot_build_local_set(

@@ -23,7 +23,7 @@
 - Pipeline perf instrumentation now exists for opt-in timings, counters, checkpoints, and lightweight dumps.
 - The active registry surface is still intentionally small:
   - module passes: `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `duplicate-function-elimination`, `remove-unused-module-elements`
-  - hot passes: `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`
+  - hot passes: `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`, `tuple-optimization`
   - presets: `optimize`, `shrink`
 - `optimize` and `shrink` now expand to the implemented mixed batch-1 module + hot sequence with all currently-modeled RUN slots replayed:
   `memory-packing -> once-reduction -> global-refining -> global-struct-inference -> ssa-nomerge -> dead-code-elimination -> remove-unused-names -> remove-unused-brs -> remove-unused-names -> vacuum -> remove-unused-brs -> optimize-instructions -> heap-store-optimization -> pick-load-signs -> precompute -> remove-unused-brs -> heap2local -> simplify-locals -> precompute -> remove-unused-names`.
@@ -36,8 +36,9 @@
 
 - If pass migration resumes, start from the batch intent in [`0063-2026-03-24-pass-port-batches-and-registry-map.md`](./0063-2026-03-24-pass-port-batches-and-registry-map.md).
 - Preferred implementation order from the current state:
-  1. Batch 2 control and cleanup passes: `flatten`, `merge-blocks`, `re-reloop`, `tuple-optimization`, `redundant-set-elimination`, `optimize-casts`
+  1. Batch 2 control and cleanup passes: `flatten`, `merge-blocks`, `re-reloop`, `redundant-set-elimination`, `optimize-casts`
   2. Batch 3 dataflow-sensitive passes: `local-subtyping`, `loop-invariant-code-motion`
+  3. `tuple-optimization` is already implemented as an explicit hot pass and no longer part of the pending batch migration path; it remains out of presets while slot-mapping matures.
 - If a pass needs a new IR rule or overlay contract before implementation, land the contract/ADR update first in `docs/` and then add the new slice to `agent-todo.md`.
 - Keep one atomic slice per coherent dependency step; do not mix architecture contracts, pass ports, and follow-up cleanup in one commit unless the dependency is inseparable.
 

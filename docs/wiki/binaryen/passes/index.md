@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-11
 sources:
   - ../../../../src/passes/optimize.mbt
   - ../../../../src/passes/registry_test.mbt
@@ -24,26 +24,26 @@ related:
 
 - [`duplicate-function-elimination/index.md`](duplicate-function-elimination/index.md) - Expanded folder with overview, shapes, Binaryen strategy, Starshine strategy, metadata and type-compaction notes, and parity status.
 - [`remove-unused-module-elements/index.md`](remove-unused-module-elements/index.md) - Expanded folder with overview, shapes, Binaryen strategy, Starshine strategy, retention and rewrite rules, and parity status.
-- [`memory-packing/index.md`](memory-packing/index.md) - Scaffolded folder for future memory-packing research and strategy notes.
-- [`once-reduction/index.md`](once-reduction/index.md) - Scaffolded folder for future once-reduction research and strategy notes.
-- [`global-refining/index.md`](global-refining/index.md) - Scaffolded folder for future global-refining research and strategy notes.
+- [`memory-packing/index.md`](memory-packing/index.md) - Active module pass in the registry; detailed `wat-shapes.md` / strategy / parity notes are still being authored.
+- [`once-reduction/index.md`](once-reduction/index.md) - Active module pass in the registry; detailed `wat-shapes.md` / strategy / parity notes are still being authored.
+- [`global-refining/index.md`](global-refining/index.md) - Active module pass in the registry; detailed `wat-shapes.md` / strategy / parity notes are still being authored.
 - [`global-struct-inference/index.md`](global-struct-inference/index.md) - Folder now has a landing page plus the existing parity note.
 - [`reorder-locals/index.md`](reorder-locals/index.md) - Folder now has a landing page plus parity and multivalue-call scope notes.
 
 ## Active Hot Passes
 
 - [`ssa-nomerge/index.md`](ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family, fresh green compare evidence, and the remaining `Func 523` / `suspicious-escape-carrier` trace-level raw-lowering skips.
-- [`vacuum/index.md`](vacuum/index.md) - Scaffolded folder for future vacuum research and strategy notes.
-- [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Scaffolded folder for future DCE research and strategy notes.
+- [`vacuum/index.md`](vacuum/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy and parity notes are still pending.
+- [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass with registry dispatch and implemented behavior; detailed strategy/parity notes are still pending.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
 - [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Folder now has a landing page plus parity and returned-ladder shape notes.
-- [`optimize-instructions/index.md`](optimize-instructions/index.md) - Scaffolded folder for future optimize-instructions research and strategy notes.
-- [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Scaffolded folder for future heap-store-optimization research and strategy notes.
+- [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
+- [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
 - [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with WAT shapes, Binaryen strategy, Starshine HOT-native strategy, scheduler and feature-gate notes, reduced repro tracking, and current parity status.
-- [`precompute/index.md`](precompute/index.md) - Scaffolded folder for future precompute research and strategy notes.
-- [`simplify-locals/index.md`](simplify-locals/index.md) - Scaffolded folder for future simplify-locals research and strategy notes.
+- [`precompute/index.md`](precompute/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
+- [`simplify-locals/index.md`](simplify-locals/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
 
 ## Current Maintenance Rule
 

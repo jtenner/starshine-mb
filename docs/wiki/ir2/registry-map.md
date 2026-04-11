@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-11
 sources:
   - ../../0063-2026-03-24-pass-port-batches-and-registry-map.md
 related:
@@ -27,7 +27,7 @@ related:
 ## Current Live Surface
 
 - Active hot passes currently include:
-  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, and `simplify-locals`.
+  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`, and `tuple-optimization`.
 - Active module passes currently include:
   `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `duplicate-function-elimination`, and `remove-unused-module-elements`.
 - Active presets are still `optimize` and `shrink`.

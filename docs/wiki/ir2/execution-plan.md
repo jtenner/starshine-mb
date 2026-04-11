@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-11
 sources:
   - ../../0065-2026-03-24-ir2-execution-plan.md
 related:
@@ -25,7 +25,7 @@ related:
 - Module passes:
   `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `duplicate-function-elimination`, `remove-unused-module-elements`
 - Hot passes:
-  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`
+  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`, `tuple-optimization`
 - Presets:
   `optimize`, `shrink`
 - `optimize` and `shrink` currently expand to the implemented mixed batch-1 sequence, including all currently modeled `remove-unused-names` slots, all `remove-unused-brs` replays, both `precompute` slots, and the mid-function `heap2local` slot.
@@ -34,9 +34,10 @@ related:
 ## Next Slice Order
 
 1. Batch 2 control and cleanup passes:
-   `flatten`, `merge-blocks`, `re-reloop`, `tuple-optimization`, `redundant-set-elimination`, `optimize-casts`
+   `flatten`, `merge-blocks`, `re-reloop`, `redundant-set-elimination`, `optimize-casts`
 2. Batch 3 dataflow-sensitive passes:
    `local-subtyping`, `loop-invariant-code-motion`
+3. `tuple-optimization` is already an explicit hot pass and is no longer in the pending batch path; it remains out of public presets until local-cleanup slot parity is finalized.
 
 ## Practical Rule
 

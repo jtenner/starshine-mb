@@ -13,6 +13,38 @@ fn ssa_test_first_defined_func(
 }
 
 ///|
+fn ssa_test_run_hot_path_only(text : String) -> Result[@lib.Module, String] {
+  let mod_ = pass_test_module_from_wat(text)
+  let func = @ir.hot_lift_func(mod_, @lib.FuncIdx::new(0U))
+  @ir.hot_verify_all_or_abort(func)
+  let ctx = HotPassContext::new(
+    ssa_nomerge_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  match hot_pass_run(ctx, func) {
+    Ok(_) => ()
+    Err(err) => return Err("ssa-nomerge hot-path run failed: \{err}")
+  }
+  let lowered = @ir.hot_lower_func(func)
+  let next_code_sec = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[0] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => return Err("expected code sec in hot-path fixture")
+  }
+  let out = mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => Ok(out)
+    Err(err) => Err(@validate.validation_error_message(err))
+  }
+}
+
+///|
 test "ssa-nomerge keeps straight-line local traffic on the canonical slot" {
   let optimized = match
     pass_test_run_pipeline(
@@ -645,6 +677,63 @@ test "ssa-nomerge preserves unreachable compare carriers from func 523 shape" {
     Err(err) =>
       fail(
         "expected func 523 followup compare carrier shape to survive ssa-nomerge, got \{err}",
+      )
+  }
+}
+
+///|
+test "ssa-nomerge hot path validates unreachable default-local carrier followup" {
+  let input =
+    #| (module
+    #|   (func (param i64 i64 i64) (result i64)
+    #|     (local i64 i64 i64
+    #|       i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
+    #|       i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
+    #|       i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
+    #|       i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
+    #|       i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
+    #|       i32 i32 i32 i32 i32 i32 i32 i32 i32 i32
+    #|       i32 i32 i32 i32 i32)
+    #|     i64.const 9
+    #|     local.set 5
+    #|     local.get 5
+    #|     drop
+    #|     block (result i64)
+    #|       block
+    #|         local.get 0
+    #|         i64.const 1
+    #|         i64.eq
+    #|         if
+    #|           i64.const 4
+    #|           local.set 3
+    #|           br 1
+    #|         else
+    #|           i64.const 0
+    #|           return
+    #|         end
+    #|         unreachable
+    #|       end
+    #|       local.get 3
+    #|     end
+    #|     i64.const 0
+    #|     i64.eq
+    #|     if (result i32)
+    #|       i32.const 1
+    #|     else
+    #|       local.get 4
+    #|       local.get 2
+    #|       i64.gt_u
+    #|     end
+    #|     drop
+    #|     local.get 1
+    #|     local.get 4
+    #|     i64.or))
+    #|
+  match ssa_test_run_hot_path_only(input) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected hot-path-only ssa-nomerge carrier followup to validate, got \{err}",
       )
   }
 }

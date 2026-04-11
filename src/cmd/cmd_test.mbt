@@ -2392,6 +2392,67 @@ test "run_cmd_with_adapter validates ssa-nomerge on debug artifact" {
 }
 
 ///|
+#cfg(target="native")
+test "run_cmd_with_adapter ssa-nomerge extracted func 523 avoids writeback type-mismatch skips" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let stderr_chunks : Array[Bytes] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+    write_stderr=fn(bytes) {
+      stderr_chunks.push(bytes)
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--extract-functions=523", "--tracing", "pass", "--ssa-nomerge", "--out",
+        output_path, input_path,
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail("expected extracted func 523 ssa-nomerge replay success, got \{e}")
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["extract-functions=523", "ssa-nomerge"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected extracted func 523 replay output to validate, got \{err}")
+  }
+  let stderr = concat_ascii_bytes(stderr_chunks)
+  assert_false(
+    stderr.contains(
+      "pass[ssa-nomerge]:skip-invalid-lower func=(Func 15) reason=writeback-validate:type mismatch",
+    ),
+    msg=stderr,
+  )
+}
+
+///|
 test "run_cmd_with_adapter folds HSO readonly mutable-global prefixes into struct.new" {
   let wasm = encode_module_bytes(fixture_hso_nonlocal_readonly_prefix_module())
   let writes : Array[(String, Bytes)] = []

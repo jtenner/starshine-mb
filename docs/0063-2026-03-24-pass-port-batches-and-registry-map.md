@@ -8,7 +8,7 @@
 ## Current Registry Contract
 
 - Active hot passes:
-  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`.
+  `ssa-nomerge`, `dead-code-elimination`, `remove-unused-names`, `remove-unused-brs`, `vacuum`, `optimize-instructions`, `heap-store-optimization`, `heap2local`, `pick-load-signs`, `precompute`, `simplify-locals`, `tuple-optimization`.
 - Active module passes:
   `memory-packing`, `once-reduction`, `global-refining`, `global-struct-inference`, `reorder-locals`, `duplicate-function-elimination`, `remove-unused-module-elements`.
 - Active presets:
@@ -44,7 +44,7 @@
 ## Batch 2
 
 - Removed until hot implementation lands:
-  `flatten`, `merge-blocks`, `re-reloop`, `tuple-optimization`, `redundant-set-elimination`, `optimize-casts`.
+  `flatten`, `merge-blocks`, `re-reloop`, `redundant-set-elimination`, `optimize-casts`.
 
 ## Batch 3
 
@@ -65,6 +65,7 @@
 - `optimize` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs", "heap2local", "simplify-locals", "precompute", "remove-unused-names"]`.
 - `shrink` expands to `["memory-packing", "once-reduction", "global-refining", "global-struct-inference", "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs", "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions", "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs", "heap2local", "simplify-locals", "precompute", "remove-unused-names"]`.
 - `reorder-locals` is an active explicit module pass, but it stays out of both presets until `simplify-locals-nostructure`, `local-subtyping`, and `coalesce-locals` exist in-tree and the Binaryen-adjacent slots can be wired honestly.
+- `tuple-optimization` is now an explicit hot pass and remains out of presets while slot-mapped local-cleanup sequencing is still being stabilized.
 - Future preset growth must only add implemented module or hot passes or explicitly documented boundary-only phases.
 
 

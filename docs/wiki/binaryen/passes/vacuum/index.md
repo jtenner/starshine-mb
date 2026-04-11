@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: stub
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-11
 sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -13,5 +13,5 @@ related:
 # `vacuum`
 
 - Active hot pass in the Starshine registry.
-- Current summary: remove `nop` roots and region entries through hot IR cleanup.
-- This folder is now the stable home for future `wat-shapes.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, and pass-specific notes.
+- Current summary: Remove `nop` roots and region entries through hot IR cleanup.
+- This folder is the stable home for active pass docs; detailed `wat-shapes.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, and pass-specific notes are being authored.

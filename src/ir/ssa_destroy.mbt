@@ -310,6 +310,154 @@ pub fn ssa_rewrite_local_use(
 }
 
 ///|
+fn ssa_destroy_is_region_slot(op : HotOp, slot : Int) -> Bool {
+  match op {
+    HotOp::Block | HotOp::Loop => true
+    HotOp::If => slot == 1 || slot == 2
+    HotOp::Try | HotOp::TryTable => slot == 0 || slot == 1
+    _ => false
+  }
+}
+
+///|
+fn ssa_destroy_assign_node_order_region(
+  func : HotFunc,
+  region_ref : HotRegionRef,
+  node_order : Array[Int],
+  next_order : Int,
+) -> Int {
+  let mut cursor = next_order
+  for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let root_id = hot_region_get(func, region_ref, idx)
+    cursor = ssa_destroy_assign_node_order_node(
+      func,
+      root_id,
+      node_order,
+      cursor,
+    )
+  }
+  cursor
+}
+
+///|
+fn ssa_destroy_assign_node_order_node(
+  func : HotFunc,
+  node_id : NodeId,
+  node_order : Array[Int],
+  next_order : Int,
+) -> Int {
+  if node_id == HOT_NONE_NODE || !hot_node_is_live(func, node_id) {
+    return next_order
+  }
+  if node_order[node_id] >= 0 {
+    return next_order
+  }
+  let mut cursor = next_order
+  let node = hot_node_get(func, node_id)
+  for slot = 0; slot < node.child_count; slot = slot + 1 {
+    if ssa_destroy_is_region_slot(node.op, slot) {
+      continue
+    }
+    cursor = ssa_destroy_assign_node_order_node(
+      func,
+      hot_child_get(func, node_id, slot),
+      node_order,
+      cursor,
+    )
+  }
+  match node.op {
+    HotOp::Block | HotOp::Loop =>
+      cursor = ssa_destroy_assign_node_order_region(
+        func,
+        hot_region_body_ref(func, node_id),
+        node_order,
+        cursor,
+      )
+    HotOp::If => {
+      cursor = ssa_destroy_assign_node_order_region(
+        func,
+        hot_region_then_ref(func, node_id),
+        node_order,
+        cursor,
+      )
+      match hot_region_else_ref(func, node_id) {
+        Some(region_ref) =>
+          cursor = ssa_destroy_assign_node_order_region(
+            func,
+            region_ref,
+            node_order,
+            cursor,
+          )
+        None => ()
+      }
+    }
+    HotOp::Try => {
+      cursor = ssa_destroy_assign_node_order_region(
+        func,
+        hot_region_body_ref(func, node_id),
+        node_order,
+        cursor,
+      )
+      match hot_region_catch_ref(func, node_id) {
+        Some(region_ref) =>
+          cursor = ssa_destroy_assign_node_order_region(
+            func,
+            region_ref,
+            node_order,
+            cursor,
+          )
+        None => ()
+      }
+    }
+    HotOp::TryTable => {
+      cursor = ssa_destroy_assign_node_order_region(
+        func,
+        hot_region_body_ref(func, node_id),
+        node_order,
+        cursor,
+      )
+      cursor = ssa_destroy_assign_node_order_region(
+        func,
+        hot_region_catch_list_ref(func, node_id),
+        node_order,
+        cursor,
+      )
+    }
+    _ => ()
+  }
+  node_order[node_id] = cursor
+  cursor + 1
+}
+
+///|
+fn ssa_destroy_last_local_get_orders(func : HotFunc) -> (Array[Int], Array[Int]) {
+  let node_order = Array::make(hot_node_count(func), -1)
+  ignore(
+    ssa_destroy_assign_node_order_region(
+      func,
+      HotRegionRef::root(),
+      node_order,
+      0,
+    ),
+  )
+  let last_local_get_order = Array::make(hot_local_count(func), -1)
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if node_order[node_id] < 0 || !hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    if node.op != HotOp::LocalGet || node.imm0 < 0 ||
+      node.imm0 >= last_local_get_order.length() {
+      continue
+    }
+    if last_local_get_order[node.imm0] < node_order[node_id] {
+      last_local_get_order[node.imm0] = node_order[node_id]
+    }
+  }
+  (node_order, last_local_get_order)
+}
+
+///|
 pub fn ssa_insert_predecessor_copies(
   func : HotFunc,
   region_ref : HotRegionRef,
@@ -340,12 +488,22 @@ pub fn ssa_remove_dead_local_defs(
   dead_nodes : Array[NodeId],
 ) -> Unit {
   let seen = Array::make(hot_node_count(func), false)
+  let (node_order, last_local_get_order) = ssa_destroy_last_local_get_orders(func)
   for node_id in dead_nodes {
     if node_id < 0 || node_id >= seen.length() || seen[node_id] {
       continue
     }
     seen[node_id] = true
     let node = hot_node_get(func, node_id)
+    let local_id = match node.op {
+      HotOp::LocalSet | HotOp::LocalTee => node.imm0
+      _ => -1
+    }
+    if local_id >= 0 && local_id < last_local_get_order.length() &&
+      node_order[node_id] >= 0 &&
+      last_local_get_order[local_id] > node_order[node_id] {
+      continue
+    }
     match node.op {
       HotOp::LocalSet =>
         hot_replace_node(func, node_id, {

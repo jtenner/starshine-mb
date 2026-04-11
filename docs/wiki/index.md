@@ -45,7 +45,23 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/index.md`](binaryen/passes/index.md) - Namespace catalog for all active implemented Binaryen pass folders and their current documentation status.
 - [`binaryen/passes/duplicate-function-elimination/index.md`](binaryen/passes/duplicate-function-elimination/index.md) - Hub page for DFE overview, shapes, upstream strategy, Starshine strategy, metadata rules, and parity status.
 - [`binaryen/passes/remove-unused-module-elements/index.md`](binaryen/passes/remove-unused-module-elements/index.md) - Hub page for RUME overview, shapes, upstream strategy, Starshine strategy, retention and rewrite rules, and parity status.
+- [`binaryen/passes/reorder-locals/index.md`](binaryen/passes/reorder-locals/index.md) - Folder now has a landing page plus parity and multivalue-call scope notes.
+- [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family and residual in-tree skip classification.
 - [`binaryen/passes/tuple-optimization/index.md`](binaryen/passes/tuple-optimization/index.md) - Hub page for tuple-opt overview, WAT families, Binaryen strategy, Starshine HOT-native strategy, scheduler notes, reduced repros, and parity status.
+- [`binaryen/passes/dead-code-elimination/index.md`](binaryen/passes/dead-code-elimination/index.md) - Active hot-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/global-refining/index.md`](binaryen/passes/global-refining/index.md) - Active module-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/global-struct-inference/index.md`](binaryen/passes/global-struct-inference/index.md) - Folder now has a landing page plus the existing parity note.
+- [`binaryen/passes/heap-store-optimization/index.md`](binaryen/passes/heap-store-optimization/index.md) - Active hot-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/heap2local/index.md`](binaryen/passes/heap2local/index.md) - Folder now has a landing page plus the current parity note.
+- [`binaryen/passes/memory-packing/index.md`](binaryen/passes/memory-packing/index.md) - Active module-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/once-reduction/index.md`](binaryen/passes/once-reduction/index.md) - Active module-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/optimize-instructions/index.md`](binaryen/passes/optimize-instructions/index.md) - Active hot-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/pick-load-signs/index.md`](binaryen/passes/pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
+- [`binaryen/passes/precompute/index.md`](binaryen/passes/precompute/index.md) - Active hot-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/remove-unused-brs/index.md`](binaryen/passes/remove-unused-brs/index.md) - Folder now has a landing page plus parity and returned-ladder-shape notes.
+- [`binaryen/passes/remove-unused-names/index.md`](binaryen/passes/remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
+- [`binaryen/passes/simplify-locals/index.md`](binaryen/passes/simplify-locals/index.md) - Active hot-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/vacuum/index.md`](binaryen/passes/vacuum/index.md) - Active hot-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
 
 ## Decisions
 

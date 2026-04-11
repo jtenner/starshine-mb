@@ -40,7 +40,7 @@
   - `src/wasm/wasm-stack.cpp:2257-2278`
   - `src/wasm/wasm-stack.cpp:2895-3030`
 - Existing local pass note:
-  - [0073](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
+  - [0073](./0073-2026-04-02-reorder-locals-binaryen-comparison.md)
 
 ## Binaryen IR Facts That Matter
 

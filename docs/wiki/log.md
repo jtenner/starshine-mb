@@ -296,3 +296,27 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   - mixed: `199 / 199` compared, `175` normalized matches, `24` mismatches
   - gen-valid: `114 / 114` compared, `84` matches, `30` mismatches, `maxFailuresHit: true`
 - `duplicate-function-elimination`, `pick-load-signs`, and `tuple-optimization` remain clean in this 200-case smoke band (with one known `binaryen-rec-group-zero` command-failure class on mixed runs).
+
+## [2026-04-11] maintain | expand wiki catalog coverage for active pass folder landing pages
+
+- Updated `docs/wiki/index.md` so all currently active Binaryen pass landing pages under `docs/wiki/binaryen/passes/` are discoverable from the human-readable catalog (`binaryen/passes/index.md` remains the module namespace hub).
+- The index lint now shows no missing non-raw, non-log living pages under `docs/wiki/`.
+- This change does not alter pass semantics; it closes the knowledge-map maintenance gap for scaffolded and active pass folders alike.
+
+## [2026-04-11] maintain | clarify proof rollout gates and active kernel slice list in moonbit proof docs
+
+- Updated `validation/moonbit-prove-strategy.md` to reflect current `moonbit` proof gating (`src/validate` is not proof-enabled by default) and to make `moon prove src/validate*` commands explicitly conditional on enabling `"proof-enabled": true` in `src/validate/moon.pkg`.
+- Added `src/validate_proof/suffix_index.mbt` to the staged proof-slice rollout and expanded source citations in the proof strategy page to include both `src/validate/moon.pkg` and `src/validate_proof/moon.pkg` package boundaries.
+- Kept the archived `0077-2026-04-10-moonbit-prove-strategy.md` failure history as historical context while clarifying the present rollout sequence.
+
+## [2026-04-11] maintain | audit late `-O4z` tail-pass wiring and stub-coverage wording
+
+- Re-checked `-O4z` pathing and pass scheduling in `src/cmd/cli.mbt`, `src/cmd/cmd.mbt`, and `src/passes/optimize.mbt`:
+  - `-O4z` maps to `optimize_level=4`, `shrink_level=4`; with no explicit pass flags this resolves to `shrink`.
+  - `shrink` expands to the hot/module tail sequence including `global-refining`, `memory-packing`, `once-reduction`, `dead-code-elimination`, `optimize-instructions`, `heap-store-optimization`, `precompute`, `simplify-locals`, plus supporting module neighbors.
+- Confirmed each inspected late pass is implemented/dispatched in-tree today:
+  - module-path passes: `global-refining`, `memory-packing`, `once-reduction`
+  - hot-path passes: `dead-code-elimination`, `optimize-instructions`, `heap-store-optimization`, `precompute`, `simplify-locals`
+  - `vacuum` dispatch lives in `optimize.mbt` + `pass_manager.mbt` (hot path, no dedicated `src/passes/vacuum.mbt`).
+- Updated `docs/wiki/binaryen/passes/index.md` and late-pass landing pages to reflect implemented status while keeping `status: stub` where parity/shape deep docs are still pending.
+- Added `docs/wiki/raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md` to preserve this pass-wiring and wiki-health audit.

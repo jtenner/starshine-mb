@@ -19,17 +19,17 @@
 - Binaryen tuple validation rules:
   `src/wasm/wasm-validator.cpp:2798-2845`.
 - Starshine HOT IR ownership and pass contract:
-  [`src/ir/README.md`](../src/ir/README.md).
+  [`src/ir/README.md`](../../../../src/ir/README.md).
 - Starshine current pass-registry state:
-  [`src/passes/optimize.mbt`](../src/passes/optimize.mbt).
+  [`src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt).
 - Starshine current multivalue lift shape:
-  [`src/ir/hot_lift_test.mbt`](../src/ir/hot_lift_test.mbt).
+  [`src/ir/hot_lift_test.mbt`](../../../../src/ir/hot_lift_test.mbt).
 - Starshine tuple op surface in HOT core/builders:
-  [`src/ir/hot_core.mbt`](../src/ir/hot_core.mbt),
-  [`src/ir/hot_builders.mbt`](../src/ir/hot_builders.mbt).
+  [`src/ir/hot_core.mbt`](../../../../src/ir/hot_core.mbt),
+  [`src/ir/hot_builders.mbt`](../../../../src/ir/hot_builders.mbt).
 - Starshine current lift/lower opcode families:
-  [`src/ir/hot_lift.mbt`](../src/ir/hot_lift.mbt),
-  [`src/ir/hot_lower.mbt`](../src/ir/hot_lower.mbt).
+  [`src/ir/hot_lift.mbt`](../../../../src/ir/hot_lift.mbt),
+  [`src/ir/hot_lower.mbt`](../../../../src/ir/hot_lower.mbt).
 
 ## Binaryen Exact Behavior
 
