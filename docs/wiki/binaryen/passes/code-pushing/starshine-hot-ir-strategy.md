@@ -225,6 +225,13 @@ related:
   explicit-exit detection cannot treat control-region bodies as optional.
   If a `block`, `loop`, `if`, or `try` hides the branch only in its region body,
   that branch still has to fence later non-void-region rewrites.
+- A third traversal rule is explicit now too:
+  nested-region rewrites can live under ordinary expression-position wrappers,
+  not only under direct region roots or dropped carriers. Starshine therefore
+  walks child-expression trees when looking for nested rewrite candidates, but
+  it now precomputes a per-iteration `subtree_has_region_holder` bitmap first so
+  wrappers whose child trees contain no nested region holders are skipped
+  entirely.
 - A third lowering rule is now explicit too:
   once a parent-exit `br` is sunk under an `if` arm, its label depth has to be
   rebased for the extra `if` label. Starshine now does that rebasing directly in

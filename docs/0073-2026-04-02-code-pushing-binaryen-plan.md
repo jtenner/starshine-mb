@@ -748,6 +748,23 @@
   compare-pass lane `.tmp/pass-fuzz-code-pushing-genvalid-20260410aa` is also
   `10000/10000` with `0` mismatches, validation failures, generator failures,
   or command failures.
+- One broader expression-position family is now pinned too. Binaryen also
+  rewrites nested `block (result ...)` carriers when they sit under ordinary
+  wrapper expressions, not just when the region holder is already a root or a
+  dropped carrier. Reduced oracle checks now cover the same pushed shape through
+  `local.set`, `local.tee`, and `global.set` value-block carriers, and
+  `src/passes/code_pushing_test.mbt` keeps all three reduced families green in
+  tree. The kept implementation does not widen semantics further than that: it
+  precomputes a per-iteration `subtree_has_region_holder` bitmap before the
+  nested child walk so generic expression trees without any nested region holder
+  are skipped entirely. The refreshed same-tree compare-pass lane
+  `.tmp/pass-fuzz-code-pushing-genvalid-20260410ac3` is `10000/10000` with `0`
+  mismatches, validation failures, generator failures, or command failures.
+- That same tree is still not a runtime signoff. A direct release replay with
+  `_build/native/release/build/cmd/cmd.exe --code-pushing --out ...
+  tests/node/dist/starshine-debug-wasi.wasm` stayed above `5` minutes of CPU
+  time and was aborted, so the new bitmap proves the expression-position parity
+  slice without yet closing the artifact runtime gap.
 - A kept performance slice is landed now too. `cp_try_rewrite_region(...)`
   only runs `cp_try_sink_into_if(...)`,
   `cp_try_extract_local_set_from_dropped_carrier(...)`, and

@@ -91,6 +91,14 @@ related:
   too: the reduced call-prefixed parent-exit family no longer drops the live
   carried value on the branch-taking arm, and the in-tree regression now pins
   the repaired raw lowered form directly.
+- The clean reduced surface now also covers expression-position nested-region
+  carriers explicitly. Binaryen rewrites the same nested `block (result ...)`
+  family under `local.set`, `local.tee`, and `global.set` value positions, and
+  the current tree now pins all three reduced cases in `src/passes/code_pushing_test.mbt`.
+- The latest same-tree compare-pass lane is
+  `pass-fuzz-code-pushing-genvalid-20260410ac3`, and it completed
+  `10000/10000` with `0` mismatches, validation failures, generator failures,
+  or command failures.
 
 ## Current Signoff Gap
 
@@ -128,6 +136,10 @@ related:
   - Binaryen pass time: `55.628 ms`
   - Starshine total: `3496.840 ms`
   - Binaryen total: `373.614 ms`
+- A newer direct release replay is more blunt still: the current `cmd.exe --code-pushing`
+  artifact run stayed above `5` minutes of CPU time and was aborted before completion.
+  So the kept tree is parity-safe on reduced and generated cases, but runtime on the
+  real artifact is still the next blocker.
 - The latest kept fallback is narrower semantically too: suspicious
   `code-pushing` lowers are no longer skipped blindly. The pass now lets them
   through when full-module writeback validation succeeds, which is how the old

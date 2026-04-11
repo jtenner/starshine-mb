@@ -45,6 +45,57 @@ related:
   `throw`, `throw_ref`, `rethrow`, `delegate`, or `unreachable` in a way that
   affects whether moved locals stay dead on the exited path.
 
+## Shape 0: Expression-Position Value-Block Rewrites
+
+Before:
+
+```wat
+(block (result i32)
+  (i32.const 7)
+  (local.set $a)
+  (i32.const 0)
+  (local.set $b)
+  (if
+    (local.get $cond)
+    (then
+      (drop (local.get $a))
+      (drop (local.get $b))))
+  (local.get $a))
+(local.set $out)
+```
+
+After:
+
+```wat
+(block (result i32)
+  (local.set $a
+    (i32.const 7))
+  (nop)
+  (if
+    (local.get $cond)
+    (then
+      (local.set $b
+        (i32.const 0))
+      (drop (local.get $a))
+      (drop (local.get $b))))
+  (local.get $a))
+(local.set $out)
+```
+
+Why this transforms:
+
+- Binaryen still treats the inner `local.set $b` as a normal `code-pushing`
+  candidate even though the containing `block (result ...)` is only reachable
+  through an expression-position wrapper.
+- The same reduced pushed shape now has in-tree Starshine proofs for three
+  wrapper families:
+  - `local.set (block ...)`
+  - `drop (local.tee ... (block ...))`
+  - `global.set (block ...)`
+- This is the main reason the pass now scans child-expression trees for nested
+  region holders instead of only looking at direct region roots and dropped
+  carriers.
+
 ## Shape 1: Plain Same-Region Reordering Past A Push Point
 
 Before:

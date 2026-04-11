@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-10] maintain | pin Binaryen expression-position value-block rewrites and keep the runtime gap open
+
+- Recorded the new Binaryen-backed surface: `code-pushing` also rewrites nested `block (result ...)` carriers when they appear under ordinary expression-position wrappers, not only when the region holder is already a root or a dropped carrier.
+- Recorded the kept reduced proofs too: `src/passes/code_pushing_test.mbt` now covers `local.set`, `local.tee`, and `global.set` value-block carriers, and the current tree keeps the same pushed `LocalSet`-inside-`If` shape across all three families.
+- Recorded the implementation detail in `src/passes/code_pushing.mbt`: the pass now precomputes a per-iteration `subtree_has_region_holder` bitmap before the nested traversal walk, so generic child descent skips value trees that cannot possibly hide nested region holders.
+- Recorded the fresh same-tree compare-pass lane `pass-fuzz-code-pushing-genvalid-20260410ac3` at `10000/10000` with `0` mismatches, `0` validation failures, `0` generator failures, and `0` command failures.
+- Recorded the current runtime verdict too: direct release `cmd.exe --code-pushing` replay on `tests/node/dist/starshine-debug-wasi.wasm` still ran for more than `5` minutes of CPU time and was aborted, so this branch keeps the new parity coverage but does not yet claim a real runtime win.
+
 ## [2026-04-10] maintain | fast-path code-pushing pushpoint scans and retire the old `48978` false lead
 
 - Recorded the kept runtime fix in `src/passes/code_pushing.mbt`: `cp_try_rewrite_region` now only runs the expensive sink / extract / push probes on real pushpoint roots, and the target-specific extract / push helpers now resolve the target `if` or pushpoint before scanning non-void prefixes.

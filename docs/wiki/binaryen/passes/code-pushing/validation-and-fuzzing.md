@@ -99,9 +99,12 @@ bun scripts/pass-fuzz-compare.ts \
 - Historical larger `gen-valid` evidence:
   - `pass-fuzz-code-pushing-genvalid-10000-20260408b` completed `10000/10000`
     with `0` mismatches after the dead-gap correction
-- Current same-tree lane:
+- Current same-tree lanes:
   - `pass-fuzz-code-pushing-genvalid-20260410x` completed `10000/10000` with
     `0` mismatches, `0` validation failures, and `0` command failures
+  - `pass-fuzz-code-pushing-genvalid-20260410ac3` completed `10000/10000` with
+    `0` mismatches, `0` validation failures, `0` generator failures, and
+    `0` command failures after the expression-position value-block carrier work
 - Mixed-generator and smith-only lanes have also stayed semantically clean on the
   kept pass surface, with remaining failures attributed to Binaryen-side parser or
   canonicalization rejects such as invalid type-index families
@@ -121,9 +124,11 @@ bun scripts/self-optimize-compare.ts \
   - only then trust normalized WAT and timing deltas from the compare output
 - The current same-tree state is therefore:
   - reduced compare-pass parity is green on the kept safe tree
-  - the current named compare-pass lane
-    `pass-fuzz-code-pushing-genvalid-20260410x` is `10000/10000` with
-    `0` mismatches, validation failures, and command failures
+  - the current named compare-pass lanes
+    `pass-fuzz-code-pushing-genvalid-20260410x` and
+    `pass-fuzz-code-pushing-genvalid-20260410ac3` are both `10000/10000` with
+    `0` mismatches; the latter is the same-tree signoff for the new
+    expression-position value-block carrier slice
   - the reduced live-carried call-prefixed carrier is now also pinned directly
     in-tree through the repaired lowered raw shape, not only through artifact
     replay

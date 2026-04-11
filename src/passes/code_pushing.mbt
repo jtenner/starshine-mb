@@ -88,10 +88,13 @@ priv struct CpFuncStaticScan {
 ///|
 priv struct CpTraversalGateScan {
   node_masks : Array[@ir.EffectMask]
+  subtree_has_region_holder : Array[Bool]
   subtree_unremovable_ready : Array[Bool]
   subtree_unremovable_values : Array[Bool]
   subtree_reads_sfa_ready : Array[Bool]
   subtree_reads_sfa_values : Array[Bool]
+  nested_candidate_ready : Array[Bool]
+  nested_candidate_values : Array[Bool]
   region_candidate_ready : Array[Bool]
   region_candidate_values : Array[Bool]
 }
@@ -593,15 +596,66 @@ fn cp_new_traversal_gate_scan(
   node_masks : Array[@ir.EffectMask],
 ) -> CpTraversalGateScan {
   let node_count = @ir.hot_node_count(func)
+  let subtree_has_region_holder_ready = Array::make(node_count, false)
+  let subtree_has_region_holder_values = Array::make(node_count, false)
+  for node_id = 0; node_id < node_count; node_id = node_id + 1 {
+    ignore(
+      cp_node_subtree_has_region_holder(
+        func, node_id, subtree_has_region_holder_ready, subtree_has_region_holder_values,
+      ),
+    )
+  }
   {
     node_masks,
+    subtree_has_region_holder: subtree_has_region_holder_values,
     subtree_unremovable_ready: Array::make(node_count, false),
     subtree_unremovable_values: Array::make(node_count, false),
     subtree_reads_sfa_ready: Array::make(node_count, false),
     subtree_reads_sfa_values: Array::make(node_count, false),
+    nested_candidate_ready: Array::make(node_count, false),
+    nested_candidate_values: Array::make(node_count, false),
     region_candidate_ready: Array::make(node_count + 1, false),
     region_candidate_values: Array::make(node_count + 1, false),
   }
+}
+
+///|
+fn cp_node_subtree_has_region_holder(
+  func : @ir.HotFunc,
+  node_id : Int,
+  ready : Array[Bool],
+  values : Array[Bool],
+) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  if ready[node_id] {
+    return values[node_id]
+  }
+  let mut has_region_holder = match func.nodes[node_id].op {
+    @ir.HotOp::Block
+    | @ir.HotOp::Loop
+    | @ir.HotOp::If
+    | @ir.HotOp::Try
+    | @ir.HotOp::TryTable => true
+    _ => false
+  }
+  if !has_region_holder {
+    for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+      if cp_node_subtree_has_region_holder(
+          func,
+          @ir.hot_child_get(func, node_id, slot),
+          ready,
+          values,
+        ) {
+        has_region_holder = true
+        break
+      }
+    }
+  }
+  ready[node_id] = true
+  values[node_id] = has_region_holder
+  has_region_holder
 }
 
 ///|
@@ -728,6 +782,30 @@ fn cp_root_is_cheap_traversal_target(
 }
 
 ///|
+fn cp_child_nodes_have_traversal_candidate(
+  func : @ir.HotFunc,
+  node_id : Int,
+  infos : Array[CpLocalInfo],
+  scan : CpTraversalGateScan,
+) -> Bool {
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+      continue
+    }
+    if !scan.subtree_has_region_holder[child_id] {
+      continue
+    }
+    if cp_node_nested_regions_have_traversal_candidate(
+        func, child_id, infos, scan,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
 fn cp_node_nested_regions_have_traversal_candidate(
   func : @ir.HotFunc,
   node_id : Int,
@@ -737,18 +815,17 @@ fn cp_node_nested_regions_have_traversal_candidate(
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
   }
-  match func.nodes[node_id].op {
+  if scan.nested_candidate_ready[node_id] {
+    return scan.nested_candidate_values[node_id]
+  }
+  if !scan.subtree_has_region_holder[node_id] {
+    scan.nested_candidate_ready[node_id] = true
+    scan.nested_candidate_values[node_id] = false
+    return false
+  }
+  let has_candidate = match func.nodes[node_id].op {
     @ir.HotOp::Drop =>
-      if @ir.hot_child_count(func, node_id) == 0 {
-        false
-      } else {
-        cp_node_nested_regions_have_traversal_candidate(
-          func,
-          @ir.hot_child_get(func, node_id, 0),
-          infos,
-          scan,
-        )
-      }
+      cp_child_nodes_have_traversal_candidate(func, node_id, infos, scan)
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       cp_region_has_traversal_candidate(
         func,
@@ -757,7 +834,9 @@ fn cp_node_nested_regions_have_traversal_candidate(
         scan,
       )
     @ir.HotOp::If =>
-      if cp_region_has_traversal_candidate(
+      if cp_child_nodes_have_traversal_candidate(func, node_id, infos, scan) {
+        true
+      } else if cp_region_has_traversal_candidate(
           func,
           @ir.hot_region_then_ref(func, node_id),
           infos,
@@ -799,8 +878,11 @@ fn cp_node_nested_regions_have_traversal_candidate(
         infos,
         scan,
       )
-    _ => false
+    _ => cp_child_nodes_have_traversal_candidate(func, node_id, infos, scan)
   }
+  scan.nested_candidate_ready[node_id] = true
+  scan.nested_candidate_values[node_id] = has_candidate
+  has_candidate
 }
 
 ///|
@@ -2984,12 +3066,15 @@ fn cp_try_sink_into_if(
           None => false
         }
         let target_is_then = then_reads && !else_reads
-        if then_reads != else_reads &&
+        let later_reads_ok = then_reads != else_reads &&
           cp_if_sink_allows_later_reads(
             cache, func, region_ref, if_idx, local_id, target_is_then, then_ref,
             else_ref,
-          ) &&
-          !cp_summary_conflicts_with_barrier(root_summary, barrier) {
+          )
+        let barrier_conflict = cp_summary_conflicts_with_barrier(
+          root_summary, barrier,
+        )
+        if later_reads_ok && !barrier_conflict {
           let target_region = if target_is_then {
             then_ref
           } else {
@@ -3475,18 +3560,9 @@ fn cp_try_rewrite_nested_regions(
   }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Drop =>
-      if @ir.hot_child_count(func, node_id) == 0 {
-        false
-      } else {
-        cp_try_rewrite_nested_regions(
-          ctx,
-          func,
-          @ir.hot_child_get(func, node_id, 0),
-          infos,
-          cache,
-          traversal_scan,
-        )
-      }
+      cp_try_rewrite_nested_child_nodes(
+        ctx, func, node_id, infos, cache, traversal_scan,
+      )
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       cp_try_rewrite_region(
         ctx,
@@ -3497,7 +3573,11 @@ fn cp_try_rewrite_nested_regions(
         traversal_scan,
       )
     @ir.HotOp::If =>
-      if cp_try_rewrite_region(
+      if cp_try_rewrite_nested_child_nodes(
+          ctx, func, node_id, infos, cache, traversal_scan,
+        ) {
+        true
+      } else if cp_try_rewrite_region(
           ctx,
           func,
           @ir.hot_region_then_ref(func, node_id),
@@ -3551,8 +3631,36 @@ fn cp_try_rewrite_nested_regions(
         cache,
         traversal_scan,
       )
-    _ => false
+    _ =>
+      cp_try_rewrite_nested_child_nodes(
+        ctx, func, node_id, infos, cache, traversal_scan,
+      )
   }
+}
+
+///|
+fn cp_try_rewrite_nested_child_nodes(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  node_id : Int,
+  infos : Array[CpLocalInfo],
+  cache : CpSummaryCache,
+  traversal_scan : CpTraversalGateScan,
+) -> Bool {
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    let child_id = @ir.hot_child_get(func, node_id, slot)
+    if !cp_node_nested_regions_have_traversal_candidate(
+        func, child_id, infos, traversal_scan,
+      ) {
+      continue
+    }
+    if cp_try_rewrite_nested_regions(
+        ctx, func, child_id, infos, cache, traversal_scan,
+      ) {
+      return true
+    }
+  }
+  false
 }
 
 ///|

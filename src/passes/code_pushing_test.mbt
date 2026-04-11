@@ -804,6 +804,63 @@ test "code-pushing rewrites inside a branch-free nested non-void region" {
 }
 
 ///|
+test "code-pushing rewrites inside a local.set value block" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (result i32) (local i32 i32 i32) (block (result i32) i32.const 7 local.set 2 i32.const 0 local.set 3 local.get 0 if local.get 2 drop local.get 3 drop end local.get 2) local.set 1 local.get 1))",
+  )
+  let block_body = code_pushing_test_find_block_body_region(func, 1, [
+    "Nop", "LocalSet(2)", "If", "LocalGet(2)",
+  ])
+  let if_id = @ir.hot_region_get(func, block_body, 2)
+
+  assert_eq(
+    code_pushing_test_region_tags(func, @ir.hot_region_then_ref(func, if_id)),
+    ["LocalSet(3)", "Drop", "Drop"],
+  )
+}
+
+///|
+test "code-pushing rewrites inside a local.tee value block" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (result i32) (local i32 i32 i32) (drop (local.tee 1 (block (result i32) i32.const 7 local.set 2 i32.const 0 local.set 3 local.get 0 if local.get 2 drop local.get 3 drop end local.get 2))) local.get 1))",
+  )
+  let block_body = code_pushing_test_find_block_body_region(func, 1, [
+    "Nop", "LocalSet(2)", "If", "LocalGet(2)",
+  ])
+  let if_id = @ir.hot_region_get(func, block_body, 2)
+
+  assert_eq(
+    code_pushing_test_region_tags(func, @ir.hot_region_then_ref(func, if_id)),
+    ["LocalSet(3)", "Drop", "Drop"],
+  )
+}
+
+///|
+test "code-pushing rewrites inside a global.set value block" {
+  let func = code_pushing_test_run_hot(
+    "(module (global (mut i32) (i32.const 0)) (func (param i32) (result i32) (local i32 i32) (global.set 0 (block (result i32) i32.const 7 local.set 1 i32.const 0 local.set 2 local.get 0 if local.get 1 drop local.get 2 drop end local.get 1)) global.get 0))",
+  )
+  let block_body = code_pushing_test_find_block_body_region(func, 1, [
+    "Nop", "LocalSet(1)", "If", "LocalGet(1)",
+  ])
+  let if_id = @ir.hot_region_get(func, block_body, 2)
+
+  assert_eq(
+    code_pushing_test_region_tags(func, @ir.hot_region_then_ref(func, if_id)),
+    ["LocalSet(2)", "Drop", "Drop"],
+  )
+}
+
+///|
+test "code-pushing keeps local.set value block rewrites valid after lowering" {
+  let source = "(module (func (param i32) (result i32) (local i32 i32 i32) (block (result i32) i32.const 7 local.set 2 i32.const 0 local.set 3 local.get 0 if local.get 2 drop local.get 3 drop end local.get 2) local.set 1 local.get 1))"
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing keeps nested non-void region rewrites valid after lowering" {
   let source = "(module (func (param i32 i32) (result i32) (local i32 i32) local.get 0 if (result i32) local.get 1 local.set 2 i32.const 9 local.set 3 local.get 0 if local.get 2 drop else local.get 2 drop end local.get 3 else i32.const 0 end))"
   match pass_test_run_pipeline(source, ["code-pushing"]) {

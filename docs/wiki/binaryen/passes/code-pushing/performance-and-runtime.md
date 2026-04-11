@@ -82,6 +82,12 @@ related:
   scan without changing the changed-function set:
   - `928.451 ms` vs `55.628 ms` pass time
   - `3496.840 ms` vs `373.614 ms` total time
+- The newer expression-position value-block traversal prune is parity-safe but
+  not yet a runtime win on the real artifact:
+  - `pass-fuzz-code-pushing-genvalid-20260410ac3` is still `10000/10000` with
+    `0` mismatches
+  - direct release `cmd.exe --code-pushing` replay on the debug artifact stayed
+    above `5` minutes of CPU time and was aborted
 
 ## What Those Numbers Actually Mean
 
