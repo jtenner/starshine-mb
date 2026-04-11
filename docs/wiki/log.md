@@ -209,3 +209,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded fresh current-tree direct-binary fuzz evidence at `/tmp/pass-fuzz-tuple-gen-valid-bincurrent-2026-04-10` (`1000 / 1000`), `/tmp/pass-fuzz-tuple-smith-bincurrent-2026-04-10` (`199 / 199` comparable matches plus the same Binaryen-only `binaryen-rec-group-zero` parser failure), and `/tmp/pass-fuzz-tuple-gen-valid-10000-bin-sharedmarks-2026-04-10` (`10000 / 10000` clean).
 - Recorded that the earlier `moon run`-backed long lane `/tmp/pass-fuzz-tuple-gen-valid-10000-emptysummary-2026-04-10` stopped after `2124` matches with repeated missing-output validation failures, while direct replay of the first recorded input still writes valid output, so the current evidence points at launcher churn rather than a tuple-opt semantic regression.
 - Added the later reduced timing ladder entries `/tmp/self-opt-tuple-tail-live0-sharedmarks-2026-04-10` and `/tmp/self-opt-tuple-tail-live0-cleanupfast-2026-04-10`, which show that the newer shared traversal-mark reuse and cleanup fast-path experiments did not beat the earlier `0.511 ms` reduced pass checkpoint.
+
+## [2026-04-10] research | map MoonBit formal proof rollout
+
+- Added archived research note `docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md` covering the current official `moon prove` workflow, local CLI/toolchain evidence, proof-model constraints, and a Starshine target matrix.
+- Added `docs/wiki/validation/moonbit-prove-strategy.md` as the living rollout plan for bootstrap, `src/validate`-first proof adoption, and deferred proof surfaces.
+- Updated `docs/wiki/index.md` so the new validation page is discoverable from the wiki catalog.

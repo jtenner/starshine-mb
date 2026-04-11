@@ -531,6 +531,88 @@ Observed unique-pass order
    - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
 
+### MoonBit formal verification rollout (`moon prove`)
+
+Goal
+- Add a keepable first wave of formal proofs through MoonBit's current `moon prove` workflow without destabilizing the validator, codec, fuzz, or pass pipelines.
+
+Why
+- The repo now has a documented `moon prove` game plan, but no implementation slices yet. Without explicit backlog items, proof work will either stall at docs-only planning or start from the wrong package boundary.
+
+Deliverables
+- Bootstrap a reproducible local/CI prover toolchain for the first proof-enabled package.
+- Enable `moon prove` for the right package boundary and add the first `.mbtp` proof files in-tree.
+- Land machine-checked proof slices for `src/validate/env.mbt` first, then `src/validate/match.mbt`, then the typechecker helper layer.
+- Keep the living proof strategy page in [docs/wiki/validation/moonbit-prove-strategy.md](/home/jtenner/Projects/starshine-mb/docs/wiki/validation/moonbit-prove-strategy.md#L1) current as the implementation boundary shifts.
+
+Required APIs
+- `src/validate/moon.pkg` proof enablement surface.
+- `src/validate/env.mbt`, `src/validate/match.mbt`, and `src/validate/typecheck.mbt`.
+- Existing validator executable oracle:
+  - `src/validate/env_tests.mbt`
+  - `src/validate/typecheck_negative_tests.mbt`
+  - inline tests in `src/validate/typecheck.mbt`
+- MoonBit proof files `*.mbtp` and package-local `moon prove` entrypoints.
+
+Invariants
+- Keep proofs package-local and start in `src/validate`; do not enable proof mode across unrelated packages first.
+- Keep executable tests, fuzzing, binary roundtrip checks, and spec coverage as independent assurance layers; proofs do not replace them.
+- Do not treat mathematical-integer proofs as sufficient evidence for runtime overflow-sensitive logic.
+- Do not leave permanent validator-critical assumptions behind `proof_axiomatized`; any temporary trusted surface must stay documented and easy to remove.
+- Prefer named predicates and small proof kernels over large inline contracts or broad one-shot package proofs.
+
+Dependencies
+- Living strategy page: [docs/wiki/validation/moonbit-prove-strategy.md](/home/jtenner/Projects/starshine-mb/docs/wiki/validation/moonbit-prove-strategy.md#L1)
+- Archived research note: [0077](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md#L1)
+
+Exit Criteria
+- `src/validate` is proof-enabled and has committed `.mbtp` proof files for the first proof slices.
+- At least the `env` and `match` pilot slices have targeted `moon prove` coverage with executable regressions still green.
+- The repo has a documented proof toolchain/bootstrap path and an explicit CI policy for when proof runs are required.
+- Temporary trusted assumptions, if any, are enumerated in docs and tracked as active backlog rather than hidden in code.
+
+Suggested Tests
+- `moon prove src/validate/env.mbt`
+- `moon prove src/validate/match.mbt`
+- `moon test`
+- `moon info && moon fmt`
+
+1. Bootstrap the proof toolchain and package boundary.
+   - [PRV]001 - Why3/Z3 bootstrap and proof-enabled package wiring.
+     - Deliverables: install and document the first supported prover stack (`why3` + `z3`), enable proofs in `src/validate/moon.pkg`, confirm targeted dry runs stop skipping the package, and capture the keepable developer/CI invocation surface.
+     - Required APIs: `src/validate/moon.pkg`, local `moon prove --why3-config` override path, and the current MoonBit toolchain versions recorded in [0077](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md#L9).
+     - Invariants: do not check in machine-specific Why3 config; keep the first solver story simple and reproducible; keep `moon` commands serialized.
+     - Exit Criteria: `moon prove src/validate` is no longer skipped for lack of package enablement, and the bootstrap steps are documented in the wiki plus any CI-facing docs that need them.
+     - Suggested Tests: `moon prove src/validate --dry-run`, `moon prove src/validate/env.mbt`, `moon prove src/validate/match.mbt`.
+2. Land the first proof pilot in `env`.
+   - [PRV]002 - `Env` / `LabelStack` proof kernel.
+     - Deliverables: add `src/validate/env_proof.mbtp` (or equivalent), prove the stack-from-top label lookup and rectype-resolution invariants identified in the strategy doc, and keep the existing `env_tests` oracle green.
+     - Required APIs: `LabelStack::new`, `LabelStack::push`, `LabelStack::get`, `Env::with_rectype`, `Env::resolve_subtype`, and `Env::resolve_heaptype_subtype`.
+     - Invariants: prove the smallest structural facts first; avoid `proof_axiomatized` unless the blocker is captured as active follow-up in docs and backlog.
+     - Exit Criteria: the targeted `env` proof run is green, the committed predicates/lemmas are readable, and the existing executable tests still pin the same behavior.
+     - Suggested Tests: `moon prove src/validate/env.mbt`, `moon test --package jtenner/starshine/validate --file env_tests.mbt`.
+3. Extend the proof surface into subtype matching.
+   - [PRV]003 - `match.mbt` algebraic and recursive-proof pilot.
+     - Deliverables: add `src/validate/match_proof.mbtp`, prove small high-value facts such as `descriptor_compatible` symmetry and obvious equal-shape match properties, and establish the first keepable vocabulary for recursive match reasoning.
+     - Required APIs: `descriptor_compatible`, `Match::matches` for selected `ValType`, `RefType`, and helper shapes, plus any small well-formedness predicates needed for the type graph.
+     - Invariants: prefer small algebraic lemmas before deep exact-recursive equivalence; keep named predicates factored so the current MoonBit lowering stays solver-friendly.
+     - Exit Criteria: targeted `moon prove src/validate/match.mbt` is green on the first proof slice, and recursive follow-up debt is explicit if the full exact-match story is not yet tractable.
+     - Suggested Tests: `moon prove src/validate/match.mbt`, `moon test --package jtenner/starshine/validate --file env_tests.mbt`, focused validator tests that exercise the proved helpers.
+4. Push proofs into the typechecker helper layer, not the whole instruction set.
+   - [PRV]004 - `TcState` stack-discipline proof slice.
+     - Deliverables: prove helper-layer facts around `push1`, `pop1`, `pop_expect`, `push_types`, `pop_types`, `validate_end_stack`, and the `normalize_*_if_branch_exit` helpers; extract a smaller proof-friendly helper file first if proving the monolithic `typecheck.mbt` file is too noisy.
+     - Required APIs: `src/validate/typecheck.mbt` helper surface and the negative tests that already lock unreachable-stack and branch-normalization behavior.
+     - Invariants: do not try to prove the whole instruction surface in one slice; keep proof work focused on reusable stack and merge helpers that the instruction cases depend on.
+     - Exit Criteria: at least one targeted helper-layer proof run is green and the extracted helper/package boundary, if introduced, is documented and justified.
+     - Suggested Tests: `moon prove src/validate/typecheck.mbt`, `moon test --package jtenner/starshine/validate --file typecheck_negative_tests.mbt`, focused `moon test` filters for the helper behavior.
+5. Operationalize proofs without overclaiming them.
+   - [PRV]005 - CI gate, trust-surface ledger, and follow-up policy.
+     - Deliverables: decide when proof runs become required in local signoff and CI, add a small trust-surface ledger for any temporary `proof_axiomatized` or deferred recursive assumptions, and refresh the wiki page plus changelog/backlog as proof coverage grows.
+     - Required APIs: docs/wiki proof strategy page, `CHANGELOG.md`, `agent-todo.md`, and any CI or validation entrypoint docs that mention proof expectations.
+     - Invariants: do not make proofs silently advisory once they exist; do not make them mandatory across packages that are still intentionally outside the proof boundary.
+     - Exit Criteria: the repo has a stable rule for when `moon prove` must pass, and all temporary trusted assumptions are tracked in one visible place.
+     - Suggested Tests: the selected CI/local `moon prove` entrypoints plus the normal `moon test` / `bun validate` gates.
+
 #### RG - Reorder Globals
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [0066#L308](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L308)
