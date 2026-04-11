@@ -543,6 +543,7 @@ Deliverables
 - Bootstrap a reproducible local/CI prover toolchain for the first proof-enabled package.
 - Enable `moon prove` for the right package boundary and add the first `.mbtp` proof files in-tree, using a sidecar validator helper package first if the direct `src/validate` package boundary remains blocked.
 - Land machine-checked proof slices for `src/validate/env.mbt` first, then `src/validate/match.mbt`, then the typechecker helper layer.
+- Close the proof-coverage loop for the chosen validator/typechecker boundary: everything that should be proved there must end up either machine-checked or explicitly deferred with a written reason.
 - Keep the living proof strategy page in [docs/wiki/validation/moonbit-prove-strategy.md](/home/jtenner/Projects/starshine-mb/docs/wiki/validation/moonbit-prove-strategy.md#L1) current as the implementation boundary shifts.
 
 Required APIs
@@ -568,6 +569,7 @@ Dependencies
 Exit Criteria
 - The repo has one committed proof-enabled validator package boundary with machine-checked goals, and the path back to direct `src/validate` proving is documented if the first boundary is a sidecar helper package.
 - At least the `env` and `match` pilot slices have targeted `moon prove` coverage with executable regressions still green.
+- Every validator/typechecker helper property that belongs inside the active proof boundary is either proved or explicitly called out as deferred / out-of-scope with a documented reason.
 - The repo has a documented proof toolchain/bootstrap path and an explicit CI policy for when proof runs are required.
 - Temporary trusted assumptions, if any, are enumerated in docs and tracked as active backlog rather than hidden in code.
 
@@ -613,6 +615,13 @@ Suggested Tests
      - Invariants: do not make proofs silently advisory once they exist; do not make them mandatory across packages that are still intentionally outside the proof boundary.
      - Exit Criteria: the repo has a stable rule for when `moon prove` must pass, and all temporary trusted assumptions are tracked in one visible place.
      - Suggested Tests: the selected CI/local `moon prove` entrypoints plus the normal `moon test` / `bun validate` gates.
+6. Close the proof-coverage set for the current boundary.
+   - [PRV]006 - Prove everything in-boundary that should be proved.
+     - Deliverables: audit the active `env`, `match`, and typecheck-helper proof candidates against the strategy doc, land the remaining high-value proofs that belong inside the current validator/typechecker boundary, and record explicit deferrals for candidates that are blocked, low-value, or outside the chosen proof model.
+     - Required APIs: the current `src/validate_proof` helper inventory, any extracted proof-friendly helper files or packages, `docs/wiki/validation/moonbit-prove-strategy.md`, and the trust-surface / deferral ledger from `[PRV]005`.
+     - Invariants: do not claim “everything is proved” by omission; every surviving gap needs an explicit reason such as toolchain blocker, machine-integer unsuitability, low assurance return, or intentionally deferred package boundary.
+     - Exit Criteria: for the active proof boundary, every property that should be formally proved is either machine-checked in-tree or listed as an explicit, reviewable deferral with rationale and follow-up.
+     - Suggested Tests: the full selected `moon prove` surface for the boundary plus the executable validator/typechecker regressions that pin the same behavior.
 
 #### RG - Reorder Globals
 1. Research exact functionality in document.

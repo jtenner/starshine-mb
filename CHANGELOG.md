@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-11 Docs: close the proof-coverage backlog loop
+
+- **made proof-coverage closure explicit in the backlog** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) so the `moon prove` rollout now requires every in-boundary validator/typechecker proof candidate to be either machine-checked or explicitly deferred with rationale, and added `[PRV]006` to track that end-state audit and closure work.
+
 ## 2026-04-11 Feat: widen latest-index proof-helper reuse into core typecheck stack-top recovery
 
 - **reused the proved latest-index helper in the core typecheck stack walk** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md`](./docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), and [`src/validate/typecheck.mbt`](./src/validate/typecheck.mbt) to route `check_pop_types_from_top` through `latest_stack_index`, add direct `tc_state_validate_end_stack` regressions for reachable underflow and unreachable virtual-bottom suffixes, and keep the sidecar proof kernel green at `9` proved goals.
