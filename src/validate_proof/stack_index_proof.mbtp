@@ -1,0 +1,6 @@
+predicate latest_stack_index_post(len : Int, result : Option[Int]) {
+  match result {
+    None => len == 0
+    Some(idx) => (idx == len - 1) && (0 <= idx) && (idx < len)
+  }
+}

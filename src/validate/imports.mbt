@@ -103,4 +103,4 @@ using @lib {
 using @splitmix {type RandomState}
 
 ///|
-using @validate_proof {label_stack_storage_index}
+using @validate_proof {label_stack_storage_index, latest_stack_index}

@@ -587,8 +587,8 @@ Suggested Tests
      - Suggested Tests: `moon prove src/validate_proof`, `moon test src/validate_proof`, `moon test src/validate`.
 2. Land the first proof pilot in `env`.
    - [PRV]002 - `Env` / `LabelStack` proof kernel.
-     - Deliverables: extend the `src/validate_proof` helper kernel (or an equivalent extracted proof boundary) beyond `label_stack_storage_index`, prove the stack-from-top label lookup and rectype-resolution invariants identified in the strategy doc, and keep the existing `env_tests` oracle green.
-     - Required APIs: `label_stack_storage_index`, `LabelStack::new`, `LabelStack::push`, `LabelStack::get`, `Env::with_rectype`, `Env::resolve_subtype`, and `Env::resolve_heaptype_subtype`.
+     - Deliverables: extend the `src/validate_proof` helper kernel beyond the already-landed `label_stack_storage_index` and `latest_stack_index` helpers, prove the remaining stack-from-top label lookup and rectype-resolution invariants identified in the strategy doc, and keep the existing `env_tests` oracle green.
+     - Required APIs: `label_stack_storage_index`, `latest_stack_index`, `LabelStack::new`, `LabelStack::push`, `LabelStack::get`, `Env::with_rectype`, `Env::resolve_subtype`, and `Env::resolve_heaptype_subtype`.
      - Invariants: prove the smallest structural facts first; avoid `proof_axiomatized` unless the blocker is captured as active follow-up in docs and backlog.
      - Exit Criteria: the targeted `env` proof run is green, the committed predicates/lemmas are readable, and the existing executable tests still pin the same behavior.
      - Suggested Tests: `moon prove src/validate/env.mbt`, `moon test --package jtenner/starshine/validate --file env_tests.mbt`.

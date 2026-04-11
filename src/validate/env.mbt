@@ -91,13 +91,13 @@ pub fn Env::resolve_subtype(env : Env, idx : TypeIdx) -> SubType? {
   match idx {
     TypeIdx(i) => env.global_types.get(i.reinterpret_as_int())
     RecIdx(j) => {
-      let n = env.rec_stack.length()
-      if n == 0 {
-        return None
-      }
-      match env.rec_stack.get(n - 1) {
+      match latest_stack_index(env.rec_stack.length()) {
         None => None
-        Some(group) => group.get(j.reinterpret_as_int())
+        Some(group_idx) =>
+          match env.rec_stack.get(group_idx) {
+            None => None
+            Some(group) => group.get(j.reinterpret_as_int())
+          }
       }
     }
   }
@@ -153,13 +153,13 @@ pub fn Env::resolve_typeidx_subtype(env : Env, tidx : TypeIdx) -> SubType? {
   match tidx {
     TypeIdx(i) => env.global_types.get(i.reinterpret_as_int())
     RecIdx(j) => {
-      let n = env.rec_stack.length()
-      if n == 0 {
-        return None
-      }
-      match env.rec_stack.get(n - 1) {
+      match latest_stack_index(env.rec_stack.length()) {
         None => None
-        Some(group) => group.get(j.reinterpret_as_int())
+        Some(group_idx) =>
+          match env.rec_stack.get(group_idx) {
+            None => None
+            Some(group) => group.get(j.reinterpret_as_int())
+          }
       }
     }
   }
