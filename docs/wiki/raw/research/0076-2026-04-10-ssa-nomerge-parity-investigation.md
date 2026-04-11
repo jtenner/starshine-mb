@@ -58,6 +58,23 @@
     - `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch`
     - `skip-invalid-lower func=(Func 3773) reason=writeback-validate:stack underflow`
     - many `skip-invalid-lower ... reason=suspicious-escape-carrier`
+- `2026-04-10`: `bun scripts/pass-fuzz-compare.ts --count 2000 --seed 0x51a --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-postcommit-mixed-seed51a --pass ssa-nomerge`
+  - Result: `1996 / 2000` compared, `1996` normalized matches, `0` mismatches, `0` validation failures, `4` command failures.
+  - All `4` command failures are Binaryen-only `binaryen-rec-group-zero`.
+- `2026-04-10`: `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 10000 --min-compared 10000 --seed 0x51a --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-postcommit-genvalid-seed51a --pass ssa-nomerge`
+  - Result: `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, `0` validation failures, `0` command failures.
+- `2026-04-10`: rerun `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --ssa-nomerge` on committed tree `82a5f73`
+  - Result is unchanged from the earlier fixed state:
+    - `Canonical wasm equal: no`
+    - `Normalized WAT equal: yes`
+    - `Canonical function compare equal: yes`
+    - `Starshine pass skipped raw: yes`
+- `2026-04-10`: `moon run src/cmd --target native -- --debug-serial-passes --tracing pass --ssa-nomerge --out /tmp/ssa-nomerge-postcommit.wasm tests/node/dist/starshine-debug-wasi.wasm`
+  - Result: success and `wasm-tools validate /tmp/ssa-nomerge-postcommit.wasm` succeeds.
+  - The current traced gap is narrower than the earlier checkpoint:
+    - remaining validation-backed skip: `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch`
+    - `Func 3773` no longer appears as a `writeback-validate:*` failure on this replay
+    - `228` `skip-invalid-lower ... reason=suspicious-escape-carrier`
 - `2026-04-10`: `wasm-opt tests/node/dist/starshine-debug-wasi.wasm --all-features --ssa-nomerge -o .tmp/ssa-binaryen.wasm`
   - Result: success.
 - `2026-04-10`: `wasm-tools validate .tmp/ssa-binaryen.wasm`
@@ -76,7 +93,7 @@
 
 - Keep the committed native artifact replay in `src/cmd/cmd_test.mbt` green as the safety regression for current-source `ssa-nomerge`.
 - Keep the `10000 / 10000` `gen-valid` compare-pass lane green as the semantic parity signoff floor for reduced cases.
-- Reduce `Func 523` and the still-visible `Func 3773` validation-backed skip families to focused repros in `src/passes/ssa_nomerge_test.mbt` or adjacent lowering tests.
+- Reduce the remaining `Func 523` validation-backed skip family to a focused repro in `src/passes/ssa_nomerge_test.mbt` or an adjacent lowering test.
 - Add artifact-backed assertions that validate the emitted module bytes, not only decode success, whenever a new replay surface is introduced.
 - Keep using `pass-fuzz-compare` for breadth, but pair it with direct debug-artifact replay because the random harness did not expose the original artifact failure and the mixed-generator lane still stops on Binaryen parser gaps.
 - Keep Binaryen parser-gap families, including the empty-`rec` case from the seeded `100`-case run, out of the semantic mismatch bucket unless a newer Binaryen build parses them cleanly.
@@ -90,5 +107,4 @@
 ## Open Questions
 
 - What is the minimal reduced repro for the remaining `Func 523` `writeback-validate:type mismatch` family now that the dead-param mismatch is fixed?
-- What is the minimal reduced repro for the newly visible `Func 3773` `writeback-validate:stack underflow` family?
 - Which of the remaining validation-backed and `suspicious-escape-carrier` skips represent genuine Starshine/Binaryen semantic gaps, and which are only representation-boundary differences that should stay out of scope?

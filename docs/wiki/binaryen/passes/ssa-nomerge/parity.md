@@ -19,6 +19,7 @@ related:
 - Current source-mode `ssa-nomerge` replay on the checked-in debug CLI artifact now completes, validates, and matches Binaryen on normalized WAT and canonical per-function output.
 - Random compare fuzz is still useful, but it is not sufficient as the only signoff lane for `ssa-nomerge`.
 - Current mixed-generator compare coverage is mismatch-free on comparable cases and only hits the standing Binaryen `binaryen-rec-group-zero` parser-family gap.
+- Fresh post-merge reruns on seed `0x51a` stayed clean in both the mixed-generator and `gen-valid` lanes.
 - Exact raw-byte parity is still not claimed because current trace replay still shows fail-closed `writeback-validate:*` skips inside Starshine's raw lowering path.
 
 ## Current In-Tree Status
@@ -35,13 +36,15 @@ related:
 - `moon test --package jtenner/starshine/passes --file ssa_nomerge_test.mbt` is green with focused dead-param and live-param regressions.
 - `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 10000 --min-compared 10000 --seed 0x5eed --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-rebased-2026-04-10-signoff-gen-valid --pass ssa-nomerge` is green at `10000 / 10000` compared and `10000` normalized matches.
 - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-rebased-2026-04-10-signoff --pass ssa-nomerge` stays mismatch-free on comparable cases (`2380 / 10000` compared, `0` mismatches) and only stops on the Binaryen-only `binaryen-rec-group-zero` parser family.
+- `bun scripts/pass-fuzz-compare.ts --count 2000 --seed 0x51a --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-postcommit-mixed-seed51a --pass ssa-nomerge` stayed clean on all comparable cases (`1996 / 2000`, `0` mismatches, `4` Binaryen-only parser gaps).
+- `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 10000 --min-compared 10000 --seed 0x51a --max-failures 5 --out-dir /tmp/ssa-pass-fuzz-postcommit-genvalid-seed51a --pass ssa-nomerge` is also green at `10000 / 10000` compared and `10000` normalized matches.
 - `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --ssa-nomerge` currently reports `Normalized WAT equal: yes` and `Canonical function compare equal: yes`, while `Canonical wasm equal: no`.
 
 ## Remaining Gap
 
-- `moon run src/cmd --target native -- --debug-serial-passes --tracing pass --ssa-nomerge --out /tmp/ssa-nomerge-final.wasm tests/node/dist/starshine-debug-wasi.wasm` exits zero and final validation completes.
-- That traced current-source replay still records `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch`.
-- The same traced replay also records many `suspicious-escape-carrier` skips and at least one other validation-backed skip (`Func 3773`, `writeback-validate:stack underflow`).
+- `moon run src/cmd --target native -- --debug-serial-passes --tracing pass --ssa-nomerge --out /tmp/ssa-nomerge-postcommit.wasm tests/node/dist/starshine-debug-wasi.wasm` exits zero and final validation completes.
+- That traced current-source replay now records one remaining validation-backed skip: `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch`.
+- The same traced replay also records `228` `suspicious-escape-carrier` skips.
 - The same input succeeds under Binaryen with `wasm-opt tests/node/dist/starshine-debug-wasi.wasm --all-features --ssa-nomerge`.
 - So the current output-facing blocker is fixed, but raw-lowering coverage is still incomplete and direct artifact replay remains mandatory.
 

@@ -124,6 +124,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated `binaryen/passes/ssa-nomerge/parity.md`, `binaryen/passes/ssa-nomerge/index.md`, and raw research note `0076-2026-04-10-ssa-nomerge-parity-investigation.md` after current source `ssa-nomerge` was brought back into output parity with Binaryen for the dead-param write family.
 - Recorded the new signoff evidence at `/tmp/ssa-pass-fuzz-rebased-2026-04-10-rerun3`, `/tmp/ssa-pass-fuzz-rebased-2026-04-10-signoff`, `/tmp/ssa-pass-fuzz-rebased-2026-04-10-signoff-gen-valid`, `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2`, and `/tmp/ssa-nomerge-final.log`.
 - Updated the root wiki catalog and Binaryen pass-folder catalog so the parity page now points at the fixed output-facing state and the remaining trace-level raw-lowering caveat instead of the retired final-validation blocker.
+
+## [2026-04-10] refresh | reprove ssa-nomerge parity after the tuple merge
+
+- Updated `binaryen/passes/ssa-nomerge/parity.md`, `binaryen/passes/ssa-nomerge/index.md`, and raw research note `0076-2026-04-10-ssa-nomerge-parity-investigation.md` after rerunning `ssa-nomerge` parity lanes on the merged tree.
+- Recorded the new post-merge evidence at `/tmp/ssa-pass-fuzz-postcommit-mixed-seed51a`, `/tmp/ssa-pass-fuzz-postcommit-genvalid-seed51a`, `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2`, and `/tmp/ssa-nomerge-postcommit.log`.
+- Narrowed the traced remaining gap from the earlier two writeback-validate families down to `Func 523` plus `228` `suspicious-escape-carrier` skips, and updated the root wiki catalogs to match.
 - Updated `agent-todo.md` so the shared post-SSA blocker note no longer claims `ssa-nomerge` safety without the newer per-function writeback-validation evidence.
 
 ## [2026-04-10] expand | turn tuple-optimization into a full pass folder
