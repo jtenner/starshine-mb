@@ -2220,10 +2220,12 @@ fn validate_name_sec(
     Some(NameMap(entries)) =>
       for entry in entries {
         let NameAssoc(func_idx, _) = entry
-        if !env.has_func(FuncIdx::new(func_idx)) {
-          return Err(
-            "function name index out of range: func=\{func_idx} total_funcs=\{env.funcs.length()}",
-          )
+        match bounded_index(env.funcs.length(), func_idx.reinterpret_as_int()) {
+          Some(_) => ()
+          None =>
+            return Err(
+              "function name index out of range: func=\{func_idx} total_funcs=\{env.funcs.length()}",
+            )
         }
       }
     None => ()
@@ -2282,10 +2284,13 @@ fn validate_name_sec(
     Some(NameMap(entries)) =>
       for entry in entries {
         let NameAssoc(type_idx, _) = entry
-        if env.resolve_subtype(TypeIdx::new(type_idx)) is None {
-          return Err(
-            "type name index out of range: type=\{type_idx} total_types=\{env.global_types.length()}",
-          )
+        match
+          bounded_index(env.global_types.length(), type_idx.reinterpret_as_int()) {
+          Some(_) => ()
+          None =>
+            return Err(
+              "type name index out of range: type=\{type_idx} total_types=\{env.global_types.length()}",
+            )
         }
       }
     None => ()
@@ -2294,10 +2299,12 @@ fn validate_name_sec(
     Some(NameMap(entries)) =>
       for entry in entries {
         let NameAssoc(table_idx, _) = entry
-        if env.get_table_type(TableIdx::new(table_idx)) is None {
-          return Err(
-            "table name index out of range: table=\{table_idx} total_tables=\{env.tables.length()}",
-          )
+        match bounded_index(env.tables.length(), table_idx.reinterpret_as_int()) {
+          Some(_) => ()
+          None =>
+            return Err(
+              "table name index out of range: table=\{table_idx} total_tables=\{env.tables.length()}",
+            )
         }
       }
     None => ()
@@ -2306,10 +2313,12 @@ fn validate_name_sec(
     Some(NameMap(entries)) =>
       for entry in entries {
         let NameAssoc(mem_idx, _) = entry
-        if env.get_memtype(MemIdx::new(mem_idx)) is None {
-          return Err(
-            "memory name index out of range: memory=\{mem_idx} total_memories=\{env.mems.length()}",
-          )
+        match bounded_index(env.mems.length(), mem_idx.reinterpret_as_int()) {
+          Some(_) => ()
+          None =>
+            return Err(
+              "memory name index out of range: memory=\{mem_idx} total_memories=\{env.mems.length()}",
+            )
         }
       }
     None => ()
@@ -2318,10 +2327,13 @@ fn validate_name_sec(
     Some(NameMap(entries)) =>
       for entry in entries {
         let NameAssoc(global_idx, _) = entry
-        if env.get_global_type(GlobalIdx::new(global_idx)) is None {
-          return Err(
-            "global name index out of range: global=\{global_idx} total_globals=\{env.globals.length()}",
-          )
+        match
+          bounded_index(env.globals.length(), global_idx.reinterpret_as_int()) {
+          Some(_) => ()
+          None =>
+            return Err(
+              "global name index out of range: global=\{global_idx} total_globals=\{env.globals.length()}",
+            )
         }
       }
     None => ()
@@ -2330,10 +2342,12 @@ fn validate_name_sec(
     Some(NameMap(entries)) =>
       for entry in entries {
         let NameAssoc(elem_idx, _) = entry
-        if env.get_elem(ElemIdx::new(elem_idx)) is None {
-          return Err(
-            "elem name index out of range: elem=\{elem_idx} total_elem=\{env.elems.length()}",
-          )
+        match bounded_index(env.elems.length(), elem_idx.reinterpret_as_int()) {
+          Some(_) => ()
+          None =>
+            return Err(
+              "elem name index out of range: elem=\{elem_idx} total_elem=\{env.elems.length()}",
+            )
         }
       }
     None => ()
@@ -2342,10 +2356,12 @@ fn validate_name_sec(
     Some(NameMap(entries)) =>
       for entry in entries {
         let NameAssoc(data_idx, _) = entry
-        if !env.has_data(DataIdx::new(data_idx)) {
-          return Err(
-            "data name index out of range: data=\{data_idx} total_data=\{env.datas.length()}",
-          )
+        match bounded_index(env.datas.length(), data_idx.reinterpret_as_int()) {
+          Some(_) => ()
+          None =>
+            return Err(
+              "data name index out of range: data=\{data_idx} total_data=\{env.datas.length()}",
+            )
         }
       }
     None => ()
@@ -2354,14 +2370,19 @@ fn validate_name_sec(
     Some(IndirectNameMap(entries)) =>
       for entry in entries {
         let IndirectNameAssoc(type_idx, NameMap(field_entries)) = entry
-        let fields = match env.resolve_comptype(TypeIdx::new(type_idx)) {
-          Some(StructCompType(fields)) => fields
-          Some(_) =>
-            return Err("field names require struct type: type=\{type_idx}")
+        match
+          bounded_index(env.global_types.length(), type_idx.reinterpret_as_int()) {
+          Some(_) => ()
           None =>
             return Err(
               "field name type index out of range: type=\{type_idx} total_types=\{env.global_types.length()}",
             )
+        }
+        let fields = match env.resolve_comptype(TypeIdx::new(type_idx)) {
+          Some(StructCompType(fields)) => fields
+          Some(_) =>
+            return Err("field names require struct type: type=\{type_idx}")
+          None => return Err("field names require struct type: type=\{type_idx}")
         }
         for field_entry in field_entries {
           let NameAssoc(field_idx, _) = field_entry
@@ -2380,10 +2401,12 @@ fn validate_name_sec(
     Some(NameMap(entries)) =>
       for entry in entries {
         let NameAssoc(tag_idx, _) = entry
-        if env.get_tag(TagIdx::new(tag_idx)) is None {
-          return Err(
-            "tag name index out of range: tag=\{tag_idx} total_tags=\{env.tags.length()}",
-          )
+        match bounded_index(env.tags.length(), tag_idx.reinterpret_as_int()) {
+          Some(_) => ()
+          None =>
+            return Err(
+              "tag name index out of range: tag=\{tag_idx} total_tags=\{env.tags.length()}",
+            )
         }
       }
     None => ()
@@ -5436,6 +5459,54 @@ fn validate_import_name_section_fixture_module() -> Module {
 test "validate_module accepts structured name section" {
   let mod = validate_name_section_fixture_module()
   assert_eq(validate_module(mod), Ok(()))
+}
+
+///|
+test "validate_module rejects out-of-range function name index in name section" {
+  let mod = validate_name_section_fixture_module().with_name_sec(
+    NameSec::new(
+      func_names=Some(NameMap::new([NameAssoc::new(1U, Name::new("bad"))])),
+    ),
+  )
+
+  match validate_module(mod) {
+    Ok(_) => fail("expected invalid function name section validation failure")
+    Err(err) => {
+      assert_true(
+        validation_error_message(err).contains("function name index out of range"),
+      )
+      assert_eq(
+        validation_error_diagnostic(err).issue,
+        ValidationIssue::NameSection(
+          "function name index out of range: func=1 total_funcs=1",
+        ),
+      )
+    }
+  }
+}
+
+///|
+test "validate_module rejects out-of-range type name index in name section" {
+  let mod = validate_name_section_fixture_module().with_name_sec(
+    NameSec::new(
+      type_names=Some(NameMap::new([NameAssoc::new(3U, Name::new("bad"))])),
+    ),
+  )
+
+  match validate_module(mod) {
+    Ok(_) => fail("expected invalid type name section validation failure")
+    Err(err) => {
+      assert_true(
+        validation_error_message(err).contains("type name index out of range"),
+      )
+      assert_eq(
+        validation_error_diagnostic(err).issue,
+        ValidationIssue::NameSection(
+          "type name index out of range: type=3 total_types=3",
+        ),
+      )
+    }
+  }
 }
 
 ///|

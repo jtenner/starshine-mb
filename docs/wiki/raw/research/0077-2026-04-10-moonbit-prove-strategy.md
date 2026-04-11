@@ -276,7 +276,7 @@ CI order should stay incremental:
   - `Env::resolve_subtype`
   - `Env::resolve_typeidx_subtype`
   - descriptor-metadata group indexing in `validate.mbt`
-  - name-section local, label, and field-name bounds checks
+  - name-section function, type, table, memory, global, elem, data, tag, local, label, and field-name bounds checks
   - code-body diagnostic function-index mapping
   - declared-function bounds checks in the `ref.func` declaration pass
 - The current descriptor-metadata base rule is now explicit: if the current rectype is already appended to `env`, recover its suffix start; otherwise treat the current group as a virtual suffix immediately after the existing type space.
