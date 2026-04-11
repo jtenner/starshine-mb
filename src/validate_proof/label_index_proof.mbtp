@@ -1,0 +1,13 @@
+predicate label_stack_storage_index_post(
+  len : Int,
+  idx : Int,
+  result : Option[Int],
+) {
+  match result {
+    None => (idx < 0) || (len <= idx)
+    Some(storage_idx) =>
+      (storage_idx == len - 1 - idx) &&
+      (0 <= idx) &&
+      (idx < len)
+  }
+}

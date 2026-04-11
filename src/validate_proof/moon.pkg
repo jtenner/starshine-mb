@@ -1,0 +1,6 @@
+import {
+}
+
+options(
+  "proof-enabled": true,
+)

@@ -215,3 +215,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added archived research note `docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md` covering the current official `moon prove` workflow, local CLI/toolchain evidence, proof-model constraints, and a Starshine target matrix.
 - Added `docs/wiki/validation/moonbit-prove-strategy.md` as the living rollout plan for bootstrap, `src/validate`-first proof adoption, and deferred proof surfaces.
 - Updated `docs/wiki/index.md` so the new validation page is discoverable from the wiki catalog.
+
+## [2026-04-10] implement | land first proved helper and record current package-boundary blocker
+
+- Added active proof package `src/validate_proof` with a proved `label_stack_storage_index` helper and package-local `moon prove src/validate_proof` entrypoint.
+- Rewired `src/validate/env.mbt` to use the proved helper for `Env::get_label_types`, and added direct `LabelStack` plus helper regression tests beside the validator code.
+- Updated the live proof strategy page and archived research note to record the current blocker on proving `src/validate` directly: the generated WhyML for `jtenner/starshine/lib` currently fails with `unbound type symbol 'name'`.

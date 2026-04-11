@@ -101,3 +101,6 @@ using @lib {
 
 ///|
 using @splitmix {type RandomState}
+
+///|
+using @validate_proof {label_stack_storage_index}

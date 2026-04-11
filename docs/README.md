@@ -18,7 +18,7 @@ If `AGENTS.md` and this file ever diverge, update both in the same change. Keep 
 - `docs/wiki/raw/research/[serial]-[YYYY-MM-DD]-[kebab-title].md`: one-off research, plan, audit, and benchmark docs, including absorbed investigations moved out of `docs/`.
 - `docs/wiki/index.md`: human-readable wiki catalog.
 - `docs/wiki/log.md`: append-only wiki history.
-- `src/`: active packages are `binary`, `cli`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `spec_runner`, `validate`, `validate_trace`, `wast`, `wat`.
+- `src/`: active packages are `binary`, `cli`, `cmd`, `diff`, `fs`, `fuzz`, `ir`, `lib`, `spec_runner`, `validate`, `validate_proof`, `validate_trace`, `wast`, `wat`.
 - `src/node_api/`, `src/optimization/`, `src/transformer/`: empty compatibility or staging dirs; do not describe as active unless rebuilt.
 - `examples/`: runnable examples.
 - `tests/spec/`, `tests/node/`: external and integration coverage.

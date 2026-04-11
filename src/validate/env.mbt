@@ -259,12 +259,10 @@ pub fn Env::new() -> Env {
 ///|
 pub fn Env::get_label_types(env : Env, idx : LabelIdx) -> Array[ValType]? {
   let LabelIdx(i) = idx
-  let n = env.labels.length() // Int
-  let ii = n - 1 - i.reinterpret_as_int()
-  if ii < 0 {
-    return None
+  match label_stack_storage_index(env.labels.length(), i.reinterpret_as_int()) {
+    None => None
+    Some(storage_idx) => env.labels.get(storage_idx)
   }
-  env.labels.get(ii)
 }
 
 ///|

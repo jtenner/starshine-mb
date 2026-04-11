@@ -255,6 +255,17 @@ CI order should stay incremental:
 ## Open Questions
 
 - Does file-targeted `moon prove path/to/file.mbt` remain a stable public workflow, or is it only a thin CLI affordance over package-level proving? The current help text says file paths are accepted, while the official docs only explain package-targeted mode.
+
+## 2026-04-10 Implementation Update
+
+- The first landed proof slice lives in `src/validate_proof`, not directly in `src/validate`.
+- `src/validate_proof/label_index.mbt` now proves a small helper that maps top-of-stack label depth to the underlying declaration-order storage index, and `src/validate/env.mbt` calls that helper for `Env::get_label_types`.
+- The direct `moon prove src/validate/env.mbt` path is currently blocked even after narrowing the local proof surface, because the proof-enabled `src/validate` package lowers `jtenner/starshine/lib` into WhyML that Why3 rejects with `unbound type symbol 'name'`.
+- Current keepable workflow:
+  - `moon test src/validate_proof`
+  - `moon prove src/validate_proof`
+  - `moon test src/validate`
+- This changes the practical boundary for Phase 1: use a sidecar proof kernel package first, then return to package-enabling `src/validate` once the dependency-lowering failure is understood or worked around.
 - Will `src/validate` package-wide proving be practical without first extracting smaller proof kernels from `typecheck.mbt`?
 - How much recursive well-formedness vocabulary must be added before `Match::matches` becomes pleasant to prove?
 - If MoonBit later gains stronger machine-integer proof support, should `src/binary` or `src/bitset` become the next formal target?

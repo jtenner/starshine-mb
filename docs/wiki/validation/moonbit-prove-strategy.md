@@ -25,14 +25,15 @@ related:
 - The current proof model reasons over mathematical integers, so proofs do not replace runtime tests for overflow-sensitive, byte-precise, or bit-precise behavior.
 - Starshine should start in `src/validate`, not in `src/binary`, `src/bitset`, `src/diff`, or the pass pipeline.
 - The validator proof rollout should stay incremental: prove one file or helper slice first, then widen only after the slice is stable.
+- The current in-tree bootstrap landed first in `src/validate_proof`, not directly in `src/validate`, because an attempted proof-enabled `src/validate` run currently fails while lowering `jtenner/starshine/lib` with generated WhyML error `unbound type symbol 'name'`.
 - `proof_axiomatized` should not become a permanent escape hatch in validator-critical code. Every such assumption expands the trusted surface and must stay temporary and explicit.
 
 ## Staged Rollout
 
 1. Bootstrap the prover toolchain.
    Install Why3 `1.7.2` plus `z3` first. Keep local setup on the generated default Why3 config; use `moon prove --why3-config` only when CI or a hermetic repro actually needs it.
-2. Pilot in [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt).
-   Enable proofs in `src/validate/moon.pkg`, add a small logic file such as `env_proof.mbtp`, and prove the existing environment and label-stack invariants that are already pinned by [`../../../src/validate/env_tests.mbt`](../../../src/validate/env_tests.mbt).
+2. Pilot in the validator helper boundary first.
+   Keep the first machine-checked slice in [`../../../src/validate_proof/label_index.mbt`](../../../src/validate_proof/label_index.mbt), then wire that helper back into [`../../../src/validate/env.mbt`](../../../src/validate/env.mbt) while the direct `src/validate` proof path is blocked by the current `lib` lowering issue.
 3. Extend to [`../../../src/validate/match.mbt`](../../../src/validate/match.mbt).
    Focus first on small algebraic lemmas like `descriptor_compatible` symmetry and obvious equal-shape match properties before taking on deeper exact-recursion proofs.
 4. Move into the typechecker helper layer, not the whole instruction surface.
@@ -45,6 +46,7 @@ related:
 - Keep proof logic in small slice-specific `.mbtp` files such as `env_proof.mbtp` and `match_proof.mbtp`.
 - Prefer named predicates like `*_wf`, `*_inv`, and `*_post` over large inline formulas.
 - Use targeted local proving during development:
+  - `moon prove src/validate_proof`
   - `moon prove src/validate/env.mbt`
   - `moon prove src/validate/match.mbt`
   - only later `moon prove src/validate`

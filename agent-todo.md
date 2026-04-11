@@ -541,12 +541,12 @@ Why
 
 Deliverables
 - Bootstrap a reproducible local/CI prover toolchain for the first proof-enabled package.
-- Enable `moon prove` for the right package boundary and add the first `.mbtp` proof files in-tree.
+- Enable `moon prove` for the right package boundary and add the first `.mbtp` proof files in-tree, using a sidecar validator helper package first if the direct `src/validate` package boundary remains blocked.
 - Land machine-checked proof slices for `src/validate/env.mbt` first, then `src/validate/match.mbt`, then the typechecker helper layer.
 - Keep the living proof strategy page in [docs/wiki/validation/moonbit-prove-strategy.md](/home/jtenner/Projects/starshine-mb/docs/wiki/validation/moonbit-prove-strategy.md#L1) current as the implementation boundary shifts.
 
 Required APIs
-- `src/validate/moon.pkg` proof enablement surface.
+- `src/validate/moon.pkg` plus any extracted proof-kernel package such as `src/validate_proof/moon.pkg`.
 - `src/validate/env.mbt`, `src/validate/match.mbt`, and `src/validate/typecheck.mbt`.
 - Existing validator executable oracle:
   - `src/validate/env_tests.mbt`
@@ -555,7 +555,7 @@ Required APIs
 - MoonBit proof files `*.mbtp` and package-local `moon prove` entrypoints.
 
 Invariants
-- Keep proofs package-local and start in `src/validate`; do not enable proof mode across unrelated packages first.
+- Keep proofs package-local and start from validator semantics; a sidecar proof-kernel package is acceptable when the current compiler cannot prove the full `src/validate` package boundary yet.
 - Keep executable tests, fuzzing, binary roundtrip checks, and spec coverage as independent assurance layers; proofs do not replace them.
 - Do not treat mathematical-integer proofs as sufficient evidence for runtime overflow-sensitive logic.
 - Do not leave permanent validator-critical assumptions behind `proof_axiomatized`; any temporary trusted surface must stay documented and easy to remove.
@@ -566,12 +566,13 @@ Dependencies
 - Archived research note: [0077](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md#L1)
 
 Exit Criteria
-- `src/validate` is proof-enabled and has committed `.mbtp` proof files for the first proof slices.
+- The repo has one committed proof-enabled validator package boundary with machine-checked goals, and the path back to direct `src/validate` proving is documented if the first boundary is a sidecar helper package.
 - At least the `env` and `match` pilot slices have targeted `moon prove` coverage with executable regressions still green.
 - The repo has a documented proof toolchain/bootstrap path and an explicit CI policy for when proof runs are required.
 - Temporary trusted assumptions, if any, are enumerated in docs and tracked as active backlog rather than hidden in code.
 
 Suggested Tests
+- `moon prove src/validate_proof`
 - `moon prove src/validate/env.mbt`
 - `moon prove src/validate/match.mbt`
 - `moon test`
@@ -579,15 +580,15 @@ Suggested Tests
 
 1. Bootstrap the proof toolchain and package boundary.
    - [PRV]001 - Why3/Z3 bootstrap and proof-enabled package wiring.
-     - Deliverables: install and document the first supported prover stack (`why3` + `z3`), enable proofs in `src/validate/moon.pkg`, confirm targeted dry runs stop skipping the package, and capture the keepable developer/CI invocation surface.
-     - Required APIs: `src/validate/moon.pkg`, local `moon prove --why3-config` override path, and the current MoonBit toolchain versions recorded in [0077](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md#L9).
+     - Deliverables: install and document the first supported prover stack (`why3` + solver), land a first proof-enabled validator helper boundary in `src/validate_proof`, confirm `moon prove src/validate_proof` is green, and capture the keepable developer/CI invocation surface plus the direct `src/validate` blocker.
+     - Required APIs: `src/validate_proof/moon.pkg`, `src/validate/moon.pkg`, local `moon prove --why3-config` override path, and the current MoonBit toolchain versions recorded in [0077](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0077-2026-04-10-moonbit-prove-strategy.md#L9).
      - Invariants: do not check in machine-specific Why3 config; keep the first solver story simple and reproducible; keep `moon` commands serialized.
-     - Exit Criteria: `moon prove src/validate` is no longer skipped for lack of package enablement, and the bootstrap steps are documented in the wiki plus any CI-facing docs that need them.
-     - Suggested Tests: `moon prove src/validate --dry-run`, `moon prove src/validate/env.mbt`, `moon prove src/validate/match.mbt`.
+     - Exit Criteria: one validator-adjacent package proves cleanly in-tree, and the bootstrap steps plus the current `src/validate` package blocker are documented in the wiki plus any CI-facing docs that need them.
+     - Suggested Tests: `moon prove src/validate_proof`, `moon test src/validate_proof`, `moon test src/validate`.
 2. Land the first proof pilot in `env`.
    - [PRV]002 - `Env` / `LabelStack` proof kernel.
-     - Deliverables: add `src/validate/env_proof.mbtp` (or equivalent), prove the stack-from-top label lookup and rectype-resolution invariants identified in the strategy doc, and keep the existing `env_tests` oracle green.
-     - Required APIs: `LabelStack::new`, `LabelStack::push`, `LabelStack::get`, `Env::with_rectype`, `Env::resolve_subtype`, and `Env::resolve_heaptype_subtype`.
+     - Deliverables: extend the `src/validate_proof` helper kernel (or an equivalent extracted proof boundary) beyond `label_stack_storage_index`, prove the stack-from-top label lookup and rectype-resolution invariants identified in the strategy doc, and keep the existing `env_tests` oracle green.
+     - Required APIs: `label_stack_storage_index`, `LabelStack::new`, `LabelStack::push`, `LabelStack::get`, `Env::with_rectype`, `Env::resolve_subtype`, and `Env::resolve_heaptype_subtype`.
      - Invariants: prove the smallest structural facts first; avoid `proof_axiomatized` unless the blocker is captured as active follow-up in docs and backlog.
      - Exit Criteria: the targeted `env` proof run is green, the committed predicates/lemmas are readable, and the existing executable tests still pin the same behavior.
      - Suggested Tests: `moon prove src/validate/env.mbt`, `moon test --package jtenner/starshine/validate --file env_tests.mbt`.

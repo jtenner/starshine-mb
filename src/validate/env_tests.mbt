@@ -1,4 +1,39 @@
 ///|
+test "LabelStack.new starts empty" {
+  let stack = LabelStack::new()
+  assert_eq(stack.length(), 0)
+  assert_eq(stack.get(-1), None)
+  assert_eq(stack.get(0), None)
+}
+
+///|
+test "LabelStack.push preserves direct declaration-order indexing" {
+  let stack = LabelStack::new()
+  stack.push([ValType::i32()])
+  stack.push([ValType::i64()])
+
+  assert_eq(stack.length(), 2)
+  assert_eq(stack.get(0), Some([ValType::i32()]))
+  assert_eq(stack.get(1), Some([ValType::i64()]))
+  assert_eq(stack.get(2), None)
+}
+
+///|
+test "LabelStack.from_labels reconstructs the same direct-index view" {
+  let stack = LabelStack::from_labels([
+    [ValType::i32()],
+    [ValType::i64()],
+    [ValType::f32()],
+  ])
+
+  assert_eq(stack.length(), 3)
+  assert_eq(stack.get(0), Some([ValType::i32()]))
+  assert_eq(stack.get(1), Some([ValType::i64()]))
+  assert_eq(stack.get(2), Some([ValType::f32()]))
+  assert_eq(stack.get(3), None)
+}
+
+///|
 test "Env.get_label_types uses stack-from-top indexing" {
   let env = Env::new().with_label([ValType::i32()]).with_label([ValType::i64()])
   assert_eq(env.get_label_types(LabelIdx::new(0)), Some([ValType::i64()]))
