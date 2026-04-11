@@ -1,9 +1,10 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-11
 sources:
   - ../../../raw/research/0067-2026-03-24-duplicate-function-elimination.md
+  - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
 related:
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
@@ -60,6 +61,13 @@ related:
   - `code` bytes still differ after direct DFE
 - Runtime parity is also still open on the MoonBit debug artifact.
 
+## 2026-04-11 Health Rerun
+
+- `bun scripts/pass-fuzz-compare.ts --pass duplicate-function-elimination --count 200 --seed 0x5eed --max-failures 30 --out-dir /tmp/health-dfe-200-2026-04-11-smoke`:
+  - `199 / 199` compared, `199` normalized matches, `0` mismatches, `1` command failure (`binaryen-rec-group-zero`)
+- `bun scripts/pass-fuzz-compare.ts --pass duplicate-function-elimination --generator gen-valid --count 200 --seed 0x5eed --out-dir /tmp/health-dfe-200-genvalid-2026-04-11-smoke`:
+  - `200 / 200` compared, `200` normalized matches, `0` mismatches
+
 ## Practical Rule
 
 - Keep DFE parity work module-wide and metadata-aware.
@@ -69,5 +77,6 @@ related:
 ## Sources
 
 - Archived research doc: [`../../../raw/research/0067-2026-03-24-duplicate-function-elimination.md`](../../../raw/research/0067-2026-03-24-duplicate-function-elimination.md)
+- Follow-up health rerun: [`../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md`](../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md)
 - Implementation: [`../../../../../src/passes/duplicate_function_elimination.mbt`](../../../../../src/passes/duplicate_function_elimination.mbt)
 - Focused tests: [`../../../../../src/passes/duplicate_function_elimination_test.mbt`](../../../../../src/passes/duplicate_function_elimination_test.mbt)

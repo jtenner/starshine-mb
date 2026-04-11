@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-04-11 Docs: extend the 2026-04-11 health rerun to additional Binaryen passes
+
+- **archived a second pass-fuzz smoke round and reconciled open parity docs** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md`](./docs/wiki/raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md), [`docs/wiki/binaryen/passes/duplicate-function-elimination/parity.md`](./docs/wiki/binaryen/passes/duplicate-function-elimination/parity.md), [`docs/wiki/binaryen/passes/pick-load-signs/parity.md`](./docs/wiki/binaryen/passes/pick-load-signs/parity.md), [`docs/wiki/binaryen/passes/remove-unused-brs/parity.md`](./docs/wiki/binaryen/passes/remove-unused-brs/parity.md), and [`docs/wiki/binaryen/passes/tuple-optimization/parity.md`](./docs/wiki/binaryen/passes/tuple-optimization/parity.md) after a 200-case rerun (`seed 0x5eed`) confirmed:
+  - `duplicate-function-elimination`: `199 / 199` mixed, `200 / 200` gen-valid clean (`0` mismatches)
+  - `pick-load-signs`: `199 / 199` mixed, `200 / 200` gen-valid clean (`0` mismatches)
+  - `tuple-optimization`: `199 / 199` mixed, `200 / 200` gen-valid clean (`0` mismatches)
+  - `remove-unused-brs`: `199 / 199` mixed with `24` mismatches and `114 / 114` gen-valid with `30` mismatches (open)
+  - all mixed runs still include one `binaryen-rec-group-zero` command-failure case (`case-000029-wasm-smith`).
+
 ## 2026-04-11 Chore: refresh generated package APIs after `moon info` and `moon fmt`
 
 - **committed the tool-generated backlog after the `--extract-functions` feature split** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/bitset/pkg.generated.mbti`](./src/bitset/pkg.generated.mbti), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/pkg.generated.mbti`](./src/passes/pkg.generated.mbti), [`src/validate/env.mbt`](./src/validate/env.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate_proof/bounds_index.mbt`](./src/validate_proof/bounds_index.mbt), [`src/validate_proof/func_index.mbt`](./src/validate_proof/func_index.mbt), [`src/validate_proof/group_index.mbt`](./src/validate_proof/group_index.mbt), [`src/validate_proof/pkg.generated.mbti`](./src/validate_proof/pkg.generated.mbti), [`src/validate_proof/stack_index.mbt`](./src/validate_proof/stack_index.mbt), and [`src/validate_proof/suffix_index.mbt`](./src/validate_proof/suffix_index.mbt) to capture the latest generated package surfaces for `bitset` and `validate_proof`, refresh generated `passes` metadata, and keep formatter output in pass-manager and validator proof helpers in sync with the toolchain.

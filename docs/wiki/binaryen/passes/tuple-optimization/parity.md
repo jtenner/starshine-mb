@@ -1,9 +1,10 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-11
 sources:
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
+  - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/tuple_optimization.mbt
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
   - ../../../../../src/cmd/cmd_test.mbt
@@ -71,6 +72,14 @@ Parity is not signed off yet because all of these are still open:
 - preset slot still not enabled in the real Binaryen neighborhood
 - the last recorded full artifact compare is still red and still treated as an active blocker
 - the reduced self-opt compare is still red and tuple-only runtime remains well behind Binaryen
+
+## 2026-04-11 Health Rerun
+
+- `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 200 --seed 0x5eed --max-failures 30 --out-dir /tmp/health-tuple-200-2026-04-11-smoke`:
+  - `199 / 199` compared, `199` normalized matches, `0` mismatches, `1` command failure (`binaryen-rec-group-zero`)
+- `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --generator gen-valid --count 200 --seed 0x5eed --out-dir /tmp/health-tuple-200-genvalid-2026-04-11-smoke`:
+  - `200 / 200` compared, `200` normalized matches, `0` mismatches
+- This keeps tuple-optimization classified as direct-clean in this smoke band, with no semantic mismatches introduced since the prior check.
 
 ## Current Reduced Host-Copy Status
 
@@ -320,6 +329,7 @@ Do not call tuple-opt done until all of these are true:
 ## Sources
 
 - Archived note: [`../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md`](../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md)
+- Follow-up health rerun: [`../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md`](../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md)
 - Active backlog: [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - Recent checkpoint record: [`../../../../../CHANGELOG.md`](../../../../../CHANGELOG.md)
 - Implementation: [`../../../../../src/passes/tuple_optimization.mbt`](../../../../../src/passes/tuple_optimization.mbt)

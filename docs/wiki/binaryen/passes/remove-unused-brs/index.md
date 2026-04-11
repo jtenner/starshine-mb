@@ -1,10 +1,12 @@
 ---
 kind: entity
-status: supported
-last_reviewed: 2026-04-09
+status: working
+last_reviewed: 2026-04-11
 sources:
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
+  - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
+  - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
 related:
   - ./parity.md
   - ./returned-ladder-hot-shapes.md

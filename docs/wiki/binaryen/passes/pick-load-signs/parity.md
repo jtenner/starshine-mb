@@ -1,9 +1,10 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-11
 sources:
   - ../../../raw/research/0069-2026-03-26-pick-load-signs.md
+  - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
 related:
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pick_load_signs_test.mbt
@@ -39,10 +40,15 @@ Recognized usage evidence comes from:
 - The `2026-03-29` debug-artifact signoff recorded canonical wasm parity and normalized WAT parity.
 - The same signoff recorded Starshine wall time at about `2067.184 ms` versus Binaryen at `1408.509 ms`.
 - The `2026-03-29` `gen-valid` pass-fuzz run recorded `10000 / 10000` compared cases, `10000` normalized matches, and `0` mismatches or failures.
+- The `2026-04-11` focused health rerun confirms clean direct smoke behavior:
+  - mixed: `199 / 199` compared, `199` normalized matches, `0` mismatches, `1` command failure (`binaryen-rec-group-zero`)
+  - gen-valid: `200 / 200` compared, `200` normalized matches, `0` mismatches, `0` failures
+- The latest mixed run still shows a single Binaryen parser-family failure class and no new semantic regressions.
 
 ## Sources
 
 - Archived research doc: [`../../../raw/research/0069-2026-03-26-pick-load-signs.md`](../../../raw/research/0069-2026-03-26-pick-load-signs.md)
+- Follow-up health rerun: [`../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md`](../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md)
 - Implementation: [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt)
 - Focused tests: [`../../../../../src/passes/pick_load_signs_test.mbt`](../../../../../src/passes/pick_load_signs_test.mbt)
 - CLI coverage: [`../../../../../src/cmd/cmd_test.mbt`](../../../../../src/cmd/cmd_test.mbt)

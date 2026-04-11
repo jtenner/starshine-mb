@@ -283,3 +283,16 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   - `remove-unused-module-elements`: `199 / 200` compared, `199` normalized matches, `0` mismatches, `1` `binaryen-rec-group-zero` command failure (`case-000029-wasm-smith`).
 - Updated `reorder-locals`, `heap2local`, and `remove-unused-module-elements` parity pages to cite this health note and pin the command-failure classification to artifacts currently on disk.
 - Verified the persistent `reorder-locals` mismatch remains behavioral-noise compatible by executing both failing outputs with `wasmtime --invoke main` (`exit 0` on both).
+
+## [2026-04-11] health | rerun focused Binaryen health checks for DFE, pick-load-signs, RUB, tuple
+
+- Added `docs/wiki/raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md` to archive a second focused smoke batch for:
+  - `duplicate-function-elimination`
+  - `pick-load-signs`
+  - `remove-unused-brs`
+  - `tuple-optimization`
+- Updated parity pages for all four passes to carry the fresh `2026-04-11` evidence and command-failure/mismatch classification.
+- Notably, this rerun raised `remove-unused-brs` as the current open mismatch surface in this band:
+  - mixed: `199 / 199` compared, `175` normalized matches, `24` mismatches
+  - gen-valid: `114 / 114` compared, `84` matches, `30` mismatches, `maxFailuresHit: true`
+- `duplicate-function-elimination`, `pick-load-signs`, and `tuple-optimization` remain clean in this 200-case smoke band (with one known `binaryen-rec-group-zero` command-failure class on mixed runs).
