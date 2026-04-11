@@ -1,11 +1,12 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-11
 sources:
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
+  - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
 related:
   - ./index.md
   - ./retention-and-index-rewrites.md
@@ -43,7 +44,12 @@ related:
 
 - The remaining post-fix compare noise is not currently a known RUME semantic mismatch.
 - The saved backlog now classifies the remaining failures as parser-compatibility and decoder or validator coverage work outside the pass's intended semantics.
-- The historical command-based evidence for this page was gathered with local `wasm-opt version_125`; refresh the direct compare once the workspace Binaryen toolchain reaches `version_129`.
+- A `2026-04-11` `--pass remove-unused-module-elements` smoke rerun (200 mixed cases, `seed 0x5eed`) reports:
+  - `199 / 200` compared
+  - `199` normalized matches
+  - `1` command failure (`binaryen-rec-group-zero`, `case-000029-wasm-smith`)
+  - `0` mismatches
+- The `2026-04-11` parity lane therefore has no semantic deltas relative to this direct comparator, and the remaining saved noise stays in parser-compatibility buckets.
 
 ## Practical Rule
 
@@ -56,5 +62,6 @@ related:
 ## Sources
 
 - Active backlog slice: [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+- Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
 - Implementation: [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt)
 - Focused tests: [`../../../../../src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt)

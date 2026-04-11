@@ -1,9 +1,10 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-11
 sources:
   - ../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md
+  - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
 related:
   - ../../../../../src/passes/heap2local.mbt
   - ../../../../../src/passes/heap2local_test.mbt
@@ -46,13 +47,17 @@ The current Starshine slice covers the full in-tree primary suite:
 
 ## Current Evidence
 
-- The saved compare numbers below were collected with local `wasm-opt version_125`, so they are historical parity evidence rather than `version_129` signoff.
-- The `2026-04-03` `gen-valid` compare run recorded `10000 / 10000` compared cases, `10000` normalized matches, `0` mismatches, and `0` validation or command failures.
-- The `2026-04-03` mixed-generator sample recorded `950 / 1000` compared cases, `950` normalized matches, `0` mismatches, and `50` command failures that were all Binaryen parser rejects rather than Starshine output failures.
+- A `2026-04-11` `--pass heap2local` smoke rerun (200 mixed cases, `seed 0x5eed`) reports:
+  - `199 / 200` compared
+  - `199` normalized matches
+  - `1` command failure (`binaryen-rec-group-zero`, `case-000029-wasm-smith`)
+  - `0` mismatches
+- The `2026-04-03` `10000`-case `gen-valid` compare remains in `result` form as a historical full-lane benchmark (still valid but not yet refreshed this round).
 
 ## Sources
 
 - Archived research doc: [`../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md`](../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md)
+- Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Heap2Local.cpp>
 - Implementation: [`../../../../../src/passes/heap2local.mbt`](../../../../../src/passes/heap2local.mbt)
 - Focused tests: [`../../../../../src/passes/heap2local_test.mbt`](../../../../../src/passes/heap2local_test.mbt)

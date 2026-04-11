@@ -271,3 +271,15 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated `binaryen/passes/ssa-nomerge/parity.md`, `binaryen/passes/ssa-nomerge/index.md`, archived research note `0076-2026-04-10-ssa-nomerge-parity-investigation.md`, `docs/wiki/index.md`, and `agent-todo.md` after reducing one unreachable compare-carrier slice from the traced `Func 523` family into checked-in lift and pass regressions.
 - Recorded the new focused evidence in `src/ir/hot_lift_test.mbt` and `src/passes/ssa_nomerge_test.mbt`, plus the supporting concrete-pop-count follow-up in `src/ir/hot_lift.mbt`.
 - Recorded that fresh direct artifact replay at `/tmp/ssa-nomerge-func523-followup.log` still exits zero and validates its output module, but still logs the same `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch` plus `228` `suspicious-escape-carrier` skips, so the reduced follow-up narrowed the family without yet closing the remaining artifact-only gap.
+
+## [2026-04-11] health | refresh pass smoke evidence for `reorder-locals`, `heap2local`, and `remove-unused-module-elements`
+
+- Added a new research node `docs/wiki/raw/research/0078-2026-04-11-parity-smoke-rerun.md` to archive the fresh 200-case smoke rerun matrix and mismatch classification.
+- Updated `binaryen/no-dwarf-default-optimize-path.md` metadata to reflect current `version_129` toolchain parity context (`last_reviewed`, command-availability note).
+- Reran compare health checks on current `version_129`:
+  - `reorder-locals` (`both`): `199 / 200` compared, `198` normalized matches, `1` mismatch, `1` `binaryen-rec-group-zero` command failure (`case-000029-wasm-smith`).
+  - `reorder-locals` (`gen-valid`): `199 / 200` compared, `199` normalized matches, `0` command failures, `1` mismatch (`case-000150-gen-valid`).
+  - `heap2local`: `199 / 200` compared, `199` normalized matches, `0` mismatches, `1` `binaryen-rec-group-zero` command failure (`case-000029-wasm-smith`).
+  - `remove-unused-module-elements`: `199 / 200` compared, `199` normalized matches, `0` mismatches, `1` `binaryen-rec-group-zero` command failure (`case-000029-wasm-smith`).
+- Updated `reorder-locals`, `heap2local`, and `remove-unused-module-elements` parity pages to cite this health note and pin the command-failure classification to artifacts currently on disk.
+- Verified the persistent `reorder-locals` mismatch remains behavioral-noise compatible by executing both failing outputs with `wasmtime --invoke main` (`exit 0` on both).

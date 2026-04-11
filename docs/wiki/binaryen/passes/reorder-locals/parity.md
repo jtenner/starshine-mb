@@ -1,9 +1,10 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-11
 sources:
   - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
+  - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
 related:
   - ./multivalue-call-scope.md
   - ../../../../../src/passes/reorder_locals.mbt
@@ -40,9 +41,18 @@ related:
 
 ## Remaining Parity Gap
 
-- The remaining raw mismatch is not the sort comparator itself.
-- The active gap is Binaryen's load or writeback behavior for stack-carried multivalue temporaries.
-- The current compare corpus was gathered with local `wasm-opt version_125`, so future signoff should be refreshed under a `version_129` toolchain.
+- The remaining raw mismatch is still not the sort comparator itself.
+- `2026-04-11` `--pass reorder-locals` smoke evidence on `version_129` from `both` generator:
+  - `199 / 200` compared
+  - `198` normalized matches
+  - `1` command failure (`binaryen-rec-group-zero`, smith)
+  - `1` mismatch
+- `2026-04-11` `--pass reorder-locals --generator gen-valid --count 200 --seed 0x5eed` reports:
+  - `199 / 200` compared
+  - `199` normalized matches
+  - `0` command failures
+  - `1` normalized mismatch
+- The mismatch case (`case-000150-gen-valid`) matches a write/read local index swap on dead locals with no visible behavioral impact in `wasmtime` probe runs on the raw outputs, so this lane is currently treated as a comparator normalization gap that still needs a cleaner classification path before claiming a semantic blocker.
 
 Use the Binaryen boundary controls when comparing this pass:
 
@@ -54,6 +64,7 @@ Use the Binaryen boundary controls when comparing this pass:
 ## Sources
 
 - Archived research doc: [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
+- Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderLocals.cpp>
 - Scope decision: [`./multivalue-call-scope.md`](./multivalue-call-scope.md)
 - Implementation: [`../../../../../src/passes/reorder_locals.mbt`](../../../../../src/passes/reorder_locals.mbt)
