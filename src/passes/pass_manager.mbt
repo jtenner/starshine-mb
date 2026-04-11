@@ -2007,25 +2007,16 @@ fn run_hot_pipeline_raw_mark_future_local_accesses(
     match instrs[idx] {
       @lib.Block(_, @lib.Expr(body)) =>
         run_hot_pipeline_raw_mark_future_local_accesses(
-          body,
-          0,
-          accesses,
-          reads,
+          body, 0, accesses, reads,
         )
       @lib.If(_, then_body, else_body) => {
         run_hot_pipeline_raw_mark_future_local_accesses(
-          then_body,
-          0,
-          accesses,
-          reads,
+          then_body, 0, accesses, reads,
         )
         match else_body {
           Some(body) =>
             run_hot_pipeline_raw_mark_future_local_accesses(
-              body,
-              0,
-              accesses,
-              reads,
+              body, 0, accesses, reads,
             )
           None => ()
         }
@@ -2052,10 +2043,7 @@ fn run_hot_pipeline_raw_future_local_accesses(
 ) -> @bitset.BitSet {
   let future = inherited.copy()
   run_hot_pipeline_raw_mark_future_local_accesses(
-    instrs,
-    start_idx,
-    future,
-    reads,
+    instrs, start_idx, future, reads,
   )
   future
 }
@@ -2635,16 +2623,16 @@ fn run_hot_pipeline_raw_rewrite_instrs(
       @lib.LocalSet(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
         let later_read = run_hot_pipeline_raw_instrs_have_later_local_read(
-          instrs,
-          idx + 1,
-          local_id,
-        ) ||
+            instrs,
+            idx + 1,
+            local_id,
+          ) ||
           (local_id < params.length() && future_reads[local_id])
         let later_write = run_hot_pipeline_raw_instrs_have_later_local_write(
-          instrs,
-          idx + 1,
-          local_id,
-        ) ||
+            instrs,
+            idx + 1,
+            local_id,
+          ) ||
           (local_id < params.length() && future_writes[local_id])
         if aliases[local_id] == canonical_aliases[local_id] &&
           later_read &&
@@ -2665,16 +2653,16 @@ fn run_hot_pipeline_raw_rewrite_instrs(
       @lib.LocalTee(@lib.LocalIdx(raw)) => {
         let local_id = raw.reinterpret_as_int()
         let later_read = run_hot_pipeline_raw_instrs_have_later_local_read(
-          instrs,
-          idx + 1,
-          local_id,
-        ) ||
+            instrs,
+            idx + 1,
+            local_id,
+          ) ||
           (local_id < params.length() && future_reads[local_id])
         let later_write = run_hot_pipeline_raw_instrs_have_later_local_write(
-          instrs,
-          idx + 1,
-          local_id,
-        ) ||
+            instrs,
+            idx + 1,
+            local_id,
+          ) ||
           (local_id < params.length() && future_writes[local_id])
         if aliases[local_id] == canonical_aliases[local_id] &&
           later_read &&

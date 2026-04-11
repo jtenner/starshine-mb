@@ -2193,7 +2193,8 @@ fn validate_name_sec_total_labels(
         None => None
         Some(CodeSec(funcs)) =>
           match funcs.get(defined_idx) {
-            Some(Func(_, expr)) => Some(validate_name_sec_expr_label_count(expr))
+            Some(Func(_, expr)) =>
+              Some(validate_name_sec_expr_label_count(expr))
             None => None
           }
       }
@@ -2285,7 +2286,10 @@ fn validate_name_sec(
       for entry in entries {
         let NameAssoc(type_idx, _) = entry
         match
-          bounded_index(env.global_types.length(), type_idx.reinterpret_as_int()) {
+          bounded_index(
+            env.global_types.length(),
+            type_idx.reinterpret_as_int(),
+          ) {
           Some(_) => ()
           None =>
             return Err(
@@ -2299,7 +2303,8 @@ fn validate_name_sec(
     Some(NameMap(entries)) =>
       for entry in entries {
         let NameAssoc(table_idx, _) = entry
-        match bounded_index(env.tables.length(), table_idx.reinterpret_as_int()) {
+        match
+          bounded_index(env.tables.length(), table_idx.reinterpret_as_int()) {
           Some(_) => ()
           None =>
             return Err(
@@ -2371,7 +2376,10 @@ fn validate_name_sec(
       for entry in entries {
         let IndirectNameAssoc(type_idx, NameMap(field_entries)) = entry
         match
-          bounded_index(env.global_types.length(), type_idx.reinterpret_as_int()) {
+          bounded_index(
+            env.global_types.length(),
+            type_idx.reinterpret_as_int(),
+          ) {
           Some(_) => ()
           None =>
             return Err(
@@ -2382,7 +2390,8 @@ fn validate_name_sec(
           Some(StructCompType(fields)) => fields
           Some(_) =>
             return Err("field names require struct type: type=\{type_idx}")
-          None => return Err("field names require struct type: type=\{type_idx}")
+          None =>
+            return Err("field names require struct type: type=\{type_idx}")
         }
         for field_entry in field_entries {
           let NameAssoc(field_idx, _) = field_entry
@@ -4056,9 +4065,12 @@ test "validate_module rejects RecIdx descriptor targets outside the current grou
   ])
   let mod = Module::new().with_type_sec(TypeSec::new([bad_group]))
   match validate_module(mod) {
-    Ok(_) => fail("expected out-of-range RecIdx describes target to fail validation")
+    Ok(_) =>
+      fail("expected out-of-range RecIdx describes target to fail validation")
     Err(err) =>
-      assert_true(validation_error_message(err).contains("must be a valid type"))
+      assert_true(
+        validation_error_message(err).contains("must be a valid type"),
+      )
   }
 }
 
@@ -5473,7 +5485,9 @@ test "validate_module rejects out-of-range function name index in name section" 
     Ok(_) => fail("expected invalid function name section validation failure")
     Err(err) => {
       assert_true(
-        validation_error_message(err).contains("function name index out of range"),
+        validation_error_message(err).contains(
+          "function name index out of range",
+        ),
       )
       assert_eq(
         validation_error_diagnostic(err).issue,
@@ -5681,7 +5695,8 @@ test "validate_module rejects imported function label names because imports have
   )
 
   match validate_module(mod) {
-    Ok(_) => fail("expected invalid imported-function label name section failure")
+    Ok(_) =>
+      fail("expected invalid imported-function label name section failure")
     Err(err) => {
       assert_true(
         validation_error_message(err).contains("label name index out of range"),

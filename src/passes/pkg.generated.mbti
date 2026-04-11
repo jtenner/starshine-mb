@@ -279,14 +279,15 @@ pub enum HotPipelineVerifyTarget {
   ModuleTarget(@lib.Module)
 }
 
-type HotTupleOptimizationAnalysis derive(Eq, Show, @debug.Debug)
+type HotTupleOptimizationAnalysis derive(Eq, @debug.Debug)
 
 type HotTupleOptimizationGroup derive(Eq, Show, @debug.Debug)
 
-type HotTupleOptimizationQuerySummary derive(Eq, Show, @debug.Debug)
+type HotTupleOptimizationQuerySummary derive(Eq, @debug.Debug)
 
 type HotTupleOptimizationRootSlot derive(Eq, Show, @debug.Debug)
 
 // Type aliases
 
 // Traits
+

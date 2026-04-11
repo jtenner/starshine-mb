@@ -1,0 +1,30 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/validate_proof"
+
+// Values
+pub fn bounded_index(Int, Int) -> Int?
+
+pub fn defined_body_func_index(Int, Int, Int) -> Int?
+
+pub fn defined_func_absolute_index(Int, Int) -> Int
+
+pub fn defined_func_body_index(Int, Int) -> Int?
+
+pub fn group_member_relative_index(Int, Int, Int) -> Int?
+
+pub fn group_relative_absolute_index(Int, Int, Int) -> Int?
+
+pub fn label_stack_storage_index(Int, Int) -> Int?
+
+pub fn latest_stack_index(Int) -> Int?
+
+pub fn suffix_start_index(Int, Int) -> Int?
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
+

@@ -90,7 +90,7 @@ pub(all) struct Env {
 pub fn Env::resolve_subtype(env : Env, idx : TypeIdx) -> SubType? {
   match idx {
     TypeIdx(i) => env.global_types.get(i.reinterpret_as_int())
-    RecIdx(j) => {
+    RecIdx(j) =>
       match latest_stack_index(env.rec_stack.length()) {
         None => None
         Some(group_idx) =>
@@ -99,7 +99,6 @@ pub fn Env::resolve_subtype(env : Env, idx : TypeIdx) -> SubType? {
             Some(group) => group.get(j.reinterpret_as_int())
           }
       }
-    }
   }
 }
 
@@ -152,7 +151,7 @@ pub fn Env::resolve_tag_functype(env : Env, tagidx : TagIdx) -> FuncType? {
 pub fn Env::resolve_typeidx_subtype(env : Env, tidx : TypeIdx) -> SubType? {
   match tidx {
     TypeIdx(i) => env.global_types.get(i.reinterpret_as_int())
-    RecIdx(j) => {
+    RecIdx(j) =>
       match latest_stack_index(env.rec_stack.length()) {
         None => None
         Some(group_idx) =>
@@ -161,7 +160,6 @@ pub fn Env::resolve_typeidx_subtype(env : Env, tidx : TypeIdx) -> SubType? {
             Some(group) => group.get(j.reinterpret_as_int())
           }
       }
-    }
   }
 }
 

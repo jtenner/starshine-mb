@@ -1,0 +1,33 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/bitset"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub struct BitSet {
+  mut size : Int
+  mut words : FixedArray[UInt64]
+} derive(Eq, @debug.Debug)
+#alias("_[_]")
+pub fn BitSet::at(Self, Int) -> Bool
+pub fn BitSet::copy(Self) -> Self
+pub fn BitSet::fill(Self, Bool) -> Unit
+pub fn BitSet::grow(Self, Int, fill? : Bool) -> Unit
+pub fn BitSet::length(Self) -> Int
+#as_free_fn
+pub fn BitSet::make(Int, Bool) -> Self
+#as_free_fn
+pub fn BitSet::new(Int) -> Self
+#alias("_[_]=_")
+pub fn BitSet::set(Self, Int, Bool) -> Unit
+
+// Type aliases
+
+// Traits
+
