@@ -2081,6 +2081,61 @@ test "code-pushing still moves a later alias local.set in a non-void region when
 }
 
 ///|
+test "code-pushing still moves a later const local.set in a non-void region when an earlier unsafe explicit-exit local.set root stays far before the crossed gap" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $side (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $block1 (result i32)
+    #|        (block $block
+    #|          (br $block1
+    #|            (block $carrier (result i32)
+    #|              (block $work
+    #|                (if (result i32)
+    #|                  (local.get 0)
+    #|                  (then
+    #|                    (local.set 5 (local.get 1))
+    #|                    (local.set 6 (local.get 1))
+    #|                    (local.set 7
+    #|                      (block (result i32)
+    #|                        (local.set 8 (local.get 5))
+    #|                        (local.set 9 (local.get 6))
+    #|                        (local.get 8)))
+    #|                    (br $work))
+    #|                  (else
+    #|                    (local.set 10 (local.get 1))
+    #|                    (br $block)))
+    #|                unreachable)
+    #|              (local.set 11 (local.get 7))
+    #|              (local.get 9))))
+    #|        (return (i32.const 99))))
+    #|    (i32.const 0)
+    #|    (local.set 3)
+    #|    (local.get 0)
+    #|    (i32.load)
+    #|    (local.set 4)
+    #|    (if
+    #|      (local.get 1)
+    #|      (then
+    #|        (call $side (local.get 4))))
+    #|    (local.get 3))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 1)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "LocalSet(4)", "If", "LocalSet(3)", "LocalGet(3)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing rewrites past an earlier dropped result-carrying block root" {
   let source =
     #|(module
