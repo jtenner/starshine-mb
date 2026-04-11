@@ -113,3 +113,9 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded that the checked-in debug CLI artifact now validates as input, Binaryen `--ssa-nomerge` succeeds on it, but direct Starshine `--ssa-nomerge` still fails final module validation at `Func 523`.
 - Recorded that the seeded random compare rerun stayed semantically clean and only hit a Binaryen `binaryen-rec-group-zero` parser-gap case, so direct artifact replay remains mandatory for `ssa-nomerge` signoff.
 - Updated the root wiki catalog and the Binaryen pass-folder catalog so the new parity page is discoverable.
+
+## [2026-04-10] refresh | record the safe-fail ssa-nomerge replay fix
+
+- Updated `binaryen/passes/ssa-nomerge/parity.md` and raw research note `0076-2026-04-10-ssa-nomerge-parity-investigation.md` after the current source build stopped letting the `Func 523` invalid writeback survive to final module validation.
+- Recorded the new source-mode artifact replay evidence: `Func 523` now fails closed as `writeback-validate:type mismatch`, `Func 3773` is also visible as `writeback-validate:stack underflow`, and final module validation completes.
+- Updated `agent-todo.md` so the shared post-SSA blocker note no longer claims `ssa-nomerge` safety without the newer per-function writeback-validation evidence.

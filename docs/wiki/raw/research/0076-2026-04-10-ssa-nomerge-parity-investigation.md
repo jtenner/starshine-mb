@@ -23,6 +23,13 @@
     - `error: final module validate: type mismatch`
     - `Offending function idx=(Func 523)`
   - The dumped failing function is `func code[506] abs[523]`.
+- `2026-04-10`: `moon run src/cmd --target native -- --debug-serial-passes --tracing pass --ssa-nomerge --out /tmp/ssa-nomerge-current.wasm tests/node/dist/starshine-debug-wasi.wasm`
+  - Result: success.
+  - The traced current-source replay no longer lets the bad rewrite survive to final module validation.
+  - Relevant skip:
+    - `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch`
+  - Additional observed validation-backed skip:
+    - `skip-invalid-lower func=(Func 3773) reason=writeback-validate:stack underflow`
 - `2026-04-10`: `wasm-opt tests/node/dist/starshine-debug-wasi.wasm --all-features --ssa-nomerge -o .tmp/ssa-binaryen.wasm`
   - Result: success.
 - `2026-04-10`: `wasm-tools validate .tmp/ssa-binaryen.wasm`
@@ -33,24 +40,25 @@
 - A direct single-pass `ssa-nomerge` replay on a valid input module must either:
   - produce a valid output module that passes final validation, or
   - reject the input before any invalid writeback can survive to final validation.
-- The existing `skip-invalid-lower` escape-carrier guard is not sufficient if a rewritten function outside the current guard family can still poison the final module.
+- The current per-function writeback-validation guard is sufficient to restore final-module safety for the known debug-artifact repros, but it is still only a fail-closed safety rail, not true Binaryen parity.
 - Binaryen parser gaps must stay separate from Starshine parity blockers.
 
 ## Validation Plan
 
-- Reduce `Func 523` from the debug artifact to a committed focused regression in `src/passes/ssa_nomerge_test.mbt` or a dedicated artifact-backed native replay test.
-- Add an artifact-backed assertion that validates the emitted module bytes, not only decode success.
+- Keep the committed native artifact replay in `src/cmd/cmd_test.mbt` green as the safety regression for current-source `ssa-nomerge`.
+- Reduce `Func 523` and the newly visible `Func 3773` validation-backed skip families to focused repros in `src/passes/ssa_nomerge_test.mbt` or adjacent lowering tests.
+- Add artifact-backed assertions that validate the emitted module bytes, not only decode success, whenever a new replay surface is introduced.
 - Keep using `pass-fuzz-compare` for breadth, but pair it with direct debug-artifact replay because the random harness did not expose the real artifact failure.
 - Keep Binaryen parser-gap families, including the empty-`rec` case from the seeded `100`-case run, out of the semantic mismatch bucket unless a newer Binaryen build parses them cleanly.
 
 ## Performance Impact
 
-- This investigation found a correctness blocker, not a runtime-budget blocker.
-- The direct artifact failure occurs in a normal single-pass native replay before any multi-pass cleanup chain or self-opt pipeline is needed.
-- The trace from the failing direct run shows several large functions already taking the `skip-invalid-lower reason=suspicious-escape-carrier` fallback before the final `Func 523` validation failure, so the current guard is active but incomplete.
+- This investigation first found a correctness blocker, then landed a safety fix that restores final validation by fail-closing bad writebacks.
+- The direct artifact failure occurred in a normal single-pass native replay before any multi-pass cleanup chain or self-opt pipeline was needed.
+- The current source replay still reports many `skip-invalid-lower` bailouts, so the remaining work is still correctness/parity reduction first, not runtime-budget tuning.
 
 ## Open Questions
 
-- What is the minimal reduced repro for `Func 523`?
-- Does `Func 523` share the same underlying carrier family as the earlier guarded `Func 225`, `230`, `231`, and `235` cases, or is it a different missing writeback/validation guard?
-- What is the right long-term regression surface for main-package CLI artifact tests now that a targeted `moon test --target native --package jtenner/starshine/cmd --file src/cmd/cmd_test.mbt --filter 'run_cmd_with_adapter validates ssa-nomerge on debug artifact'` run returned `Total tests: 0` and `Warning: no test entry found`?
+- What is the minimal reduced repro for `Func 523`'s `writeback-validate:type mismatch` family?
+- What is the minimal reduced repro for the newly visible `Func 3773` `writeback-validate:stack underflow` family?
+- Which of the remaining validation-backed skips represent genuine Starshine/Binaryen semantic gaps, and which are only representation-boundary differences that should stay out of scope?

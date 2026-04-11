@@ -16,29 +16,33 @@ related:
 ## Durable Conclusions
 
 - A discoverable artifact-backed parity blocker still exists for `ssa-nomerge`.
-- On `2026-04-10`, Starshine `--ssa-nomerge` failed final-module validation on the checked-in debug CLI artifact, while Binaryen `wasm-opt --ssa-nomerge` succeeded on the same valid input.
+- On `2026-04-10`, the stale checked-in native release binary still failed final-module validation on the checked-in debug CLI artifact, while Binaryen `wasm-opt --ssa-nomerge` succeeded on the same valid input.
+- On the same day, the current source build stopped emitting the invalid final module by rejecting bad per-function rewrites before writeback.
 - Random compare fuzz is still useful, but it is not sufficient as the only signoff lane for `ssa-nomerge`.
 - The seeded random coverage that was rerun for this pass stayed semantically clean and only hit a Binaryen parser-family gap, not a Starshine output mismatch.
 
 ## Current In-Tree Status
 
 - The implementation lives in [`../../../../../src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt).
-- The current invalid-writeback guard for this pass lives in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) and only filters the known `invalid-escape-carrier` and `suspicious-escape-carrier` families before final module assembly.
-- The `cmd` package still contains a named debug-artifact replay test in [`../../../../../src/cmd/cmd_test.mbt`](../../../../../src/cmd/cmd_test.mbt), but a targeted `moon test` invocation for that case currently reports `Total tests: 0` and `no test entry found`, so it is not a reliable executable guard today.
+- The current invalid-writeback guard for this pass lives in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) and now also rejects per-function writebacks that fail module-aware validation, in addition to the existing `invalid-escape-carrier` and `suspicious-escape-carrier` families.
+- The `cmd` package contains a native debug-artifact replay test in [`../../../../../src/cmd/cmd_test.mbt`](../../../../../src/cmd/cmd_test.mbt), and a focused `moon test src/cmd --target native --filter 'run_cmd_with_adapter validates ssa-nomerge on debug artifact'` run is currently green.
 
 ## Active Gap
 
 - `wasm-tools validate tests/node/dist/starshine-debug-wasi.wasm` succeeds.
-- `_build/native/release/build/cmd/cmd.exe --ssa-nomerge --out ... tests/node/dist/starshine-debug-wasi.wasm` fails with `error: final module validate: type mismatch`.
-- The failing writeback is dumped as `Offending function idx=(Func 523)`.
+- `moon run src/cmd --target native -- --debug-serial-passes --tracing pass --ssa-nomerge --out /tmp/ssa-nomerge-current.wasm tests/node/dist/starshine-debug-wasi.wasm` exits zero and final validation completes.
+- That current source replay now records `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch`, which restores artifact safety but also proves exact pass parity is still open.
+- The same traced source replay also records at least one other validation-backed skip (`Func 3773`, `writeback-validate:stack underflow`), so `Func 523` was not the only artifact-only bad writeback family.
 - The same input succeeds under Binaryen with `wasm-opt tests/node/dist/starshine-debug-wasi.wasm --all-features --ssa-nomerge`.
-- The failing Starshine trace also reports earlier `skip-invalid-lower reason=suspicious-escape-carrier` bailouts on `Func 225`, `230`, `231`, and `235`, which means the current guard is active but does not cover the family that eventually corrupts `Func 523`.
+- The stale checked-in release binary still fails on `Func 523`, so direct artifact investigations must distinguish stale binaries from the current source build.
 
 ## Practical Rule
 
 - Keep direct debug-artifact replay in the `ssa-nomerge` signoff loop.
 - Treat the seeded `binaryen-rec-group-zero` wasm-smith failure as an oracle parser gap, not an SSA semantic mismatch.
-- Do not claim artifact parity for `ssa-nomerge` until direct Starshine replay on `tests/node/dist/starshine-debug-wasi.wasm` exits zero and the emitted output validates.
+- Do not claim artifact parity for `ssa-nomerge` until direct Starshine replay on `tests/node/dist/starshine-debug-wasi.wasm` both:
+  - exits zero with a current source build, and
+  - stops relying on `writeback-validate:*` fail-closed skips for the remaining Binaryen-successful functions.
 
 ## Sources
 

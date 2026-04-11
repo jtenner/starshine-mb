@@ -3785,7 +3785,15 @@ fn run_hot_pipeline_apply_hot_pass(
             ) {
             Some("suspicious-escape-carrier")
           } else {
-            None
+            match
+              run_hot_pipeline_precompute_writeback_validation_error(
+                mod_,
+                code_idx,
+                result.func,
+              ) {
+              Some(msg) => Some("writeback-validate:\{msg}")
+              None => None
+            }
           }
         } else {
           None
