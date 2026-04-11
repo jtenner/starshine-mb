@@ -2970,8 +2970,19 @@ fn cp_root_is_explicit_exit_block_carrier_for_local_alias(
     @ir.HotOp::Block => ()
     _ => return false
   }
+  // The crossed-gap alias guard is for the broader risky carrier family, not
+  // the already-whitelisted self-contained owner-payload carriers.
+  if cp_local_set_value_block_is_simple_owner_if_payload_carrier(
+      cache, func, value_id,
+    ) ||
+    cp_local_set_value_block_is_terminal_inner_owner_payload_carrier(
+      cache, func, value_id,
+    ) {
+    return false
+  }
   cp_node_has_explicit_exit(cache, func, value_id) &&
-  cp_block_last_live_root_local_get_local(func, value_id) == Some(source_local_id)
+  cp_block_last_live_root_local_get_local(func, value_id) ==
+  Some(source_local_id)
 }
 
 ///|
@@ -3610,32 +3621,27 @@ fn cp_try_push_to_pushpoint(
                 !cp_summary_reads_local(pushpoint_summary, local_id) &&
                 !cp_summary_writes_local(pushpoint_summary, local_id) {
                 if cp_push_to_pushpoint_has_condition_set_crossed_carrier_alias_guard(
-                    cache,
-                    func,
-                    roots_view,
-                    reachable_prefix_start_idx,
-                    scan,
-                    target_idx,
+                    cache, func, roots_view, reachable_prefix_start_idx, scan, target_idx,
                     if_id,
                   ) {
                   None
                 } else {
-                let has_later_read = cp_region_reads_local_after_index(
-                  cache,
-                  func,
-                  region_ref,
-                  target_idx + 1,
-                  local_id,
-                )
-                if has_later_read {
-                  Some(true)
-                } else if !cp_summary_conflicts_with_dead_move_gap(
-                    root_summary, dead_move_gap,
-                  ) {
-                  Some(true)
-                } else {
-                  None
-                }
+                  let has_later_read = cp_region_reads_local_after_index(
+                    cache,
+                    func,
+                    region_ref,
+                    target_idx + 1,
+                    local_id,
+                  )
+                  if has_later_read {
+                    Some(true)
+                  } else if !cp_summary_conflicts_with_dead_move_gap(
+                      root_summary, dead_move_gap,
+                    ) {
+                    Some(true)
+                  } else {
+                    None
+                  }
                 }
               } else {
                 Some(false)

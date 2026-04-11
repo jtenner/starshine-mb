@@ -113,7 +113,7 @@ process.exit(1);
     result.stderr.includes("validation failed: bad baseline"),
     `expected wasm-tools validation details, got:\n${result.stderr}`,
   );
-  assert(fs.existsSync(moonLog), "expected compare harness to compile before validation");
+  assert(!fs.existsSync(moonLog), "expected --starshine-bin to skip compile before validation");
   assert(!fs.existsSync(starshineLog), "expected Starshine not to run on invalid input");
   assert(!fs.existsSync(binaryenLog), "expected Binaryen not to run on invalid input");
 }

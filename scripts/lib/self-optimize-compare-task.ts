@@ -706,7 +706,9 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   const summaryPath = path.join(outDir, "result.json");
   const commandsPath = path.join(outDir, "commands.txt");
 
-  compileStarshineBeforeCompare(repoRoot, options.moonBin);
+  if (options.starshineBin === null) {
+    compileStarshineBeforeCompare(repoRoot, options.moonBin);
+  }
 
   if (!fs.existsSync(inputPath)) {
     fail(`input file not found: ${inputPath}`);

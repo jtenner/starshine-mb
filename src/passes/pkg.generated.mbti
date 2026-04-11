@@ -208,10 +208,7 @@ pub struct CpLocalInfo {
   saw_get_before_set : Bool
   is_param : Bool
   sfa : Bool
-}
-pub impl Eq for CpLocalInfo
-pub impl Show for CpLocalInfo
-pub impl @debug.Debug for CpLocalInfo
+} derive(Eq, Show, @debug.Debug)
 
 pub struct HotPassContext {
   descriptor : @ir.HotPassDescriptor
@@ -317,26 +314,15 @@ type HotTupleOptimizationQuerySummary derive(Eq, @debug.Debug)
 
 type HotTupleOptimizationRootSlot derive(Eq, Show, @debug.Debug)
 
-type SimplifyLocalsForwardCleanup
-pub impl Eq for SimplifyLocalsForwardCleanup
-pub impl Show for SimplifyLocalsForwardCleanup
-pub impl @debug.Debug for SimplifyLocalsForwardCleanup
+type SimplifyLocalsForwardCleanup derive(Eq, Show, @debug.Debug)
 
-type SimplifyLocalsForwardRewrite
-pub impl Eq for SimplifyLocalsForwardRewrite
-pub impl Show for SimplifyLocalsForwardRewrite
-pub impl @debug.Debug for SimplifyLocalsForwardRewrite
+type SimplifyLocalsForwardRewrite derive(Eq, Show, @debug.Debug)
 
-type SimplifyLocalsForwardTarget
-pub impl Eq for SimplifyLocalsForwardTarget
-pub impl Show for SimplifyLocalsForwardTarget
-pub impl @debug.Debug for SimplifyLocalsForwardTarget
+type SimplifyLocalsForwardTarget derive(Eq, Show, @debug.Debug)
 
-type SimplifyLocalsRootUsePath
-pub impl Eq for SimplifyLocalsRootUsePath
-pub impl Show for SimplifyLocalsRootUsePath
-pub impl @debug.Debug for SimplifyLocalsRootUsePath
+type SimplifyLocalsRootUsePath derive(Eq, Show, @debug.Debug)
 
 // Type aliases
 
 // Traits
+

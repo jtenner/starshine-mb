@@ -978,6 +978,16 @@
   parent-escape crossed-gap carrier does too. So the crossed-gap tail itself is
   no longer the distinguishing ingredient; the remaining unsafe rewrite sits
   upstream in the transition that makes the parent `err` block result-producing.
+- One smaller crossed-gap overblock is now closed again too. The later
+  condition-set alias guard had grown broad enough to block a reduced earlier
+  explicit-exit `LocalSet(Block(...), LocalGet)` fixture whose carrier is
+  already one of the pass's whitelisted self-contained owner-payload shapes.
+  The current pass now excludes those whitelisted carriers from the risky
+  crossed-gap alias guard, which restores the reduced nested self-owner move
+  without reopening the blocked `candidate-set -> condition-set -> later-if`
+  terminal-owner family. Focused `code-pushing` and native `cmd` tests are
+  green again, but the whole-artifact replay still needs to be refreshed on the
+  kept fence.
 - On the performance side, a fresh live native stack sample no longer landed in
   the recursive owner-exit walk first. It hit `cp_region_roots_copy` through
   repeated `hot_region_get` / holder lookup instead. Deferring that copy until

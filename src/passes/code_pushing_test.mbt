@@ -3219,13 +3219,11 @@ test "code-pushing keeps the real crossed-gap carrier alias before the later if 
     #|)
   let func = code_pushing_test_run_hot_code(source, 4)
   let carrier_body = code_pushing_test_find_block_body_region(func, 1, [
-    "Block", "Block", "LocalSet(10)", "LocalSet(5)", "If", "Store", "Drop",
-    "LocalGet(3)",
+    "Block", "Block", "LocalSet(10)", "LocalSet(5)", "If", "Store", "Drop", "LocalGet(3)",
   ])
 
   assert_eq(code_pushing_test_region_tags(func, carrier_body), [
-    "Block", "Block", "LocalSet(10)", "LocalSet(5)", "If", "Store", "Drop",
-    "LocalGet(3)",
+    "Block", "Block", "LocalSet(10)", "LocalSet(5)", "If", "Store", "Drop", "LocalGet(3)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {
