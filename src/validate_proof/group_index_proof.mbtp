@@ -1,0 +1,26 @@
+predicate group_relative_absolute_index_post(
+  base : Int,
+  group_len : Int,
+  rel : Int,
+  result : Option[Int],
+) {
+  match result {
+    None => (rel < 0) || (group_len <= rel)
+    Some(abs_idx) => (abs_idx == base + rel) && (0 <= rel) && (rel < group_len)
+  }
+}
+
+predicate group_member_relative_index_post(
+  base : Int,
+  group_len : Int,
+  abs_idx : Int,
+  result : Option[Int],
+) {
+  match result {
+    None => (abs_idx < base) || (base + group_len <= abs_idx)
+    Some(rel) =>
+      (rel == abs_idx - base) &&
+      (0 <= rel) &&
+      (rel < group_len)
+  }
+}

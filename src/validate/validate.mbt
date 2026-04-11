@@ -593,11 +593,7 @@ fn descriptor_target_absolute_index(
     TypeIdx(idx) => Some(idx.reinterpret_as_int())
     RecIdx(idx) => {
       let rel = idx.reinterpret_as_int()
-      if rel < 0 || rel >= group_len {
-        None
-      } else {
-        Some(base + rel)
-      }
+      group_relative_absolute_index(base, group_len, rel)
     }
   }
 }
@@ -614,8 +610,9 @@ fn descriptor_target_lookup_subtype(
     Some(target_abs) => target_abs
     None => return None
   }
-  if target_abs >= base && target_abs < base + sts.length() {
-    return sts.get(target_abs - base)
+  match group_member_relative_index(base, sts.length(), target_abs) {
+    Some(rel_idx) => return sts.get(rel_idx)
+    None => ()
   }
   env.resolve_subtype(target)
 }
@@ -3899,6 +3896,45 @@ test "validate_module rejects describes targets that are not previously defined"
     Ok(_) => fail("expected forward describes target to fail validation")
     Err(err) =>
       assert_true(validation_error_message(err).contains("previously defined"))
+  }
+}
+
+///|
+test "validate_module accepts descriptor metadata that uses RecIdx targets" {
+  let descriptor_group = RecType::group([
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(descriptor=Some(TypeIdx::rec(1))),
+    ),
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(describes=Some(TypeIdx::rec(0))),
+    ),
+  ])
+  let mod = Module::new().with_type_sec(TypeSec::new([descriptor_group]))
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected RecIdx descriptor metadata to validate: \{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+test "validate_module rejects RecIdx descriptor targets outside the current group" {
+  let bad_group = RecType::group([
+    SubType::comp_type(CompType::struct_([])),
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(describes=Some(TypeIdx::rec(2))),
+    ),
+  ])
+  let mod = Module::new().with_type_sec(TypeSec::new([bad_group]))
+  match validate_module(mod) {
+    Ok(_) => fail("expected out-of-range RecIdx describes target to fail validation")
+    Err(err) =>
+      assert_true(validation_error_message(err).contains("must be a valid type"))
   }
 }
 

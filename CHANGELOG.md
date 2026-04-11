@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-10 Feat: prove descriptor-group index arithmetic for validator metadata
+
+- **proved group-relative descriptor index helpers** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/validate/imports.mbt`](./src/validate/imports.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate_proof/group_index.mbt`](./src/validate_proof/group_index.mbt), [`src/validate_proof/group_index_proof.mbtp`](./src/validate_proof/group_index_proof.mbtp), and [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt) to add and prove `group_relative_absolute_index` plus `group_member_relative_index`, route descriptor metadata validation through those helpers, and add focused `RecIdx` validator regressions for descriptor metadata. The sidecar proof kernel now proves `4` goals cleanly.
+
 ## 2026-04-10 Feat: extend the validator proof kernel through current-frame lookup
 
 - **proved latest-frame helper for `RecIdx` lookup** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/validate/env.mbt`](./src/validate/env.mbt), [`src/validate/imports.mbt`](./src/validate/imports.mbt), [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt), [`src/validate_proof/stack_index.mbt`](./src/validate_proof/stack_index.mbt), and [`src/validate_proof/stack_index_proof.mbtp`](./src/validate_proof/stack_index_proof.mbtp) to add and prove `latest_stack_index`, use it in both `Env::resolve_subtype` and `Env::resolve_typeidx_subtype`, and keep the proof-kernel package green with `2` proved goals.
