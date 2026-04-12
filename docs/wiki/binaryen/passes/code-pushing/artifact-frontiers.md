@@ -6,6 +6,7 @@ sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
+  - ../../../raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -173,9 +174,11 @@ What the reductions proved:
 - The new live reducer split is now clearer too:
   repeated alias-if ladders are not inherently invalid.
   Plain one-off alias tails are not inherently invalid either.
-  The pass can keep rewriting both when no risky explicit-exit carrier feeds the
-  moved alias, and the real remaining danger is the explicit-exit-carrier-fed
-  terminal one-off alias-if tail.
+  Crossed-gap carrier aliases with unrelated condition-set locals are not
+  inherently invalid either.
+  The pass can keep rewriting all three when no risky explicit-exit carrier or
+  same-source crossed condition-set alias is involved, and the real remaining
+  danger is the explicit-exit-carrier-fed terminal one-off alias-if tail.
 - One more reduced live-carried family is now closed too:
   the old call-prefixed parent-exit corruption at the top of `Func 148` is no
   longer the first live blocker. `hot_lower` now rebases a sunk parent-exit

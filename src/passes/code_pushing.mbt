@@ -3016,6 +3016,14 @@ fn cp_push_to_pushpoint_has_condition_set_crossed_carrier_alias_guard(
   if crossed_root.imm0 < 0 {
     return false
   }
+  let crossed_source_local_id = match
+    cp_root_local_set_local_get_source_local(func, crossed_root_id) {
+    Some(local_id) => local_id
+    None => return false
+  }
+  if crossed_source_local_id != source_local_id {
+    return false
+  }
   let cond_id = @ir.hot_child_get(func, target_if_id, 0)
   if cond_id < 0 || !@ir.hot_node_is_live(func, cond_id) {
     return false

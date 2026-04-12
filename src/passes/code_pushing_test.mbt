@@ -1858,7 +1858,7 @@ test "code-pushing rewrites past an owner-only if payload with a direct inner-ow
 }
 
 ///|
-test "code-pushing does not rewrite past a terminal owner-carrier when an unrelated condition local.set sits before the later if" {
+test "code-pushing rewrites past a terminal owner-carrier when the crossed condition local.set is unrelated" {
   let source =
     #|(module
     #|  (func (param i32 i32) (result i32)
@@ -1886,7 +1886,7 @@ test "code-pushing does not rewrite past a terminal owner-carrier when an unrela
   let func = code_pushing_test_run_hot(source)
 
   assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
-    "LocalSet(2)", "LocalSet(4)", "LocalSet(5)", "If", "LocalGet(4)",
+    "LocalSet(2)", "LocalSet(5)", "If", "LocalSet(4)", "LocalGet(4)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {
@@ -3427,6 +3427,49 @@ test "code-pushing does not extract a carrier payload through a parent err block
   match @validate.validate_module(out) {
     Ok(_) => ()
     Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
+
+///|
+test "code-pushing moves a crossed-gap carrier alias after the later if when the kept condition-set does not alias the same carried local" {
+  let source =
+    #|(module
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32)
+    #|    (local.set 2
+    #|      (block $carrier (result i32)
+    #|        (block $work
+    #|          (if (local.get 0)
+    #|            (then
+    #|              (br $work)))
+    #|          (br $carrier (local.get 1))
+    #|          unreachable)
+    #|        (local.get 1)))
+    #|    (if (local.get 0)
+    #|      (then
+    #|        nop))
+    #|    (local.get 1)
+    #|    (local.set 3)
+    #|    (local.get 0)
+    #|    (local.set 4)
+    #|    (if
+    #|      (local.get 4)
+    #|      (then
+    #|        nop))
+    #|    (local.get 4)
+    #|    (local.set 5)
+    #|    (local.get 3)))
+    #|
+  let func = code_pushing_test_run_hot(source)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(2)", "If", "LocalSet(4)", "If", "LocalSet(3)", "LocalSet(5)",
+    "LocalGet(3)",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
   }
 }
 

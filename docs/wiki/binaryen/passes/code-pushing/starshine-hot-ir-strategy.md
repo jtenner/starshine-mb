@@ -8,6 +8,7 @@ sources:
   - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
   - ../../../raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md
   - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
+  - ../../../raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -287,6 +288,11 @@ related:
   the smaller local ordering pattern superficially resembles the old invalid
   `Func 1977` tail, and the new reduced decref-`if` probe shows the tail shape
   alone is not enough either.
+- Treat the crossed condition-set guard just as narrowly too. The reduced same-
+  source probe now shows that an earlier explicit-exit carrier does not make an
+  unrelated later condition-set local into a blocker by itself. The crossed
+  condition-set must alias the same carried source local before that guard
+  should fire.
 - Treat Binaryen no-ops as first-class evidence too. When a direct artifact
   slice shows Binaryen leaves a function unchanged, Starshine should prefer a
   new fence over a broader HOT-only explicit-exit rewrite, even if the manual

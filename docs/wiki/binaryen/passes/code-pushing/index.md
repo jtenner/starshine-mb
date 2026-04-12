@@ -44,10 +44,11 @@ related:
   form can still reach the same post-`if` placement Binaryen achieves on its AST.
 - Stay conservative around non-void carriers and parent-escape payload rewrites.
   Result-producing one-arm `if` sinks, same-region reorders past result-
-  producing `if` pushpoints, and plain one-off alias tails without an earlier
-  explicit-exit carrier are now part of the admitted Binaryen-matched surface
-  again, but the broader owner-sensitive non-void families are still where the
-  hard lowering risk lives.
+  producing `if` pushpoints, plain one-off alias tails without an earlier
+  explicit-exit carrier, and crossed-gap carrier aliases where the kept
+  condition-set does not alias that same carried local are now part of the
+  admitted Binaryen-matched surface again, but the broader owner-sensitive
+  non-void families are still where the hard lowering risk lives.
 
 ## Source Scope
 

@@ -8,6 +8,7 @@ sources:
   - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
   - ../../../raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md
   - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
+  - ../../../raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -120,6 +121,10 @@ bun scripts/pass-fuzz-compare.ts \
     mismatches, `0` validation failures, `0` generator failures, and `0`
     command failures after narrowing the one-off alias-if-tail fence to the
     explicit-exit-carrier-fed subset
+  - `pass-fuzz-code-pushing-20260412c` completed `10000/10000` with `0`
+    mismatches, `0` validation failures, `0` generator failures, and `0`
+    command failures after narrowing the crossed condition-set carrier alias
+    guard to the real same-source aliasing case
 - Mixed-generator and smith-only lanes have also stayed semantically clean on the
   kept pass surface, with remaining failures attributed to Binaryen-side parser or
   canonicalization rejects such as invalid type-index families. After the same
@@ -131,7 +136,10 @@ bun scripts/pass-fuzz-compare.ts \
   Binaryen-side command failures. After the one-off alias-if-tail narrowing,
   `pass-fuzz-code-pushing-20260412b` kept that same smith-only outcome too:
   `997/1000` compared, `0` mismatches, `0` validation failures, and `3`
-  Binaryen-side command failures.
+  Binaryen-side command failures. After the crossed condition-set alias-guard
+  narrowing, `pass-fuzz-code-pushing-20260412d` kept that same smith-only
+  outcome too: `997/1000` compared, `0` mismatches, `0` validation failures,
+  and `3` Binaryen-side command failures.
 
 ## Direct Artifact Replay
 

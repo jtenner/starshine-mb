@@ -8,6 +8,7 @@ sources:
   - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
   - ../../../raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md
   - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
+  - ../../../raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
@@ -79,6 +80,7 @@ related:
   - result-producing `if` arm sinks when only one arm reads the local
   - reorders past result-producing `if` pushpoints that do not touch the local
   - one-off alias tails without an earlier explicit-exit carrier feeding them
+  - crossed-gap carrier aliases when the kept condition-set does not alias that same carried local
 
 ## Current Reduced Evidence
 
@@ -103,12 +105,12 @@ related:
   family under `local.set`, `local.tee`, and `global.set` value positions, and
   the current tree now pins all three reduced cases in `src/passes/code_pushing_test.mbt`.
 - The latest same-tree compare-pass lane is
-  `pass-fuzz-code-pushing-20260412a`, and it completed `10000/10000` with `0`
+  `pass-fuzz-code-pushing-20260412c`, and it completed `10000/10000` with `0`
   mismatches, validation failures, generator failures, or command failures after
-  narrowing the one-off alias-if-tail fence to the explicit-exit-carrier-fed
-  subset.
+  narrowing the crossed condition-set carrier alias guard to the real same-source
+  aliasing case.
 - A fresh smith-only lane stays semantically green too after that fix:
-  `pass-fuzz-code-pushing-20260412b` completed `997/1000` compared with `0`
+  `pass-fuzz-code-pushing-20260412d` completed `997/1000` compared with `0`
   mismatches and only `3` Binaryen-side command failures.
 
 ## Current Signoff Gap
@@ -139,6 +141,10 @@ related:
   blocks the plain tail shape by itself. The current guard only keeps the
   explicit-exit-carrier-fed subset fenced, which matches the reduced Binaryen
   evidence better while keeping the old parent-escape family fail-closed.
+- The crossed condition-set carrier alias guard is narrower now too: Starshine
+  no longer blocks the move just because some crossed condition-set local feeds
+  the later `if`. The guard now only keeps the true same-source aliasing case
+  fenced.
 - The current direct debug-artifact path is valid again, but still not close to
   Binaryen parity.
 - Native `--code-pushing` output on `tests/node/dist/starshine-debug-wasi.wasm`
@@ -184,6 +190,9 @@ related:
 - A third narrowing is live now as well: even the one-off tail is only fenced
   when an earlier explicit-exit carrier actually feeds the moved alias source
   local. Plain one-off tails without that risky prefix now move again.
+- A fourth narrowing is live too: the crossed condition-set carrier alias guard
+  only fires when the crossed condition-set itself aliases that same carried
+  local. Unrelated condition-set locals no longer block the move.
 - The earlier wiki wording that treated `44251` as the next remaining upstream
   `code-pushing` surface is now superseded by
   [`0076`](../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md):

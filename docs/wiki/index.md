@@ -98,6 +98,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`raw/research/0077-2026-04-11-code-pushing-result-if-sink.md`](raw/research/0077-2026-04-11-code-pushing-result-if-sink.md) - Reduced Binaryen probe plus debug-artifact corroboration showing that `code-pushing` does sink into result-producing `if` arms, so Starshine's old blanket result-`if` fence was over-conservative.
 - [`raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md`](raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md) - Reduced Binaryen probe plus debug-artifact corroboration showing that `code-pushing` also reorders past result-producing `if` pushpoints, so Starshine's old blanket result-`if` pushpoint fence was over-conservative.
 - [`raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md`](raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md) - Reduced Binaryen probe plus artifact slice showing that the one-off alias-if-tail fence was still too broad unless an earlier explicit-exit carrier actually feeds the moved alias source local.
+- [`raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md`](raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md) - Reduced Binaryen probe showing that the crossed condition-set carrier alias guard was still too broad unless the kept condition-set itself aliases that same carried source local.
 
 ## Sessions
 

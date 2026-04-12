@@ -735,11 +735,14 @@
   the one-off high-risk alias-if-tail fence only for the explicit-exit-carrier-
   fed subset of the old `Func 1977` invalid family; it no longer blocks
   repeated alias-if ladders or plain one-off tails without that risky prefix.
-  That readmits the earlier valid `Func 1948` rewrite chain and the reduced
-  decref-`if` one-off-tail slice while still keeping the explicit-exit-carrier-
-  fed `Func 1977` family unchanged before lower/writeback. The refreshed named
-  lanes `.tmp/pass-fuzz-code-pushing-20260412a` (`10000/10000`) and
-  `.tmp/pass-fuzz-code-pushing-20260412b` (`997/1000` compared, `0`
+  The crossed condition-set carrier alias guard is narrower too: it now only
+  fires when the crossed condition-set itself aliases that same carried source
+  local. That readmits the earlier valid `Func 1948` rewrite chain, the reduced
+  decref-`if` one-off-tail slice, and the reduced crossed-gap positive slice
+  while still keeping the explicit-exit-carrier-fed `Func 1977` family and the
+  real same-source crossed-condition-set case fenced. The refreshed named lanes
+  `.tmp/pass-fuzz-code-pushing-20260412c` (`10000/10000`) and
+  `.tmp/pass-fuzz-code-pushing-20260412d` (`997/1000` compared, `0`
   mismatches, `3` Binaryen-side command failures) stay semantically green after
   that narrowing.
 - One smaller Binaryen mismatch is now closed explicitly. A reduced nested-block
