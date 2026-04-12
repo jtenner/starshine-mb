@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-12
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
   - ../../../raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md
+  - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -115,6 +116,10 @@ bun scripts/pass-fuzz-compare.ts \
     `0` mismatches, `0` validation failures, `0` generator failures, and
     `0` command failures after readmitting reorders past result-producing `if`
     pushpoints
+  - `pass-fuzz-code-pushing-20260412a` completed `10000/10000` with `0`
+    mismatches, `0` validation failures, `0` generator failures, and `0`
+    command failures after narrowing the one-off alias-if-tail fence to the
+    explicit-exit-carrier-fed subset
 - Mixed-generator and smith-only lanes have also stayed semantically clean on the
   kept pass surface, with remaining failures attributed to Binaryen-side parser or
   canonicalization rejects such as invalid type-index families. After the same
@@ -122,6 +127,9 @@ bun scripts/pass-fuzz-compare.ts \
   `997/1000` compared with `0` mismatches, `0` validation failures, and only `3`
   Binaryen-side command failures. After the result-`if` pushpoint reorder fix,
   `pass-fuzz-code-pushing-20260411i` kept the same smith-only outcome:
+  `997/1000` compared, `0` mismatches, `0` validation failures, and `3`
+  Binaryen-side command failures. After the one-off alias-if-tail narrowing,
+  `pass-fuzz-code-pushing-20260412b` kept that same smith-only outcome too:
   `997/1000` compared, `0` mismatches, `0` validation failures, and `3`
   Binaryen-side command failures.
 

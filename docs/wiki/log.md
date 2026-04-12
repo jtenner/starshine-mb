@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-12] maintain | narrow the one-off alias-if-tail fence to explicit-exit-carrier-fed cases in `code-pushing`
+
+- Added [`0079`](raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md), which records the reduced Binaryen probe and current artifact slice showing that the one-off alias-if-tail shape is not risky by itself; the real danger lives in the explicit-exit-carrier-fed subset.
+- Updated the frontier, HOT-strategy, parity, validation, WAT-shape, and hub pages to restate that only the explicit-exit-carrier-fed one-off tail remains fenced now.
+- Recorded the in-tree implementation detail: `src/passes/code_pushing.mbt` now lets `cp_push_to_pushpoint_has_high_risk_alias_if_tail` fire only when an earlier risky explicit-exit block carrier actually feeds the moved alias source local, and `src/passes/code_pushing_test.mbt` now pins the reduced positive decref-`if` tail plus validates the lowered output through the pass pipeline.
+- Recorded the refreshed compare-pass evidence too: `pass-fuzz-code-pushing-20260412a` is `10000/10000` with `0` mismatches, and `pass-fuzz-code-pushing-20260412b` stays semantically clean on compared smith cases (`997/1000`, `0` mismatches, `3` Binaryen-side command failures).
+
 ## [2026-04-11] maintain | readmit Binaryen-matched reorders past result-`if` pushpoints in `code-pushing`
 
 - Added [`0078`](raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md), which records the reduced Binaryen probe plus current debug-artifact corroboration showing that `code-pushing` also reorders `local.set` roots past result-producing `if` pushpoints.

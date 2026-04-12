@@ -3610,6 +3610,100 @@ test "code-pushing moves an alias local.set after an if when a kept loaded local
 }
 
 ///|
+test "code-pushing moves a one-off alias local.set after a later decref if when no explicit-exit carrier feeds it" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $incref (param i32))
+    #|  (func $free (param i32))
+    #|  (func $mk (param i32 i32) (result i32)
+    #|    i32.const 0)
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i32 i32 i32 i32 i32 i32)
+    #|    local.get 0
+    #|    i32.load offset=8
+    #|    local.set 3
+    #|    local.get 0
+    #|    i32.load
+    #|    local.tee 5
+    #|    i32.const 1
+    #|    i32.gt_s
+    #|    if
+    #|      local.get 5
+    #|      i32.const 1
+    #|      i32.sub
+    #|      local.set 6
+    #|      local.get 0
+    #|      local.get 6
+    #|      i32.store
+    #|      local.get 3
+    #|      if
+    #|        local.get 3
+    #|        call $incref
+    #|      end
+    #|    else
+    #|      local.get 5
+    #|      i32.const 1
+    #|      i32.eq
+    #|      if
+    #|        local.get 0
+    #|        call $free
+    #|      end
+    #|    end
+    #|    local.get 1
+    #|    local.set 2
+    #|    local.get 1
+    #|    i32.load offset=8
+    #|    local.set 4
+    #|    local.get 1
+    #|    i32.load
+    #|    local.tee 5
+    #|    i32.const 1
+    #|    i32.gt_s
+    #|    if
+    #|      local.get 5
+    #|      i32.const 1
+    #|      i32.sub
+    #|      local.set 6
+    #|      local.get 1
+    #|      local.get 6
+    #|      i32.store
+    #|      local.get 4
+    #|      if
+    #|        local.get 4
+    #|        call $incref
+    #|      end
+    #|    else
+    #|      local.get 5
+    #|      i32.const 1
+    #|      i32.eq
+    #|      if
+    #|        local.get 1
+    #|        call $free
+    #|      end
+    #|    end
+    #|    local.get 2
+    #|    local.set 3
+    #|    local.get 4
+    #|    local.set 5
+    #|    local.get 3
+    #|    local.get 5
+    #|    call $mk))
+    #|
+  let func = code_pushing_test_run_hot_code(source, 3)
+
+  assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
+    "LocalSet(3)", "If", "LocalSet(4)", "If", "LocalSet(2)", "LocalSet(3)", "LocalSet(5)",
+    "Call",
+  ])
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
 test "code-pushing allows a later read when the opposite arm is terminal" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop else unreachable end local.get 1 drop))",

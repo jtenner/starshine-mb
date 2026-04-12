@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-12
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
   - ../../../raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md
+  - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
 related:
@@ -548,8 +549,10 @@ Why this transforms:
   Wasm.
 - One more live shape split is now explicit too:
   repeated alias-if ladders are not the same thing as the one-off terminal tail.
-  Starshine now readmits the repeated ladder shape that `Func 1948` needs while
-  still fencing the one-off `Func 1977` tail before lowering.
+  Starshine now readmits the repeated ladder shape that `Func 1948` needs, and
+  it also readmits plain one-off tails when no earlier explicit-exit carrier
+  feeds the moved alias source local. Only the explicit-exit-carrier-fed
+  `Func 1977` tail stays fenced before lowering.
 - Call-fed extraction is currently fenced to a narrow single-result `i32` slice.
 - The pass does not currently synthesize the larger alias-local webs Binaryen
   appears to materialize in the later `105621` and `126757` artifact families.

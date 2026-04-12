@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-12
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
+  - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -131,19 +132,22 @@ Current interpretation:
 Status:
 
 - No longer a live writeback-validation blocker.
-- Still the main in-tree safety fence for the old invalid one-off tail family.
+- Still the main in-tree safety fence for the explicit-exit-carrier-fed subset
+  of the old invalid one-off tail family.
 
 Observed failure:
 
 - Native `--code-pushing` output on the debug artifact still validates.
 - The current kept tree now reaches that state earlier in the pass:
-  repeated alias-if ladders are admitted again, but the one-off terminal
-  alias-if-tail family stays fenced before lowering.
+  repeated alias-if ladders are admitted again, and plain one-off alias tails
+  without an earlier explicit-exit carrier are admitted again too, but the
+  explicit-exit-carrier-fed one-off tail family stays fenced before lowering.
 - Traced serial replay on the current tree changes:
   - `Func 148`
   - `Func 1948`
 - `Func 1977` is no longer a `skip-invalid-lower` case at all.
-  It now stays unchanged earlier in `code-pushing`.
+  It now stays unchanged earlier in `code-pushing` unless a future replay proves
+  the remaining explicit-exit-carrier-fed subset can lower safely too.
 
 What the reductions proved:
 
@@ -168,8 +172,10 @@ What the reductions proved:
   invisible just because they are not direct node children.
 - The new live reducer split is now clearer too:
   repeated alias-if ladders are not inherently invalid.
-  The pass can keep rewriting those safely, and the real remaining danger is the
-  terminal one-off alias-if tail where no later ladder continuation exists.
+  Plain one-off alias tails are not inherently invalid either.
+  The pass can keep rewriting both when no risky explicit-exit carrier feeds the
+  moved alias, and the real remaining danger is the explicit-exit-carrier-fed
+  terminal one-off alias-if tail.
 - One more reduced live-carried family is now closed too:
   the old call-prefixed parent-exit corruption at the top of `Func 148` is no
   longer the first live blocker. `hot_lower` now rebases a sunk parent-exit
@@ -204,12 +210,13 @@ Current first live diff after that fix:
 
 What this means for next work:
 
-- This family is now fenced only at the one-off tail form, not across the
-  repeated-ladder form that `Func 1948` needs.
+- This family is now fenced only at the explicit-exit-carrier-fed one-off tail
+  form, not across the repeated-ladder form that `Func 1948` needs or the plain
+  one-off tails that lack that risky prefix.
 - That is a correctness improvement, not a parity completion.
 - The remaining semantic blocker is no longer a live invalid-output cliff.
   It is the reopened valid `44251` frontier plus the still-deliberate
-  one-off `Func 1977` fence.
+  explicit-exit-carrier-fed `Func 1977` fence.
 
 ## Frontier 5: The Reopened Terminal-Owner Direct Frontier
 

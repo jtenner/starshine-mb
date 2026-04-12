@@ -732,16 +732,16 @@
   `run_hot_pipeline_precompute_writeback_validation_error`, and it only keeps
   the original when that full-module writeback validation still fails.
 - The current guard is narrower again. `src/passes/code_pushing.mbt` now keeps
-  the one-off high-risk alias-if-tail fence for the old `Func 1977` invalid
-  family, but it no longer blocks repeated alias-if ladders. That readmits the
-  earlier valid `Func 1948` rewrite chain while still keeping `Func 1977`
-  unchanged before lower/writeback. The refreshed named lane
-  `.tmp/pass-fuzz-code-pushing-genvalid-20260410w` stays `10000/10000` with
-  `0` mismatches, validation failures, or command failures, native replay
-  `.tmp/code-pushing-native-20260410w.wasm` validates on
-  `tests/node/dist/starshine-debug-wasi.wasm`, and `src/cmd/cmd_test.mbt` now
-  pins both artifact facts directly: traced replay still rewrites `Func 1948`,
-  and it no longer reports `skip-invalid-lower` for `Func 1977`.
+  the one-off high-risk alias-if-tail fence only for the explicit-exit-carrier-
+  fed subset of the old `Func 1977` invalid family; it no longer blocks
+  repeated alias-if ladders or plain one-off tails without that risky prefix.
+  That readmits the earlier valid `Func 1948` rewrite chain and the reduced
+  decref-`if` one-off-tail slice while still keeping the explicit-exit-carrier-
+  fed `Func 1977` family unchanged before lower/writeback. The refreshed named
+  lanes `.tmp/pass-fuzz-code-pushing-20260412a` (`10000/10000`) and
+  `.tmp/pass-fuzz-code-pushing-20260412b` (`997/1000` compared, `0`
+  mismatches, `3` Binaryen-side command failures) stay semantically green after
+  that narrowing.
 - One smaller Binaryen mismatch is now closed explicitly. A reduced nested-block
   repro showed that Binaryen keeps a `local.set` outside a nested `if` when the
   same local is still read after the enclosing block; Starshine used to sink

@@ -3041,8 +3041,10 @@ fn cp_push_to_pushpoint_has_condition_set_crossed_carrier_alias_guard(
 
 ///|
 fn cp_push_to_pushpoint_has_high_risk_alias_if_tail(
+  cache : CpSummaryCache,
   func : @ir.HotFunc,
   roots_view : CpRegionRootsView,
+  reachable_prefix_start_idx : Int,
   target_idx : Int,
   moved_idxs_rev : Array[Int],
 ) -> Bool {
@@ -3058,6 +3060,26 @@ fn cp_push_to_pushpoint_has_high_risk_alias_if_tail(
   }
   let before_id = cp_region_root_get(func, roots_view, moved_idx - 1)
   let moved_id = cp_region_root_get(func, roots_view, moved_idx)
+  let source_local_id = match
+    cp_root_local_set_local_get_source_local(func, moved_id) {
+    Some(local_id) => local_id
+    None => return false
+  }
+  let mut has_risky_prefix_carrier = false
+  let mut prefix_idx = reachable_prefix_start_idx
+  while prefix_idx < moved_idx {
+    let prefix_root_id = cp_region_root_get(func, roots_view, prefix_idx)
+    if cp_root_is_explicit_exit_block_carrier_for_local_alias(
+        cache, func, prefix_root_id, source_local_id,
+      ) {
+      has_risky_prefix_carrier = true
+      break
+    }
+    prefix_idx = prefix_idx + 1
+  }
+  if !has_risky_prefix_carrier {
+    return false
+  }
   let crossed_id = cp_region_root_get(func, roots_view, moved_idx + 1)
   let target_id = cp_region_root_get(func, roots_view, target_idx)
   let after_id = cp_region_root_get(func, roots_view, target_idx + 1)
@@ -3068,7 +3090,10 @@ fn cp_push_to_pushpoint_has_high_risk_alias_if_tail(
     @ir.HotOp::If => true
     _ => false
   }
-  if !before_is_if || !cp_root_is_local_set_of_local_get(func, moved_id) {
+  if !before_is_if {
+    return false
+  }
+  if !cp_root_is_local_set_of_local_get(func, moved_id) {
     return false
   }
   if crossed_id < 0 || !@ir.hot_node_is_live(func, crossed_id) {
@@ -3687,7 +3712,7 @@ fn cp_try_push_to_pushpoint(
     return false
   }
   if cp_push_to_pushpoint_has_high_risk_alias_if_tail(
-      func, roots_view, target_idx, moved_idxs_rev,
+      cache, func, roots_view, reachable_prefix_start_idx, target_idx, moved_idxs_rev,
     ) {
     return false
   }

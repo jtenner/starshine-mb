@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-12
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
+  - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
@@ -42,10 +43,11 @@ related:
 - Extract some `local.set` roots from dropped result carriers so the lifted HOT
   form can still reach the same post-`if` placement Binaryen achieves on its AST.
 - Stay conservative around non-void carriers and parent-escape payload rewrites.
-  Result-producing one-arm `if` sinks and same-region reorders past result-
-  producing `if` pushpoints are now part of the admitted Binaryen-matched
-  surface again, but the broader owner-sensitive non-void families are still
-  where the hard lowering risk lives.
+  Result-producing one-arm `if` sinks, same-region reorders past result-
+  producing `if` pushpoints, and plain one-off alias tails without an earlier
+  explicit-exit carrier are now part of the admitted Binaryen-matched surface
+  again, but the broader owner-sensitive non-void families are still where the
+  hard lowering risk lives.
 
 ## Source Scope
 

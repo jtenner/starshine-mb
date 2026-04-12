@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-12
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
   - ../../../raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md
+  - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -254,9 +255,10 @@ related:
   if lowered `code-pushing` output still matches the suspicious escape-carrier
   pattern, keep the original function instead of shipping invalid Wasm.
   On the current same-tree debug artifact that fallback no longer fires at all.
-  The current kept tree now fences the one-off `Func 1977` alias-if-tail family
-  earlier in `code-pushing`, while repeated ladders like `Func 1948` are
-  admitted again and validate to completion.
+  The current kept tree now fences only the explicit-exit-carrier-fed subset of
+  the one-off `Func 1977` alias-if-tail family earlier in `code-pushing`, while
+  repeated ladders like `Func 1948` and plain one-off tails without that risky
+  prefix are admitted again and validate to completion.
 
 ## Current Deliberate Divergences From Binaryen
 
@@ -273,16 +275,18 @@ related:
 
 ## Practical Strategy For Next Work
 
-- Keep the one-off `Func 1977` fence in place while reducing that carrier
-  family into a direct HOT-lowering fix.
+- Keep the explicit-exit-carrier-fed `Func 1977` fence in place while reducing
+  that carrier family into a direct HOT-lowering fix.
 - Treat the suspicious escape-carrier heuristic as a coarse signal, not a final
   verdict. `code-pushing` now rechecks those suspicious lowered functions
   against full-module writeback validation before deciding whether to keep the
   original.
-- Treat the now-admitted repeated alias-if ladders as a separate class from the
+- Treat the now-admitted repeated alias-if ladders and the newly readmitted
+  plain one-off tails as separate classes from the explicit-exit-carrier-fed
   one-off tail fence. `Func 1948` proved those ladders can be valid even when
   the smaller local ordering pattern superficially resembles the old invalid
-  `Func 1977` tail.
+  `Func 1977` tail, and the new reduced decref-`if` probe shows the tail shape
+  alone is not enough either.
 - Treat Binaryen no-ops as first-class evidence too. When a direct artifact
   slice shows Binaryen leaves a function unchanged, Starshine should prefer a
   new fence over a broader HOT-only explicit-exit rewrite, even if the manual
