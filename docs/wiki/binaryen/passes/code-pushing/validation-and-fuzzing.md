@@ -5,6 +5,7 @@ last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
+  - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -37,7 +38,7 @@ related:
 - That file covers several distinct groups:
   - SFA eligibility and summary accounting
   - same-region root reordering
-  - one-arm `if` sinking
+  - one-arm `if` sinking, including result-producing `if` arms
   - dead-gap and alias-barrier behavior
   - explicit-exit and non-void prefix boundaries
   - dropped-carrier extraction
@@ -106,9 +107,15 @@ bun scripts/pass-fuzz-compare.ts \
   - `pass-fuzz-code-pushing-genvalid-20260410ac3` completed `10000/10000` with
     `0` mismatches, `0` validation failures, `0` generator failures, and
     `0` command failures after the expression-position value-block carrier work
+  - `pass-fuzz-code-pushing-genvalid-20260411e` completed `10000/10000` with
+    `0` mismatches, `0` validation failures, `0` generator failures, and
+    `0` command failures after the result-producing-`if` arm sink fix
 - Mixed-generator and smith-only lanes have also stayed semantically clean on the
   kept pass surface, with remaining failures attributed to Binaryen-side parser or
-  canonicalization rejects such as invalid type-index families
+  canonicalization rejects such as invalid type-index families. After the same
+  result-`if` sink fix, `pass-fuzz-code-pushing-20260411f` completed
+  `997/1000` compared with `0` mismatches, `0` validation failures, and only `3`
+  Binaryen-side command failures.
 
 ## Direct Artifact Replay
 

@@ -5,6 +5,7 @@ last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
+  - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
@@ -73,6 +74,7 @@ related:
   - safe explicit-exit prefix handling for the call-fed extraction
   - one nested carrier-local wrapper variant
   - terminal-inner-owner carrier widening
+  - result-producing `if` arm sinks when only one arm reads the local
 
 ## Current Reduced Evidence
 
@@ -97,9 +99,12 @@ related:
   family under `local.set`, `local.tee`, and `global.set` value positions, and
   the current tree now pins all three reduced cases in `src/passes/code_pushing_test.mbt`.
 - The latest same-tree compare-pass lane is
-  `pass-fuzz-code-pushing-genvalid-20260410ac3`, and it completed
+  `pass-fuzz-code-pushing-genvalid-20260411e`, and it completed
   `10000/10000` with `0` mismatches, validation failures, generator failures,
-  or command failures.
+  or command failures after readmitting result-producing `if` arm sinks.
+- A fresh smith-only lane stays semantically green too after that fix:
+  `pass-fuzz-code-pushing-20260411f` completed `997/1000` compared with `0`
+  mismatches and only `3` Binaryen-side command failures.
 
 ## Current Signoff Gap
 
@@ -117,6 +122,10 @@ related:
   `code-pushing` again fences the
   `candidate-set -> condition-set -> later-if` terminal-owner family when the
   candidate aliases an earlier explicit-exit carried local.
+- One older deliberate divergence is gone now too: Starshine no longer blocks
+  one-arm sinks just because the target `if` produces a value. Binaryen does
+  perform that sink surface, and the reduced plus fuzz evidence stays green on
+  the current tree after removing the blanket result-`if` fence.
 - The current direct debug-artifact path is valid again, but still not close to
   Binaryen parity.
 - Native `--code-pushing` output on `tests/node/dist/starshine-debug-wasi.wasm`

@@ -101,6 +101,126 @@ fn code_pushing_test_run_hot_code(text : String, code_idx : Int) -> @ir.HotFunc 
 }
 
 ///|
+#cfg(target="native")
+fn code_pushing_test_native_c_string(text : String) -> Bytes {
+  let out = @buffer.new(size_hint=text.length() + 1)
+  for c in text {
+    let code = c.to_int()
+    if code >= 0 && code <= 255 {
+      out.write_byte(code.to_byte())
+    } else {
+      out.write_byte('?'.to_int().to_byte())
+    }
+  }
+  out.write_byte(0)
+  out.to_bytes()
+}
+
+///|
+#cfg(target="native")
+#borrow(ptr)
+extern "c" fn code_pushing_test_native_fread(
+  ptr : Bytes,
+  size : UInt64,
+  count : UInt64,
+  stream : UInt64,
+) -> UInt64 = "fread"
+
+///|
+#cfg(target="native")
+#borrow(path, mode)
+extern "c" fn code_pushing_test_native_fopen(
+  path : Bytes,
+  mode : Bytes,
+) -> UInt64 = "fopen"
+
+///|
+#cfg(target="native")
+extern "c" fn code_pushing_test_native_fclose(stream : UInt64) -> Int = "fclose"
+
+///|
+#cfg(target="native")
+extern "c" fn code_pushing_test_native_fseek(
+  stream : UInt64,
+  offset : Int,
+  whence : Int,
+) -> Int = "fseek"
+
+///|
+#cfg(target="native")
+extern "c" fn code_pushing_test_native_ftell(stream : UInt64) -> Int64 = "ftell"
+
+///|
+#cfg(target="native")
+fn code_pushing_test_native_read_bytes(path : String) -> Bytes? {
+  let file = code_pushing_test_native_fopen(
+    code_pushing_test_native_c_string(path),
+    code_pushing_test_native_c_string("rb"),
+  )
+  if file == 0UL {
+    return None
+  }
+  if code_pushing_test_native_fseek(file, 0, 2) != 0 {
+    ignore(code_pushing_test_native_fclose(file))
+    return None
+  }
+  let size_i64 = code_pushing_test_native_ftell(file)
+  if size_i64 < 0L {
+    ignore(code_pushing_test_native_fclose(file))
+    return None
+  }
+  let size_u = size_i64.reinterpret_as_uint64()
+  if size_u > 2147483647UL {
+    ignore(code_pushing_test_native_fclose(file))
+    return None
+  }
+  let size = size_i64.to_int()
+  if code_pushing_test_native_fseek(file, 0, 0) != 0 {
+    ignore(code_pushing_test_native_fclose(file))
+    return None
+  }
+  let out = Bytes::new(size)
+  if size > 0 {
+    let read = code_pushing_test_native_fread(out, 1UL, size_u, file)
+    if read != size_u {
+      ignore(code_pushing_test_native_fclose(file))
+      return None
+    }
+  }
+  if code_pushing_test_native_fclose(file) != 0 {
+    return None
+  }
+  Some(out)
+}
+
+///|
+fn code_pushing_test_imported_func_count(mod_ : @lib.Module) -> Int {
+  let mut count = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => count += 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  count
+}
+
+///|
+fn code_pushing_test_compact_text(text : String) -> String {
+  let out = StringBuilder::new()
+  for c in text {
+    if c != ' ' && c != '\n' && c != '\r' && c != '\t' {
+      out.write_char(c)
+    }
+  }
+  out.to_string()
+}
+
+///|
 priv struct CodePushingRealCarrierFixture {
   carrier_body : @ir.HotRegionRef
   err_body : @ir.HotRegionRef
@@ -779,14 +899,17 @@ test "code-pushing does not move a local.set after a result if" {
 }
 
 ///|
-test "code-pushing does not sink into a result-producing if arm" {
+test "code-pushing sinks into a result-producing if arm when only that arm reads the local" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if (result i32) local.get 1 drop i32.const 1 else i32.const 0 end drop))",
   )
+  let if_id = code_pushing_test_find_first_node(func, "If")
 
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)), "Nop")
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)), "Drop")
   assert_eq(
-    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
-    "LocalSet(1)",
+    code_pushing_test_region_tags(func, @ir.hot_region_then_ref(func, if_id)),
+    ["LocalSet(1)", "Drop", "Const"],
   )
 }
 
@@ -867,6 +990,171 @@ test "code-pushing keeps nested non-void region rewrites valid after lowering" {
     Ok(_) => ()
     Err(err) => fail(err)
   }
+}
+
+///|
+test "code-pushing rewrites a nested non-void region when the later use is nested in a store" {
+  let func = code_pushing_test_run_hot(
+    "(module (memory 1) (func (param i32 i32) (result i32) (local i32) local.get 0 if (result i32) local.get 1 local.set 2 local.get 0 if local.get 1 drop end i32.const 0 local.get 2 i32.store local.get 1 else i32.const 0 end))",
+  )
+  let if_id = @ir.hot_root_get(func, 0)
+
+  assert_eq(
+    code_pushing_test_region_tags(func, @ir.hot_region_then_ref(func, if_id)),
+    ["If", "LocalSet(2)", "Store", "LocalGet(1)"],
+  )
+}
+
+///|
+test "code-pushing keeps nested non-void store-user rewrites valid after lowering" {
+  let source = "(module (memory 1) (func (param i32 i32) (result i32) (local i32) local.get 0 if (result i32) local.get 1 local.set 2 local.get 0 if local.get 1 drop end i32.const 0 local.get 2 i32.store local.get 1 else i32.const 0 end))"
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
+}
+
+///|
+#cfg(target="native")
+test "code-pushing changes Binaryen-matched debug artifact Func 433 after lowering" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let wasm = match code_pushing_test_native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(wasm) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(433U)
+  let func = @ir.hot_lift_func(mod_, func_idx)
+  let ctx = HotPassContext::new(
+    code_pushing_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let result = match hot_pass_run(ctx, func) {
+    Ok(result) => result
+    Err(err) => fail("expected code-pushing hot pass success, got \{err}")
+  }
+  let lowered = @ir.hot_lower_func(func)
+  let code_idx = 433 - code_pushing_test_imported_func_count(mod_)
+  let next_code_sec = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("expected debug artifact to contain a code section")
+  }
+  let original_pretty = mod_.pretty_print_func(func_idx)
+  let lowered_pretty = mod_
+    .with_code_sec(next_code_sec)
+    .pretty_print_func(func_idx)
+  let compact = code_pushing_test_compact_text(lowered_pretty)
+
+  assert_true(result.changed)
+  assert_not_eq(original_pretty, lowered_pretty, msg=lowered_pretty)
+  assert_true(
+    compact.contains(
+      "(local.set$10(local.get$8))(i32.storeoffset=8align=1(local.get$1)(local.get$10))",
+    ),
+    msg=lowered_pretty,
+  )
+  assert_false(
+    compact.contains("(local.set$10(local.get$8))(if"),
+    msg=lowered_pretty,
+  )
+}
+
+///|
+#cfg(target="native")
+test "code-pushing changes Binaryen-matched debug artifact Func 1948 after lowering" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let wasm = match code_pushing_test_native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(wasm) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(1948U)
+  let func = @ir.hot_lift_func(mod_, func_idx)
+  let ctx = HotPassContext::new(
+    code_pushing_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let result = match hot_pass_run(ctx, func) {
+    Ok(result) => result
+    Err(err) => fail("expected code-pushing hot pass success, got \{err}")
+  }
+  let lowered = @ir.hot_lower_func(func)
+  let code_idx = 1948 - code_pushing_test_imported_func_count(mod_)
+  let next_code_sec = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("expected debug artifact to contain a code section")
+  }
+  let original_pretty = mod_.pretty_print_func(func_idx)
+  let lowered_pretty = mod_
+    .with_code_sec(next_code_sec)
+    .pretty_print_func(func_idx)
+
+  assert_true(result.changed)
+  assert_not_eq(original_pretty, lowered_pretty, msg=lowered_pretty)
+}
+
+///|
+#cfg(target="native")
+test "code-pushing leaves Binaryen-noop debug artifact Func 85 unchanged after lowering" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let wasm = match code_pushing_test_native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(wasm) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(85U)
+  let func = @ir.hot_lift_func(mod_, func_idx)
+  let ctx = HotPassContext::new(
+    code_pushing_descriptor(),
+    @ir.HotAnalysisCache::new(),
+    HotPipelineVerifyPolicy::after_each_pass(),
+    false,
+    fn(_) { () },
+  )
+  let result = match hot_pass_run(ctx, func) {
+    Ok(result) => result
+    Err(err) => fail("expected code-pushing hot pass success, got \{err}")
+  }
+  let lowered = @ir.hot_lower_func(func)
+  let code_idx = 85 - code_pushing_test_imported_func_count(mod_)
+  let next_code_sec = match mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("expected debug artifact to contain a code section")
+  }
+  let original_pretty = mod_.pretty_print_func(func_idx)
+  let lowered_pretty = mod_
+    .with_code_sec(next_code_sec)
+    .pretty_print_func(func_idx)
+
+  assert_false(result.changed, msg=lowered_pretty)
+  assert_eq(original_pretty, lowered_pretty, msg=lowered_pretty)
 }
 
 ///|

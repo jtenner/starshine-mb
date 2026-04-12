@@ -41,9 +41,10 @@ related:
   value and the opposite arm does not create a later-use hazard.
 - Extract some `local.set` roots from dropped result carriers so the lifted HOT
   form can still reach the same post-`if` placement Binaryen achieves on its AST.
-- Stay conservative around non-void carriers, parent-escape payload rewrites, and
-  result-producing `if` arm sinks because those are exactly where the current
-  invalid-artifact blocker still lives.
+- Stay conservative around non-void carriers and parent-escape payload rewrites.
+  Result-producing one-arm `if` sinks are now part of the admitted Binaryen-
+  matched surface again, but the broader owner-sensitive non-void families are
+  still where the hard lowering risk lives.
 
 ## Source Scope
 
@@ -53,7 +54,7 @@ related:
   `Binaryen version_125` study, not to a fresh `version_129` reread.
 - The Starshine-side status and frontier notes are newer than the original
   research doc because they include all landed parity slices through
-  `2026-04-10`.
+  `2026-04-11`.
 
 ## Page Map
 

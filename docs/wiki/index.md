@@ -25,7 +25,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/tuple-optimization/binaryen-strategy.md`](binaryen/passes/tuple-optimization/binaryen-strategy.md) - Upstream `version_129` tuple-local strategy: use counting, valid-use filtering, badness propagation, and tee-preserving scalar-local rewrites.
 - [`binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md`](binaryen/passes/tuple-optimization/starshine-hot-ir-strategy.md) - Current in-tree HOT-native tuple-opt algorithm: seed collection, copy-group linking, rewrite suppression, carrier construction, and cleanup.
 - [`binaryen/passes/tuple-optimization/scheduler-and-gates.md`](binaryen/passes/tuple-optimization/scheduler-and-gates.md) - Exact Binaryen slot and multivalue gate, plus the current reason Starshine keeps tuple-opt off public presets.
-- [`binaryen/passes/code-pushing/wat-shapes.md`](binaryen/passes/code-pushing/wat-shapes.md) - Exact `code-pushing` WAT families that move today, including same-region sinks, safe explicit-exit prefixes, and dropped-carrier extraction shapes.
+- [`binaryen/passes/code-pushing/wat-shapes.md`](binaryen/passes/code-pushing/wat-shapes.md) - Exact `code-pushing` WAT families that move today, including same-region sinks, result-producing `if` arm sinks, safe explicit-exit prefixes, and dropped-carrier extraction shapes.
 - [`binaryen/passes/code-pushing/binaryen-strategy.md`](binaryen/passes/code-pushing/binaryen-strategy.md) - Upstream `code-pushing` strategy from the repo's Binaryen study: SFA candidate discovery, push-point recognition, segment motion, and one-arm `if` sinking.
 - [`binaryen/passes/code-pushing/starshine-hot-ir-strategy.md`](binaryen/passes/code-pushing/starshine-hot-ir-strategy.md) - Current in-tree HOT implementation strategy for `code-pushing`, including summary caches, explicit-exit guards, dropped-carrier extraction, and lowering-validity fences.
 - [`binaryen/passes/code-pushing/artifact-frontiers.md`](binaryen/passes/code-pushing/artifact-frontiers.md) - Frontier ledger for the major debug-artifact mismatch families and the current `Func 1977` invalid-output blocker.
@@ -95,6 +95,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 ## Research
 
 - [`raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md`](raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md) - Binaryen-side reread and direct artifact slice proving that `--code-pushing` leaves printed `func $127` unchanged, so the old `44251` frontier was a Starshine-only fence question.
+- [`raw/research/0077-2026-04-11-code-pushing-result-if-sink.md`](raw/research/0077-2026-04-11-code-pushing-result-if-sink.md) - Reduced Binaryen probe plus debug-artifact corroboration showing that `code-pushing` does sink into result-producing `if` arms, so Starshine's old blanket result-`if` fence was over-conservative.
 
 ## Sessions
 

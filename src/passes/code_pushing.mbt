@@ -3191,9 +3191,6 @@ fn cp_try_sink_into_if(
     Some(if_id) => if_id
     None => return false
   }
-  if cp_node_has_nonvoid_result(func, if_id) {
-    return false
-  }
   let barrier = cp_new_barrier_summary(cache.local_count, cache.global_count)
   let cond_id = @ir.hot_child_get(func, if_id, 0)
   if cond_id >= 0 && @ir.hot_node_is_live(func, cond_id) {

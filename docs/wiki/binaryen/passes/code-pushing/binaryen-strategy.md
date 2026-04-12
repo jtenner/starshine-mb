@@ -5,6 +5,7 @@ last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
+  - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
 related:
   - ./index.md
   - ./wat-shapes.md
@@ -104,6 +105,9 @@ related:
   - there is no later read after the `if`, unless the non-target arm is
     unreachable
   - the set is not `unreachable`-typed
+- The `if` itself may still be result-producing. Binaryen prepends the set to
+  the chosen arm and leaves the arm's value flow intact; the important bailout is
+  the moved set's own reachability type, not whether the `if` returns a value.
 - On success, Binaryen prepends the set to the chosen arm and leaves a `nop` in
   the old position.
 - It never duplicates the set into both arms.

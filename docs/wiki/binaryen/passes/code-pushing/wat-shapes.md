@@ -5,6 +5,7 @@ last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
+  - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
 related:
@@ -175,6 +176,45 @@ Why this transforms:
   surrounding block reachability or require refinalization.
 - The pass never duplicates the set into both arms; it picks one arm or does
   nothing.
+
+## Shape 2b: Sink Into A Result-Producing `if` Arm
+
+Before:
+
+```wat
+(local.get $src)
+(local.set $tmp)
+(if (result i64)
+  (local.get $cond)
+  (then
+    (local.get $tmp))
+  (else
+    (i64.const 0)))
+```
+
+After:
+
+```wat
+nop
+(if (result i64)
+  (local.get $cond)
+  (then
+    (local.set $tmp
+      (local.get $src))
+    (local.get $tmp))
+  (else
+    (i64.const 0)))
+```
+
+Why this transforms:
+
+- Binaryen's one-arm sink rule is not limited to void `if` roots.
+- The real restriction is still on the moved set itself: Binaryen refuses to
+  sink `unreachable`-typed sets because that would alter surrounding
+  reachability.
+- Starshine now matches that reduced Binaryen surface directly. The pass keeps
+  broader non-void carrier fences for harder owner-sensitive rewrites, but it no
+  longer uses a blanket result-`if` ban for ordinary one-arm sinks.
 
 ## Shape 3: Multiple Pushable Roots Move Together But Keep Order
 

@@ -5,6 +5,7 @@ last_reviewed: 2026-04-11
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
+  - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -139,10 +140,10 @@ related:
   - the move does not conflict with the condition or accumulated barrier
 - On success the old slot becomes `nop` and the set is prepended to the chosen
   arm with direct region mutation.
-- The current Starshine implementation is stricter than Binaryen in one
-  important way: it refuses to sink into result-producing `if` arms. That fence
-  is there because Starshine's lifted result carriers have already shown real
-  lowering failures in adjacent non-void territory.
+- The old blanket fence on result-producing `if` arms is now gone. Binaryen does
+  sink into value-producing arms when the moved set itself is still safe, so the
+  current Starshine implementation now matches that narrower upstream rule while
+  keeping the broader non-void carrier and explicit-exit fences elsewhere.
 
 ## Phase 6: Explicit-Exit And Non-Void Guards
 

@@ -100,6 +100,8 @@
     unreachable
 - If the sink succeeds, Binaryen prepends the `local.set` to that arm and leaves
   a `nop` in the old slot.
+- The target `if` may still be result-producing; the key bailout is the moved
+  set's own reachability type, not whether the `if` returns a value.
 - It refuses to push an `unreachable`-typed set into an arm.
   Doing so would change surrounding block reachability and require refinalization.
 
