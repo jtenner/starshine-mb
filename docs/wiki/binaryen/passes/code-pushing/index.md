@@ -42,9 +42,10 @@ related:
 - Extract some `local.set` roots from dropped result carriers so the lifted HOT
   form can still reach the same post-`if` placement Binaryen achieves on its AST.
 - Stay conservative around non-void carriers and parent-escape payload rewrites.
-  Result-producing one-arm `if` sinks are now part of the admitted Binaryen-
-  matched surface again, but the broader owner-sensitive non-void families are
-  still where the hard lowering risk lives.
+  Result-producing one-arm `if` sinks and same-region reorders past result-
+  producing `if` pushpoints are now part of the admitted Binaryen-matched
+  surface again, but the broader owner-sensitive non-void families are still
+  where the hard lowering risk lives.
 
 ## Source Scope
 

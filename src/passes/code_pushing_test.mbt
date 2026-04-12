@@ -885,17 +885,21 @@ test "code-pushing moves a pure local.set past a trapping local.set and if when 
 }
 
 ///|
-test "code-pushing does not move a local.set after a result if" {
-  let func = code_pushing_test_run_hot(
-    "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if (result i32) i32.const 1 else i32.const 0 end drop local.get 1 drop))",
-  )
+test "code-pushing moves a local.set after a result if when the if does not touch the local" {
+  let source = "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if (result i32) i32.const 1 else i32.const 0 end drop local.get 1 drop))"
+  let func = code_pushing_test_run_hot(source)
 
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)), "Drop")
   assert_eq(
-    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
     "LocalSet(1)",
   )
-  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)), "Drop")
   assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)), "Drop")
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
 }
 
 ///|

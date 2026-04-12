@@ -6,6 +6,7 @@ sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
+  - ../../../raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -129,6 +130,11 @@ related:
 ## Phase 5: One-Arm `if` Sinking
 
 - `cp_try_sink_into_if` handles the more specific "move into one arm" case.
+- `cp_try_push_to_pushpoint` now also treats result-producing `if` roots as
+  ordinary pushpoints for same-region reordering. The old blanket result-`if`
+  pushpoint fence is gone because Binaryen does move safe `local.set` roots to
+  immediately after a value-producing `if` when that `if` does not touch the same
+  local.
 - The implementation starts the barrier with the `if` condition's effects, just
   like Binaryen's logic requires.
 - It only sinks when:

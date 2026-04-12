@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-11] maintain | readmit Binaryen-matched reorders past result-`if` pushpoints in `code-pushing`
+
+- Added [`0078`](raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md), which records the reduced Binaryen probe plus current debug-artifact corroboration showing that `code-pushing` also reorders `local.set` roots past result-producing `if` pushpoints.
+- Updated the `code-pushing` strategy, WAT-shape, HOT-strategy, parity, validation, and hub pages to remove the stale blanket result-`if` pushpoint fence and restate the real upstream rule: the result-producing `if` may still be the pushpoint when it does not itself touch the candidate local.
+- Recorded the in-tree implementation detail: `src/passes/code_pushing.mbt` no longer rejects result-producing `if` pushpoints in `cp_try_push_to_pushpoint`, and `src/passes/code_pushing_test.mbt` now pins the reduced positive reorder plus validates the lowered output through the pass pipeline.
+- Recorded the refreshed compare-pass evidence too: `pass-fuzz-code-pushing-genvalid-20260411h` is `10000/10000` with `0` mismatches, and `pass-fuzz-code-pushing-20260411i` stays semantically clean on compared smith cases (`997/1000`, `0` mismatches, `3` Binaryen-side command failures).
+
 ## [2026-04-11] maintain | readmit Binaryen-matched result-`if` arm sinks in `code-pushing`
 
 - Added [`0077`](raw/research/0077-2026-04-11-code-pushing-result-if-sink.md), which records the reduced Binaryen probe plus current debug-artifact corroboration showing that `code-pushing` does sink into result-producing `if` arms.

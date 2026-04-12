@@ -6,6 +6,7 @@ sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
+  - ../../../raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
 related:
@@ -215,6 +216,50 @@ Why this transforms:
 - Starshine now matches that reduced Binaryen surface directly. The pass keeps
   broader non-void carrier fences for harder owner-sensitive rewrites, but it no
   longer uses a blanket result-`if` ban for ordinary one-arm sinks.
+
+## Shape 2c: Reorder Past A Result-Producing `if`
+
+Before:
+
+```wat
+(local.get $src)
+(local.set $tmp)
+(drop
+  (if (result i32)
+    (local.get $cond)
+    (then
+      (i32.const 1))
+    (else
+      (i32.const 0))))
+(drop
+  (local.get $tmp))
+```
+
+After:
+
+```wat
+(drop
+  (if (result i32)
+    (local.get $cond)
+    (then
+      (i32.const 1))
+    (else
+      (i32.const 0))))
+(local.set $tmp
+  (local.get $src))
+(drop
+  (local.get $tmp))
+```
+
+Why this transforms:
+
+- Binaryen's ordinary same-region pushpoint reorder is not limited to void `if`
+  roots.
+- If the result-producing `if` does not itself read or write the candidate
+  local, the `local.set` may move to immediately after that `if`.
+- Starshine now matches that reduced Binaryen surface too. The pass still keeps
+  stricter fences for harder owner-sensitive non-void carriers, but a value-
+  producing `if` by itself is no longer a blocker.
 
 ## Shape 3: Multiple Pushable Roots Move Together But Keep Order
 

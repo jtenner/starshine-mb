@@ -6,6 +6,7 @@ sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
   - ../../../raw/research/0077-2026-04-11-code-pushing-result-if-sink.md
+  - ../../../raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md
 related:
   - ./index.md
   - ./wat-shapes.md
@@ -65,6 +66,9 @@ related:
 ## Recognized Push Points
 
 - Binaryen only tries to move code toward specific conditional boundaries.
+- A recognized push point can still produce a value; Binaryen may reorder a
+  candidate to immediately after a result-producing `if` so long as that `if`
+  does not itself read or write the candidate local.
 - The recognized push points are:
   - `if`
   - conditional `break` / `br_if`

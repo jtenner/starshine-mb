@@ -3561,10 +3561,6 @@ fn cp_try_push_to_pushpoint(
   let root_count = roots_view.root_count
   let target_root_id = cp_region_root_get(func, roots_view, target_idx)
   let target_if_id = cp_root_if_pushpoint_id(func, target_root_id)
-  match target_if_id {
-    Some(if_id) if cp_node_has_nonvoid_result(func, if_id) => return false
-    _ => ()
-  }
   if !cp_root_is_pushpoint(func, target_root_id) {
     return false
   }
@@ -3614,8 +3610,7 @@ fn cp_try_push_to_pushpoint(
         } else {
           match target_if_id {
             Some(if_id) =>
-              if !cp_node_has_nonvoid_result(func, if_id) &&
-                !cp_summary_reads_local(pushpoint_summary, local_id) &&
+              if !cp_summary_reads_local(pushpoint_summary, local_id) &&
                 !cp_summary_writes_local(pushpoint_summary, local_id) {
                 if cp_push_to_pushpoint_has_condition_set_crossed_carrier_alias_guard(
                     cache, func, roots_view, reachable_prefix_start_idx, scan, target_idx,

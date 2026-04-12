@@ -77,6 +77,9 @@
 
 - Inside one block list, Binaryen finds a segment from the first pushable item to
   the next push point.
+- That push point may still be a result-producing `if`; Binaryen can move a
+  `local.set` to immediately after such an `if` when the `if` does not itself
+  touch the same local.
 - It scans backward from right before the push point.
 - It accumulates the effects of:
   - the push point itself
