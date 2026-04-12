@@ -137,10 +137,11 @@ related:
   ordinary same-region pushpoint reorder just because the target `if` produces
   a value. Binaryen moves safe `local.set` roots to immediately after such
   pushpoints, and the current tree now matches that reduced surface.
-- The one-off alias-if-tail fence is narrower now too: Starshine no longer
-  blocks the plain tail shape by itself. The current guard only keeps the
-  explicit-exit-carrier-fed subset fenced, which matches the reduced Binaryen
-  evidence better while keeping the old parent-escape family fail-closed.
+- The old explicit-exit-fed alias-if-tail fence is gone now too: the reduced
+  repeated-ladder repro plus the current Binaryen `Func 1977` artifact slice
+  both show Binaryen still moving the carried alias through the later decref
+  `if`, so Starshine no longer blocks that family through a dedicated tail
+  guard.
 - The crossed condition-set carrier alias guard is narrower now too: Starshine
   no longer blocks the move just because some crossed condition-set local feeds
   the later `if`. The guard now only keeps the true same-source aliasing case
@@ -148,12 +149,11 @@ related:
 - The current direct debug-artifact path is valid again, but still not close to
   Binaryen parity.
 - Native `--code-pushing` output on `tests/node/dist/starshine-debug-wasi.wasm`
-  now validates, and traced serial replay now shows only two changed
-  functions:
-  - `Func 148`
-  - `Func 1948`
-- `Func 1977` is now kept unchanged earlier in the pass, and the current trace
-  has `0` `skip-invalid-lower` lines.
+  still validates on the kept branch, and the artifact contract is narrower now:
+  `Func 148` should stay unchanged while `Func 1948` and the reopened `Func 1977`
+  family are the expected late rewrites.
+- `Func 1977` is no longer just a "not skipped" contract. The reduced probe and
+  Binaryen artifact slice now both show it as real upstream surface again.
 - Direct compare at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3345552`
   still differs canonically and in normalized WAT, with the first visible
   reopened lines still at `44251` / `44254` in printed `func $127`.
@@ -181,16 +181,12 @@ related:
 - The latest kept fallback is narrower semantically too: suspicious
   `code-pushing` lowers are no longer skipped blindly. The pass now lets them
   through when full-module writeback validation succeeds, which is how the old
-  `48978` family was admitted without reopening the still-invalid `Func 1977`
-  family.
-- A second narrowing is now live too: the pass keeps the one-off high-risk
-  alias-if tail fenced, but it no longer blocks repeated alias-if ladders.
-  That is why `Func 1948` rewrites again on the real artifact while `Func 1977`
-  no longer reaches `skip-invalid-lower`.
-- A third narrowing is live now as well: even the one-off tail is only fenced
-  when an earlier explicit-exit carrier actually feeds the moved alias source
-  local. Plain one-off tails without that risky prefix now move again.
-- A fourth narrowing is live too: the crossed condition-set carrier alias guard
+  `48978` family was admitted while the branch-arity-sensitive owner cases stay
+  fail-closed.
+- A second narrowing is now live too: the pass no longer keeps a dedicated
+  explicit-exit-fed alias-if-tail fence. That is why the reopened `Func 1977`
+  family is upstream surface again instead of a deliberate Starshine-only hold.
+- A third narrowing is live too: the crossed condition-set carrier alias guard
   only fires when the crossed condition-set itself aliases that same carried
   local. Unrelated condition-set locals no longer block the move.
 - The earlier wiki wording that treated `44251` as the next remaining upstream

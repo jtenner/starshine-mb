@@ -549,13 +549,13 @@ Why this transforms:
   even though the coarse suspicious-carrier heuristic still matches its lowered
   Wasm.
 - One more live shape split is now explicit too:
-  repeated alias-if ladders are not the same thing as the one-off terminal tail.
-  Starshine now readmits the repeated ladder shape that `Func 1948` needs, it
-  also readmits plain one-off tails when no earlier explicit-exit carrier feeds
-  the moved alias source local, and it readmits crossed-gap carrier aliases when
-  the kept condition-set does not itself alias that same carried local. Only the
-  explicit-exit-carrier-fed `Func 1977` tail plus the real same-source crossed
-  condition-set alias case stay fenced before lowering.
+  repeated alias-if ladders are not the same thing as the real same-source
+  crossed-condition-set blocker. Starshine now readmits the repeated ladder
+  shape that `Func 1948` needs, it also readmits the reopened explicit-exit-fed
+  `Func 1977` alias tail family, plain one-off tails, and crossed-gap carrier
+  aliases when the kept condition-set does not itself alias that same carried
+  local. The real remaining fence here is the same-source crossed condition-set
+  alias case, not the older tail helper.
 - Call-fed extraction is currently fenced to a narrow single-result `i32` slice.
 - The pass does not currently synthesize the larger alias-local webs Binaryen
   appears to materialize in the later `105621` and `126757` artifact families.
@@ -565,9 +565,8 @@ Why this transforms:
   artifact.
 - The kept in-tree rule is therefore narrower:
   when an alias `local.set(local.get ...)` would cross an extra kept
-  condition-set before a later `if`, and that alias comes from an earlier
-  explicit-exit carried-result block, Starshine now keeps the alias where it
-  is instead of treating the shape as more `code-pushing` surface.
+  condition-set before a later `if`, Starshine only keeps the alias where it is
+  when that crossed condition-set itself aliases the same carried source local.
 
 ## Practical Rule For Future Tests
 

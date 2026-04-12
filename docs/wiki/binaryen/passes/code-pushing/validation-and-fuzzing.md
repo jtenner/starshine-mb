@@ -125,6 +125,10 @@ bun scripts/pass-fuzz-compare.ts \
     mismatches, `0` validation failures, `0` generator failures, and `0`
     command failures after narrowing the crossed condition-set carrier alias
     guard to the real same-source aliasing case
+  - `pass-fuzz-code-pushing-20260412e` completed `10000/10000` with `0`
+    mismatches, `0` validation failures, `0` generator failures, and `0`
+    command failures after removing the stale explicit-exit-fed alias-if-tail
+    fence
 - Mixed-generator and smith-only lanes have also stayed semantically clean on the
   kept pass surface, with remaining failures attributed to Binaryen-side parser or
   canonicalization rejects such as invalid type-index families. After the same
@@ -139,7 +143,10 @@ bun scripts/pass-fuzz-compare.ts \
   Binaryen-side command failures. After the crossed condition-set alias-guard
   narrowing, `pass-fuzz-code-pushing-20260412d` kept that same smith-only
   outcome too: `997/1000` compared, `0` mismatches, `0` validation failures,
-  and `3` Binaryen-side command failures.
+  and `3` Binaryen-side command failures. After removing the stale explicit-
+  exit-fed alias-if-tail fence, `pass-fuzz-code-pushing-20260412f` kept that
+  same smith-only outcome too: `997/1000` compared, `0` mismatches, `0`
+  validation failures, and `3` Binaryen-side command failures.
 
 ## Direct Artifact Replay
 
@@ -176,7 +183,7 @@ bun scripts/self-optimize-compare.ts \
   - the current tree now adds a stronger artifact contract on top of that:
     Binaryen `--code-pushing` is a no-op on printed `func $127`, so native
     `cmd` coverage now expects `Func 148` to stay unchanged while `Func 1948`
-    still rewrites
+    and the reopened `Func 1977` family rewrite
   - traced serial replay contains `0` `skip-invalid-lower` lines
   - whole-artifact direct compare is still red, but now as a valid semantic diff
     whose first hunk is back at `44251` rather than the newer `48978` family

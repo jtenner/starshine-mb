@@ -256,10 +256,12 @@ related:
   if lowered `code-pushing` output still matches the suspicious escape-carrier
   pattern, keep the original function instead of shipping invalid Wasm.
   On the current same-tree debug artifact that fallback no longer fires at all.
-  The current kept tree now fences only the explicit-exit-carrier-fed subset of
-  the one-off `Func 1977` alias-if-tail family earlier in `code-pushing`, while
-  repeated ladders like `Func 1948` and plain one-off tails without that risky
-  prefix are admitted again and validate to completion.
+  The current kept tree no longer carries a dedicated explicit-exit-fed alias-
+  if-tail fence either: the reduced repeated-ladder repro plus the current
+  Binaryen `Func 1977` artifact slice both show that Binaryen still moves that
+  carried alias through the later decref ladder, so Starshine now relies on the
+  narrower same-source crossed-condition-set guard plus lowering-validity checks
+  instead.
 
 ## Current Deliberate Divergences From Binaryen
 
@@ -276,18 +278,17 @@ related:
 
 ## Practical Strategy For Next Work
 
-- Keep the explicit-exit-carrier-fed `Func 1977` fence in place while reducing
-  that carrier family into a direct HOT-lowering fix.
+- Treat the reopened `Func 1977` family as admitted Binaryen surface again,
+  not as a deliberate Starshine-only fence.
 - Treat the suspicious escape-carrier heuristic as a coarse signal, not a final
   verdict. `code-pushing` now rechecks those suspicious lowered functions
   against full-module writeback validation before deciding whether to keep the
   original.
-- Treat the now-admitted repeated alias-if ladders and the newly readmitted
-  plain one-off tails as separate classes from the explicit-exit-carrier-fed
-  one-off tail fence. `Func 1948` proved those ladders can be valid even when
-  the smaller local ordering pattern superficially resembles the old invalid
-  `Func 1977` tail, and the new reduced decref-`if` probe shows the tail shape
-  alone is not enough either.
+- Treat the now-admitted repeated alias-if ladders, reopened explicit-exit-fed
+  alias tails, and plain one-off tails as separate classes from the real
+  same-source crossed-condition-set blocker. `Func 1948` plus the new reduced
+  repeated-ladder probe both show that the old explicit-exit-fed tail helper was
+  broader than Binaryen's actual surface.
 - Treat the crossed condition-set guard just as narrowly too. The reduced same-
   source probe now shows that an earlier explicit-exit carrier does not make an
   unrelated later condition-set local into a blocker by itself. The crossed

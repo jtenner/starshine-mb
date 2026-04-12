@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-12] maintain | reopen the explicit-exit-fed alias tail as real Binaryen surface in `code-pushing`
+
+- Added [`0081`](raw/research/0081-2026-04-12-code-pushing-explicit-exit-fed-tail.md), which records the reduced repeated-ladder probe plus the current Binaryen `Func 1977` artifact slice showing that Binaryen still moves the carried alias through the later decref ladder even when an earlier explicit-exit carrier feeds that alias source local.
+- Updated the frontier, HOT-strategy, parity, validation, WAT-shape, and hub pages to remove the stale dedicated alias-if-tail fence and restate that the real remaining blocker is narrower: the same-source crossed condition-set alias case, not the older tail helper.
+- Recorded the in-tree implementation detail: `src/passes/code_pushing.mbt` no longer blocks pushpoint rewrites through `cp_push_to_pushpoint_has_high_risk_alias_if_tail`, `src/passes/code_pushing_test.mbt` now pins the reduced positive explicit-exit-fed repeated-ladder case, and `src/cmd/cmd_test.mbt` now expects traced artifact replay to show `Func 1977` rewritten rather than merely "not skipped."
+- Recorded the refreshed compare-pass evidence too: `pass-fuzz-code-pushing-20260412e` is `10000/10000` with `0` mismatches, and `pass-fuzz-code-pushing-20260412f` stays semantically clean on compared smith cases (`997/1000`, `0` mismatches, `3` Binaryen-side command failures).
+
 ## [2026-04-12] maintain | narrow the crossed condition-set carrier alias guard to same-source aliasing in `code-pushing`
 
 - Added [`0080`](raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md), which records the reduced Binaryen probe showing that an earlier explicit-exit carrier is not enough by itself to block a later crossed-gap alias move; the crossed condition-set must itself alias that same carried source local.

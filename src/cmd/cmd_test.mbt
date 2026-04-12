@@ -5712,7 +5712,7 @@ test "run_cmd_with_adapter validates code-pushing on debug artifact" {
 
 ///|
 #cfg(target="native")
-test "run_cmd_with_adapter code-pushing does not skip Func 1977 on the debug artifact" {
+test "run_cmd_with_adapter code-pushing rewrites Func 1977 without skipping on the debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let output_path = "out.wasm"
   let wasm = match native_read_bytes(input_path) {
@@ -5764,6 +5764,7 @@ test "run_cmd_with_adapter code-pushing does not skip Func 1977 on the debug art
     ),
     msg=stderr_text,
   )
+  assert_true(cmd_test_trace_func_changed(stderr_text, 1977), msg=stderr_text)
 }
 
 ///|

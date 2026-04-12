@@ -5,6 +5,7 @@ last_reviewed: 2026-04-12
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
+  - ../../../raw/research/0081-2026-04-12-code-pushing-explicit-exit-fed-tail.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
@@ -44,11 +45,11 @@ related:
   form can still reach the same post-`if` placement Binaryen achieves on its AST.
 - Stay conservative around non-void carriers and parent-escape payload rewrites.
   Result-producing one-arm `if` sinks, same-region reorders past result-
-  producing `if` pushpoints, plain one-off alias tails without an earlier
-  explicit-exit carrier, and crossed-gap carrier aliases where the kept
-  condition-set does not alias that same carried local are now part of the
-  admitted Binaryen-matched surface again, but the broader owner-sensitive
-  non-void families are still where the hard lowering risk lives.
+  producing `if` pushpoints, the reopened explicit-exit-fed alias tail family,
+  and crossed-gap carrier aliases where the kept condition-set does not alias
+  that same carried local are now part of the admitted Binaryen-matched surface
+  again, but the broader owner-sensitive non-void families are still where the
+  hard lowering risk lives.
 
 ## Source Scope
 
@@ -58,7 +59,7 @@ related:
   `Binaryen version_125` study, not to a fresh `version_129` reread.
 - The Starshine-side status and frontier notes are newer than the original
   research doc because they include all landed parity slices through
-  `2026-04-11`.
+  `2026-04-12`.
 
 ## Page Map
 

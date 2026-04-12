@@ -731,18 +731,18 @@
   `code-pushing` lowers with
   `run_hot_pipeline_precompute_writeback_validation_error`, and it only keeps
   the original when that full-module writeback validation still fails.
-- The current guard is narrower again. `src/passes/code_pushing.mbt` now keeps
-  the one-off high-risk alias-if-tail fence only for the explicit-exit-carrier-
-  fed subset of the old `Func 1977` invalid family; it no longer blocks
-  repeated alias-if ladders or plain one-off tails without that risky prefix.
-  The crossed condition-set carrier alias guard is narrower too: it now only
-  fires when the crossed condition-set itself aliases that same carried source
-  local. That readmits the earlier valid `Func 1948` rewrite chain, the reduced
-  decref-`if` one-off-tail slice, and the reduced crossed-gap positive slice
-  while still keeping the explicit-exit-carrier-fed `Func 1977` family and the
+- The current guard is narrower again. `src/passes/code_pushing.mbt` no longer
+  keeps a dedicated explicit-exit-fed alias-if-tail fence at all, because the
+  reduced repeated-ladder repro plus the current Binaryen `Func 1977` artifact
+  slice both show Binaryen still moving that carried alias through the later
+  decref `if`. The crossed condition-set carrier alias guard is narrower too:
+  it now only fires when the crossed condition-set itself aliases that same
+  carried source local. That readmits the reopened `Func 1977` tail, the
+  earlier valid `Func 1948` rewrite chain, the reduced decref-`if` one-off-tail
+  slice, and the reduced crossed-gap positive slice while still keeping the
   real same-source crossed-condition-set case fenced. The refreshed named lanes
-  `.tmp/pass-fuzz-code-pushing-20260412c` (`10000/10000`) and
-  `.tmp/pass-fuzz-code-pushing-20260412d` (`997/1000` compared, `0`
+  `.tmp/pass-fuzz-code-pushing-20260412e` (`10000/10000`) and
+  `.tmp/pass-fuzz-code-pushing-20260412f` (`997/1000` compared, `0`
   mismatches, `3` Binaryen-side command failures) stay semantically green after
   that narrowing.
 - One smaller Binaryen mismatch is now closed explicitly. A reduced nested-block

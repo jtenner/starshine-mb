@@ -128,27 +128,26 @@ Current interpretation:
   - bounded local synthesis inside `code-pushing`
   - or accepting that a neighboring pass owns part of the final shape
 
-## Frontier 4: The Current Safety Fence, `Func 1948` And `Func 1977`
+## Frontier 4: The Reopened Explicit-Exit-Fed Alias Tail, `Func 1948` And `Func 1977`
 
 Status:
 
 - No longer a live writeback-validation blocker.
-- Still the main in-tree safety fence for the explicit-exit-carrier-fed subset
-  of the old invalid one-off tail family.
+- No longer fenced at the old explicit-exit-fed alias-if-tail helper either.
 
 Observed failure:
 
 - Native `--code-pushing` output on the debug artifact still validates.
-- The current kept tree now reaches that state earlier in the pass:
-  repeated alias-if ladders are admitted again, and plain one-off alias tails
-  without an earlier explicit-exit carrier are admitted again too, but the
-  explicit-exit-carrier-fed one-off tail family stays fenced before lowering.
-- Traced serial replay on the current tree changes:
-  - `Func 148`
-  - `Func 1948`
-- `Func 1977` is no longer a `skip-invalid-lower` case at all.
-  It now stays unchanged earlier in `code-pushing` unless a future replay proves
-  the remaining explicit-exit-carrier-fed subset can lower safely too.
+- The reduced repeated-ladder repro and the current Binaryen `Func 1977`
+  artifact slice now both show that Binaryen still moves the carried alias past
+  the later decref `if` even when an earlier explicit-exit carrier feeds that
+  alias source local.
+- The old `cp_push_to_pushpoint_has_high_risk_alias_if_tail` fence was
+  therefore over-broad. Starshine now relies on the narrower same-source
+  crossed-condition-set guard plus the existing lowering-validity checks instead.
+- The current artifact contract is narrower now too:
+  `Func 148` should stay unchanged, while `Func 1948` and the reopened
+  `Func 1977` family are the expected late rewrites.
 
 What the reductions proved:
 
@@ -176,9 +175,11 @@ What the reductions proved:
   Plain one-off alias tails are not inherently invalid either.
   Crossed-gap carrier aliases with unrelated condition-set locals are not
   inherently invalid either.
-  The pass can keep rewriting all three when no risky explicit-exit carrier or
-  same-source crossed condition-set alias is involved, and the real remaining
-  danger is the explicit-exit-carrier-fed terminal one-off alias-if tail.
+  Even the older explicit-exit-fed alias tail is not inherently invalid when the
+  later crossed condition-set is just the ordinary loaded local that feeds the
+  decref ladder and later reconstruction. The remaining real danger is narrower
+  than that old helper implied, and the same-source crossed-condition-set alias
+  case is still the kept explicit blocker.
 - One more reduced live-carried family is now closed too:
   the old call-prefixed parent-exit corruption at the top of `Func 148` is no
   longer the first live blocker. `hot_lower` now rebases a sunk parent-exit
@@ -213,13 +214,11 @@ Current first live diff after that fix:
 
 What this means for next work:
 
-- This family is now fenced only at the explicit-exit-carrier-fed one-off tail
-  form, not across the repeated-ladder form that `Func 1948` needs or the plain
-  one-off tails that lack that risky prefix.
-- That is a correctness improvement, not a parity completion.
+- This family is no longer fenced by a dedicated alias-if-tail helper.
+- That is another parity improvement, not final artifact signoff.
 - The remaining semantic blocker is no longer a live invalid-output cliff.
-  It is the reopened valid `44251` frontier plus the still-deliberate
-  explicit-exit-carrier-fed `Func 1977` fence.
+  It is the reopened valid whole-artifact / runtime frontier after `Func 148`
+  stays closed and `Func 1977` rejoins the admitted Binaryen-matched surface.
 
 ## Frontier 5: The Reopened Terminal-Owner Direct Frontier
 

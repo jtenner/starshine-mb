@@ -3719,11 +3719,6 @@ fn cp_try_push_to_pushpoint(
   if cp_region_node_ids_equal(func, roots_view, next) {
     return false
   }
-  if cp_push_to_pushpoint_has_high_risk_alias_if_tail(
-      cache, func, roots_view, reachable_prefix_start_idx, target_idx, moved_idxs_rev,
-    ) {
-    return false
-  }
   @ir.hot_region_replace_body(func, region_ref, next)
   pass_mark_mutated(ctx, func)
   true
