@@ -3689,7 +3689,10 @@ fn run_hot_pipeline_func(
   match hot_pass_run(ctx, func) {
     Ok(result) =>
       if !result.changed &&
-        @ir.hot_revision_current(func) == lifted_revision &&
+        (
+          @ir.hot_revision_current(func) == lifted_revision ||
+          descriptor.name == "remove-unused-brs"
+        ) &&
         descriptor.name != "heap-store-optimization" &&
         !(descriptor.name == "dead-code-elimination" &&
         run_hot_pipeline_dce_raw_requires_lowering_even_if_unchanged(
@@ -3778,7 +3781,18 @@ fn run_hot_pipeline_func(
         Ok(_) => {
           run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
           let lower_start_us = perf_start_timer_opt(options.perf, "lower")
-          let lowered = @ir.hot_lower_func(func)
+          let lowered = if descriptor.name == "remove-unused-brs" {
+            @ir.hot_lower_func_with_options(
+              func,
+              @ir.HotLowerOptions::new(
+                preserve_if_arm_single_nops=true,
+                preserve_dead_local_tee_drops=true,
+                preserve_nontrailing_nops=true,
+              ),
+            )
+          } else {
+            @ir.hot_lower_func(func)
+          }
           perf_stop_timer_opt(options.perf, "lower", lower_start_us)
           Ok({
             reason: "",
@@ -3792,7 +3806,18 @@ fn run_hot_pipeline_func(
     HotPipelineVerifyPolicy::FinalModuleOnly => {
       run_hot_pipeline_prepare_tuple_make_lowering(func, lower_state)
       let lower_start_us = perf_start_timer_opt(options.perf, "lower")
-      let lowered = @ir.hot_lower_func_unverified(func)
+      let lowered = if descriptor.name == "remove-unused-brs" {
+        @ir.hot_lower_func_unverified_with_options(
+          func,
+          @ir.HotLowerOptions::new(
+            preserve_if_arm_single_nops=true,
+            preserve_dead_local_tee_drops=true,
+            preserve_nontrailing_nops=true,
+          ),
+        )
+      } else {
+        @ir.hot_lower_func_unverified(func)
+      }
       perf_stop_timer_opt(options.perf, "lower", lower_start_us)
       Ok({
         reason: "",
@@ -4180,6 +4205,16 @@ fn run_hot_pipeline_apply_hot_pass(
               Some(msg) => Some("writeback-validate:\{msg}")
               None => None
             }
+          }
+        } else if descriptor.name == "remove-unused-brs" {
+          match
+            run_hot_pipeline_precompute_writeback_validation_error(
+              validation_mod,
+              code_idx,
+              result.func,
+            ) {
+            Some(msg) => Some("writeback-validate:\{msg}")
+            None => None
           }
         } else {
           None

@@ -109,6 +109,8 @@ related:
 - Specific fixed families called out by the backlog:
   - explicit `nop` body preservation in trivial `if` arms
   - lone explicit root `nop` preservation
+  - non-trailing root `nop` preservation during RUB writeback
+  - dead `local.tee` + `drop` root preservation during RUB writeback
   - dropped then-arm carried-result wrapper cleanup
   - prefixed one-arm payload branch suffix cleanup
   - direct one-arm payload branch preservation inside `br_table` functions
@@ -130,6 +132,9 @@ related:
 - New explicit artifact replay evidence is faster but still not exact:
   - `.tmp/self-opt-rub-20260410-large-brtable-skip-cheapguard-idle` measured `651.284 ms` Starshine pass time versus `91.882 ms` Binaryen
   - canonical wasm and normalized WAT still differ
+- The later noop-writeback parity cleanup is also green on fresh focused lanes:
+  - `.tmp/pass-fuzz-rub-codex-genvalid-100-after-noop-fix` completed `100/100` compared matches with `0` mismatches, `0` validation failures, `0` generator failures, and `0` command failures
+  - `.tmp/pass-fuzz-rub-codex-120-after-root-nop-fix` stayed clean on all `119/119` compared mixed-generator cases before the known Binaryen-side `binaryen-rec-group-zero` parser failure
 - New trace-only evidence after the false-prefix fix is directionally better:
   - `.tmp/rub-trace-false-prefix-guard-idle.stderr` drops traced RUB pass total from `671669 us` to `668850 us`
   - traced lift total drops from `931152 us` to `878726 us`

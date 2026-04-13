@@ -2131,6 +2131,21 @@ test "remove-unused-brs preserves mixed-depth tail-return if ladders with outer 
 }
 
 ///|
+fn remove_unused_brs_test_defined_func_instrs(
+  mod_ : @lib.Module,
+  defined_idx : Int,
+) -> Array[@lib.Instruction] raise {
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) =>
+      match funcs.get(defined_idx) {
+        Some(@lib.Func(_, @lib.Expr(instrs))) => instrs
+        None => fail("expected defined function \{defined_idx}")
+      }
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "remove-unused-brs voidifies result ifs whose arms only return under drop" {
   let optimized = match
     pass_test_run_pipeline(
@@ -2168,4 +2183,72 @@ test "remove-unused-brs voidifies dropped exit-only ifs through local.tee wrappe
   assert_false(pretty.contains("(if (I32)"), msg=pretty)
   assert_true(pretty.contains("(if (Void)"), msg=pretty)
   assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "remove-unused-brs preserves nop-only if arms while trimming trailing root nops" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func i32.const 0 if nop else nop end nop))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs nop-arm parity success, got \{err}")
+  }
+
+  assert_eq(try! remove_unused_brs_test_defined_func_instrs(optimized, 0), [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::nop()],
+      Some([@lib.Instruction::nop()]),
+    ),
+  ])
+}
+
+///|
+test "remove-unused-brs preserves dead local.tee roots while trimming trailing root nops" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (local i64) i32.const 252 drop i64.const 563 local.tee 0 drop nop))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs dead-local-tee parity success, got \{err}",
+      )
+  }
+
+  assert_eq(try! remove_unused_brs_test_defined_func_instrs(optimized, 0), [
+    @lib.Instruction::i32_const(@lib.I32(252)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::i64_const(@lib.I64(563L)),
+    @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::drop(),
+  ])
+}
+
+///|
+test "remove-unused-brs preserves leading root nops while trimming trailing noop tails" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func nop i32.const 0 if nop else nop end nop))",
+      ["remove-unused-brs"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected remove-unused-brs root-nop parity success, got \{err}")
+  }
+
+  assert_eq(try! remove_unused_brs_test_defined_func_instrs(optimized, 0), [
+    @lib.Instruction::nop(),
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::nop()],
+      Some([@lib.Instruction::nop()]),
+    ),
+  ])
 }

@@ -12,6 +12,26 @@ priv struct HotLowerBodyResult {
 }
 
 ///|
+pub struct HotLowerOptions {
+  preserve_if_arm_single_nops : Bool
+  preserve_dead_local_tee_drops : Bool
+  preserve_nontrailing_nops : Bool
+}
+
+///|
+pub fn HotLowerOptions::new(
+  preserve_if_arm_single_nops? : Bool = false,
+  preserve_dead_local_tee_drops? : Bool = false,
+  preserve_nontrailing_nops? : Bool = false,
+) -> HotLowerOptions {
+  {
+    preserve_if_arm_single_nops,
+    preserve_dead_local_tee_drops,
+    preserve_nontrailing_nops,
+  }
+}
+
+///|
 priv struct HotLowerLabelFrames {
   active : Array[LabelId]
   depths : Array[Int]
@@ -2044,29 +2064,60 @@ fn hot_lower_impl_try_fix_direct_mixed_depth_payload_wrapper_with_tail(
 }
 
 ///|
-fn hot_lower_impl_canonicalize_instr(instr : Instruction) -> Instruction {
+fn hot_lower_impl_restore_single_if_arm_nop(
+  original : Array[Instruction],
+  canonical : Array[Instruction],
+  options : HotLowerOptions,
+) -> Array[Instruction] {
+  if !options.preserve_if_arm_single_nops {
+    return canonical
+  }
+  match original {
+    [Nop] if canonical.length() == 0 => [Instruction::nop()]
+    _ => canonical
+  }
+}
+
+///|
+fn hot_lower_impl_canonicalize_instr(
+  instr : Instruction,
+  options : HotLowerOptions,
+) -> Instruction {
   match instr {
     Block(bt, Expr(body)) =>
       Instruction::block(
         bt,
-        Expr::new(hot_lower_impl_canonicalize_block_body(bt, body)),
+        Expr::new(hot_lower_impl_canonicalize_block_body(bt, body, options)),
       )
     Loop(bt, Expr(body)) =>
-      Instruction::loop_(bt, Expr::new(hot_lower_impl_canonicalize_body(body)))
-    If(bt, then_, else_) =>
-      Instruction::if_(
+      Instruction::loop_(
         bt,
-        hot_lower_impl_canonicalize_body(then_),
-        match else_ {
-          Some(else_body) => Some(hot_lower_impl_canonicalize_body(else_body))
-          None => None
-        },
+        Expr::new(hot_lower_impl_canonicalize_body(body, options)),
       )
+    If(bt, then_, else_) => {
+      let canonical_then = hot_lower_impl_restore_single_if_arm_nop(
+        then_,
+        hot_lower_impl_canonicalize_body(then_, options),
+        options,
+      )
+      let canonical_else = match else_ {
+        Some(else_body) =>
+          Some(
+            hot_lower_impl_restore_single_if_arm_nop(
+              else_body,
+              hot_lower_impl_canonicalize_body(else_body, options),
+              options,
+            ),
+          )
+        None => None
+      }
+      Instruction::if_(bt, canonical_then, canonical_else)
+    }
     TryTable(bt, catches, Expr(body)) =>
       Instruction::try_table(
         bt,
         catches,
-        Expr::new(hot_lower_impl_canonicalize_body(body)),
+        Expr::new(hot_lower_impl_canonicalize_body(body, options)),
       )
     _ => instr
   }
@@ -2076,8 +2127,9 @@ fn hot_lower_impl_canonicalize_instr(instr : Instruction) -> Instruction {
 fn hot_lower_impl_canonicalize_block_body(
   bt : BlockType,
   body : Array[Instruction],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
-  let canonical = match hot_lower_impl_canonicalize_body(body) {
+  let canonical = match hot_lower_impl_canonicalize_body(body, options) {
     [Block(VoidBlockType, Expr(prefix_body)), tail] =>
       [
         Instruction::block(
@@ -2215,18 +2267,27 @@ fn hot_lower_impl_can_inline_value_wrapper(
 ///|
 fn hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
   body : Array[Instruction],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   let stripped : Array[Instruction] = []
   let mut i = 0
   while i < body.length() {
     match body[i] {
       Nop => {
+        if options.preserve_nontrailing_nops && i + 1 < body.length() {
+          stripped.push(body[i])
+        }
         i = i + 1
         continue
       }
       LocalTee(local_) if i + 1 < body.length() =>
         match body[i + 1] {
           Drop => {
+            if options.preserve_dead_local_tee_drops {
+              stripped.push(body[i])
+              i = i + 1
+              continue
+            }
             if hot_lower_impl_body_has_later_local_get(body, i + 2, local_) {
               stripped.push(body[i])
               i = i + 1
@@ -2249,10 +2310,11 @@ fn hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
 ///|
 fn hot_lower_impl_canonicalize_body(
   body : Array[Instruction],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   let canonical : Array[Instruction] = []
   for i = 0; i < body.length(); i = i + 1 {
-    match hot_lower_impl_canonicalize_instr(body[i]) {
+    match hot_lower_impl_canonicalize_instr(body[i], options) {
       Block(bt, Expr(inner_body)) if hot_lower_impl_can_inline_value_wrapper(
           bt, inner_body,
         ) =>
@@ -2338,7 +2400,7 @@ fn hot_lower_impl_canonicalize_body(
     }
   }
   let canonical = hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
-    canonical,
+    canonical, options,
   )
   let canonical = match
     hot_lower_impl_try_voidify_terminal_return_if_forwarder(canonical) {
@@ -2351,7 +2413,9 @@ fn hot_lower_impl_canonicalize_body(
     None => canonical
   }
   hot_lower_impl_trim_redundant_unreachable_tail(
-    hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(canonical),
+    hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
+      canonical, options,
+    ),
   )
 }
 
@@ -2447,6 +2511,7 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                                         hot_lower_impl_canonicalize_block_body(
                                           BlockType::val_type(local_ty),
                                           [body[idx], body[idx + 1]],
+                                          HotLowerOptions::new(),
                                         ),
                                       ),
                                     ),
@@ -2508,6 +2573,7 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                                     hot_lower_impl_canonicalize_block_body(
                                       BlockType::val_type(local_ty),
                                       wrapper_body,
+                                      HotLowerOptions::new(),
                                     ),
                                   ),
                                 ),
@@ -2647,13 +2713,24 @@ fn hot_lower_impl_fix_split_payload_wrappers_in_body(
 }
 
 ///|
-fn hot_lower_body_with_extras(func : HotFunc) -> HotLowerBodyResult {
+fn hot_lower_body_with_extras_with_options(
+  func : HotFunc,
+  options : HotLowerOptions,
+) -> HotLowerBodyResult {
   hot_verify_all_or_abort(func)
-  hot_lower_body_with_extras_unverified(func)
+  hot_lower_body_with_extras_unverified_with_options(func, options)
 }
 
 ///|
-fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
+fn hot_lower_body_with_extras(func : HotFunc) -> HotLowerBodyResult {
+  hot_lower_body_with_extras_with_options(func, HotLowerOptions::new())
+}
+
+///|
+fn hot_lower_body_with_extras_unverified_with_options(
+  func : HotFunc,
+  options : HotLowerOptions,
+) -> HotLowerBodyResult {
   let use_def = use_def_build_node_uses(func)
   let label_frames = hot_lower_impl_new_label_frames()
   let out : Array[Instruction] = []
@@ -2681,18 +2758,26 @@ fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
       out,
     )
   }
-  let canonical = hot_lower_impl_canonicalize_body(out)
+  let canonical = hot_lower_impl_canonicalize_body(out, options)
   let stackified = hot_lower_impl_stackify_nested_body(
     func, canonical, extra_locals,
   )
   let stackified = hot_lower_impl_fix_split_payload_wrappers_in_body(stackified)
   {
     body: hot_lower_impl_trim_redundant_unreachable_tail(
-      hot_lower_impl_canonicalize_body(stackified),
+      hot_lower_impl_canonicalize_body(stackified, options),
     ),
     extra_locals,
     final_stack: value_stack,
   }
+}
+
+///|
+fn hot_lower_body_with_extras_unverified(func : HotFunc) -> HotLowerBodyResult {
+  hot_lower_body_with_extras_unverified_with_options(
+    func,
+    HotLowerOptions::new(),
+  )
 }
 
 ///|
@@ -2706,8 +2791,40 @@ pub fn hot_lower_body_unverified(func : HotFunc) -> Expr {
 }
 
 ///|
+pub fn hot_lower_func_with_options(
+  func : HotFunc,
+  options : HotLowerOptions,
+) -> @lib.Func {
+  let lowered = hot_lower_body_with_extras_with_options(func, options)
+  let body = lowered.body
+  hot_lower_impl_finalize_region_stack(
+    func,
+    hot_type_result_arity(func, hot_body_result_type(func)),
+    lowered.final_stack,
+    body,
+    lowered.extra_locals,
+  )
+  @lib.Func::new(
+    @lib.Locals::from_types(
+      hot_lower_impl_declared_locals(func, lowered.extra_locals),
+    ),
+    Expr::new(body),
+  )
+}
+
+///|
 pub fn hot_lower_func(func : HotFunc) -> @lib.Func {
-  let lowered = hot_lower_body_with_extras(func)
+  hot_lower_func_with_options(func, HotLowerOptions::new())
+}
+
+///|
+pub fn hot_lower_func_unverified_with_options(
+  func : HotFunc,
+  options : HotLowerOptions,
+) -> @lib.Func {
+  let lowered = hot_lower_body_with_extras_unverified_with_options(
+    func, options,
+  )
   let body = lowered.body
   hot_lower_impl_finalize_region_stack(
     func,
@@ -2726,19 +2843,5 @@ pub fn hot_lower_func(func : HotFunc) -> @lib.Func {
 
 ///|
 pub fn hot_lower_func_unverified(func : HotFunc) -> @lib.Func {
-  let lowered = hot_lower_body_with_extras_unverified(func)
-  let body = lowered.body
-  hot_lower_impl_finalize_region_stack(
-    func,
-    hot_type_result_arity(func, hot_body_result_type(func)),
-    lowered.final_stack,
-    body,
-    lowered.extra_locals,
-  )
-  @lib.Func::new(
-    @lib.Locals::from_types(
-      hot_lower_impl_declared_locals(func, lowered.extra_locals),
-    ),
-    Expr::new(body),
-  )
+  hot_lower_func_unverified_with_options(func, HotLowerOptions::new())
 }
