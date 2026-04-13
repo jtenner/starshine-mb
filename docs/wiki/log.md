@@ -9,6 +9,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded the in-tree implementation detail: `src/passes/code_pushing.mbt` now clears that pure control bit from the temporary sink-condition barrier, while `src/passes/code_pushing_test.mbt` now pins the reduced nested-condition positive case and validates the lowered output through the pass pipeline.
 - Recorded the refreshed compare-pass evidence too: `pass-fuzz-code-pushing-20260413a` is `10000/10000` with `0` mismatches, and `pass-fuzz-code-pushing-20260413b` stays semantically clean on compared smith cases (`997/1000`, `0` mismatches, `3` Binaryen-side command failures).
 
+## [2026-04-13] research | isolate the standalone `Func 1977` writeback frontier for `code-pushing`
+
+- Added [`0084`](raw/research/0084-2026-04-13-code-pushing-standalone-func1977-writeback-frontier.md), which records the current-source standalone recheck of the reopened `Func 1977` family after `0083` closed standalone `Func 1975`.
+- Recorded the key split: the standalone `Func 1977` hot pass still succeeds, `cp_try_push_to_pushpoint(...)` still moves the alias root after the later `if`, but the standalone lowered function still trips `suspicious-escape-carrier` and writeback validation fails with `stack underflow`.
+- Recorded the practical conclusion too: this standalone family is now a reduced lower/writeback frontier, not another `code-pushing` guard-admission frontier.
+
 ## [2026-04-13] research | recover a sharper current-tree standalone frontier for `code-pushing`
 
 - Added [`0082`](raw/research/0082-2026-04-13-code-pushing-standalone-func1975-frontier.md), which records the new standalone-module probe method built from saved debug-artifact function slices plus current-source `moon run src/cmd --target native -- --code-pushing ...` replay.

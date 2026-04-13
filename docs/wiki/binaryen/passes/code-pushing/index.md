@@ -7,6 +7,7 @@ sources:
   - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
   - ../../../raw/research/0081-2026-04-12-code-pushing-explicit-exit-fed-tail.md
   - ../../../raw/research/0083-2026-04-13-code-pushing-nested-result-if-cond-sink.md
+  - ../../../raw/research/0084-2026-04-13-code-pushing-standalone-func1977-writeback-frontier.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
