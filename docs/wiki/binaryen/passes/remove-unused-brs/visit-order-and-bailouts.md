@@ -15,6 +15,7 @@ sources:
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
+  - ../../../raw/research/0088-2026-04-13-remove-unused-brs-localset-heavy-value-if-mesh-hot-skip.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -151,6 +152,7 @@ After lift, the pass still has hot-only bailouts:
 - `large-tagged-result-prefix-ladder-noop`
 - `medium-branchy-block-ladder-noop`
 - `call-heavy-mixed-if-mesh-noop`
+- `localset-heavy-value-if-mesh-noop`
 - `large-void-if-return-ladder-noop`
 - `nested-constructor-return-ladder-noop`
 
@@ -170,9 +172,12 @@ The hot skip is shape-based, not name-based.
 - the later call-heavy mixed-if mesh family retires a second lifted unchanged cluster from the canonical artifact:
   - `Func 408`, `Func 413`, `Func 739`, `Func 832`, `Func 902`, `Func 1022`, `Func 1448`, and `Func 1815`
   - the landed rule again uses lifted summary counts rather than raw WAT guesses, because the real lifted block shell was much wider than the original printed shape suggested
-- both later lifted slices keep the same maintenance rule:
+- the later localset-heavy value-if mesh family retires a third lifted unchanged cluster from the canonical artifact:
+  - `Func 837`, `Func 3021`, `Func 3120`, `Func 3130`, and `Func 3134`
+  - this rule also follows lifted summary counts rather than raw WAT guesses, because the family only becomes obvious once the artifact bodies are lifted and the value-if plus localset traffic is counted structurally
+- all three later lifted slices keep the same maintenance rule:
   - the landed detectors reuse the shared lifted shape scan and cheap summary bounds because widening the raw layer for the same families was noisier and harder to calibrate on the exact artifact shell
-- after the later call-heavy mixed-if mesh hot skip, the visible runtime budget is now led by `Func 3021`, `Func 497`, `Func 1168`, `Func 1213`, `Func 990`, and `Func 3130` on the unchanged side while `Func 1382` remains the older lift-heavy outlier
+- after the later localset-heavy value-if mesh hot skip, the visible runtime budget is now led by `Func 497`, `Func 1168`, `Func 229`, `Func 990`, `Func 883`, and `Func 1213` on the unchanged side while `Func 1382` remains the older lift-heavy outlier
 
 The relevant perf tests prove that these families still pay lift cost but skip the expensive rewrite walk.
 

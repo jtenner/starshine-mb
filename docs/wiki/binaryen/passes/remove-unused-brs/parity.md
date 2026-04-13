@@ -18,6 +18,7 @@ sources:
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
+  - ../../../raw/research/0088-2026-04-13-remove-unused-brs-localset-heavy-value-if-mesh-hot-skip.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -83,11 +84,14 @@ related:
 - The later hot layer now has another lifted no-op retirement too:
   - the later call-heavy mixed-if mesh family now reports `skip-hot reason=call-heavy-mixed-if-mesh-noop`
   - the traced unchanged artifact cluster `Func 408`, `Func 413`, `Func 739`, `Func 832`, `Func 902`, `Func 1022`, `Func 1448`, and `Func 1815` is now retired after lift
+- The next hot layer follow-up now has one more lifted no-op retirement too:
+  - the later localset-heavy value-if mesh family now reports `skip-hot reason=localset-heavy-value-if-mesh-noop`
+  - the traced unchanged artifact cluster `Func 837`, `Func 3021`, `Func 3120`, `Func 3130`, and `Func 3134` is now retired after lift
 - The remaining artifact work is not a generic "RUB still weak on branches" statement.
 - The remaining work is now concentrated in later shape families where:
   - the explicit compare still contains early type-order noise that may not be RUB logic at all
   - later loop/block-order or body-order differences still need mutation-backed reduction
-  - the latest traced runtime split is now led by `Func 3021`, `Func 497`, `Func 1168`, `Func 1213`, `Func 990`, and `Func 3130` on the unchanged pass-heavy side while `Func 1382` remains the older lift-heavy outlier
+  - the latest traced runtime split is now led by `Func 497`, `Func 1168`, `Func 229`, `Func 990`, `Func 883`, and `Func 1213` on the unchanged pass-heavy side while `Func 1382` remains the older lift-heavy outlier
   - some remaining normalized-WAT differences may still be lift/lower round-trip noise if the trace still reports `changed=false`
 
 ## Current Coverage Surface
@@ -194,13 +198,14 @@ related:
   - the same trace leaves the visible pass-heavy side at `Func 96` (`6251 / 4230`), `Func 788` (`5998 / 5027`), and `Func 1068` (`5996 / 4479`), while `Func 1382` remains the lift-heavy leader at `6406 / 76692`
 - The later `2026-04-13` perf audit is also directionally positive without reopening the parity surface:
   - HOT liveness now uses a hybrid `deleted_nodes` fast path for large free lists instead of always rescanning `free_nodes`
-  - the five lifted ladder-skip classifiers now share one precomputed summary, and each fixpoint cycle computes `label_refs`, `branch_payload_children`, and `has_br_table` in one scan
+  - the six lifted ladder-skip classifiers now share one precomputed summary, and each fixpoint cycle computes `label_refs`, `branch_payload_children`, and `has_br_table` in one scan
   - visitation now threads root-site and single-arm-`nop` context instead of re-finding those facts with extra whole-function walks, and detached cleanup / hot rewrite assembly both allocate less transient structure
   - the follow-on Binaryen-shaped candidate-filter slice now adds two more raw cost filters: a very large void-`if` / return family and a medium-size unchanged control-ladder family with heavy local traffic
   - the later lifted follow-up now also adds `medium-branchy-block-ladder-noop` for the canonical extracted cluster `Func 144`, `Func 301`, `Func 353`, `Func 1512`, `Func 1547`, `Func 1859`, and `Func 1867`
   - the next lifted follow-up now also adds `call-heavy-mixed-if-mesh-noop` for the canonical extracted cluster `Func 408`, `Func 413`, `Func 739`, `Func 832`, `Func 902`, `Func 1022`, `Func 1448`, and `Func 1815`
-  - fresh focused oracle evidence stays green at `.tmp/pass-fuzz-rub-genvalid-200-after-binaryen-filtering` (`200/200`, `0` mismatches, `0` command failures), `.tmp/pass-fuzz-rub-mixed-120-after-binaryen-filtering` (`119/119` compared before the usual Binaryen-side parser failure), `.tmp/pass-fuzz-rub-genvalid-200-after-medium-branchy-hot-skip` (`200/200`, `0` mismatches, `0` command failures), `.tmp/pass-fuzz-rub-mixed-120-after-medium-branchy-hot-skip` (`119/119` compared before the usual Binaryen-side parser failure), `.tmp/pass-fuzz-rub-genvalid-200-after-call-heavy-mixed-if-mesh` (`200/200`, `0` mismatches, `0` command failures), and `.tmp/pass-fuzz-rub-mixed-120-after-call-heavy-mixed-if-mesh` (`119/119` compared before the usual Binaryen-side parser failure)
-  - the latest interleaved five-pair self-opt replay now averages `445.551 ms` on the current tree versus `458.1108 ms` for the immediate pre-slice baseline, while canonical wasm and normalized WAT are still red
+  - the latest lifted follow-up now also adds `localset-heavy-value-if-mesh-noop` for the canonical extracted cluster `Func 837`, `Func 3021`, `Func 3120`, `Func 3130`, and `Func 3134`
+  - fresh focused oracle evidence stays green at `.tmp/pass-fuzz-rub-genvalid-200-after-binaryen-filtering` (`200/200`, `0` mismatches, `0` command failures), `.tmp/pass-fuzz-rub-mixed-120-after-binaryen-filtering` (`119/119` compared before the usual Binaryen-side parser failure), `.tmp/pass-fuzz-rub-genvalid-200-after-medium-branchy-hot-skip` (`200/200`, `0` mismatches, `0` command failures), `.tmp/pass-fuzz-rub-mixed-120-after-medium-branchy-hot-skip` (`119/119` compared before the usual Binaryen-side parser failure), `.tmp/pass-fuzz-rub-genvalid-200-after-call-heavy-mixed-if-mesh` (`200/200`, `0` mismatches, `0` command failures), `.tmp/pass-fuzz-rub-mixed-120-after-call-heavy-mixed-if-mesh` (`119/119` compared before the usual Binaryen-side parser failure), `.tmp/pass-fuzz-rub-genvalid-200-after-localset-heavy-value-if-mesh` (`200/200`, `0` mismatches, `0` command failures), and `.tmp/pass-fuzz-rub-mixed-120-after-localset-heavy-value-if-mesh` (`119/119` compared before the usual Binaryen-side parser failure)
+  - the latest interleaved three-pair self-opt replay now averages `402.0653 ms` on the current tree versus `431.7387 ms` for the immediate pre-slice baseline, while canonical wasm and normalized WAT are still red
 
 ## Current Open Gap
 
@@ -212,7 +217,7 @@ The active backlog now says the next work should be reduced in this order:
 - The latest perf audit already removed the obvious duplicated whole-function scans, and the follow-on Binaryen-shaped raw candidate filters shaved more time off the unchanged-walk and large-void buckets without changing parity evidence.
 - Separate explicit-pass type-order noise from real RUB body diffs in the current artifact compare.
 - Treat first inspected remaining hunks like `func $384` as non-RUB noise until the trace proves the pass actually mutated the function.
-- Reduce the still-leading unchanged pass-heavy self-opt families `Func 3021`, `Func 497`, `Func 1168`, `Func 1213`, `Func 990`, `Func 3130`, `Func 1063`, `Func 105`, and `Func 3134`, while keeping the older lift-heavy `Func 1382` trace separate from true pass-walk hotspots.
+- Reduce the still-leading unchanged pass-heavy self-opt families `Func 497`, `Func 1168`, `Func 229`, `Func 990`, `Func 883`, `Func 1213`, `Func 1061`, `Func 105`, and `Func 1063`, while keeping the older lift-heavy `Func 1382` trace separate from true pass-walk hotspots.
 - Audit the later loop/block-order family separately so a canonicalization difference does not get accidentally "fixed" by an unrelated branch rewrite.
 - Keep rerunning self-opt compare and mixed-generator compare-pass lanes after each reduction.
 - A health rerun on `2026-04-11` shows broader unresolved mismatches for `remove-unused-brs`:
@@ -234,7 +239,7 @@ The active backlog now says the next work should be reduced in this order:
 - The drop-heavy `Func 145` follow-up proved the same thing on a lighter raw family: the first `local_set >= 210` draft passed the perf lock but still missed the real artifact body at `local_set=201`, so the final floor had to come from the traced artifact counts rather than the reduced-only lock.
 - The `Func 3771` fix proved another parity boundary: Binaryen keeps some direct one-arm payload branch `if` families conservative when the surrounding function also contains `br_table`, so that direct cleanup cannot be inferred from the local branch alone.
 - The same `Func 3771` follow-up proved the cost rule again: even a correct whole-function negative guard is too expensive if it adds a second HOT walk, so broad parity guards should piggyback on existing per-cycle scans.
-- The next runtime work now has to keep pass-walk and lift cost separate; even after the later call-heavy mixed-if mesh hot skip the local self-opt lane still sits around `445.551 ms` versus a `458.1108 ms` immediate pre-slice baseline, while Binaryen remains in roughly the `92-96 ms` band, and the next pure pass-heavy candidates still differ from the older lift-heavy `Func 1382` trace.
+- The next runtime work now has to keep pass-walk and lift cost separate; even after the later localset-heavy value-if mesh hot skip the local self-opt lane still sits around `402.0653 ms` versus a `431.7387 ms` immediate pre-slice baseline, while Binaryen remains in roughly the `92-96 ms` band, and the next pure pass-heavy candidates still differ from the older lift-heavy `Func 1382` trace.
 
 ## Practical Rule
 

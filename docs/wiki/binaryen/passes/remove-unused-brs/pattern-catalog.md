@@ -14,6 +14,7 @@ sources:
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
+  - ../../../raw/research/0088-2026-04-13-remove-unused-brs-localset-heavy-value-if-mesh-hot-skip.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
@@ -103,6 +104,9 @@ Detailed page:
 - `remove_unused_brs_can_skip_call_heavy_mixed_if_mesh(...)`
   Recognizes the later lifted call-heavy mixed-if mesh family that still paid full HOT traversal even though the canonical artifact functions exited unchanged.
   Covered by CLI test `run_cmd_with_adapter traces remove-unused-brs call-heavy mixed-if mesh hot skip on extracted debug artifact func 408`.
+- `remove_unused_brs_can_skip_localset_heavy_value_if_mesh(...)`
+  Recognizes the later lifted localset-heavy value-if mesh family that still paid full HOT traversal even though the canonical artifact functions exited unchanged.
+  Covered by CLI test `run_cmd_with_adapter traces remove-unused-brs localset-heavy value-if mesh hot skip on extracted debug artifact func 3021`.
 - `remove_unused_brs_can_skip_large_void_return_ladder(...)`
   Recognizes older large lifted no-op families that still pay lift cost but should not enter the full RUB walk.
   Covered by perf tests:

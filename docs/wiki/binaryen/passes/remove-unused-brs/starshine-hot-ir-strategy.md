@@ -12,6 +12,7 @@ sources:
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
+  - ../../../raw/research/0088-2026-04-13-remove-unused-brs-localset-heavy-value-if-mesh-hot-skip.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -102,6 +103,7 @@ The raw layer is not trying to re-implement the whole pass.
   - `large-tagged-result-prefix-ladder-noop`
   - `medium-branchy-block-ladder-noop`
   - `call-heavy-mixed-if-mesh-noop`
+  - `localset-heavy-value-if-mesh-noop`
   - `large-void-if-return-ladder-noop`
   - `nested-constructor-return-ladder-noop`
 - The newer `large-br-table-return-ladder-noop` family exists because some artifact functions still need lift, but RUB itself was doing no useful work after that point.
@@ -131,6 +133,12 @@ The raw layer is not trying to re-implement the whole pass.
   - `Func 1022` / `spec__check__command`
   - `Func 1448` / `SubType.Decode.decode`
   - `Func 1815` / `validate__typecheck__if`
+- The later lifted localset-heavy value-if mesh slice now also retires:
+  - `Func 837` / `hot__lift__impl__build__direct__node`
+  - `Func 3021` / `encoding::utf8::decode.inner`
+  - `Func 3120` / `parse__number`
+  - `Func 3130` / `parse__decimal__from__view`
+  - `Func 3134` / `parse__int64.inner`
 - The raw layer also now retires:
   - `Func 828` / `hot__lift__impl__exact__family`
   - `Func 1482`
@@ -144,7 +152,7 @@ The raw layer is not trying to re-implement the whole pass.
   - apply structural rewrites
   - repeat up to eight cycles while mutations keep happening
 - The `2026-04-13` perf audit also tightened the fixpoint plumbing:
-  - all five lifted ladder-skip classifiers now share one precomputed summary instead of rescanning the function three times
+  - all six lifted ladder-skip classifiers now share one precomputed summary instead of rescanning the function three times
   - each cycle uses one shared `remove_unused_brs_compute_cycle_scan(...)` for label reference counts, branch-payload-child marks, and the piggybacked `has_br_table` parity bit
   - root-site and single-arm-`nop` context are threaded through visitation instead of being rediscovered by extra whole-function scans
   - detached cleanup now bounds and dedupes candidate deletion work instead of repeatedly chasing every detached node shape

@@ -18,6 +18,7 @@ sources:
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
+  - ../../../raw/research/0088-2026-04-13-remove-unused-brs-localset-heavy-value-if-mesh-hot-skip.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -93,18 +94,24 @@ related:
   - `Func 1022` / `spec__check__command`
   - `Func 1448` / `SubType.Decode.decode`
   - `Func 1815` / `validate__typecheck__if`
+- The hot layer now also skips the later localset-heavy value-if mesh family that still paid lift plus a full HOT walk before exiting unchanged:
+  - `Func 837` / `hot__lift__impl__build__direct__node`
+  - `Func 3021` / `encoding::utf8::decode.inner`
+  - `Func 3120` / `parse__number`
+  - `Func 3130` / `parse__decimal__from__view`
+  - `Func 3134` / `parse__int64.inner`
 - A later `2026-04-13` perf audit also removes several pass-internal costs without widening semantics:
   - HOT liveness now uses a hybrid `deleted_nodes` fast path for large free lists
-  - the five lifted ladder-skip classifiers share one precomputed summary
+  - the six lifted ladder-skip classifiers share one precomputed summary
   - each fixpoint cycle computes `label_refs`, `branch_payload_children`, and `has_br_table` in one scan
   - visitation now threads root-site and single-arm-`nop` context instead of re-finding those facts with extra whole-function walks
   - detached cleanup is bounded and several hot rewrites now use push-style array assembly
 - It is still an in-progress parity pass because the explicit debug-artifact compare remains noisy after those fixes:
   - the saved compare still diverges in normalized WAT
   - the first inspected remaining hunk `func $384` still traces as `changed=false`, so some early noise is not RUB mutation at all
-  - the later interleaved five-pair self-opt replay improves the RUB lane again from `458.1108 ms` baseline to `445.551 ms` current for the call-heavy mixed-if mesh hot-skip slice alone
-  - the current trace now retires a further eight unchanged canonical functions under `skip-hot reason=call-heavy-mixed-if-mesh-noop`
-  - the next runtime work should keep shrinking the still-open unchanged-walk families led by `Func 3021` / `Func 497` / `Func 1168` / `Func 1213` / `Func 990` / `Func 3130`
+  - the later interleaved three-pair self-opt replay improves the RUB lane again from `431.7387 ms` baseline to `402.0653 ms` current for the localset-heavy value-if mesh hot-skip slice alone
+  - the current trace now retires a further five unchanged canonical functions under `skip-hot reason=localset-heavy-value-if-mesh-noop`
+  - the next runtime work should keep shrinking the still-open unchanged-walk families led by `Func 497` / `Func 1168` / `Func 229` / `Func 990` / `Func 883` / `Func 1213`
 
 ## Page Map
 

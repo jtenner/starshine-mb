@@ -305,6 +305,41 @@ fn remove_unused_brs_can_skip_call_heavy_mixed_if_mesh(
 }
 
 ///|
+fn remove_unused_brs_can_skip_localset_heavy_value_if_mesh(
+  summary : RemoveUnusedBrsHotVoidReturnLadderSummary,
+) -> Bool {
+  let local_count = summary.local_count
+  let root_count = summary.root_count
+  let node_count = summary.node_count
+  let shape = summary.shape
+  local_count >= 220 &&
+  local_count <= 700 &&
+  root_count >= 5 &&
+  root_count <= 50 &&
+  node_count >= 1050 &&
+  node_count <= 3200 &&
+  shape.call_count >= 45 &&
+  shape.call_count <= 110 &&
+  shape.local_set_count >= 130 &&
+  shape.local_set_count <= 650 &&
+  shape.local_tee_count >= 79 &&
+  shape.local_tee_count <= 320 &&
+  shape.void_if_count <= 24 &&
+  shape.value_if_count >= 14 &&
+  shape.value_if_count <= 100 &&
+  shape.return_count <= 21 &&
+  shape.select_count <= 13 &&
+  shape.br_if_count <= 5 &&
+  shape.block_count >= 70 &&
+  shape.block_count <= 231 &&
+  shape.loop_count <= 2 &&
+  shape.br_count >= 12 &&
+  shape.br_count <= 83 &&
+  shape.br_table_count == 0 &&
+  shape.drop_count <= 25
+}
+
+///|
 fn remove_unused_brs_can_skip_large_void_return_ladder(
   summary : RemoveUnusedBrsHotVoidReturnLadderSummary,
 ) -> Bool {
@@ -5611,6 +5646,15 @@ fn remove_unused_brs_run(
       ctx.descriptor.name,
       "skip-hot",
       payload="reason=call-heavy-mixed-if-mesh-noop",
+    )
+    return HotPassResult::unchanged()
+  }
+  if remove_unused_brs_can_skip_localset_heavy_value_if_mesh(skip_summary) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=localset-heavy-value-if-mesh-noop",
     )
     return HotPassResult::unchanged()
   }

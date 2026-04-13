@@ -5770,6 +5770,66 @@ test "run_cmd_with_adapter traces remove-unused-brs call-heavy mixed-if mesh hot
 
 ///|
 #cfg(target="native")
+test "run_cmd_with_adapter traces remove-unused-brs localset-heavy value-if mesh hot skip on extracted debug artifact func 3021" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let stderr_chunks : Array[Bytes] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+    write_stderr=fn(bytes) {
+      stderr_chunks.push(bytes)
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--extract-functions=3021", "--tracing", "pass", "--remove-unused-brs", "--out",
+        output_path, input_path,
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected extracted func 3021 remove-unused-brs replay success, got \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, [
+    "extract-functions=3021", "remove-unused-brs",
+  ])
+  assert_eq(writes.length(), 1)
+  ignore(decode_module_bytes(writes[0].1))
+  let stderr = concat_ascii_bytes(stderr_chunks)
+  assert_true(
+    stderr.contains(
+      "pass[remove-unused-brs]:skip-hot reason=localset-heavy-value-if-mesh-noop",
+    ),
+    msg=stderr,
+  )
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter validates optimize-instructions on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let output_path = "out.wasm"
