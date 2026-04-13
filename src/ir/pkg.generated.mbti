@@ -398,6 +398,10 @@ pub fn hot_lower_func(HotFunc) -> @lib.Func
 
 pub fn hot_lower_func_unverified(HotFunc) -> @lib.Func
 
+pub fn hot_lower_func_unverified_with_options(HotFunc, HotLowerOptions) -> @lib.Func
+
+pub fn hot_lower_func_with_options(HotFunc, HotLowerOptions) -> @lib.Func
+
 pub fn hot_make_simple_node(HotOp, Int, UInt, Int, Int, Array[Int]) -> HotNode
 
 pub fn hot_may_trap(HotFunc, Int) -> Bool
@@ -1000,6 +1004,7 @@ pub struct HotFunc {
   instr_payloads : Array[HotInstrPayload]
   mut body_result_type : Int
   free_nodes : Array[Int]
+  deleted_nodes : Array[Bool]
   mut revision : Int
 }
 pub fn HotFunc::new(locals? : HotLocals, body_result_type? : Int) -> Self
@@ -1082,6 +1087,13 @@ pub struct HotLoopSummary {
   parent : Int
   depth : Int
 } derive(Eq, Show, @debug.Debug)
+
+pub struct HotLowerOptions {
+  preserve_if_arm_single_nops : Bool
+  preserve_dead_local_tee_drops : Bool
+  preserve_nontrailing_nops : Bool
+}
+pub fn HotLowerOptions::new(preserve_if_arm_single_nops? : Bool, preserve_dead_local_tee_drops? : Bool, preserve_nontrailing_nops? : Bool) -> Self
 
 pub struct HotMemArg {
   memarg : @lib.MemArg

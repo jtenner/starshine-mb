@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-13
 sources:
   - ../../../raw/research/0079-2026-04-10-remove-unused-brs-mid-unique-tee-floor.md
   - ../../../raw/research/0080-2026-04-10-remove-unused-brs-large-brtable-hot-skip.md
@@ -10,6 +10,8 @@ sources:
   - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
+  - ../../../../../src/ir/hot_core.mbt
+  - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -120,12 +122,11 @@ The raw layer is not trying to re-implement the whole pass.
   - walk the root region
   - apply structural rewrites
   - repeat up to eight cycles while mutations keep happening
-- Each cycle rebuilds:
-  - label reference counts
-  - branch-payload-child marks plus a piggybacked `has_br_table` flag
-  - reorder-safety cache
-  - embedded-control cache
-  - subtree-return cache
+- The `2026-04-13` perf audit also tightened the fixpoint plumbing:
+  - all three lifted ladder-skip classifiers now share one precomputed summary instead of rescanning the function three times
+  - each cycle uses one shared `remove_unused_brs_compute_cycle_scan(...)` for label reference counts, branch-payload-child marks, and the piggybacked `has_br_table` parity bit
+  - root-site and single-arm-`nop` context are threaded through visitation instead of being rediscovered by extra whole-function scans
+  - detached cleanup now bounds and dedupes candidate deletion work instead of repeatedly chasing every detached node shape
 
 That reset-per-cycle approach matters because many rewrites change:
 
@@ -149,6 +150,11 @@ The HOT visitor tracks more than just the current node.
   - return mode
 
 That detail matters because the same node may be safe to revisit under a stronger context even if it was already seen in a weaker one.
+
+The visitor now also carries one more local fact when it matters.
+
+- `current_site`
+  threads the current root-site information down to payload-root rewrites so they do not have to rediscover their parent region/index with a separate whole-function search.
 
 ## Traversal Order
 

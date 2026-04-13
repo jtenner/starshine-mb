@@ -108,6 +108,28 @@ test "node deletion records tombstones without immediate free-list reuse" {
 }
 
 ///|
+test "node deletion keeps large free-list liveness queries correct" {
+  let func = HotFunc::new()
+  let nodes : Array[Int] = []
+  for idx = 0; idx < 40; idx = idx + 1 {
+    ignore(idx)
+    nodes.push(hot_build_nop(func))
+  }
+
+  for idx = 0; idx < 35; idx = idx + 1 {
+    hot_delete_node(func, nodes[idx])
+  }
+
+  assert_false(hot_node_is_live(func, nodes[0]))
+  assert_false(hot_node_is_live(func, nodes[34]))
+  assert_true(hot_node_is_live(func, nodes[35]))
+  assert_true(hot_node_is_live(func, nodes[39]))
+
+  let fresh = hot_build_unreachable(func)
+  assert_true(hot_node_is_live(func, fresh))
+}
+
+///|
 test "body local append helper returns the next local id and bumps revision" {
   let func = HotFunc::new(
     locals=HotLocals::new(params=[@lib.ValType::i32()], locals=[

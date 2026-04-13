@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-13
 sources:
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
@@ -16,6 +16,8 @@ sources:
   - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
+  - ../../../../../src/ir/hot_core.mbt
+  - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -69,11 +71,17 @@ related:
   - `Func 1150` / `wt__lower__module`
 - The hot layer now also skips the later tagged result-prefix family that only triggered repeated `rub-result-prefix reject=inner-op` discovery before exiting unchanged:
   - `Func 356` / `dfe__try__rewrite__instruction__type__idxs`
+- A later `2026-04-13` perf audit also removes several pass-internal costs without widening semantics:
+  - HOT liveness now uses a hybrid `deleted_nodes` fast path for large free lists
+  - the three lifted ladder-skip classifiers share one precomputed summary
+  - each fixpoint cycle computes `label_refs`, `branch_payload_children`, and `has_br_table` in one scan
+  - visitation now threads root-site and single-arm-`nop` context instead of re-finding those facts with extra whole-function walks
+  - detached cleanup is bounded and several hot rewrites now use push-style array assembly
 - It is still an in-progress parity pass because the explicit debug-artifact compare remains noisy after those fixes:
   - the saved compare still diverges in normalized WAT
   - the first inspected remaining hunk `func $384` still traces as `changed=false`, so some early noise is not RUB mutation at all
-  - the latest full self-opt replay `.tmp/self-opt-rub-20260410-drop-heavy-f145` improves to `573.182 ms` Starshine pass time versus `91.702 ms` Binaryen, but is still well over budget
-  - the latest native trace `.tmp/rub-trace-drop-heavy-final-idle.stderr` retires `Func 145` before lift
+  - fresh local self-opt replay now averages `533.884 ms` on the current tree versus `616.224 ms` for local HEAD baseline, but the lane is still far over Binaryen's pass budget
+  - the latest native trace `.tmp/rub-trace-drop-heavy-final-idle.stderr` still retires `Func 145` before lift
   - the next runtime work should split unchanged pass-heavy self-opt functions `Func 96` / `Func 788` / `Func 1068` from the older lift-heavy `Func 1382` trace
 
 ## Page Map

@@ -223,6 +223,7 @@ pub struct HotFunc {
   instr_payloads : Array[HotInstrPayload]
   mut body_result_type : TypeId
   free_nodes : Array[NodeId]
+  deleted_nodes : Array[Bool]
   mut revision : Int
 }
 
@@ -252,6 +253,7 @@ pub fn HotFunc::new(
     instr_payloads: [],
     body_result_type,
     free_nodes: [],
+    deleted_nodes: [],
     revision: 0,
   }
 }
@@ -295,12 +297,21 @@ pub fn hot_node_is_live(func : HotFunc, node_id : NodeId) -> Bool {
   if node_id < 0 || node_id >= func.nodes.length() {
     return false
   }
-  for free_id in func.free_nodes {
-    if free_id == node_id {
-      return false
-    }
+  if func.free_nodes.is_empty() {
+    return true
   }
-  true
+  if func.free_nodes.length() <= 32 {
+    for free_id in func.free_nodes {
+      if free_id == node_id {
+        return false
+      }
+    }
+    return true
+  }
+  if node_id >= func.deleted_nodes.length() {
+    return true
+  }
+  !func.deleted_nodes[node_id]
 }
 
 ///|

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-13
 sources:
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
@@ -13,6 +13,8 @@ sources:
   - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
+  - ../../../../../src/ir/hot_core.mbt
+  - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -180,6 +182,17 @@ That ordering is essential:
 - root-local rewrites often expose cheaper inner shapes
 - descending first would force the pass to rediscover the same structural cleanup in a more expensive context
 
+## Threaded Local Context Instead Of Rediscovery
+
+Two older whole-function rediscovery helpers are intentionally gone.
+
+- The visitor now threads `RemoveUnusedBrsRootSite?` as `current_site` so payload-root rewrites can use their real parent region/index directly instead of searching the whole function for the same fact.
+- Single-arm `nop` preservation is now passed explicitly at the known `then` / `else` trim sites instead of asking later whether a region is an `if` arm.
+
+Maintenance rule:
+
+- if a local fact is already known at the callsite, thread it down through visitation instead of re-finding it with another whole-function walk.
+
 ## Fast Structural Guards
 
 Two carried-wrapper helpers now intentionally fail fast before label-ref-heavy discovery work:
@@ -225,26 +238,22 @@ Any future simplification of the seen mask needs to prove it does not suppress l
 
 ## Cheap Caches And Expensive Analyses
 
-The pass recomputes several cheap caches every fixpoint cycle:
+The pass now shares one explicit cycle scan for the cheap whole-function facts that every fixpoint round needs.
 
-- label refs
-- branch payload children
-- embedded control
-- subtree returns
-- reorder safety cache
+- `remove_unused_brs_compute_cycle_scan(...)` computes:
+  - `label_refs`
+  - `branch_payload_children`
+  - the piggybacked `has_br_table` parity bit
+- The other integer caches (`seen`, reorder safety, embedded control, subtree returns) are reset in place for the current node count.
 
 It only computes the expensive `use-def` analysis on demand for exit-only value-`if` voidification.
 
 There is a dedicated perf regression proving that simple tail-return cleanup does not accidentally build `use-def`.
 
-The branch-payload scan now also carries one broad parity bit.
+The broader maintenance rule is now:
 
-- `remove_unused_brs_compute_branch_payload_children(...)` returns both:
-  - `branch_payload_children`
-  - `has_br_table`
-- That piggybacked flag replaced the first `Func 3771` fix draft, which added a second whole-function HOT walk just to answer the same question.
-- Maintenance rule:
-  - if a new whole-function negative guard only needs one more cheap fact, extend an existing per-cycle scan instead of adding another walk
+- if a new whole-function negative guard only needs one more cheap fact, extend the shared per-cycle scan instead of adding another walk
+- if the fact is already known from traversal context, thread it through the visitor instead of rescanning the function
 
 ## Mutation Churn Control
 

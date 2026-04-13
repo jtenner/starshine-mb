@@ -688,6 +688,7 @@ pub fn hot_alloc_node(func : HotFunc, node : HotNode) -> NodeId {
   hot_mutate_require_node_shape(func, node, "hot alloc_node")
   let id = func.nodes.length()
   func.nodes.push(node)
+  func.deleted_nodes.push(false)
   hot_revision_bump(func)
   id
 }
@@ -787,5 +788,8 @@ pub fn hot_delete_node(func : HotFunc, id : NodeId) -> Unit {
     child_count: 0,
   }
   func.free_nodes.push(id)
+  if id < func.deleted_nodes.length() {
+    func.deleted_nodes[id] = true
+  }
   hot_revision_bump(func)
 }

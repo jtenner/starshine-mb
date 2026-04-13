@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-13
 sources:
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
@@ -16,6 +16,8 @@ sources:
   - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
+  - ../../../../../src/ir/hot_core.mbt
+  - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -185,7 +187,11 @@ related:
   - `.tmp/pass-fuzz-rub-both-20260410-drop-heavy-f145-2000` stayed clean on all `842/842` compared mixed-generator cases before `5` Binaryen-side command failures
   - `.tmp/rub-trace-drop-heavy-final-idle.stderr` shows `Func 145` reporting `skip-raw reason=large-drop-heavy-branch-ladder-noop`
   - the same trace leaves the visible pass-heavy side at `Func 96` (`6251 / 4230`), `Func 788` (`5998 / 5027`), and `Func 1068` (`5996 / 4479`), while `Func 1382` remains the lift-heavy leader at `6406 / 76692`
-  - `.tmp/self-opt-rub-20260410-drop-heavy-f145` improves Starshine pass time from `610.426 ms` to `573.182 ms`, but canonical wasm and normalized WAT are still red
+- The later `2026-04-13` perf audit is also directionally positive without reopening the parity surface:
+  - HOT liveness now uses a hybrid `deleted_nodes` fast path for large free lists instead of always rescanning `free_nodes`
+  - the three lifted ladder-skip classifiers now share one precomputed summary, and each fixpoint cycle computes `label_refs`, `branch_payload_children`, and `has_br_table` in one scan
+  - visitation now threads root-site and single-arm-`nop` context instead of re-finding those facts with extra whole-function walks, and detached cleanup / hot rewrite assembly both allocate less transient structure
+  - fresh local self-opt replay now averages `533.884 ms` on the current tree versus `616.224 ms` for local HEAD baseline, but canonical wasm and normalized WAT are still red
 
 ## Current Open Gap
 
@@ -194,6 +200,7 @@ The active backlog now says the next work should be reduced in this order:
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.
 - Earlier MoonBit attempts tried to find those shapes by scanning more nested regions during the main walk, which hit real oracle cases but reopened the performance cliff.
+- The latest perf audit already removed the obvious duplicated whole-function scans, so the next speed work should target the still-hot unchanged families rather than reopening generic scan consolidation again.
 - Separate explicit-pass type-order noise from real RUB body diffs in the current artifact compare.
 - Treat first inspected remaining hunks like `func $384` as non-RUB noise until the trace proves the pass actually mutated the function.
 - Reduce the unchanged pass-heavy self-opt families `Func 96`, `Func 788`, and `Func 1068`, while keeping the older lift-heavy `Func 1382` trace separate from true pass-walk hotspots.
@@ -218,7 +225,7 @@ The active backlog now says the next work should be reduced in this order:
 - The drop-heavy `Func 145` follow-up proved the same thing on a lighter raw family: the first `local_set >= 210` draft passed the perf lock but still missed the real artifact body at `local_set=201`, so the final floor had to come from the traced artifact counts rather than the reduced-only lock.
 - The `Func 3771` fix proved another parity boundary: Binaryen keeps some direct one-arm payload branch `if` families conservative when the surrounding function also contains `br_table`, so that direct cleanup cannot be inferred from the local branch alone.
 - The same `Func 3771` follow-up proved the cost rule again: even a correct whole-function negative guard is too expensive if it adds a second HOT walk, so broad parity guards should piggyback on existing per-cycle scans.
-- The next runtime work now has to keep pass-walk and lift cost separate; the fresh self-opt replay is still materially over Binaryen's pass time budget (`573.182 ms` vs `91.702 ms`), and its next pure pass-heavy candidates differ from the older lift-heavy `Func 1382` trace.
+- The next runtime work now has to keep pass-walk and lift cost separate; even after the latest scan/liveness audit the local self-opt lane still sits around `533.884 ms` versus a local HEAD baseline of `616.224 ms`, while Binaryen remains in roughly the `92-96 ms` band, and the next pure pass-heavy candidates still differ from the older lift-heavy `Func 1382` trace.
 
 ## Practical Rule
 
