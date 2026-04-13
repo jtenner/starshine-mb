@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-13
 sources:
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
@@ -12,6 +12,7 @@ sources:
   - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
+  - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
@@ -312,14 +313,14 @@ Detailed pages:
 
 - `remove_unused_brs_can_skip_large_void_return_ladder(...)`
   HOT skip for giant no-op families after lift.
+- `remove_unused_brs_can_skip_medium_branchy_block_ladder(...)`
+  HOT skip for the later medium-size branchy unchanged family retired from the canonical debug artifact.
 - `remove_unused_brs_region_tail_control_payload_count(...)`
   Shared legality check for stack-style payload stripping.
 - `remove_unused_brs_has_safe_exit_only_value_if_use_chain(...)`
   Single-use proof for exit-only value-`if` voidification.
-- `remove_unused_brs_compute_label_refs(...)`
-  Hard legality boundary for rewrites that would otherwise break external references to a control node's label.
-- `remove_unused_brs_compute_branch_payload_children(...)`
-  Hard legality boundary for result blocks that are still serving as payload carriers for some other branch.
+- `remove_unused_brs_compute_cycle_scan(...)`
+  Shared per-cycle legality scan for label references, branch-payload children, and the piggybacked `has_br_table` parity bit.
 
 Detailed pages:
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)

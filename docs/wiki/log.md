@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-13] maintain | record RUB medium branchy hot skip
+
+- Added `raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md` to capture the newly retired medium branchy lifted family, the extracted canonical-function calibration, and the latest self-opt plus fuzz evidence.
+- Updated the living `remove-unused-brs` hub, parity, HOT strategy, bailout notes, and pattern catalog so the new `medium-branchy-block-ladder-noop` hot skip and its retired artifact funcs are part of the durable wiki.
+- Updated `docs/wiki/index.md` so the RUB catalog now describes the later medium branchy lifted retirement alongside the earlier large `br_table`, tagged-prefix, and typed-encoder slices.
 ## [2026-04-10] maintain | calibrate RUB drop-heavy raw local-set floor
 
 - Added `raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md` to capture the first reduced-only miss, the traced `Func 145` raw counts, the verified false HOT-only guards, and the landed `local_set >= 200` floor.

@@ -13,6 +13,7 @@ sources:
   - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
+  - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -147,6 +148,7 @@ After lift, the pass still has hot-only bailouts:
 
 - `large-br-table-return-ladder-noop`
 - `large-tagged-result-prefix-ladder-noop`
+- `medium-branchy-block-ladder-noop`
 - `large-void-if-return-ladder-noop`
 - `nested-constructor-return-ladder-noop`
 
@@ -160,9 +162,12 @@ The hot skip is shape-based, not name-based.
 - the newer large-`br_table` family specifically retires the traced unchanged pair `Func 1058` / `Func 1150` after lift instead of trying to force another raw skip boundary
 - the same trace also shows why the bounds must be calibrated on lifted shape counts: the working block ceiling had to be wider than the printed WAT shape first suggested
 - the later tagged result-prefix family retires `Func 356` after lift when repeated carried-prefix discovery only yields `reject=inner-op` and the pass still exits unchanged
+- the later medium branchy block-ladder family retires another lifted unchanged cluster from the canonical artifact:
+  - `Func 144`, `Func 301`, `Func 353`, `Func 1512`, `Func 1547`, `Func 1859`, and `Func 1867`
+  - the landed rule is calibrated on lifted summary counts, not printed-WAT intuition, because the family only became obvious after extracting and tracing the real artifact bodies
 - that slice also adds a maintenance rule:
-  - the landed detector reuses the shared lifted shape scan and cheap locals/roots/node guards because the first draft paid a second full walk and moved aggregate trace totals the wrong way
-- after the later typed `br_table` raw skip retires `Func 1482`, the visible runtime budget is now led by `Func 1382`
+  - the landed detector reuses the shared lifted shape scan and cheap locals/node guards because broadening the raw layer for the same family was noisier and harder to calibrate on the exact artifact shell
+- after the later typed `br_table` raw skip retires `Func 1482`, the visible runtime budget is now led by `Func 3021`, `Func 408`, and `Func 497` on the unchanged side while `Func 1382` remains the older lift-heavy outlier
 
 The relevant perf tests prove that these families still pay lift cost but skip the expensive rewrite walk.
 

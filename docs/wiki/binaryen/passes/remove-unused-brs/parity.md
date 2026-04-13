@@ -16,6 +16,7 @@ sources:
   - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
+  - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -192,9 +193,9 @@ related:
   - the three lifted ladder-skip classifiers now share one precomputed summary, and each fixpoint cycle computes `label_refs`, `branch_payload_children`, and `has_br_table` in one scan
   - visitation now threads root-site and single-arm-`nop` context instead of re-finding those facts with extra whole-function walks, and detached cleanup / hot rewrite assembly both allocate less transient structure
   - the follow-on Binaryen-shaped candidate-filter slice now adds two more raw cost filters: a very large void-`if` / return family and a medium-size unchanged control-ladder family with heavy local traffic
-  - fresh focused oracle evidence stays green at `.tmp/pass-fuzz-rub-genvalid-200-after-binaryen-filtering` (`200/200`, `0` mismatches, `0` command failures) and `.tmp/pass-fuzz-rub-mixed-120-after-binaryen-filtering` (`119/119` compared before the usual Binaryen-side parser failure)
-  - the latest local two-run self-opt replay now averages `471.733 ms` on the current tree versus `530.153 ms` for the pre-slice baseline, while canonical wasm and normalized WAT are still red
-  - the debug-serial trace also trims the unchanged-walk bucket from `1120.851 ms` to `1063.091 ms` and the lifted `large-void-if-return-ladder-noop` bucket from `262.971 ms` to `251.199 ms`
+  - the later lifted follow-up now also adds `medium-branchy-block-ladder-noop` for the canonical extracted cluster `Func 144`, `Func 301`, `Func 353`, `Func 1512`, `Func 1547`, `Func 1859`, and `Func 1867`
+  - fresh focused oracle evidence stays green at `.tmp/pass-fuzz-rub-genvalid-200-after-binaryen-filtering` (`200/200`, `0` mismatches, `0` command failures), `.tmp/pass-fuzz-rub-mixed-120-after-binaryen-filtering` (`119/119` compared before the usual Binaryen-side parser failure), `.tmp/pass-fuzz-rub-genvalid-200-after-medium-branchy-hot-skip` (`200/200`, `0` mismatches, `0` command failures), and `.tmp/pass-fuzz-rub-mixed-120-after-medium-branchy-hot-skip` (`119/119` compared before the usual Binaryen-side parser failure)
+  - the latest local five-run self-opt replay now averages `461.5536 ms` on the current tree versus `482.2412 ms` for the immediate pre-slice baseline, while canonical wasm and normalized WAT are still red
 
 ## Current Open Gap
 
@@ -206,7 +207,7 @@ The active backlog now says the next work should be reduced in this order:
 - The latest perf audit already removed the obvious duplicated whole-function scans, and the follow-on Binaryen-shaped raw candidate filters shaved more time off the unchanged-walk and large-void buckets without changing parity evidence.
 - Separate explicit-pass type-order noise from real RUB body diffs in the current artifact compare.
 - Treat first inspected remaining hunks like `func $384` as non-RUB noise until the trace proves the pass actually mutated the function.
-- Reduce the still-leading unchanged pass-heavy self-opt families `Func 1624`, `Func 788`, `Func 96`, `Func 1068`, and `Func 3021`, while keeping the older lift-heavy `Func 1382` trace separate from true pass-walk hotspots.
+- Reduce the still-leading unchanged pass-heavy self-opt families `Func 3021`, `Func 408`, `Func 497`, `Func 739`, `Func 1448`, `Func 832`, and `Func 1168`, while keeping the older lift-heavy `Func 1382` trace separate from true pass-walk hotspots.
 - Audit the later loop/block-order family separately so a canonicalization difference does not get accidentally "fixed" by an unrelated branch rewrite.
 - Keep rerunning self-opt compare and mixed-generator compare-pass lanes after each reduction.
 - A health rerun on `2026-04-11` shows broader unresolved mismatches for `remove-unused-brs`:
@@ -228,7 +229,7 @@ The active backlog now says the next work should be reduced in this order:
 - The drop-heavy `Func 145` follow-up proved the same thing on a lighter raw family: the first `local_set >= 210` draft passed the perf lock but still missed the real artifact body at `local_set=201`, so the final floor had to come from the traced artifact counts rather than the reduced-only lock.
 - The `Func 3771` fix proved another parity boundary: Binaryen keeps some direct one-arm payload branch `if` families conservative when the surrounding function also contains `br_table`, so that direct cleanup cannot be inferred from the local branch alone.
 - The same `Func 3771` follow-up proved the cost rule again: even a correct whole-function negative guard is too expensive if it adds a second HOT walk, so broad parity guards should piggyback on existing per-cycle scans.
-- The next runtime work now has to keep pass-walk and lift cost separate; even after the follow-on Binaryen-shaped raw filters the local self-opt lane still sits around `471.733 ms` versus a `530.153 ms` pre-slice baseline, while Binaryen remains in roughly the `92-96 ms` band, and the next pure pass-heavy candidates still differ from the older lift-heavy `Func 1382` trace.
+- The next runtime work now has to keep pass-walk and lift cost separate; even after the later medium-branchy lifted hot skip the local self-opt lane still sits around `461.5536 ms` versus a `482.2412 ms` immediate pre-slice baseline, while Binaryen remains in roughly the `92-96 ms` band, and the next pure pass-heavy candidates still differ from the older lift-heavy `Func 1382` trace.
 
 ## Practical Rule
 

@@ -234,6 +234,41 @@ fn remove_unused_brs_can_skip_large_tagged_result_prefix_ladder(
 }
 
 ///|
+fn remove_unused_brs_can_skip_medium_branchy_block_ladder(
+  summary : RemoveUnusedBrsHotVoidReturnLadderSummary,
+) -> Bool {
+  let local_count = summary.local_count
+  let node_count = summary.node_count
+  let shape = summary.shape
+  if local_count < 200 || local_count > 500 {
+    return false
+  }
+  if node_count < 1300 || node_count > 2300 {
+    return false
+  }
+  shape.call_count >= 130 &&
+  shape.call_count <= 380 &&
+  shape.local_set_count >= 90 &&
+  shape.local_set_count <= 220 &&
+  shape.local_tee_count >= 120 &&
+  shape.local_tee_count <= 280 &&
+  shape.void_if_count >= 50 &&
+  shape.void_if_count <= 160 &&
+  shape.value_if_count <= 12 &&
+  shape.return_count <= 24 &&
+  shape.select_count <= 4 &&
+  shape.br_if_count == 0 &&
+  shape.block_count >= 100 &&
+  shape.block_count <= 240 &&
+  shape.loop_count <= 16 &&
+  shape.br_count >= 30 &&
+  shape.br_count <= 60 &&
+  shape.br_table_count == 0 &&
+  shape.drop_count <= 80 &&
+  shape.result_block_non_block_prefix_count <= 4
+}
+
+///|
 fn remove_unused_brs_can_skip_large_void_return_ladder(
   summary : RemoveUnusedBrsHotVoidReturnLadderSummary,
 ) -> Bool {
@@ -5522,6 +5557,15 @@ fn remove_unused_brs_run(
       ctx.descriptor.name,
       "skip-hot",
       payload="reason=large-tagged-result-prefix-ladder-noop",
+    )
+    return HotPassResult::unchanged()
+  }
+  if remove_unused_brs_can_skip_medium_branchy_block_ladder(skip_summary) {
+    pipeline_trace_hook(
+      ctx.trace,
+      ctx.descriptor.name,
+      "skip-hot",
+      payload="reason=medium-branchy-block-ladder-noop",
     )
     return HotPassResult::unchanged()
   }

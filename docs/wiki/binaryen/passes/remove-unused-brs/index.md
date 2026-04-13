@@ -16,6 +16,7 @@ sources:
   - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
+  - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -74,6 +75,14 @@ related:
   - `Func 1150` / `wt__lower__module`
 - The hot layer now also skips the later tagged result-prefix family that only triggered repeated `rub-result-prefix reject=inner-op` discovery before exiting unchanged:
   - `Func 356` / `dfe__try__rewrite__instruction__type__idxs`
+- The hot layer now also skips the later medium branchy block-ladder family that still paid lift plus a full HOT walk before exiting unchanged:
+  - `Func 144` / `parse__env__overlay`
+  - `Func 301` / `dfe__iteration.inner`
+  - `Func 353` / `dfe__rewrite__module__type__idxs.inner`
+  - `Func 1512` / `Elem.Encode.encode`
+  - `Func 1547` / `NameSec.Encode.encode`
+  - `Func 1859` / `validate__ref__func__declarations__in__module.inner`
+  - `Func 1867` / `validate__name__sec`
 - A later `2026-04-13` perf audit also removes several pass-internal costs without widening semantics:
   - HOT liveness now uses a hybrid `deleted_nodes` fast path for large free lists
   - the three lifted ladder-skip classifiers share one precomputed summary
@@ -83,9 +92,9 @@ related:
 - It is still an in-progress parity pass because the explicit debug-artifact compare remains noisy after those fixes:
   - the saved compare still diverges in normalized WAT
   - the first inspected remaining hunk `func $384` still traces as `changed=false`, so some early noise is not RUB mutation at all
-  - the latest local two-run self-opt replay on top of the earlier `34a833a` perf audit improves the RUB lane again from `530.153 ms` baseline to `471.733 ms` current
-  - the debug-serial trace also trims the unchanged-walk bucket from `1120.851 ms` to `1063.091 ms` and the lifted `large-void-if-return-ladder-noop` bucket from `262.971 ms` to `251.199 ms`
-  - the next runtime work should keep shrinking the still-open unchanged-walk families led by `Func 1624` / `Func 788` / `Func 96` / `Func 1068` / `Func 3021`
+  - the latest local five-run self-opt replay on top of the earlier `34a833a` perf audit improves the RUB lane again from `482.2412 ms` baseline to `461.5536 ms` current for the medium branchy hot-skip slice alone
+  - the current trace now retires a further seven unchanged canonical functions under `skip-hot reason=medium-branchy-block-ladder-noop`
+  - the next runtime work should keep shrinking the still-open unchanged-walk families led by `Func 3021` / `Func 408` / `Func 497` / `Func 739` / `Func 1448`
 
 ## Page Map
 
