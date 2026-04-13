@@ -2,11 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-13] maintain | record RUB call-heavy mixed-if mesh hot skip
+
+- Added `raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md` to capture the newly retired lifted call-heavy mixed-if mesh family, the canonical extracted-function calibration, and the latest interleaved self-opt plus fuzz evidence.
+- Updated the living `remove-unused-brs` hub, parity, HOT strategy, bailout notes, and pattern catalog so the new `call-heavy-mixed-if-mesh-noop` hot skip and its retired artifact funcs are part of the durable wiki.
+- Updated `docs/wiki/index.md` so the RUB catalog now describes the later call-heavy mixed-if mesh retirement alongside the earlier medium-branchy lifted slice.
+
 ## [2026-04-13] maintain | record RUB medium branchy hot skip
 
 - Added `raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md` to capture the newly retired medium branchy lifted family, the extracted canonical-function calibration, and the latest self-opt plus fuzz evidence.
 - Updated the living `remove-unused-brs` hub, parity, HOT strategy, bailout notes, and pattern catalog so the new `medium-branchy-block-ladder-noop` hot skip and its retired artifact funcs are part of the durable wiki.
 - Updated `docs/wiki/index.md` so the RUB catalog now describes the later medium branchy lifted retirement alongside the earlier large `br_table`, tagged-prefix, and typed-encoder slices.
+
 ## [2026-04-10] maintain | calibrate RUB drop-heavy raw local-set floor
 
 - Added `raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md` to capture the first reduced-only miss, the traced `Func 145` raw counts, the verified false HOT-only guards, and the landed `local_set >= 200` floor.
@@ -159,18 +166,6 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Expanded `remove-unused-module-elements` from a stub landing page into a multi-entry folder with `index.md`, `wat-shapes.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, `retention-and-index-rewrites.md`, and `parity.md`.
 - Documented RUME's imported-parent retention rules, explicit module-index rewrite surface, and the current in-tree coverage for empty active data, no-op active elem segments, and imported survivor remaps.
 - Updated the root wiki catalog and pass-folder catalog so the expanded RUME pages are discoverable.
-
-## [2026-04-09] maintain | expand remove-unused-brs into a full pass folder
-
-- Expanded `remove-unused-brs` from a stub landing page plus two narrow notes into a multi-entry folder with `index.md`, `pattern-catalog.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, `tail-and-return-cleanups.md`, `select-and-condition-rewrites.md`, `branch-exit-and-payload-rewrites.md`, `carried-guards-and-result-blocks.md`, `returned-ladder-hot-shapes.md`, `visit-order-and-bailouts.md`, and a refreshed `parity.md`.
-- Documented every currently modeled rewrite family, the raw fast path, the HOT fixpoint strategy, the returned-ladder lift shapes, the carried-guard/result-block families, and the current artifact blocker order from the active RUB backlog.
-- Updated the root wiki catalog and Binaryen pass-folder catalog so the expanded RUB pages are discoverable.
-
-## [2026-04-10] maintain | retire the early RUB `br_table` carried-wrapper blocker
-
-- Added `raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md` to capture the reduced `br_table` continuation-wrapper mismatch, the follow-up hot-path guard investigation, and the current explicit-pass compare state.
-- Updated the living `remove-unused-brs` hub, parity, pattern-catalog, carried-guards/result-blocks, and visit-order pages so the fixed carried-wrapper family, the new fast structural guards, and the remaining artifact-noise risk are all recorded in the wiki.
-- Updated `docs/wiki/index.md` so the revised RUB parity and carried-wrapper pages are described in terms of the new continuation-wrapper slice instead of the stale early `Func 50` note.
 
 ## [2026-04-10] investigate | record the current ssa-nomerge artifact parity blocker
 

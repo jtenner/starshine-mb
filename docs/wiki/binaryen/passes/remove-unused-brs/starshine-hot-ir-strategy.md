@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
+  - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -100,6 +101,7 @@ The raw layer is not trying to re-implement the whole pass.
   - `large-br-table-return-ladder-noop`
   - `large-tagged-result-prefix-ladder-noop`
   - `medium-branchy-block-ladder-noop`
+  - `call-heavy-mixed-if-mesh-noop`
   - `large-void-if-return-ladder-noop`
   - `nested-constructor-return-ladder-noop`
 - The newer `large-br-table-return-ladder-noop` family exists because some artifact functions still need lift, but RUB itself was doing no useful work after that point.
@@ -120,6 +122,15 @@ The raw layer is not trying to re-implement the whole pass.
   - `Func 1547` / `NameSec.Encode.encode`
   - `Func 1859` / `validate__ref__func__declarations__in__module.inner`
   - `Func 1867` / `validate__name__sec`
+- The later lifted call-heavy mixed-if mesh slice now also retires:
+  - `Func 408` / `run__hot__pipeline__func`
+  - `Func 413` / `run__hot__pipeline__raw__rewrite__instrs`
+  - `Func 739` / `hot__lower__impl__emit__instruction`
+  - `Func 832` / `hot__lift__impl__build__exact__node`
+  - `Func 902` / `cfg__builder__process__block`
+  - `Func 1022` / `spec__check__command`
+  - `Func 1448` / `SubType.Decode.decode`
+  - `Func 1815` / `validate__typecheck__if`
 - The raw layer also now retires:
   - `Func 828` / `hot__lift__impl__exact__family`
   - `Func 1482`
@@ -133,7 +144,7 @@ The raw layer is not trying to re-implement the whole pass.
   - apply structural rewrites
   - repeat up to eight cycles while mutations keep happening
 - The `2026-04-13` perf audit also tightened the fixpoint plumbing:
-  - all four lifted ladder-skip classifiers now share one precomputed summary instead of rescanning the function three times
+  - all five lifted ladder-skip classifiers now share one precomputed summary instead of rescanning the function three times
   - each cycle uses one shared `remove_unused_brs_compute_cycle_scan(...)` for label reference counts, branch-payload-child marks, and the piggybacked `has_br_table` parity bit
   - root-site and single-arm-`nop` context are threaded through visitation instead of being rediscovered by extra whole-function scans
   - detached cleanup now bounds and dedupes candidate deletion work instead of repeatedly chasing every detached node shape

@@ -14,6 +14,7 @@ sources:
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
+  - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -149,6 +150,7 @@ After lift, the pass still has hot-only bailouts:
 - `large-br-table-return-ladder-noop`
 - `large-tagged-result-prefix-ladder-noop`
 - `medium-branchy-block-ladder-noop`
+- `call-heavy-mixed-if-mesh-noop`
 - `large-void-if-return-ladder-noop`
 - `nested-constructor-return-ladder-noop`
 
@@ -165,9 +167,12 @@ The hot skip is shape-based, not name-based.
 - the later medium branchy block-ladder family retires another lifted unchanged cluster from the canonical artifact:
   - `Func 144`, `Func 301`, `Func 353`, `Func 1512`, `Func 1547`, `Func 1859`, and `Func 1867`
   - the landed rule is calibrated on lifted summary counts, not printed-WAT intuition, because the family only became obvious after extracting and tracing the real artifact bodies
-- that slice also adds a maintenance rule:
-  - the landed detector reuses the shared lifted shape scan and cheap locals/node guards because broadening the raw layer for the same family was noisier and harder to calibrate on the exact artifact shell
-- after the later typed `br_table` raw skip retires `Func 1482`, the visible runtime budget is now led by `Func 3021`, `Func 408`, and `Func 497` on the unchanged side while `Func 1382` remains the older lift-heavy outlier
+- the later call-heavy mixed-if mesh family retires a second lifted unchanged cluster from the canonical artifact:
+  - `Func 408`, `Func 413`, `Func 739`, `Func 832`, `Func 902`, `Func 1022`, `Func 1448`, and `Func 1815`
+  - the landed rule again uses lifted summary counts rather than raw WAT guesses, because the real lifted block shell was much wider than the original printed shape suggested
+- both later lifted slices keep the same maintenance rule:
+  - the landed detectors reuse the shared lifted shape scan and cheap summary bounds because widening the raw layer for the same families was noisier and harder to calibrate on the exact artifact shell
+- after the later call-heavy mixed-if mesh hot skip, the visible runtime budget is now led by `Func 3021`, `Func 497`, `Func 1168`, `Func 1213`, `Func 990`, and `Func 3130` on the unchanged side while `Func 1382` remains the older lift-heavy outlier
 
 The relevant perf tests prove that these families still pay lift cost but skip the expensive rewrite walk.
 

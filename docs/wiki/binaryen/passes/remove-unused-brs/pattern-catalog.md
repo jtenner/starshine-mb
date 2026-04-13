@@ -13,6 +13,7 @@ sources:
   - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
   - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
   - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
+  - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
@@ -96,6 +97,12 @@ Detailed page:
 - `remove_unused_brs_can_skip_large_tagged_result_prefix_ladder(...)`
   Recognizes lifted large carried result-prefix ladders with many tagged non-`Block` prefix roots that repeatedly fail the direct result-prefix rewrite and still exit unchanged.
   Covered by perf test `remove-unused-brs skips large tagged result-prefix ladders after lift`.
+- `remove_unused_brs_can_skip_medium_branchy_block_ladder(...)`
+  Recognizes the later lifted medium branchy block-ladder family that still paid full HOT traversal even though the canonical artifact functions exited unchanged.
+  Covered by CLI test `run_cmd_with_adapter traces remove-unused-brs medium branchy hot skip on extracted debug artifact func 1547`.
+- `remove_unused_brs_can_skip_call_heavy_mixed_if_mesh(...)`
+  Recognizes the later lifted call-heavy mixed-if mesh family that still paid full HOT traversal even though the canonical artifact functions exited unchanged.
+  Covered by CLI test `run_cmd_with_adapter traces remove-unused-brs call-heavy mixed-if mesh hot skip on extracted debug artifact func 408`.
 - `remove_unused_brs_can_skip_large_void_return_ladder(...)`
   Recognizes older large lifted no-op families that still pay lift cost but should not enter the full RUB walk.
   Covered by perf tests:
