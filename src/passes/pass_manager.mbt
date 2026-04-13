@@ -3770,26 +3770,6 @@ fn run_hot_pipeline_apply_hot_pass(
               None => None
             }
           }
-        } else if descriptor.name == "code-pushing" {
-          if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
-              result.func,
-            ) {
-            Some("invalid-escape-carrier")
-          } else if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
-              result.func,
-            ) {
-            match
-              run_hot_pipeline_precompute_writeback_validation_error(
-                mod_,
-                code_idx,
-                result.func,
-              ) {
-              Some(_) => Some("suspicious-escape-carrier")
-              None => None
-            }
-          } else {
-            None
-          }
         } else {
           None
         }
@@ -3949,7 +3929,6 @@ pub fn hot_pass_run(
     "pick-load-signs" => pick_load_signs_run(ctx, func)
     "tuple-optimization" => tuple_optimization_run(ctx, func)
     "precompute" => precompute_run(ctx, func)
-    "code-pushing" => code_pushing_run(ctx, func)
     "simplify-locals" => simplify_locals_run(ctx, func)
     _ => return Err("unsupported hot pass \{descriptor.name}")
   }

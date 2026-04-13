@@ -8,22 +8,6 @@ import {
 }
 
 // Values
-pub fn code_pushing_descriptor() -> @ir.HotPassDescriptor
-
-pub fn code_pushing_summary() -> String
-
-pub fn cp_analyze_locals(@ir.HotFunc) -> Array[CpLocalInfo]
-
-pub fn cp_node_has_unremovable_side_effects(@ir.HotFunc, Int) -> Bool
-
-pub fn cp_node_reads_global(@ir.HotFunc, Int, Int) -> Bool
-
-pub fn cp_node_reads_local(@ir.HotFunc, Int, Int) -> Bool
-
-pub fn cp_node_writes_global(@ir.HotFunc, Int, Int) -> Bool
-
-pub fn cp_node_writes_local(@ir.HotFunc, Int, Int) -> Bool
-
 pub fn dead_code_elimination_descriptor() -> @ir.HotPassDescriptor
 
 pub fn dead_code_elimination_summary() -> String
@@ -87,8 +71,6 @@ pub fn pass_replace_node(HotPassContext, @ir.HotFunc, Int, @ir.HotNode) -> Unit
 pub fn pass_require_cfg(HotPassContext, @ir.HotFunc) -> @ir.HotCfg
 
 pub fn pass_require_dom(HotPassContext, @ir.HotFunc) -> @ir.HotDominators
-
-pub fn pass_require_effect_node_masks(HotPassContext, @ir.HotFunc) -> Array[UInt]
 
 pub fn pass_require_effects(HotPassContext, @ir.HotFunc) -> @ir.HotEffectsSummary
 
@@ -201,15 +183,6 @@ pub fn tuple_optimization_summary() -> String
 // Errors
 
 // Types and methods
-pub struct CpLocalInfo {
-  num_sets : Int
-  num_gets : Int
-  num_gets_so_far : Int
-  saw_get_before_set : Bool
-  is_param : Bool
-  sfa : Bool
-} derive(Eq, Show, @debug.Debug)
-
 pub struct HotPassContext {
   descriptor : @ir.HotPassDescriptor
   cache : @ir.HotAnalysisCache
@@ -313,14 +286,6 @@ type HotTupleOptimizationGroup derive(Eq, Show, @debug.Debug)
 type HotTupleOptimizationQuerySummary derive(Eq, @debug.Debug)
 
 type HotTupleOptimizationRootSlot derive(Eq, Show, @debug.Debug)
-
-type SimplifyLocalsForwardCleanup derive(Eq, Show, @debug.Debug)
-
-type SimplifyLocalsForwardRewrite derive(Eq, Show, @debug.Debug)
-
-type SimplifyLocalsForwardTarget derive(Eq, Show, @debug.Debug)
-
-type SimplifyLocalsRootUsePath derive(Eq, Show, @debug.Debug)
 
 // Type aliases
 

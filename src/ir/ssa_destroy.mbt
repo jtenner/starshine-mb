@@ -330,7 +330,10 @@ fn ssa_destroy_assign_node_order_region(
   for idx = 0; idx < hot_region_root_count(func, region_ref); idx = idx + 1 {
     let root_id = hot_region_get(func, region_ref, idx)
     cursor = ssa_destroy_assign_node_order_node(
-      func, root_id, node_order, cursor,
+      func,
+      root_id,
+      node_order,
+      cursor,
     )
   }
   cursor
@@ -380,7 +383,10 @@ fn ssa_destroy_assign_node_order_node(
       match hot_region_else_ref(func, node_id) {
         Some(region_ref) =>
           cursor = ssa_destroy_assign_node_order_region(
-            func, region_ref, node_order, cursor,
+            func,
+            region_ref,
+            node_order,
+            cursor,
           )
         None => ()
       }
@@ -395,7 +401,10 @@ fn ssa_destroy_assign_node_order_node(
       match hot_region_catch_ref(func, node_id) {
         Some(region_ref) =>
           cursor = ssa_destroy_assign_node_order_region(
-            func, region_ref, node_order, cursor,
+            func,
+            region_ref,
+            node_order,
+            cursor,
           )
         None => ()
       }
@@ -421,9 +430,7 @@ fn ssa_destroy_assign_node_order_node(
 }
 
 ///|
-fn ssa_destroy_last_local_get_orders(
-  func : HotFunc,
-) -> (Array[Int], Array[Int]) {
+fn ssa_destroy_last_local_get_orders(func : HotFunc) -> (Array[Int], Array[Int]) {
   let node_order = Array::make(hot_node_count(func), -1)
   ignore(
     ssa_destroy_assign_node_order_region(
@@ -439,8 +446,7 @@ fn ssa_destroy_last_local_get_orders(
       continue
     }
     let node = hot_node_get(func, node_id)
-    if node.op != HotOp::LocalGet ||
-      node.imm0 < 0 ||
+    if node.op != HotOp::LocalGet || node.imm0 < 0 ||
       node.imm0 >= last_local_get_order.length() {
       continue
     }
@@ -482,9 +488,7 @@ pub fn ssa_remove_dead_local_defs(
   dead_nodes : Array[NodeId],
 ) -> Unit {
   let seen = Array::make(hot_node_count(func), false)
-  let (node_order, last_local_get_order) = ssa_destroy_last_local_get_orders(
-    func,
-  )
+  let (node_order, last_local_get_order) = ssa_destroy_last_local_get_orders(func)
   for node_id in dead_nodes {
     if node_id < 0 || node_id >= seen.length() || seen[node_id] {
       continue
@@ -495,8 +499,7 @@ pub fn ssa_remove_dead_local_defs(
       HotOp::LocalSet | HotOp::LocalTee => node.imm0
       _ => -1
     }
-    if local_id >= 0 &&
-      local_id < last_local_get_order.length() &&
+    if local_id >= 0 && local_id < last_local_get_order.length() &&
       node_order[node_id] >= 0 &&
       last_local_get_order[local_id] > node_order[node_id] {
       continue
@@ -515,7 +518,10 @@ pub fn ssa_remove_dead_local_defs(
         hot_replace_node(func, node_id, child)
       }
       HotOp::Drop => ()
-      _ => ()
+      _ =>
+        abort(
+          "ssa dead-def cleanup requires local_set/local_tee nodes, got \{node.op} at node \{node_id}",
+        )
     }
   }
 }

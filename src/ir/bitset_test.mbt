@@ -67,21 +67,3 @@ test "bitset equality and iteration order stay deterministic" {
   assert_false(bitset_equals(a, b))
   assert_eq(bitset_test_collect(a), [0, 1, 63, 64, 65])
 }
-
-///|
-test "bitset any and overlaps use packed word checks" {
-  let empty = bitset_new(130)
-  let lhs = bitset_new(130)
-  let rhs = bitset_new(130)
-  let disjoint = bitset_new(130)
-
-  assert_false(bitset_any(empty))
-  ignore(bitset_set(lhs, 1))
-  ignore(bitset_set(lhs, 64))
-  ignore(bitset_set(rhs, 64))
-  ignore(bitset_set(disjoint, 129))
-
-  assert_true(bitset_any(lhs))
-  assert_true(bitset_overlaps(lhs, rhs))
-  assert_false(bitset_overlaps(lhs, disjoint))
-}

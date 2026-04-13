@@ -115,7 +115,6 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--pick-load-signs",
   "--tuple-optimization",
   "--precompute",
-  "--code-pushing",
   "--simplify-locals",
   "--memory-packing",
   "--once-reduction",

@@ -43,7 +43,6 @@ related:
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
 - [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with WAT shapes, Binaryen strategy, Starshine HOT-native strategy, scheduler and feature-gate notes, reduced repro tracking, and current parity status.
 - [`precompute/index.md`](precompute/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
-- [`code-pushing/index.md`](code-pushing/index.md) - Expanded folder with overview, transformed WAT families, Binaryen strategy, HOT strategy, artifact frontiers, validation evidence, runtime notes, and parity status.
 - [`simplify-locals/index.md`](simplify-locals/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
 
 ## Current Maintenance Rule

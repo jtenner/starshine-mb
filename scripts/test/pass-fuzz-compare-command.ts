@@ -213,13 +213,13 @@ export function runPassFuzzCompareListPassesCommandTest(): void {
   assert(result.stdout.includes("dead-code-elimination"), `expected dead-code-elimination in list output:\n${result.stdout}`);
   assert(result.stdout.includes("precompute"), `expected precompute in list output:\n${result.stdout}`);
   assert(result.stdout.includes("tuple-optimization"), `expected tuple-optimization in list output:\n${result.stdout}`);
-  assert(result.stdout.includes("code-pushing"), `expected code-pushing in list output:\n${result.stdout}`);
   assert(!result.stdout.includes("--remove-unused-brs"), `expected canonical names without -- prefix:\n${result.stdout}`);
 }
 
 export function runPassFuzzComparePassAliasCommandTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-pass-alias-"));
+  const outDir = path.join(tmpdir, "out");
   const moonLog = path.join(tmpdir, "moon.log");
   const starshineLog = path.join(tmpdir, "starshine.log");
   const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
@@ -284,57 +284,54 @@ process.exit(0);
 `,
   );
 
-  for (const [alias, flag] of [["heap2local", "--heap2local"], ["code-pushing", "--code-pushing"]]) {
-    const outDir = path.join(tmpdir, alias);
-    const result = spawnSync(
-      "bun",
-      [
-        path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
-        "--count",
-        "1",
-        "--seed",
-        "0x5eed",
-        "--generator",
-        "gen-valid",
-        "--out-dir",
-        outDir,
-        "--moon",
-        fakeMoon,
-        "--starshine-bin",
-        fakeStarshine,
-        "--wasm-opt-bin",
-        fakeWasmOpt,
-        "--wasm-tools-bin",
-        fakeWasmTools,
-        "--pass",
-        alias,
-      ],
-      {
-        cwd: repoRoot,
-        env: {
-          ...process.env,
-          FAKE_MOON_LOG: moonLog,
-          FAKE_STARSHINE_LOG: starshineLog,
-          FAKE_WASM_OPT_LOG: wasmOptLog,
-          FAKE_WASM_TOOLS_LOG: wasmToolsLog,
-        },
-        encoding: "utf8",
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "1",
+      "--seed",
+      "0x5eed",
+      "--generator",
+      "gen-valid",
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--pass",
+      "heap2local",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_STARSHINE_LOG: starshineLog,
+        FAKE_WASM_OPT_LOG: wasmOptLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
       },
-    );
-    if (result.error) {
-      throw result.error;
-    }
-    if (result.status !== 0) {
-      fail(`pass-fuzz-compare with --pass=${alias} failed:\n${result.stderr}`);
-    }
-    const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
-      passFlags: string[];
-    };
-    assert(
-      JSON.stringify(summary.passFlags) === JSON.stringify([flag]),
-      `expected --pass alias ${alias} to normalize to ${flag}, got ${JSON.stringify(summary.passFlags)}`,
-    );
+      encoding: "utf8",
+    },
+  );
+  if (result.error) {
+    throw result.error;
   }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare with --pass failed:\n${result.stderr}`);
+  }
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    passFlags: string[];
+  };
+  assert(
+    JSON.stringify(summary.passFlags) === JSON.stringify(["--heap2local"]),
+    `expected --pass alias to normalize to flag, got ${JSON.stringify(summary.passFlags)}`,
+  );
 }
 
 export function runPassFuzzCompareTupleOptimizationPassAliasCommandTest(): void {

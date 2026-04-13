@@ -1148,83 +1148,6 @@ fn hot_lower_impl_shift_positive_catch_depth(catch_ : Catch) -> Catch {
 }
 
 ///|
-fn hot_lower_impl_raise_label_depth(li : LabelIdx) -> LabelIdx {
-  let depth = hot_lower_impl_decoded_label_depth(li)
-  LabelIdx::new((depth + 1).reinterpret_as_uint())
-}
-
-///|
-fn hot_lower_impl_raise_catch_depth(catch_ : Catch) -> Catch {
-  match catch_ {
-    Catch(tag, li) => Catch::new(tag, hot_lower_impl_raise_label_depth(li))
-    CatchRef(tag, li) => Catch::ref_(tag, hot_lower_impl_raise_label_depth(li))
-    CatchAll(li) => Catch::all(hot_lower_impl_raise_label_depth(li))
-    CatchAllRef(li) => Catch::all_ref(hot_lower_impl_raise_label_depth(li))
-  }
-}
-
-///|
-fn hot_lower_impl_raise_branch_depths_instr(instr : Instruction) -> Instruction {
-  match instr {
-    Br(li) => Instruction::br(hot_lower_impl_raise_label_depth(li))
-    BrIf(li) => Instruction::br_if(hot_lower_impl_raise_label_depth(li))
-    BrTable(labels, fallback) => {
-      let raised : Array[LabelIdx] = []
-      for li in labels {
-        raised.push(hot_lower_impl_raise_label_depth(li))
-      }
-      Instruction::br_table(raised, hot_lower_impl_raise_label_depth(fallback))
-    }
-    BrOnNull(li) =>
-      Instruction::br_on_null(hot_lower_impl_raise_label_depth(li))
-    BrOnNonNull(li) =>
-      Instruction::br_on_non_null(hot_lower_impl_raise_label_depth(li))
-    Block(bt, Expr(body)) =>
-      Instruction::block(
-        bt,
-        Expr::new(hot_lower_impl_raise_branch_depths(body)),
-      )
-    Loop(bt, Expr(body)) =>
-      Instruction::loop_(
-        bt,
-        Expr::new(hot_lower_impl_raise_branch_depths(body)),
-      )
-    If(bt, then_, else_) =>
-      Instruction::if_(
-        bt,
-        hot_lower_impl_raise_branch_depths(then_),
-        match else_ {
-          Some(else_body) => Some(hot_lower_impl_raise_branch_depths(else_body))
-          None => None
-        },
-      )
-    TryTable(bt, catches, Expr(body)) => {
-      let raised_catches : Array[Catch] = []
-      for catch_ in catches {
-        raised_catches.push(hot_lower_impl_raise_catch_depth(catch_))
-      }
-      Instruction::try_table(
-        bt,
-        raised_catches,
-        Expr::new(hot_lower_impl_raise_branch_depths(body)),
-      )
-    }
-    _ => instr
-  }
-}
-
-///|
-fn hot_lower_impl_raise_branch_depths(
-  body : Array[Instruction],
-) -> Array[Instruction] {
-  let raised : Array[Instruction] = []
-  for instr in body {
-    raised.push(hot_lower_impl_raise_branch_depths_instr(instr))
-  }
-  raised
-}
-
-///|
 fn hot_lower_impl_shift_positive_branch_depths_instr(
   instr : Instruction,
 ) -> Instruction {
@@ -1657,7 +1580,7 @@ fn hot_lower_impl_try_sink_terminal_exit_into_arm(
   for instr in body {
     rewritten.push(instr)
   }
-  rewritten.push(hot_lower_impl_raise_branch_depths_instr(exit_))
+  rewritten.push(exit_)
   Some(rewritten)
 }
 
@@ -1703,40 +1626,32 @@ fn hot_lower_impl_try_voidify_parent_exit_if_forwarder(
         }
       }
       match
-        (
-          hot_lower_impl_body_terminal_branch_depth(then_),
-          hot_lower_impl_body_terminal_branch_depth(else_),
+        hot_lower_impl_try_sink_terminal_exit_into_arm(
+          then_,
+          body[body.length() - 1],
         ) {
-        (Some(_), None) | (None, Some(_)) => None
-        _ =>
+        Some(rewritten_then) =>
           match
             hot_lower_impl_try_sink_terminal_exit_into_arm(
-              then_,
+              else_,
               body[body.length() - 1],
             ) {
-            Some(rewritten_then) =>
-              match
-                hot_lower_impl_try_sink_terminal_exit_into_arm(
-                  else_,
-                  body[body.length() - 1],
-                ) {
-                Some(rewritten_else) => {
-                  rewritten.push(
-                    Instruction::if_(
-                      @lib.BlockType::void_(),
-                      rewritten_then,
-                      Some(rewritten_else),
-                    ),
-                  )
-                  if append_unreachable {
-                    rewritten.push(Instruction::unreachable_())
-                  }
-                  Some(rewritten)
-                }
-                None => None
+            Some(rewritten_else) => {
+              rewritten.push(
+                Instruction::if_(
+                  @lib.BlockType::void_(),
+                  rewritten_then,
+                  Some(rewritten_else),
+                ),
+              )
+              if append_unreachable {
+                rewritten.push(Instruction::unreachable_())
               }
+              Some(rewritten)
+            }
             None => None
           }
+        None => None
       }
     }
     _ => None
@@ -2077,33 +1992,6 @@ fn hot_lower_impl_try_unpack_parent_exit_payload_wrapper(
 }
 
 ///|
-fn hot_lower_impl_body_tail_has_mixed_positive_terminal_branch_depths(
-  body : Array[Instruction],
-) -> Bool {
-  if body.length() == 0 {
-    return false
-  }
-  let tail_idx = body.length() - 1
-  let if_idx = match body[tail_idx] {
-    Unreachable if tail_idx > 0 => tail_idx - 1
-    _ => tail_idx
-  }
-  match body[if_idx] {
-    If(_, then_, Some(else_)) =>
-      match
-        (
-          hot_lower_impl_body_terminal_branch_depth(then_),
-          hot_lower_impl_body_terminal_branch_depth(else_),
-        ) {
-        (Some(then_depth), Some(else_depth)) =>
-          then_depth > 0 && else_depth > 0 && then_depth != else_depth
-        _ => false
-      }
-    _ => false
-  }
-}
-
-///|
 fn hot_lower_impl_try_fix_split_payload_wrapper_with_tail(
   bt : BlockType,
   body : Array[Instruction],
@@ -2116,7 +2004,26 @@ fn hot_lower_impl_try_fix_split_payload_wrapper_with_tail(
     return None
   }
   let child_body_needs_depth_fix = fn(body : Array[Instruction]) -> Bool {
-    hot_lower_impl_body_tail_has_mixed_positive_terminal_branch_depths(body)
+    if body.length() == 0 {
+      return false
+    }
+    let tail_idx = body.length() - 1
+    let if_idx = match body[tail_idx] {
+      Unreachable if tail_idx > 0 => tail_idx - 1
+      _ => tail_idx
+    }
+    match body[if_idx] {
+      If(VoidBlockType, then_, Some(else_)) =>
+        match
+          (
+            hot_lower_impl_body_terminal_branch_depth(then_),
+            hot_lower_impl_body_terminal_branch_depth(else_),
+          ) {
+          (Some(1), Some(2)) | (Some(2), Some(1)) => true
+          _ => false
+        }
+      _ => false
+    }
   }
   match body[0] {
     Block(VoidBlockType, Expr(wrapper_body)) =>
@@ -2211,98 +2118,6 @@ fn hot_lower_impl_try_fix_direct_mixed_depth_payload_wrapper_with_tail(
 }
 
 ///|
-fn hot_lower_impl_try_fix_direct_split_payload_wrapper_with_tail(
-  bt : BlockType,
-  body : Array[Instruction],
-) -> Array[Instruction]? {
-  match bt {
-    VoidBlockType => return None
-    _ => ()
-  }
-  match body {
-    [Block(inner_bt, Expr(inner_body)), Br(li)] if inner_bt == bt &&
-      hot_lower_impl_decoded_label_depth(li) == 0 =>
-      if inner_body.length() == 0 {
-        None
-      } else {
-        let head = inner_body[0]
-        match head {
-          Block(head_bt, Expr(head_body)) if head_bt == bt =>
-            match head_body {
-              [Block(VoidBlockType, Expr(child_body)), payload] if !hot_lower_impl_has_control_transfer(
-                  payload,
-                ) &&
-                hot_lower_impl_body_tail_has_mixed_positive_terminal_branch_depths(
-                  child_body,
-                ) => {
-                let rewritten_inner = inner_body.copy()
-                rewritten_inner[0] = Instruction::block(
-                  head_bt,
-                  Expr::new([
-                    Instruction::block(
-                      @lib.BlockType::void_(),
-                      Expr::new(
-                        hot_lower_impl_shift_positive_branch_depths(child_body),
-                      ),
-                    ),
-                    payload,
-                  ]),
-                )
-                Some([
-                  Instruction::block(inner_bt, Expr::new(rewritten_inner)),
-                  Instruction::br(li),
-                ])
-              }
-              _ => None
-            }
-          _ => None
-        }
-      }
-    _ => None
-  }
-}
-
-///|
-fn hot_lower_impl_try_unpack_parent_exit_payload_wrapper_with_tail(
-  bt : BlockType,
-  body : Array[Instruction],
-) -> Array[Instruction]? {
-  match bt {
-    VoidBlockType => return None
-    _ => ()
-  }
-  match body {
-    [Block(inner_bt, Expr(inner_body)), Br(li)] if inner_bt == bt &&
-      hot_lower_impl_decoded_label_depth(li) == 0 => {
-      if inner_body.length() < 2 {
-        return None
-      }
-      let payload = inner_body[inner_body.length() - 1]
-      if hot_lower_impl_has_control_transfer(payload) {
-        return None
-      }
-      match inner_body[0] {
-        Block(VoidBlockType, Expr(prefix_body)) => {
-          if prefix_body.length() == 0 {
-            return None
-          }
-          match prefix_body[prefix_body.length() - 1] {
-            Unreachable => {
-              let rewritten = hot_lower_impl_rebase_body(inner_body, 0)
-              rewritten.push(Instruction::br(li))
-              Some(rewritten)
-            }
-            _ => None
-          }
-        }
-        _ => None
-      }
-    }
-    _ => None
-  }
-}
-
-///|
 fn hot_lower_impl_canonicalize_instr(instr : Instruction) -> Instruction {
   match instr {
     Block(bt, Expr(body)) =>
@@ -2367,18 +2182,6 @@ fn hot_lower_impl_canonicalize_block_body(
     None => ()
   }
   match hot_lower_impl_try_fix_split_payload_wrapper_with_tail(bt, canonical) {
-    Some(rewritten) => return rewritten
-    None => ()
-  }
-  match
-    hot_lower_impl_try_fix_direct_split_payload_wrapper_with_tail(bt, canonical) {
-    Some(rewritten) => return rewritten
-    None => ()
-  }
-  match
-    hot_lower_impl_try_unpack_parent_exit_payload_wrapper_with_tail(
-      bt, canonical,
-    ) {
     Some(rewritten) => return rewritten
     None => ()
   }
@@ -2862,26 +2665,7 @@ fn hot_lower_impl_fix_split_payload_wrappers_in_instr(
         Some(rewritten) => rewritten
         None => fixed_body
       }
-      let fixed_body = match
-        hot_lower_impl_try_fix_direct_split_payload_wrapper_with_tail(
-          bt, fixed_body,
-        ) {
-        Some(rewritten) => rewritten
-        None => fixed_body
-      }
-      let fixed_body = match
-        hot_lower_impl_try_unpack_parent_exit_payload_wrapper_with_tail(
-          bt, fixed_body,
-        ) {
-        Some(rewritten) => rewritten
-        None => fixed_body
-      }
-      let rewritten = Instruction::block(bt, Expr::new(fixed_body))
-      match
-        hot_lower_impl_try_fix_voidified_split_local_set_wrapper(rewritten) {
-        Some(rewritten) => rewritten
-        None => rewritten
-      }
+      Instruction::block(bt, Expr::new(fixed_body))
     }
     Loop(bt, Expr(body)) =>
       Instruction::loop_(
@@ -2909,118 +2693,12 @@ fn hot_lower_impl_fix_split_payload_wrappers_in_instr(
 }
 
 ///|
-fn hot_lower_impl_try_fix_voidified_split_local_set_wrapper(
-  instr : Instruction,
-) -> Instruction? {
-  match instr {
-    Block(
-      VoidBlockType,
-      Expr(
-        [
-          Block(VoidBlockType, Expr(child_body)),
-          LocalGet(source_local),
-          LocalSet(target_local),
-        ]
-      )
-    ) if hot_lower_impl_body_tail_has_mixed_positive_terminal_branch_depths(
-        child_body,
-      ) =>
-      Some(
-        Instruction::block(
-          @lib.BlockType::void_(),
-          Expr::new([
-            Instruction::block(
-              @lib.BlockType::void_(),
-              Expr::new(hot_lower_impl_shift_positive_branch_depths(child_body)),
-            ),
-            Instruction::local_get(source_local),
-            Instruction::local_set(target_local),
-          ]),
-        ),
-      )
-    _ => None
-  }
-}
-
-///|
-fn hot_lower_impl_try_voidify_split_local_set_wrapper_pair(
-  first : Instruction,
-  second : Instruction,
-) -> Instruction? {
-  match first {
-    Block(bt, Expr(value_body)) => {
-      match bt {
-        VoidBlockType => return None
-        _ => ()
-      }
-      match second {
-        LocalSet(target_local) =>
-          match value_body {
-            [Block(VoidBlockType, Expr(prefix_body)), LocalGet(source_local)] => {
-              if prefix_body.length() == 0 {
-                return None
-              }
-              match prefix_body[prefix_body.length() - 1] {
-                Unreachable =>
-                  Some(
-                    Instruction::block(
-                      @lib.BlockType::void_(),
-                      Expr::new(
-                        hot_lower_impl_canonicalize_block_body(
-                          @lib.BlockType::void_(),
-                          [
-                            Instruction::block(
-                              @lib.BlockType::void_(),
-                              Expr::new(prefix_body),
-                            ),
-                            Instruction::local_get(source_local),
-                            Instruction::local_set(target_local),
-                          ],
-                        ),
-                      ),
-                    ),
-                  )
-                _ => None
-              }
-            }
-            _ => None
-          }
-        _ => None
-      }
-    }
-    _ => None
-  }
-}
-
-///|
 fn hot_lower_impl_fix_split_payload_wrappers_in_body(
   body : Array[Instruction],
 ) -> Array[Instruction] {
-  let nested_fixed : Array[Instruction] = []
-  for instr in body {
-    nested_fixed.push(hot_lower_impl_fix_split_payload_wrappers_in_instr(instr))
-  }
   let fixed : Array[Instruction] = []
-  let mut idx = 0
-  while idx < nested_fixed.length() {
-    if idx + 1 < nested_fixed.length() {
-      match
-        hot_lower_impl_try_voidify_split_local_set_wrapper_pair(
-          nested_fixed[idx],
-          nested_fixed[idx + 1],
-        ) {
-        Some(rewritten) => {
-          fixed.push(
-            hot_lower_impl_fix_split_payload_wrappers_in_instr(rewritten),
-          )
-          idx = idx + 2
-          continue
-        }
-        None => ()
-      }
-    }
-    fixed.push(nested_fixed[idx])
-    idx += 1
+  for instr in body {
+    fixed.push(hot_lower_impl_fix_split_payload_wrappers_in_instr(instr))
   }
   fixed
 }

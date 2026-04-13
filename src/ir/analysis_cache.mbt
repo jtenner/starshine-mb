@@ -31,7 +31,6 @@ pub struct HotAnalysisCache {
   mut loop_info : HotCacheEntry[HotLoopInfo]?
   mut use_def : HotCacheEntry[HotUseDef]?
   mut liveness : HotCacheEntry[HotLiveness]?
-  mut effect_node_masks : HotCacheEntry[Array[EffectMask]]?
   mut effects : HotCacheEntry[HotEffectsSummary]?
   mut ssa : HotCacheEntry[HotLocalSsa]?
 } derive(Eq, Show, Debug)
@@ -46,7 +45,6 @@ pub fn HotAnalysisCache::new() -> HotAnalysisCache {
     loop_info: None,
     use_def: None,
     liveness: None,
-    effect_node_masks: None,
     effects: None,
     ssa: None,
   }
@@ -69,11 +67,8 @@ fn[T] cache_entry_value(entry : HotCacheEntry[T]?) -> T {
 }
 
 ///|
-fn cache_effects_build(
-  func : HotFunc,
-  cfg : HotCfg,
-  node_masks : Array[EffectMask],
-) -> HotEffectsSummary {
+fn cache_effects_build(func : HotFunc, cfg : HotCfg) -> HotEffectsSummary {
+  let node_masks = effects_build_node_masks(func)
   let block_masks : Array[EffectMask] = []
   for block_id = 0; block_id < cfg_block_count(cfg); block_id = block_id + 1 {
     block_masks.push(
@@ -100,7 +95,6 @@ pub fn cache_invalidate_all(cache : HotAnalysisCache) -> Unit {
   cache.loop_info = None
   cache.use_def = None
   cache.liveness = None
-  cache.effect_node_masks = None
   cache.effects = None
   cache.ssa = None
 }
@@ -220,27 +214,6 @@ pub fn cache_get_or_build_liveness(
 }
 
 ///|
-
-///|
-pub fn cache_get_or_build_effect_node_masks(
-  cache : HotAnalysisCache,
-  func : HotFunc,
-) -> Array[EffectMask] {
-  let revision = hot_revision_current(func)
-  if cache_entry_is_current(cache.effect_node_masks, revision) {
-    return cache_entry_value(cache.effect_node_masks)
-  }
-  if cache_entry_is_current(cache.effects, revision) {
-    let value = cache_entry_value(cache.effects).node_masks
-    cache.effect_node_masks = Some({ built_at_revision: revision, value })
-    return value
-  }
-  let value = effects_build_node_masks(func)
-  cache.effect_node_masks = Some({ built_at_revision: revision, value })
-  value
-}
-
-///|
 pub fn cache_get_or_build_effects(
   cache : HotAnalysisCache,
   func : HotFunc,
@@ -249,15 +222,7 @@ pub fn cache_get_or_build_effects(
   if cache_entry_is_current(cache.effects, revision) {
     return cache_entry_value(cache.effects)
   }
-  let value = cache_effects_build(
-    func,
-    cache_get_or_build_cfg(cache, func),
-    cache_get_or_build_effect_node_masks(cache, func),
-  )
-  cache.effect_node_masks = Some({
-    built_at_revision: revision,
-    value: value.node_masks,
-  })
+  let value = cache_effects_build(func, cache_get_or_build_cfg(cache, func))
   cache.effects = Some({ built_at_revision: revision, value })
   value
 }

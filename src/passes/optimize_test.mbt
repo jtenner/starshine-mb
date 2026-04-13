@@ -316,31 +316,6 @@ test "optimize preset replays precompute in both PC slots" {
 }
 
 ///|
-test "optimize preset replays code-pushing in the early CP slot once" {
-  let trace : Array[String] = []
-  let input = pass_test_module_from_wat(
-    "(module (func (param i32) (local i32) block $exit i32.const 1 local.set 1 local.get 0 br_if $exit local.get 1 drop end))",
-  )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["optimize"],
-    ) {
-    Ok(mod) => mod
-    Err(err) => fail("expected optimize pipeline success, got \{err}")
-  }
-  match @validate.validate_module(optimized) {
-    Ok(_) => ()
-    Err(err) => fail("expected optimized module to validate, got \{err}")
-  }
-  let cp_starts = trace.filter(fn(line) {
-    line.contains("pass[code-pushing]:start")
-  })
-  assert_eq(cp_starts.length(), 1)
-}
-
-///|
 test "shrink preset replays precompute in both PC slots" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
@@ -366,31 +341,6 @@ test "shrink preset replays precompute in both PC slots" {
 }
 
 ///|
-test "shrink preset replays code-pushing in the early CP slot once" {
-  let trace : Array[String] = []
-  let input = pass_test_module_from_wat(
-    "(module (func (param i32) (local i32) block $exit i32.const 1 local.set 1 local.get 0 br_if $exit local.get 1 drop end))",
-  )
-  let optimized = match
-    run_hot_pipeline(
-      input,
-      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
-      ["shrink"],
-    ) {
-    Ok(mod) => mod
-    Err(err) => fail("expected shrink pipeline success, got \{err}")
-  }
-  match @validate.validate_module(optimized) {
-    Ok(_) => ()
-    Err(err) => fail("expected shrink module to validate, got \{err}")
-  }
-  let cp_starts = trace.filter(fn(line) {
-    line.contains("pass[code-pushing]:start")
-  })
-  assert_eq(cp_starts.length(), 1)
-}
-
-///|
 test "optimize and shrink presets do not schedule reorder-locals before its neighboring local passes land" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
@@ -401,9 +351,9 @@ test "optimize and shrink presets do not schedule reorder-locals before its neig
 ///|
 test "optimize preset schedules heap2local in the mid-function GC slot" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
-  assert_eq(optimize[16], "remove-unused-brs")
-  assert_eq(optimize[17], "heap2local")
-  assert_eq(optimize[18], "simplify-locals")
+  assert_eq(optimize[15], "remove-unused-brs")
+  assert_eq(optimize[16], "heap2local")
+  assert_eq(optimize[17], "simplify-locals")
 }
 
 ///|

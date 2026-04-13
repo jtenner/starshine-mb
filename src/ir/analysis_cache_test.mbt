@@ -27,21 +27,13 @@ test "analysis cache reuses overlays while the hot revision is unchanged" {
   let cfg1 = cache_get_or_build_cfg(cache, func)
   let dom0 = cache_get_or_build_dom(cache, func)
   let dom1 = cache_get_or_build_dom(cache, func)
-  let node_masks0 = cache_get_or_build_effect_node_masks(cache, func)
-  let node_masks1 = cache_get_or_build_effect_node_masks(cache, func)
   let effects0 = cache_get_or_build_effects(cache, func)
   let effects1 = cache_get_or_build_effects(cache, func)
 
   assert_eq(cfg0, cfg1)
   assert_eq(dom0, dom1)
-  assert_eq(node_masks0, node_masks1)
-  assert_eq(node_masks0, effects0.node_masks)
   assert_eq(effects0, effects1)
   assert_eq(cache.cfg.unwrap().built_at_revision, hot_revision_current(func))
-  assert_eq(
-    cache.effect_node_masks.unwrap().built_at_revision,
-    hot_revision_current(func),
-  )
   assert_eq(
     cache.effects.unwrap().built_at_revision,
     hot_revision_current(func),
@@ -98,12 +90,10 @@ test "analysis cache invalidate_all drops cached overlays" {
 
   ignore(cache_get_or_build_cfg(cache, func))
   ignore(cache_get_or_build_dom(cache, func))
-  ignore(cache_get_or_build_effect_node_masks(cache, func))
   ignore(cache_get_or_build_effects(cache, func))
 
   assert_true(cache.cfg is Some(_))
   assert_true(cache.dom is Some(_))
-  assert_true(cache.effect_node_masks is Some(_))
   assert_true(cache.effects is Some(_))
 
   cache_invalidate_all(cache)
@@ -115,7 +105,6 @@ test "analysis cache invalidate_all drops cached overlays" {
   assert_eq(cache.loop_info, None)
   assert_eq(cache.use_def, None)
   assert_eq(cache.liveness, None)
-  assert_eq(cache.effect_node_masks, None)
   assert_eq(cache.effects, None)
   assert_eq(cache.ssa, None)
 }

@@ -1666,8 +1666,9 @@ test "hot lower keeps nested escaping-if unreachable sentinels" {
   let lowered = ir_test_assert_verify_and_lower(fixture)
   let pretty = lowered.pretty_print_func(@lib.FuncIdx::new(1U))
 
-  assert_true(
-    hot_lower_test_count_substring(pretty, "unreachable") >= 3,
+  assert_eq(
+    hot_lower_test_count_substring(pretty, "unreachable"),
+    3,
     msg=pretty,
   )
   assert_true(pretty.contains("(br (Label 2))"), msg=pretty)
