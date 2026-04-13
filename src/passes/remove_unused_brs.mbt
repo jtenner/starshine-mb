@@ -38,7 +38,7 @@ priv struct RemoveUnusedBrsRootSite {
 
 ///|
 priv struct RemoveUnusedBrsBranchPayloadScan {
-  branch_payload_children : Array[Bool]
+  branch_payload_children : @bitset.BitSet
   has_br_table : Bool
 }
 
@@ -549,7 +549,7 @@ fn remove_unused_brs_compute_label_refs(func : @ir.HotFunc) -> Array[Int] {
 fn remove_unused_brs_compute_branch_payload_children(
   func : @ir.HotFunc,
 ) -> RemoveUnusedBrsBranchPayloadScan {
-  let payload_children = Array::make(@ir.hot_node_count(func), false)
+  let payload_children = @bitset.BitSet::new(@ir.hot_node_count(func))
   let mut has_br_table = false
   for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
     if !@ir.hot_node_is_live(func, node_id) {
@@ -865,11 +865,11 @@ fn remove_unused_brs_build_i32_eqz(func : @ir.HotFunc, operand : Int) -> Int {
 
 ///|
 fn remove_unused_brs_local_read_mask_resize(
-  reads : Array[Bool],
+  reads : @bitset.BitSet,
   local_id : Int,
 ) -> Unit {
-  while reads.length() <= local_id {
-    reads.push(false)
+  if local_id >= reads.length() {
+    reads.grow(local_id + 1)
   }
 }
 
@@ -877,7 +877,7 @@ fn remove_unused_brs_local_read_mask_resize(
 fn remove_unused_brs_mark_local_reads_in_value_expr(
   func : @ir.HotFunc,
   node_id : Int,
-  reads : Array[Bool],
+  reads : @bitset.BitSet,
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return
@@ -936,7 +936,7 @@ fn remove_unused_brs_mark_local_reads_in_value_expr(
 fn remove_unused_brs_condition_is_select_safe_over_value_arms(
   func : @ir.HotFunc,
   node_id : Int,
-  arm_reads : Array[Bool],
+  arm_reads : @bitset.BitSet,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -2331,7 +2331,7 @@ fn remove_unused_brs_match_value_if_to_select(
     ) {
     let mut safe_nonreorder_condition = allow_nonreorder_condition_with_reorder_safe_arms
     if !safe_nonreorder_condition {
-      let arm_reads : Array[Bool] = []
+      let arm_reads = @bitset.BitSet::new(0)
       remove_unused_brs_mark_local_reads_in_value_expr(
         func, then_root, arm_reads,
       )
@@ -2942,7 +2942,7 @@ fn remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   label_refs : Array[Int],
-  branch_payload_children : Array[Bool],
+  branch_payload_children : @bitset.BitSet,
 ) -> Bool {
   let holder = match @ir.hot_region_holder_block_root(func, region_ref) {
     Some(holder) => holder
@@ -3334,7 +3334,7 @@ fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
   block_id : Int,
   reorder_cache : Array[Int],
   label_refs : Array[Int],
-  branch_payload_children : Array[Bool],
+  branch_payload_children : @bitset.BitSet,
 ) -> Bool {
   if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
     return false
@@ -4732,7 +4732,7 @@ fn remove_unused_brs_visit_embedded_subtree(
   seen : Array[Int],
   reorder_cache : Array[Int],
   label_refs : Array[Int],
-  branch_payload_children : Array[Bool],
+  branch_payload_children : @bitset.BitSet,
   func_has_br_table : Bool,
   payload_context : Bool,
   return_context : Bool,
@@ -4802,7 +4802,7 @@ fn remove_unused_brs_visit_generic_children(
   seen : Array[Int],
   reorder_cache : Array[Int],
   label_refs : Array[Int],
-  branch_payload_children : Array[Bool],
+  branch_payload_children : @bitset.BitSet,
   func_has_br_table : Bool,
   control_cache : Array[Int],
   return_cache : Array[Int],
@@ -4834,7 +4834,7 @@ fn remove_unused_brs_visit_node(
   seen : Array[Int],
   reorder_cache : Array[Int],
   label_refs : Array[Int],
-  branch_payload_children : Array[Bool],
+  branch_payload_children : @bitset.BitSet,
   func_has_br_table : Bool,
   payload_context : Bool,
   return_context : Bool,
@@ -5406,7 +5406,7 @@ fn remove_unused_brs_visit_region(
   seen : Array[Int],
   reorder_cache : Array[Int],
   label_refs : Array[Int],
-  branch_payload_children : Array[Bool],
+  branch_payload_children : @bitset.BitSet,
   func_has_br_table : Bool,
   return_context : Bool,
   control_cache : Array[Int],

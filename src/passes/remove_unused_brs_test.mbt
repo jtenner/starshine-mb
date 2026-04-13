@@ -172,6 +172,34 @@ test "remove-unused-brs rewrites reorder-safe condition ladders into select" {
 }
 
 ///|
+test "remove-unused-brs keeps high-local nonreorder conditions as ifs when arms read the tee target" {
+  let input = {
+    let out = StringBuilder::new()
+    out.write_string(
+      "(module (func $cond (param i32) (result i32) (local.get 0)) (func (param i32) (result i32)",
+    )
+    for _ in 0..<70 {
+      out.write_string(" (local i32)")
+    }
+    out.write_string(
+      " (if (result i32) (call $cond (local.tee 70 (local.get 0))) (then (local.get 70)) (else (i32.const 0)))))",
+    )
+    out.to_string()
+  }
+  let optimized = match pass_test_run_pipeline(input, ["remove-unused-brs"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-brs high-local local.tee guard success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(1U))
+  assert_true(pretty.contains("(if I32"), msg=pretty)
+  assert_false(pretty.contains("select"), msg=pretty)
+}
+
+///|
 test "remove-unused-brs rewrites call-conditioned value ifs under branch conditions into select" {
   let optimized = match
     pass_test_run_pipeline(
