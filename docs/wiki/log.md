@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-13] maintain | classify remaining standalone `Func 1948` / `Func 1977` exact drift as canonicalization noise
+
+- Added [`0089`](raw/research/0089-2026-04-13-code-pushing-standalone-drift-canonicalization-noise.md), which refreshes current-source standalone `Func 1948` / `Func 1977` with fresh `{star-no,star,bin-no,bin}` outputs under `.tmp/codex-tmp/source-standalone-check-20260413f`.
+- Recorded that the current tree now matches Binaryen again on the reopened moved-local families in both functions: `Func 1977` moves local `38`, `33`, and `45`, while `Func 1948` moves local `135`-through-`145` and `153`-through-`163`.
+- Recorded the sharper split for the remaining exact WAT drift too: `Func 1948` is mostly inherited no-pass standalone reconstruction / canonicalization noise, while `Func 1977` is mostly Starshine writeback-shape canonicalization after the correct admitted move.
+- Repointed the next parity question back to the real whole-artifact/runtime frontier instead of treating exact standalone `Func 1948` / `Func 1977` WAT mismatch as a direct `code-pushing` admission blocker.
+
 ## [2026-04-13] maintain | relax the candidate-aware non-void explicit-exit block-prefix fence in `code-pushing`
 
 - Added [`0088`](raw/research/0088-2026-04-13-code-pushing-nonvoid-prefix-block-relaxation.md), which records the reduced Binaryen probes showing that earlier unsafe explicit-exit `Block` prefixes are not blanket blockers for later safe `local.set` motion.

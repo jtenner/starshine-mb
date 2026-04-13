@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md
   - ../../../raw/research/0087-2026-04-13-code-pushing-standalone-func1977-hot-lower-recursive-fix.md
   - ../../../raw/research/0088-2026-04-13-code-pushing-nonvoid-prefix-block-relaxation.md
+  - ../../../raw/research/0089-2026-04-13-code-pushing-standalone-drift-canonicalization-noise.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
@@ -173,6 +174,11 @@ related:
   local-`33`, and local-`45` `Func 1977` motion family again too, while the
   repeated standalone `Func 1948` local-`135`-through-`145` and `153`-through-
   `163` motion family is reopened at the pass layer on the same tree.
+  A later refresh narrows the exact residual standalone meaning further: those
+  moved-local families now match Binaryen again, so the remaining exact
+  standalone WAT drift is mostly inherited no-pass reconstruction /
+  canonicalization noise in `Func 1948`, and mostly Starshine writeback-shape
+  canonicalization after the correct admitted move in `Func 1977`.
 - One sharper current-tree frontier was isolated outside the still-expensive
   full replay and is now closed too: standalone recreations built from saved
   function slices showed that the old saved `Func 509` family was stale on the
@@ -221,9 +227,9 @@ related:
 - The next full signoff question is therefore narrower:
   rerun the real artifact on the kept fence now that standalone `Func 1977`
   itself no longer falls back and the reopened standalone `Func 1948` / `Func
-  1977` pass-level moves are back, then recheck whether any later semantic delta
-  survives after `Func 148` and the reduced `Func 1977` frontier both stop
-  changing.
+  1977` pass-level moves are back. The remaining exact standalone WAT mismatch
+  should now be treated as analysis noise first, not as a direct pass-admission
+  blocker, unless a fresh artifact diff or runtime delta proves otherwise.
 - The honest reading is narrower than that raw diff suggests: some part of the
   remaining whole-artifact gap is still mixed with Binaryen's multivalue /
   local writeback behavior, so reduced pass or HOT proofs still matter more than

@@ -11,6 +11,8 @@ sources:
   - ../../../raw/research/0085-2026-04-13-code-pushing-standalone-func1977-suspicious-block.md
   - ../../../raw/research/0086-2026-04-13-code-pushing-standalone-func1977-leaf-suspicious-pairs.md
   - ../../../raw/research/0087-2026-04-13-code-pushing-standalone-func1977-hot-lower-recursive-fix.md
+  - ../../../raw/research/0088-2026-04-13-code-pushing-nonvoid-prefix-block-relaxation.md
+  - ../../../raw/research/0089-2026-04-13-code-pushing-standalone-drift-canonicalization-noise.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
@@ -54,8 +56,11 @@ related:
   and crossed-gap carrier aliases where the kept condition-set does not alias
   that same carried local are now part of the admitted Binaryen-matched surface
   again. The reduced standalone `Func 1977` hot-lower/writeback fallback is now
-  closed too, but the broader owner-sensitive non-void families and the remaining
-  whole-artifact/runtime gap are still where the harder work lives.
+  closed too, and the reopened standalone `Func 1948` / `Func 1977` moved-local
+  families now match Binaryen again at the pass layer. The remaining exact
+  standalone WAT drift is narrower: mostly no-pass reconstruction noise in
+  `Func 1948` and mostly writeback canonicalization in `Func 1977`. The broader
+  whole-artifact/runtime gap is therefore where the harder work still lives.
 
 ## Source Scope
 
