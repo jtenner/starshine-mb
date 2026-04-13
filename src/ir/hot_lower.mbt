@@ -1884,6 +1884,126 @@ fn hot_lower_impl_split_parent_exit_payload_has_mixed_child_exits(
 }
 
 ///|
+fn hot_lower_impl_try_pack_split_if_payload_forwarder(
+  bt : BlockType,
+  body : Array[Instruction],
+) -> Array[Instruction]? {
+  match bt {
+    VoidBlockType => return None
+    _ => ()
+  }
+  match body {
+    [Block(VoidBlockType, Expr(inner_body)), LocalGet(carried_local)] => {
+      if inner_body.length() < 2 {
+        return None
+      }
+      let inner_if = inner_body[inner_body.length() - 2]
+      match inner_body[inner_body.length() - 1] {
+        Unreachable => ()
+        _ => return None
+      }
+      let prefix : Array[Instruction] = []
+      for i = 0; i < inner_body.length() - 2; i = i + 1 {
+        if hot_lower_impl_has_control_transfer(inner_body[i]) {
+          return None
+        }
+        prefix.push(inner_body[i])
+      }
+      let extract_dropped_value_arm = fn(
+        arm : Array[Instruction],
+      ) -> Array[Instruction]? {
+        if arm.length() < 2 {
+          return None
+        }
+        match arm[arm.length() - 1] {
+          Br(li) if ({
+              let depth = hot_lower_impl_decoded_label_depth(li)
+              depth == 0 || depth == 1
+            }) => ()
+          _ => return None
+        }
+        let value_end = match arm[arm.length() - 2] {
+          Drop => arm.length() - 2
+          _ => if arm.length() == 2 { 1 } else { return None }
+        }
+        let value_instrs : Array[Instruction] = []
+        for i = 0; i < value_end; i = i + 1 {
+          if hot_lower_impl_has_control_transfer(arm[i]) {
+            return None
+          }
+          value_instrs.push(arm[i])
+        }
+        if value_instrs.length() == 0 {
+          return None
+        }
+        Some(value_instrs)
+      }
+      let arm_is_forwarding = fn(arm : Array[Instruction]) -> Bool {
+        if arm.length() == 0 {
+          return false
+        }
+        match arm[arm.length() - 1] {
+          Br(li) if ({
+              let depth = hot_lower_impl_decoded_label_depth(li)
+              depth == 0 || depth == 1
+            }) => ()
+          _ => return false
+        }
+        for i = 0; i < arm.length() - 1; i = i + 1 {
+          if hot_lower_impl_has_control_transfer(arm[i]) {
+            return false
+          }
+        }
+        true
+      }
+      match inner_if {
+        If(VoidBlockType, then_, Some(else_)) => {
+          match
+            (
+              hot_lower_impl_body_terminal_branch_depth(then_),
+              hot_lower_impl_body_terminal_branch_depth(else_),
+            ) {
+            (Some(then_depth), Some(else_depth)) if then_depth != else_depth =>
+              return None
+            _ => ()
+          }
+          let rebuilt = match extract_dropped_value_arm(then_) {
+            Some(then_value) if arm_is_forwarding(else_) =>
+              Some(Instruction::if_(bt, then_value, Some(else_)))
+            _ =>
+              match extract_dropped_value_arm(else_) {
+                Some(else_value) if arm_is_forwarding(then_) =>
+                  Some(Instruction::if_(bt, then_, Some(else_value)))
+                _ => None
+              }
+          }
+          match rebuilt {
+            Some(rebuilt_if) =>
+              Some([
+                Instruction::block(
+                  @lib.BlockType::void_(),
+                  Expr::new(
+                    prefix +
+                    [
+                      rebuilt_if,
+                      Instruction::br(LabelIdx::new(1U)),
+                      Instruction::unreachable_(),
+                    ],
+                  ),
+                ),
+                Instruction::local_get(carried_local),
+              ])
+            None => None
+          }
+        }
+        _ => None
+      }
+    }
+    _ => None
+  }
+}
+
+///|
 fn hot_lower_impl_try_unpack_parent_exit_payload_wrapper(
   bt : BlockType,
   body : Array[Instruction],
