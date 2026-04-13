@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-13] maintain | relax the candidate-aware non-void explicit-exit block-prefix fence in `code-pushing`
+
+- Added [`0088`](raw/research/0088-2026-04-13-code-pushing-nonvoid-prefix-block-relaxation.md), which records the reduced Binaryen probes showing that earlier unsafe explicit-exit `Block` prefixes are not blanket blockers for later safe `local.set` motion.
+- Recorded the concrete reopened reduced families too: Binaryen still reorders the branch-root, nested-branch-body, branch-free parent-escape, and return-continuation parent-err reducers, so those old negatives are now updated in-tree to the moved order.
+- Recorded the kept fence as well: the true same-source alias-condition-set carrier family still stays negative, and `src/passes/code_pushing.mbt` now keeps that with dedicated prior/later same-source guards while still relaxing the broader non-void prefix rule candidate-by-candidate.
+- Recorded the current-source standalone consequence too: `Func 1977` again admits the reopened local-`38` / local-`33` / local-`45` motion family at the pass level, and the repeated standalone `Func 1948` local-`135`-through-`145` / `153`-through-`163` motion family is reopened on the same tree while compare-pass fuzz stays green at `.tmp/pass-fuzz-code-pushing-20260413e` and `.tmp/pass-fuzz-code-pushing-20260413f`.
+
 ## [2026-04-13] maintain | close the standalone `Func 1977` hot-lower writeback frontier
 
 - Added [`0087`](raw/research/0087-2026-04-13-code-pushing-standalone-func1977-hot-lower-recursive-fix.md), which records the closing reduction for the reduced standalone `Func 1977` lower/writeback failure after the earlier `0084` / `0085` / `0086` localization work.

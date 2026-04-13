@@ -2824,6 +2824,95 @@ fn cp_nonvoid_prefix_has_explicit_exit_guard(
 }
 
 ///|
+fn cp_candidate_nonvoid_prefix_has_explicit_exit_guard(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  roots_view : CpRegionRootsView,
+  prefix_start_idx : Int,
+  candidate_idx : Int,
+  target_idx : Int,
+  dropped_region_owner_id : Int,
+  candidate_root_id : Int,
+) -> Bool {
+  if prefix_start_idx > target_idx || target_idx < 0 {
+    return false
+  }
+  let candidate_source_local_id = cp_root_local_set_local_get_source_local(
+    func, candidate_root_id,
+  )
+  let target_if_id = match
+    cp_root_if_pushpoint_id(
+      func,
+      cp_region_root_get(func, roots_view, target_idx),
+    ) {
+    Some(if_id) => if_id
+    None => return true
+  }
+  let mut idx = if prefix_start_idx < 0 { 0 } else { prefix_start_idx }
+  while idx < roots_view.root_count && idx <= target_idx {
+    let prefix_root_id = cp_region_root_get(func, roots_view, idx)
+    if cp_prefix_root_has_unsafe_explicit_exit(
+        cache, func, prefix_root_id, dropped_region_owner_id,
+      ) &&
+      !cp_root_is_ignorable_nonvoid_prefix_terminal_owner_carrier(
+        cache, func, prefix_root_id, dropped_region_owner_id,
+      ) {
+      let has_same_source_alias_before_candidate = match
+        candidate_source_local_id {
+        Some(source_local_id) => {
+          let cond_id = @ir.hot_child_get(func, target_if_id, 0)
+          let cond_reads_same_source_alias = fn(root_id : Int) {
+            let root = @ir.hot_node_get(func, root_id)
+            match root.op {
+              @ir.HotOp::LocalSet => ()
+              _ => return false
+            }
+            if root.imm0 < 0 {
+              return false
+            }
+            match cp_root_local_set_local_get_source_local(func, root_id) {
+              Some(crossed_source_local_id) =>
+                crossed_source_local_id == source_local_id &&
+                cond_id >= 0 &&
+                @ir.hot_node_is_live(func, cond_id) &&
+                cp_summary_reads_local(
+                  cp_effect_summary_for_node(cache, func, cond_id),
+                  root.imm0,
+                )
+              None => false
+            }
+          }
+          let mut prev_idx = candidate_idx - 1
+          let mut found = false
+          while prev_idx >= prefix_start_idx {
+            let prev_root_id = cp_region_root_get(func, roots_view, prev_idx)
+            if prev_root_id >= 0 &&
+              @ir.hot_node_is_live(func, prev_root_id) &&
+              cond_reads_same_source_alias(prev_root_id) {
+              found = true
+              break
+            }
+            prev_idx = prev_idx - 1
+          }
+          found
+        }
+        None => false
+      }
+      let allow_unrelated_block_prefix = match
+        @ir.hot_node_get(func, prefix_root_id).op {
+        @ir.HotOp::Block => !has_same_source_alias_before_candidate
+        _ => false
+      }
+      if !allow_unrelated_block_prefix {
+        return true
+      }
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
 fn cp_root_pushpoint_id(func : @ir.HotFunc, root_id : Int) -> Int? {
   if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
     return None
@@ -3041,6 +3130,117 @@ fn cp_push_to_pushpoint_has_condition_set_crossed_carrier_alias_guard(
         cache, func, prefix_root_id, source_local_id,
       ) {
       return true
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
+fn cp_push_to_pushpoint_has_prior_same_source_condition_set_alias_guard(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  roots_view : CpRegionRootsView,
+  reachable_prefix_start_idx : Int,
+  candidate_idx : Int,
+  target_if_id : Int,
+) -> Bool {
+  if candidate_idx <= 0 {
+    return false
+  }
+  let candidate_root_id = cp_region_root_get(func, roots_view, candidate_idx)
+  let source_local_id = match
+    cp_root_local_set_local_get_source_local(func, candidate_root_id) {
+    Some(local_id) => local_id
+    None => return false
+  }
+  let crossed_root_id = cp_region_root_get(func, roots_view, candidate_idx - 1)
+  if crossed_root_id < 0 || !@ir.hot_node_is_live(func, crossed_root_id) {
+    return false
+  }
+  let crossed_root = @ir.hot_node_get(func, crossed_root_id)
+  match crossed_root.op {
+    @ir.HotOp::LocalSet => ()
+    _ => return false
+  }
+  if crossed_root.imm0 < 0 {
+    return false
+  }
+  let crossed_source_local_id = match
+    cp_root_local_set_local_get_source_local(func, crossed_root_id) {
+    Some(local_id) => local_id
+    None => return false
+  }
+  if crossed_source_local_id != source_local_id {
+    return false
+  }
+  let cond_id = @ir.hot_child_get(func, target_if_id, 0)
+  if cond_id < 0 || !@ir.hot_node_is_live(func, cond_id) {
+    return false
+  }
+  if !cp_summary_reads_local(
+      cp_effect_summary_for_node(cache, func, cond_id),
+      crossed_root.imm0,
+    ) {
+    return false
+  }
+  let mut idx = reachable_prefix_start_idx
+  while idx < candidate_idx {
+    let prefix_root_id = cp_region_root_get(func, roots_view, idx)
+    if cp_root_is_explicit_exit_block_carrier_for_local_alias(
+        cache, func, prefix_root_id, source_local_id,
+      ) {
+      return true
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
+fn cp_push_to_pushpoint_has_later_same_source_alias_before_target_guard(
+  cache : CpSummaryCache,
+  func : @ir.HotFunc,
+  roots_view : CpRegionRootsView,
+  candidate_idx : Int,
+  target_idx : Int,
+  target_if_id : Int,
+) -> Bool {
+  let candidate_root_id = cp_region_root_get(func, roots_view, candidate_idx)
+  let candidate_root = @ir.hot_node_get(func, candidate_root_id)
+  let source_local_id = match
+    cp_root_local_set_local_get_source_local(func, candidate_root_id) {
+    Some(local_id) => local_id
+    None => return false
+  }
+  if candidate_root.imm0 < 0 {
+    return false
+  }
+  let cond_id = @ir.hot_child_get(func, target_if_id, 0)
+  if cond_id < 0 || !@ir.hot_node_is_live(func, cond_id) {
+    return false
+  }
+  if !cp_summary_reads_local(
+      cp_effect_summary_for_node(cache, func, cond_id),
+      candidate_root.imm0,
+    ) {
+    return false
+  }
+  let mut idx = candidate_idx + 1
+  while idx < target_idx {
+    let crossed_root_id = cp_region_root_get(func, roots_view, idx)
+    if crossed_root_id >= 0 && @ir.hot_node_is_live(func, crossed_root_id) {
+      let crossed_root = @ir.hot_node_get(func, crossed_root_id)
+      match crossed_root.op {
+        @ir.HotOp::LocalSet =>
+          match
+            cp_root_local_set_local_get_source_local(func, crossed_root_id) {
+            Some(crossed_source_local_id) if crossed_source_local_id ==
+              source_local_id => return true
+            _ => ()
+          }
+        _ => ()
+      }
     }
     idx = idx + 1
   }
@@ -3598,25 +3798,14 @@ fn cp_try_push_to_pushpoint(
   if !cp_root_is_pushpoint(func, target_root_id) {
     return false
   }
-  if cp_region_has_nonvoid_result(func, region_ref) {
-    let dropped_region_owner_id = match
-      cp_dropped_region_owner_id(cache, func, region_ref) {
+  let region_has_nonvoid_result = cp_region_has_nonvoid_result(func, region_ref)
+  let dropped_region_owner_id = if region_has_nonvoid_result {
+    match cp_dropped_region_owner_id(cache, func, region_ref) {
       Some(owner_id) => owner_id
       None => -1
     }
-    let mut prefix_idx = reachable_prefix_start_idx
-    while prefix_idx <= target_idx && prefix_idx < roots_view.root_count {
-      let prefix_root_id = cp_region_root_get(func, roots_view, prefix_idx)
-      if cp_prefix_root_has_unsafe_explicit_exit(
-          cache, func, prefix_root_id, dropped_region_owner_id,
-        ) &&
-        !cp_root_is_ignorable_nonvoid_prefix_terminal_owner_carrier(
-          cache, func, prefix_root_id, dropped_region_owner_id,
-        ) {
-        return false
-      }
-      prefix_idx = prefix_idx + 1
-    }
+  } else {
+    -1
   }
   let barrier = cp_new_barrier_summary(cache.local_count, cache.global_count)
   let dead_move_gap = cp_empty_effect_summary(
@@ -3641,14 +3830,27 @@ fn cp_try_push_to_pushpoint(
         )
         if barrier_conflict {
           None
+        } else if region_has_nonvoid_result &&
+          cp_candidate_nonvoid_prefix_has_explicit_exit_guard(
+            cache, func, roots_view, reachable_prefix_start_idx, scan, target_idx,
+            dropped_region_owner_id, root_id,
+          ) {
+          None
         } else {
           match target_if_id {
             Some(if_id) =>
-              if !cp_summary_reads_local(pushpoint_summary, local_id) &&
+              if cp_push_to_pushpoint_has_later_same_source_alias_before_target_guard(
+                  cache, func, roots_view, scan, target_idx, if_id,
+                ) {
+                None
+              } else if !cp_summary_reads_local(pushpoint_summary, local_id) &&
                 !cp_summary_writes_local(pushpoint_summary, local_id) {
                 if cp_push_to_pushpoint_has_condition_set_crossed_carrier_alias_guard(
                     cache, func, roots_view, reachable_prefix_start_idx, scan, target_idx,
                     if_id,
+                  ) ||
+                  cp_push_to_pushpoint_has_prior_same_source_condition_set_alias_guard(
+                    cache, func, roots_view, reachable_prefix_start_idx, scan, if_id,
                   ) {
                   None
                 } else {

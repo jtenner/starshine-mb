@@ -133,6 +133,10 @@ bun scripts/pass-fuzz-compare.ts \
     mismatches, `0` validation failures, `0` generator failures, and `0`
     command failures after readmitting the nested result-`if` condition sink
     family
+  - `pass-fuzz-code-pushing-20260413e` completed `10000/10000` with `0`
+    mismatches, `0` validation failures, `0` generator failures, and `0`
+    command failures after readmitting the candidate-aware non-void explicit-
+    exit block-prefix families
 - Mixed-generator and smith-only lanes have also stayed semantically clean on the
   kept pass surface, with remaining failures attributed to Binaryen-side parser or
   canonicalization rejects such as invalid type-index families. After the same
@@ -153,6 +157,10 @@ bun scripts/pass-fuzz-compare.ts \
   validation failures, and `3` Binaryen-side command failures. After
   readmitting the nested result-`if` condition sink family,
   `pass-fuzz-code-pushing-20260413b` kept that same smith-only outcome too:
+  `997/1000` compared, `0` mismatches, `0` validation failures, and `3`
+  Binaryen-side command failures. After readmitting the candidate-aware
+  non-void explicit-exit block-prefix families,
+  `pass-fuzz-code-pushing-20260413f` kept that same smith-only outcome too:
   `997/1000` compared, `0` mismatches, `0` validation failures, and `3`
   Binaryen-side command failures.
 

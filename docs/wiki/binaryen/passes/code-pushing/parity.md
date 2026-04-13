@@ -10,6 +10,7 @@ sources:
   - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
   - ../../../raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md
   - ../../../raw/research/0087-2026-04-13-code-pushing-standalone-func1977-hot-lower-recursive-fix.md
+  - ../../../raw/research/0088-2026-04-13-code-pushing-nonvoid-prefix-block-relaxation.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
@@ -106,11 +107,11 @@ related:
   family under `local.set`, `local.tee`, and `global.set` value positions, and
   the current tree now pins all three reduced cases in `src/passes/code_pushing_test.mbt`.
 - The latest same-tree compare-pass lane is
-  `pass-fuzz-code-pushing-20260413c`, and it completed `10000/10000` with `0`
+  `pass-fuzz-code-pushing-20260413e`, and it completed `10000/10000` with `0`
   mismatches, validation failures, generator failures, or command failures after
-  closing the reduced standalone `Func 1977` hot-lower/writeback frontier.
+  readmitting the candidate-aware non-void explicit-exit block-prefix families.
 - A fresh smith-only lane stays semantically green too after that fix:
-  `pass-fuzz-code-pushing-20260413d` completed `997/1000` compared with `0`
+  `pass-fuzz-code-pushing-20260413f` completed `997/1000` compared with `0`
   mismatches and only `3` Binaryen-side command failures.
 
 ## Current Signoff Gap
@@ -146,6 +147,12 @@ related:
   no longer blocks the move just because some crossed condition-set local feeds
   the later `if`. The guard now only keeps the true same-source aliasing case
   fenced.
+- One more non-void explicit-exit over-fence is gone too: reduced Binaryen
+  probes show that earlier unsafe `Block` prefixes are not blanket blockers for
+  later safe candidates. The current tree now readmits the reduced branch-root,
+  nested-branch-body, branch-free parent-escape, and return-continuation
+  parent-err reorder families while still fencing the real same-source alias-
+  condition-set case with dedicated prior/later same-source guards.
 - The current direct debug-artifact path is valid again, but still not close to
   Binaryen parity.
 - Native `--code-pushing` output on `tests/node/dist/starshine-debug-wasi.wasm`
@@ -162,6 +169,10 @@ related:
   the old invalid depth to the new valid depth, `wasm-tools validate`
   succeeds on the reduced lowered standalone module, and traced standalone replay
   no longer ends in `pass[code-pushing]:skip-invalid-lower`.
+  Current-source standalone replay now admits the reopened local-`38`,
+  local-`33`, and local-`45` `Func 1977` motion family again too, while the
+  repeated standalone `Func 1948` local-`135`-through-`145` and `153`-through-
+  `163` motion family is reopened at the pass layer on the same tree.
 - One sharper current-tree frontier was isolated outside the still-expensive
   full replay and is now closed too: standalone recreations built from saved
   function slices showed that the old saved `Func 509` family was stale on the
@@ -209,7 +220,8 @@ related:
   Binaryen does not transform that function at all.
 - The next full signoff question is therefore narrower:
   rerun the real artifact on the kept fence now that standalone `Func 1977`
-  itself no longer falls back, and then recheck whether any later semantic delta
+  itself no longer falls back and the reopened standalone `Func 1948` / `Func
+  1977` pass-level moves are back, then recheck whether any later semantic delta
   survives after `Func 148` and the reduced `Func 1977` frontier both stop
   changing.
 - The honest reading is narrower than that raw diff suggests: some part of the

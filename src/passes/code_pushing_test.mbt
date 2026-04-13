@@ -278,7 +278,8 @@ fn code_pushing_test_find_real_carrier_fixture(
         let region = @ir.hot_region_body_ref(func, node_id)
         let tags = code_pushing_test_region_tags(func, region)
         if tags ==
-          ["Block", "LocalSet(5)", "If", "Store", "Drop", "LocalGet(3)"] {
+          ["Block", "LocalSet(5)", "If", "Store", "Drop", "LocalGet(3)"] ||
+          tags == ["Block", "If", "LocalSet(5)", "Store", "Drop", "LocalGet(3)"] {
           carrier_body = Some(region)
           continue
         }
@@ -2014,7 +2015,7 @@ test "code-pushing rewrites past a terminal owner-carrier when the crossed condi
 }
 
 ///|
-test "code-pushing does not rewrite past an earlier branch root even when the crossed gap is branch-free" {
+test "code-pushing moves a later branch-free local.set past an earlier branch root when Binaryen does" {
   let source = "(module (func (param i32 i32) (result i32) (local i32 i32) block $done local.get 0 br_if $done end local.get 1 local.set 2 i32.const 7 local.set 3 local.get 2 if local.get 2 drop end local.get 3))"
   let func = code_pushing_test_run_hot(source)
 
@@ -2026,11 +2027,11 @@ test "code-pushing does not rewrite past an earlier branch root even when the cr
     code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
     "LocalSet(2)",
   )
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)), "If")
   assert_eq(
-    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)),
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)),
     "LocalSet(3)",
   )
-  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 3)), "If")
   assert_eq(
     code_pushing_test_node_tag(func, @ir.hot_root_get(func, 4)),
     "LocalGet(3)",
@@ -2043,7 +2044,7 @@ test "code-pushing does not rewrite past an earlier branch root even when the cr
 }
 
 ///|
-test "code-pushing does not rewrite a parent-escape carrier with a branch-free crossed gap" {
+test "code-pushing moves a parent-escape carrier alias with a branch-free crossed gap when Binaryen does" {
   let source =
     #|(module
     #|  (func $side (param i32))
@@ -2078,11 +2079,11 @@ test "code-pushing does not rewrite a parent-escape carrier with a branch-free c
     #|)
   let func = code_pushing_test_run_hot_code(source, 1)
   let carrier_body = code_pushing_test_find_block_body_region(func, 1, [
-    "Block", "Block", "LocalSet(4)", "LocalSet(5)", "If", "Drop", "LocalGet(5)",
+    "Block", "Block", "LocalSet(4)", "If", "LocalSet(5)", "Drop", "LocalGet(5)",
   ])
 
   assert_eq(code_pushing_test_region_tags(func, carrier_body), [
-    "Block", "Block", "LocalSet(4)", "LocalSet(5)", "If", "Drop", "LocalGet(5)",
+    "Block", "Block", "LocalSet(4)", "If", "LocalSet(5)", "Drop", "LocalGet(5)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {
@@ -2092,7 +2093,7 @@ test "code-pushing does not rewrite a parent-escape carrier with a branch-free c
 }
 
 ///|
-test "code-pushing does not rewrite past an earlier zero-result branch root" {
+test "code-pushing moves a later local.set past an earlier zero-result branch root when Binaryen does" {
   let source = "(module (func (param i32 i32) (result i32) (local i32) block $done local.get 0 br_if $done end i32.const 7 local.set 2 local.get 0 if local.get 1 drop end local.get 2))"
   let func = code_pushing_test_run_hot(source)
 
@@ -2100,9 +2101,9 @@ test "code-pushing does not rewrite past an earlier zero-result branch root" {
     code_pushing_test_node_tag(func, @ir.hot_root_get(func, 0)),
     "Block",
   )
-  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)), "If")
+  assert_eq(code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)), "If")
   assert_eq(
-    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 1)),
+    code_pushing_test_node_tag(func, @ir.hot_root_get(func, 2)),
     "LocalSet(2)",
   )
   assert_eq(
@@ -2117,7 +2118,7 @@ test "code-pushing does not rewrite past an earlier zero-result branch root" {
 }
 
 ///|
-test "code-pushing does not rewrite past a nested branch that only appears in an earlier block body region" {
+test "code-pushing moves a later local.set past a nested branch that only appears in an earlier block body region when Binaryen does" {
   let source =
     #|(module
     #|  (func (param i32 i32) (result i32)
@@ -2137,7 +2138,7 @@ test "code-pushing does not rewrite past a nested branch that only appears in an
   let func = code_pushing_test_run_hot(source)
 
   assert_eq(code_pushing_test_region_tags(func, @ir.HotRegionRef::root()), [
-    "Block", "LocalSet(2)", "If", "LocalGet(2)",
+    "Block", "If", "LocalSet(2)", "LocalGet(2)",
   ])
 
   match pass_test_run_pipeline(source, ["code-pushing"]) {
@@ -3443,7 +3444,7 @@ test "code-pushing does not extract a carrier payload through a parent err block
 }
 
 ///|
-test "code-pushing does not extract a carrier payload through a parent err block with a return continuation" {
+test "code-pushing does not extract a carrier payload through a parent err block with a return continuation but still moves the later alias local.set" {
   let source =
     #|(module
     #|  (memory 1)
@@ -3529,7 +3530,7 @@ test "code-pushing does not extract a carrier payload through a parent err block
 
   assert_eq(code_pushing_test_region_tags(func, real.err_body), ["Br"])
   assert_eq(code_pushing_test_region_tags(func, real.carrier_body), [
-    "Block", "LocalSet(5)", "If", "Store", "Drop", "LocalGet(3)",
+    "Block", "If", "LocalSet(5)", "Store", "Drop", "LocalGet(3)",
   ])
 
   let lowered = @ir.hot_lower_func(func)

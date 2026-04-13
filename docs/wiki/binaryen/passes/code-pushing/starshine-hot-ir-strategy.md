@@ -10,6 +10,7 @@ sources:
   - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
   - ../../../raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md
   - ../../../raw/research/0087-2026-04-13-code-pushing-standalone-func1977-hot-lower-recursive-fix.md
+  - ../../../raw/research/0088-2026-04-13-code-pushing-nonvoid-prefix-block-relaxation.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -173,6 +174,12 @@ related:
   - earlier explicit-exit `local.set` carriers
   - self-contained or terminal owner-only block prefixes
   - dropped-owner predecessor chains
+  - candidate-aware reorders past earlier unsafe `Block` prefixes when Binaryen
+    still moves the later safe root
+- The current non-void explicit-exit prefix rule is candidate-aware now too:
+  earlier unsafe `Block` prefixes are no longer a blanket blocker, but the pass
+  still keeps the real same-source alias-condition-set family fenced with
+  dedicated prior/later same-source guards.
 - At the same time they keep the truly dangerous parent-result carrier families
   fenced off. That tradeoff is the central correctness story of the current pass.
 
