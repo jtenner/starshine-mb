@@ -226,7 +226,9 @@ What this means for next work:
   expected `LocalSet(45)` move there. The first offending lowered sub-
   instruction is now localized too: it is a nested split payload wrapper with a
   `block (result i32)` body shaped as `block (void) <hard-exit prefix>,
-  local.get <carried-local>`. So that standalone family is currently a
+  local.get <carried-local>`. The suspicious walk bottoms out at two mirrored
+  leaf wrappers in the earlier tag-`76` / tag-`77` decode ladders, not near the
+  final reopened local-`45` tail. So that standalone family is currently a
   lower/writeback frontier in `hot_lower`, not another missed `code-pushing`
   pushpoint move.
   stays closed and `Func 1977` rejoins the admitted Binaryen-matched surface.

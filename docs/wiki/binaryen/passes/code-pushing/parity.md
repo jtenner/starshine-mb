@@ -159,8 +159,10 @@ related:
   shows the hot pass itself already makes the expected move there and the real
   standalone failure is later writeback `stack underflow`, not another missed
   pushpoint rewrite. The first suspicious lowered sub-instruction is now
-  localized to a nested split payload wrapper in `hot_lower`, which narrows the
-  next reduction target further.
+  localized to a nested split payload wrapper in `hot_lower`, and the recursive
+  suspicious walk bottoms out at two mirrored leaf wrappers in the earlier
+  tag-`76` / tag-`77` decode ladders rather than near the final local-`45`
+  alias tail.
 - One sharper current-tree frontier was isolated outside the still-expensive
   full replay and is now closed too: standalone recreations built from saved
   function slices showed that the old saved `Func 509` family was stale on the

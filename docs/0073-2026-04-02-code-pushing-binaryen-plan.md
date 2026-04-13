@@ -751,7 +751,10 @@
   `stack underflow`. The first suspicious lowered sub-instruction is localized
   now too: it is a nested split payload wrapper in `hot_lower`, and a naive
   broadening of the existing `(1, 2)` / `(2, 1)` branch-depth fixup did not
-  remove the standalone skip. The refreshed named lanes
+  remove the standalone skip. The recursive suspicious walk is sharper again as
+  well: it bottoms out at two mirrored leaf wrappers in the earlier tag-`76` /
+  tag-`77` decode ladders rather than near the final reopened local-`45` tail.
+  The refreshed named lanes
   `.tmp/pass-fuzz-code-pushing-20260413a` (`10000/10000`) and
   `.tmp/pass-fuzz-code-pushing-20260413b` (`997/1000` compared, `0`
   mismatches, `3` Binaryen-side command failures) stay semantically green after

@@ -9,6 +9,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded the in-tree implementation detail: `src/passes/code_pushing.mbt` now clears that pure control bit from the temporary sink-condition barrier, while `src/passes/code_pushing_test.mbt` now pins the reduced nested-condition positive case and validates the lowered output through the pass pipeline.
 - Recorded the refreshed compare-pass evidence too: `pass-fuzz-code-pushing-20260413a` is `10000/10000` with `0` mismatches, and `pass-fuzz-code-pushing-20260413b` stays semantically clean on compared smith cases (`997/1000`, `0` mismatches, `3` Binaryen-side command failures).
 
+## [2026-04-13] research | isolate the mirrored leaf suspicious-wrapper pairs in standalone `Func 1977`
+
+- Added [`0086`](raw/research/0086-2026-04-13-code-pushing-standalone-func1977-leaf-suspicious-pairs.md), which records that the suspicious-carrier walk bottoms out at two mirrored leaf wrapper families in the earlier tag-`76` / tag-`77` decode ladders.
+- Recorded the two leaf paths: `34/0/0/0/11/else/5/then/2/0/0` and `34/0/0/0/11/else/5/else/3/then/10/0/0`.
+- Recorded the new negative fact too: the standalone `Func 1977` lower/writeback frontier does not bottom out near the final reopened `LocalSet(45)` / `LocalSet(50)` tail, so the next reduction target should be one mirrored decode-ladder wrapper, not the final alias tail.
+
 ## [2026-04-13] research | localize the first suspicious lowered block in standalone `Func 1977`
 
 - Added [`0085`](raw/research/0085-2026-04-13-code-pushing-standalone-func1977-suspicious-block.md), which records the first nested lowered sub-instruction that still trips the suspicious escape-carrier heuristic inside the standalone `Func 1977` rewrite.
