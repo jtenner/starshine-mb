@@ -236,9 +236,25 @@ test "ssa dead local cleanup preserves writes with later concrete local reads" {
 
   ssa_remove_dead_local_defs(func, [set_id])
 
-  assert_eq(hot_node_get(func, hot_root_get(func, 0)).op.to_string(), "LocalSet")
+  assert_eq(
+    hot_node_get(func, hot_root_get(func, 0)).op.to_string(),
+    "LocalSet",
+  )
   assert_eq(hot_node_get(func, get_id).op.to_string(), "LocalGet")
   assert_eq(hot_child_get(func, hot_root_get(func, 1), 0), get_id)
+}
+
+///|
+test "ssa dead local cleanup tolerates retry after local.tee rewrite" {
+  let func = HotFunc::new(locals=HotLocals::new(locals=[@lib.ValType::i32()]))
+  let value = hot_build_const_i32(func, @lib.I32(1))
+  let tee_id = hot_build_local_tee(func, 0, value)
+  hot_root_append(func, tee_id)
+
+  ssa_remove_dead_local_defs(func, [tee_id])
+  ssa_remove_dead_local_defs(func, [tee_id])
+
+  assert_eq(hot_node_get(func, hot_root_get(func, 0)).op.to_string(), "Const")
 }
 
 ///|
