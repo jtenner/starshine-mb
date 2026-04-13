@@ -10,6 +10,7 @@ sources:
   - ../../../raw/research/0084-2026-04-13-code-pushing-standalone-func1977-writeback-frontier.md
   - ../../../raw/research/0085-2026-04-13-code-pushing-standalone-func1977-suspicious-block.md
   - ../../../raw/research/0086-2026-04-13-code-pushing-standalone-func1977-leaf-suspicious-pairs.md
+  - ../../../raw/research/0087-2026-04-13-code-pushing-standalone-func1977-hot-lower-recursive-fix.md
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
@@ -52,8 +53,9 @@ related:
   producing `if` pushpoints, the reopened explicit-exit-fed alias tail family,
   and crossed-gap carrier aliases where the kept condition-set does not alias
   that same carried local are now part of the admitted Binaryen-matched surface
-  again, but the broader owner-sensitive non-void families are still where the
-  hard lowering risk lives.
+  again. The reduced standalone `Func 1977` hot-lower/writeback fallback is now
+  closed too, but the broader owner-sensitive non-void families and the remaining
+  whole-artifact/runtime gap are still where the harder work lives.
 
 ## Source Scope
 

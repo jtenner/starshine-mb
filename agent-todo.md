@@ -66,6 +66,7 @@ Observed unique-pass order
      - Doc: [0066#L148](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L148)
 2. Do work.
    - Keep the landed direct pass stable while tightening Binaryen parity; do not widen the public preset order until the exact replay slots are available.
+- `code-pushing` / `hot_lower` follow-up: standalone `Func 1977` no longer falls back on `skip-invalid-lower`; the next active frontier refresh is current-tree whole-artifact/runtime evidence plus rechecking whether standalone `Func 1948` and `Func 509` are still real after the recursive split-wrapper fix.
    - Imported module-element removal is now fixed: RUME drops unused imported memories, tables, globals, and tags, keeps imported parents only when active elem/data segments still initialize them, and remaps surviving imports through exports and name sections instead of preserving `import_sec` verbatim.
    - Empty-active-data parity is now fixed: RUME drops zero-byte active data segments on both defined and imported memories, matching Binaryen on `.tmp/pass-fuzz-rume-rerun/failures/case-000077-wasm-smith` and the later imported-memory repro from `.tmp/pass-fuzz-rume-postfix-smith/failures/case-000032-wasm-smith`.
    - The remaining post-fix work is no longer semantic RUME cleanup; it is Binaryen parser-compatibility coverage work outside Starshine pass behavior.

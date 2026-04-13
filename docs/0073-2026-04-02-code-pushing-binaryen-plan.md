@@ -199,12 +199,16 @@
   carried-`if` demotion to `if (Void)` still validated too. So the remaining
   `Func 1977` blocker still needs extra real-function control-flow scaffolding
   beyond the carrier extraction plus inner carried-`if` rewrite alone.
-- The validator offset for the real failure is now pinned too: the invalid module
-  underflows at `br 3` to label `@8` in `Func 1977`, and a new focused HOT-verify
-  repro now proves the mechanism behind that class of failure. If the parent
-  escape block is also rewritten to become result-producing after the carried
-  payload extraction and inner carried-`if` demotion, HOT verification rejects
-  the branch with `InvalidBranchArity(_, _, 0, 1)`.
+- The validator offset for the real failure was pinned too: the invalid module
+  underflowed at `br 3` to label `@8` in standalone `Func 1977`, and that ended
+  up being the closing clue for the lower/writeback fix. `hot_lower` could
+  already synthesize the needed voidified split `local.set` wrapper pair in the
+  mirrored tag-`76` / tag-`77` decode ladders, but it was not recursively
+  re-running the mixed-depth split-wrapper repair on that newly created wrapper.
+  The kept fix now reprocesses synthesized pair rewrites through the wrapper-fix
+  pass and repairs the focused voidified mixed-depth wrapper directly, which is
+  why the reduced standalone `Func 1977` replay no longer ends in
+  `skip-invalid-lower`.
 - There is now a smaller direct HOT-verify reducer for the same branch-arity
   class too. A tiny carried `if` fixture becomes invalid as soon as one arm's
   `br` is retargeted from the inner void work block to the outer result block,

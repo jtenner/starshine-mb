@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0078-2026-04-11-code-pushing-result-if-reorder.md
   - ../../../raw/research/0079-2026-04-12-code-pushing-one-off-alias-tail-prefix.md
   - ../../../raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md
+  - ../../../raw/research/0087-2026-04-13-code-pushing-standalone-func1977-hot-lower-recursive-fix.md
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/ir/hot_lower_live_repro_test.mbt
@@ -251,6 +252,14 @@ related:
   already has a nonfallthrough tail and the other still falls through with the
   carried value. In that mixed case, keeping the original result-`if` plus
   trailing-`br` form is both safer and closer to Binaryen's shape.
+- A fifth lowering rule is now explicit too:
+  if `hot_lower` synthesizes a voidified split `local.set` wrapper pair while
+  repairing a mixed-depth carrier family, that newly created wrapper has to be
+  fed back through the same split-wrapper repair walk immediately. The reduced
+  standalone `Func 1977` writeback frontier closed only after Starshine started
+  recursively re-running those helper passes on the synthesized wrapper itself,
+  which is why the old mirrored decode-ladder `br 3` underflow is now a repaired
+  `br 2` instead of another `skip-invalid-lower` fallback.
 - The current kept branch adds one more operational rule at the pass-manager
   boundary:
   if lowered `code-pushing` output still matches the suspicious escape-carrier
@@ -282,6 +291,10 @@ related:
 
 - Treat the reopened `Func 1977` family as admitted Binaryen surface again,
   not as a deliberate Starshine-only fence.
+- Treat the old standalone `Func 1977` lower/writeback fallback as closed, not
+  as the current next frontier. The remaining work is back to later artifact and
+  runtime evidence, not another reduced mirror-wrapper branch-depth fix for that
+  same standalone module.
 - Treat the suspicious escape-carrier heuristic as a coarse signal, not a final
   verdict. `code-pushing` now rechecks those suspicious lowered functions
   against full-module writeback validation before deciding whether to keep the

@@ -216,7 +216,7 @@ test "precompute lowers empty root blocks to nops before surviving roots" {
 }
 
 ///|
-test "precompute falls back to the original function when lowered output would be invalid" {
+test "precompute lowers a formerly invalid mixed-depth split local.set carrier without falling back" {
   let trace : Array[String] = []
   let optimized = match
     run_hot_pipeline(
@@ -231,8 +231,8 @@ test "precompute falls back to the original function when lowered output would b
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("i32.shl"), msg=pretty)
-  assert_true(
+  assert_false(pretty.contains("i32.shl"), msg=pretty)
+  assert_false(
     trace.any(fn(line) { line.contains("pass[precompute]:skip-invalid-lower") }),
     msg=trace.to_string(),
   )

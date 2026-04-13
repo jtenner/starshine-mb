@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-13] maintain | close the standalone `Func 1977` hot-lower writeback frontier
+
+- Added [`0087`](raw/research/0087-2026-04-13-code-pushing-standalone-func1977-hot-lower-recursive-fix.md), which records the closing reduction for the reduced standalone `Func 1977` lower/writeback failure after the earlier `0084` / `0085` / `0086` localization work.
+- Recorded the exact missing recursive step: `hot_lower` could already synthesize a voidified split `local.set` wrapper pair for the mirrored tag-`76` / tag-`77` decode ladders, but it was not re-running the mixed-depth split-wrapper repair on that newly created wrapper, so the carried branch depth stayed stale (`br 3` instead of the repaired `br 2`).
+- Recorded the in-tree implementation detail: `src/ir/hot_lower.mbt` now reprocesses synthesized split-wrapper-pair rewrites through `hot_lower_impl_fix_split_payload_wrappers_in_instr(...)` and adds a focused helper for the voidified mixed-depth wrapper itself; `src/ir/hot_lower_wbtest.mbt` now pins the recursive repair directly.
+- Recorded the reduced-oracle confirmation too: `wasm-tools validate .tmp/codex-tmp/func1977-lowered-after-cp.wasm` now exits `0`, and traced standalone replay of `.tmp/codex-tmp/standalone-scan-20260413d/func1977.wat` no longer ends in `pass[code-pushing]:skip-invalid-lower ... reason=suspicious-escape-carrier`.
+
 ## [2026-04-13] maintain | readmit nested result-`if` condition sinks in `code-pushing`
 
 - Added [`0083`](raw/research/0083-2026-04-13-code-pushing-nested-result-if-cond-sink.md), which records the reduced nested result-`if` condition repro that closes the sharper standalone `Func 1975` frontier from [`0082`](raw/research/0082-2026-04-13-code-pushing-standalone-func1975-frontier.md).
