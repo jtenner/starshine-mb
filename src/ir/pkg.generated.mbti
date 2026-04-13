@@ -50,6 +50,8 @@ pub const HOT_FLAG_THROWS : UInt = 512
 
 pub const HOT_FLAG_VALUE : UInt = 8
 
+pub fn bitset_any(Bitset) -> Bool
+
 pub fn bitset_clear(Bitset, Int) -> Bool
 
 pub fn bitset_contains(Bitset, Int) -> Bool
@@ -63,6 +65,8 @@ pub fn bitset_for_each_set_bit(Bitset, (Int) -> Unit) -> Unit
 pub fn bitset_intersect_into(Bitset, Bitset) -> Bool
 
 pub fn bitset_new(Int) -> Bitset
+
+pub fn bitset_overlaps(Bitset, Bitset) -> Bool
 
 pub fn bitset_set(Bitset, Int) -> Bool
 

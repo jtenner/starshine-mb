@@ -32,26 +32,26 @@ priv struct CpSummaryCache {
   local_count : Int
   global_count : Int
   node_masks : Array[@ir.EffectMask]
-  live_nodes : Array[Bool]
-  owner_exit_active_marks : Array[Bool]
-  ready : Array[Bool]
+  live_nodes : @bitset.BitSet
+  owner_exit_active_marks : @bitset.BitSet
+  ready : @bitset.BitSet
   summaries : Array[CpEffectSummary]
-  explicit_exit_ready : Array[Bool]
-  explicit_exit_values : Array[Bool]
+  explicit_exit_ready : @bitset.BitSet
+  explicit_exit_values : @bitset.BitSet
   dropped_region_owner_values : Array[Int]
   region_last_local_read_root_idxs : Array[Array[Int]?]
   region_parent_holders : Array[Int]
   region_parent_root_idxs : Array[Int]
-  pushable_local_ready : Array[Bool]
+  pushable_local_ready : @bitset.BitSet
   pushable_local_values : Array[Int]
-  trivial_dead_move_gap_ready : Array[Bool]
-  trivial_dead_move_gap_values : Array[Bool]
-  nonvoid_block_root_guard_ready : Array[Bool]
-  nonvoid_block_root_guard_values : Array[Bool]
-  safe_if_root_guard_ready : Array[Bool]
-  safe_if_root_guard_values : Array[Bool]
-  local_set_value_block_guard_ready : Array[Bool]
-  local_set_value_block_guard_values : Array[Bool]
+  trivial_dead_move_gap_ready : @bitset.BitSet
+  trivial_dead_move_gap_values : @bitset.BitSet
+  nonvoid_block_root_guard_ready : @bitset.BitSet
+  nonvoid_block_root_guard_values : @bitset.BitSet
+  safe_if_root_guard_ready : @bitset.BitSet
+  safe_if_root_guard_values : @bitset.BitSet
+  local_set_value_block_guard_ready : @bitset.BitSet
+  local_set_value_block_guard_values : @bitset.BitSet
 }
 
 ///|
@@ -88,15 +88,15 @@ priv struct CpFuncStaticScan {
 ///|
 priv struct CpTraversalGateScan {
   node_masks : Array[@ir.EffectMask]
-  subtree_has_region_holder : Array[Bool]
-  subtree_unremovable_ready : Array[Bool]
-  subtree_unremovable_values : Array[Bool]
-  subtree_reads_sfa_ready : Array[Bool]
-  subtree_reads_sfa_values : Array[Bool]
-  nested_candidate_ready : Array[Bool]
-  nested_candidate_values : Array[Bool]
-  region_candidate_ready : Array[Bool]
-  region_candidate_values : Array[Bool]
+  subtree_has_region_holder : @bitset.BitSet
+  subtree_unremovable_ready : @bitset.BitSet
+  subtree_unremovable_values : @bitset.BitSet
+  subtree_reads_sfa_ready : @bitset.BitSet
+  subtree_reads_sfa_values : @bitset.BitSet
+  nested_candidate_ready : @bitset.BitSet
+  nested_candidate_values : @bitset.BitSet
+  region_candidate_ready : @bitset.BitSet
+  region_candidate_values : @bitset.BitSet
 }
 
 ///|
@@ -148,23 +148,12 @@ fn cp_new_barrier_summary(
 
 ///|
 fn cp_bitset_any(bitset : @ir.Bitset) -> Bool {
-  for idx = 0; idx < bitset.size; idx = idx + 1 {
-    if @ir.bitset_contains(bitset, idx) {
-      return true
-    }
-  }
-  false
+  @ir.bitset_any(bitset)
 }
 
 ///|
 fn cp_bitset_overlaps(lhs : @ir.Bitset, rhs : @ir.Bitset) -> Bool {
-  let limit = if lhs.size < rhs.size { lhs.size } else { rhs.size }
-  for idx = 0; idx < limit; idx = idx + 1 {
-    if @ir.bitset_contains(lhs, idx) && @ir.bitset_contains(rhs, idx) {
-      return true
-    }
-  }
-  false
+  @ir.bitset_overlaps(lhs, rhs)
 }
 
 ///|
@@ -246,7 +235,7 @@ fn cp_new_summary_cache(
   node_masks? : Array[@ir.EffectMask]? = None,
 ) -> CpSummaryCache {
   let node_count = @ir.hot_node_count(func)
-  let live_nodes = Array::make(node_count, true)
+  let live_nodes = @bitset.BitSet::make(node_count, true)
   for free_id in func.free_nodes {
     if free_id >= 0 && free_id < node_count {
       live_nodes[free_id] = false
@@ -274,32 +263,32 @@ fn cp_new_summary_cache(
     region_parent_holders,
     region_parent_root_idxs,
   )
-  let ready = Array::make(node_count, false)
+  let ready = @bitset.BitSet::new(node_count)
   let summaries = Array::make(node_count, cp_empty_effect_summary(0, 0))
   {
     local_count,
     global_count,
     node_masks,
     live_nodes,
-    owner_exit_active_marks: Array::make(node_count, false),
+    owner_exit_active_marks: @bitset.BitSet::new(node_count),
     ready,
     summaries,
-    explicit_exit_ready: Array::make(node_count, false),
-    explicit_exit_values: Array::make(node_count, false),
+    explicit_exit_ready: @bitset.BitSet::new(node_count),
+    explicit_exit_values: @bitset.BitSet::new(node_count),
     dropped_region_owner_values: static_scan.dropped_region_owner_values,
     region_last_local_read_root_idxs: Array::make(node_count + 1, None),
     region_parent_holders,
     region_parent_root_idxs,
-    pushable_local_ready: Array::make(node_count, false),
+    pushable_local_ready: @bitset.BitSet::new(node_count),
     pushable_local_values: Array::make(node_count, -1),
-    trivial_dead_move_gap_ready: Array::make(node_count, false),
-    trivial_dead_move_gap_values: Array::make(node_count, false),
-    nonvoid_block_root_guard_ready: Array::make(node_count, false),
-    nonvoid_block_root_guard_values: Array::make(node_count, false),
-    safe_if_root_guard_ready: Array::make(node_count, false),
-    safe_if_root_guard_values: Array::make(node_count, false),
-    local_set_value_block_guard_ready: Array::make(node_count, false),
-    local_set_value_block_guard_values: Array::make(node_count, false),
+    trivial_dead_move_gap_ready: @bitset.BitSet::new(node_count),
+    trivial_dead_move_gap_values: @bitset.BitSet::new(node_count),
+    nonvoid_block_root_guard_ready: @bitset.BitSet::new(node_count),
+    nonvoid_block_root_guard_values: @bitset.BitSet::new(node_count),
+    safe_if_root_guard_ready: @bitset.BitSet::new(node_count),
+    safe_if_root_guard_values: @bitset.BitSet::new(node_count),
+    local_set_value_block_guard_ready: @bitset.BitSet::new(node_count),
+    local_set_value_block_guard_values: @bitset.BitSet::new(node_count),
   }
 }
 
@@ -472,7 +461,7 @@ fn cp_visit_node_postorder(
   func : @ir.HotFunc,
   node_id : Int,
   infos : Array[CpLocalInfo],
-  seen : Array[Bool],
+  seen : @bitset.BitSet,
 ) -> Unit {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) || seen[node_id] {
     return
@@ -503,7 +492,7 @@ pub fn cp_analyze_locals(func : @ir.HotFunc) -> Array[CpLocalInfo] {
   for local_id = 0; local_id < local_count; local_id = local_id + 1 {
     infos.push(cp_new_local_info(local_id < param_count))
   }
-  let seen = Array::make(@ir.hot_node_count(func), false)
+  let seen = @bitset.BitSet::new(@ir.hot_node_count(func))
   for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
     cp_visit_node_postorder(func, @ir.hot_root_get(func, root_idx), infos, seen)
   }
@@ -596,8 +585,8 @@ fn cp_new_traversal_gate_scan(
   node_masks : Array[@ir.EffectMask],
 ) -> CpTraversalGateScan {
   let node_count = @ir.hot_node_count(func)
-  let subtree_has_region_holder_ready = Array::make(node_count, false)
-  let subtree_has_region_holder_values = Array::make(node_count, false)
+  let subtree_has_region_holder_ready = @bitset.BitSet::new(node_count)
+  let subtree_has_region_holder_values = @bitset.BitSet::new(node_count)
   for node_id = 0; node_id < node_count; node_id = node_id + 1 {
     ignore(
       cp_node_subtree_has_region_holder(
@@ -608,14 +597,14 @@ fn cp_new_traversal_gate_scan(
   {
     node_masks,
     subtree_has_region_holder: subtree_has_region_holder_values,
-    subtree_unremovable_ready: Array::make(node_count, false),
-    subtree_unremovable_values: Array::make(node_count, false),
-    subtree_reads_sfa_ready: Array::make(node_count, false),
-    subtree_reads_sfa_values: Array::make(node_count, false),
-    nested_candidate_ready: Array::make(node_count, false),
-    nested_candidate_values: Array::make(node_count, false),
-    region_candidate_ready: Array::make(node_count + 1, false),
-    region_candidate_values: Array::make(node_count + 1, false),
+    subtree_unremovable_ready: @bitset.BitSet::new(node_count),
+    subtree_unremovable_values: @bitset.BitSet::new(node_count),
+    subtree_reads_sfa_ready: @bitset.BitSet::new(node_count),
+    subtree_reads_sfa_values: @bitset.BitSet::new(node_count),
+    nested_candidate_ready: @bitset.BitSet::new(node_count),
+    nested_candidate_values: @bitset.BitSet::new(node_count),
+    region_candidate_ready: @bitset.BitSet::new(node_count + 1),
+    region_candidate_values: @bitset.BitSet::new(node_count + 1),
   }
 }
 
@@ -623,8 +612,8 @@ fn cp_new_traversal_gate_scan(
 fn cp_node_subtree_has_region_holder(
   func : @ir.HotFunc,
   node_id : Int,
-  ready : Array[Bool],
-  values : Array[Bool],
+  ready : @bitset.BitSet,
+  values : @bitset.BitSet,
 ) -> Bool {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     return false
@@ -1388,7 +1377,7 @@ fn cp_branch_exits_block_owner(
 fn cp_collect_block_owner_exit_summary_for_branch(
   func : @ir.HotFunc,
   owner_id : Int,
-  active_owner_marks : Array[Bool],
+  active_owner_marks : @bitset.BitSet,
   dropped_region_owner_id : Int,
   node_id : Int,
   summary : CpBlockOwnerExitSummary,
@@ -1453,7 +1442,7 @@ fn cp_collect_block_owner_exit_summary(
   func : @ir.HotFunc,
   node_id : Int,
   owner_id : Int,
-  active_owner_marks : Array[Bool],
+  active_owner_marks : @bitset.BitSet,
   dropped_region_owner_id : Int,
   summary : CpBlockOwnerExitSummary,
 ) -> Unit {
@@ -1541,7 +1530,7 @@ fn cp_collect_block_owner_exit_summary(
 fn cp_collect_local_set_value_exit_summary_for_branch(
   func : @ir.HotFunc,
   owner_id : Int,
-  active_owner_marks : Array[Bool],
+  active_owner_marks : @bitset.BitSet,
   dropped_region_owner_id : Int,
   node_id : Int,
   summary : CpLocalSetValueBlockExitSummary,
@@ -1587,7 +1576,7 @@ fn cp_collect_local_set_value_exit_summary(
   func : @ir.HotFunc,
   node_id : Int,
   owner_id : Int,
-  active_owner_marks : Array[Bool],
+  active_owner_marks : @bitset.BitSet,
   dropped_region_owner_id : Int,
   summary : CpLocalSetValueBlockExitSummary,
 ) -> Unit {

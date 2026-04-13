@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-13] maintain | pack `code-pushing` memo booleans into bitsets
+
+- Updated [`binaryen/passes/code-pushing/performance-and-runtime.md`](binaryen/passes/code-pushing/performance-and-runtime.md) to record the new packed-bool implementation detail in the current runtime story.
+- Recorded the in-tree implementation detail too: `src/passes/code_pushing.mbt` now uses packed `BitSet` storage for node-indexed memo and guard tables, and `src/ir/bitset.mbt` now exposes word-wise `bitset_any(...)` / `bitset_overlaps(...)` helpers used by `code-pushing`'s effect-summary conflict checks.
+- Recorded the quick validation/parity outcome: focused `moon test` stayed green, sampled `wasm-smith` compare-pass rerun stayed mismatch-free, and the sampled `gen-valid` diffs still looked like pre-existing no-pass / canonicalization noise rather than fresh `code-pushing` motion regressions.
+
 ## [2026-04-13] maintain | classify remaining standalone `Func 1948` / `Func 1977` exact drift as canonicalization noise
 
 - Added [`0089`](raw/research/0089-2026-04-13-code-pushing-standalone-drift-canonicalization-noise.md), which refreshes current-source standalone `Func 1948` / `Func 1977` with fresh `{star-no,star,bin-no,bin}` outputs under `.tmp/codex-tmp/source-standalone-check-20260413f`.

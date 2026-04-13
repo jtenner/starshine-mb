@@ -167,6 +167,27 @@ pub fn bitset_equals(lhs : Bitset, rhs : Bitset) -> Bool {
 }
 
 ///|
+pub fn bitset_any(bitset : Bitset) -> Bool {
+  for word_idx = 0; word_idx < bitset.words.length(); word_idx = word_idx + 1 {
+    if (bitset.words[word_idx] & bitset_word_mask(bitset, word_idx)) != 0UL {
+      return true
+    }
+  }
+  false
+}
+
+///|
+pub fn bitset_overlaps(lhs : Bitset, rhs : Bitset) -> Bool {
+  bitset_require_compatible(lhs, rhs)
+  for word_idx = 0; word_idx < lhs.words.length(); word_idx = word_idx + 1 {
+    if (lhs.words[word_idx] & rhs.words[word_idx]) != 0UL {
+      return true
+    }
+  }
+  false
+}
+
+///|
 pub fn bitset_for_each_set_bit(bitset : Bitset, visit : (Int) -> Unit) -> Unit {
   for word_idx = 0; word_idx < bitset.words.length(); word_idx = word_idx + 1 {
     let word = bitset.words[word_idx] & bitset_word_mask(bitset, word_idx)

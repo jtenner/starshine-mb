@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-13
 sources:
   - ../../../../0073-2026-04-02-code-pushing-binaryen-plan.md
   - ../../../raw/research/0076-2026-04-11-code-pushing-func-127-binaryen-noop.md
@@ -44,6 +44,12 @@ related:
   work when no useful candidate region exists.
 - `CpSummaryCache` avoids recomputing full subtree summaries every time a segment
   scan crosses the same node.
+- Node-indexed boolean memo tables now use packed `BitSet` storage instead of
+  raw `Array[Bool]`, which trims memory traffic across large-function repeated
+  scans without changing the admitted rewrite surface.
+- Shared `@ir.bitset_any(...)` and `@ir.bitset_overlaps(...)` helpers now do
+  word-wise checks instead of repeated per-bit probes inside `code-pushing`
+  conflict tests.
 - The pass mutates HOT regions in place instead of rebuilding wrapper AST shells.
 - Several unsafe broad relaxations have also been rolled back, which matters for
   performance as well as correctness.
