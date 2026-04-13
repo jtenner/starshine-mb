@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-13] research | recover a sharper current-tree standalone frontier for `code-pushing`
+
+- Added [`0082`](raw/research/0082-2026-04-13-code-pushing-standalone-func1975-frontier.md), which records the new standalone-module probe method built from saved debug-artifact function slices plus current-source `moon run src/cmd --target native -- --code-pushing ...` replay.
+- Recorded the current-source negative result too: the old saved `Func 509` family is stale on the current tree, because its standalone recreation now matches Binaryen again.
+- Recorded the sharper remaining target: recreated standalone `Func 1975` still differs, with Binaryen sinking an alias `local.set(local.get ...)` into a nested result-producing `if` arm while current Starshine keeps that set before the `if`.
+- Recorded the reduction status: two smaller hand-written result-`if` sink probes did not reproduce the mismatch, so the next work is to reduce the richer surrounding control-flow that standalone `Func 1975` still needs.
+
 ## [2026-04-12] maintain | reopen the explicit-exit-fed alias tail as real Binaryen surface in `code-pushing`
 
 - Added [`0081`](raw/research/0081-2026-04-12-code-pushing-explicit-exit-fed-tail.md), which records the reduced repeated-ladder probe plus the current Binaryen `Func 1977` artifact slice showing that Binaryen still moves the carried alias through the later decref ladder even when an earlier explicit-exit carrier feeds that alias source local.
