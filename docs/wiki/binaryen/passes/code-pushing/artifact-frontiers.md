@@ -223,8 +223,12 @@ What this means for next work:
   source standalone `Func 1977` reconstruction still falls back on
   `suspicious-escape-carrier` with a `stack underflow` writeback-validation
   error, but whitebox replay shows the hot pass itself already makes the
-  expected `LocalSet(45)` move there. So that standalone family is currently a
-  lower/writeback frontier, not another missed `code-pushing` pushpoint move.
+  expected `LocalSet(45)` move there. The first offending lowered sub-
+  instruction is now localized too: it is a nested split payload wrapper with a
+  `block (result i32)` body shaped as `block (void) <hard-exit prefix>,
+  local.get <carried-local>`. So that standalone family is currently a
+  lower/writeback frontier in `hot_lower`, not another missed `code-pushing`
+  pushpoint move.
   stays closed and `Func 1977` rejoins the admitted Binaryen-matched surface.
 
 ## Frontier 5: The Reopened Terminal-Owner Direct Frontier

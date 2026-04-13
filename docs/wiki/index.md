@@ -103,6 +103,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`raw/research/0082-2026-04-13-code-pushing-standalone-func1975-frontier.md`](raw/research/0082-2026-04-13-code-pushing-standalone-func1975-frontier.md) - Current-source standalone recreations showing that the saved `Func 509` family is stale on the current tree while standalone `Func 1975` still differs as a sharper result-`if` sink frontier.
 - [`raw/research/0083-2026-04-13-code-pushing-nested-result-if-cond-sink.md`](raw/research/0083-2026-04-13-code-pushing-nested-result-if-cond-sink.md) - Reduced nested result-`if` condition repro showing that Starshine's sink barrier was still over-blocking when the target `if` condition itself contained pure nested control.
 - [`raw/research/0084-2026-04-13-code-pushing-standalone-func1977-writeback-frontier.md`](raw/research/0084-2026-04-13-code-pushing-standalone-func1977-writeback-frontier.md) - Current-source standalone `Func 1977` recheck showing that the hot pass still makes the expected move there, but standalone lower/writeback still falls back on `suspicious-escape-carrier` with a `stack underflow` validation error.
+- [`raw/research/0085-2026-04-13-code-pushing-standalone-func1977-suspicious-block.md`](raw/research/0085-2026-04-13-code-pushing-standalone-func1977-suspicious-block.md) - Localization of the first suspicious lowered sub-instruction inside standalone `Func 1977`, narrowing the remaining issue to a split payload wrapper in `hot_lower` rather than another code-pushing move admission.
 
 ## Sessions
 

@@ -158,7 +158,9 @@ related:
   reconstruction still skips on `suspicious-escape-carrier`, but whitebox replay
   shows the hot pass itself already makes the expected move there and the real
   standalone failure is later writeback `stack underflow`, not another missed
-  pushpoint rewrite.
+  pushpoint rewrite. The first suspicious lowered sub-instruction is now
+  localized to a nested split payload wrapper in `hot_lower`, which narrows the
+  next reduction target further.
 - One sharper current-tree frontier was isolated outside the still-expensive
   full replay and is now closed too: standalone recreations built from saved
   function slices showed that the old saved `Func 509` family was stale on the

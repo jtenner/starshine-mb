@@ -9,6 +9,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded the in-tree implementation detail: `src/passes/code_pushing.mbt` now clears that pure control bit from the temporary sink-condition barrier, while `src/passes/code_pushing_test.mbt` now pins the reduced nested-condition positive case and validates the lowered output through the pass pipeline.
 - Recorded the refreshed compare-pass evidence too: `pass-fuzz-code-pushing-20260413a` is `10000/10000` with `0` mismatches, and `pass-fuzz-code-pushing-20260413b` stays semantically clean on compared smith cases (`997/1000`, `0` mismatches, `3` Binaryen-side command failures).
 
+## [2026-04-13] research | localize the first suspicious lowered block in standalone `Func 1977`
+
+- Added [`0085`](raw/research/0085-2026-04-13-code-pushing-standalone-func1977-suspicious-block.md), which records the first nested lowered sub-instruction that still trips the suspicious escape-carrier heuristic inside the standalone `Func 1977` rewrite.
+- Recorded the sharper offending shape: a `block (result i32)` whose body is a `block (void)` prefix with hard exits followed by a trailing carried `local.get`, inside the deeper rewritten decode ladder.
+- Recorded the negative implementation probe too: broadening `hot_lower_impl_try_fix_split_payload_wrapper_with_tail(...)` from only `(1, 2)` / `(2, 1)` branch-depth pairs to any differing positive depths did not remove the standalone `skip-invalid-lower`, so the remaining repair must be narrower.
+
 ## [2026-04-13] research | isolate the standalone `Func 1977` writeback frontier for `code-pushing`
 
 - Added [`0084`](raw/research/0084-2026-04-13-code-pushing-standalone-func1977-writeback-frontier.md), which records the current-source standalone recheck of the reopened `Func 1977` family after `0083` closed standalone `Func 1975`.
