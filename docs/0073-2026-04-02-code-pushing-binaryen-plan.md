@@ -737,12 +737,15 @@
   slice both show Binaryen still moving that carried alias through the later
   decref `if`. The crossed condition-set carrier alias guard is narrower too:
   it now only fires when the crossed condition-set itself aliases that same
-  carried source local. That readmits the reopened `Func 1977` tail, the
-  earlier valid `Func 1948` rewrite chain, the reduced decref-`if` one-off-tail
-  slice, and the reduced crossed-gap positive slice while still keeping the
-  real same-source crossed-condition-set case fenced. The refreshed named lanes
-  `.tmp/pass-fuzz-code-pushing-20260412e` (`10000/10000`) and
-  `.tmp/pass-fuzz-code-pushing-20260412f` (`997/1000` compared, `0`
+  carried source local. The result-`if` sink barrier is narrower now as well:
+  `cp_try_sink_into_if` no longer treats pure nested control in the target
+  condition as a hard conflict by itself. That readmits the reopened `Func 1977`
+  tail, the earlier valid `Func 1948` rewrite chain, the reduced decref-`if`
+  one-off-tail slice, the reduced crossed-gap positive slice, and the reduced
+  nested result-`if` condition sink while still keeping the real same-source
+  crossed-condition-set case fenced. The refreshed named lanes
+  `.tmp/pass-fuzz-code-pushing-20260413a` (`10000/10000`) and
+  `.tmp/pass-fuzz-code-pushing-20260413b` (`997/1000` compared, `0`
   mismatches, `3` Binaryen-side command failures) stay semantically green after
   that narrowing.
 - One smaller Binaryen mismatch is now closed explicitly. A reduced nested-block

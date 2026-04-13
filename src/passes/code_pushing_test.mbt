@@ -42,6 +42,43 @@ fn code_pushing_test_region_tags(
 }
 
 ///|
+fn code_pushing_test_find_region_with_adjacent_tags(
+  func : @ir.HotFunc,
+  first : String,
+  second : String,
+) -> (@ir.HotRegionRef, Int)? {
+  let regions : Array[@ir.HotRegionRef] = [@ir.HotRegionRef::root()]
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    match @ir.hot_node_get(func, node_id).op {
+      @ir.HotOp::Block => regions.push(@ir.hot_region_body_ref(func, node_id))
+      @ir.HotOp::Loop => regions.push(@ir.hot_region_body_ref(func, node_id))
+      @ir.HotOp::If => {
+        regions.push(@ir.hot_region_then_ref(func, node_id))
+        match @ir.hot_region_else_ref(func, node_id) {
+          Some(region) => regions.push(region)
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  for region in regions {
+    let tags = code_pushing_test_region_tags(func, region)
+    let mut idx = 0
+    while idx + 1 < tags.length() {
+      if tags[idx] == first && tags[idx + 1] == second {
+        return Some((region, idx + 1))
+      }
+      idx += 1
+    }
+  }
+  None
+}
+
+///|
 fn code_pushing_test_find_block_body_region(
   func : @ir.HotFunc,
   result_arity : Int,
@@ -915,6 +952,87 @@ test "code-pushing sinks into a result-producing if arm when only that arm reads
     code_pushing_test_region_tags(func, @ir.hot_region_then_ref(func, if_id)),
     ["LocalSet(1)", "Drop", "Const"],
   )
+}
+
+///|
+test "code-pushing sinks an alias local.set into a result-producing if arm even when the condition is a nested result-producing if" {
+  let source =
+    #|(module
+    #|  (memory 1)
+    #|  (func $decref (param i32))
+    #|  (func (param i32 i32) (result i32)
+    #|    (local i64 i32 i32 i32 i64 i32 i32)
+    #|    (block $block1
+    #|      (block $block
+    #|        (return
+    #|          (if (result i32)
+    #|            (local.get 0)
+    #|            (then
+    #|              (local.get 1)
+    #|              (local.set 4)
+    #|              (br $block))
+    #|            (else
+    #|              (local.get 1)
+    #|              (local.set 5)
+    #|              (if
+    #|                (local.get 5)
+    #|                (then))
+    #|              (local.get 1)
+    #|              (i64.load offset=8)
+    #|              (local.set 6)
+    #|              (local.get 1)
+    #|              (i32.load offset=16)
+    #|              (local.set 7)
+    #|              (local.get 5)
+    #|              (call $decref)
+    #|              (local.get 7)
+    #|              (local.set 8)
+    #|              (if (result i32)
+    #|                (if (result i32)
+    #|                  (i64.ge_s (local.get 6) (i64.const 0))
+    #|                  (then (i64.le_s (local.get 6) (i64.const 4294967295)))
+    #|                  (else (i32.const 0)))
+    #|                (then
+    #|                  (local.set 2
+    #|                    (block (result i64)
+    #|                      (local.get 6)
+    #|                      (local.set 2)
+    #|                      (local.get 8)
+    #|                      (local.set 3)
+    #|                      (local.get 2)))
+    #|                  (br $block1))
+    #|                (else
+    #|                  (i32.const 9)))))))
+    #|        (i32.const 7)
+    #|        return)
+    #|      (local.get 2)
+    #|      i32.wrap_i64
+    #|      (local.set 3)
+    #|      (local.get 4)
+    #|      drop
+    #|      (local.get 3)))
+    #|)
+  let func = code_pushing_test_run_hot_code(source, 1)
+  let (region_ref, if_idx) = match
+    code_pushing_test_find_region_with_adjacent_tags(func, "Nop", "If") {
+    Some(found) => found
+    None => fail("expected sunk alias local.set to leave Nop before target if")
+  }
+  let tags = code_pushing_test_region_tags(func, region_ref)
+  let if_id = @ir.hot_region_get(func, region_ref, if_idx)
+
+  assert_eq(tags, [
+    "LocalSet(5)", "If", "LocalSet(6)", "LocalSet(7)", "Call", "Nop", "If",
+  ])
+  assert_eq(
+    code_pushing_test_region_tags(func, @ir.hot_region_then_ref(func, if_id)),
+    ["LocalSet(8)", "LocalSet(2)", "Br"],
+  )
+
+  match pass_test_run_pipeline(source, ["code-pushing"]) {
+    Ok(_) => ()
+    Err(err) => fail(err)
+  }
 }
 
 ///|

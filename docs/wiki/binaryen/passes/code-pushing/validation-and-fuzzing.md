@@ -129,6 +129,10 @@ bun scripts/pass-fuzz-compare.ts \
     mismatches, `0` validation failures, `0` generator failures, and `0`
     command failures after removing the stale explicit-exit-fed alias-if-tail
     fence
+  - `pass-fuzz-code-pushing-20260413a` completed `10000/10000` with `0`
+    mismatches, `0` validation failures, `0` generator failures, and `0`
+    command failures after readmitting the nested result-`if` condition sink
+    family
 - Mixed-generator and smith-only lanes have also stayed semantically clean on the
   kept pass surface, with remaining failures attributed to Binaryen-side parser or
   canonicalization rejects such as invalid type-index families. After the same
@@ -146,7 +150,11 @@ bun scripts/pass-fuzz-compare.ts \
   and `3` Binaryen-side command failures. After removing the stale explicit-
   exit-fed alias-if-tail fence, `pass-fuzz-code-pushing-20260412f` kept that
   same smith-only outcome too: `997/1000` compared, `0` mismatches, `0`
-  validation failures, and `3` Binaryen-side command failures.
+  validation failures, and `3` Binaryen-side command failures. After
+  readmitting the nested result-`if` condition sink family,
+  `pass-fuzz-code-pushing-20260413b` kept that same smith-only outcome too:
+  `997/1000` compared, `0` mismatches, `0` validation failures, and `3`
+  Binaryen-side command failures.
 
 ## Direct Artifact Replay
 

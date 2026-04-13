@@ -552,10 +552,12 @@ Why this transforms:
   repeated alias-if ladders are not the same thing as the real same-source
   crossed-condition-set blocker. Starshine now readmits the repeated ladder
   shape that `Func 1948` needs, it also readmits the reopened explicit-exit-fed
-  `Func 1977` alias tail family, plain one-off tails, and crossed-gap carrier
+  `Func 1977` alias tail family, plain one-off tails, crossed-gap carrier
   aliases when the kept condition-set does not itself alias that same carried
-  local. The real remaining fence here is the same-source crossed condition-set
-  alias case, not the older tail helper.
+  local, and the nested result-`if` condition sink family where the target `if`
+  condition itself contains pure nested control. The real remaining fence here
+  is the same-source crossed condition-set alias case, not those older sink/tail
+  helpers.
 - Call-fed extraction is currently fenced to a narrow single-result `i32` slice.
 - The pass does not currently synthesize the larger alias-local webs Binaryen
   appears to materialize in the later `105621` and `126757` artifact families.

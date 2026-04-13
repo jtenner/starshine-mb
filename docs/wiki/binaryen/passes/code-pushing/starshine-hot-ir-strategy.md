@@ -261,7 +261,9 @@ related:
   Binaryen `Func 1977` artifact slice both show that Binaryen still moves that
   carried alias through the later decref ladder, so Starshine now relies on the
   narrower same-source crossed-condition-set guard plus lowering-validity checks
-  instead.
+  instead. The sink path is narrower internally too now: `cp_try_sink_into_if`
+  no longer treats pure nested control in the target condition as a hard barrier
+  by itself, which closes the reduced standalone `Func 1975` condition family.
 
 ## Current Deliberate Divergences From Binaryen
 

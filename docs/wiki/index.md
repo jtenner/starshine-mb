@@ -101,6 +101,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md`](raw/research/0080-2026-04-12-code-pushing-crossed-condition-set-alias.md) - Reduced Binaryen probe showing that the crossed condition-set carrier alias guard was still too broad unless the kept condition-set itself aliases that same carried source local.
 - [`raw/research/0081-2026-04-12-code-pushing-explicit-exit-fed-tail.md`](raw/research/0081-2026-04-12-code-pushing-explicit-exit-fed-tail.md) - Reduced repeated-ladder probe plus current `Func 1977` artifact slice showing that Binaryen still moves the carried alias through the later decref ladder even when an earlier explicit-exit carrier feeds it.
 - [`raw/research/0082-2026-04-13-code-pushing-standalone-func1975-frontier.md`](raw/research/0082-2026-04-13-code-pushing-standalone-func1975-frontier.md) - Current-source standalone recreations showing that the saved `Func 509` family is stale on the current tree while standalone `Func 1975` still differs as a sharper result-`if` sink frontier.
+- [`raw/research/0083-2026-04-13-code-pushing-nested-result-if-cond-sink.md`](raw/research/0083-2026-04-13-code-pushing-nested-result-if-cond-sink.md) - Reduced nested result-`if` condition repro showing that Starshine's sink barrier was still over-blocking when the target `if` condition itself contained pure nested control.
 
 ## Sessions
 

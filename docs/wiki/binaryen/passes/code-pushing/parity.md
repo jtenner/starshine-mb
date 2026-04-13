@@ -154,10 +154,12 @@ related:
   family are the expected late rewrites.
 - `Func 1977` is no longer just a "not skipped" contract. The reduced probe and
   Binaryen artifact slice now both show it as real upstream surface again.
-- One sharper current-tree frontier is now isolated outside the still-expensive
-  full replay too: standalone recreations built from saved function slices show
-  that the old saved `Func 509` family is stale on the current tree, while
-  standalone `Func 1975` still differs as a richer result-`if` sink case.
+- One sharper current-tree frontier was isolated outside the still-expensive
+  full replay and is now closed too: standalone recreations built from saved
+  function slices showed that the old saved `Func 509` family was stale on the
+  current tree, while standalone `Func 1975` still differed as a richer
+  result-`if` sink case. The reduced nested-condition repro from `0083` now
+  matches Binaryen there as well.
 - Direct compare at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3345552`
   still differs canonically and in normalized WAT, with the first visible
   reopened lines still at `44251` / `44254` in printed `func $127`.

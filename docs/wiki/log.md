@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-13] maintain | readmit nested result-`if` condition sinks in `code-pushing`
+
+- Added [`0083`](raw/research/0083-2026-04-13-code-pushing-nested-result-if-cond-sink.md), which records the reduced nested result-`if` condition repro that closes the sharper standalone `Func 1975` frontier from [`0082`](raw/research/0082-2026-04-13-code-pushing-standalone-func1975-frontier.md).
+- Recorded the actual blocker: `cp_try_sink_into_if` still treated pure `EFFECT_MASK_CONTROL` in the target condition summary as a hard sink barrier, even when the condition did not touch the moved alias local.
+- Recorded the in-tree implementation detail: `src/passes/code_pushing.mbt` now clears that pure control bit from the temporary sink-condition barrier, while `src/passes/code_pushing_test.mbt` now pins the reduced nested-condition positive case and validates the lowered output through the pass pipeline.
+- Recorded the refreshed compare-pass evidence too: `pass-fuzz-code-pushing-20260413a` is `10000/10000` with `0` mismatches, and `pass-fuzz-code-pushing-20260413b` stays semantically clean on compared smith cases (`997/1000`, `0` mismatches, `3` Binaryen-side command failures).
+
 ## [2026-04-13] research | recover a sharper current-tree standalone frontier for `code-pushing`
 
 - Added [`0082`](raw/research/0082-2026-04-13-code-pushing-standalone-func1975-frontier.md), which records the new standalone-module probe method built from saved debug-artifact function slices plus current-source `moon run src/cmd --target native -- --code-pushing ...` replay.

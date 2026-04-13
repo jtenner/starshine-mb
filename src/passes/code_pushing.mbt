@@ -3231,6 +3231,7 @@ fn cp_try_sink_into_if(
       barrier,
       cp_effect_summary_for_node(cache, func, cond_id),
     )
+    barrier.mask = barrier.mask ^ (barrier.mask & @ir.EFFECT_MASK_CONTROL)
   }
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   let else_ref = @ir.hot_region_else_ref(func, if_id)
