@@ -62,6 +62,9 @@ related:
 - The raw layer now also skips the later tiny-local value-`if` / branch ladder family that was still lifting as `Func 828` even though RUB left it unchanged.
 - The raw layer now also skips the later large-local drop-heavy branch ladder family that was still lifting as `Func 145` even though RUB left it unchanged.
 - The raw structured-return skip now ignores reduced false prefix-guard families that the real HOT result-prefix matcher cannot rewrite anyway.
+- The raw layer now also has two more Binaryen-shaped cost filters:
+  - very large void-`if` / return families can now bail before lift on cheap raw shape counts instead of always waiting for the lifted `large-void-if-return-ladder-noop` door
+  - medium-size unchanged control ladders with heavy local traffic can now bail before lift once the raw counts show RUB is unlikely to find a profitable rewrite
 - The unique loop/select raw skip now also covers the measured sixteen-tee mid-band ladder family, but that slice only reclassifies `Func 1171`.
 - The direct one-arm payload branch rewrite now also has a negative parity guard in `br_table` functions:
   - the reduced `Func 3771` family proves Binaryen keeps that `if` conservative
@@ -80,9 +83,9 @@ related:
 - It is still an in-progress parity pass because the explicit debug-artifact compare remains noisy after those fixes:
   - the saved compare still diverges in normalized WAT
   - the first inspected remaining hunk `func $384` still traces as `changed=false`, so some early noise is not RUB mutation at all
-  - fresh local self-opt replay now averages `533.884 ms` on the current tree versus `616.224 ms` for local HEAD baseline, but the lane is still far over Binaryen's pass budget
-  - the latest native trace `.tmp/rub-trace-drop-heavy-final-idle.stderr` still retires `Func 145` before lift
-  - the next runtime work should split unchanged pass-heavy self-opt functions `Func 96` / `Func 788` / `Func 1068` from the older lift-heavy `Func 1382` trace
+  - the latest local two-run self-opt replay on top of the earlier `34a833a` perf audit improves the RUB lane again from `530.153 ms` baseline to `471.733 ms` current
+  - the debug-serial trace also trims the unchanged-walk bucket from `1120.851 ms` to `1063.091 ms` and the lifted `large-void-if-return-ladder-noop` bucket from `262.971 ms` to `251.199 ms`
+  - the next runtime work should keep shrinking the still-open unchanged-walk families led by `Func 1624` / `Func 788` / `Func 96` / `Func 1068` / `Func 3021`
 
 ## Page Map
 

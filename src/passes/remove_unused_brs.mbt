@@ -268,12 +268,12 @@ fn remove_unused_brs_can_skip_large_void_return_ladder(
     shape.br_if_count <= 2
   let matches_single_root_value_if_ladder = local_count >= 700 &&
     root_count == 1 &&
-    node_count >= 5000 &&
-    shape.call_count >= 600 &&
-    shape.local_set_count >= 300 &&
-    shape.local_tee_count >= 300 &&
+    node_count >= 1500 &&
+    shape.call_count >= 300 &&
+    shape.local_set_count >= 150 &&
+    shape.local_tee_count >= 150 &&
     shape.void_if_count == 0 &&
-    shape.value_if_count >= 300 &&
+    shape.value_if_count >= 150 &&
     shape.return_count == 0 &&
     shape.select_count == 0 &&
     shape.br_if_count == 0 &&

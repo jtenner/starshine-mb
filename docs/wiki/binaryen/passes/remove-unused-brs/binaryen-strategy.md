@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-13
 sources:
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
@@ -47,6 +47,33 @@ related:
   - some branches only become removable once the pass has recognized that a loop or block wrapper is just carrying the same continuation back to its owner
   - some later optimizer patterns depend on the "interesting" branch living at the end of a simpler block body rather than inside an earlier wrapper
 - The durable project rule is that loop/body reshaping is a distinct stage between raw tail cleanup and late-shape optimizer cleanup.
+
+## Candidate Filtering Heuristics In Binaryen's Source
+
+The upstream source also shows that Binaryen filters candidate work aggressively before it commits to a rewrite.
+
+- It checks direct structural preconditions first instead of scanning broadly:
+  - the relevant branch must actually target the current block
+  - the candidate tail position must already be direct after earlier cleanup
+  - branch-arity and result-shape checks must already line up
+- It uses side-effect and validity guards before reordering or merging:
+  - `optimizeIf` / related cleanup bails if the condition can have side effects or is unreachable
+  - adjacent-branch cleanup only proceeds when the separating code is effect-safe
+- It uses single-use discovery before more expensive shape work:
+  - helpers like `BranchSeeker` first prove that a specific label-targeted branch family is present in the narrowed subtree
+  - Binaryen does not treat “some nested branch exists somewhere below here” as enough to open the full rewrite
+- It has explicit cost gating for late optimizer work:
+  - the `restructureIf` path is guarded by `TooCostlyToRunUnconditionally` instead of being attempted on every shape that merely looks plausible
+- `tablify` also has numeric density filters, not just semantic ones:
+  - it requires enough arms to matter
+  - it checks the range width against the number of cases before materializing a table
+  - sparse or tiny candidate sets are left alone
+
+Those upstream filters reinforce the same project rule as the phase model:
+
+- prefer cheap, local proofs before expensive discovery
+- do not widen nested scanning just because a family is semantically real
+- make table and branch reshaping pay their way with explicit structural and cost bounds
 
 ## Phase 3: Late Optimizer Cleanup
 

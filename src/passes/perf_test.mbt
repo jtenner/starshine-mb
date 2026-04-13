@@ -82,33 +82,6 @@ fn perf_test_make_large_void_if_return_ladder_module(
 fn perf_test_make_single_root_value_if_ladder_module(
   repetitions : Int,
 ) -> String {
-  let expr = StringBuilder::new()
-  expr.write_string("(i32.const 0)")
-  let mut i = 0
-  while i < repetitions {
-    let tee_local = i % 200 + 1
-    let set_local = i % 200 + 301
-    let next = StringBuilder::new()
-    next.write_string("(block (result i32) (drop ")
-    next.write_string(expr.to_string())
-    next.write_string(
-      ") (if (result i32) (local.get 0) (then (local.get 0) (call 0) (local.tee ",
-    )
-    next.write_string(tee_local.to_string())
-    next.write_string(") (local.set ")
-    next.write_string(set_local.to_string())
-    next.write_string(
-      ") (i32.const 1)) (else (local.get 0) (call 0) (local.tee ",
-    )
-    next.write_string(tee_local.to_string())
-    next.write_string(") (local.set ")
-    next.write_string(set_local.to_string())
-    next.write_string(") (i32.const 2))))")
-    expr.write_string("")
-    expr.reset()
-    expr.write_string(next.to_string())
-    i = i + 1
-  }
   let out = StringBuilder::new()
   out.write_string("(module\n")
   out.write_string("  (func (param i32) (result i32)\n")
@@ -120,9 +93,41 @@ fn perf_test_make_single_root_value_if_ladder_module(
     out.write_string(" i32")
     local_idx = local_idx + 1
   }
-  out.write_string(")\n    ")
-  out.write_string(expr.to_string())
   out.write_string(")\n")
+  out.write_string("    block (result i32)\n")
+  let mut i = 0
+  while i < repetitions {
+    let tee_local = i % 200 + 1
+    let set_local = i % 200 + 301
+    out.write_string("      block (result i32)\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        if (result i32)\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call 0\n")
+    out.write_string("          local.tee ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(set_local.to_string())
+    out.write_string("\n")
+    out.write_string("          i32.const 1\n")
+    out.write_string("        else\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call 0\n")
+    out.write_string("          local.tee ")
+    out.write_string(tee_local.to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(set_local.to_string())
+    out.write_string("\n")
+    out.write_string("          i32.const 2\n")
+    out.write_string("        end\n")
+    out.write_string("      end\n")
+    out.write_string("      drop\n")
+    i = i + 1
+  }
+  out.write_string("      i32.const 0\n")
+  out.write_string("    end)\n")
   out.write_string(")\n")
   out.to_string()
 }
@@ -1245,6 +1250,95 @@ fn perf_test_make_large_tagged_result_prefix_ladder_module(
 }
 
 ///|
+fn perf_test_make_moderate_control_ladder_module(repetitions : Int) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    local.get 0)\n")
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  for local_idx = 0; local_idx < 480; local_idx = local_idx + 1 {
+    out.write_string(" i32")
+  }
+  out.write_string(")\n")
+  for i = 0; i < repetitions; i = i + 1 {
+    let a = i % 120 + 1
+    let b = i % 120 + 121
+    let c = i % 120 + 241
+    let d = i % 120 + 361
+    out.write_string("    block\n")
+    out.write_string("      local.get 0\n")
+    out.write_string("      call 0\n")
+    out.write_string("      local.tee ")
+    out.write_string(a.to_string())
+    out.write_string("\n")
+    out.write_string("      local.set ")
+    out.write_string(b.to_string())
+    out.write_string("\n")
+    out.write_string("      local.get 0\n")
+    out.write_string("      if\n")
+    out.write_string("        local.get ")
+    out.write_string(b.to_string())
+    out.write_string("\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.tee ")
+    out.write_string(c.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(d.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(c.to_string())
+    out.write_string("\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get ")
+    out.write_string(d.to_string())
+    out.write_string("\n")
+    out.write_string("          call 0\n")
+    out.write_string("          local.tee ")
+    out.write_string(a.to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(b.to_string())
+    out.write_string("\n")
+    out.write_string("          i32.const 0\n")
+    out.write_string("          drop\n")
+    out.write_string("        else\n")
+    out.write_string("          local.get ")
+    out.write_string(a.to_string())
+    out.write_string("\n")
+    out.write_string("          call 0\n")
+    out.write_string("          local.tee ")
+    out.write_string(c.to_string())
+    out.write_string("\n")
+    out.write_string("          local.set ")
+    out.write_string(d.to_string())
+    out.write_string("\n")
+    out.write_string("          i32.const 1\n")
+    out.write_string("          return\n")
+    out.write_string("        end\n")
+    out.write_string("      else\n")
+    out.write_string("        local.get ")
+    out.write_string(a.to_string())
+    out.write_string("\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.tee ")
+    out.write_string(c.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(d.to_string())
+    out.write_string("\n")
+    out.write_string("        i32.const 2\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+  }
+  out.write_string("    local.get 0)\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_nested_constructor_hot_skip_module() -> String {
   (
     #| (module
@@ -1647,7 +1741,7 @@ test "remove-unused-brs rewrites decision ladders without hot lift" {
 }
 
 ///|
-test "remove-unused-brs skips large void-if return ladders after lift" {
+test "remove-unused-brs skips large void-if return ladders without hot lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
@@ -1669,19 +1763,23 @@ test "remove-unused-brs skips large void-if return ladders after lift" {
   let text = perf_test_join_lines(lines)
   assert_true(
     text.contains(
-      "pass[remove-unused-brs]:skip-hot reason=large-void-if-return-ladder-noop",
+      "pass[remove-unused-brs]:skip-raw reason=large-void-if-return-ladder-noop",
     ),
+    msg=text,
   )
-  assert_true(text.contains("perf:timer name=lift"))
-  assert_true(text.contains("perf:timer name=pass:remove-unused-brs"))
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=pass:remove-unused-brs"),
+    msg=text,
+  )
 }
 
 ///|
-test "remove-unused-brs skips single-root value-if ladders after lift" {
+test "remove-unused-brs leaves single-root value-if ladders unchanged after lift" {
   let lines : Array[String] = []
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
-  let input = perf_test_make_single_root_value_if_ladder_module(320)
+  let input = perf_test_make_single_root_value_if_ladder_module(160)
 
   match
     pass_test_run_pipeline(
@@ -1697,13 +1795,13 @@ test "remove-unused-brs skips single-root value-if ladders after lift" {
   }
 
   let text = perf_test_join_lines(lines)
+  assert_false(text.contains("pass[remove-unused-brs]:skip-hot"), msg=text)
   assert_true(
-    text.contains(
-      "pass[remove-unused-brs]:skip-hot reason=large-void-if-return-ladder-noop",
-    ),
+    text.contains("pass[remove-unused-brs]:done changed=false"),
+    msg=text,
   )
-  assert_true(text.contains("perf:timer name=lift"))
-  assert_true(text.contains("perf:timer name=pass:remove-unused-brs"))
+  assert_true(text.contains("perf:timer name=lift"), msg=text)
+  assert_true(text.contains("perf:timer name=pass:remove-unused-brs"), msg=text)
 }
 
 ///|
@@ -2361,6 +2459,40 @@ test "remove-unused-brs skips large tagged result-prefix ladders after lift" {
   )
   assert_true(text.contains("perf:timer name=lift"), msg=text)
   assert_true(text.contains("perf:timer name=pass:remove-unused-brs"), msg=text)
+}
+
+///|
+test "remove-unused-brs skips moderate control ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_moderate_control_ladder_module(60)
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["remove-unused-brs"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected moderate control ladder remove-unused-brs success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[remove-unused-brs]:skip-raw reason=moderate-control-ladder-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(
+    text.contains("perf:timer name=pass:remove-unused-brs"),
+    msg=text,
+  )
 }
 
 ///|

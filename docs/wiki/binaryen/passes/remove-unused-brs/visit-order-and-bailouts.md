@@ -40,12 +40,16 @@ The raw pre-lift layer can return early with one of these reasons:
 
 - `decision-ladder-selects`
   a raw decision ladder was rewritten to `select`, and no HOT-only candidates remain
+- `large-void-if-return-ladder-noop`
+  a very large void-`if` / return family is filtered by raw shape counts instead of always paying lift first
 - `large-result-br-table-dispatch-ladder-noop`
   a giant one-result `br_table` dispatch ladder is recognized as a Binaryen-compatible no-op before lift
 - `large-value-if-branch-ladder-noop`
   a deep small-local value-`if` / bare-`br` ladder is recognized as a Binaryen-compatible no-op before lift
 - `large-drop-heavy-branch-ladder-noop`
   a large-local drop-heavy branch ladder is recognized as a Binaryen-compatible no-op before lift
+- `moderate-control-ladder-noop`
+  a medium-size unchanged control ladder with heavy local traffic is filtered before lift once the raw shape is clearly outside RUB's profitable rewrite surface
 - `large-typed-br-table-encoder-ladder-noop`
   a deep mixed value/void block shell around a single `br_table` encoder ladder is recognized as a Binaryen-compatible no-op before lift
 - `structured-return-ladder-noop`
@@ -239,6 +243,11 @@ Any future simplification of the seen mask needs to prove it does not suppress l
 ## Cheap Caches And Expensive Analyses
 
 The pass now shares one explicit cycle scan for the cheap whole-function facts that every fixpoint round needs.
+
+The newer raw no-op filters also follow the same Binaryen-shaped maintenance rule:
+
+- prove cheap local shape and cost bounds first
+- only fall through to lift when the family still looks like it might pay for full structural discovery
 
 - `remove_unused_brs_compute_cycle_scan(...)` computes:
   - `label_refs`

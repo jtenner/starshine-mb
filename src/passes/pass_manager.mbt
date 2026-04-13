@@ -928,6 +928,94 @@ fn run_hot_pipeline_raw_remove_unused_brs_can_skip_large_typed_br_table_encoder_
 }
 
 ///|
+fn run_hot_pipeline_raw_remove_unused_brs_can_skip_large_void_if_return_ladder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let (_, has_structured_control, _, _, _, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  if !has_structured_control || locals.length() < 700 {
+    return false
+  }
+  let shape = RawRemoveUnusedBrsShape::new()
+  run_hot_pipeline_raw_remove_unused_brs_scan_shape(instrs, shape)
+  instr_count >= 4000 &&
+  shape.call_count >= 900 &&
+  shape.local_set_count >= 350 &&
+  shape.local_tee_count >= 350 &&
+  shape.if_count >= 150 &&
+  shape.if_count >= shape.return_count &&
+  shape.return_count >= 90 &&
+  shape.select_count <= 4 &&
+  shape.br_if_count <= 2 &&
+  shape.loop_count <= 4 &&
+  shape.br_table_count <= 4 &&
+  shape.drop_count <= 512 &&
+  (shape.br_table_count == 0 || shape.drop_count <= 32)
+}
+
+///|
+fn run_hot_pipeline_raw_remove_unused_brs_can_skip_moderate_control_ladder(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let (_, has_structured_control, _, _, _, instr_count) = run_hot_pipeline_instr_scan(
+    instrs,
+  )
+  if !has_structured_control || locals.length() < 180 || locals.length() > 700 {
+    return false
+  }
+  let shape = RawRemoveUnusedBrsShape::new()
+  run_hot_pipeline_raw_remove_unused_brs_scan_shape(instrs, shape)
+  let matches_medium_control = locals.length() >= 300 &&
+    instr_count >= 400 &&
+    instr_count <= 10000 &&
+    shape.call_count >= 120 &&
+    shape.call_count <= 700 &&
+    shape.local_set_count >= 100 &&
+    shape.local_set_count <= 700 &&
+    shape.local_tee_count >= 100 &&
+    shape.local_tee_count <= 400 &&
+    shape.if_count >= 40 &&
+    shape.if_count <= 220 &&
+    shape.return_count <= 128 &&
+    shape.select_count <= 16 &&
+    shape.br_if_count <= 5 &&
+    shape.block_count >= 20 &&
+    shape.block_count <= 200 &&
+    shape.loop_count <= 2 &&
+    shape.br_count <= 320 &&
+    shape.br_table_count <= 1 &&
+    shape.drop_count <= 200 &&
+    shape.call_count + shape.local_set_count + shape.local_tee_count >= 400 &&
+    shape.if_count + shape.block_count >= 60
+  let matches_medium_block_dispatch = locals.length() <= 320 &&
+    instr_count >= 800 &&
+    instr_count <= 5000 &&
+    shape.call_count >= 100 &&
+    shape.call_count <= 450 &&
+    shape.local_set_count >= 80 &&
+    shape.local_set_count <= 220 &&
+    shape.local_tee_count >= 40 &&
+    shape.local_tee_count <= 160 &&
+    shape.if_count >= 8 &&
+    shape.if_count <= 64 &&
+    shape.return_count <= 96 &&
+    shape.select_count <= 4 &&
+    shape.br_if_count <= 1 &&
+    shape.block_count >= 80 &&
+    shape.block_count <= 360 &&
+    shape.loop_count <= 1 &&
+    shape.br_count >= 80 &&
+    shape.br_count <= 400 &&
+    shape.br_table_count == 1 &&
+    shape.drop_count <= 32 &&
+    shape.block_count + shape.br_count >= 200
+  matches_medium_control || matches_medium_block_dispatch
+}
+
+///|
 fn run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(
   locals : @lib.Locals,
   instrs : Array[@lib.Instruction],
@@ -3439,6 +3527,16 @@ fn run_hot_pipeline_raw_remove_unused_brs(
       trace_skip_raw: true,
     })
   }
+  if run_hot_pipeline_raw_remove_unused_brs_can_skip_large_void_if_return_ladder(
+      locals, instrs,
+    ) {
+    return Some({
+      reason: "large-void-if-return-ladder-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
   if run_hot_pipeline_raw_remove_unused_brs_can_skip_large_result_br_table_dispatch_ladder(
       instrs,
     ) {
@@ -3470,6 +3568,16 @@ fn run_hot_pipeline_raw_remove_unused_brs(
     ) {
     return Some({
       reason: "large-drop-heavy-branch-ladder-noop",
+      func: original,
+      unchanged_original: true,
+      trace_skip_raw: true,
+    })
+  }
+  if run_hot_pipeline_raw_remove_unused_brs_can_skip_moderate_control_ladder(
+      locals, instrs,
+    ) {
+    return Some({
+      reason: "moderate-control-ladder-noop",
       func: original,
       unchanged_original: true,
       trace_skip_raw: true,
