@@ -2635,13 +2635,28 @@ fn simplify_locals_scan_node(
         match child.op {
           @ir.HotOp::LocalTee => {
             let value_id = @ir.hot_child_get(func, child_id, 0)
-            @ir.hot_replace_node(
-              func,
-              node_id,
-              simplify_locals_make_local_set(func, child.imm0, value_id),
-            )
-            detached.push(child_id)
-            changed = true
+            let preserves_control_owner = if value_id >= 0 &&
+              @ir.hot_node_is_live(func, value_id) {
+              match @ir.hot_node_get(func, value_id).op {
+                @ir.HotOp::Block
+                | @ir.HotOp::Loop
+                | @ir.HotOp::If
+                | @ir.HotOp::Try
+                | @ir.HotOp::TryTable => true
+                _ => false
+              }
+            } else {
+              false
+            }
+            if !preserves_control_owner {
+              @ir.hot_replace_node(
+                func,
+                node_id,
+                simplify_locals_make_local_set(func, child.imm0, value_id),
+              )
+              detached.push(child_id)
+              changed = true
+            }
           }
           _ => ()
         }
@@ -4252,6 +4267,7 @@ fn simplify_locals_equivalent_candidate_count(
 fn simplify_locals_run_dead_cleanup(
   func : @ir.HotFunc,
   detached : Array[Int],
+  rehomed_owners : Array[SimplifyLocalsDetachedControlOwner],
 ) -> Bool {
   let get_counts = simplify_locals_count_local_gets(func)
   let mut changed = false
@@ -4329,6 +4345,18 @@ fn simplify_locals_run_dead_cleanup(
         if get_counts[node.imm0] != 0 {
           continue
         }
+        if value_id >= 0 &&
+          @ir.hot_node_is_live(func, value_id) &&
+          @ir.hot_node_kind_is_control(func, value_id) {
+          rehomed_owners.push({
+            replacement_id: node_id,
+            detached_id: value_id,
+          })
+          @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, value_id))
+          detached.push(value_id)
+          changed = true
+          continue
+        }
         if simplify_locals_value_can_clone_node(func, value_id) {
           @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, value_id))
           detached.push(value_id)
@@ -4378,8 +4406,11 @@ fn simplify_locals_run(
       "detail:simplify-locals:dead-cleanup",
     )
     let cleanup_detached : Array[Int] = []
+    let cleanup_rehomed_owners : Array[SimplifyLocalsDetachedControlOwner] = []
     let cleanup_changed = simplify_locals_run_dead_cleanup(
-      func, cleanup_detached,
+      func,
+      cleanup_detached,
+      cleanup_rehomed_owners,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -4389,6 +4420,10 @@ fn simplify_locals_run(
     let cleanup_delete_start_us = perf_start_timer_opt(
       ctx.perf,
       "detail:simplify-locals:delete-dead-detached",
+    )
+    simplify_locals_rehome_detached_control_owners(
+      func,
+      cleanup_rehomed_owners,
     )
     simplify_locals_delete_detached_nodes(func, cleanup_detached)
     perf_stop_timer_opt(
@@ -4473,8 +4508,11 @@ fn simplify_locals_run(
       "detail:simplify-locals:late-dead-cleanup",
     )
     let late_cleanup_detached : Array[Int] = []
+    let late_cleanup_rehomed_owners : Array[SimplifyLocalsDetachedControlOwner] = []
     let late_cleanup_changed = simplify_locals_run_dead_cleanup(
-      func, late_cleanup_detached,
+      func,
+      late_cleanup_detached,
+      late_cleanup_rehomed_owners,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -4484,6 +4522,10 @@ fn simplify_locals_run(
     let late_delete_start_us = perf_start_timer_opt(
       ctx.perf,
       "detail:simplify-locals:delete-late-detached",
+    )
+    simplify_locals_rehome_detached_control_owners(
+      func,
+      late_cleanup_rehomed_owners,
     )
     simplify_locals_delete_detached_nodes(func, late_cleanup_detached)
     perf_stop_timer_opt(

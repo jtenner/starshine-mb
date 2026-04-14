@@ -33,6 +33,25 @@ fn tuple_optimization_test_analyze_via_binary(
 }
 
 ///|
+fn tuple_optimization_test_count_substring(text : String, needle : String) -> Int {
+  if needle.length() == 0 {
+    return 0
+  }
+  let mut count = 0
+  let limit = text.length() - needle.length()
+  let mut i = 0
+  while i <= limit {
+    if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+      count += 1
+      i += needle.length()
+    } else {
+      i += 1
+    }
+  }
+  count
+}
+
+///|
 fn tuple_optimization_test_ctx() -> HotPassContext {
   HotPassContext::new(
     @ir.HotPassDescriptor::new("tuple-optimization-test"),
@@ -293,7 +312,7 @@ test "tuple-optimization rewrite preserves host local.tee value flow with a scal
 }
 
 ///|
-test "tuple-optimization rewrite keeps exact host tee repro consumers on original lane locals" {
+test "tuple-optimization rewrite keeps the exact host tee repro scalarized and valid" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32) i32.const 1 drop i32.const 10000 local.set 3 i32.const 42 local.get 3 call 0 local.set 2 local.set 1 local.tee 0 local.get 1 local.get 2 call 1))",
@@ -305,19 +324,14 @@ test "tuple-optimization rewrite keeps exact host tee repro consumers on origina
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("local.tee (Local 0)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
   assert_true(
-    pretty.contains(
-      "(local.tee (Local 0))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
-    ),
-    msg=pretty,
-  )
-  assert_false(
     pretty.contains(
       "(local.get (Local 4))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
     ),
     msg=pretty,
   )
+  assert_eq(tuple_optimization_test_count_substring(pretty, "local.tee"), 0, msg=pretty)
 }
 
 ///|
@@ -369,9 +383,10 @@ test "tuple-optimization rewrite keeps a staged host local.set root chain" {
     2U,
   )
   assert_false(pretty.contains("tuple.make"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
   assert_true(
     pretty.contains(
-      "(local.get (Local 7))(local.set (Local 2))(local.get (Local 8))(local.tee (Local 1))(local.get (Local 2))(local.get (Local 3))(call (Func 1))(local.set (Local 0))(local.get (Local 0))",
+      "(local.get (Local 7))(local.set (Local 2))(local.get (Local 8))(local.get (Local 2))(local.get (Local 3))(call (Func 1))(local.set (Local 0))(local.get (Local 0))",
     ),
     msg=pretty,
   )
@@ -882,7 +897,7 @@ test "tuple-optimization lowered chained host-copy tail-live0 keeps downstream h
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
     1U,
   )
-  assert_true(pretty.contains("local.tee (Local 12)"), msg=pretty)
+  assert_true(tuple_optimization_test_count_substring(pretty, "local.tee") >= 2, msg=pretty)
   assert_true(pretty.contains("local.tee (Local 3)"), msg=pretty)
   assert_true(pretty.contains("local.set (Local 15)"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 15)"), msg=pretty)

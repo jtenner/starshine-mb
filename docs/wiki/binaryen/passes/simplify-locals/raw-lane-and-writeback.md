@@ -89,6 +89,17 @@ related:
 - Why it exists:
   - this retired the old `Func 50` temp drift without needing the whole validator-heavy function to lift
 
+### Validator Leading-Condition Temp Sink
+
+- Family:
+  - single-use effectful temp
+  - later structured value root such as `block (result ...)`
+  - the only meaningful use is on that structured body's leading condition path
+  - the condition may start with a pure stack prefix before the temp read
+- Why it exists:
+  - the old `Func 71` frontier kept a call-indirect temp alive only because the validator raw-skip lane did not see through the structured condition body
+  - reduced heavy regressions now prove the raw lane can sink that temp safely without lifting the whole function
+
 ## Raw Skip Families Currently Worth Keeping
 
 ### `validator-structured-call-heavy`
@@ -100,6 +111,25 @@ related:
 - Important nuance:
   - the repo no longer treats this as "nothing happens"
   - the exact temp cleanup helper now runs on validator raw-skip results too
+  - the raw pure-call-tail cleanup now also runs recursively on this lane in a bounded fixpoint of `3`, because returning call tails can hide earlier copied args behind later copied args inside nested `if` bodies
+  - that recursive pure-call-tail fixpoint is now guarded by a cheap nested candidate scan too, so validator-heavy functions stop before another full nested rewrite walk when no pure copy call tails remain
+  - the raw pure-suffix copy cleanup now also duplicates one-instruction copy values (`local.get`, `i32.const`, `i64.const`, `f32.const`, `f64.const`) through the next statement on this lane
+  - that pure-copy cleanup now runs in a bounded fixpoint of `3`, because artifact traces showed later copy shuttles can become visible only after earlier raw rewrites in the same block
+  - that recursive pure-suffix fixpoint is now guarded by its own cheap nested candidate scan too, so functions with no remaining `pure-value -> local.set -> later local.get` family stop before another full nested pure-suffix walk
+  - the same pure-copy lane now also has a narrower helper for `local.get/const -> local.set -> raw condition prefix -> if` when the copied local is only consumed on that escaping `if` condition path and is dead again before any later read
+  - the same pure-copy lane now also prefers direct dupable-copy elimination over the older "move middle statements later" path, and can batch later dupable middle producer statements into the same final use once a target statement is found
+  - but not every later tee-shaped Binaryen diff should be attacked with a blind post-pass tee sweep
+  - the 2026-04-10 artifact replay showed that a whole-body adjacent-tee cleanup can erase the explicit `local.set $7` carrier in `Func 71` without recreating Binaryen's `local.tee $7`
+  - the raw adjacent-tee helper itself is still kept and now has a whitebox guard proving it preserves later reads inside an `if` body on the reduced flat shape
+  - the reduced returning-call-tail constant-copy subgroup is now retired in-tree by the recursive pure-call-tail cleanup plus the existing pure-suffix fixpoint
+  - the rebuilt-binary replay now retires the old copied-local `$739 -> $18` and `$735 -> $24` carriers on this lane
+  - a reduced Binaryen probe now also proves the later constant/copy fanout policy itself: Binaryen deletes the whole dupable fanout and leaves only `nop` sentinels plus direct constants or direct `local.get`
+  - a later terminal-value reducer now also covers the tighter raw shape where the copied local is the final escaping value tail instead of the input to a later zero-stack statement
+  - the reduced terminal probes also pinned one subtle Binaryen rule that the repo previously missed: deleting the copied local does not delete the lowered sentinel surface; the removed `local.set` becomes a `nop`, and any pre-existing middle `nop`s remain
+  - that narrower reducer is green on reduced whitebox cases and on the rebuilt native fuzz lanes `.tmp/pass-fuzz-sl-terminal-value-2k`, `.tmp/pass-fuzz-sl-terminal-value-10k`, `.tmp/pass-fuzz-sl-terminal-sentinel-2k`, and `.tmp/pass-fuzz-sl-terminal-sentinel-10k`
+  - the direct traced native `--print-func 71` path now shows the old `call $176` / `call $1988` wrapper sites fed by direct constants or direct source `local.get`, which matches Binaryen's reduced policy
+  - a later reduced branch-terminated carrier regression now also proves that the later-read safety scan must stop at unconditional `br` / `br_table` boundaries but not at `br_if`, and the rebuilt native lanes `.tmp/pass-fuzz-sl-branch-terminated-carrier-2k` and `.tmp/pass-fuzz-sl-branch-terminated-carrier-10k` are green too
+  - however, the real artifact still keeps the exact `$62 -> $930 -> $38` branch carrier in `Func 71`, so the remaining gap on this lane is still one uncaptured validator-skip raw statement shape, not a generic lack of Binaryen policy
 
 ### `dense-structured-call-heavy`
 
@@ -167,6 +197,18 @@ related:
   - the family has a reduced regression
   - the family survives the pass-fuzz compare lane
   - the family does not require broad lowered-`nop` removal
+
+## Escaping Tail Boundary
+
+- The 2026-04-10 returning-fanout fix clarified a raw helper boundary:
+  - `run_hot_pipeline_raw_simplify_locals_take_statement_prefix_allow_escape` must be able to return the full remaining escaping value tail when the whole suffix typechecks with a non-empty stack and `tc_escape_none`
+  - otherwise the pure-suffix dupable-copy reducer only sees zero-stack prefixes and peels a few copied args instead of the full returning `call`
+- Why it matters:
+  - the reduced returning `if (result i32)` dense-fanout regression stayed red until this boundary changed
+  - after the change, the reduced regression and the direct 2k/10k lanes turned green without broadening the rewrite policy
+- What it did not solve:
+  - Binaryen still reparses the encoded debug-artifact output into the old `$930..$934` carrier family
+  - so this helper change is part of the raw lane, while the still-open artifact frontier now sits at the Binaryen-facing writeback or reparse boundary
 
 ## Why The Raw Lane Must Stay Secondary
 

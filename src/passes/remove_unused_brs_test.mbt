@@ -2236,7 +2236,7 @@ test "remove-unused-brs preserves nop-only if arms while trimming trailing root 
 }
 
 ///|
-test "remove-unused-brs preserves dead local.tee roots while trimming trailing root nops" {
+test "remove-unused-brs trims dead local.tee roots along with trailing root nops" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (local i64) i32.const 252 drop i64.const 563 local.tee 0 drop nop))",
@@ -2253,7 +2253,6 @@ test "remove-unused-brs preserves dead local.tee roots while trimming trailing r
     @lib.Instruction::i32_const(@lib.I32(252)),
     @lib.Instruction::drop(),
     @lib.Instruction::i64_const(@lib.I64(563L)),
-    @lib.Instruction::local_tee(@lib.LocalIdx::new(0U)),
     @lib.Instruction::drop(),
   ])
 }

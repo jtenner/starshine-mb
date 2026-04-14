@@ -5,30 +5,23 @@ test "hot pipeline debug dump targets stay disabled without trace" {
   assert_false(
     run_hot_pipeline_debug_dump_enabled(
       options,
-      @lib.FuncIdx::new(2941U),
-      "dead-code-elimination",
+      @lib.FuncIdx::new(2944U),
+      "vacuum",
     ),
   )
   assert_false(
     run_hot_pipeline_debug_dump_enabled(
       options,
-      @lib.FuncIdx::new(2944U),
-      "vacuum",
+      @lib.FuncIdx::new(3660U),
+      "tuple-optimization",
     ),
   )
 }
 
 ///|
-test "hot pipeline debug dump targets require traced dce or vacuum on target funcs" {
+test "hot pipeline debug dump targets require traced vacuum or tuple targets" {
   let options = HotPipelineOptions::new(trace=Some(fn(_) { () }))
 
-  assert_true(
-    run_hot_pipeline_debug_dump_enabled(
-      options,
-      @lib.FuncIdx::new(2941U),
-      "dead-code-elimination",
-    ),
-  )
   assert_true(
     run_hot_pipeline_debug_dump_enabled(
       options,
@@ -36,10 +29,17 @@ test "hot pipeline debug dump targets require traced dce or vacuum on target fun
       "vacuum",
     ),
   )
+  assert_true(
+    run_hot_pipeline_debug_dump_enabled(
+      options,
+      @lib.FuncIdx::new(3660U),
+      "tuple-optimization",
+    ),
+  )
   assert_false(
     run_hot_pipeline_debug_dump_enabled(
       options,
-      @lib.FuncIdx::new(2941U),
+      @lib.FuncIdx::new(2944U),
       "remove-unused-names",
     ),
   )
@@ -47,7 +47,7 @@ test "hot pipeline debug dump targets require traced dce or vacuum on target fun
     run_hot_pipeline_debug_dump_enabled(
       options,
       @lib.FuncIdx::new(12U),
-      "dead-code-elimination",
+      "vacuum",
     ),
   )
 }
@@ -89,6 +89,389 @@ test "raw simplify-locals branchy structured gate accepts target-like stats" {
       ..accepted,
       loop_count: 1,
     }),
+  )
+}
+
+///|
+test "raw simplify-locals adjacent local tees preserve writes read inside later if bodies" {
+  let local_7 = @lib.LocalIdx::new(7U)
+  let instrs = [
+    @lib.Instruction::local_set(local_7),
+    @lib.Instruction::local_get(local_7),
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 12UL)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [@lib.Instruction::local_get(local_7), @lib.Instruction::drop()],
+      None,
+    ),
+  ]
+
+  let (rewritten, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_local_tees(
+    instrs,
+  )
+
+  assert_eq(rewrite_count, 1)
+  assert_eq(rewritten.length(), 3)
+  assert_eq(rewritten[0], @lib.Instruction::local_tee(local_7))
+  assert_eq(
+    rewritten[1],
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 12UL)),
+  )
+  match rewritten[2] {
+    @lib.If(_, then_body, _) => {
+      assert_eq(then_body.length(), 2)
+      assert_eq(then_body[0], @lib.Instruction::local_get(local_7))
+      assert_eq(then_body[1], @lib.Instruction::drop())
+    }
+    _ => fail("expected rewritten if body, got \{rewritten[2]}")
+  }
+}
+
+///|
+test "raw simplify-locals nested pure call-tail scan sees returning branch copy shuttles" {
+  let instrs = [
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::i32_const(@lib.I32(10000)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(255U)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(252U)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(253U)),
+        @lib.Instruction::i32_const(@lib.I32(0)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(254U)),
+        @lib.Instruction::nop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(254U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(252U)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(253U)),
+        @lib.Instruction::i64_const(@lib.I64(4294967296L)),
+        @lib.Instruction::i64_const(@lib.I64(4294967296L)),
+        @lib.Instruction::i32_const(@lib.I32(-1)),
+        @lib.Instruction::i64_const(@lib.I64(4294967296L)),
+        @lib.Instruction::i32_const(@lib.I32(-1)),
+        @lib.Instruction::i32_const(@lib.I32(-1)),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(255U)),
+        @lib.Instruction::call(@lib.FuncIdx::new(3U)),
+        @lib.Instruction::drop(),
+        @lib.Instruction::local_get(@lib.LocalIdx::new(250U)),
+        @lib.Instruction::return_(),
+      ],
+      None,
+    ),
+  ]
+
+  assert_true(
+    run_hot_pipeline_raw_simplify_locals_has_pure_call_tail_candidates_nested(
+      instrs,
+    ),
+  )
+}
+
+///|
+test "raw simplify-locals nested pure suffix scan sees later copied local reads" {
+  let instrs = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(250U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(251U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(251U)),
+        @lib.Instruction::drop(),
+      ],
+      None,
+    ),
+  ]
+
+  assert_true(
+    run_hot_pipeline_raw_simplify_locals_has_pure_suffix_local_set_candidates_nested(
+      instrs,
+    ),
+  )
+}
+
+///|
+test "raw simplify-locals later local read before next write stops at overwrite" {
+  let local_251 = 251
+  let reads_before_write = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(251U)),
+    @lib.Instruction::drop(),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(251U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(251U)),
+    @lib.Instruction::drop(),
+  ]
+  let write_before_read = [
+    @lib.Instruction::local_set(@lib.LocalIdx::new(251U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(251U)),
+    @lib.Instruction::drop(),
+  ]
+
+  assert_true(
+    run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+      reads_before_write, 0, local_251,
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+      write_before_read, 0, local_251,
+    ),
+  )
+}
+
+///|
+test "raw simplify-locals rewrites dupable copies into the next escaping if condition" {
+  let remaining = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(251U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(251U)),
+    @lib.Instruction::i32_load(@lib.MemArg::new(0U, None, 8UL)),
+    @lib.Instruction::call_indirect(
+      @lib.TypeIdx::new(0U),
+      @lib.TableIdx::new(0U),
+    ),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(1)),
+    @lib.Instruction::i32_eq(),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::local_get(@lib.LocalIdx::new(250U)),
+        @lib.Instruction::return_(),
+      ],
+      Some([@lib.Instruction::nop()]),
+    ),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(251U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(251U)),
+    @lib.Instruction::drop(),
+  ]
+
+  let rewritten = match
+    run_hot_pipeline_raw_simplify_locals_try_rewrite_dupable_copy_into_next_if_condition(
+      remaining,
+      251,
+      @lib.Instruction::local_get(@lib.LocalIdx::new(250U)),
+      [250],
+    ) {
+    Some((rewritten, consumed_len)) => {
+      assert_eq(consumed_len, 9)
+      rewritten
+    }
+    None => fail("expected escaping if-condition copy rewrite candidate")
+  }
+
+  assert_eq(rewritten[0], @lib.Instruction::local_get(@lib.LocalIdx::new(250U)))
+  assert_eq(rewritten[1], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+  assert_eq(rewritten[2], @lib.Instruction::local_get(@lib.LocalIdx::new(250U)))
+  match rewritten[8] {
+    @lib.If(_, then_body, else_body) => {
+      assert_eq(
+        then_body[0],
+        @lib.Instruction::local_get(@lib.LocalIdx::new(250U)),
+      )
+      assert_eq(then_body[1], @lib.Instruction::return_())
+      assert_eq(else_body, Some([@lib.Instruction::nop()]))
+    }
+    _ => fail("expected rewritten trailing if, got \{rewritten[8]}")
+  }
+}
+
+///|
+test "raw simplify-locals batches dupable middle copy statements into the same final use" {
+  let middle_statements = [
+    [
+      @lib.Instruction::i32_const(@lib.I32(10000)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(201U)),
+    ],
+    [
+      @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(202U)),
+    ],
+    [
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(203U)),
+    ],
+    [@lib.Instruction::nop()],
+  ]
+  let statement = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(203U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(202U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(201U)),
+    @lib.Instruction::call(@lib.FuncIdx::new(1U)),
+    @lib.Instruction::drop(),
+  ]
+  let outer_instrs = [
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(200U)),
+  ]
+  for middle_statement in middle_statements {
+    for instr in middle_statement {
+      outer_instrs.push(instr)
+    }
+  }
+  for instr in statement {
+    outer_instrs.push(instr)
+  }
+
+  let (rewritten_middle, rewritten_statement, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_dupable_copy_middle_statements_into_statement(
+    middle_statements,
+    statement,
+    outer_instrs,
+    outer_instrs.length(),
+  )
+
+  assert_eq(rewrite_count, 3)
+  assert_eq(rewritten_middle.length(), 4)
+  assert_eq(rewritten_middle[0], @lib.Instruction::nop())
+  assert_eq(rewritten_middle[1], @lib.Instruction::nop())
+  assert_eq(rewritten_middle[2], @lib.Instruction::nop())
+  assert_eq(rewritten_middle[3], @lib.Instruction::nop())
+  assert_eq(rewritten_statement[0], @lib.Instruction::i32_const(@lib.I32(0)))
+  assert_eq(
+    rewritten_statement[1],
+    @lib.Instruction::local_get(@lib.LocalIdx::new(7U)),
+  )
+  assert_eq(
+    rewritten_statement[2],
+    @lib.Instruction::i32_const(@lib.I32(10000)),
+  )
+}
+
+///|
+test "raw simplify-locals pure suffix collapses terminal dupable const wrappers" {
+  let env = @validate.Env::new().with_locals(
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  let instrs = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+  ]
+
+  let (rewritten, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
+    instrs, env,
+  )
+
+  assert_eq(rewrite_count, 1)
+  assert_eq(rewritten.length(), 3)
+  assert_eq(rewritten[0], @lib.Instruction::nop())
+  assert_eq(rewritten[1], @lib.Instruction::nop())
+  assert_eq(rewritten[2], @lib.Instruction::i32_const(@lib.I32(0)))
+}
+
+///|
+test "raw simplify-locals pure suffix collapses terminal dupable local wrappers across safe middle statements" {
+  let env = @validate.Env::new().with_locals(
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  let instrs = [
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ]
+
+  let (rewritten, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
+    instrs, env,
+  )
+
+  assert_eq(rewrite_count, 1)
+  assert_eq(rewritten.length(), 4)
+  assert_eq(rewritten[0], @lib.Instruction::nop())
+  assert_eq(rewritten[1], @lib.Instruction::local_get(@lib.LocalIdx::new(2U)))
+  assert_eq(rewritten[2], @lib.Instruction::local_set(@lib.LocalIdx::new(3U)))
+  assert_eq(rewritten[3], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+}
+
+///|
+test "raw simplify-locals pure suffix rewrites copy carriers into branch-terminated statements" {
+  let env = @validate.Env::new().with_locals(
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  let instrs = [
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+  ]
+
+  let (rewritten, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
+    instrs, env,
+  )
+
+  assert_eq(rewrite_count, 1)
+  assert_eq(rewritten.length(), 7)
+  assert_eq(rewritten[0], @lib.Instruction::nop())
+  assert_eq(rewritten[1], @lib.Instruction::nop())
+  assert_eq(rewritten[2], @lib.Instruction::local_get(@lib.LocalIdx::new(2U)))
+  assert_eq(rewritten[3], @lib.Instruction::local_set(@lib.LocalIdx::new(3U)))
+  assert_eq(rewritten[4], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+  assert_eq(rewritten[5], @lib.Instruction::local_set(@lib.LocalIdx::new(2U)))
+  assert_eq(rewritten[6], @lib.Instruction::br(@lib.LabelIdx::new(0U)))
+}
+
+///|
+test "lowered simplify-locals cleanup hoists nops ahead of dupable value runs" {
+  let instrs = [
+    @lib.Instruction::i32_const(@lib.I32(0)),
+    @lib.Instruction::nop(),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::i32_const(@lib.I32(2)),
+    @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+  ]
+
+  let rewritten = run_hot_pipeline_simplify_locals_lowered_hoist_nops_across_dupable_values(
+    instrs,
+  )
+
+  assert_eq(rewritten.length(), 5)
+  assert_eq(rewritten[0], @lib.Instruction::nop())
+  assert_eq(rewritten[1], @lib.Instruction::i32_const(@lib.I32(0)))
+  assert_eq(rewritten[2], @lib.Instruction::local_get(@lib.LocalIdx::new(1U)))
+  assert_eq(rewritten[3], @lib.Instruction::i32_const(@lib.I32(2)))
+  assert_eq(rewritten[4], @lib.Instruction::call(@lib.FuncIdx::new(0U)))
+}
+
+///|
+test "raw simplify-locals later-read scan stops at unconditional branch" {
+  let instrs = [
+    @lib.Instruction::br(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+  ]
+
+  assert_false(
+    run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+      instrs, 0, 3,
+    ),
+  )
+}
+
+///|
+test "raw simplify-locals later-read scan keeps conditional branch reads live" {
+  let instrs = [
+    @lib.Instruction::br_if(@lib.LabelIdx::new(0U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+  ]
+
+  assert_true(
+    run_hot_pipeline_raw_instrs_have_later_local_read_before_next_local_write(
+      instrs, 0, 3,
+    ),
   )
 }
 
@@ -197,6 +580,134 @@ fn pass_manager_test_native_read_repo_fixture(path : String) -> Bytes? {
     }
   }
   None
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_instrs_contain_func71_returning_condition_copy_carrier(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let mut idx = 0
+  while idx + 9 < instrs.length() {
+    match instrs[idx] {
+      @lib.LocalSet(@lib.LocalIdx(raw)) =>
+        if raw == 18U &&
+          instrs[idx + 1] ==
+          @lib.Instruction::local_get(@lib.LocalIdx::new(18U)) &&
+          instrs[idx + 2] ==
+          @lib.Instruction::local_get(@lib.LocalIdx::new(15U)) &&
+          instrs[idx + 3] ==
+          @lib.Instruction::local_get(@lib.LocalIdx::new(18U)) {
+          let mut saw_call_indirect = false
+          let mut saw_if = false
+          let mut scan = idx + 4
+          while scan < instrs.length() && scan <= idx + 10 && !saw_if {
+            match instrs[scan] {
+              @lib.CallIndirect(_, _) => saw_call_indirect = true
+              @lib.If(_, _, _) => saw_if = true
+              _ => ()
+            }
+            scan = scan + 1
+          }
+          if saw_call_indirect && saw_if {
+            return true
+          }
+        }
+      _ => ()
+    }
+    idx = idx + 1
+  }
+  false
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_block_is_simple_split_value_wrapper(
+  body : Array[@lib.Instruction],
+) -> Bool {
+  if body.length() < 3 {
+    return false
+  }
+  if !run_hot_pipeline_raw_simplify_locals_instr_is_dupable_copy_value(body[0]) {
+    return false
+  }
+  match (body[1], body[body.length() - 1]) {
+    (
+      @lib.LocalSet(@lib.LocalIdx(scratch_raw)),
+      @lib.LocalGet(@lib.LocalIdx(last_raw)),
+    ) => {
+      if scratch_raw != last_raw {
+        return false
+      }
+      for idx = 2; idx + 1 < body.length(); idx = idx + 1 {
+        match body[idx] {
+          @lib.Nop => ()
+          @lib.LocalGet(@lib.LocalIdx(raw))
+          | @lib.LocalSet(@lib.LocalIdx(raw))
+          | @lib.LocalTee(@lib.LocalIdx(raw)) =>
+            if raw == scratch_raw {
+              return false
+            }
+          _ => ()
+        }
+      }
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_instrs_contain_func71_split_value_wrapper(
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  for instr in instrs {
+    match instr {
+      @lib.Block(_, @lib.Expr(body))
+      | @lib.Loop(_, @lib.Expr(body))
+      | @lib.TryTable(_, _, @lib.Expr(body)) =>
+        if pass_manager_test_block_is_simple_split_value_wrapper(body) ||
+          pass_manager_test_instrs_contain_func71_split_value_wrapper(body) {
+          return true
+        }
+      @lib.If(_, then_body, else_body) => {
+        if pass_manager_test_instrs_contain_func71_split_value_wrapper(
+            then_body,
+          ) {
+          return true
+        }
+        match else_body {
+          Some(else_body) =>
+            if pass_manager_test_instrs_contain_func71_split_value_wrapper(
+                else_body,
+              ) {
+              return true
+            }
+          None => ()
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_imported_func_count(mod_ : @lib.Module) -> Int {
+  let mut count = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.FuncExternType(_)) => count = count + 1
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  count
 }
 
 ///|
@@ -981,6 +1492,440 @@ test "simplify-locals rewrites split-wrapper debug artifact Func 50" {
   assert_false(
     pipeline_result.unchanged_original,
     msg="expected Func 50 split-wrapper rewrite, reason=\{pipeline_result.reason}",
+  )
+}
+
+///|
+#cfg(target="native")
+test "raw simplify-locals effectful suffix rewrites debug artifact Func 71 block-result carrier" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(71U)
+  let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
+    mod_, func_idx,
+  )
+  let module_state = { module_ctx: None }
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_,
+    module_state,
+    HotPipelineOptions::new(),
+  )
+  let env = run_hot_pipeline_raw_simplify_locals_func_env(
+    mod_, func_idx, module_ctx, locals,
+  )
+  let (pure_suffix_instrs, _) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets(
+    instrs, env,
+  )
+  let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets_fixpoint(
+    pure_suffix_instrs, env,
+  )
+  let rewritten_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected code section in debug artifact")
+  }
+  let defined_idx = func_idx.0.reinterpret_as_int() -
+    pass_manager_test_imported_func_count(mod_)
+  if defined_idx < 0 || defined_idx >= rewritten_funcs.length() {
+    fail("expected defined idx for Func 71, got \{defined_idx}")
+  }
+  rewritten_funcs[defined_idx] = @lib.Func::new(
+    locals,
+    @lib.Expr::new(rewritten_instrs),
+  )
+  let rewritten_mod = mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+  let pretty = rewritten_mod.pretty_print_func(func_idx)
+  assert_true(rewrite_count > 0)
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("local.tee (Local 7)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 7)"), msg=pretty)
+}
+
+///|
+#cfg(target="native")
+test "raw simplify-locals pure suffix rewrites debug artifact Func 71 const fanout subgroup" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(71U)
+  let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
+    mod_, func_idx,
+  )
+  let module_state = { module_ctx: None }
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_,
+    module_state,
+    HotPipelineOptions::new(),
+  )
+  let env = run_hot_pipeline_raw_simplify_locals_func_env(
+    mod_, func_idx, module_ctx, locals,
+  )
+  let (rewritten_instrs, rewrite_count) = run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets_fixpoint(
+    instrs, env,
+  )
+  let rewritten_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected code section in debug artifact")
+  }
+  let defined_idx = func_idx.0.reinterpret_as_int() -
+    pass_manager_test_imported_func_count(mod_)
+  if defined_idx < 0 || defined_idx >= rewritten_funcs.length() {
+    fail("expected defined idx for Func 71, got \{defined_idx}")
+  }
+  rewritten_funcs[defined_idx] = @lib.Func::new(
+    locals,
+    @lib.Expr::new(rewritten_instrs),
+  )
+  let rewritten_mod = mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+  let pretty = rewritten_mod.pretty_print_func(func_idx)
+  assert_true(rewrite_count > 0)
+  assert_false(pretty.contains("local.set (Local 930)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 931)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 932)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 933)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 934)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 557)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 558)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 559)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 560)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 561)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 562)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 563)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 564)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 540)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 541)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 542)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 543)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 544)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 545)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 546)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 547)"), msg=pretty)
+}
+
+///|
+#cfg(target="native")
+test "simplify-locals full pipeline rewrites debug artifact Func 71 const fanout subgroup" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let pipeline_result = match
+    run_hot_pipeline_func(
+      mod_,
+      @lib.FuncIdx::new(71U),
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      { module_ctx: None },
+      HotPipelineOptions::new(),
+    ) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected simplify-locals hot pipeline success, got \{err}")
+  }
+  let pretty = pipeline_result.func.pretty_print()
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="unexpected raw skip reason=\{pipeline_result.reason}",
+  )
+  assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
+  assert_false(pretty.contains("local.set (Local 930)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 931)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 932)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 933)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 934)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 557)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 558)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 559)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 560)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 561)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 562)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 563)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 564)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 540)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 541)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 542)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 543)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 544)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 545)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 546)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 547)"), msg=pretty)
+}
+
+///|
+#cfg(target="native")
+test "simplify-locals module apply keeps debug artifact Func 71 const fanout rewrite" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let entry = match pass_registry_lookup("simplify-locals") {
+    Some(entry) => entry
+    None => fail("expected simplify-locals pass registry entry")
+  }
+  let rewritten = match
+    run_hot_pipeline_apply_hot_pass(mod_, entry, HotPipelineOptions::new()) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected simplify-locals module apply success, got \{err}")
+  }
+  let pretty = rewritten.pretty_print_func(@lib.FuncIdx::new(71U))
+  assert_false(pretty.contains("local.set (Local 930)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 931)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 932)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 933)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 934)"), msg=pretty)
+}
+
+///|
+#cfg(target="native")
+test "simplify-locals encoded module keeps debug artifact Func 71 const fanout rewrite" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let entry = match pass_registry_lookup("simplify-locals") {
+    Some(entry) => entry
+    None => fail("expected simplify-locals pass registry entry")
+  }
+  let rewritten = match
+    run_hot_pipeline_apply_hot_pass(mod_, entry, HotPipelineOptions::new()) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected simplify-locals module apply success, got \{err}")
+  }
+  let encoded = match @binary.encode_module(rewritten) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail("expected simplify-locals encoded module success, got \{err}")
+  }
+  let decoded = match @binary.decode_module(encoded) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected simplify-locals encoded module decode success, got \{err}")
+  }
+  let pretty = decoded.pretty_print_func(@lib.FuncIdx::new(71U))
+  assert_false(pretty.contains("local.set (Local 930)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 931)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 932)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 933)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 934)"), msg=pretty)
+}
+
+///|
+#cfg(target="native")
+test "simplify-locals full pipeline keeps debug artifact Func 71 block-result carrier tee" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(71U)
+  let pipeline_result = match
+    run_hot_pipeline_func(
+      mod_,
+      func_idx,
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      { module_ctx: None },
+      HotPipelineOptions::new(),
+    ) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected simplify-locals hot pipeline success, got \{err}")
+  }
+  let rewritten_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected code section in debug artifact")
+  }
+  let defined_idx = func_idx.0.reinterpret_as_int() -
+    pass_manager_test_imported_func_count(mod_)
+  if defined_idx < 0 || defined_idx >= rewritten_funcs.length() {
+    fail("expected defined idx for Func 71, got \{defined_idx}")
+  }
+  rewritten_funcs[defined_idx] = pipeline_result.func
+  let rewritten_mod = mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+  let pretty = rewritten_mod.pretty_print_func(func_idx)
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="expected raw skip path, got reason=\{pipeline_result.reason}",
+  )
+  assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
+  assert_false(pipeline_result.unchanged_original)
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_true(pretty.contains("local.tee (Local 7)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 7)"), msg=pretty)
+}
+
+///|
+#cfg(target="native")
+test "simplify-locals full pipeline rewrites debug artifact Func 71 returning condition copy carrier" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(71U)
+  let @lib.Func(_, @lib.Expr(original_instrs)) = run_hot_pipeline_original_func(
+    mod_, func_idx,
+  )
+  assert_true(
+    pass_manager_test_instrs_contain_func71_returning_condition_copy_carrier(
+      original_instrs,
+    ),
+  )
+
+  let pipeline_result = match
+    run_hot_pipeline_func(
+      mod_,
+      func_idx,
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      { module_ctx: None },
+      HotPipelineOptions::new(),
+    ) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected simplify-locals hot pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(rewritten_instrs)) = pipeline_result.func
+
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="expected raw skip path, got reason=\{pipeline_result.reason}",
+  )
+  assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
+  assert_false(
+    pass_manager_test_instrs_contain_func71_returning_condition_copy_carrier(
+      rewritten_instrs,
+    ),
+  )
+}
+
+///|
+#cfg(target="native")
+test "simplify-locals full pipeline rewrites debug artifact Func 71 split value wrappers" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(71U)
+  let @lib.Func(_, @lib.Expr(original_instrs)) = run_hot_pipeline_original_func(
+    mod_, func_idx,
+  )
+  assert_true(
+    pass_manager_test_instrs_contain_func71_split_value_wrapper(original_instrs),
+  )
+
+  let pipeline_result = match
+    run_hot_pipeline_func(
+      mod_,
+      func_idx,
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      { module_ctx: None },
+      HotPipelineOptions::new(),
+    ) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected simplify-locals hot pipeline success, got \{err}")
+  }
+  let @lib.Func(_, @lib.Expr(rewritten_instrs)) = pipeline_result.func
+
+  assert_true(
+    pipeline_result.trace_skip_raw,
+    msg="expected raw skip path, got reason=\{pipeline_result.reason}",
+  )
+  assert_eq(pipeline_result.reason, "validator-structured-call-heavy")
+  assert_false(
+    pass_manager_test_instrs_contain_func71_split_value_wrapper(
+      rewritten_instrs,
+    ),
+  )
+}
+
+///|
+#cfg(target="native")
+test "simplify-locals full pipeline hoists debug artifact Func 71 nop-separated call args" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected artifact decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(71U)
+  let pipeline_result = match
+    run_hot_pipeline_func(
+      mod_,
+      func_idx,
+      @ir.HotPassDescriptor::new("simplify-locals"),
+      { module_ctx: None },
+      HotPipelineOptions::new(),
+    ) {
+    Ok(result) => result
+    Err(err) =>
+      fail("expected simplify-locals hot pipeline success, got \{err}")
+  }
+  let rewritten_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected code section in debug artifact")
+  }
+  let defined_idx = func_idx.0.reinterpret_as_int() -
+    pass_manager_test_imported_func_count(mod_)
+  if defined_idx < 0 || defined_idx >= rewritten_funcs.length() {
+    fail("expected defined idx for Func 71, got \{defined_idx}")
+  }
+  rewritten_funcs[defined_idx] = pipeline_result.func
+  let rewritten_mod = mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+  let pretty = rewritten_mod.pretty_print_func(func_idx)
+
+  assert_false(
+    pretty.contains(
+      "(local.get (Local 17)) (call (Func 49)) (i32.const I32(0)) nop (i32.const I32(0))",
+    ),
+    msg=pretty,
+  )
+  assert_true(
+    pretty.contains("(local.get (Local 17)) (call (Func 49)) nop"),
+    msg=pretty,
   )
 }
 

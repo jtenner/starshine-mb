@@ -62,7 +62,7 @@ test "precompute preserves trapping exact operators it does not fold" {
 }
 
 ///|
-test "precompute folds constant false void ifs to nops" {
+test "precompute folds constant false void ifs away" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func i32.const 0 if nop else nop end i64.const 3 drop))",
@@ -73,7 +73,6 @@ test "precompute folds constant false void ifs to nops" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("nop"), msg=pretty)
   assert_false(pretty.contains("(if"), msg=pretty)
   assert_false(pretty.contains("drop"), msg=pretty)
   assert_false(pretty.contains("I64(3)"), msg=pretty)
@@ -113,7 +112,7 @@ test "precompute retargets split local.set wrappers with void-if forwarders" {
 }
 
 ///|
-test "precompute rewrites dropped pure constants to a single nop in void bodies" {
+test "precompute removes dropped pure constants from void bodies" {
   let optimized = match
     pass_test_run_pipeline("(module (func i64.const 360 drop))", ["precompute"]) {
     Ok(mod_) => mod_
@@ -121,7 +120,6 @@ test "precompute rewrites dropped pure constants to a single nop in void bodies"
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("nop"), msg=pretty)
   assert_false(pretty.contains("drop"), msg=pretty)
   assert_false(pretty.contains("I64(360)"), msg=pretty)
 }
@@ -178,7 +176,7 @@ test "precompute preserves explicit nops before a trailing local.get result" {
 }
 
 ///|
-test "precompute preserves root nops after simplifying dead pure prefixes before a trailing const" {
+test "precompute keeps the surviving pure prefix rewrite before a trailing const" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (global i32 (i32.const 212)) (func (param f32 i64) (result i32) nop global.get 0 drop f32.const 78 drop i64.const 756 local.set 1 nop nop i32.const 700))",
@@ -190,14 +188,13 @@ test "precompute preserves root nops after simplifying dead pure prefixes before
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("nop"), msg=pretty)
   assert_false(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
   assert_true(pretty.contains("I32(700)"), msg=pretty)
 }
 
 ///|
-test "precompute lowers empty root blocks to nops before surviving roots" {
+test "precompute lowers empty root blocks away before surviving roots" {
   let optimized = match
     pass_test_run_pipeline(
       "(module (func (param f32) (result f32) (local f32) i64.const 942 drop f32.const 80 local.tee 0 drop block nop end f32.const 5 local.set 1 block nop end local.get 0))",
@@ -210,13 +207,12 @@ test "precompute lowers empty root blocks to nops before surviving roots" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_false(pretty.contains("(block"), msg=pretty)
-  assert_true(pretty.contains("nop"), msg=pretty)
   assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
   assert_true(pretty.contains("(local.get (Local 0))"), msg=pretty)
 }
 
 ///|
-test "precompute falls back to the original function when lowered output would be invalid" {
+test "precompute keeps the structured branch-exit body valid after folding dead exact prefixes" {
   let trace : Array[String] = []
   let optimized = match
     run_hot_pipeline(
@@ -231,11 +227,18 @@ test "precompute falls back to the original function when lowered output would b
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("i32.shl"), msg=pretty)
-  assert_true(
+  assert_false(pretty.contains("i32.shl"), msg=pretty)
+  assert_false(
     trace.any(fn(line) { line.contains("pass[precompute]:skip-invalid-lower") }),
     msg=trace.to_string(),
   )
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected structured branch-exit precompute output to validate, got \{err}",
+      )
+  }
 }
 
 ///|

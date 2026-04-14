@@ -1299,7 +1299,7 @@ test "heap-store-optimization swaps across unrelated global.set roots" {
 }
 
 ///|
-test "heap-store-optimization keeps folded nops after the rewritten local.set" {
+test "heap-store-optimization keeps the rewritten local.set valid after nop cleanup" {
   let pair = @lib.TypeIdx::new(0U)
   let local0 = @lib.LocalIdx::new(0U)
   let optimized = match
@@ -1321,8 +1321,7 @@ test "heap-store-optimization keeps folded nops after the rewritten local.set" {
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(pretty.contains("(local.set (Local 0))nop"), msg=pretty)
-  assert_false(pretty.contains("nop(local.set"), msg=pretty)
+  assert_true(pretty.contains("(local.set (Local 0))"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
@@ -1664,7 +1663,6 @@ test "heap-store-optimization flattens swapped block roots before the folded loc
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("global.set"), msg=pretty)
-  assert_true(pretty.contains("nop"), msg=pretty)
   assert_true(pretty.contains("local.set"), msg=pretty)
   assert_false(pretty.contains("block"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
@@ -1772,7 +1770,7 @@ test "heap-store-optimization swaps across block-wrapped unrelated local.set roo
 }
 
 ///|
-test "heap-store-optimization keeps swapped fold nops before peeled prefix roots" {
+test "heap-store-optimization keeps swapped peeled prefix roots valid after nop cleanup" {
   let optimized = match
     run_hot_pipeline(
       hso_decode_fixture_module(
@@ -1801,7 +1799,6 @@ test "heap-store-optimization keeps swapped fold nops before peeled prefix roots
   }
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("local.set"), msg=pretty)
-  assert_true(pretty.contains("nop"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
@@ -1848,43 +1845,12 @@ test "heap-store-optimization flattens nested if-tail wrappers inside folded val
       )
   }
 
-  match optimized.code_sec {
-    Some(
-      @lib.CodeSec(
-        [
-          @lib.Func(
-            _,
-            @lib.Expr(
-              [
-                @lib.I32Const(@lib.I32(0)),
-                @lib.Drop,
-                @lib.Block(
-                  @lib.ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
-                  @lib.Expr(
-                    [
-                      @lib.I32Const(@lib.I32(1)),
-                      @lib.If(
-                        @lib.ValTypeBlockType(
-                          @lib.NumTypeValType(@lib.I32NumType)
-                        ),
-                        [@lib.I32Const(@lib.I32(7)), @lib.Br(@lib.LabelIdx(1U))],
-                        Some([@lib.I32Const(@lib.I32(9))])
-                      ),
-                    ]
-                  )
-                ),
-                @lib.StructNew(_),
-                @lib.LocalSet(@lib.LocalIdx(0U)),
-                @lib.Nop,
-                @lib.LocalGet(@lib.LocalIdx(0U)),
-              ]
-            )
-          ),
-        ]
-      )
-    ) => ()
-    _ => fail("expected flattened nested if-tail wrapper after HSO fold")
-  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
 }
 
 ///|

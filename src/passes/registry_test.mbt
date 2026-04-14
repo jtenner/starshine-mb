@@ -171,7 +171,7 @@ test "run_hot_pipeline accepts tuple-optimization as an active hot pass" {
     Err(err) => fail("expected tuple-optimization pipeline success, got \{err}")
   }
   match optimized.code_sec {
-    Some(@lib.CodeSec([@lib.Func(locals, _)])) => assert_eq(locals.length(), 4)
+    Some(@lib.CodeSec([@lib.Func(locals, _)])) => assert_eq(locals.length(), 2)
     other =>
       fail("expected single-function tuple-optimization module, got \{other}")
   }

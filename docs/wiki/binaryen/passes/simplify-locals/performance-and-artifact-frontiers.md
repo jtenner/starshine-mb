@@ -1,12 +1,15 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-14
 sources:
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/perf_test.mbt
+  - ../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt
+  - ../../../../../.tmp/pass-fuzz-sl-current-2026-04-14/result.json
+  - ../../../../../.tmp/self-opt-sl-current-2026-04-14/result.json
 related:
   - ./index.md
   - ./raw-lane-and-writeback.md
@@ -33,14 +36,16 @@ related:
   - `perf:timer name=pass:simplify-locals`
   - `perf:timer name=detail:simplify-locals:equivalent-cleanup`
   - `perf:timer name=detail:simplify-locals:late-dead-cleanup`
+- `src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt` keeps the intentionally slower multivalue ladder stress shapes on a separate opt-in command lane.
 - Interpretation:
   - the top-level pass timer tells us the lifted pass actually ran
   - the detail timers tell us which late cleanup phases were still exercised
   - a raw-skip family that correctly avoids lift should usually avoid these timers entirely
+  - the default `moon test src/passes` loop should stay lean even when one stress family still needs a larger synthetic witness
 
 ### Raw Trace Reasons
 
-- `src/passes/pass_manager_wbtest.mbt` and `src/passes/perf_test.mbt` assert on `pass[simplify-locals]:skip-raw reason=...` trace text.
+- `src/passes/pass_manager_wbtest.mbt`, `src/passes/perf_test.mbt`, and `src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt` assert on `pass[simplify-locals]:skip-raw reason=...` trace text.
 - These reasons are not cosmetic logging.
 - They are the stable contract for the exact artifact families the pass manager is allowed to bypass.
 
@@ -155,7 +160,12 @@ related:
 - `agent-todo.md` records that:
   - the unreduced artifact frontier still references absolute `Func 71` / WAT `$50`
   - the old loop-temp `$273 / $276` drift is gone
-  - the remaining early drift there involves Binaryen-only `nop` sentinels and a deeper call-indirect block chain
+  - the old validator condition-temp `$5` drift is gone too
+  - the old `$928 -> $549` store shuttle is gone too after the new validator-skip pure-copy cleanup
+  - the rebuilt-binary replay at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2522582` no longer shows the returning-statement `$739 -> $18` copied-local carrier
+  - the same replay retires the sibling `$735 -> $24` condition-copy carrier too
+  - the first remaining diffs there now start at the nested `$930/$931/$932/$933` branch-carrier and constant-fanout groups
+  - the older block-result `local.tee $7` carrier is no longer the first reported diff
 
 ### Later Unchanged Exact-Path Drifts
 
@@ -175,9 +185,65 @@ related:
 
 - `agent-todo.md` records a traced native checkpoint of `pass:simplify-locals total_us=2278863`.
 - The same dated snapshot records a self-opt compare checkpoint where Starshine was still far slower than Binaryen on the large artifact.
+- The latest direct native-binary sample on 2026-04-14 is:
+  - `.tmp/self-opt-sl-current-2026-04-14`
+  - Starshine `5316.608ms` total / `2190.921ms` in-pass
+  - Binaryen `519.714ms` total / `264.709ms` in-pass
+  - `starshinePassSkippedRaw=true`
+  - `normalizedWatEqual=true`
+  - `canonicalFuncPrettyEqual=true`
+  - but `wasmEqual=false` and `normalizedWatTextEqual=false`
+- So the current keep-state has closed the canonical per-function artifact mismatch on the checked-in debug artifact, but it is still far over the project runtime budget and still not byte/text identical to Binaryen.
+- The latest dated sample on 2026-04-10 is still useful as historical progression data:
+  - earlier same-day replay: Starshine `6069.134ms` total / `2733.866ms` in-pass, Binaryen `645.476ms` / `307.434ms`
+  - latest replay after the pure-copy cleanup: Starshine `5484.740ms` total / `2394.874ms` in-pass, Binaryen `575.087ms` / `287.154ms`
+  - latest replay after the rebuilt-binary returning-condition copy fix: Starshine `5618.329ms` total / `2572.867ms` in-pass, Binaryen `608.776ms` / `289.612ms`
+  - latest replay after the clean native rebuild and the reduced dupable-fanout batch cleanup: Starshine `5122.776ms` total / `2333.173ms` in-pass, Binaryen `532.565ms` / `265.177ms`
+- The new validator-heavy recursive pure-call-tail fix broadens the skip-lane work:
+  - the reduced heavy regression is green and fuzz-clean at `2000/2000`
+  - the earlier `5957`-case `moon run` launcher failure is now historical noise, not the current state
+  - the same family now has a clean long lane: `.tmp/pass-fuzz-sl-validator-call-tail-gated-10k` finished at `10000/10000` normalized matches with `0` mismatches in `575.34s`
+- The 2026-04-10 follow-up performance containment step narrowed that cost without changing the known frontier:
+  - the recursive validator-skip pure-call-tail fixpoint now checks a cheap nested candidate scan before rerunning another full rewrite pass
+  - `.tmp/pass-fuzz-sl-validator-call-tail-gated` stayed green at `2000/2000` normalized matches with `0` mismatches
+  - the same gated 2k lane took `144.79s` wall clock on the local machine
+  - the later pure-suffix containment step applies the same idea to the recursive pure-suffix fixpoint; `.tmp/pass-fuzz-sl-pure-suffix-gated-2k` stayed green at `2000/2000` in `147.61s`
+  - the binary-backed long lane for that current keep-state, `.tmp/pass-fuzz-sl-pure-suffix-gated-10k-binary`, stayed green at `10000/10000` in `452.56s`
+  - do not read the `452.56s` binary-backed number as a pure pass speedup over the earlier `575.34s` `moon run` lane; it also removes launcher overhead
+  - the durable claim is only that the current keep-state is parity-clean on long lanes and that long compare-pass signoff should prefer a fixed native binary when the goal is to measure pass work instead of `moon run`
+  - the newer returning-condition copy fix is also long-lane clean on a rebuilt binary: `.tmp/pass-fuzz-sl-next-if-condition-10k` finished at `10000/10000` normalized matches with `0` mismatches in `435.77s`
+  - the dupable-fanout batch cleanup is also long-lane clean on the rebuilt binary: `.tmp/pass-fuzz-sl-fanout-batch-10k-clean` finished at `10000/10000` normalized matches with `0` mismatches in `432.24s`
+  - the newer terminal-value pure-suffix cleanup is also long-lane clean on the rebuilt binary: `.tmp/pass-fuzz-sl-terminal-value-10k` finished at `10000/10000` normalized matches with `0` mismatches in `423.58s`
+- The same 2026-04-10 follow-up also reinforced one process rule:
+  - when native artifact timing is the thing being measured, force a clean native rebuild if the replay output looks unchanged in a suspicious way
+  - the incremental native build produced a replay at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2832774` that kept the old timing envelope and old frontier text
+  - the forced clean rebuild moved the timing snapshot materially, so `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3176570` is the authoritative replay for this checkpoint
+- The newer returning dense fanout fix changed the interpretation of the remaining cost:
+  - `.tmp/pass-fuzz-sl-returning-const-fanout-2k` is green at `2000/2000` in `105.16s`
+  - `.tmp/pass-fuzz-sl-returning-const-fanout-10k` is green at `10000/10000` in `478.26s`
+  - `_build/native/release/build/cmd/cmd.exe --simplify-locals --print-func 71 ...` now shows the in-memory `Func 71` tree without the old `$930..$934` carriers or the `$540` / `$557` dense const webs
+  - but the authoritative replay at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1018195` is still red and slower than Binaryen: Starshine `6454.014ms` total / `2883.642ms` in-pass versus Binaryen `688.875ms` / `326.287ms`
+  - so the remaining budget problem is now tied to the encoded-output / Binaryen-reparse frontier, not to the newly-fixed in-memory raw reducer
+- The terminal-value follow-up on the same day improved the runtime envelope again without retiring the encoded frontier:
+  - the new whitebox terminal-value regressions are green and the direct short lane `.tmp/pass-fuzz-sl-terminal-value-2k` is green at `2000/2000` in `94.88s`
+  - the authoritative latest replay is now `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3772265`
+  - that replay is still red on the same first `Func 71` line-`4860` `$930` carrier, but the timings improved materially versus the immediately preceding replay `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2841891`
+  - previous replay: Starshine `8285.709ms` total / `3432.549ms` in-pass, Binaryen `937.833ms` / `466.100ms`
+  - latest replay: Starshine `6455.017ms` total / `2593.016ms` in-pass, Binaryen `582.593ms` / `294.366ms`
+  - the durable interpretation is that the narrower terminal-value rewrite removed real validator-heavy pass work, but it did not retire the encoded-output parity family that still dominates the first visible mismatch
+- The later sentinel-and-branch follow-up changed the envelope again:
+  - the Binaryen-sentinel alignment for terminal dupable tails stayed clean on `.tmp/pass-fuzz-sl-terminal-sentinel-2k` and `.tmp/pass-fuzz-sl-terminal-sentinel-10k`, with the long lane finishing at `10000/10000` in `467.03s`
+  - the branch-terminated carrier guard stayed clean on `.tmp/pass-fuzz-sl-branch-terminated-carrier-2k` and `.tmp/pass-fuzz-sl-branch-terminated-carrier-10k`, with the long lane finishing at `10000/10000` in `404.01s`
+  - the authoritative current replay is now `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3936664`
+  - that replay is still red on the same remaining `Func 71` subgroup, now visible at line `5313`, where Binaryen still has `nop` and Starshine still has `local.set $930`
+  - but the timings improved materially versus the immediately previous replay `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-2445261`
+  - previous replay: Starshine `6558.878ms` total / `2761.565ms` in-pass, Binaryen `677.653ms` / `326.029ms`
+  - latest replay: Starshine `5556.185ms` total / `2380.989ms` in-pass, Binaryen `552.845ms` / `269.518ms`
+  - the durable interpretation is that the newer reduced proofs and guards are cutting real validator-skip work on the artifact, but the surviving `$62 -> $930 -> $38` branch carrier still keeps parity red
 - Treat those numbers as evidence of direction, not as eternal constants.
 - The durable conclusion is:
   - the pass has improved significantly
+  - recent validator raw-skip parity fixes keep moving the frontier, but the debug artifact is still far over budget
   - it is still not within the desired steady-state budget on the debug artifact
 
 ## Project Performance Rule

@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-14
 sources:
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/perf_test.mbt
+  - ../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt
 related:
   - ./index.md
   - ./starshine-hot-ir-strategy.md
@@ -31,7 +32,7 @@ related:
 - The implementation is split across three files with three different responsibilities:
   - [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt) owns the lifted HOT-IR pass
   - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) owns the raw exact-instruction fast path, raw skip heuristics, and lowered exact cleanup glue
-  - the pass-specific test surface is split across [`src/passes/simplify_locals_test.mbt`](../../../../../src/passes/simplify_locals_test.mbt), [`src/passes/pass_manager_wbtest.mbt`](../../../../../src/passes/pass_manager_wbtest.mbt), and [`src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
+  - the pass-specific test surface is split across [`src/passes/simplify_locals_test.mbt`](../../../../../src/passes/simplify_locals_test.mbt), [`src/passes/pass_manager_wbtest.mbt`](../../../../../src/passes/pass_manager_wbtest.mbt), [`src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt), and the separate long perf lane [`src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt`](../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt)
 - If a change is semantic parity in lifted HOT IR, it usually belongs in `simplify_locals.mbt`.
 - If a change is an artifact-specific exact rewrite or a skip-without-lift policy, it usually belongs in `pass_manager.mbt`.
 - If a change only exists to erase lowered dead temp debris after writeback, it still belongs in the pass-manager cleanup side, not in the lifted pass proper.
@@ -301,11 +302,16 @@ related:
   - `run_hot_pipeline_raw_simplify_locals_has_local_write`
   - `run_hot_pipeline_raw_simplify_locals_scan_shape`
   - `run_hot_pipeline_raw_simplify_locals_gate_stats`
+  - `run_hot_pipeline_raw_simplify_locals_take_statement_prefix_allow_escape`
+    - now also owns the boundary that exposes a full escaping value tail to the pure-suffix dupable-copy reducer
 - Skip heuristics:
   - `run_hot_pipeline_raw_simplify_locals_should_skip_*`
   - these own the artifact-family gates such as validator-heavy, dense structured helpers, parser-shaped churn, decode-shaped churn, and large straight-line builders
 - Raw rewrites:
+  - `run_hot_pipeline_raw_simplify_locals_has_pure_call_tail_candidates_nested`
+  - `run_hot_pipeline_raw_simplify_locals_has_pure_suffix_local_set_candidates_nested`
   - `run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails`
+  - `run_hot_pipeline_raw_simplify_locals_rewrite_pure_call_tails_nested_fixpoint`
   - `run_hot_pipeline_raw_simplify_locals_rewrite_pure_suffix_local_sets`
   - `run_hot_pipeline_raw_simplify_locals_rewrite_effectful_suffix_local_gets`
   - `run_hot_pipeline_raw_simplify_locals_rewrite_adjacent_local_tees`
@@ -350,11 +356,20 @@ related:
 
 ### `src/passes/perf_test.mbt`
 
-- Owns performance-oriented synthetic families.
+- Owns the lean default performance-oriented synthetic families.
 - Use this when the point is:
   - the pass should skip hot lift entirely
   - a no-op family should stay on a raw path
   - a named artifact-shaped churn family needs a stable synthetic guardian
+  - the test should stay cheap enough for the normal `moon test src/passes` loop
+
+### `src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt`
+
+- Owns the intentionally slower multivalue stress families that were split out of `src/passes/perf_test.mbt`.
+- Use this when the point is:
+  - the raw multivalue ladder or flat-dense ladder shape still needs explicit synthetic coverage
+  - the shape is useful for performance guardrails but too expensive for the default package test loop
+  - the test should run only under the explicit `moon test src/passes_perf_long` command
 
 ## Maintenance Checklist
 
@@ -362,3 +377,4 @@ related:
 - When a change touches raw gates, add or update a whitebox or perf test beside it.
 - When a change touches lifted semantics, prefer a reduced `simplify_locals_test.mbt` case first, then fuzz.
 - If you cannot name the owning helper cluster for a fix, the fix is probably too broad.
+- If the fix only works because an escaping value tail became visible to an existing reducer, document that helper boundary here so later work does not misclassify it as a brand-new rewrite family.

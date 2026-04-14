@@ -648,6 +648,7 @@ value
 - `local.get -> local.set -> nested statement group -> local.get`
 - `call -> local.set -> local.get/local.set barrier -> local.get -> i32.lt_s`
 - copied locals across one cleanup `if`
+- `call -> local.set -> structured value body whose leading condition path starts with a pure prefix and then local.get`
 
 ### Intended Outcome
 
@@ -656,6 +657,21 @@ value
 ### Why
 
 - Several artifact frontiers reduced only after the repo accepted that some parity-safe temp cleanup must run even on validator raw-skip results.
+- The latest retired family is the old `Func 71` condition-temp drift, where Binaryen sinks a call-indirect temp into the structured condition even though the validator helper still stays on the raw-skip lane.
+- The next unreduced `Func 71` family is narrower:
+  - reduced validator regressions already cover the simple `local.set -> local.get -> if` tee shape with later if-body reads
+  - the old `$928 -> $549` store shuttle is now retired too
+  - the reduced validator-heavy returning call-tail constant-copy subgroup is now retired too: a nested returning `if` arm with `i32.const -> local.set` shuttles feeding a later `call` now collapses to direct constants even on `skip-raw reason=validator-structured-call-heavy`
+  - a second reduced validator-heavy returning fanout subgroup is now retired in-memory too: an effectful prefix followed by a returning `if (result i32)` arm whose escaping `call` is fed by a dense const-copy web now collapses once the helper can see the full escaping tail
+  - a newer reduced Binaryen probe now also covers the denser fanout shape itself: `i32.const/local.get -> local.set` repeated across several locals and then consumed by one final `call`
+  - Binaryen's reduced output for that family is explicit: delete the whole fanout, keep only `nop` sentinels, and feed the final `call` with direct constants or direct source `local.get`
+  - a later reduced follow-up now also covers the tighter terminal-value family inside that same artifact bucket: `i32.const/local.get -> local.set -> safe middle -> local.get`, where the copied local is the final escaping value instead of the input to another zero-stack statement
+  - Binaryen's reduced output there is slightly more specific than the repo first assumed: keep the safe middle statements, turn the removed `local.set` into a `nop` sentinel, preserve any existing middle `nop`s, and end the tail with the original constant or source `local.get`
+  - a later reduced branch-terminated follow-up now also covers `nop, local.get -> local.set, middle local.set, copied local.get -> local.set, br`; Binaryen keeps the leading `nop`, emits one extra sentinel `nop` for the removed copied-local set, preserves the middle set, rewrites the final set to read the original source local directly, and keeps the trailing `br`
+  - Starshine now matches those reduced families in-tree and the direct traced native `Func 71` dump shows the direct constant/source form in `body_raw`
+  - but the latest clean artifact replay still shows the real `$930/$931/$932/$933/$934` subgroup after the large validator-skip body is replayed, and the first remaining mismatch is now the exact `$62 -> $930 -> $38` branch carrier
+  - so the current first open artifact drift is no longer "we need a fanout reducer"; it is "the real validator-skip statement shape in `Func 71` still keeps this one branch carrier alive"
+  - a blind post-pass adjacent-tee sweep was tested against the real artifact and rejected because it removed the explicit carrier without matching Binaryen's shape
 
 ## 22. Raw No-Op Families
 

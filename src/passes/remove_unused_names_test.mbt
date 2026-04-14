@@ -14,8 +14,8 @@ fn remove_unused_names_test_body(text : String) -> Array[@lib.Instruction] {
 test "remove-unused-names merges single-child same-typed nested blocks" {
   match
     remove_unused_names_test_body("(module (func block block nop end end))") {
-    [@lib.Block(@lib.VoidBlockType, @lib.Expr([@lib.Nop]))] => ()
-    other => fail("expected merged single block, got \{other}")
+    [@lib.Block(@lib.VoidBlockType, @lib.Expr([]))] => ()
+    other => fail("expected merged empty block, got \{other}")
   }
 }
 
@@ -119,8 +119,8 @@ test "remove-unused-names keeps nested blocks when try_table catches still targe
 ///|
 test "remove-unused-names demotes loops without continue targets" {
   match remove_unused_names_test_body("(module (func loop nop end))") {
-    [@lib.Block(@lib.VoidBlockType, @lib.Expr([@lib.Nop]))] => ()
-    other => fail("expected loop to demote into a block, got \{other}")
+    [@lib.Block(@lib.VoidBlockType, @lib.Expr([]))] => ()
+    other => fail("expected loop to demote into an empty block, got \{other}")
   }
 }
 

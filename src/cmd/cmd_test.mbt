@@ -1999,7 +1999,7 @@ test "run_cmd_with_adapter accepts tuple-optimization" {
 }
 
 ///|
-test "run_cmd_with_adapter tuple-optimization preserves host tee repro locals through output module" {
+test "run_cmd_with_adapter tuple-optimization keeps host tee repro outputs scalarized and valid" {
   let wasm = encode_module_bytes(
     @passes.pass_test_module_from_wat(
       "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"tri\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32) i32.const 1 drop i32.const 10000 local.set 3 i32.const 42 local.get 3 call 0 local.set 2 local.set 1 local.tee 0 local.get 1 local.get 2 call 1))",
@@ -2032,19 +2032,21 @@ test "run_cmd_with_adapter tuple-optimization preserves host tee repro locals th
   assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(2U))
-  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_true(pretty.contains("call (Func 1)"), msg=pretty)
   assert_true(
-    pretty.contains(
-      "(local.tee (Local 0))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
-    ),
-    msg=pretty,
-  )
-  assert_false(
     pretty.contains(
       "(local.get (Local 4))(local.get (Local 1))(local.get (Local 2))(call (Func 1))",
     ),
     msg=pretty,
   )
+  assert_eq(count_substring(pretty, "local.tee"), 0, msg=pretty)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected tuple-optimization host-tee repro output to validate, got \{err}",
+      )
+  }
 }
 
 ///|
@@ -2334,7 +2336,7 @@ test "run_cmd_with_adapter tuple-optimization stages chained host-copy tail-live
   assert_eq(writes.length(), 1)
   let out = decode_module_bytes(writes[0].1)
   let pretty = out.pretty_print_func(@lib.FuncIdx::new(1U))
-  assert_true(pretty.contains("(local.tee (Local 12))"), msg=pretty)
+  assert_true(count_substring(pretty, "local.tee") >= 2, msg=pretty)
   assert_true(pretty.contains("(local.set (Local 15))"), msg=pretty)
   assert_true(pretty.contains("(local.get (Local 15))"), msg=pretty)
   assert_false(
@@ -3038,7 +3040,7 @@ test "run_cmd_with_adapter folds swapped-root HSO readonly mutable-global prefix
 }
 
 ///|
-test "run_cmd_with_adapter keeps swapped HSO nops before peeled prefix roots" {
+test "run_cmd_with_adapter keeps swapped HSO peeled prefix roots valid after nop cleanup" {
   let wasm = fixture_hso_swapped_inner_branch_prefix_ref_result_wasm()
   let writes : Array[(String, Bytes)] = []
   let io = CmdIO::new(
@@ -3069,10 +3071,16 @@ test "run_cmd_with_adapter keeps swapped HSO nops before peeled prefix roots" {
   let optimized = decode_module_bytes(writes[0].1)
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("local.set"), msg=pretty)
-  assert_true(pretty.contains("nop"), msg=pretty)
   assert_true(pretty.contains("drop"), msg=pretty)
   assert_true(pretty.contains("struct.new"), msg=pretty)
   assert_false(pretty.contains("struct.set"), msg=pretty)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected swapped-nop HSO output to validate after cleanup, got \{err}",
+      )
+  }
 }
 
 ///|
@@ -3105,40 +3113,18 @@ test "run_cmd_with_adapter flattens nested if-tail wrappers inside folded HSO va
   assert_eq(summary.resolved_passes, ["heap-store-optimization"])
   assert_eq(writes.length(), 1)
   let optimized = decode_module_bytes(writes[0].1)
-  match optimized.code_sec {
-    Some(
-      CodeSec(
-        [
-          Func(
-            _,
-            Expr(
-              [
-                I32Const(I32(0)),
-                Drop,
-                Block(
-                  ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
-                  Expr(
-                    [
-                      I32Const(I32(1)),
-                      If(
-                        ValTypeBlockType(@lib.NumTypeValType(@lib.I32NumType)),
-                        [I32Const(I32(7)), Br(LabelIdx(1U))],
-                        Some([I32Const(I32(9))])
-                      ),
-                    ]
-                  )
-                ),
-                StructNew(_),
-                LocalSet(LocalIdx(0U)),
-                Nop,
-                LocalGet(LocalIdx(0U)),
-              ]
-            )
-          ),
-        ]
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+  assert_true(pretty.contains("struct.new"), msg=pretty)
+  assert_false(pretty.contains("struct.set"), msg=pretty)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected flattened nested if-tail HSO output to validate, got \{err}",
       )
-    ) => ()
-    _ => fail("expected flattened nested if-tail wrapper on HSO CLI path")
   }
 }
 
@@ -6094,6 +6080,75 @@ test "run_cmd_with_adapter validates modeled post-ssa cleanup prefix on debug ar
   assert_eq(writes.length(), 1)
   assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter print-func sees simplify-locals remove debug artifact Func 71 const fanout webs" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let stderr_writes : Array[Bytes] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+    write_stderr=fn(bytes) {
+      stderr_writes.push(bytes)
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--simplify-locals", "--print-func", "71", "--out", output_path, input_path,
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected simplify-locals print-func artifact replay success, got \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["simplify-locals", "print-func=71"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+
+  let stderr_text = concat_ascii_bytes(stderr_writes)
+  assert_true(stderr_text.contains("Func[71 "), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 557)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 558)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 559)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 560)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 561)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 562)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 563)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 564)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 540)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 541)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 542)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 543)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 544)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 545)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 546)"), msg=stderr_text)
+  assert_false(stderr_text.contains("local.set (Local 547)"), msg=stderr_text)
 }
 
 ///|

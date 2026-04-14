@@ -398,6 +398,867 @@ fn simplify_locals_test_make_large_validator_structured_loop_temp_repro() -> Str
 }
 
 ///|
+fn simplify_locals_test_make_large_validator_structured_multiuse_temp_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (func $use (param i32) nop)\n")
+  out.write_string("  (func $id (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (memory 1)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    i32.load align=1\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    call $use\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    call $id\n")
+  out.write_string("    local.set 251\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_leading_condition_temp_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (type $ind (func (param i32 i32) (result i32)))\n")
+  out.write_string(
+    "  (func $callee (type $ind) (param i32 i32) (result i32) local.get 0 local.get 1 i32.add)\n",
+  )
+  out.write_string("  (func $pred (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $pred2 (param i32 i32) (result i32) local.get 1)\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $touch (param i32) nop)\n")
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (memory 1)\n")
+  out.write_string("  (table 1 funcref)\n")
+  out.write_string("  (elem (i32.const 0) $callee)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    call $touch\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    local.get 1\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    call_indirect (type $ind)\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    block (result i32)\n")
+  out.write_string("      local.get 0\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      call $pred2\n")
+  out.write_string("      i32.const 1\n")
+  out.write_string("      i32.eq\n")
+  out.write_string("      if (result i32)\n")
+  out.write_string("        local.get 0\n")
+  out.write_string("      else\n")
+  out.write_string("        i32.const 0\n")
+  out.write_string("      end\n")
+  out.write_string("    end\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_block_result_tee_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (type $ind (func (param i32 i32) (result i32)))\n")
+  out.write_string(
+    "  (func $callee (type $ind) (param i32 i32) (result i32) local.get 0 local.get 1 i32.add)\n",
+  )
+  out.write_string("  (func $pred (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $pred2 (param i32 i32) (result i32) local.get 1)\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $touch (param i32) nop)\n")
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (memory 1)\n")
+  out.write_string("  (table 1 funcref)\n")
+  out.write_string("  (elem (i32.const 0) $callee)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    call $touch\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    local.get 1\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    call_indirect (type $ind)\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    block (result i32)\n")
+  out.write_string("      local.get 0\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      call $pred2\n")
+  out.write_string("      i32.const 1\n")
+  out.write_string("      i32.eq\n")
+  out.write_string("      if (result i32)\n")
+  out.write_string("        local.get 0\n")
+  out.write_string("      else\n")
+  out.write_string("        i32.const 0\n")
+  out.write_string("      end\n")
+  out.write_string("    end\n")
+  out.write_string("    local.set 251\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    i32.add\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_if_condition_tee_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (type $ind (func (param i32 i32) (result i32)))\n")
+  out.write_string(
+    "  (func $callee (type $ind) (param i32 i32) (result i32) local.get 0 local.get 1 i32.add)\n",
+  )
+  out.write_string("  (func $pred (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $pred2 (param i32 i32) (result i32) local.get 1)\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $touch (param i32) nop)\n")
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (memory 1)\n")
+  out.write_string("  (table 1 funcref)\n")
+  out.write_string("  (elem (i32.const 0) $callee)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    call $touch\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    local.get 1\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    call_indirect (type $ind)\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    block (result i32)\n")
+  out.write_string("      local.get 0\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      call $pred2\n")
+  out.write_string("      i32.const 1\n")
+  out.write_string("      i32.eq\n")
+  out.write_string("      if (result i32)\n")
+  out.write_string("        local.get 0\n")
+  out.write_string("      else\n")
+  out.write_string("        i32.const 0\n")
+  out.write_string("      end\n")
+  out.write_string("    end\n")
+  out.write_string("    local.set 251\n")
+  out.write_string("    nop\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    i32.load offset=12 align=1\n")
+  out.write_string("    if\n")
+  out.write_string("      local.get 251\n")
+  out.write_string("      call $use\n")
+  out.write_string("      drop\n")
+  out.write_string("    end\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_effectful_copy_condition_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (type $ind (func (param i32 i32 i32) (result i32)))\n")
+  out.write_string(
+    "  (func $callee (type $ind) (param i32 i32 i32) (result i32) local.get 0 local.get 1 local.get 2 i32.add i32.add)\n",
+  )
+  out.write_string("  (func $pred (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $touch (param i32) nop)\n")
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (memory 1)\n")
+  out.write_string("  (table 1 funcref)\n")
+  out.write_string("  (elem (i32.const 0) $callee)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    i32.load offset=32 align=1\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    i32.load align=1\n")
+  out.write_string("    i32.const 1\n")
+  out.write_string("    i32.gt_s\n")
+  out.write_string("    if\n")
+  out.write_string("      nop\n")
+  out.write_string("      local.get 0\n")
+  out.write_string("      local.get 0\n")
+  out.write_string("      i32.load align=1\n")
+  out.write_string("      i32.const 1\n")
+  out.write_string("      i32.sub\n")
+  out.write_string("      i32.store align=1\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      call $touch\n")
+  out.write_string("    else\n")
+  out.write_string("      local.get 0\n")
+  out.write_string("      call $touch\n")
+  out.write_string("    end\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    local.set 251\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    local.get 1\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    i32.load offset=8 align=1\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    call_indirect (type $ind)\n")
+  out.write_string("    call $pred\n")
+  out.write_string("    i32.const 1\n")
+  out.write_string("    i32.eq\n")
+  out.write_string("    if\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      call $touch\n")
+  out.write_string("    end\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_returning_call_tail_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (type $ind (func (param i32 i32 i32) (result i32)))\n")
+  out.write_string(
+    "  (func $callee (type $ind) (param i32 i32 i32) (result i32) local.get 0 local.get 1 local.get 2 i32.add i32.add)\n",
+  )
+  out.write_string("  (func $pred (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string(
+    "  (func $builder (param i32 i32 i32 i64 i64 i32 i64 i32 i32 i32) (result i32) local.get 0)\n",
+  )
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (memory 1)\n")
+  out.write_string("  (table 1 funcref)\n")
+  out.write_string("  (elem (i32.const 0) $callee)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    i32.load offset=32 align=1\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    local.set 251\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    local.get 1\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    i32.load offset=8 align=1\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    call_indirect (type $ind)\n")
+  out.write_string("    call $pred\n")
+  out.write_string("    i32.const 1\n")
+  out.write_string("    i32.eq\n")
+  out.write_string("    if\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 255\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      local.set 252\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      local.set 253\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      local.set 254\n")
+  out.write_string("      nop\n")
+  out.write_string("      local.get 254\n")
+  out.write_string("      local.get 252\n")
+  out.write_string("      local.get 253\n")
+  out.write_string("      i64.const 4294967296\n")
+  out.write_string("      i64.const 4294967296\n")
+  out.write_string("      i32.const -1\n")
+  out.write_string("      i64.const 4294967296\n")
+  out.write_string("      i32.const -1\n")
+  out.write_string("      i32.const -1\n")
+  out.write_string("      local.get 255\n")
+  out.write_string("      call $builder\n")
+  out.write_string("      drop\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      return\n")
+  out.write_string("    else\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      call $use\n")
+  out.write_string("      drop\n")
+  out.write_string("    end\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_const_fanout_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (type $ind (func (param i32 i32 i32) (result i32)))\n")
+  out.write_string(
+    "  (func $callee (type $ind) (param i32 i32 i32) (result i32) local.get 0 local.get 1 local.get 2 i32.add i32.add)\n",
+  )
+  out.write_string("  (func $pred (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string(
+    "  (func $wide (param i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32) local.get 0)\n",
+  )
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (memory 1)\n")
+  out.write_string("  (table 1 funcref)\n")
+  out.write_string("  (elem (i32.const 0) $callee)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    i32.load offset=32 align=1\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    local.set 251\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    local.get 1\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    i32.load offset=8 align=1\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    call_indirect (type $ind)\n")
+  out.write_string("    call $pred\n")
+  out.write_string("    i32.const 1\n")
+  out.write_string("    i32.eq\n")
+  out.write_string("    if\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 244\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 245\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      local.set 246\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 247\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 248\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      local.set 249\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      local.set 252\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      local.set 253\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 254\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 255\n")
+  out.write_string("      nop\n")
+  out.write_string("      local.get 255\n")
+  out.write_string("      local.get 246\n")
+  out.write_string("      local.get 249\n")
+  out.write_string("      local.get 244\n")
+  out.write_string("      local.get 245\n")
+  out.write_string("      local.get 247\n")
+  out.write_string("      local.get 248\n")
+  out.write_string("      local.get 252\n")
+  out.write_string("      local.get 253\n")
+  out.write_string("      local.get 254\n")
+  out.write_string("      call $wide\n")
+  out.write_string("      drop\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      return\n")
+  out.write_string("    else\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      call $use\n")
+  out.write_string("      drop\n")
+  out.write_string("    end\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn simplify_locals_test_make_large_validator_structured_returning_const_fanout_repro() -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string("  (type $ind (func (param i32 i32 i32) (result i32)))\n")
+  out.write_string(
+    "  (func $callee (type $ind) (param i32 i32 i32) (result i32) local.get 0 local.get 1 local.get 2 i32.add i32.add)\n",
+  )
+  out.write_string("  (func $pred (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (func $use (param i32) (result i32) local.get 0)\n")
+  out.write_string(
+    "  (func $wide (param i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) (result i32) local.get 0)\n",
+  )
+  out.write_string("  (func $side (param i32) (result i32) local.get 0)\n")
+  out.write_string("  (memory 1)\n")
+  out.write_string("  (table 1 funcref)\n")
+  out.write_string("  (elem (i32.const 0) $callee)\n")
+  out.write_string("  (func (param i32 i32) (result i32) (local")
+  let mut local_count = 0
+  while local_count < 256 {
+    out.write_string(" i32")
+    local_count = local_count + 1
+  }
+  out.write_string(")\n")
+  let mut i = 0
+  while i < 48 {
+    let base = 2 + i
+    let copy = 50 + i
+    let branch = 98 + i
+    out.write_string("    block\n")
+    out.write_string("      loop\n")
+    out.write_string("        local.get 0\n")
+    out.write_string("        call $side\n")
+    out.write_string("        local.set ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get ")
+    out.write_string(base.to_string())
+    out.write_string("\n")
+    out.write_string("        local.set ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        local.get ")
+    out.write_string(copy.to_string())
+    out.write_string("\n")
+    out.write_string("        call $use\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        if\n")
+    out.write_string("          local.get 0\n")
+    out.write_string("          call $side\n")
+    out.write_string("          local.set ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          local.get ")
+    out.write_string(branch.to_string())
+    out.write_string("\n")
+    out.write_string("          call $use\n")
+    out.write_string("          drop\n")
+    out.write_string("        end\n")
+    out.write_string("        local.get 1\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 0\n")
+  out.write_string("    i32.load offset=32 align=1\n")
+  out.write_string("    local.set 250\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    local.set 251\n")
+  out.write_string("    local.get 251\n")
+  out.write_string("    call $use\n")
+  out.write_string("    drop\n")
+  out.write_string("    local.get 250\n")
+  out.write_string("    i32.const 0\n")
+  out.write_string("    i32.eq\n")
+  out.write_string("    if (result i32)\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("      call $use\n")
+  out.write_string("      drop\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      local.set 244\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      local.set 245\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 246\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 247\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 248\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      local.set 249\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 252\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      local.set 253\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      nop\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      i32.const -1\n")
+  out.write_string("      i32.const -1\n")
+  out.write_string("      i32.const -1\n")
+  out.write_string("      i32.const -1\n")
+  out.write_string("      i32.const -1\n")
+  out.write_string("      i32.const 10000\n")
+  out.write_string("      i32.const 0\n")
+  out.write_string("      local.get 244\n")
+  out.write_string("      local.get 245\n")
+  out.write_string("      local.get 246\n")
+  out.write_string("      local.get 247\n")
+  out.write_string("      local.get 248\n")
+  out.write_string("      local.get 249\n")
+  out.write_string("      local.get 252\n")
+  out.write_string("      local.get 253\n")
+  out.write_string("      call $wide\n")
+  out.write_string("    else\n")
+  out.write_string("      local.get 250\n")
+  out.write_string("    end\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 test "simplify-locals sinks a single-use local.set into the later get" {
   let optimized = match
     pass_test_run_pipeline(
@@ -572,7 +1433,10 @@ test "simplify-locals validator structured skip keeps nop when sinking condition
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
   assert_false(pretty.contains("local.set (Local 250)"), msg=pretty)
   assert_false(pretty.contains("local.get (Local 250)"), msg=pretty)
-  assert_true(pretty.contains("nop"), msg=pretty)
+  assert_true(
+    simplify_locals_test_count_substring(pretty, "nop") >= 2,
+    msg=pretty,
+  )
   assert_true(pretty.contains("if"), msg=pretty)
 }
 
@@ -610,6 +1474,379 @@ test "simplify-locals validator structured skip sinks loop temps into conditions
   assert_false(pretty.contains("local.get (Local 251)"), msg=pretty)
   assert_true(pretty.contains("i32.store"), msg=pretty)
   assert_true(pretty.contains("nop"), msg=pretty)
+}
+
+///|
+test "simplify-locals validator structured skip tees multi-use effectful temps" {
+  let input = simplify_locals_test_make_large_validator_structured_multiuse_temp_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured multiuse-temp simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured multiuse-temp simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(3U))
+  assert_true(pretty.contains("local.tee (Local 250)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 250)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
+  assert_true(
+    simplify_locals_test_count_substring(pretty, "nop") >= 2,
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals validator structured skip sinks leading condition temps into block bodies" {
+  let input = simplify_locals_test_make_large_validator_structured_leading_condition_temp_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured leading-condition simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured leading-condition simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  assert_false(pretty.contains("local.set (Local 250)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 250)"), msg=pretty)
+  assert_true(
+    simplify_locals_test_count_substring(pretty, "nop") >= 2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+}
+
+///|
+test "simplify-locals validator structured skip tees block result carriers after condition sinking" {
+  let input = simplify_locals_test_make_large_validator_structured_block_result_tee_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured block-result tee simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured block-result tee simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  assert_true(pretty.contains("local.tee (Local 251)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(
+    simplify_locals_test_count_substring(pretty, "nop") >= 2,
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals validator structured skip tees if-condition carriers with later local uses" {
+  let input = simplify_locals_test_make_large_validator_structured_if_condition_tee_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured if-condition tee simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured if-condition tee simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  assert_true(pretty.contains("local.tee (Local 251)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+  assert_true(pretty.contains("i32.load"), msg=pretty)
+  assert_true(
+    simplify_locals_test_count_substring(pretty, "nop") >= 2,
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals validator structured skip rewrites copied effectful temps inside later conditions" {
+  let input = simplify_locals_test_make_large_validator_structured_effectful_copy_condition_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured copied-effectful-condition simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured copied-effectful-condition simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_true(pretty.contains("call_indirect"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 251)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 251)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 250)"), msg=pretty)
+  assert_true(pretty.contains("if"), msg=pretty)
+}
+
+///|
+test "simplify-locals validator structured skip removes returning call-tail copy shuttles" {
+  let input = simplify_locals_test_make_large_validator_structured_returning_call_tail_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured returning-call-tail simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured returning-call-tail simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_false(pretty.contains("local.set (Local 252)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 253)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 254)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 255)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 255)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
+  assert_true(pretty.contains("I32(10000)"), msg=pretty)
+}
+
+///|
+test "simplify-locals validator structured skip removes dense pure copy fanout shuttles" {
+  let input = simplify_locals_test_make_large_validator_structured_const_fanout_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured const-fanout simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured const-fanout simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_false(pretty.contains("local.set (Local 244)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 245)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 246)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 247)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 248)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 249)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 252)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 253)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 254)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 255)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 244)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 255)"), msg=pretty)
+  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 250)"), msg=pretty)
+  assert_true(
+    simplify_locals_test_count_substring(pretty, "nop") >= 4,
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals validator structured skip removes returning dense pure copy fanout shuttles" {
+  let input = simplify_locals_test_make_large_validator_structured_returning_const_fanout_repro()
+  let trace = match pass_test_capture_trace(input, ["simplify-locals"]) {
+    Ok(trace) => trace
+    Err(err) =>
+      fail(
+        "expected traced validator-structured returning-const-fanout simplify-locals success, got \{err}",
+      )
+  }
+  assert_true(
+    trace.any(fn(line) {
+      line.contains(
+        "pass[simplify-locals]:skip-raw reason=validator-structured-call-heavy",
+      )
+    }),
+    msg=trace.to_string(),
+  )
+
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured returning-const-fanout simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(5U))
+  assert_false(pretty.contains("local.set (Local 244)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 245)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 246)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 247)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 248)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 249)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 252)"), msg=pretty)
+  assert_false(pretty.contains("local.set (Local 253)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 244)"), msg=pretty)
+  assert_false(pretty.contains("local.get (Local 253)"), msg=pretty)
+  assert_true(pretty.contains("if I32"), msg=pretty)
+  assert_true(pretty.contains("call (Func 3)"), msg=pretty)
+  assert_true(
+    simplify_locals_test_count_substring(pretty, "nop") >= 4,
+    msg=pretty,
+  )
+}
+
+///|
+test "simplify-locals preserves if-condition tee carriers across encode roundtrip" {
+  let input = simplify_locals_test_make_large_validator_structured_if_condition_tee_repro()
+  let optimized = match pass_test_run_pipeline(input, ["simplify-locals"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured if-condition tee roundtrip simplify-locals success, got \{err}",
+      )
+  }
+
+  let before = optimized.pretty_print_func(@lib.FuncIdx::new(6U))
+  assert_true(before.contains("local.tee (Local 251)"), msg=before)
+  assert_false(before.contains("local.set (Local 251)"), msg=before)
+
+  let encoded = match @binary.encode_module(optimized) {
+    Ok(bytes) => bytes
+    Err(err) =>
+      fail(
+        "expected validator-structured if-condition tee encode success, got \{err}",
+      )
+  }
+  let decoded = match @binary.decode_module(encoded) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected validator-structured if-condition tee decode success, got \{err}",
+      )
+  }
+
+  let after = decoded.pretty_print_func(@lib.FuncIdx::new(6U))
+  assert_true(after.contains("local.tee (Local 251)"), msg=after)
+  assert_false(after.contains("local.set (Local 251)"), msg=after)
+}
+
+///|
+test "simplify-locals erases block-result local shuttles after exact cleanup" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (type $ind (func (param i32 i32) (result i32))) (func $callee (type $ind) (param i32 i32) (result i32) (i32.add (local.get 0) (local.get 1))) (func $pred (param i32) (result i32) (local.get 0)) (table 1 funcref) (elem (i32.const 0) $callee) (func (param i32 i32) (result i32) (local i32 i32) (local.set 2 (call_indirect (type $ind) (local.get 0) (local.get 1) (i32.const 0))) (local.set 3 (block (result i32) (if (result i32) (i32.eq (call $pred (local.get 2)) (i32.const 1)) (then (local.get 0)) (else (i32.const 0))))) (local.get 3)))",
+      ["simplify-locals"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected exact block-result shuttle simplify-locals success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(2U))
+  assert_false(pretty.contains("local.set"), msg=pretty)
+  assert_true(
+    simplify_locals_test_count_substring(pretty, "nop") >= 2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("block I32"), msg=pretty)
 }
 
 ///|

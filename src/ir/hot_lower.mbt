@@ -16,6 +16,7 @@ pub struct HotLowerOptions {
   preserve_if_arm_single_nops : Bool
   preserve_dead_local_tee_drops : Bool
   preserve_nontrailing_nops : Bool
+  preserve_trailing_nops : Bool
 }
 
 ///|
@@ -23,11 +24,13 @@ pub fn HotLowerOptions::new(
   preserve_if_arm_single_nops? : Bool = false,
   preserve_dead_local_tee_drops? : Bool = false,
   preserve_nontrailing_nops? : Bool = false,
+  preserve_trailing_nops? : Bool = false,
 ) -> HotLowerOptions {
   {
     preserve_if_arm_single_nops,
     preserve_dead_local_tee_drops,
     preserve_nontrailing_nops,
+    preserve_trailing_nops,
   }
 }
 
@@ -2394,7 +2397,8 @@ fn hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
   while i < body.length() {
     match body[i] {
       Nop => {
-        if options.preserve_nontrailing_nops && i + 1 < body.length() {
+        if (options.preserve_nontrailing_nops && i + 1 < body.length()) ||
+          (options.preserve_trailing_nops && i + 1 == body.length()) {
           stripped.push(body[i])
         }
         i = i + 1

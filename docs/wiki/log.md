@@ -394,3 +394,16 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
   - `vacuum` dispatch lives in `optimize.mbt` + `pass_manager.mbt` (hot path, no dedicated `src/passes/vacuum.mbt`).
 - Updated `docs/wiki/binaryen/passes/index.md` and late-pass landing pages to reflect implemented status while keeping `status: stub` where parity/shape deep docs are still pending.
 - Added `docs/wiki/raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md` to preserve this pass-wiring and wiki-health audit.
+
+## [2026-04-14] maintain | split slow simplify-locals multivalue perf stress out of the default package lane
+
+- Moved the slowest synthetic `simplify-locals` multivalue perf witnesses into a dedicated package lane at `src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt` so `moon test src/passes` stays a fast default edit-loop command.
+- Trimmed the default `src/passes/perf_test.mbt` multivalue ladder sizes down to the smaller witnesses needed for the normal raw-skip / no-lift assertions and removed the irreducibly slow flat-dense stress case from that default package file.
+- Updated the simplify-locals validation, implementation-map, and performance-frontier wiki pages so the docs now distinguish between the lean default package lane and the explicit opt-in command `moon test src/passes_perf_long`.
+
+## [2026-04-14] validate | rerun simplify-locals native parity lanes after test cleanup
+
+- Repaired the current simplify-locals branch surface until `moon test src/passes`, `moon test src/cmd`, and `moon test src/passes_perf_long` all passed again, including the simplify-locals raw-lane hookup, lowered nop preservation, dead control-owner rehoming, and the stale tuple / HSO / precompute expectation updates needed for the current kept outputs.
+- Reran the native-binary simplify-locals compare-pass lane at `.tmp/pass-fuzz-sl-current-2026-04-14`; it finished at `10000/10000` compared cases with `10000` normalized matches and `0` mismatches.
+- Reran the native-binary debug-artifact self-opt compare at `.tmp/self-opt-sl-current-2026-04-14`; it is now canonically green on the checked-in artifact (`normalizedWatEqual=true`, `canonicalFuncPrettyEqual=true`, no differing function indices) while still recording a large runtime gap and raw text / wasm inequality versus Binaryen.
+- Updated the simplify-locals parity, validation, and performance-frontier pages so the wiki now treats the old `Func 71` first-diff story as historical context and the current live debt as runtime plus raw artifact canonicalization.
