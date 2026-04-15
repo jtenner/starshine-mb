@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-15 Chore: refresh the remaining `passes_perf_long` mbti drift
+
+- **reran `moon fmt` and `moon info` and committed the remaining generated drift** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes_perf_long/pkg.generated.mbti`](./src/passes_perf_long/pkg.generated.mbti) so the branch records the current tool-generated `passes_perf_long` package surface after the latest validation and rebase cleanup instead of leaving that `.mbti` delta unstaged.
+
 ## 2026-04-15 Chore: record the post-rebase `moon info` / `moon fmt` churn
 
 - **committed the current tool-generated cleanup after the rebase** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/pkg.generated.mbti`](./src/ir/pkg.generated.mbti), [`src/ir/ssa_destroy.mbt`](./src/ir/ssa_destroy.mbt), [`src/ir/ssa_destroy_test.mbt`](./src/ir/ssa_destroy_test.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/pass_manager_wbtest.mbt`](./src/passes/pass_manager_wbtest.mbt), [`src/passes/perf_test.mbt`](./src/passes/perf_test.mbt), [`src/passes/simplify_locals.mbt`](./src/passes/simplify_locals.mbt), [`src/passes/tuple_optimization_wbtest.mbt`](./src/passes/tuple_optimization_wbtest.mbt), [`src/passes_perf_long/imports.mbt`](./src/passes_perf_long/imports.mbt), [`src/passes_perf_long/pkg.generated.mbti`](./src/passes_perf_long/pkg.generated.mbti), and [`src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt`](./src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt) so the rebased tree keeps the latest generated package metadata and formatter output from the `moon info` / `moon fmt` signoff pass instead of leaving that churn uncommitted.
