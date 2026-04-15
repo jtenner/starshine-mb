@@ -2389,7 +2389,7 @@ pub impl @quickcheck.Arbitrary for RecType
 pub enum RefType {
   HeapTypeRefType(Bool, Bool, HeapType)
   AbsHeapTypeRefType(AbsHeapType)
-} derive(Hash, @debug.Debug, @quickcheck.Arbitrary)
+} derive(Hash, @debug.Debug)
 pub fn RefType::abs(AbsHeapType) -> Self
 pub fn RefType::get_heap_type(Self) -> HeapType
 pub fn RefType::is_defaultable(Self) -> Bool
@@ -2401,6 +2401,7 @@ pub fn RefType::new(Bool, HeapType, exact? : Bool) -> Self
 pub impl PrettyPrint for RefType
 pub impl Eq for RefType
 pub impl Show for RefType
+pub impl @quickcheck.Arbitrary for RefType
 
 pub enum ReplaceLaneOp {
   I8x16ReplaceLaneOp

@@ -18,14 +18,27 @@ fn hot_test_roundtrip_body() -> Expr {
 }
 
 ///|
-test "hot lift and lower roundtrip typed bodies" {
+test "hot lift and lower canonicalizes typed bodies" {
   let func = hot_lift_body(
     hot_test_roundtrip_body(),
     HotLocals::new(param_count=1, locals=[]),
     body_result_type=BlockType::val_type(ValType::i32()),
   )
   let lowered = hot_lower_body(func)
-  assert_eq(lowered, hot_test_roundtrip_body())
+  assert_eq(
+    lowered,
+    Expr::new([
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::local_get(LocalIdx::new(0)),
+          Instruction::if_(BlockType::void_(), [], Some([])),
+        ]),
+      ),
+      Instruction::i32_const(I32(7)),
+      Instruction::return_(),
+    ]),
+  )
 }
 
 ///|

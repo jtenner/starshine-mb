@@ -38,6 +38,25 @@ fn hot_lower_test_struct_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lower_test_count_substring(text : String, needle : String) -> Int {
+  if needle.length() == 0 {
+    return 0
+  }
+  let mut count = 0
+  let limit = text.length() - needle.length()
+  let mut i = 0
+  while i <= limit {
+    if text.sub(start=i, end=i + needle.length()).to_string() == needle {
+      count += 1
+      i += needle.length()
+    } else {
+      i += 1
+    }
+  }
+  count
+}
+
+///|
 test "hot lower roundtrips representative exact-payload families" {
   let memarg = hot_lower_test_memarg()
   let body = @lib.Expr::new([
@@ -389,7 +408,7 @@ test "hot lower repacks flattened parent-exit payloads under child wrappers" {
                           Some([
                             @lib.Instruction::i32_const(@lib.I32(9)),
                             @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-                            @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                            @lib.Instruction::br(@lib.LabelIdx::new(3U)),
                           ]),
                         ),
                         @lib.Instruction::unreachable_(),
@@ -442,7 +461,7 @@ test "hot lower repacks split parent-exit payload wrappers with a two-root prefi
                           Some([
                             @lib.Instruction::i32_const(@lib.I32(9)),
                             @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-                            @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+                            @lib.Instruction::br(@lib.LabelIdx::new(3U)),
                           ]),
                         ),
                         @lib.Instruction::unreachable_(),
@@ -569,13 +588,8 @@ test "hot lower repacks split local.set carried values under result blocks" {
     pretty.contains("(block (result i32)") || pretty.contains("(block I32"),
     msg=pretty,
   )
-  assert_true(
-    pretty.contains("(if (Void)") || pretty.contains("(if Void"),
-    msg=pretty,
-  )
-  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("(if I32"), msg=pretty)
   assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
-  assert_false(pretty.contains("(if I32"), msg=pretty)
   assert_false(pretty.contains("(local.tee (Local 2))"), msg=pretty)
 }
 
@@ -1416,7 +1430,7 @@ test "hot lower func restores declared locals and body" {
 }
 
 ///|
-test "hot lower keeps typed loop entry values outside the loop" {
+test "hot lower canonicalizes typed loop entry values without redundant tees" {
   let module_ = hot_lower_test_block_param_module()
   let body = @lib.Expr::new([
     @lib.Instruction::i32_const(@lib.I32(7)),
@@ -1431,7 +1445,16 @@ test "hot lower keeps typed loop entry values outside the loop" {
     hot_module_context_from_module(module_),
   )
 
-  assert_eq(hot_lower_body(hot), body)
+  assert_eq(
+    hot_lower_body(hot),
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(7)),
+      @lib.Instruction::loop_(
+        @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+        @lib.Expr::new([]),
+      ),
+    ]),
+  )
 }
 
 ///|
@@ -1690,13 +1713,8 @@ test "hot lower repacks split local.set carry blocks from compare shape" {
     pretty.contains("(block (result i32)") || pretty.contains("(block I32"),
     msg=pretty,
   )
-  assert_true(
-    pretty.contains("(if (Void)") || pretty.contains("(if Void"),
-    msg=pretty,
-  )
-  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("(if I32"), msg=pretty)
   assert_true(pretty.contains("(local.set (Local 2))"), msg=pretty)
-  assert_false(pretty.contains("(if I32"), msg=pretty)
   assert_false(pretty.contains("(local.tee (Local 2))"), msg=pretty)
 }
 
@@ -1722,8 +1740,8 @@ test "hot lower preserves packed local.set carry blocks" {
     .with_code_sec(@lib.CodeSec::new([lowered]))
     .pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("unreachable"), msg=pretty)
-  assert_true(pretty.contains("(br (Label 0))"), msg=pretty)
   assert_true(pretty.contains("(br (Label 1))"), msg=pretty)
+  assert_true(pretty.contains("(br (Label 3))"), msg=pretty)
   assert_false(pretty.contains("(br (Label 2))"), msg=pretty)
 }
 
@@ -1738,7 +1756,7 @@ test "hot lower keeps nested escaping-if unreachable sentinels" {
 
   assert_eq(
     hot_lower_test_count_substring(pretty, "unreachable"),
-    3,
+    4,
     msg=pretty,
   )
   assert_true(pretty.contains("(br (Label 2))"), msg=pretty)

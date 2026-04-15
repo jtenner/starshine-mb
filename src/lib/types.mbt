@@ -55,7 +55,7 @@ pub enum HeapType {
 pub enum RefType {
   HeapTypeRefType(Bool, Bool, HeapType)
   AbsHeapTypeRefType(AbsHeapType)
-} derive(Arbitrary, Hash, Debug)
+} derive(Hash, Debug)
 
 ///|
 pub enum ValType {

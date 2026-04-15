@@ -31,6 +31,18 @@ pub impl @quickcheck.Arbitrary for HeapType with arbitrary(size, st) {
 }
 
 ///|
+pub impl @quickcheck.Arbitrary for RefType with arbitrary(size, st) {
+  let nullable = (st.next_uint() & 1) == 1
+  let want_exact = (st.next_uint() & 1) == 1
+  let ht : HeapType = @quickcheck.Arbitrary::arbitrary(size, st)
+  match ht {
+    AbsHeapTypeHeapType(abs) if nullable => RefType::abs(abs)
+    AbsHeapTypeHeapType(_) => RefType::new(nullable, ht, exact=false)
+    _ => RefType::new(nullable, ht, exact=want_exact)
+  }
+}
+
+///|
 pub impl @quickcheck.Arbitrary for ValType with arbitrary(size, st) {
   match st.next_uint() % 3 {
     0 => NumTypeValType(@quickcheck.Arbitrary::arbitrary(size, st))
@@ -1198,7 +1210,8 @@ pub impl @quickcheck.Arbitrary for Instruction with arbitrary(t, state) {
     181 => I64Extend8S
     182 => I64Extend16S
     183 => I64Extend32S
-    184 => RefNull(@quickcheck.Arbitrary::arbitrary(t, state))
+    184 =>
+      Instruction::ref_null_type(@quickcheck.Arbitrary::arbitrary(t, state))
     185 => RefIsNull
     186 => RefFunc(@quickcheck.Arbitrary::arbitrary(t, state))
     187 => RefEq
