@@ -93,6 +93,98 @@ test "raw simplify-locals branchy structured gate accepts target-like stats" {
 }
 
 ///|
+test "raw simplify-locals block-rich structured call-heavy gate accepts target-like stats" {
+  let accepted = {
+    locals_count: 128,
+    instr_count: 579,
+    has_structured_control: true,
+    if_count: 32,
+    block_count: 32,
+    loop_count: 0,
+    local_set_count: 67,
+    local_get_count: 165,
+    call_count: 130,
+    return_count: 0,
+    exact_tail_count: 0,
+  }
+  assert_true(
+    run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats(
+      accepted,
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats({
+      ..accepted,
+      block_count: 15,
+    }),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats({
+      ..accepted,
+      local_set_count: 97,
+    }),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats({
+      ..accepted,
+      loop_count: 1,
+    }),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats({
+      ..accepted,
+      call_count: 161,
+    }),
+  )
+}
+
+///|
+test "raw simplify-locals call-dense structured walker gate accepts target-like stats" {
+  let accepted = {
+    locals_count: 164,
+    instr_count: 1170,
+    has_structured_control: true,
+    if_count: 171,
+    block_count: 14,
+    loop_count: 3,
+    local_set_count: 37,
+    local_get_count: 1068,
+    call_count: 552,
+    return_count: 3,
+    exact_tail_count: 0,
+  }
+  assert_true(
+    run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats(
+      accepted,
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats({
+      ..accepted,
+      call_count: 159,
+    }),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats({
+      ..accepted,
+      local_get_count: 179,
+    }),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats({
+      ..accepted,
+      local_set_count: 97,
+    }),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats({
+      ..accepted,
+      loop_count: 7,
+    }),
+  )
+}
+
+///|
 test "raw simplify-locals adjacent local tees preserve writes read inside later if bodies" {
   let local_7 = @lib.LocalIdx::new(7U)
   let instrs = [
@@ -584,6 +676,58 @@ fn pass_manager_test_native_read_repo_fixture(path : String) -> Bytes? {
 
 ///|
 #cfg(target="native")
+fn pass_manager_test_run_hot_pipeline_func(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+  options : HotPipelineOptions,
+) -> Result[HotPipelineFuncResult, String] {
+  run_hot_pipeline_func(
+    mod_,
+    func_idx,
+    descriptor,
+    { module_ctx: None },
+    { next_type_sec: mod_.type_sec, type_sec_changed: false },
+    options,
+  )
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_run_hot_pipeline_func_with_module_state(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  descriptor : @ir.HotPassDescriptor,
+  module_state : HotPipelineModuleState,
+  options : HotPipelineOptions,
+) -> Result[HotPipelineFuncResult, String] {
+  run_hot_pipeline_func(
+    mod_,
+    func_idx,
+    descriptor,
+    module_state,
+    { next_type_sec: mod_.type_sec, type_sec_changed: false },
+    options,
+  )
+}
+
+///|
+#cfg(target="native")
+fn pass_manager_test_raw_simplify_locals_has_i32_pair_result(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  options : HotPipelineOptions,
+) -> Bool {
+  run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
+    mod_,
+    func_idx,
+    { module_ctx: None },
+    options,
+  )
+}
+
+///|
+#cfg(target="native")
 fn pass_manager_test_instrs_contain_func71_returning_condition_copy_carrier(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -735,11 +879,10 @@ test "raw simplify-locals gate accepts debug artifact Func 409" {
     ),
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -788,7 +931,7 @@ test "raw simplify-locals gate still accepts debug artifact Func 409 with cached
     ),
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func_with_module_state(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
@@ -823,11 +966,10 @@ test "raw simplify-locals skips decode-shaped debug artifact Func 1950" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -863,11 +1005,10 @@ test "raw simplify-locals skips straight-line builder debug artifact Func 262" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -904,11 +1045,10 @@ test "raw simplify-locals skips huge straight-line call builder debug artifact F
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -945,11 +1085,10 @@ test "raw simplify-locals skips encode-shaped debug artifact Func 2053" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -985,11 +1124,10 @@ test "raw simplify-locals skips branchy decode debug artifact Func 1949" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1025,11 +1163,10 @@ test "raw simplify-locals skips stringview trim-end debug artifact Func 4238" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1065,11 +1202,10 @@ test "raw simplify-locals skips stringview trim-start debug artifact Func 4239" 
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1105,11 +1241,10 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1409" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1145,11 +1280,10 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1410" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1185,11 +1319,10 @@ test "raw simplify-locals skips transformer catch debug artifact Func 1411" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1225,11 +1358,10 @@ test "raw simplify-locals gate accepts debug artifact Func 414" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1237,10 +1369,9 @@ test "raw simplify-locals gate accepts debug artifact Func 414" {
       fail("expected simplify-locals hot pipeline success, got \{err}")
   }
   assert_true(
-    run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
+    pass_manager_test_raw_simplify_locals_has_i32_pair_result(
       mod_,
       func_idx,
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ),
   )
@@ -1273,11 +1404,10 @@ test "raw simplify-locals gate accepts debug artifact Func 370" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1285,10 +1415,9 @@ test "raw simplify-locals gate accepts debug artifact Func 370" {
       fail("expected simplify-locals hot pipeline success, got \{err}")
   }
   assert_true(
-    run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
+    pass_manager_test_raw_simplify_locals_has_i32_pair_result(
       mod_,
       func_idx,
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ),
   )
@@ -1318,11 +1447,10 @@ test "raw simplify-locals gate accepts debug artifact Func 473" {
   }
   let func_idx = @lib.FuncIdx::new(473U)
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1351,11 +1479,10 @@ test "raw simplify-locals rewrites lane-builder debug artifact Func 1884" {
   }
   let func_idx = @lib.FuncIdx::new(1884U)
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1385,11 +1512,10 @@ test "raw simplify-locals skips branchy structured debug artifact funcs" {
   for raw_idx in [1058, 1274] {
     let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let pipeline_result = match
-      run_hot_pipeline_func(
+      pass_manager_test_run_hot_pipeline_func(
         mod_,
         func_idx,
         @ir.HotPassDescriptor::new("simplify-locals"),
-        { module_ctx: None },
         HotPipelineOptions::new(),
       ) {
       Ok(result) => result
@@ -1441,11 +1567,10 @@ test "raw simplify-locals rewrites structured debug artifact Func 225" {
     instrs, env,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1474,11 +1599,10 @@ test "simplify-locals rewrites split-wrapper debug artifact Func 50" {
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       @lib.FuncIdx::new(50U),
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1627,18 +1751,17 @@ test "simplify-locals full pipeline rewrites debug artifact Func 71 const fanout
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       @lib.FuncIdx::new(71U),
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
     Err(err) =>
       fail("expected simplify-locals hot pipeline success, got \{err}")
   }
-  let pretty = pipeline_result.func.pretty_print()
+  let pretty = pipeline_result.func.pretty_print(@lib.PrettyPrintContext::new())
   assert_true(
     pipeline_result.trace_skip_raw,
     msg="unexpected raw skip reason=\{pipeline_result.reason}",
@@ -1751,11 +1874,10 @@ test "simplify-locals full pipeline keeps debug artifact Func 71 block-result ca
   }
   let func_idx = @lib.FuncIdx::new(71U)
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1808,11 +1930,10 @@ test "simplify-locals full pipeline rewrites debug artifact Func 71 returning co
   )
 
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1854,11 +1975,10 @@ test "simplify-locals full pipeline rewrites debug artifact Func 71 split value 
   )
 
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1893,11 +2013,10 @@ test "simplify-locals full pipeline hoists debug artifact Func 71 nop-separated 
   }
   let func_idx = @lib.FuncIdx::new(71U)
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1942,11 +2061,10 @@ test "raw simplify-locals skips giant debug artifact Func 501" {
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       @lib.FuncIdx::new(501U),
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -1973,16 +2091,15 @@ test "raw simplify-locals skips large structured call-heavy debug artifact funcs
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   for raw_idx in [298, 871, 901, 951] {
-    let func_idx = @lib.FuncIdx::new(raw_idx.to_uint())
+    let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
       mod_, func_idx,
     )
     let pipeline_result = match
-      run_hot_pipeline_func(
+      pass_manager_test_run_hot_pipeline_func(
         mod_,
         func_idx,
         @ir.HotPassDescriptor::new("simplify-locals"),
-        { module_ctx: None },
         HotPipelineOptions::new(),
       ) {
       Ok(result) => result
@@ -2017,13 +2134,12 @@ test "raw simplify-locals skips read-only local debug artifact funcs" {
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   for raw_idx in [570, 571] {
-    let func_idx = @lib.FuncIdx::new(raw_idx.to_uint())
+    let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let pipeline_result = match
-      run_hot_pipeline_func(
+      pass_manager_test_run_hot_pipeline_func(
         mod_,
         func_idx,
         @ir.HotPassDescriptor::new("simplify-locals"),
-        { module_ctx: None },
         HotPipelineOptions::new(),
       ) {
       Ok(result) => result
@@ -2052,16 +2168,15 @@ test "raw simplify-locals skips medium structured call-heavy debug artifact func
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   for raw_idx in [235, 297, 713, 2177] {
-    let func_idx = @lib.FuncIdx::new(raw_idx.to_uint())
+    let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
       mod_, func_idx,
     )
     let pipeline_result = match
-      run_hot_pipeline_func(
+      pass_manager_test_run_hot_pipeline_func(
         mod_,
         func_idx,
         @ir.HotPassDescriptor::new("simplify-locals"),
-        { module_ctx: None },
         HotPipelineOptions::new(),
       ) {
       Ok(result) => result
@@ -2100,16 +2215,15 @@ test "raw simplify-locals skips transformer structured call-heavy debug artifact
       1582, 1647, 1648, 1652, 1661, 1662, 1664, 1669, 1673, 1674, 1675, 1676, 1677,
       1678, 1685,
     ] {
-    let func_idx = @lib.FuncIdx::new(raw_idx.to_uint())
+    let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
       mod_, func_idx,
     )
     let pipeline_result = match
-      run_hot_pipeline_func(
+      pass_manager_test_run_hot_pipeline_func(
         mod_,
         func_idx,
         @ir.HotPassDescriptor::new("simplify-locals"),
-        { module_ctx: None },
         HotPipelineOptions::new(),
       ) {
       Ok(result) => result
@@ -2149,11 +2263,10 @@ test "raw simplify-locals skips dense structured call-heavy debug artifact funcs
       mod_, func_idx,
     )
     let pipeline_result = match
-      run_hot_pipeline_func(
+      pass_manager_test_run_hot_pipeline_func(
         mod_,
         func_idx,
         @ir.HotPassDescriptor::new("simplify-locals"),
-        { module_ctx: None },
         HotPipelineOptions::new(),
       ) {
       Ok(result) => result
@@ -2188,13 +2301,12 @@ test "raw simplify-locals skips small-loop call-heavy debug artifact funcs" {
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   for raw_idx in [3794, 3885] {
-    let func_idx = @lib.FuncIdx::new(raw_idx.to_uint())
+    let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let pipeline_result = match
-      run_hot_pipeline_func(
+      pass_manager_test_run_hot_pipeline_func(
         mod_,
         func_idx,
         @ir.HotPassDescriptor::new("simplify-locals"),
-        { module_ctx: None },
         HotPipelineOptions::new(),
       ) {
       Ok(result) => result
@@ -2223,16 +2335,15 @@ test "raw simplify-locals skips loop-heavy structured call-heavy debug artifact 
     Err(err) => fail("expected artifact decode success, got \{err}")
   }
   for raw_idx in [519, 585] {
-    let func_idx = @lib.FuncIdx::new(raw_idx.to_uint())
+    let func_idx = @lib.FuncIdx::new(raw_idx.reinterpret_as_uint())
     let @lib.Func(locals, @lib.Expr(instrs)) = run_hot_pipeline_original_func(
       mod_, func_idx,
     )
     let pipeline_result = match
-      run_hot_pipeline_func(
+      pass_manager_test_run_hot_pipeline_func(
         mod_,
         func_idx,
         @ir.HotPassDescriptor::new("simplify-locals"),
-        { module_ctx: None },
         HotPipelineOptions::new(),
       ) {
       Ok(result) => result
@@ -2271,11 +2382,10 @@ test "raw simplify-locals skips giant structured local churn debug artifact Func
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -2296,6 +2406,60 @@ test "raw simplify-locals skips giant structured local churn debug artifact Func
 }
 
 ///|
+test "raw simplify-locals branch-dense structured call-heavy gate accepts target-like stats" {
+  let accepted = {
+    locals_count: 64,
+    instr_count: 673,
+    has_structured_control: true,
+    if_count: 96,
+    block_count: 0,
+    loop_count: 0,
+    local_set_count: 3,
+    local_get_count: 289,
+    call_count: 193,
+    return_count: 0,
+    exact_tail_count: 0,
+  }
+  assert_true(
+    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
+      accepted,
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
+      {
+        ..accepted,
+        if_count: 95,
+      },
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
+      {
+        ..accepted,
+        local_set_count: 65,
+      },
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
+      {
+        ..accepted,
+        loop_count: 1,
+      },
+    ),
+  )
+  assert_false(
+    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
+      {
+        ..accepted,
+        call_count: 257,
+      },
+    ),
+  )
+}
+
+///|
 #cfg(target="native")
 test "raw simplify-locals gate accepts multivalue status debug artifact Func 3764" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
@@ -2312,11 +2476,10 @@ test "raw simplify-locals gate accepts multivalue status debug artifact Func 376
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -2324,10 +2487,9 @@ test "raw simplify-locals gate accepts multivalue status debug artifact Func 376
       fail("expected simplify-locals hot pipeline success, got \{err}")
   }
   assert_true(
-    run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
+    pass_manager_test_raw_simplify_locals_has_i32_pair_result(
       mod_,
       func_idx,
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ),
   )
@@ -2360,11 +2522,10 @@ test "raw simplify-locals rewrites small multivalue debug artifact Func 353" {
     mod_, func_idx,
   )
   let pipeline_result = match
-    run_hot_pipeline_func(
+    pass_manager_test_run_hot_pipeline_func(
       mod_,
       func_idx,
       @ir.HotPassDescriptor::new("simplify-locals"),
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ) {
     Ok(result) => result
@@ -2372,10 +2533,9 @@ test "raw simplify-locals rewrites small multivalue debug artifact Func 353" {
       fail("expected simplify-locals hot pipeline success, got \{err}")
   }
   assert_true(
-    run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
+    pass_manager_test_raw_simplify_locals_has_i32_pair_result(
       mod_,
       func_idx,
-      { module_ctx: None },
       HotPipelineOptions::new(),
     ),
   )

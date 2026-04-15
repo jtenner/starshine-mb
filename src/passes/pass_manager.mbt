@@ -2030,6 +2030,121 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_giant_structured_local_churn
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count >= 48 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 384 &&
+  stats.if_count >= 96 &&
+  stats.block_count <= 12 &&
+  stats.loop_count == 0 &&
+  stats.local_set_count <= 64 &&
+  stats.local_get_count >= stats.if_count * 2 &&
+  stats.local_get_count >= stats.local_set_count * 4 + 48 &&
+  stats.call_count >= 96 &&
+  stats.call_count <= 256 &&
+  stats.return_count <= 32 &&
+  stats.exact_tail_count <= 8
+}
+
+///|
+#cfg(target="native")
+fn run_hot_pipeline_raw_simplify_locals_should_skip_branch_dense_structured_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
+    stats,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count >= 96 &&
+  stats.locals_count <= 256 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 320 &&
+  stats.if_count >= 32 &&
+  stats.if_count <= 96 &&
+  stats.block_count >= 16 &&
+  stats.block_count <= 40 &&
+  stats.loop_count == 0 &&
+  stats.local_set_count >= 56 &&
+  stats.local_set_count <= 96 &&
+  stats.local_get_count >= 160 &&
+  stats.local_get_count >= stats.local_set_count * 2 + 16 &&
+  stats.call_count >= 96 &&
+  stats.call_count <= 160 &&
+  stats.return_count <= 24 &&
+  stats.exact_tail_count <= 8
+}
+
+///|
+#cfg(target="native")
+fn run_hot_pipeline_raw_simplify_locals_should_skip_block_rich_structured_call_heavy(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats(
+    stats,
+  )
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count >= 96 &&
+  stats.locals_count <= 320 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 320 &&
+  stats.if_count >= 40 &&
+  stats.if_count <= 192 &&
+  stats.block_count <= 24 &&
+  stats.loop_count <= 6 &&
+  stats.local_set_count >= 1 &&
+  stats.local_set_count <= 96 &&
+  stats.local_get_count >= 192 &&
+  stats.local_get_count >= stats.if_count * 2 + 32 &&
+  stats.local_get_count >= stats.local_set_count * 4 + 32 &&
+  stats.call_count >= 160 &&
+  stats.call_count >= stats.if_count * 2 + 16 &&
+  stats.return_count <= 32 &&
+  stats.exact_tail_count <= 8
+}
+
+///|
+#cfg(target="native")
+fn run_hot_pipeline_raw_simplify_locals_should_skip_call_dense_structured_walker(
+  locals : @lib.Locals,
+  instrs : Array[@lib.Instruction],
+) -> Bool {
+  let stats = run_hot_pipeline_raw_simplify_locals_gate_stats(locals, instrs)
+  run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats(stats)
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_low_local_decision_ladder_stats(
+  stats : RawSimplifyLocalsGateStats,
+) -> Bool {
+  stats.locals_count <= 8 &&
+  stats.has_structured_control &&
+  stats.instr_count >= 192 &&
+  stats.if_count >= 32 &&
+  stats.loop_count == 0 &&
+  stats.local_set_count <= 8 &&
+  stats.local_get_count >= stats.if_count + 32 &&
+  stats.call_count >= 16 &&
+  stats.return_count <= stats.if_count + 32 &&
+  stats.exact_tail_count <= 4
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_has_i32_pair_result(
   mod_ : @lib.Module,
   func_idx : @lib.FuncIdx,
@@ -4702,6 +4817,18 @@ fn run_hot_pipeline_raw_simplify_locals(
     stats.call_count >= 16 &&
     stats.call_count <= 96 &&
     stats.return_count <= 4
+  let should_skip_branch_dense_structured_call_heavy = run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
+    stats,
+  )
+  let should_skip_block_rich_structured_call_heavy = run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats(
+    stats,
+  )
+  let should_skip_call_dense_structured_walker = run_hot_pipeline_raw_simplify_locals_call_dense_structured_walker_stats(
+    stats,
+  )
+  let should_skip_low_local_decision_ladder = run_hot_pipeline_raw_simplify_locals_low_local_decision_ladder_stats(
+    stats,
+  )
   let should_skip_giant_func = stats.locals_count >= 1500 &&
     stats.has_structured_control &&
     stats.instr_count >= 2000
@@ -4811,6 +4938,22 @@ fn run_hot_pipeline_raw_simplify_locals(
         trace_skip_raw: true,
       })
     }
+    if should_skip_branch_dense_structured_call_heavy {
+      return Some({
+        reason: "branch-dense-structured-call-heavy-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_low_local_decision_ladder {
+      return Some({
+        reason: "low-local-decision-ladder-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
     if should_skip_parser_structured_call_heavy {
       return Some({
         reason: "parser-structured-call-heavy",
@@ -4886,6 +5029,22 @@ fn run_hot_pipeline_raw_simplify_locals(
     if should_skip_small_loop_call_heavy {
       return Some({
         reason: "small-loop-call-heavy",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_block_rich_structured_call_heavy {
+      return Some({
+        reason: "block-rich-structured-call-heavy-noop",
+        func: original,
+        unchanged_original: true,
+        trace_skip_raw: true,
+      })
+    }
+    if should_skip_call_dense_structured_walker {
+      return Some({
+        reason: "call-dense-structured-walker-noop",
         func: original,
         unchanged_original: true,
         trace_skip_raw: true,

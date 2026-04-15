@@ -13,6 +13,7 @@
   - `moon test src/cmd`
   - `moon test src/passes_perf_long`
 - The default pass package now stays lean, and the slowest multivalue perf witnesses live in the explicit long lane `src/passes_perf_long/` instead of bloating the normal edit loop.
+- The raw lane now also carries explicit no-op contracts for the next helper hotspot cluster: `branch-dense-structured-call-heavy-noop`, `block-rich-structured-call-heavy-noop`, `call-dense-structured-walker-noop`, and `low-local-decision-ladder-noop` all have focused wbtests plus perf witnesses, and local validation stayed green on `moon test src/passes`, `moon test src/cmd`, and `moon test src/passes_perf_long` after landing them.
 - The current native-binary compare-pass lane is green:
   - `.tmp/pass-fuzz-sl-current-2026-04-14` finished at `10000/10000` compared cases with `10000` normalized matches and `0` mismatches.
 - The current native-binary debug-artifact self-opt compare is canonically green on `tests/node/dist/starshine-debug-wasi.wasm`:

@@ -2079,6 +2079,239 @@ fn perf_test_make_simplify_locals_giant_structured_local_churn_module(
 }
 
 ///|
+fn perf_test_make_simplify_locals_low_local_decision_ladder_module(
+  repetitions : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i64)))\n",
+  )
+  out.write_string("  (func (param i32) (result i64)\n")
+  out.write_string("    (local i32)\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    local.tee 1\n")
+  let mut i = 0
+  while i < repetitions {
+    out.write_string("    i32.const ")
+    out.write_string((i % 97).to_string())
+    out.write_string("\n")
+    out.write_string("    i32.eq\n")
+    out.write_string("    if (result i64)\n")
+    out.write_string("      local.get 1\n")
+    out.write_string("      call 0\n")
+    out.write_string("    else\n")
+    out.write_string("      local.get 1\n")
+    i = i + 1
+  }
+  out.write_string("    call 0\n")
+  let mut close_idx = 0
+  while close_idx < repetitions {
+    out.write_string("    end\n")
+    close_idx = close_idx + 1
+  }
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_branch_dense_structured_call_heavy_module(
+  repetitions : Int,
+  extra_locals : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < extra_locals {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    local.set 1\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    local.set 2\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    call 0\n")
+  out.write_string("    local.set 3\n")
+  let mut i = 0
+  while i < repetitions {
+    let then_local = if i % 3 == 0 {
+      1
+    } else if i % 3 == 1 {
+      2
+    } else {
+      3
+    }
+    let else_local = if i % 2 == 0 {
+      2
+    } else {
+      3
+    }
+    out.write_string("    local.get 1\n")
+    out.write_string("    i32.const ")
+    out.write_string((i % 113).to_string())
+    out.write_string("\n")
+    out.write_string("    i32.eq\n")
+    out.write_string("    if (result i32)\n")
+    out.write_string("      local.get ")
+    out.write_string(then_local.to_string())
+    out.write_string("\n")
+    out.write_string("      call 0\n")
+    out.write_string("    else\n")
+    out.write_string("      local.get ")
+    out.write_string(else_local.to_string())
+    out.write_string("\n")
+    out.write_string("      call 0\n")
+    out.write_string("    end\n")
+    out.write_string("    drop\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 3\n")
+  out.write_string("    call 0\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_block_rich_structured_call_heavy_module(
+  repetitions : Int,
+  extra_locals : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < extra_locals {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    local.set 1\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    call 0\n")
+  out.write_string("    local.set 2\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    call 0\n")
+  out.write_string("    local.set 3\n")
+  let mut i = 0
+  while i < repetitions {
+    let then_local = if i % 3 == 0 {
+      2
+    } else if i % 3 == 1 {
+      3
+    } else {
+      1
+    }
+    let else_local = if i % 2 == 0 {
+      3
+    } else {
+      2
+    }
+    out.write_string("    block\n")
+    out.write_string("      local.get 1\n")
+    out.write_string("      i32.const ")
+    out.write_string((i % 127).to_string())
+    out.write_string("\n")
+    out.write_string("      i32.eq\n")
+    out.write_string("      if\n")
+    out.write_string("        local.get ")
+    out.write_string(then_local.to_string())
+    out.write_string("\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.set 4\n")
+    out.write_string("        local.get 4\n")
+    out.write_string("        call 0\n")
+    out.write_string("        drop\n")
+    out.write_string("      else\n")
+    out.write_string("        local.get ")
+    out.write_string(else_local.to_string())
+    out.write_string("\n")
+    out.write_string("        call 0\n")
+    out.write_string("        local.set 5\n")
+    out.write_string("        local.get 5\n")
+    out.write_string("        call 0\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    out.write_string("    end\n")
+    i = i + 1
+  }
+  out.write_string("    local.get 2\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
+fn perf_test_make_simplify_locals_call_dense_structured_walker_module(
+  repetitions : Int,
+  extra_locals : Int,
+) -> String {
+  let out = StringBuilder::new()
+  out.write_string("(module\n")
+  out.write_string(
+    "  (import \"env\" \"touch\" (func (param i32) (result i32)))\n",
+  )
+  out.write_string(
+    "  (import \"env\" \"merge\" (func (param i32 i32) (result i32)))\n",
+  )
+  out.write_string("  (func (param i32 i32) (result i32)\n")
+  out.write_string("    (local")
+  let mut local_idx = 0
+  while local_idx < extra_locals {
+    out.write_string(" i32")
+    local_idx = local_idx + 1
+  }
+  out.write_string(")\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    local.set 2\n")
+  out.write_string("    local.get 1\n")
+  out.write_string("    local.set 3\n")
+  out.write_string("    local.get 0\n")
+  out.write_string("    call 0\n")
+  out.write_string("    local.set 4\n")
+  out.write_string("    loop\n")
+  let mut i = 0
+  while i < repetitions {
+    out.write_string("      local.get 2\n")
+    out.write_string("      i32.const ")
+    out.write_string((i % 191).to_string())
+    out.write_string("\n")
+    out.write_string("      i32.eq\n")
+    out.write_string("      if\n")
+    out.write_string("        local.get 4\n")
+    out.write_string("        call 0\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 3\n")
+    out.write_string("        local.get 4\n")
+    out.write_string("        call 1\n")
+    out.write_string("        drop\n")
+    out.write_string("        local.get 4\n")
+    out.write_string("        call 0\n")
+    out.write_string("        drop\n")
+    out.write_string("      end\n")
+    i = i + 1
+  }
+  out.write_string("    end\n")
+  out.write_string("    local.get 4\n")
+  out.write_string("  )\n")
+  out.write_string(")\n")
+  out.to_string()
+}
+
+///|
 fn perf_test_make_structured_return_ladder_with_condition_child_if_module(
   repetitions : Int,
 ) -> String {
@@ -5491,6 +5724,141 @@ test "simplify-locals skips giant structured local churn without hot lift" {
   assert_true(
     text.contains(
       "pass[simplify-locals]:skip-raw reason=giant-structured-local-churn",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips low-local decision ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_low_local_decision_ladder_module(
+    80,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected low-local decision ladder simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=low-local-decision-ladder-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips branch-dense structured call-heavy ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_branch_dense_structured_call_heavy_module(
+    96,
+    64,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected branch-dense structured call-heavy simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=branch-dense-structured-call-heavy-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips block-rich structured call-heavy ladders without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_block_rich_structured_call_heavy_module(
+    32,
+    128,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected block-rich structured call-heavy simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=block-rich-structured-call-heavy-noop",
+    ),
+    msg=text,
+  )
+  assert_false(text.contains("perf:timer name=lift"), msg=text)
+  assert_false(text.contains("perf:timer name=pass:simplify-locals"), msg=text)
+}
+
+///|
+test "simplify-locals skips call-dense structured walkers without hot lift" {
+  let lines : Array[String] = []
+  let trace = fn(line) { lines.push(line) }
+  let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
+  let input = perf_test_make_simplify_locals_call_dense_structured_walker_module(
+    64,
+    192,
+  )
+
+  match
+    pass_test_run_pipeline(
+      input,
+      ["simplify-locals"],
+      options=HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+    ) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected call-dense structured walker simplify-locals success, got \{err}",
+      )
+  }
+
+  let text = perf_test_join_lines(lines)
+  assert_true(
+    text.contains(
+      "pass[simplify-locals]:skip-raw reason=call-dense-structured-walker-noop",
     ),
     msg=text,
   )

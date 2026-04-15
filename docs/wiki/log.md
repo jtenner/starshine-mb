@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-15] maintain | record simplify-locals helper no-op raw skips
+
+- Updated the living `simplify-locals` raw-lane and performance frontier pages so the new `branch-dense-structured-call-heavy-noop`, `block-rich-structured-call-heavy-noop`, `call-dense-structured-walker-noop`, and `low-local-decision-ladder-noop` contracts are part of the durable wiki instead of only the code and perf tests.
+- Recorded that these families exist to retire unchanged helper-shaped hot work before lift, while the remaining open simplify-locals debt is still runtime budget and raw wasm/text equality versus Binaryen.
+
 ## [2026-04-13] maintain | record RUB call-heavy mixed-if mesh hot skip
 
 - Added `raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md` to capture the newly retired lifted call-heavy mixed-if mesh family, the canonical extracted-function calibration, and the latest interleaved self-opt plus fuzz evidence.

@@ -139,6 +139,34 @@ related:
 - Why it is skipped:
   - tracing showed these were Binaryen-equal but still paying full hot cost
 
+### `branch-dense-structured-call-heavy-noop`
+
+- Shape:
+  - branch-dense helpers with many `if`s, few blocks, no meaningful loops, and repeated local-read plus call traffic
+- Why it is skipped:
+  - these helpers were still paying full hot-lift cost even when simplify-locals had no profitable rewrite to make
+
+### `block-rich-structured-call-heavy-noop`
+
+- Shape:
+  - medium-large structured helpers with many blocks, moderate local writes, and dense call traffic
+- Why it is skipped:
+  - the reduced and synthetic witnesses for this family are effectively no-op, so the raw lane now retires them before lift
+
+### `call-dense-structured-walker-noop`
+
+- Shape:
+  - structured walkers dominated by repeated calls and local reads, with only light local-write opportunities
+- Why it is skipped:
+  - these walkers burn time in lift and scan work without enough simplify-locals cleanup to pay that cost back
+
+### `low-local-decision-ladder-noop`
+
+- Shape:
+  - low-local decision ladders with many structured comparisons and later calls but very little meaningful local traffic to simplify
+- Why it is skipped:
+  - this family is a cheap no-op boundary, so the pass manager should bypass lift entirely and let the function stay raw
+
 ### `huge-straight-line-call-builder`
 
 - Shape:

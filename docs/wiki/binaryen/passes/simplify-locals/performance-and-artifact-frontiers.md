@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-14
+last_reviewed: 2026-04-15
 sources:
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/pass_manager.mbt
@@ -26,7 +26,7 @@ related:
   - how the repo measures simplify-locals runtime
   - which raw skip reasons exist and why
   - which hotspot families have already been retired
-  - which artifact frontiers still matter as of 2026-04-10
+  - which artifact frontiers still matter as of 2026-04-15
 
 ## Measurement Sources
 
@@ -79,6 +79,12 @@ related:
   - decode helpers where branch fanout makes the hot lift cost even worse
 - `dense-structured-call-heavy`
   - dense low-loop helpers with enough call and local churn that raw skip wins
+- `branch-dense-structured-call-heavy-noop`
+  - branch-dense helpers with many `if`s, low block counts, and enough repeated calls and local reads that lift is mostly wasted work
+- `block-rich-structured-call-heavy-noop`
+  - block-heavy structured helpers with moderate writes and repeated calls where traced and synthetic evidence say simplify-locals is effectively no-op
+- `call-dense-structured-walker-noop`
+  - structured walkers dominated by repeated calls and local reads rather than profitable local cleanup
 - `validator-structured-call-heavy`
   - validator-shaped loop-heavy structured walkers
   - this family mattered both for performance and correctness because several retained parity fixes were implemented as narrow raw rewrites that run before the skip
@@ -103,6 +109,8 @@ related:
 - `multivalue-call-heavy-ladder`
   - special-case raw gate for i32-pair result ladders
   - this one is not only a performance family; it also marks an explicit semantic boundary because the repo intentionally avoids the broader multivalue tee/sink surface
+- `low-local-decision-ladder-noop`
+  - low-local decision ladders with many structured comparisons and later calls where raw skip is cheaper than relifting an unchanged helper
 
 ## What The Skip Families Are For
 
@@ -151,8 +159,8 @@ related:
 
 ### Dated Status
 
-- The statements in this section are a dated snapshot from 2026-04-10.
-- They should be refreshed when the current compare frontier moves materially.
+- The statements in this section are a dated snapshot from 2026-04-15.
+- They should be refreshed when the current compare frontier or raw-skip roster moves materially.
 
 ### Remaining Exact-Path Frontier
 
@@ -175,11 +183,18 @@ related:
 
 ### Remaining Hotspot Cluster
 
-- The active cluster called out in `agent-todo.md` is now led by:
+- The generic branchy helper hotspot cluster is no longer only an implicit trace note.
+- The repo now carries explicit raw-skip contracts for:
+  - `branch-dense-structured-call-heavy-noop`
+  - `block-rich-structured-call-heavy-noop`
+  - `call-dense-structured-walker-noop`
+  - `low-local-decision-ladder-noop`
+- That means the next default-lane no-op helper family is pinned in-tree by wbtests and perf witnesses instead of living only as an unnamed artifact hotspot.
+- The active cluster still called out in `agent-todo.md` is now led by:
   - `Func 473`
   - `Func 308`
   - `Func 1488`
-- These are the functions most likely to determine the next runtime reduction after the already-retired builder and dense structured helper families.
+- These are the functions most likely to determine the next runtime reduction after the already-retired builder, dense structured helper, and newer helper-ladder no-op families.
 
 ## Current Runtime Snapshot
 
