@@ -4348,10 +4348,7 @@ fn simplify_locals_run_dead_cleanup(
         if value_id >= 0 &&
           @ir.hot_node_is_live(func, value_id) &&
           @ir.hot_node_kind_is_control(func, value_id) {
-          rehomed_owners.push({
-            replacement_id: node_id,
-            detached_id: value_id,
-          })
+          rehomed_owners.push({ replacement_id: node_id, detached_id: value_id })
           @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, value_id))
           detached.push(value_id)
           changed = true
@@ -4408,9 +4405,7 @@ fn simplify_locals_run(
     let cleanup_detached : Array[Int] = []
     let cleanup_rehomed_owners : Array[SimplifyLocalsDetachedControlOwner] = []
     let cleanup_changed = simplify_locals_run_dead_cleanup(
-      func,
-      cleanup_detached,
-      cleanup_rehomed_owners,
+      func, cleanup_detached, cleanup_rehomed_owners,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -4421,10 +4416,7 @@ fn simplify_locals_run(
       ctx.perf,
       "detail:simplify-locals:delete-dead-detached",
     )
-    simplify_locals_rehome_detached_control_owners(
-      func,
-      cleanup_rehomed_owners,
-    )
+    simplify_locals_rehome_detached_control_owners(func, cleanup_rehomed_owners)
     simplify_locals_delete_detached_nodes(func, cleanup_detached)
     perf_stop_timer_opt(
       ctx.perf,
@@ -4510,9 +4502,7 @@ fn simplify_locals_run(
     let late_cleanup_detached : Array[Int] = []
     let late_cleanup_rehomed_owners : Array[SimplifyLocalsDetachedControlOwner] = []
     let late_cleanup_changed = simplify_locals_run_dead_cleanup(
-      func,
-      late_cleanup_detached,
-      late_cleanup_rehomed_owners,
+      func, late_cleanup_detached, late_cleanup_rehomed_owners,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -4524,8 +4514,7 @@ fn simplify_locals_run(
       "detail:simplify-locals:delete-late-detached",
     )
     simplify_locals_rehome_detached_control_owners(
-      func,
-      late_cleanup_rehomed_owners,
+      func, late_cleanup_rehomed_owners,
     )
     simplify_locals_delete_detached_nodes(func, late_cleanup_detached)
     perf_stop_timer_opt(

@@ -114,27 +114,31 @@ test "raw simplify-locals block-rich structured call-heavy gate accepts target-l
   )
   assert_false(
     run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats({
-      ..accepted,
-      block_count: 15,
-    }),
+        ..accepted,
+        block_count: 15,
+      },
+    ),
   )
   assert_false(
     run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats({
-      ..accepted,
-      local_set_count: 97,
-    }),
+        ..accepted,
+        local_set_count: 97,
+      },
+    ),
   )
   assert_false(
     run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats({
-      ..accepted,
-      loop_count: 1,
-    }),
+        ..accepted,
+        loop_count: 1,
+      },
+    ),
   )
   assert_false(
     run_hot_pipeline_raw_simplify_locals_block_rich_structured_call_heavy_stats({
-      ..accepted,
-      call_count: 161,
-    }),
+        ..accepted,
+        call_count: 161,
+      },
+    ),
   )
 }
 
@@ -2426,32 +2430,28 @@ test "raw simplify-locals branch-dense structured call-heavy gate accepts target
     ),
   )
   assert_false(
-    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
-      {
+    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats({
         ..accepted,
         if_count: 95,
       },
     ),
   )
   assert_false(
-    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
-      {
+    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats({
         ..accepted,
         local_set_count: 65,
       },
     ),
   )
   assert_false(
-    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
-      {
+    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats({
         ..accepted,
         loop_count: 1,
       },
     ),
   )
   assert_false(
-    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats(
-      {
+    run_hot_pipeline_raw_simplify_locals_branch_dense_structured_call_heavy_stats({
         ..accepted,
         call_count: 257,
       },

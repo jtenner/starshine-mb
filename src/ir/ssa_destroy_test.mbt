@@ -236,7 +236,10 @@ test "ssa dead local cleanup preserves writes with later concrete local reads" {
 
   ssa_remove_dead_local_defs(func, [set_id])
 
-  assert_eq(hot_node_get(func, hot_root_get(func, 0)).op.to_string(), "LocalSet")
+  assert_eq(
+    hot_node_get(func, hot_root_get(func, 0)).op.to_string(),
+    "LocalSet",
+  )
   assert_eq(hot_node_get(func, get_id).op.to_string(), "LocalGet")
   assert_eq(hot_child_get(func, hot_root_get(func, 1), 0), get_id)
 }

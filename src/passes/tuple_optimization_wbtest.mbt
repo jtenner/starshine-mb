@@ -33,7 +33,10 @@ fn tuple_optimization_test_analyze_via_binary(
 }
 
 ///|
-fn tuple_optimization_test_count_substring(text : String, needle : String) -> Int {
+fn tuple_optimization_test_count_substring(
+  text : String,
+  needle : String,
+) -> Int {
   if needle.length() == 0 {
     return 0
   }
@@ -331,7 +334,11 @@ test "tuple-optimization rewrite keeps the exact host tee repro scalarized and v
     ),
     msg=pretty,
   )
-  assert_eq(tuple_optimization_test_count_substring(pretty, "local.tee"), 0, msg=pretty)
+  assert_eq(
+    tuple_optimization_test_count_substring(pretty, "local.tee"),
+    0,
+    msg=pretty,
+  )
 }
 
 ///|
@@ -897,7 +904,10 @@ test "tuple-optimization lowered chained host-copy tail-live0 keeps downstream h
     "(module (type (func (param i32 i32) (result i32 i32 i32))) (import \"env\" \"tri\" (func (type 0))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 8 local.set 7 local.tee 6 local.set 11 local.get 7 local.set 10 block (result i32 i32 i32) local.get 11 local.get 10 local.get 8 end local.set 5 local.set 4 local.tee 3 block (result i32 i32 i32) local.get 3 local.get 4 local.get 5 end local.set 2 local.set 1 local.tee 0 drop drop local.get 0))",
     1U,
   )
-  assert_true(tuple_optimization_test_count_substring(pretty, "local.tee") >= 2, msg=pretty)
+  assert_true(
+    tuple_optimization_test_count_substring(pretty, "local.tee") >= 2,
+    msg=pretty,
+  )
   assert_true(pretty.contains("local.tee (Local 3)"), msg=pretty)
   assert_true(pretty.contains("local.set (Local 15)"), msg=pretty)
   assert_true(pretty.contains("local.get (Local 15)"), msg=pretty)

@@ -2142,18 +2142,8 @@ fn perf_test_make_simplify_locals_branch_dense_structured_call_heavy_module(
   out.write_string("    local.set 3\n")
   let mut i = 0
   while i < repetitions {
-    let then_local = if i % 3 == 0 {
-      1
-    } else if i % 3 == 1 {
-      2
-    } else {
-      3
-    }
-    let else_local = if i % 2 == 0 {
-      2
-    } else {
-      3
-    }
+    let then_local = if i % 3 == 0 { 1 } else if i % 3 == 1 { 2 } else { 3 }
+    let else_local = if i % 2 == 0 { 2 } else { 3 }
     out.write_string("    local.get 1\n")
     out.write_string("    i32.const ")
     out.write_string((i % 113).to_string())
@@ -2208,18 +2198,8 @@ fn perf_test_make_simplify_locals_block_rich_structured_call_heavy_module(
   out.write_string("    local.set 3\n")
   let mut i = 0
   while i < repetitions {
-    let then_local = if i % 3 == 0 {
-      2
-    } else if i % 3 == 1 {
-      3
-    } else {
-      1
-    }
-    let else_local = if i % 2 == 0 {
-      3
-    } else {
-      2
-    }
+    let then_local = if i % 3 == 0 { 2 } else if i % 3 == 1 { 3 } else { 1 }
+    let else_local = if i % 2 == 0 { 3 } else { 2 }
     out.write_string("    block\n")
     out.write_string("      local.get 1\n")
     out.write_string("      i32.const ")
@@ -5770,8 +5750,7 @@ test "simplify-locals skips branch-dense structured call-heavy ladders without h
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
   let input = perf_test_make_simplify_locals_branch_dense_structured_call_heavy_module(
-    96,
-    64,
+    96, 64,
   )
 
   match
@@ -5804,8 +5783,7 @@ test "simplify-locals skips block-rich structured call-heavy ladders without hot
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
   let input = perf_test_make_simplify_locals_block_rich_structured_call_heavy_module(
-    32,
-    128,
+    32, 128,
   )
 
   match
@@ -5838,8 +5816,7 @@ test "simplify-locals skips call-dense structured walkers without hot lift" {
   let trace = fn(line) { lines.push(line) }
   let perf = HotPerfSession::new(trace~, dump_options=HotPerfDumpOptions::new())
   let input = perf_test_make_simplify_locals_call_dense_structured_walker_module(
-    64,
-    192,
+    64, 192,
   )
 
   match

@@ -181,8 +181,10 @@ pub fn run_hot_pipeline_debug_dump_enabled(
     return false
   }
   (descriptor_name == "vacuum" && func_idx == @lib.FuncIdx::new(2944U)) ||
-  (descriptor_name == "tuple-optimization" &&
-    func_idx == @lib.FuncIdx::new(3660U))
+  (
+    descriptor_name == "tuple-optimization" &&
+    func_idx == @lib.FuncIdx::new(3660U)
+  )
 }
 
 ///|

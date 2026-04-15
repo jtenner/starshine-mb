@@ -241,7 +241,10 @@ test "simplify-locals long perf lane rewrites large multivalue tail ladders with
     @passes.pass_test_run_pipeline(
       input,
       ["simplify-locals"],
-      options=@passes.HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+      options=@passes.HotPipelineOptions::new(
+        trace=Some(trace),
+        perf=Some(perf),
+      ),
     ) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -283,7 +286,10 @@ test "simplify-locals long perf lane rewrites large multivalue status tail ladde
     @passes.pass_test_run_pipeline(
       input,
       ["simplify-locals"],
-      options=@passes.HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+      options=@passes.HotPipelineOptions::new(
+        trace=Some(trace),
+        perf=Some(perf),
+      ),
     ) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -324,7 +330,10 @@ test "simplify-locals long perf lane skips multivalue call-heavy ladders without
     @passes.pass_test_run_pipeline(
       input,
       ["simplify-locals"],
-      options=@passes.HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+      options=@passes.HotPipelineOptions::new(
+        trace=Some(trace),
+        perf=Some(perf),
+      ),
     ) {
     Ok(_) => ()
     Err(err) =>
@@ -360,7 +369,10 @@ test "simplify-locals long perf lane skips flat dense multivalue call-heavy ladd
     @passes.pass_test_run_pipeline(
       input,
       ["simplify-locals"],
-      options=@passes.HotPipelineOptions::new(trace=Some(trace), perf=Some(perf)),
+      options=@passes.HotPipelineOptions::new(
+        trace=Some(trace),
+        perf=Some(perf),
+      ),
     ) {
     Ok(_) => ()
     Err(err) =>

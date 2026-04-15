@@ -1,0 +1,13 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "jtenner/starshine/passes_perf_long"
+
+// Values
+pub fn passes_perf_long_import_usage() -> Unit
+
+// Errors
+
+// Types and methods
+
+// Type aliases
+
+// Traits
