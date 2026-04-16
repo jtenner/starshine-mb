@@ -17,8 +17,8 @@
 - [x] [PRF002] Cache pass registry lookup data in hot CLI/pipeline paths - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - `src/passes/optimize.mbt` now builds one lazy registry cache with indexed name lookup plus a prefiltered help-entry slice, while preserving detached public `pass_registry_*` results so callers cannot mutate the shared cache. `src/cmd/cmd.mbt` now resolves pass flags through cached categories instead of materializing full registry entries, and focused `src/passes/pass_manager_wbtest.mbt` coverage locks the cached lookup/help-entry contract plus the detached preset/descriptor boundary.
 
-- [PRF003] Refactor `parse_olevel_text` to avoid full parser recursion - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
-  - Parse `O*`/`-O*` values directly from raw strings for config/env/CLI paths, and remove `parse_cli_args([flag])` from this helper.
+- [x] [PRF003] Refactor `parse_olevel_text` to avoid full parser recursion - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - `src/cmd/cmd.mbt` now parses trimmed `O*` / `-O*` raw strings directly into `CliOptimizationFlag::olevel(...)` without routing through `parse_cli_args([flag])`. Focused helper tests lock accepted/rejected raw forms, and `src/cmd/cmd_wbtest.mbt` keeps the env-overlay `-Oz` startup path wired through the direct parser.
 
 - [PRF004] Reduce startup allocations in parser helper functions - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - Audit `trim().to_string()`, `ascii_lower`, and split/loop parsers in `src/cli/cli.mbt` and `src/cmd/cmd.mbt` to avoid repeated temporary string creation for short flags/env/config values.

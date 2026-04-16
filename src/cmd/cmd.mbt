@@ -561,25 +561,67 @@ fn parse_olevel_text(raw : String) -> CliOptimizationFlag? {
   if trimmed.length() == 0 {
     return None
   }
-  let flag = if trimmed.length() >= 2 && trimmed[0] == '-' && trimmed[1] == 'O' {
-    trimmed
-  } else if trimmed.length() >= 1 && trimmed[0] == 'O' {
-    "-\{trimmed}"
-  } else {
-    ""
+  let mut i = 0
+  if trimmed[0] == '-' {
+    i += 1
   }
-  if flag.length() == 0 {
+  if i >= trimmed.length() || trimmed[i] != 'O' {
     return None
   }
-  match parse_cli_args([flag]) {
-    Ok(parsed) =>
-      if parsed.optimize_flags.length() == 1 {
-        Some(parsed.optimize_flags[0])
-      } else {
-        None
-      }
-    Err(_) => None
+  i += 1
+  let mut saw_digit = false
+  let mut level = 2
+  while i < trimmed.length() {
+    let c = trimmed[i]
+    if c < '0' || c > '9' {
+      break
+    }
+    if !saw_digit {
+      saw_digit = true
+      level = 0
+    }
+    level = level * 10 + (c.to_int() - '0'.to_int())
+    i += 1
   }
+  let mut size_bias = false
+  if i < trimmed.length() {
+    if trimmed[i] != 'z' {
+      return None
+    }
+    size_bias = true
+    i += 1
+  }
+  if i != trimmed.length() {
+    return None
+  }
+  Some(CliOptimizationFlag::olevel(level, size_bias))
+}
+
+///|
+test "parse_olevel_text parses direct raw O-level forms" {
+  assert_eq(parse_olevel_text("O"), Some(CliOptimizationFlag::olevel(2, false)))
+  assert_eq(parse_olevel_text("-O"), Some(CliOptimizationFlag::olevel(2, false)))
+  assert_eq(
+    parse_olevel_text("  O3z  "),
+    Some(CliOptimizationFlag::olevel(3, true)),
+  )
+  assert_eq(
+    parse_olevel_text("-Oz"),
+    Some(CliOptimizationFlag::olevel(2, true)),
+  )
+  assert_eq(
+    parse_olevel_text("-O10"),
+    Some(CliOptimizationFlag::olevel(10, false)),
+  )
+}
+
+///|
+test "parse_olevel_text rejects invalid raw O-level forms" {
+  assert_eq(parse_olevel_text(""), None)
+  assert_eq(parse_olevel_text("optimize"), None)
+  assert_eq(parse_olevel_text("o3"), None)
+  assert_eq(parse_olevel_text("-O3zz"), None)
+  assert_eq(parse_olevel_text("-O3Z"), None)
 }
 
 ///|

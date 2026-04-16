@@ -4625,6 +4625,35 @@ test "env optimize and trap overlays take precedence over config values when cli
 }
 
 ///|
+test "env olevel overlay accepts dash-prefixed trimmed text" {
+  let wasm = encode_module_bytes(fixture_i32_const_module(19))
+  let io = CmdIO::new(
+    get_env=fn(name) {
+      match name {
+        "STARSHINE_OLEVEL" => Some("  -Oz  ")
+        _ => None
+      }
+    },
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      match path {
+        "a.wasm" => Ok(wasm)
+        _ => Err("missing fixture")
+      }
+    },
+    write_file=fn(_, _) { Ok(()) },
+  )
+  let summary = match run_cmd_with_adapter(["a.wasm"], io) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["shrink"])
+  assert_eq(summary.optimize_level, 2)
+  assert_eq(summary.shrink_level, 2)
+}
+
+///|
 test "run_cmd_with_adapter prints help text and exits successfully for --help" {
   let stdout_writes : Array[Bytes] = []
   let io = CmdIO::new(write_stdout=fn(bytes) {
