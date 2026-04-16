@@ -10,6 +10,8 @@ import {
 }
 
 // Values
+pub fn evaluate_wast_static_assertion(WastCommand, String) -> Result[WastStaticAssertionResult, String]
+
 pub fn lookup_keyword(String) -> TokenType?
 
 pub fn module_to_wast(Module) -> Result[String, String]
@@ -1240,6 +1242,23 @@ pub struct WastSpecRunSummary {
   passed_files : Int
   skipped_files : Int
   failed_files : Int
+} derive(Eq, Show, @debug.Debug)
+
+pub enum WastStaticAssertionKind {
+  Malformed
+  Invalid
+  Unlinkable
+} derive(Eq, Show, @debug.Debug)
+
+pub struct WastStaticAssertionResult {
+  kind : WastStaticAssertionKind
+  stage : WastStaticAssertionStage
+} derive(Eq, Show, @debug.Debug)
+
+pub enum WastStaticAssertionStage {
+  ParseOrLowerRejected
+  ValidateRejected
+  ValidBeforeLink
 } derive(Eq, Show, @debug.Debug)
 
 pub enum WastValue {

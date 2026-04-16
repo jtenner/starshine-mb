@@ -24,6 +24,26 @@ pub struct WastSpecRunSummary {
 } derive(Eq, Show, Debug)
 
 ///|
+pub enum WastStaticAssertionKind {
+  Malformed
+  Invalid
+  Unlinkable
+} derive(Eq, Show, Debug)
+
+///|
+pub enum WastStaticAssertionStage {
+  ParseOrLowerRejected
+  ValidateRejected
+  ValidBeforeLink
+} derive(Eq, Show, Debug)
+
+///|
+pub struct WastStaticAssertionResult {
+  kind : WastStaticAssertionKind
+  stage : WastStaticAssertionStage
+} derive(Eq, Show, Debug)
+
+///|
 #cfg(target="native")
 fn spec_bytes_to_string_lossy(bytes : Bytes) -> String {
   let out = StringBuilder::new()
@@ -103,6 +123,56 @@ fn spec_is_runtime_only_command(cmd : WastCommand) -> Bool {
 
 ///|
 /// semantics before any runtime execution path.
+pub fn evaluate_wast_static_assertion(
+  cmd : WastCommand,
+  path : String,
+) -> Result[WastStaticAssertionResult, String] {
+  match cmd {
+    AssertMalformed(mod_def, _) =>
+      match spec_compile_module_def(mod_def, path) {
+        Ok(lowered) =>
+          match @validate.validate_module(lowered) {
+            Ok(_) =>
+              Err(
+                "assert_malformed expected parse/lower/decode or validation failure, but module compiled and validated",
+              )
+            Err(_) => Ok({ kind: Malformed, stage: ValidateRejected })
+          }
+        Err(_) => Ok({ kind: Malformed, stage: ParseOrLowerRejected })
+      }
+    AssertInvalid(mod_def, _) => {
+      let lowered = match spec_compile_module_def(mod_def, path) {
+        Ok(v) => v
+        Err(e) =>
+          return Err("assert_invalid expected compilable module, got: \{e}")
+      }
+      match @validate.validate_module(lowered) {
+        Ok(_) =>
+          Err(
+            "assert_invalid expected validation failure, but module validated",
+          )
+        Err(_) => Ok({ kind: Invalid, stage: ValidateRejected })
+      }
+    }
+    AssertUnlinkable(mod_def, _) => {
+      let lowered = match spec_compile_module_def(mod_def, path) {
+        Ok(v) => v
+        Err(e) =>
+          return Err("assert_unlinkable expected compilable module, got: \{e}")
+      }
+      match @validate.validate_module(lowered) {
+        Ok(_) => Ok({ kind: Unlinkable, stage: ValidBeforeLink })
+        Err(e) =>
+          Err(
+            "assert_unlinkable expected a valid module before link-time failure, got: \{e}",
+          )
+      }
+    }
+    _ => Err("expected a static assertion command")
+  }
+}
+
+///|
 fn spec_check_command(
   cmd : WastCommand,
   path : String,
@@ -143,46 +213,11 @@ fn spec_check_command(
         Err(e) => Err(e)
       }
     }
-    AssertMalformed(mod_def, _) =>
-      match spec_compile_module_def(mod_def, path) {
-        Ok(lowered) =>
-          match @validate.validate_module(lowered) {
-            Ok(_) =>
-              Err(
-                "assert_malformed expected parse/lower/decode or validation failure, but module compiled and validated",
-              )
-            Err(_) => Ok((1, 0))
-          }
-        Err(_) => Ok((1, 0))
-      }
-    AssertInvalid(mod_def, _) => {
-      let lowered = match spec_compile_module_def(mod_def, path) {
-        Ok(v) => v
-        Err(e) =>
-          return Err("assert_invalid expected compilable module, got: \{e}")
-      }
-      match @validate.validate_module(lowered) {
-        Ok(_) =>
-          Err(
-            "assert_invalid expected validation failure, but module validated",
-          )
-        Err(_) => Ok((1, 0))
-      }
-    }
-    AssertUnlinkable(mod_def, _) => {
-      let lowered = match spec_compile_module_def(mod_def, path) {
-        Ok(v) => v
-        Err(e) =>
-          return Err("assert_unlinkable expected compilable module, got: \{e}")
-      }
-      match @validate.validate_module(lowered) {
+    AssertMalformed(_, _) | AssertInvalid(_, _) | AssertUnlinkable(_, _) =>
+      match evaluate_wast_static_assertion(cmd, path) {
         Ok(_) => Ok((1, 0))
-        Err(e) =>
-          Err(
-            "assert_unlinkable expected a valid module before link-time failure, got: \{e}",
-          )
+        Err(e) => Err(e)
       }
-    }
     // Should be unreachable due early runtime-only guard.
     _ => Ok((0, 1))
   }

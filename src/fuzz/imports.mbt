@@ -18,10 +18,17 @@ using @validate {
 }
 
 ///|
-using @fs {write_file_bytes}
+using @fs {read_file_sync, write_file_bytes}
 
 ///|
-using @wast {run_wast_roundtrip_fuzz}
+using @wast {
+  type WastCommand,
+  type WastStaticAssertionResult,
+  type WastStaticAssertionStage,
+  evaluate_wast_static_assertion,
+  run_wast_roundtrip_fuzz,
+  wast_to_script,
+}
 
 ///|
 using @wat {run_wat_roundtrip_fuzz}

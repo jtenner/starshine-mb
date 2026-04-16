@@ -30,9 +30,31 @@ pub fn run_fuzz_suite(String, String, Int64) -> Result[Array[FuzzSuiteResult], S
 
 pub fn run_validate_invalid_binary_fuzz(String, UInt64) -> Result[ValidateInvalidBinaryFuzzStats, String]
 
+pub fn run_validate_invalid_spec_seed_case(ValidateInvalidSpecSeedId) -> Result[ValidateInvalidTextStage, String]
+
+pub fn run_validate_invalid_spec_seed_case_by_stable_id(String) -> Result[String, String]
+
+pub fn run_validate_invalid_spec_seed_fuzz(String, UInt64) -> Result[ValidateInvalidSpecSeedFuzzStats, String]
+
+pub fn run_validate_invalid_text_case(ValidateInvalidTextStrategyId) -> Result[ValidateInvalidTextStage, String]
+
+pub fn run_validate_invalid_text_case_by_stable_id(String) -> Result[String, String]
+
+pub fn run_validate_invalid_text_fuzz(String, UInt64) -> Result[ValidateInvalidTextFuzzStats, String]
+
 pub fn validate_invalid_binary_registry() -> Array[ValidateInvalidBinaryStrategySpec]
 
 pub fn validate_invalid_binary_run_config(String) -> Result[ValidateInvalidBinaryRunConfig, String]
+
+pub fn validate_invalid_spec_seed_registry() -> Array[ValidateInvalidSpecSeedSpec]
+
+pub fn validate_invalid_spec_seed_run_config(String) -> Result[ValidateInvalidSpecSeedRunConfig, String]
+
+pub fn validate_invalid_text_registry() -> Array[ValidateInvalidTextStrategySpec]
+
+pub fn validate_invalid_text_run_config(String) -> Result[ValidateInvalidTextRunConfig, String]
+
+pub fn validate_invalid_text_stage_name(ValidateInvalidTextStage) -> String
 
 // Errors
 
@@ -131,6 +153,104 @@ pub struct ValidateInvalidBinaryStrategyStats {
   validate_rejected : Int
   rejected_expected : Int
   accepted : Int
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidSpecSeedFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  required_seeds : Array[ValidateInvalidSpecSeedId]
+  seed_stats : Array[ValidateInvalidSpecSeedStats]
+} derive(Eq, @debug.Debug)
+
+pub enum ValidateInvalidSpecSeedId {
+  ConstMalformedQuote1
+  F32InvalidTypeMismatch1
+  ImportsUnlinkableUnknownImport1
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidSpecSeedRunConfig {
+  profile : String
+  attempts : Int
+  required_seeds : Array[ValidateInvalidSpecSeedId]
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidSpecSeedSpec {
+  id : ValidateInvalidSpecSeedId
+  stable_id : String
+  display_name : String
+  layer : String
+  path : String
+  assertion_kind : ValidateInvalidTextAssertionKind
+  assertion_occurrence : Int
+  expected_stage : ValidateInvalidTextStage
+  required_in_smoke : Bool
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidSpecSeedStats {
+  seed_case : ValidateInvalidSpecSeedId
+  stable_id : String
+  path : String
+  expected_stage : ValidateInvalidTextStage
+  attempted : Int
+  applicable : Int
+  parse_or_lower_rejected : Int
+  validate_rejected : Int
+  valid_before_link : Int
+  matched_expected : Int
+} derive(Eq, @debug.Debug)
+
+pub enum ValidateInvalidTextAssertionKind {
+  MalformedTextAssertion
+  InvalidTextAssertion
+  UnlinkableTextAssertion
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidTextFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  required_strategies : Array[ValidateInvalidTextStrategyId]
+  strategy_stats : Array[ValidateInvalidTextStrategyStats]
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidTextRunConfig {
+  profile : String
+  attempts : Int
+  required_strategies : Array[ValidateInvalidTextStrategyId]
+} derive(Eq, @debug.Debug)
+
+pub enum ValidateInvalidTextStage {
+  ParseOrLowerRejectedStage
+  ValidateRejectedStage
+  ValidBeforeLinkStage
+} derive(Eq, @debug.Debug)
+
+pub enum ValidateInvalidTextStrategyId {
+  MalformedQuoteMissingParen
+  InvalidResultStack
+  UnlinkableUnknownImport
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidTextStrategySpec {
+  id : ValidateInvalidTextStrategyId
+  stable_id : String
+  display_name : String
+  layer : String
+  expected_stage : ValidateInvalidTextStage
+  required_in_smoke : Bool
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidTextStrategyStats {
+  strategy : ValidateInvalidTextStrategyId
+  stable_id : String
+  expected_stage : ValidateInvalidTextStage
+  attempted : Int
+  applicable : Int
+  parse_or_lower_rejected : Int
+  validate_rejected : Int
+  valid_before_link : Int
+  matched_expected : Int
 } derive(Eq, @debug.Debug)
 
 // Type aliases

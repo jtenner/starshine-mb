@@ -64,13 +64,14 @@ fn fuzz_ascii_lower(input : String) -> String {
 pub fn fuzz_active_suite_names() -> Array[String] {
   [
     "wast-roundtrip", "wat-roundtrip", "validate-valid", "validate-invalid-ast",
-    "validate-invalid-binary", "binary-roundtrip", "cmd-harness",
+    "validate-invalid-binary", "validate-invalid-text", "validate-invalid-spec-seed",
+    "binary-roundtrip", "cmd-harness",
   ]
 }
 
 ///|
 pub fn fuzz_reserved_suite_names() -> Array[String] {
-  ["validate-invalid-text", "validate-invalid-spec-seed"]
+  []
 }
 
 ///|
@@ -107,7 +108,12 @@ fn fuzz_join(values : Array[String], sep : String) -> String {
 ///|
 pub fn fuzz_usage_text() -> String {
   let active_suites = fuzz_join(fuzz_active_suite_names(), ", ")
-  let reserved_suites = fuzz_join(fuzz_reserved_suite_names(), ", ")
+  let reserved = fuzz_reserved_suite_names()
+  let reserved_suites = if reserved.is_empty() {
+    "(none)"
+  } else {
+    fuzz_join(reserved, ", ")
+  }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
   "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> (coverage-forced batch)\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
@@ -644,16 +650,24 @@ fn run_single_suite(
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
+    "validate-invalid-text" =>
+      match run_validate_invalid_text_fuzz(profile, seed) {
+        Ok(stats) => stats.attempts
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
+    "validate-invalid-spec-seed" =>
+      match run_validate_invalid_spec_seed_fuzz(profile, seed) {
+        Ok(stats) => stats.attempts
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
     "cmd-harness" =>
       match run_cmd_fuzz_harness_profile(profile, seed) {
         Ok(stats) => stats.attempts
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
-    "validate-invalid-text" | "validate-invalid-spec-seed" =>
-      return Err(
-        "suite '\{suite}' is reserved for a planned validator rejection lane and is not implemented yet",
-      )
     _ => return Err("unknown suite '\{suite}'")
   }
   Ok(FuzzSuiteResult::{

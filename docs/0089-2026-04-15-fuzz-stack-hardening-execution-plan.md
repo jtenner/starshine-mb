@@ -34,11 +34,11 @@
   - `validate-valid`
   - `validate-invalid-ast`
   - `validate-invalid-binary`
-  - `binary-roundtrip`
-  - `cmd-harness`
-- `src/fuzz/main.mbt` now reserves only the still-missing validator rejection lanes, and reports them as reserved in help/list output instead of pretending they are live:
   - `validate-invalid-text`
   - `validate-invalid-spec-seed`
+  - `binary-roundtrip`
+  - `cmd-harness`
+- `src/fuzz/main.mbt` no longer carries any reserved validator-rejection suite ids in help/list output; the next fuzz-stack work is now persistence and replay under [`FUZ009`](#fuz009-repro-persistence-shrinkers-and-replay-corpus), not activating more placeholder suite names.
 - `src/fuzz/main.mbt` has a real `--emit-gen-valid-batch` surface pinned to `coverage-forced` mode, and `scripts/lib/pass-fuzz-compare-task.ts` depends on it for the `gen-valid` half of mixed pass fuzzing.
 - `src/validate/gen_valid.mbt` now produces a real two-mode valid topology surface:
   - `natural` mode keeps probabilistic section absence/presence variation for broad valid coverage
@@ -757,7 +757,7 @@ This was the core missing rejection layer in the current tree. The older docs de
 ### Outcome
 
 - Added a new public AST invalid-fuzz engine in [`src/validate/invalid_fuzzer.mbt`](../src/validate/invalid_fuzzer.mbt) with one checked-in registry driving the current strategy ids, stable names, layer tag, expected diagnostic families, smoke-required set, and fixed profile ladder.
-- Restored `validate-invalid-ast` as a real active fuzz suite in [`src/fuzz/main.mbt`](../src/fuzz/main.mbt) instead of leaving it reserved. [`FUZ007`](#fuz007-binary-invalid-corruption-lane) later promotes `validate-invalid-binary` to active too, leaving only `validate-invalid-text` and `validate-invalid-spec-seed` reserved for the remaining slices.
+- Restored `validate-invalid-ast` as a real active fuzz suite in [`src/fuzz/main.mbt`](../src/fuzz/main.mbt). [`FUZ007`](#fuz007-binary-invalid-corruption-lane) later promotes `validate-invalid-binary` to active, and [`FUZ008`](#fuz008-text-and-spec-seed-invalid-lane) finishes the remaining text/spec-seed suite activations.
 - Landed honest per-strategy accounting in `run_validate_invalid_ast_fuzz(...)` with deterministic stats for:
   - attempted
   - applicable
@@ -829,7 +829,7 @@ AST mutation alone cannot cover malformed section order, bad lengths, malformed 
 - The initial curated family set proves both major byte-level buckets on widened `coverage-forced` `gen-valid` seeds:
   - decode malformed / parser rejected via trailing garbage, truncation, duplicate type sections, and wrong section order
   - decode succeeded but validator rejected via out-of-range function-section type indices
-- Promoted `validate-invalid-binary` to a real active suite in [`src/fuzz/main.mbt`](../src/fuzz/main.mbt); only `validate-invalid-text` and `validate-invalid-spec-seed` remain reserved in help and `--list-suites` output.
+- Promoted `validate-invalid-binary` to a real active suite in [`src/fuzz/main.mbt`](../src/fuzz/main.mbt). [`FUZ008`](#fuz008-text-and-spec-seed-invalid-lane) later activates the remaining text/spec-seed lanes too, so help and `--list-suites` no longer advertise any reserved validator-rejection suites.
 
 ### Validation
 
@@ -857,6 +857,8 @@ AST mutation alone cannot cover malformed section order, bad lengths, malformed 
 ## FUZ008 Text And Spec-Seed Invalid Lane
 
 **Slice id:** `[FUZ]008`
+
+**Status:** completed 2026-04-16.
 
 ### Goal
 
@@ -887,16 +889,57 @@ Add text-level invalidation and spec-seeded replay so parser/lower/validate reje
 - Keep smoke profiles small and deterministic; do not try to replay the whole spec corpus in every fuzz run.
 - Reuse the existing spec harness behavior rather than inventing a second interpretation of spec command meaning.
 
+### Outcome
+
+- Added a new shared text/spec-seed invalid runner surface in [`src/fuzz/invalid_text.mbt`](../src/fuzz/invalid_text.mbt) instead of pushing text rejection logic into `src/validate`.
+- Promoted both `validate-invalid-text` and `validate-invalid-spec-seed` to real active suites in [`src/fuzz/main.mbt`](../src/fuzz/main.mbt); the fuzz runner now advertises no reserved validator-rejection suite ids.
+- Landed a curated inline text registry with stable strategy ids and deterministic smoke/ci/stress profile resolution:
+  - `malformed-quote-missing-paren`
+  - `invalid-result-stack`
+  - `unlinkable-unknown-import`
+- The text-invalid runner now records explicit per-strategy stage facts for:
+  - `attempted`
+  - `applicable`
+  - `parse_or_lower_rejected`
+  - `validate_rejected`
+  - `valid_before_link`
+  - `matched_expected`
+- Landed a curated spec-seed registry that samples one deterministic `tests/spec` fixture from each desired category by extracting the raw assertion command text and then reusing the shared WAST static-assertion evaluator:
+  - `const-malformed-quote-1`
+  - `f32-invalid-type-mismatch-1`
+  - `imports-unlinkable-unknown-import-1`
+- Added shared WAST static-assertion support in [`src/wast/spec_harness.mbt`](../src/wast/spec_harness.mbt):
+  - `evaluate_wast_static_assertion(...)`
+  - public `WastStaticAssertionKind` / `WastStaticAssertionStage` / `WastStaticAssertionResult`
+  so the spec harness and the new fuzz runners now share one interpretation of `assert_malformed`, `assert_invalid`, and `assert_unlinkable` instead of drifting.
+- The spec-seed lane intentionally extracts the target raw assertion S-expression from each selected `tests/spec` file before parsing it, which keeps the lane deterministic and faithful to the corpus while avoiding unrelated whole-file parser gaps later in the same large fixture.
+
 ### Validation
 
-- `moon run src/fuzz -- validate-invalid-text smoke --seed 0x5eed`
-- `moon run src/fuzz -- validate-invalid-spec-seed smoke --seed 0x5eed`
-- focused deterministic tests for seed extraction and categorization
+- Added focused fuzz-package coverage in [`src/fuzz/invalid_text_test.mbt`](../src/fuzz/invalid_text_test.mbt) for:
+  - inline text strategy registry/stage coverage
+  - spec-seed registry/stage coverage
+  - fixed-seed deterministic text-lane stats
+  - fixed-seed deterministic spec-seed stats
+- Updated [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt) so suite inventory/help and profile-error routing now treat both `validate-invalid-text` and `validate-invalid-spec-seed` as active instead of reserved.
+- Verification run for this slice:
+  - `moon info`
+  - `moon fmt`
+  - `moon test --package jtenner/starshine/wast --file spec_harness.mbt`
+  - `moon test --package jtenner/starshine/fuzz --file invalid_text_test.mbt`
+  - `moon test --package jtenner/starshine/fuzz --file main_test.mbt`
+  - `moon test src/wast`
+  - `moon test src/fuzz`
+  - `moon test src/validate`
+  - `moon run src/fuzz -- validate-invalid-text smoke --seed 0x5eed`
+  - `moon run src/fuzz -- validate-invalid-spec-seed smoke --seed 0x5eed`
+  - `moon test`
 
 ### Exit criteria
 
 - Text/parser rejection coverage exists as a first-class fuzz lane.
 - Spec invalid/malformed/unlinkable fixtures can seed targeted randomized rejection work.
+- `[FUZ]009` is now the next unfinished validator fuzz slice.
 
 ---
 

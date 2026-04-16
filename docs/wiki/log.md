@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-16] fix | restore the validator text and spec-seed invalid fuzz lanes
+
+- Added `src/fuzz/invalid_text.mbt` plus `src/fuzz/invalid_text_test.mbt` with two deterministic stage-aware fuzz lanes: inline text invalidation and selected `tests/spec` invalid/malformed/unlinkable seed replay.
+- Updated `src/wast/spec_harness.mbt` to export shared static-assertion evaluation helpers so the spec harness and the new fuzz runners now reuse one interpretation of `assert_malformed`, `assert_invalid`, and `assert_unlinkable`.
+- Updated `tooling/fuzz-runner.md`, `validate/fuzz-hardening.md`, `docs/wiki/index.md`, `docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`, and `agent-todo.md` so the validator-fuzz handoff now records `[FUZ]008` as complete, the active suite inventory includes `validate-invalid-text` and `validate-invalid-spec-seed`, and the next unfinished slice is `[FUZ]009`.
+
 ## [2026-04-16] fix | restore the validator binary invalid fuzz lane
 
 - Added `src/fuzz/invalid_binary.mbt` plus `src/fuzz/invalid_binary_test.mbt` with a checked-in byte-corruption registry, deterministic smoke/ci/stress profile resolution, and stage-aware per-strategy stats for `attempted` / `applicable` / `mutated` / `decode_rejected` / `validate_rejected` / `rejected_expected` / `accepted`.
