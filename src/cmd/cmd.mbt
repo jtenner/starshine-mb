@@ -3521,15 +3521,6 @@ extern "c" fn cmd_native_access(path : Bytes, mode : Int) -> Int = "access"
 
 ///|
 #cfg(target="native")
-#borrow(command, mode)
-extern "c" fn cmd_native_popen(command : Bytes, mode : Bytes) -> UInt64 = "popen"
-
-///|
-#cfg(target="native")
-extern "c" fn cmd_native_pclose(stream : UInt64) -> Int = "pclose"
-
-///|
-#cfg(target="native")
 #borrow(command)
 extern "c" fn cmd_native_system(command : Bytes) -> Int = "system"
 
@@ -3844,51 +3835,7 @@ fn cmd_native_raise_stack_soft_limit() -> Unit {
 ///|
 #cfg(target="native")
 fn cmd_native_get_env(name : String) -> String? {
-  let command = "printenv \{cmd_native_shell_quote(name)}"
-  let c_command = cmd_native_c_string(command)
-  let c_mode = cmd_native_c_string("r")
-  let pipe = cmd_native_popen(c_command, c_mode)
-  if pipe == 0UL {
-    return None
-  }
-
-  let read_buf = Bytes::new(256)
-  let out = @buffer.new()
-  while true {
-    let read = cmd_native_fread(
-      read_buf,
-      1UL,
-      read_buf.length().to_uint64(),
-      pipe,
-    )
-    if read == 0UL {
-      break
-    }
-    let read_i = read.to_int()
-    let mut i = 0
-    while i < read_i {
-      out.write_byte(read_buf[i])
-      i += 1
-    }
-  }
-  if cmd_native_pclose(pipe) != 0 {
-    return None
-  }
-
-  let bytes = out.to_bytes()
-  let trimmed = if bytes.length() > 0 &&
-    bytes[bytes.length() - 1] == '\n'.to_int().to_byte() {
-    let result = @buffer.new(size_hint=bytes.length() - 1)
-    let mut i = 0
-    while i < bytes.length() - 1 {
-      result.write_byte(bytes[i])
-      i += 1
-    }
-    result.to_bytes()
-  } else {
-    bytes
-  }
-  Some(bytes_to_string_lossy(trimmed))
+  @env.get_env_var(name)
 }
 
 ///|

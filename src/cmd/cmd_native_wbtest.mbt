@@ -1,5 +1,49 @@
 ///|
 #cfg(target="native")
+#borrow(name, value)
+extern "c" fn cmd_native_wbtest_setenv(
+  name : Bytes,
+  value : Bytes,
+  overwrite : Int,
+) -> Int = "setenv"
+
+///|
+#cfg(target="native")
+#borrow(name)
+extern "c" fn cmd_native_wbtest_unsetenv(name : Bytes) -> Int = "unsetenv"
+
+///|
+#cfg(target="native")
+fn cmd_native_wbtest_set_env(name : String, value : String) -> Bool {
+  cmd_native_wbtest_setenv(
+    cmd_native_c_string(name),
+    cmd_native_c_string(value),
+    1,
+  ) ==
+  0
+}
+
+///|
+#cfg(target="native")
+fn cmd_native_wbtest_unset_env(name : String) -> Unit {
+  ignore(cmd_native_wbtest_unsetenv(cmd_native_c_string(name)))
+}
+
+///|
+#cfg(target="native")
+test "cmd_native_get_env reads process environment without shelling out" {
+  let name = "STARSHINE_CMD_NATIVE_GET_ENV_TEST"
+  let value = " spaced value with punctuation !@# "
+  cmd_native_wbtest_unset_env(name)
+  assert_eq(cmd_native_get_env(name), None)
+  assert_true(cmd_native_wbtest_set_env(name, value))
+  assert_eq(cmd_native_get_env(name), Some(value))
+  cmd_native_wbtest_unset_env(name)
+  assert_eq(cmd_native_get_env(name), None)
+}
+
+///|
+#cfg(target="native")
 fn cnw_assert_occurs_in_order(text : String, needles : Array[String]) -> Unit {
   let mut start = 0
   for needle in needles {
