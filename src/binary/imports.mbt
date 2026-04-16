@@ -15,7 +15,6 @@ using @lib {
   type CompType,
   type TypeMetadata,
   type FieldType,
-  type FunctionLocals,
   type Mut,
   type StorageType,
   type PackType,

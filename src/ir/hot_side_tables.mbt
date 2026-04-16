@@ -6,7 +6,7 @@ pub enum HotSideTableKind {
   CatchInfoTable
   CallSigTable
   InstrPayloadTable
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotConstPayload::i32_const(value : I32) -> HotConstPayload {

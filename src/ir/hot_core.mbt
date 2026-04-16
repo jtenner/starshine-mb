@@ -87,7 +87,7 @@ pub enum HotOp {
   CatchAll
   Atomic
   Simd
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotNode {
@@ -98,14 +98,14 @@ pub struct HotNode {
   imm1 : Int
   child_base : Int
   child_count : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotLocals {
   param_count : Int
   params : Array[ValType]
   locals : Array[ValType]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotLocals::new(
@@ -136,7 +136,7 @@ pub enum HotTypeInfo {
   BlockResultResolved(BlockType, Array[ValType])
   Value(ValType)
   Results(Array[ValType])
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum HotLabelKind {
@@ -146,7 +146,7 @@ pub enum HotLabelKind {
   RegionLabel
   TryLabel
   TryTableLabel
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotLabelInfo {
@@ -154,7 +154,7 @@ pub struct HotLabelInfo {
   result_type : TypeId
   owner : NodeId
   branch_arity : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum HotConstPayload {
@@ -164,18 +164,18 @@ pub enum HotConstPayload {
   F64Const(F64)
   RefNullConst(RefType)
   StringConst(Bytes)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotMemArg {
   memarg : MemArg
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotBranchTable {
   targets : Array[LabelId]
   default_target : LabelId
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum HotCatchArm {
@@ -183,28 +183,28 @@ pub enum HotCatchArm {
   CatchRefArm(TagIdx, LabelId)
   CatchAllArm(LabelId)
   CatchAllRefArm(LabelId)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotCatchInfo {
   catches : Array[HotCatchArm]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotCallSig {
   type_idx : TypeIdx
   table_idx : TableIdx?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotInstrPayload {
   instr : Instruction
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum HotStringBuiltin {
   NewWtf16Array
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotFunc {

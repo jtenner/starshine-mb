@@ -368,7 +368,7 @@ test "tuple-optimization analysis links exact scalar-forward compare-shape copy 
 ///|
 test "tuple-optimization pipeline rewrites compare-shape scalar forwarding bridges" {
   let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"trim\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.tee 4 local.set 8 local.get 5 local.set 7 local.get 6 local.set 3 local.get 7 local.set 2 local.get 8 local.tee 1 local.get 2 local.get 3 call 1 local.set 0 local.get 0))"
-  let input_mod = pass_test_module_from_wat(source)
+  ignore(pass_test_module_from_wat(source))
   let optimized = match pass_test_run_pipeline(source, ["tuple-optimization"]) {
     Ok(mod_) => mod_
     Err(err) =>
@@ -823,7 +823,7 @@ test "tuple-optimization keeps chained terminal drop-only no-host exact copy gro
 ///|
 test "tuple-optimization pipeline rewrites one-hop scalar forwarding bridges" {
   let source = "(module (type (func (param i32 i32) (result i32 i32 i32))) (type (func (param i32 i32 i32) (result i32))) (import \"env\" \"trim\" (func (type 0))) (import \"env\" \"show\" (func (type 1))) (func (result i32) (local i32 i32 i32 i32 i32 i32 i32) i32.const 42 i32.const 10000 call 0 local.set 6 local.set 5 local.set 4 local.get 6 local.set 0 local.get 5 local.set 1 local.get 4 local.tee 3 local.get 1 local.get 0 call 1 local.set 2 local.get 2))"
-  let input_mod = pass_test_module_from_wat(source)
+  ignore(pass_test_module_from_wat(source))
   let optimized = match pass_test_run_pipeline(source, ["tuple-optimization"]) {
     Ok(mod_) => mod_
     Err(err) =>

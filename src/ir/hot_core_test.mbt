@@ -48,3 +48,21 @@ test "hot core storage counters and body result type roundtrip through accessors
   assert_true(dump.contains("children=1"), msg=dump)
   assert_true(dump.contains("roots=2"), msg=dump)
 }
+
+///|
+test "hot core keeps uncommon variant constructors reachable" {
+  let ops = [
+    HotOp::BrOnNonNull,
+    HotOp::BrOnCast,
+    HotOp::BrOnCastFail,
+    HotOp::RefGetDesc,
+    HotOp::Rethrow,
+    HotOp::Catch,
+    HotOp::CatchAll,
+  ]
+  assert_eq(ops.length(), 7)
+
+  match HotStringBuiltin::NewWtf16Array {
+    HotStringBuiltin::NewWtf16Array => ()
+  }
+}

@@ -2,7 +2,7 @@
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly
   AfterEachPass
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotPipelineVerifyPolicy::final_module_only() -> HotPipelineVerifyPolicy {
@@ -148,7 +148,7 @@ fn pipeline_verify_checkpoint_with_perf(
 ///|
 pub struct HotPassResult {
   changed : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotPassResult::unchanged() -> HotPassResult {
@@ -288,20 +288,6 @@ fn pass_manager_debug_dump_target_regions_visit(
 }
 
 ///|
-fn pass_manager_debug_dump_target_regions(
-  trace : (String) -> Unit,
-  func : @ir.HotFunc,
-  stage : String,
-) -> Unit {
-  pass_manager_debug_dump_target_regions_visit(
-    trace,
-    func,
-    stage,
-    @ir.HotRegionRef::root(),
-  )
-}
-
-///|
 fn pass_manager_debug_dump_node(
   trace : (String) -> Unit,
   func : @ir.HotFunc,
@@ -322,60 +308,6 @@ fn pass_manager_debug_dump_node(
   trace(
     "debug[\{stage}]:node \{node_id} tag=\{pass_manager_debug_node_tag(func, node_id)} ty=\{node.ty} children=\{children} uses=\{@ir.node_use_count(use_def, node_id)}",
   )
-}
-
-///|
-fn pass_manager_debug_dump_matching_nodes(
-  trace : (String) -> Unit,
-  func : @ir.HotFunc,
-  use_def : @ir.HotUseDef,
-  stage : String,
-) -> Unit {
-  for node_id = 0; node_id < func.nodes.length(); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    let tag = pass_manager_debug_node_tag(func, node_id)
-    if tag.contains("LocalSet(363)") ||
-      tag.contains("LocalSet(364)") ||
-      tag.contains("LocalSet(365)") ||
-      tag.contains("LocalSet(366)") ||
-      tag.contains("LocalSet(367)") ||
-      tag.contains("LocalSet(368)") ||
-      tag.contains("LocalSet(369)") ||
-      tag.contains("LocalSet(370)") ||
-      tag.contains("LocalSet(371)") ||
-      tag.contains("LocalSet(372)") ||
-      tag.contains("LocalTee(363)") ||
-      tag.contains("LocalTee(364)") ||
-      tag.contains("LocalTee(365)") ||
-      tag.contains("LocalTee(366)") ||
-      tag.contains("LocalTee(367)") ||
-      tag.contains("LocalTee(368)") ||
-      tag.contains("LocalTee(369)") ||
-      tag.contains("LocalTee(370)") ||
-      tag.contains("LocalTee(371)") ||
-      tag.contains("LocalTee(372)") {
-      pass_manager_debug_dump_node(trace, func, use_def, stage, node_id)
-    }
-  }
-}
-
-///|
-fn pass_manager_debug_dump_live_nodes(
-  trace : (String) -> Unit,
-  func : @ir.HotFunc,
-  stage : String,
-) -> Unit {
-  trace("debug[\{stage}]:roots \{@ir.hot_root_span(func)}")
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    trace(
-      "debug[\{stage}]:node \{node_id} \{@ir.hot_node_get(func, node_id)} children=\{@ir.hot_child_span(func, node_id)}",
-    )
-  }
 }
 
 ///|
@@ -1721,6 +1653,7 @@ fn run_hot_pipeline_raw_simplify_locals_should_skip_encode_structured_call_heavy
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_branchy_decode_structured_call_heavy_stats(
   stats : RawSimplifyLocalsGateStats,
 ) -> Bool {
@@ -1744,6 +1677,7 @@ fn run_hot_pipeline_raw_simplify_locals_branchy_decode_structured_call_heavy_sta
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_transformer_catch_structured_call_heavy_stats(
   stats : RawSimplifyLocalsGateStats,
 ) -> Bool {
@@ -1767,6 +1701,7 @@ fn run_hot_pipeline_raw_simplify_locals_transformer_catch_structured_call_heavy_
 }
 
 ///|
+#cfg(target="native")
 fn run_hot_pipeline_raw_simplify_locals_branchy_structured_call_heavy_stats(
   stats : RawSimplifyLocalsGateStats,
 ) -> Bool {
@@ -8308,18 +8243,6 @@ fn run_hot_pipeline_precompute_writeback_validation_error(
     Ok(_) => None
     Err(err) => Some(err)
   }
-}
-
-///|
-fn run_hot_pipeline_precompute_writeback_validates(
-  mod_ : @lib.Module,
-  code_idx : Int,
-  rewritten : @lib.Func,
-) -> Bool {
-  run_hot_pipeline_precompute_writeback_validation_error(
-    mod_, code_idx, rewritten,
-  ) ==
-  None
 }
 
 ///|

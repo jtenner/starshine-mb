@@ -2,19 +2,19 @@
 struct HotWalkSkipState {
   seen : Array[NodeId]
   skip_at : NodeId
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 struct HotRewriteState {
   replacement : NodeId
   touched_slots : Array[Int]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 struct HotControlWalkState {
   slots : Array[Int]
   region_ids : Array[NodeId]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn hot_walk_collect_root(

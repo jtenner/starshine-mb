@@ -53,7 +53,65 @@ pub suberror BinaryDecodeError {
   InvalidAtomicFenceImmediate
   InvalidAtomicInstruction
   InstructionNestingLimitExceeded
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for BinaryDecodeError with output(self, logger) {
+  match self {
+    IndexOutOfBounds => logger.write_string("IndexOutOfBounds")
+    InvalidNumTypeByte => logger.write_string("InvalidNumTypeByte")
+    InvalidAbstractHeapType => logger.write_string("InvalidAbstractHeapType")
+    InvalidValType => logger.write_string("InvalidValType")
+    InvalidCompType => logger.write_string("InvalidCompType")
+    UnexpectedEofDecodingMut => logger.write_string("UnexpectedEofDecodingMut")
+    InvalidMutByte => logger.write_string("InvalidMutByte")
+    InvalidStorageType => logger.write_string("InvalidStorageType")
+    InvalidPackedType => logger.write_string("InvalidPackedType")
+    InvalidUnsignedLebBitWidth => logger.write_string("InvalidUnsignedLebBitWidth")
+    UnexpectedEofInUnsignedLeb => logger.write_string("UnexpectedEofInUnsignedLeb")
+    UnsignedLebTooManyBytes => logger.write_string("UnsignedLebTooManyBytes")
+    UnsignedLebOutOfRangeForBitWidth => logger.write_string("UnsignedLebOutOfRangeForBitWidth")
+    UnsignedLebTerminalHasNonZeroUnusedBits => logger.write_string("UnsignedLebTerminalHasNonZeroUnusedBits")
+    UnreachableDecodeState => logger.write_string("UnreachableDecodeState")
+    InvalidSignedLebBitWidth => logger.write_string("InvalidSignedLebBitWidth")
+    UnexpectedEofInSignedLeb => logger.write_string("UnexpectedEofInSignedLeb")
+    SignedLebTooManyBytes => logger.write_string("SignedLebTooManyBytes")
+    SignedLebOutOfRangeForBitWidth => logger.write_string("SignedLebOutOfRangeForBitWidth")
+    SignedLebPositiveTerminalHasNonZeroUnusedBits => logger.write_string("SignedLebPositiveTerminalHasNonZeroUnusedBits")
+    SignedLebTerminalHasWrongSignExtensionBits => logger.write_string("SignedLebTerminalHasWrongSignExtensionBits")
+    InvalidS33Range => logger.write_string("InvalidS33Range")
+    InvalidBoolByte => logger.write_string("InvalidBoolByte")
+    InvalidLaneIndex => logger.write_string("InvalidLaneIndex")
+    NegativeNameLength => logger.write_string("NegativeNameLength")
+    InvalidUtf8Name => logger.write_string("InvalidUtf8Name")
+    InvalidSectionHeader => logger.write_string("InvalidSectionHeader")
+    SectionPayloadLengthOutOfRange => logger.write_string("SectionPayloadLengthOutOfRange")
+    InvalidSectionPayloadTrailingBytes => logger.write_string("InvalidSectionPayloadTrailingBytes")
+    DuplicateNameSection => logger.write_string("DuplicateNameSection")
+    InvalidNameSubsectionId => logger.write_string("InvalidNameSubsectionId")
+    InvalidNameSubsectionOrder => logger.write_string("InvalidNameSubsectionOrder")
+    InvalidNameMapOrder => logger.write_string("InvalidNameMapOrder")
+    InvalidMagicHeader => logger.write_string("InvalidMagicHeader")
+    InvalidModule => logger.write_string("InvalidModule")
+    InvalidElemHeader => logger.write_string("InvalidElemHeader")
+    InvalidDataHeader => logger.write_string("InvalidDataHeader")
+    CustomSectionPayloadLengthOutOfRange => logger.write_string("CustomSectionPayloadLengthOutOfRange")
+    InvalidLimits => logger.write_string("InvalidLimits")
+    InvalidTagType => logger.write_string("InvalidTagType")
+    InvalidExternTypeHeader => logger.write_string("InvalidExternTypeHeader")
+    InvalidBlockType => logger.write_string("InvalidBlockType")
+    InvalidExternIndex => logger.write_string("InvalidExternIndex")
+    InvalidOffset => logger.write_string("InvalidOffset")
+    InvalidCatch => logger.write_string("InvalidCatch")
+    InvalidCastOp => logger.write_string("InvalidCastOp")
+    InvalidMemArg => logger.write_string("InvalidMemArg")
+    InvalidStringRefSection => logger.write_string("InvalidStringRefSection")
+    InvalidStringLiteralIndex => logger.write_string("InvalidStringLiteralIndex")
+    InvalidInstruction => logger.write_string("InvalidInstruction")
+    InvalidAtomicFenceImmediate => logger.write_string("InvalidAtomicFenceImmediate")
+    InvalidAtomicInstruction => logger.write_string("InvalidAtomicInstruction")
+    InstructionNestingLimitExceeded => logger.write_string("InstructionNestingLimitExceeded")
+  }
+}
 
 ///|
 pub struct ModuleDecodeErrorDetail {
@@ -61,7 +119,7 @@ pub struct ModuleDecodeErrorDetail {
   section_offset : Int?
   section_len : Int?
   trailing_offset : Int?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub trait Decode {
@@ -208,18 +266,22 @@ pub impl Decode for ValType with decode(bytes, i) {
 ///|
 pub impl[T : Decode] Decode for @list.List[T] with decode(bytes, i) {
   match Decode::decode(bytes, i) {
-    Ok((@lib.U32(len), i)) =>
-      loop ([], len, i) {
-        (acc, left, i) if left > 0 =>
-          match T::decode(bytes, i) {
-            Ok((u, i)) => {
-              acc.push(u)
-              continue (acc, left - 1, i)
-            }
-            Err(err) => Err(err)
+    Ok((@lib.U32(len), i)) => {
+      let acc = []
+      let mut left = len
+      let mut pos = i
+      while left > 0 {
+        match T::decode(bytes, pos) {
+          Ok((u, next_pos)) => {
+            acc.push(u)
+            pos = next_pos
+            left = left - 1
           }
-        (acc, _, i) => Ok((@list.List::from_array(acc), i))
+          Err(err) => return Err(err)
+        }
       }
+      Ok((@list.List::from_array(acc), pos))
+    }
     Err(err) => Err(err)
   }
 }
@@ -2388,39 +2450,54 @@ fn decode_instruction_with_depth(
     Some(0x04) =>
       match Decode::decode(bytes, i + 1) {
         Ok((bt, i)) => {
-          let (if_inst, i) = loop (i, [], None) {
-            (i, if_insts, Some(else_insts)) =>
-              match bytes.get(i) {
-                Some(0x0B) =>
-                  break (
-                    Instruction::if_(bt, if_insts, Some(else_insts)),
-                    i + 1,
-                  )
-                _ =>
-                  match decode_instruction_with_depth(bytes, i, depth + 1) {
-                    Ok((inst, i)) => {
-                      else_insts.push(inst)
-                      continue (i, if_insts, Some(else_insts))
-                    }
-                    Err(t) => return Err(t)
+          let mut pos = i
+          let if_insts : Array[Instruction] = []
+          let mut else_insts : Array[Instruction]? = None
+          let mut if_inst : Instruction? = None
+          while if_inst is None {
+            match else_insts {
+              Some(else_insts) =>
+                match bytes.get(pos) {
+                  Some(0x0B) => {
+                    if_inst = Some(
+                      Instruction::if_(bt, if_insts, Some(else_insts)),
+                    )
+                    pos = pos + 1
                   }
-              }
-            (i, if_insts, None) =>
-              match bytes.get(i) {
-                Some(0x05) => continue (i + 1, if_insts, Some([]))
-                Some(0x0B) =>
-                  break (Instruction::if_(bt, if_insts, None), i + 1)
-                _ =>
-                  match decode_instruction_with_depth(bytes, i, depth + 1) {
-                    Ok((inst, i)) => {
-                      if_insts.push(inst)
-                      continue (i, if_insts, None)
+                  _ =>
+                    match decode_instruction_with_depth(bytes, pos, depth + 1) {
+                      Ok((inst, next_pos)) => {
+                        else_insts.push(inst)
+                        pos = next_pos
+                      }
+                      Err(t) => return Err(t)
                     }
-                    Err(t) => return Err(t)
+                }
+              None =>
+                match bytes.get(pos) {
+                  Some(0x05) => {
+                    pos = pos + 1
+                    else_insts = Some([])
                   }
-              }
+                  Some(0x0B) => {
+                    if_inst = Some(Instruction::if_(bt, if_insts, None))
+                    pos = pos + 1
+                  }
+                  _ =>
+                    match decode_instruction_with_depth(bytes, pos, depth + 1) {
+                      Ok((inst, next_pos)) => {
+                        if_insts.push(inst)
+                        pos = next_pos
+                      }
+                      Err(t) => return Err(t)
+                    }
+                }
+            }
           }
-          Ok((if_inst, i))
+          match if_inst {
+            Some(if_inst) => Ok((if_inst, pos))
+            None => abort("unreachable")
+          }
         }
         Err(t) => Err(t)
       }
@@ -3905,17 +3982,21 @@ pub impl Decode for FieldType with decode(bytes, i) {
 pub impl[T : Decode] Decode for Array[T] with decode(bytes, i) {
   match Decode::decode(bytes, i) {
     Err(t) => Err(t)
-    Ok((@lib.U32(count), i)) =>
-      loop (count, [], i) {
-        (0, result, i) => break Ok((result, i))
-        (n, result, i) =>
-          match T::decode(bytes, i) {
-            Ok((t, i)) => {
-              result.push(t)
-              continue (n - 1, result, i)
-            }
-            Err(t) => break Err(t)
+    Ok((@lib.U32(count), i)) => {
+      let mut remaining = count
+      let result : Array[T] = []
+      let mut pos = i
+      while remaining > 0 {
+        match T::decode(bytes, pos) {
+          Ok((t, next_pos)) => {
+            result.push(t)
+            pos = next_pos
+            remaining = remaining - 1
           }
+          Err(t) => return Err(t)
+        }
       }
+      Ok((result, pos))
+    }
   }
 }

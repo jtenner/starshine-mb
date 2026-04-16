@@ -2,14 +2,14 @@
 pub enum HotUseSlotKind {
   ChildUseSlot
   RootUseSlot
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotUseSite {
   user : NodeId
   slot : Int
   kind : HotUseSlotKind
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotUseDef {
@@ -19,7 +19,7 @@ pub struct HotUseDef {
   local_reads : Array[Array[NodeId]]
   local_writes : Array[Array[NodeId]]
   local_write_blocks : Array[Array[BlockId]]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn use_def_bitset_clone(src : Bitset) -> Bitset {

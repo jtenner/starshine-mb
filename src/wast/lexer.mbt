@@ -329,7 +329,7 @@ fn WastLexer::read_reserved_chars(self : WastLexer) -> ReservedChars {
 
 ///|
 fn WastLexer::no_trailing_reserved_chars(self : WastLexer) -> Bool {
-  not(is_id_char(self.peek_char())) && self.peek_char() != 0x22
+  !is_id_char(self.peek_char()) && self.peek_char() != 0x22
 }
 
 // ============================================================================
@@ -436,7 +436,7 @@ fn WastLexer::get_number_token(
     if self.match_char(0x2E) {
       // '.'
       tt = Float
-      if is_digit(self.peek_char()) && not(self.read_num()) {
+      if is_digit(self.peek_char()) && !self.read_num() {
         return self.get_reserved_token()
       }
     }
@@ -444,7 +444,7 @@ fn WastLexer::get_number_token(
       // 'e' or 'E'
       tt = Float
       self.read_sign()
-      if not(self.read_num()) {
+      if !self.read_num() {
         return self.get_reserved_token()
       }
     }
@@ -469,7 +469,7 @@ fn WastLexer::get_hex_number_token(
     if self.match_char(0x2E) {
       // '.'
       tt = Float
-      if is_hex_digit(self.peek_char()) && not(self.read_hex_num()) {
+      if is_hex_digit(self.peek_char()) && !self.read_hex_num() {
         return self.get_reserved_token()
       }
     }
@@ -477,7 +477,7 @@ fn WastLexer::get_hex_number_token(
       // 'p' or 'P'
       tt = Float
       self.read_sign()
-      if not(self.read_num()) {
+      if !self.read_num() {
         return self.get_reserved_token()
       }
     }
@@ -805,7 +805,7 @@ fn assert_token_type(token : Token, expected : TokenType) -> Unit raise Error {
     (Opcode(_), Opcode(_)) => true
     _ => false
   }
-  if not(matches) {
+  if !matches {
     raise TokenTypeMismatch
   }
 }

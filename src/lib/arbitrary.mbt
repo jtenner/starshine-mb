@@ -192,12 +192,10 @@ pub impl @quickcheck.Arbitrary for LocalRun with arbitrary(t, state) {
 pub impl @quickcheck.Arbitrary for Locals with arbitrary(t, state) {
   let runs : Array[LocalRun] = []
   let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      runs.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
+  let mut remaining = count
+  while remaining > 0 {
+    runs.push(@quickcheck.Arbitrary::arbitrary(t, state))
+    remaining = remaining - 1
   }
   Locals::new(runs)
 }
@@ -223,9 +221,10 @@ pub impl @quickcheck.Arbitrary for Data with arbitrary(t, state) {
 pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
   let count = state.next_positive_int() % 5
   let sb = StringBuilder::new(size_hint=count)
-  loop (count, state.next_positive_int() % 91799) {
-    (0, _) => break
-    (n, i) if (i >= 32 && i <= 126) ||
+  let mut remaining = count
+  let mut i = state.next_positive_int() % 91799
+  while remaining > 0 {
+    if (i >= 32 && i <= 126) ||
       (i >= 160 && i <= 172) ||
       (i >= 174 && i <= 887) ||
       (i >= 890 && i <= 895) ||
@@ -964,11 +963,11 @@ pub impl @quickcheck.Arbitrary for Name with arbitrary(_, state) {
       (i >= 194560 && i <= 195101) ||
       (i >= 196608 && i <= 201546) ||
       (i >= 201552 && i <= 210041) ||
-      (i >= 917760 && i <= 917999) => {
+      (i >= 917760 && i <= 917999) {
       sb.write_char(i.unsafe_to_char())
-      continue (n - 1, state.next_positive_int() % 91799)
+      remaining = remaining - 1
     }
-    (n, _) => continue (n, state.next_positive_int() % 91799)
+    i = state.next_positive_int() % 91799
   }
   Name(sb.to_string().to_string_view())
 }
@@ -1673,12 +1672,10 @@ pub impl @quickcheck.Arbitrary for Instruction with arbitrary(t, state) {
 pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
   let elems = []
   let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
+  let mut remaining = count
+  while remaining > 0 {
+    elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+    remaining = remaining - 1
   }
   ElemSec(elems)
 }
@@ -1687,12 +1684,10 @@ pub impl @quickcheck.Arbitrary for ElemSec with arbitrary(t, state) {
 pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
   let elems = []
   let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
+  let mut remaining = count
+  while remaining > 0 {
+    elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+    remaining = remaining - 1
   }
   CodeSec(elems)
 }
@@ -1701,12 +1696,10 @@ pub impl @quickcheck.Arbitrary for CodeSec with arbitrary(t, state) {
 pub impl @quickcheck.Arbitrary for DataSec with arbitrary(t, state) {
   let elems = []
   let count = state.next_positive_int() % 4 + 1
-  loop count {
-    0 => break ()
-    n => {
-      elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
-      continue n - 1
-    }
+  let mut remaining = count
+  while remaining > 0 {
+    elems.push(@quickcheck.Arbitrary::arbitrary(t, state))
+    remaining = remaining - 1
   }
   DataSec(elems)
 }
@@ -1716,11 +1709,13 @@ pub impl @quickcheck.Arbitrary for CustomSec with arbitrary(size, st) {
   let name = @quickcheck.Arbitrary::arbitrary(size, st)
   let length = st.next_positive_int() % 19 + 1
   let buf = @buffer.new()
-  let bytes = loop length {
-    0 => buf.to_bytes()
-    n => {
-      buf.write_byte((st.next_positive_int() % 256).to_byte())
-      continue n - 1
+  let bytes = for state = length {
+    match state {
+      0 => break buf.to_bytes()
+      n => {
+        buf.write_byte((st.next_positive_int() % 256).to_byte())
+        continue n - 1
+      }
     }
   }
   CustomSec(name, bytes)
@@ -1810,11 +1805,13 @@ pub fn[T : Arbitrary] array_of_arbitrary(
 ) -> Array[T] {
   let count = state.next_uint() % max + 1
   let a = []
-  loop count {
-    0 => break a
-    n => {
-      a.push(Arbitrary::arbitrary(t, state))
-      continue n - 1
+  for loop_state = count {
+    match loop_state {
+      0 => break a
+      n => {
+        a.push(Arbitrary::arbitrary(t, state))
+        continue n - 1
+      }
     }
   }
 }

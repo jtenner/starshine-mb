@@ -111,12 +111,12 @@ pub fn Module::with_data_sec(self : Module, data_sec : DataSec) -> Module {
 ///|
 priv struct ModuleDebugContext {
   subtypes : Array[SubType]
-  func_type_idxs : Array[TypeIdx]
+  _func_type_idxs : Array[TypeIdx]
   func_imports : Array[Import]
-  tables : Array[TableType]
+  _tables : Array[TableType]
   mems : Array[MemType]
-  globals : Array[GlobalType]
-  tags : Array[TagType]
+  _globals : Array[GlobalType]
+  _tags : Array[TagType]
 }
 
 ///|
@@ -198,7 +198,15 @@ fn md_build_context(mod : Module) -> ModuleDebugContext {
     None => ()
   }
 
-  { subtypes, func_type_idxs, func_imports, tables, mems, globals, tags }
+  {
+    subtypes,
+    _func_type_idxs: func_type_idxs,
+    func_imports,
+    _tables: tables,
+    mems,
+    _globals: globals,
+    _tags: tags,
+  }
 }
 
 ///|
@@ -227,7 +235,7 @@ fn md_format_type_idx(ctx : ModuleDebugContext, idx : TypeIdx) -> String {
 }
 
 ///|
-fn md_format_heap_type(
+fn _md_format_heap_type(
   ctx : ModuleDebugContext,
   heap_type : HeapType,
 ) -> String {
@@ -238,105 +246,12 @@ fn md_format_heap_type(
 }
 
 ///|
-fn md_format_ref_null_type(
-  ctx : ModuleDebugContext,
-  ref_type : RefType,
-) -> String {
-  let heap_text = md_format_heap_type(ctx, ref_type.get_heap_type())
-  if ref_type.is_exact() {
-    "(exact \{heap_text})"
-  } else {
-    heap_text
-  }
-}
-
-///|
-fn md_format_func_idx(ctx : ModuleDebugContext, idx : FuncIdx) -> String {
-  let FuncIdx(i) = idx
-  let raw = idx.to_string()
-  match ctx.func_type_idxs.get(i.reinterpret_as_int()) {
-    Some(type_idx) => raw + " => " + md_format_type_idx(ctx, type_idx)
-    None => raw + " => <unknown func>"
-  }
-}
-
-///|
-fn md_format_table_idx(ctx : ModuleDebugContext, idx : TableIdx) -> String {
-  let TableIdx(i) = idx
-  let raw = idx.to_string()
-  match ctx.tables.get(i.reinterpret_as_int()) {
-    Some(table_type) => raw + " : " + table_type.to_string()
-    None => raw + " : <unknown table>"
-  }
-}
-
-///|
-fn md_format_mem_idx(ctx : ModuleDebugContext, idx : MemIdx) -> String {
+fn _md_format_mem_idx(ctx : ModuleDebugContext, idx : MemIdx) -> String {
   let MemIdx(i) = idx
   let raw = idx.to_string()
   match ctx.mems.get(i.reinterpret_as_int()) {
     Some(mem_type) => raw + " : " + mem_type.to_string()
     None => raw + " : <unknown memory>"
-  }
-}
-
-///|
-fn md_format_global_idx(ctx : ModuleDebugContext, idx : GlobalIdx) -> String {
-  let GlobalIdx(i) = idx
-  let raw = idx.to_string()
-  match ctx.globals.get(i.reinterpret_as_int()) {
-    Some(global_type) => raw + " : " + global_type.to_string()
-    None => raw + " : <unknown global>"
-  }
-}
-
-///|
-fn md_format_tag_idx(ctx : ModuleDebugContext, idx : TagIdx) -> String {
-  let TagIdx(i) = idx
-  let raw = idx.to_string()
-  match ctx.tags.get(i.reinterpret_as_int()) {
-    Some(TagType(type_idx)) =>
-      raw +
-      " : " +
-      TagType(type_idx).to_string() +
-      " => " +
-      md_format_type_idx(ctx, type_idx)
-    None => raw + " : <unknown tag>"
-  }
-}
-
-///|
-fn md_format_local_idx(
-  locals : Locals,
-  param_count : Int,
-  idx : LocalIdx,
-) -> String {
-  let LocalIdx(i) = idx
-  let raw = idx.to_string()
-  match locals.at(i.reinterpret_as_int()) {
-    Some(val_type) => {
-      let role = if i.reinterpret_as_int() < param_count {
-        "param"
-      } else {
-        "local"
-      }
-      raw + " : " + pretty_val_type(val_type) + " (" + role + ")"
-    }
-    None => raw + " : <unknown local>"
-  }
-}
-
-///|
-fn md_format_memarg(ctx : ModuleDebugContext, memarg : MemArg) -> String {
-  let raw = memarg.to_string()
-  let MemArg(_, mem_idx, _) = memarg
-  match mem_idx {
-    Some(idx) => raw + " [" + md_format_mem_idx(ctx, idx) + "]"
-    None =>
-      match ctx.mems.get(0) {
-        Some(mem_type) => raw + " [default " + mem_type.to_string() + "]"
-        None => raw
-      }
   }
 }
 
@@ -352,20 +267,6 @@ fn md_write_line(out : StringBuilder, depth : Int, line : String) -> Unit {
   md_indent(out, depth)
   out.write_string(line)
   out.write_char('\n')
-}
-
-///|
-
-///|
-fn md_format_block_type(
-  ctx : ModuleDebugContext,
-  block_type : BlockType,
-) -> String {
-  match block_type {
-    VoidBlockType => "(Void)"
-    ValTypeBlockType(val_type) => pretty_val_type(val_type)
-    TypeIdxBlockType(type_idx) => md_format_type_idx(ctx, type_idx)
-  }
 }
 
 ///|

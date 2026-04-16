@@ -8,7 +8,7 @@ pub enum CfgEdgeKind {
   ReturnEdge
   ExceptionalEdge
   UnreachableExitEdge
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum CfgBlockBoundaryReason {
@@ -21,7 +21,7 @@ pub enum CfgBlockBoundaryReason {
   CatchRegionEntry
   CatchListRegionEntry
   Terminator
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum CfgControlSuccessorPolicy {
@@ -29,7 +29,7 @@ pub enum CfgControlSuccessorPolicy {
   SplitThenElse
   SplitBodyCatch
   SplitBodyCatchList
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum CfgExceptionTargetPolicy {
@@ -38,7 +38,7 @@ pub enum CfgExceptionTargetPolicy {
   ToCatchRegion
   ToCatchListRegion
   DelegateToTarget
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn cfg_is_root_node(func : HotFunc, node_id : NodeId) -> Bool {

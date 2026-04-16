@@ -3,7 +3,7 @@ pub struct HotLiveness {
   include_exceptional_edges : Bool
   live_in_sets : Array[Bitset]
   live_out_sets : Array[Bitset]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn liveness_bitset_clone(src : Bitset) -> Bitset {

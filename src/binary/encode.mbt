@@ -18,7 +18,30 @@ pub suberror BinaryEncodeError {
   RawNameCustomSectionUnsupported
   CannotEncodeStringConstWithoutModuleContext
   StringConstLiteralMissingFromSection
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for BinaryEncodeError with output(self, logger) {
+  match self {
+    CannotEncodeRecursiveIndexHeapType => logger.write_string("CannotEncodeRecursiveIndexHeapType")
+    CannotEncodeDefTypeHeapType => logger.write_string("CannotEncodeDefTypeHeapType")
+    CannotEncodeBottomValType => logger.write_string("CannotEncodeBottomValType")
+    InvalidUnsignedLebBitWidth => logger.write_string("InvalidUnsignedLebBitWidth")
+    UnsignedLebValueOutOfRange => logger.write_string("UnsignedLebValueOutOfRange")
+    InvalidSignedLebBitWidth => logger.write_string("InvalidSignedLebBitWidth")
+    SignedLebValueOutOfRange => logger.write_string("SignedLebValueOutOfRange")
+    UnsignedLebExceedsMaxByteLimit => logger.write_string("UnsignedLebExceedsMaxByteLimit")
+    SignedLebExceedsMaxByteLimit => logger.write_string("SignedLebExceedsMaxByteLimit")
+    CannotEncodeNonStandardTypeIndex => logger.write_string("CannotEncodeNonStandardTypeIndex")
+    CannotEncodeRecursiveIndexBlockType => logger.write_string("CannotEncodeRecursiveIndexBlockType")
+    InvalidMemArgEncoding => logger.write_string("InvalidMemArgEncoding")
+    InvalidActiveElemSequence => logger.write_string("InvalidActiveElemSequence")
+    InvalidTypedFunctionLocals => logger.write_string("InvalidTypedFunctionLocals")
+    InvalidNameMapOrder => logger.write_string("InvalidNameMapOrder")
+    RawNameCustomSectionUnsupported => logger.write_string("RawNameCustomSectionUnsupported")
+    CannotEncodeStringConstWithoutModuleContext => logger.write_string("CannotEncodeStringConstWithoutModuleContext")
+    StringConstLiteralMissingFromSection => logger.write_string("StringConstLiteralMissingFromSection")
+  }
+}
 
 ///|
 pub trait Encode {

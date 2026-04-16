@@ -12,7 +12,7 @@ pub struct HotPerfCounters {
   cfg_builds : Int
   dataflow_builds : Int
   traversal_visits : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotPerfCounters::new(
@@ -39,7 +39,7 @@ pub fn HotPerfCounters::new(
 pub struct HotPerfDumpOptions {
   hot_func : Bool
   cfg : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotPerfDumpOptions::new(
@@ -54,7 +54,7 @@ pub struct HotPerfHotSnapshot {
   node_count : Int
   child_span_count : Int
   side_table_count : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotPerfHotSnapshot::empty() -> HotPerfHotSnapshot {

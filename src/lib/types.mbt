@@ -442,7 +442,13 @@ pub struct MemSec(Array[MemType]) derive(Eq, Arbitrary, Hash, Debug)
 pub struct GlobalSec(Array[Global]) derive(Eq, Arbitrary, Hash, Debug)
 
 ///|
-pub struct StringRefsSec(Array[Bytes]) derive(Eq, Show, Hash, Debug)
+pub struct StringRefsSec(Array[Bytes]) derive(Eq, Hash, Debug)
+
+pub impl Show for StringRefsSec with output(self, logger) {
+  logger.write_string("StringRefSec(")
+  self.0.output(logger)
+  logger.write_char(')')
+}
 
 ///|
 pub fn StringRefsSec::new(strings : Array[Bytes]) -> StringRefsSec {
@@ -489,12 +495,17 @@ pub struct CodeSec(Array[Func]) derive(Eq, Hash, Debug)
 pub struct DataSec(Array[Data]) derive(Eq, Hash, Debug)
 
 ///|
-
 ///| `CastOp` stores `(source_nullable, target_nullable)` for `br_on_cast`
-
-///|
 /// and `br_on_cast_fail`. It does not encode descriptor-cast exactness.
-pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Show, Hash, Debug)
+pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Hash, Debug)
+
+pub impl Show for CastOp with output(self, logger) {
+  logger.write_string("CastOp(")
+  self.0.output(logger)
+  logger.write_string(", ")
+  self.1.output(logger)
+  logger.write_char(')')
+}
 
 ///|
 pub enum Instruction {
@@ -1540,7 +1551,135 @@ pub enum UnaryOp {
   I32x4RelaxedTruncF32x4UOp
   I32x4RelaxedTruncZeroF64x2SOp
   I32x4RelaxedTruncZeroF64x2UOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for UnaryOp with output(self, logger) {
+  match self {
+    I32EqzOp => logger.write_string("I32EqzOp")
+    I64EqzOp => logger.write_string("I64EqzOp")
+    I32ClzOp => logger.write_string("I32ClzOp")
+    I32CtzOp => logger.write_string("I32CtzOp")
+    I32PopcntOp => logger.write_string("I32PopcntOp")
+    I64ClzOp => logger.write_string("I64ClzOp")
+    I64CtzOp => logger.write_string("I64CtzOp")
+    I64PopcntOp => logger.write_string("I64PopcntOp")
+    F32AbsOp => logger.write_string("F32AbsOp")
+    F32NegOp => logger.write_string("F32NegOp")
+    F32CeilOp => logger.write_string("F32CeilOp")
+    F32FloorOp => logger.write_string("F32FloorOp")
+    F32TruncOp => logger.write_string("F32TruncOp")
+    F32NearestOp => logger.write_string("F32NearestOp")
+    F32SqrtOp => logger.write_string("F32SqrtOp")
+    F64AbsOp => logger.write_string("F64AbsOp")
+    F64NegOp => logger.write_string("F64NegOp")
+    F64CeilOp => logger.write_string("F64CeilOp")
+    F64FloorOp => logger.write_string("F64FloorOp")
+    F64TruncOp => logger.write_string("F64TruncOp")
+    F64NearestOp => logger.write_string("F64NearestOp")
+    F64SqrtOp => logger.write_string("F64SqrtOp")
+    I32WrapI64Op => logger.write_string("I32WrapI64Op")
+    I32TruncF32SOp => logger.write_string("I32TruncF32SOp")
+    I32TruncF32UOp => logger.write_string("I32TruncF32UOp")
+    I32TruncF64SOp => logger.write_string("I32TruncF64SOp")
+    I32TruncF64UOp => logger.write_string("I32TruncF64UOp")
+    I64ExtendI32SOp => logger.write_string("I64ExtendI32SOp")
+    I64ExtendI32UOp => logger.write_string("I64ExtendI32UOp")
+    I64TruncF32SOp => logger.write_string("I64TruncF32SOp")
+    I64TruncF32UOp => logger.write_string("I64TruncF32UOp")
+    I64TruncF64SOp => logger.write_string("I64TruncF64SOp")
+    I64TruncF64UOp => logger.write_string("I64TruncF64UOp")
+    F32ConvertI32SOp => logger.write_string("F32ConvertI32SOp")
+    F32ConvertI32UOp => logger.write_string("F32ConvertI32UOp")
+    F32ConvertI64SOp => logger.write_string("F32ConvertI64SOp")
+    F32ConvertI64UOp => logger.write_string("F32ConvertI64UOp")
+    F32DemoteF64Op => logger.write_string("F32DemoteF64Op")
+    F64ConvertI32SOp => logger.write_string("F64ConvertI32SOp")
+    F64ConvertI32UOp => logger.write_string("F64ConvertI32UOp")
+    F64ConvertI64SOp => logger.write_string("F64ConvertI64SOp")
+    F64ConvertI64UOp => logger.write_string("F64ConvertI64UOp")
+    F64PromoteF32Op => logger.write_string("F64PromoteF32Op")
+    I32ReinterpretF32Op => logger.write_string("I32ReinterpretF32Op")
+    I64ReinterpretF64Op => logger.write_string("I64ReinterpretF64Op")
+    F32ReinterpretI32Op => logger.write_string("F32ReinterpretI32Op")
+    F64ReinterpretI64Op => logger.write_string("F64ReinterpretI64Op")
+    I32Extend8SOp => logger.write_string("I32Extend8SOp")
+    I32Extend16SOp => logger.write_string("I32Extend16SOp")
+    I64Extend8SOp => logger.write_string("I64Extend8SOp")
+    I64Extend16SOp => logger.write_string("I64Extend16SOp")
+    I64Extend32SOp => logger.write_string("I64Extend32SOp")
+    I32TruncSatF32SOp => logger.write_string("I32TruncSatF32SOp")
+    I32TruncSatF32UOp => logger.write_string("I32TruncSatF32UOp")
+    I32TruncSatF64SOp => logger.write_string("I32TruncSatF64SOp")
+    I32TruncSatF64UOp => logger.write_string("I32TruncSatF64UOp")
+    I64TruncSatF32SOp => logger.write_string("I64TruncSatF32SOp")
+    I64TruncSatF32UOp => logger.write_string("I64TruncSatF32UOp")
+    I64TruncSatF64SOp => logger.write_string("I64TruncSatF64SOp")
+    I64TruncSatF64UOp => logger.write_string("I64TruncSatF64UOp")
+    V128NotOp => logger.write_string("V128NotOp")
+    I8x16AbsOp => logger.write_string("I8x16AbsOp")
+    I8x16NegOp => logger.write_string("I8x16NegOp")
+    I8x16PopcntOp => logger.write_string("I8x16PopcntOp")
+    I16x8AbsOp => logger.write_string("I16x8AbsOp")
+    I16x8NegOp => logger.write_string("I16x8NegOp")
+    I32x4AbsOp => logger.write_string("I32x4AbsOp")
+    I32x4NegOp => logger.write_string("I32x4NegOp")
+    I64x2AbsOp => logger.write_string("I64x2AbsOp")
+    I64x2NegOp => logger.write_string("I64x2NegOp")
+    F32x4AbsOp => logger.write_string("F32x4AbsOp")
+    F32x4NegOp => logger.write_string("F32x4NegOp")
+    F32x4SqrtOp => logger.write_string("F32x4SqrtOp")
+    F32x4CeilOp => logger.write_string("F32x4CeilOp")
+    F32x4FloorOp => logger.write_string("F32x4FloorOp")
+    F32x4TruncOp => logger.write_string("F32x4TruncOp")
+    F32x4NearestOp => logger.write_string("F32x4NearestOp")
+    F64x2AbsOp => logger.write_string("F64x2AbsOp")
+    F64x2NegOp => logger.write_string("F64x2NegOp")
+    F64x2SqrtOp => logger.write_string("F64x2SqrtOp")
+    F64x2CeilOp => logger.write_string("F64x2CeilOp")
+    F64x2FloorOp => logger.write_string("F64x2FloorOp")
+    F64x2TruncOp => logger.write_string("F64x2TruncOp")
+    F64x2NearestOp => logger.write_string("F64x2NearestOp")
+    V128AnyTrueOp => logger.write_string("V128AnyTrueOp")
+    I8x16AllTrueOp => logger.write_string("I8x16AllTrueOp")
+    I8x16BitmaskOp => logger.write_string("I8x16BitmaskOp")
+    I16x8AllTrueOp => logger.write_string("I16x8AllTrueOp")
+    I16x8BitmaskOp => logger.write_string("I16x8BitmaskOp")
+    I32x4AllTrueOp => logger.write_string("I32x4AllTrueOp")
+    I32x4BitmaskOp => logger.write_string("I32x4BitmaskOp")
+    I64x2AllTrueOp => logger.write_string("I64x2AllTrueOp")
+    I64x2BitmaskOp => logger.write_string("I64x2BitmaskOp")
+    I16x8ExtendLowI8x16SOp => logger.write_string("I16x8ExtendLowI8x16SOp")
+    I16x8ExtendHighI8x16SOp => logger.write_string("I16x8ExtendHighI8x16SOp")
+    I16x8ExtendLowI8x16UOp => logger.write_string("I16x8ExtendLowI8x16UOp")
+    I16x8ExtendHighI8x16UOp => logger.write_string("I16x8ExtendHighI8x16UOp")
+    I32x4ExtendLowI16x8SOp => logger.write_string("I32x4ExtendLowI16x8SOp")
+    I32x4ExtendHighI16x8SOp => logger.write_string("I32x4ExtendHighI16x8SOp")
+    I32x4ExtendLowI16x8UOp => logger.write_string("I32x4ExtendLowI16x8UOp")
+    I32x4ExtendHighI16x8UOp => logger.write_string("I32x4ExtendHighI16x8UOp")
+    I64x2ExtendLowI32x4SOp => logger.write_string("I64x2ExtendLowI32x4SOp")
+    I64x2ExtendHighI32x4SOp => logger.write_string("I64x2ExtendHighI32x4SOp")
+    I64x2ExtendLowI32x4UOp => logger.write_string("I64x2ExtendLowI32x4UOp")
+    I64x2ExtendHighI32x4UOp => logger.write_string("I64x2ExtendHighI32x4UOp")
+    I16x8ExtaddPairwiseI8x16SOp => logger.write_string("I16x8ExtaddPairwiseI8x16SOp")
+    I16x8ExtaddPairwiseI8x16UOp => logger.write_string("I16x8ExtaddPairwiseI8x16UOp")
+    I32x4ExtaddPairwiseI16x8SOp => logger.write_string("I32x4ExtaddPairwiseI16x8SOp")
+    I32x4ExtaddPairwiseI16x8UOp => logger.write_string("I32x4ExtaddPairwiseI16x8UOp")
+    F32x4DemoteF64x2ZeroOp => logger.write_string("F32x4DemoteF64x2ZeroOp")
+    F64x2PromoteLowF32x4Op => logger.write_string("F64x2PromoteLowF32x4Op")
+    I32x4TruncSatF32x4SOp => logger.write_string("I32x4TruncSatF32x4SOp")
+    I32x4TruncSatF32x4UOp => logger.write_string("I32x4TruncSatF32x4UOp")
+    F32x4ConvertI32x4SOp => logger.write_string("F32x4ConvertI32x4SOp")
+    F32x4ConvertI32x4UOp => logger.write_string("F32x4ConvertI32x4UOp")
+    I32x4TruncSatF64x2SZeroOp => logger.write_string("I32x4TruncSatF64x2SZeroOp")
+    I32x4TruncSatF64x2UZeroOp => logger.write_string("I32x4TruncSatF64x2UZeroOp")
+    F64x2ConvertLowI32x4SOp => logger.write_string("F64x2ConvertLowI32x4SOp")
+    F64x2ConvertLowI32x4UOp => logger.write_string("F64x2ConvertLowI32x4UOp")
+    I32x4RelaxedTruncF32x4SOp => logger.write_string("I32x4RelaxedTruncF32x4SOp")
+    I32x4RelaxedTruncF32x4UOp => logger.write_string("I32x4RelaxedTruncF32x4UOp")
+    I32x4RelaxedTruncZeroF64x2SOp => logger.write_string("I32x4RelaxedTruncZeroF64x2SOp")
+    I32x4RelaxedTruncZeroF64x2UOp => logger.write_string("I32x4RelaxedTruncZeroF64x2UOp")
+  }
+}
 
 ///|
 /// Binary operations
@@ -1775,7 +1914,213 @@ pub enum BinaryOp {
   F64x2RelaxedMaxOp
   I16x8RelaxedQ15mulrSOp
   I16x8RelaxedDotI8x16I7x16SOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for BinaryOp with output(self, logger) {
+  match self {
+    I32EqOp => logger.write_string("I32EqOp")
+    I32NeOp => logger.write_string("I32NeOp")
+    I32LtSOp => logger.write_string("I32LtSOp")
+    I32LtUOp => logger.write_string("I32LtUOp")
+    I32GtSOp => logger.write_string("I32GtSOp")
+    I32GtUOp => logger.write_string("I32GtUOp")
+    I32LeSOp => logger.write_string("I32LeSOp")
+    I32LeUOp => logger.write_string("I32LeUOp")
+    I32GeSOp => logger.write_string("I32GeSOp")
+    I32GeUOp => logger.write_string("I32GeUOp")
+    I64EqOp => logger.write_string("I64EqOp")
+    I64NeOp => logger.write_string("I64NeOp")
+    I64LtSOp => logger.write_string("I64LtSOp")
+    I64LtUOp => logger.write_string("I64LtUOp")
+    I64GtSOp => logger.write_string("I64GtSOp")
+    I64GtUOp => logger.write_string("I64GtUOp")
+    I64LeSOp => logger.write_string("I64LeSOp")
+    I64LeUOp => logger.write_string("I64LeUOp")
+    I64GeSOp => logger.write_string("I64GeSOp")
+    I64GeUOp => logger.write_string("I64GeUOp")
+    F32EqOp => logger.write_string("F32EqOp")
+    F32NeOp => logger.write_string("F32NeOp")
+    F32LtOp => logger.write_string("F32LtOp")
+    F32GtOp => logger.write_string("F32GtOp")
+    F32LeOp => logger.write_string("F32LeOp")
+    F32GeOp => logger.write_string("F32GeOp")
+    F64EqOp => logger.write_string("F64EqOp")
+    F64NeOp => logger.write_string("F64NeOp")
+    F64LtOp => logger.write_string("F64LtOp")
+    F64GtOp => logger.write_string("F64GtOp")
+    F64LeOp => logger.write_string("F64LeOp")
+    F64GeOp => logger.write_string("F64GeOp")
+    I32AddOp => logger.write_string("I32AddOp")
+    I32SubOp => logger.write_string("I32SubOp")
+    I32MulOp => logger.write_string("I32MulOp")
+    I32DivSOp => logger.write_string("I32DivSOp")
+    I32DivUOp => logger.write_string("I32DivUOp")
+    I32RemSOp => logger.write_string("I32RemSOp")
+    I32RemUOp => logger.write_string("I32RemUOp")
+    I32AndOp => logger.write_string("I32AndOp")
+    I32OrOp => logger.write_string("I32OrOp")
+    I32XorOp => logger.write_string("I32XorOp")
+    I32ShlOp => logger.write_string("I32ShlOp")
+    I32ShrSOp => logger.write_string("I32ShrSOp")
+    I32ShrUOp => logger.write_string("I32ShrUOp")
+    I32RotlOp => logger.write_string("I32RotlOp")
+    I32RotrOp => logger.write_string("I32RotrOp")
+    I64AddOp => logger.write_string("I64AddOp")
+    I64SubOp => logger.write_string("I64SubOp")
+    I64MulOp => logger.write_string("I64MulOp")
+    I64DivSOp => logger.write_string("I64DivSOp")
+    I64DivUOp => logger.write_string("I64DivUOp")
+    I64RemSOp => logger.write_string("I64RemSOp")
+    I64RemUOp => logger.write_string("I64RemUOp")
+    I64AndOp => logger.write_string("I64AndOp")
+    I64OrOp => logger.write_string("I64OrOp")
+    I64XorOp => logger.write_string("I64XorOp")
+    I64ShlOp => logger.write_string("I64ShlOp")
+    I64ShrSOp => logger.write_string("I64ShrSOp")
+    I64ShrUOp => logger.write_string("I64ShrUOp")
+    I64RotlOp => logger.write_string("I64RotlOp")
+    I64RotrOp => logger.write_string("I64RotrOp")
+    F32AddOp => logger.write_string("F32AddOp")
+    F32SubOp => logger.write_string("F32SubOp")
+    F32MulOp => logger.write_string("F32MulOp")
+    F32DivOp => logger.write_string("F32DivOp")
+    F32MinOp => logger.write_string("F32MinOp")
+    F32MaxOp => logger.write_string("F32MaxOp")
+    F32CopysignOp => logger.write_string("F32CopysignOp")
+    F64AddOp => logger.write_string("F64AddOp")
+    F64SubOp => logger.write_string("F64SubOp")
+    F64MulOp => logger.write_string("F64MulOp")
+    F64DivOp => logger.write_string("F64DivOp")
+    F64MinOp => logger.write_string("F64MinOp")
+    F64MaxOp => logger.write_string("F64MaxOp")
+    F64CopysignOp => logger.write_string("F64CopysignOp")
+    V128AndOp => logger.write_string("V128AndOp")
+    V128AndnotOp => logger.write_string("V128AndnotOp")
+    V128OrOp => logger.write_string("V128OrOp")
+    V128XorOp => logger.write_string("V128XorOp")
+    I8x16EqOp => logger.write_string("I8x16EqOp")
+    I8x16NeOp => logger.write_string("I8x16NeOp")
+    I8x16LtSOp => logger.write_string("I8x16LtSOp")
+    I8x16LtUOp => logger.write_string("I8x16LtUOp")
+    I8x16GtSOp => logger.write_string("I8x16GtSOp")
+    I8x16GtUOp => logger.write_string("I8x16GtUOp")
+    I8x16LeSOp => logger.write_string("I8x16LeSOp")
+    I8x16LeUOp => logger.write_string("I8x16LeUOp")
+    I8x16GeSOp => logger.write_string("I8x16GeSOp")
+    I8x16GeUOp => logger.write_string("I8x16GeUOp")
+    I16x8EqOp => logger.write_string("I16x8EqOp")
+    I16x8NeOp => logger.write_string("I16x8NeOp")
+    I16x8LtSOp => logger.write_string("I16x8LtSOp")
+    I16x8LtUOp => logger.write_string("I16x8LtUOp")
+    I16x8GtSOp => logger.write_string("I16x8GtSOp")
+    I16x8GtUOp => logger.write_string("I16x8GtUOp")
+    I16x8LeSOp => logger.write_string("I16x8LeSOp")
+    I16x8LeUOp => logger.write_string("I16x8LeUOp")
+    I16x8GeSOp => logger.write_string("I16x8GeSOp")
+    I16x8GeUOp => logger.write_string("I16x8GeUOp")
+    I32x4EqOp => logger.write_string("I32x4EqOp")
+    I32x4NeOp => logger.write_string("I32x4NeOp")
+    I32x4LtSOp => logger.write_string("I32x4LtSOp")
+    I32x4LtUOp => logger.write_string("I32x4LtUOp")
+    I32x4GtSOp => logger.write_string("I32x4GtSOp")
+    I32x4GtUOp => logger.write_string("I32x4GtUOp")
+    I32x4LeSOp => logger.write_string("I32x4LeSOp")
+    I32x4LeUOp => logger.write_string("I32x4LeUOp")
+    I32x4GeSOp => logger.write_string("I32x4GeSOp")
+    I32x4GeUOp => logger.write_string("I32x4GeUOp")
+    I64x2EqOp => logger.write_string("I64x2EqOp")
+    I64x2NeOp => logger.write_string("I64x2NeOp")
+    I64x2LtSOp => logger.write_string("I64x2LtSOp")
+    I64x2GtSOp => logger.write_string("I64x2GtSOp")
+    I64x2LeSOp => logger.write_string("I64x2LeSOp")
+    I64x2GeSOp => logger.write_string("I64x2GeSOp")
+    F32x4EqOp => logger.write_string("F32x4EqOp")
+    F32x4NeOp => logger.write_string("F32x4NeOp")
+    F32x4LtOp => logger.write_string("F32x4LtOp")
+    F32x4GtOp => logger.write_string("F32x4GtOp")
+    F32x4LeOp => logger.write_string("F32x4LeOp")
+    F32x4GeOp => logger.write_string("F32x4GeOp")
+    F64x2EqOp => logger.write_string("F64x2EqOp")
+    F64x2NeOp => logger.write_string("F64x2NeOp")
+    F64x2LtOp => logger.write_string("F64x2LtOp")
+    F64x2GtOp => logger.write_string("F64x2GtOp")
+    F64x2LeOp => logger.write_string("F64x2LeOp")
+    F64x2GeOp => logger.write_string("F64x2GeOp")
+    I8x16AddOp => logger.write_string("I8x16AddOp")
+    I8x16AddSatSOp => logger.write_string("I8x16AddSatSOp")
+    I8x16AddSatUOp => logger.write_string("I8x16AddSatUOp")
+    I8x16SubOp => logger.write_string("I8x16SubOp")
+    I8x16SubSatSOp => logger.write_string("I8x16SubSatSOp")
+    I8x16SubSatUOp => logger.write_string("I8x16SubSatUOp")
+    I8x16MinSOp => logger.write_string("I8x16MinSOp")
+    I8x16MinUOp => logger.write_string("I8x16MinUOp")
+    I8x16MaxSOp => logger.write_string("I8x16MaxSOp")
+    I8x16MaxUOp => logger.write_string("I8x16MaxUOp")
+    I8x16AvgrUOp => logger.write_string("I8x16AvgrUOp")
+    I8x16NarrowI16x8SOp => logger.write_string("I8x16NarrowI16x8SOp")
+    I8x16NarrowI16x8UOp => logger.write_string("I8x16NarrowI16x8UOp")
+    I16x8AddOp => logger.write_string("I16x8AddOp")
+    I16x8AddSatSOp => logger.write_string("I16x8AddSatSOp")
+    I16x8AddSatUOp => logger.write_string("I16x8AddSatUOp")
+    I16x8SubOp => logger.write_string("I16x8SubOp")
+    I16x8SubSatSOp => logger.write_string("I16x8SubSatSOp")
+    I16x8SubSatUOp => logger.write_string("I16x8SubSatUOp")
+    I16x8MulOp => logger.write_string("I16x8MulOp")
+    I16x8MinSOp => logger.write_string("I16x8MinSOp")
+    I16x8MinUOp => logger.write_string("I16x8MinUOp")
+    I16x8MaxSOp => logger.write_string("I16x8MaxSOp")
+    I16x8MaxUOp => logger.write_string("I16x8MaxUOp")
+    I16x8AvgrUOp => logger.write_string("I16x8AvgrUOp")
+    I16x8Q15mulrSatSOp => logger.write_string("I16x8Q15mulrSatSOp")
+    I16x8NarrowI32x4SOp => logger.write_string("I16x8NarrowI32x4SOp")
+    I16x8NarrowI32x4UOp => logger.write_string("I16x8NarrowI32x4UOp")
+    I16x8ExtmulLowI8x16SOp => logger.write_string("I16x8ExtmulLowI8x16SOp")
+    I16x8ExtmulHighI8x16SOp => logger.write_string("I16x8ExtmulHighI8x16SOp")
+    I16x8ExtmulLowI8x16UOp => logger.write_string("I16x8ExtmulLowI8x16UOp")
+    I16x8ExtmulHighI8x16UOp => logger.write_string("I16x8ExtmulHighI8x16UOp")
+    I32x4AddOp => logger.write_string("I32x4AddOp")
+    I32x4SubOp => logger.write_string("I32x4SubOp")
+    I32x4MulOp => logger.write_string("I32x4MulOp")
+    I32x4MinSOp => logger.write_string("I32x4MinSOp")
+    I32x4MinUOp => logger.write_string("I32x4MinUOp")
+    I32x4MaxSOp => logger.write_string("I32x4MaxSOp")
+    I32x4MaxUOp => logger.write_string("I32x4MaxUOp")
+    I32x4DotI16x8SOp => logger.write_string("I32x4DotI16x8SOp")
+    I32x4ExtmulLowI16x8SOp => logger.write_string("I32x4ExtmulLowI16x8SOp")
+    I32x4ExtmulHighI16x8SOp => logger.write_string("I32x4ExtmulHighI16x8SOp")
+    I32x4ExtmulLowI16x8UOp => logger.write_string("I32x4ExtmulLowI16x8UOp")
+    I32x4ExtmulHighI16x8UOp => logger.write_string("I32x4ExtmulHighI16x8UOp")
+    I64x2AddOp => logger.write_string("I64x2AddOp")
+    I64x2SubOp => logger.write_string("I64x2SubOp")
+    I64x2MulOp => logger.write_string("I64x2MulOp")
+    I64x2ExtmulLowI32x4SOp => logger.write_string("I64x2ExtmulLowI32x4SOp")
+    I64x2ExtmulHighI32x4SOp => logger.write_string("I64x2ExtmulHighI32x4SOp")
+    I64x2ExtmulLowI32x4UOp => logger.write_string("I64x2ExtmulLowI32x4UOp")
+    I64x2ExtmulHighI32x4UOp => logger.write_string("I64x2ExtmulHighI32x4UOp")
+    F32x4AddOp => logger.write_string("F32x4AddOp")
+    F32x4SubOp => logger.write_string("F32x4SubOp")
+    F32x4MulOp => logger.write_string("F32x4MulOp")
+    F32x4DivOp => logger.write_string("F32x4DivOp")
+    F32x4MinOp => logger.write_string("F32x4MinOp")
+    F32x4MaxOp => logger.write_string("F32x4MaxOp")
+    F32x4PminOp => logger.write_string("F32x4PminOp")
+    F32x4PmaxOp => logger.write_string("F32x4PmaxOp")
+    F64x2AddOp => logger.write_string("F64x2AddOp")
+    F64x2SubOp => logger.write_string("F64x2SubOp")
+    F64x2MulOp => logger.write_string("F64x2MulOp")
+    F64x2DivOp => logger.write_string("F64x2DivOp")
+    F64x2MinOp => logger.write_string("F64x2MinOp")
+    F64x2MaxOp => logger.write_string("F64x2MaxOp")
+    F64x2PminOp => logger.write_string("F64x2PminOp")
+    F64x2PmaxOp => logger.write_string("F64x2PmaxOp")
+    F32x4RelaxedMinOp => logger.write_string("F32x4RelaxedMinOp")
+    F32x4RelaxedMaxOp => logger.write_string("F32x4RelaxedMaxOp")
+    F64x2RelaxedMinOp => logger.write_string("F64x2RelaxedMinOp")
+    F64x2RelaxedMaxOp => logger.write_string("F64x2RelaxedMaxOp")
+    I16x8RelaxedQ15mulrSOp => logger.write_string("I16x8RelaxedQ15mulrSOp")
+    I16x8RelaxedDotI8x16I7x16SOp => logger.write_string("I16x8RelaxedDotI8x16I7x16SOp")
+  }
+}
 
 ///|
 pub enum LoadOp {
@@ -1816,7 +2161,46 @@ pub enum LoadOp {
   V128Load64SplatOp
   V128Load32ZeroOp
   V128Load64ZeroOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for LoadOp with output(self, logger) {
+  match self {
+    V128Load32ZeroOp => logger.write_string("V128Load32ZeroOp")
+    V128Load64SplatOp => logger.write_string("V128Load64SplatOp")
+    V128Load32SplatOp => logger.write_string("V128Load32SplatOp")
+    V128Load16SplatOp => logger.write_string("V128Load16SplatOp")
+    V128Load8SplatOp => logger.write_string("V128Load8SplatOp")
+    V128Load32x2UOp => logger.write_string("V128Load32x2UOp")
+    V128Load32x2SOp => logger.write_string("V128Load32x2SOp")
+    V128Load16x4UOp => logger.write_string("V128Load16x4UOp")
+    V128Load16x4SOp => logger.write_string("V128Load16x4SOp")
+    V128Load8x8UOp => logger.write_string("V128Load8x8UOp")
+    V128Load8x8SOp => logger.write_string("V128Load8x8SOp")
+    V128LoadOp => logger.write_string("V128LoadOp")
+    I64AtomicLoad32UOp => logger.write_string("I64AtomicLoad32UOp")
+    I64AtomicLoad16UOp => logger.write_string("I64AtomicLoad16UOp")
+    I64AtomicLoad8UOp => logger.write_string("I64AtomicLoad8UOp")
+    I32AtomicLoad16UOp => logger.write_string("I32AtomicLoad16UOp")
+    I32AtomicLoad8UOp => logger.write_string("I32AtomicLoad8UOp")
+    I64AtomicLoadOp => logger.write_string("I64AtomicLoadOp")
+    I32AtomicLoadOp => logger.write_string("I32AtomicLoadOp")
+    I64Load32UOp => logger.write_string("I64Load32UOp")
+    I64Load32SOp => logger.write_string("I64Load32SOp")
+    I64Load16UOp => logger.write_string("I64Load16UOp")
+    I64Load16SOp => logger.write_string("I64Load16SOp")
+    I64Load8UOp => logger.write_string("I64Load8UOp")
+    I64Load8SOp => logger.write_string("I64Load8SOp")
+    I32Load16UOp => logger.write_string("I32Load16UOp")
+    I32Load16SOp => logger.write_string("I32Load16SOp")
+    I32Load8UOp => logger.write_string("I32Load8UOp")
+    I32Load8SOp => logger.write_string("I32Load8SOp")
+    F64LoadOp => logger.write_string("F64LoadOp")
+    F32LoadOp => logger.write_string("F32LoadOp")
+    I64LoadOp => logger.write_string("I64LoadOp")
+    I32LoadOp => logger.write_string("I32LoadOp")
+    V128Load64ZeroOp => logger.write_string("V128Load64ZeroOp")
+  }
+}
 
 ///|
 /// Store operations
@@ -1841,7 +2225,29 @@ pub enum StoreOp {
 
   // === SIMD ===
   V128StoreOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for StoreOp with output(self, logger) {
+  match self {
+    I32StoreOp => logger.write_string("I32StoreOp")
+    I64StoreOp => logger.write_string("I64StoreOp")
+    F32StoreOp => logger.write_string("F32StoreOp")
+    F64StoreOp => logger.write_string("F64StoreOp")
+    I32Store8Op => logger.write_string("I32Store8Op")
+    I32Store16Op => logger.write_string("I32Store16Op")
+    I64Store8Op => logger.write_string("I64Store8Op")
+    I64Store16Op => logger.write_string("I64Store16Op")
+    I64Store32Op => logger.write_string("I64Store32Op")
+    I32AtomicStoreOp => logger.write_string("I32AtomicStoreOp")
+    I64AtomicStoreOp => logger.write_string("I64AtomicStoreOp")
+    I32AtomicStore8Op => logger.write_string("I32AtomicStore8Op")
+    I32AtomicStore16Op => logger.write_string("I32AtomicStore16Op")
+    I64AtomicStore8Op => logger.write_string("I64AtomicStore8Op")
+    I64AtomicStore16Op => logger.write_string("I64AtomicStore16Op")
+    I64AtomicStore32Op => logger.write_string("I64AtomicStore32Op")
+    V128StoreOp => logger.write_string("V128StoreOp")
+  }
+}
 
 ///|
 pub enum AtomicRmwOp {
@@ -1887,7 +2293,54 @@ pub enum AtomicRmwOp {
   I64AtomicRmw8XchgUOp
   I64AtomicRmw16XchgUOp
   I64AtomicRmw32XchgUOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for AtomicRmwOp with output(self, logger) {
+  match self {
+    I32AtomicRmwAddOp => logger.write_string("I32AtomicRmwAddOp")
+    I64AtomicRmwAddOp => logger.write_string("I64AtomicRmwAddOp")
+    I32AtomicRmw8AddUOp => logger.write_string("I32AtomicRmw8AddUOp")
+    I32AtomicRmw16AddUOp => logger.write_string("I32AtomicRmw16AddUOp")
+    I64AtomicRmw8AddUOp => logger.write_string("I64AtomicRmw8AddUOp")
+    I64AtomicRmw16AddUOp => logger.write_string("I64AtomicRmw16AddUOp")
+    I64AtomicRmw32AddUOp => logger.write_string("I64AtomicRmw32AddUOp")
+    I32AtomicRmwSubOp => logger.write_string("I32AtomicRmwSubOp")
+    I64AtomicRmwSubOp => logger.write_string("I64AtomicRmwSubOp")
+    I32AtomicRmw8SubUOp => logger.write_string("I32AtomicRmw8SubUOp")
+    I32AtomicRmw16SubUOp => logger.write_string("I32AtomicRmw16SubUOp")
+    I64AtomicRmw8SubUOp => logger.write_string("I64AtomicRmw8SubUOp")
+    I64AtomicRmw16SubUOp => logger.write_string("I64AtomicRmw16SubUOp")
+    I64AtomicRmw32SubUOp => logger.write_string("I64AtomicRmw32SubUOp")
+    I32AtomicRmwAndOp => logger.write_string("I32AtomicRmwAndOp")
+    I64AtomicRmwAndOp => logger.write_string("I64AtomicRmwAndOp")
+    I32AtomicRmw8AndUOp => logger.write_string("I32AtomicRmw8AndUOp")
+    I32AtomicRmw16AndUOp => logger.write_string("I32AtomicRmw16AndUOp")
+    I64AtomicRmw8AndUOp => logger.write_string("I64AtomicRmw8AndUOp")
+    I64AtomicRmw16AndUOp => logger.write_string("I64AtomicRmw16AndUOp")
+    I64AtomicRmw32AndUOp => logger.write_string("I64AtomicRmw32AndUOp")
+    I32AtomicRmwOrOp => logger.write_string("I32AtomicRmwOrOp")
+    I64AtomicRmwOrOp => logger.write_string("I64AtomicRmwOrOp")
+    I32AtomicRmw8OrUOp => logger.write_string("I32AtomicRmw8OrUOp")
+    I32AtomicRmw16OrUOp => logger.write_string("I32AtomicRmw16OrUOp")
+    I64AtomicRmw8OrUOp => logger.write_string("I64AtomicRmw8OrUOp")
+    I64AtomicRmw16OrUOp => logger.write_string("I64AtomicRmw16OrUOp")
+    I64AtomicRmw32OrUOp => logger.write_string("I64AtomicRmw32OrUOp")
+    I32AtomicRmwXorOp => logger.write_string("I32AtomicRmwXorOp")
+    I64AtomicRmwXorOp => logger.write_string("I64AtomicRmwXorOp")
+    I32AtomicRmw8XorUOp => logger.write_string("I32AtomicRmw8XorUOp")
+    I32AtomicRmw16XorUOp => logger.write_string("I32AtomicRmw16XorUOp")
+    I64AtomicRmw8XorUOp => logger.write_string("I64AtomicRmw8XorUOp")
+    I64AtomicRmw16XorUOp => logger.write_string("I64AtomicRmw16XorUOp")
+    I64AtomicRmw32XorUOp => logger.write_string("I64AtomicRmw32XorUOp")
+    I32AtomicRmwXchgOp => logger.write_string("I32AtomicRmwXchgOp")
+    I64AtomicRmwXchgOp => logger.write_string("I64AtomicRmwXchgOp")
+    I32AtomicRmw8XchgUOp => logger.write_string("I32AtomicRmw8XchgUOp")
+    I32AtomicRmw16XchgUOp => logger.write_string("I32AtomicRmw16XchgUOp")
+    I64AtomicRmw8XchgUOp => logger.write_string("I64AtomicRmw8XchgUOp")
+    I64AtomicRmw16XchgUOp => logger.write_string("I64AtomicRmw16XchgUOp")
+    I64AtomicRmw32XchgUOp => logger.write_string("I64AtomicRmw32XchgUOp")
+  }
+}
 
 ///|
 pub enum AtomicCmpxchgOp {
@@ -1898,7 +2351,19 @@ pub enum AtomicCmpxchgOp {
   I64AtomicRmw8CmpxchgUOp
   I64AtomicRmw16CmpxchgUOp
   I64AtomicRmw32CmpxchgUOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for AtomicCmpxchgOp with output(self, logger) {
+  match self {
+    I32AtomicRmwCmpxchgOp => logger.write_string("I32AtomicRmwCmpxchgOp")
+    I64AtomicRmwCmpxchgOp => logger.write_string("I64AtomicRmwCmpxchgOp")
+    I32AtomicRmw8CmpxchgUOp => logger.write_string("I32AtomicRmw8CmpxchgUOp")
+    I32AtomicRmw16CmpxchgUOp => logger.write_string("I32AtomicRmw16CmpxchgUOp")
+    I64AtomicRmw8CmpxchgUOp => logger.write_string("I64AtomicRmw8CmpxchgUOp")
+    I64AtomicRmw16CmpxchgUOp => logger.write_string("I64AtomicRmw16CmpxchgUOp")
+    I64AtomicRmw32CmpxchgUOp => logger.write_string("I64AtomicRmw32CmpxchgUOp")
+  }
+}
 
 ///|
 /// Extract lane operations (v128 -> scalar)
@@ -1911,7 +2376,20 @@ pub enum ExtractLaneOp {
   I64x2ExtractLaneOp
   F32x4ExtractLaneOp
   F64x2ExtractLaneOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for ExtractLaneOp with output(self, logger) {
+  match self {
+    I8x16ExtractLaneSOp => logger.write_string("I8x16ExtractLaneSOp")
+    I8x16ExtractLaneUOp => logger.write_string("I8x16ExtractLaneUOp")
+    I16x8ExtractLaneSOp => logger.write_string("I16x8ExtractLaneSOp")
+    I16x8ExtractLaneUOp => logger.write_string("I16x8ExtractLaneUOp")
+    I32x4ExtractLaneOp => logger.write_string("I32x4ExtractLaneOp")
+    I64x2ExtractLaneOp => logger.write_string("I64x2ExtractLaneOp")
+    F32x4ExtractLaneOp => logger.write_string("F32x4ExtractLaneOp")
+    F64x2ExtractLaneOp => logger.write_string("F64x2ExtractLaneOp")
+  }
+}
 
 ///|
 /// Replace lane operations (v128, scalar -> v128)
@@ -1922,7 +2400,18 @@ pub enum ReplaceLaneOp {
   I64x2ReplaceLaneOp
   F32x4ReplaceLaneOp
   F64x2ReplaceLaneOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for ReplaceLaneOp with output(self, logger) {
+  match self {
+    I8x16ReplaceLaneOp => logger.write_string("I8x16ReplaceLaneOp")
+    I16x8ReplaceLaneOp => logger.write_string("I16x8ReplaceLaneOp")
+    I32x4ReplaceLaneOp => logger.write_string("I32x4ReplaceLaneOp")
+    I64x2ReplaceLaneOp => logger.write_string("I64x2ReplaceLaneOp")
+    F32x4ReplaceLaneOp => logger.write_string("F32x4ReplaceLaneOp")
+    F64x2ReplaceLaneOp => logger.write_string("F64x2ReplaceLaneOp")
+  }
+}
 
 ///|
 /// V128 shift operations (v128, i32 -> v128)
@@ -1939,7 +2428,24 @@ pub enum V128ShiftOp {
   I64x2ShlOp
   I64x2ShrSOp
   I64x2ShrUOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for V128ShiftOp with output(self, logger) {
+  match self {
+    I8x16ShlOp => logger.write_string("I8x16ShlOp")
+    I8x16ShrSOp => logger.write_string("I8x16ShrSOp")
+    I8x16ShrUOp => logger.write_string("I8x16ShrUOp")
+    I16x8ShlOp => logger.write_string("I16x8ShlOp")
+    I16x8ShrSOp => logger.write_string("I16x8ShrSOp")
+    I16x8ShrUOp => logger.write_string("I16x8ShrUOp")
+    I32x4ShlOp => logger.write_string("I32x4ShlOp")
+    I32x4ShrSOp => logger.write_string("I32x4ShrSOp")
+    I32x4ShrUOp => logger.write_string("I32x4ShrUOp")
+    I64x2ShlOp => logger.write_string("I64x2ShlOp")
+    I64x2ShrSOp => logger.write_string("I64x2ShrSOp")
+    I64x2ShrUOp => logger.write_string("I64x2ShrUOp")
+  }
+}
 
 ///|
 /// V128 ternary operations (v128, v128, v128 -> v128)
@@ -1954,7 +2460,22 @@ pub enum V128TernaryOp {
   F64x2RelaxedMaddOp
   F64x2RelaxedNmaddOp
   I32x4RelaxedDotI8x16I7x16AddSOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for V128TernaryOp with output(self, logger) {
+  match self {
+    F64x2RelaxedNmaddOp => logger.write_string("F64x2RelaxedNmaddOp")
+    F64x2RelaxedMaddOp => logger.write_string("F64x2RelaxedMaddOp")
+    F32x4RelaxedNmaddOp => logger.write_string("F32x4RelaxedNmaddOp")
+    F32x4RelaxedMaddOp => logger.write_string("F32x4RelaxedMaddOp")
+    I64x2RelaxedLaneselectOp => logger.write_string("I64x2RelaxedLaneselectOp")
+    I32x4RelaxedLaneselectOp => logger.write_string("I32x4RelaxedLaneselectOp")
+    I16x8RelaxedLaneselectOp => logger.write_string("I16x8RelaxedLaneselectOp")
+    I8x16RelaxedLaneselectOp => logger.write_string("I8x16RelaxedLaneselectOp")
+    V128BitselectOp => logger.write_string("V128BitselectOp")
+    I32x4RelaxedDotI8x16I7x16AddSOp => logger.write_string("I32x4RelaxedDotI8x16I7x16AddSOp")
+  }
+}
 
 ///|
 /// V128 lane load operations
@@ -1963,7 +2484,16 @@ pub enum V128LoadLaneOp {
   V128Load16LaneOp
   V128Load32LaneOp
   V128Load64LaneOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for V128LoadLaneOp with output(self, logger) {
+  match self {
+    V128Load8LaneOp => logger.write_string("V128Load8LaneOp")
+    V128Load16LaneOp => logger.write_string("V128Load16LaneOp")
+    V128Load32LaneOp => logger.write_string("V128Load32LaneOp")
+    V128Load64LaneOp => logger.write_string("V128Load64LaneOp")
+  }
+}
 
 ///|
 /// V128 lane store operations
@@ -1972,7 +2502,16 @@ pub enum V128StoreLaneOp {
   V128Store16LaneOp
   V128Store32LaneOp
   V128Store64LaneOp
-} derive(Eq, Show, Hash, Debug)
+} derive(Eq, Hash, Debug)
+
+pub impl Show for V128StoreLaneOp with output(self, logger) {
+  match self {
+    V128Store8LaneOp => logger.write_string("V128Store8LaneOp")
+    V128Store16LaneOp => logger.write_string("V128Store16LaneOp")
+    V128Store32LaneOp => logger.write_string("V128Store32LaneOp")
+    V128Store64LaneOp => logger.write_string("V128Store64LaneOp")
+  }
+}
 
 ///|
 pub fn AbsHeapType::exn() -> AbsHeapType {

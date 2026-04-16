@@ -6,37 +6,60 @@
 pub enum Index {
   Num(UInt)
   Id(String)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for Index with output(self, logger) {
+  match self {
+    Num(val) => {
+      logger.write_string("Num(")
+      val.output(logger)
+      logger.write_char(')')
+    }
+    Id(val) => {
+      logger.write_string("Id(")
+      val.output(logger)
+      logger.write_char(')')
+    }
+  }
+}
 
 ///|
 pub struct Limits {
   min : UInt
   max : UInt?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for Limits with output(self, logger) {
+  logger.write_string("Limits {min: ")
+  self.min.output(logger)
+  logger.write_string(", max:")
+  self.max.output(logger)
+  logger.write_char('}')
+}
 
 ///|
 pub struct FuncType {
   params : Array[ValueType]
   results : Array[ValueType]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct TypeUse {
   type_index : Index?
   func_type : FuncType
   param_ids : Array[String?]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Annotation {
   name : String
   args : Array[String]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum InlineExport {
   Export(String)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum ImportDesc {
@@ -45,7 +68,7 @@ pub enum ImportDesc {
   Memory(MemoryType)
   Global(GlobalType)
   Tag(TypeUse)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Import {
@@ -54,7 +77,7 @@ pub struct Import {
   desc : ImportDesc
   id : String?
   annotations : Array[Annotation]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum ExportDesc {
@@ -63,34 +86,34 @@ pub enum ExportDesc {
   Memory(Index)
   Global(Index)
   Tag(Index)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Export {
   name : String
   desc : ExportDesc
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct TableType {
   limits : Limits
   elem_type : ValueType
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
-pub struct MemoryType(Limits) derive(Eq, Show, Debug)
+pub struct MemoryType(Limits) derive(Eq, Debug)
 
 ///|
 pub struct GlobalType {
   val_type : ValueType
   mutable_ : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Local {
   id : String?
   val_type : ValueType
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Func {
@@ -100,7 +123,7 @@ pub struct Func {
   type_use : TypeUse
   locals : Array[Local]
   body : Array[Instruction]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Global {
@@ -108,7 +131,7 @@ pub struct Global {
   exports : Array[InlineExport]
   global_type : GlobalType
   init : Array[Instruction]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Table {
@@ -119,47 +142,47 @@ pub struct Table {
   elem_exprs : Array[ElemInitExpr]?
   elem_init_type : ValueType?
   elem_offset : Array[Instruction]?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Memory {
   id : String?
   exports : Array[InlineExport]
   memory_type : MemoryType
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Tag {
   id : String?
   exports : Array[InlineExport]
   type_use : TypeUse
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum FieldStorage {
   Value(ValueType)
   I8
   I16
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct StructFieldDef {
   storage : FieldStorage
   mutable_ : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum TypeDefBody {
   Func(FuncType)
   Struct(Array[StructFieldDef])
   Array(StructFieldDef)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct TypeDefMetadata {
   describes : Index?
   descriptor : Index?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct TypeDef {
@@ -169,7 +192,7 @@ pub struct TypeDef {
   supers : Array[Index]
   metadata : TypeDefMetadata
   body : TypeDefBody
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct DataSegment {
@@ -177,7 +200,7 @@ pub struct DataSegment {
   memory_index : Index
   offset : Array[Instruction]
   data : Bytes
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct ElemSegment {
@@ -187,18 +210,18 @@ pub struct ElemSegment {
   func_indices : Array[Index]
   elem_exprs : Array[ElemInitExpr]
   elem_type : ValueType?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct ElemInitExpr {
   instrs : Array[Instruction]
   explicit_item : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Start {
   func_index : Index
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum ModuleField {
@@ -214,7 +237,7 @@ pub enum ModuleField {
   StartField(Start)
   ElemField(ElemSegment)
   DataField(DataSegment)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct Module {
@@ -230,13 +253,13 @@ pub struct Module {
 pub struct MemArg {
   align : UInt64
   offset : UInt64
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct BlockType {
   label : String?
   type_use : TypeUse?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 // ============================================================================
 // instruction.mbt - Extended Instruction AST for SIMD
@@ -246,7 +269,7 @@ pub struct BlockType {
 pub struct V128Const {
   shape : SimdShape
   values : Array[String]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum SimdShape {
@@ -256,12 +279,29 @@ pub enum SimdShape {
   I64x2
   F32x4
   F64x2
-} derive(Show, Eq, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for SimdShape with output(self, logger) {
+  match self {
+    I8x16 => logger.write_string("I8x16")
+    I16x8 => logger.write_string("I16x8")
+    I32x4 => logger.write_string("I32x4")
+    I64x2 => logger.write_string("I64x2")
+    F32x4 => logger.write_string("F32x4")
+    F64x2 => logger.write_string("F64x2")
+  }
+}
 
 ///|
 pub struct ShuffleLanes {
   lanes : FixedArray[UInt] // 16 lane indices
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for ShuffleLanes with output(self, logger) {
+  logger.write_string("ShuffleLanes {lanes: ")
+  self.lanes.output(logger)
+  logger.write_string("}")
+}
 
 ///|
 pub enum CatchClause {
@@ -269,13 +309,42 @@ pub enum CatchClause {
   CatchRefClause(Index, Index)
   CatchAllClause(Index)
   CatchAllRefClause(Index)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for CatchClause with output(self, logger) {
+  match self {
+    CatchClause(idx1, idx2) => {
+      logger.write_string("CatchClause(")
+      idx1.output(logger)
+      logger.write_string(", ")
+      idx2.output(logger)
+      logger.write_char(')')
+    }
+    CatchRefClause(idx1, idx2) => {
+      logger.write_string("CatchRefClause(")
+      idx1.output(logger)
+      logger.write_string(", ")
+      idx2.output(logger)
+      logger.write_char(')')
+    }
+    CatchAllClause(idx) => {
+      logger.write_string("CatchAllClause(")
+      idx.output(logger)
+      logger.write_char(')')
+    }
+    CatchAllRefClause(idx) => {
+      logger.write_string("CatchAllRefClause(")
+      idx.output(logger)
+      logger.write_char(')')
+    }
+  }
+}
 
 ///|
 pub enum LegacyCatchClause {
   LegacyCatch(Index, Array[Instruction])
   LegacyCatchAll(Array[Instruction])
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum Instruction {
@@ -443,7 +512,7 @@ pub enum Instruction {
 
   // Relaxed SIMD
   SimdRelaxed(Opcode)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum WastValue {
@@ -453,7 +522,7 @@ pub enum WastValue {
   F64(String)
   RefNull(ValueType)
   RefFunc
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum WastResult {
@@ -464,20 +533,20 @@ pub enum WastResult {
   F64NanArithmetic
   RefNull(ValueType?)
   RefFunc
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct WastAction {
   module_name : String?
   name : String
   args : Array[WastValue]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum WastActionType {
   Invoke(WastAction)
   Get(String?, String) // module_name?, global_name
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum WastCommand {
@@ -493,14 +562,14 @@ pub enum WastCommand {
   AssertMalformed(WastModuleDef, String)
   AssertInvalid(WastModuleDef, String)
   AssertUnlinkable(WastModuleDef, String)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum WastModuleDef {
   Inline(Module)
   Binary(Bytes)
   Quote(Array[String])
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct WastScript {
@@ -515,14 +584,36 @@ pub struct WastScript {
 pub struct ParseError {
   location : Location
   message : String
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub suberror ParserError {
   UnexpectedToken(Token, String)
   InvalidInstruction(String)
   Custom(String)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for ParserError with output(self, logger) {
+  match self {
+    UnexpectedToken(tok, msg) => {
+      logger.write_string("UnexpectedToken(")
+      tok.output(logger)
+      logger.write_string(", ")
+      msg.output(logger)
+      logger.write_char(')')
+    }
+    InvalidInstruction(msg) => {
+      logger.write_string("InvalidInstruction(")
+      msg.output(logger)
+      logger.write_char(')')
+    }
+    Custom(msg) => {
+      logger.write_string("Custom(")
+      msg.output(logger)
+      logger.write_char(')')
+    }
+  }
+}
 
 // ============================================================================
 // Lexer State for Rollback
@@ -1509,7 +1600,7 @@ fn WastParser::try_parse_plain_instruction(
       }
 
       // Only expect 'end' for flat form (no explicit then/else blocks)
-      if not(used_explicit_syntax) {
+      if !used_explicit_syntax {
         let _ = self.expect(End, "expected 'end'")
       }
       Some(If(block_type, then_body, else_body))
@@ -2842,7 +2933,7 @@ pub fn WastParser::parse_script(
   self : WastParser,
 ) -> WastScript raise ParserError {
   let commands : Array[WastCommand] = []
-  while not(self.check(Eof)) {
+  while !self.check(Eof) {
     self.expect_lpar()
     let cmd = self.parse_command()
     commands.push(cmd)

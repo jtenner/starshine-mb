@@ -1751,51 +1751,6 @@ fn hot_lower_impl_try_voidify_terminal_drop_if_forwarder(
 }
 
 ///|
-fn hot_lower_impl_try_pack_unreachable_child_payload(
-  bt : BlockType,
-  body : Array[Instruction],
-) -> Array[Instruction]? {
-  match bt {
-    VoidBlockType => return None
-    _ => ()
-  }
-  match body {
-    [Block(VoidBlockType, Expr(inner_body))] => {
-      if inner_body.length() != 3 {
-        return None
-      }
-      let child = inner_body[0]
-      let payload = inner_body[1]
-      let exit_ = inner_body[2]
-      if hot_lower_impl_has_control_transfer(payload) {
-        return None
-      }
-      match exit_ {
-        Br(li) if hot_lower_impl_decoded_label_depth(li) == 1 => ()
-        _ => return None
-      }
-      match child {
-        Block(VoidBlockType, Expr(child_body)) => {
-          if child_body.length() == 0 {
-            return None
-          }
-          match child_body[child_body.length() - 1] {
-            Unreachable => ()
-            _ => return None
-          }
-        }
-        _ => return None
-      }
-      let packed = Instruction::block(bt, Expr::new([child, payload]))
-      Some([
-        Instruction::block(@lib.BlockType::void_(), Expr::new([packed, exit_])),
-      ])
-    }
-    _ => None
-  }
-}
-
-///|
 fn hot_lower_impl_try_pack_split_parent_exit_payload(
   bt : BlockType,
   body : Array[Instruction],

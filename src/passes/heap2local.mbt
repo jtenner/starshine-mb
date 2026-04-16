@@ -24,25 +24,24 @@ pub fn heap2local_summary() -> String {
 priv struct H2LUseSite {
   source_node_id : Int
   user_node_id : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 priv struct H2LCopySite {
   source_node_id : Int
   write_node_id : Int
   target_local : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 priv struct H2LCandidate {
-  owner_local : Int
   write_node_id : Int
   init_node_id : Int
   struct_type : @lib.TypeIdx
   fields : Array[@lib.FieldType]
   use_sites : Array[H2LUseSite]
   copy_sites : Array[H2LCopySite]
-} derive(Eq, Show, Debug)
+}
 
 ///|
 priv struct H2LArrayUseSite {
@@ -54,10 +53,8 @@ priv struct H2LArrayUseSite {
 
 ///|
 priv struct H2LArrayCandidate {
-  owner_local : Int
   write_node_id : Int
   init_node_id : Int
-  array_type : @lib.TypeIdx
   element : @lib.FieldType
   length : Int
   use_sites : Array[H2LArrayUseSite]
@@ -565,7 +562,6 @@ fn h2l_find_candidate_for_local(
     return None
   }
   Some({
-    owner_local: local_id,
     write_node_id,
     init_node_id,
     struct_type,
@@ -754,15 +750,7 @@ fn h2l_find_array_candidate_for_local(
   if use_sites.is_empty() {
     return None
   }
-  Some({
-    owner_local: local_id,
-    write_node_id,
-    init_node_id,
-    array_type,
-    element,
-    length,
-    use_sites,
-  })
+  Some({ write_node_id, init_node_id, element, length, use_sites })
 }
 
 ///|

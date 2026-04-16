@@ -592,13 +592,11 @@ pub impl Show for Export with output(self, logger) {
 ///|
 pub impl Show for Locals with output(self, logger) {
   for run in self.runs() {
-    loop run.count {
-      0 => break
-      n => {
-        run.vt.output(logger)
-        logger.write_char(' ')
-        continue n - 1
-      }
+    let mut remaining = run.count
+    while remaining > 0 {
+      run.vt.output(logger)
+      logger.write_char(' ')
+      remaining = remaining - 1
     }
   }
 }

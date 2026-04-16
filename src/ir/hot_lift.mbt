@@ -7,7 +7,7 @@ pub enum HotLiftError {
   InvalidBodyState(String)
   TypecheckFailure(String, String)
   UnsupportedInstruction(String)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 priv struct HotLiftLabelFrames {
@@ -2367,7 +2367,7 @@ pub fn hot_lift_func_with_context_unverified(
 ) -> HotFunc {
   let func_type = match hot_module_resolve_func_type(ctx, func_idx) {
     Some(type_) => type_
-    None => abort(HotLiftError::MissingFunctionType(func_idx).to_string())
+    None => abort(HotLiftError::InvalidFunctionIndex(func_idx).to_string())
   }
   let code_idx = match func_idx {
     FuncIdx(raw) =>

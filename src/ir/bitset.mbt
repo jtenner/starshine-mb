@@ -2,7 +2,7 @@
 pub struct Bitset {
   size : Int
   words : Array[UInt64]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 const BITSET_WORD_BITS : Int = 64

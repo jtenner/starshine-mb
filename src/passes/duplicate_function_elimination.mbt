@@ -641,12 +641,6 @@ fn dfe_instruction_mentions_type_idxs(instr : @lib.Instruction) -> Bool {
 }
 
 ///|
-fn dfe_func_mentions_type_idxs(func : @lib.Func) -> Bool {
-  let @lib.Func(locals, body) = func
-  dfe_locals_mention_type_idxs(locals) || dfe_expr_mentions_type_idxs(body)
-}
-
-///|
 fn dfe_rewrite_type_metadata(
   metadata : @lib.TypeMetadata,
   remap : Map[UInt, UInt],
@@ -2259,18 +2253,6 @@ fn dfe_rewrite_locals_type_idxs(
 }
 
 ///|
-fn dfe_rewrite_func_type_idxs(
-  func : @lib.Func,
-  remap : Map[UInt, UInt],
-) -> @lib.Func {
-  let @lib.Func(locals, body) = func
-  @lib.Func::new(
-    dfe_rewrite_locals_type_idxs(locals, remap),
-    dfe_rewrite_expr_type_idxs(body, remap),
-  )
-}
-
-///|
 fn dfe_rewrite_extern_type(
   extern_type : @lib.ExternType,
   remap : Map[UInt, UInt],
@@ -2548,15 +2530,6 @@ fn dfe_rewrite_func_idx(
     idx
   } else {
     @lib.FuncIdx::new(next)
-  }
-}
-
-///|
-fn dfe_func_idx_is_remapped(idx : @lib.FuncIdx, remap : Array[UInt]) -> Bool {
-  let @lib.FuncIdx(raw) = idx
-  match remap.get(raw.reinterpret_as_int()) {
-    Some(next) => next != raw
-    None => false
   }
 }
 
@@ -2924,48 +2897,6 @@ fn dfe_rewrite_local_name_map_filtered(
     }
   }
   @lib.IndirectNameMap::new(rewritten)
-}
-
-///|
-fn dfe_rewrite_name_sec(
-  name_sec : @lib.NameSec,
-  remap : Map[UInt, UInt],
-) -> @lib.NameSec {
-  let {
-    module_name,
-    func_names,
-    local_names,
-    label_names,
-    type_names,
-    table_names,
-    memory_names,
-    global_names,
-    elem_names,
-    data_names,
-    field_names,
-    tag_names,
-  } = name_sec
-  @lib.NameSec::new(
-    module_name~,
-    func_names=match func_names {
-      Some(names) => Some(dfe_rewrite_name_map_filtered(names, remap, false))
-      None => None
-    },
-    local_names=match local_names {
-      Some(names) =>
-        Some(dfe_rewrite_local_name_map_filtered(names, remap, false))
-      None => None
-    },
-    label_names~,
-    type_names~,
-    table_names~,
-    memory_names~,
-    global_names~,
-    elem_names~,
-    data_names~,
-    field_names~,
-    tag_names~,
-  )
 }
 
 ///|

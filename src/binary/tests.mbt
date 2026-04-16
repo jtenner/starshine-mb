@@ -73,7 +73,7 @@ pub struct BinaryRoundtripFuzzStats {
   profile : String
   seed : UInt64
   attempts : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn run_binary_roundtrip_fuzz(

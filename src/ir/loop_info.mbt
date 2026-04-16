@@ -2,7 +2,7 @@
 pub struct HotLoopExit {
   from : BlockId
   edge : CfgEdge
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotLoopSummary {
@@ -12,14 +12,14 @@ pub struct HotLoopSummary {
   exits : Array[HotLoopExit]
   parent : Int
   depth : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotLoopInfo {
   loops : Array[HotLoopSummary]
   block_to_loop : Array[Int]
   block_depth : Array[Int]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 priv struct LoopInfoTemp {
@@ -28,7 +28,7 @@ priv struct LoopInfoTemp {
   blocks : Array[BlockId]
   latches : Array[BlockId]
   exits : Array[HotLoopExit]
-} derive(Eq, Show, Debug)
+}
 
 ///|
 fn loop_info_is_reachable(dom : HotDominators, block_id : BlockId) -> Bool {

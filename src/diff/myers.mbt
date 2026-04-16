@@ -3,7 +3,7 @@ pub enum DiffCompareMode {
   CompareLines
   CompareWords
   CompareChars
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn DiffCompareMode::lines() -> DiffCompareMode {
@@ -26,7 +26,7 @@ pub struct DiffOptions {
   ignore_whitespace : Bool
   ignore_case : Bool
   ignore_accents : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn DiffOptions::new(
@@ -44,7 +44,7 @@ pub struct DiffChange {
   lhs_del : Int
   rhs_at : Int
   rhs_add : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn DiffChange::new(

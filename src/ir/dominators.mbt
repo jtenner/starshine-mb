@@ -7,7 +7,7 @@ pub struct HotDominators {
   frontiers : Array[Array[BlockId]]
   dom_preorder : Array[Int]
   dom_postorder : Array[Int]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn dom_has_reachable(blocks : Bitset, block_id : BlockId) -> Bool {

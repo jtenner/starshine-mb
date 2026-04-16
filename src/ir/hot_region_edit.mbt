@@ -1,7 +1,7 @@
 ///|
 pub struct HotRegionRef {
   holder : NodeId
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotRegionRef::root() -> HotRegionRef {

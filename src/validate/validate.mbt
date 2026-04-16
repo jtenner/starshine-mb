@@ -5,7 +5,7 @@ pub fn diff(rt1 : RefType, rt2 : RefType) -> Result[RefType, String] {
   let n2 = rt2.is_nullable()
 
   // Result nullability: nullable only if rt1 was nullable AND rt2 was not
-  let null_out = n1 && not(n2)
+  let null_out = n1 && !n2
   Ok(RefType::new(null_out, ht1))
 }
 
@@ -3252,7 +3252,7 @@ pub struct ValidateValidRunConfig {
   attempts : Int
   generator_config : GenValidConfig
   feature_floors : Array[ValidateValidFeatureFloor]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum ValidateValidFeatureKey {
@@ -3276,20 +3276,63 @@ pub enum ValidateValidFeatureKey {
   Calls
   CallIndirect
   BranchHeavyControl
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for ValidateValidFeatureKey with output(self, logger) {
+  match self {
+    Imports => logger.write_string("Imports")
+    FuncExports => logger.write_string("FuncExports")
+    TableExports => logger.write_string("TableExports")
+    MemExports => logger.write_string("MemExports")
+    GlobalExports => logger.write_string("GlobalExports")
+    TagExports => logger.write_string("TagExports")
+    Starts => logger.write_string("Starts")
+    LacksStart => logger.write_string("LacksStart")
+    Tables => logger.write_string("Tables")
+    Mems => logger.write_string("Mems")
+    Globals => logger.write_string("Globals")
+    Tags => logger.write_string("Tags")
+    Elems => logger.write_string("Elems")
+    Datas => logger.write_string("Datas")
+    DataCount => logger.write_string("DataCount")
+    RefTypes => logger.write_string("RefTypes")
+    V128 => logger.write_string("V128")
+    Calls => logger.write_string("Calls")
+    CallIndirect => logger.write_string("CallIndirect")
+    BranchHeavyControl => logger.write_string("BranchHeavyControl")
+  }
+}
 
 ///|
 pub struct ValidateValidFeatureFloor {
   key : ValidateValidFeatureKey
   min_count : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for ValidateValidFeatureFloor with output(self, logger) {
+  logger.write_string("ValidateValidFeatureFloor { key: ")
+  self.key.output(logger)
+  logger.write_string(", min_count: ")
+  self.min_count.output(logger)
+  logger.write_char('}')
+}
 
 ///|
 pub struct ValidateValidFeatureFloorFailure {
   key : ValidateValidFeatureKey
   min_count : Int
   actual_count : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for ValidateValidFeatureFloorFailure with output(self, logger) {
+  logger.write_string("ValidateValidFeatureFloorFailure { key: ")
+  self.key.output(logger)
+  logger.write_string(", min_count: ")
+  self.min_count.output(logger)
+  logger.write_string(", actual_count: ")
+  self.actual_count.output(logger)
+  logger.write_char('}')
+}
 
 ///|
 pub struct ValidateValidFuzzStats {
@@ -3300,8 +3343,25 @@ pub struct ValidateValidFuzzStats {
   generator_config : GenValidConfig
   feature_stats : GenValidFeatureStats
   feature_floors : Array[ValidateValidFeatureFloor]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
+pub impl Show for ValidateValidFuzzStats with output(self, logger) {
+  logger.write_string("ValidateValidFuzzStats {profile: ")
+  self.profile.output(logger)
+  logger.write_string(", seed: ")
+  self.seed.output(logger)
+  logger.write_string(", attempts: ")
+  self.attempts.output(logger)
+  logger.write_string(", validated: ")
+  self.validated.output(logger)
+  logger.write_string(", generator_config: ")
+  self.generator_config.output(logger)
+  logger.write_string(", feature_stats: ")
+  self.feature_stats.output(logger)
+  logger.write_string(", feature_floors: ")
+  self.feature_floors.output(logger)
+  logger.write_char('}')
+}
 ///|
 fn validate_valid_feature_floor(
   key : ValidateValidFeatureKey,
@@ -3529,23 +3589,21 @@ pub fn run_validate_valid_fuzz(
   let mut validated = 0
   let mut iteration = 0
   let mut feature_stats = GenValidFeatureStats::empty(generator_config.mode)
-  loop attempts {
-    0 => break ()
-    n => {
-      iteration += 1
-      let mod = gen_valid_module_with_config(rnd, generator_config)
-      feature_stats = feature_stats.record(
-        gen_valid_feature_facts(mod, generator_config.mode),
-      )
-      match validate_module(mod) {
-        Ok(_) => validated += 1
-        Err(err) =>
-          return Err(
-            "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} error=\{validation_error_message(err)}",
-          )
-      }
-      continue n - 1
+  let mut remaining_attempts = attempts
+  while remaining_attempts > 0 {
+    iteration += 1
+    let mod = gen_valid_module_with_config(rnd, generator_config)
+    feature_stats = feature_stats.record(
+      gen_valid_feature_facts(mod, generator_config.mode),
+    )
+    match validate_module(mod) {
+      Ok(_) => validated += 1
+      Err(err) =>
+        return Err(
+          "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} error=\{validation_error_message(err)}",
+        )
     }
+    remaining_attempts -= 1
   }
   let floor_failures = check_validate_valid_feature_floors(
     feature_stats, feature_floors,
@@ -3575,7 +3633,7 @@ priv struct GenValidBodySurfaceFacts {
   has_br_if : Bool
   has_memory_op : Bool
   has_table_op : Bool
-} derive(Eq, Show, Debug)
+}
 
 ///|
 fn gen_valid_body_surface_facts_empty() -> GenValidBodySurfaceFacts {

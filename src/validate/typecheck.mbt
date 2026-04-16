@@ -24,18 +24,16 @@ pub struct TcState {
   escape : TcEscape
 }
 
-///|
 pub impl Show for TcState with output(self, logger) {
-  logger.write_string("TcState {\n")
-  logger.write_string("  env : ")
+  logger.write_string("TcState {env: ")
   self.env.output(logger)
-  logger.write_string("\n  stack : ")
+  logger.write_string(", stack: ")
   self.stack.output(logger)
-  logger.write_string("\n  reachable : ")
+  logger.write_string(", reachable: ")
   self.reachable.output(logger)
-  logger.write_string("\n  escape : ")
+  logger.write_string(", escape: ")
   self.escape.output(logger)
-  logger.write_string("\n}")
+  logger.write_char('}')
 }
 
 ///|
@@ -231,32 +229,6 @@ fn validate_end_stack(
 
 ///|
 fn normalize_untyped_if_branch_exit(
-  st : TcState,
-  results : Array[ValType],
-) -> Result[(Bool, TcEscape), String] {
-  if st.reachable {
-    match validate_end_stack(st, results) {
-      Err(e) => return Err(e)
-      Ok(_) => ()
-    }
-    return Ok((true, NoTcEscape))
-  }
-  match st.escape {
-    NoTcEscape => {
-      match validate_end_stack(st, results) {
-        Err(e) => return Err(e)
-        Ok(_) => ()
-      }
-      Ok((false, TerminalTcEscape))
-    }
-    BranchTcEscape(0) => Ok((true, NoTcEscape))
-    BranchTcEscape(depth) => Ok((false, BranchTcEscape(depth - 1)))
-    TerminalTcEscape => Ok((false, TerminalTcEscape))
-  }
-}
-
-///|
-fn normalize_typed_if_branch_exit(
   st : TcState,
   results : Array[ValType],
 ) -> Result[(Bool, TcEscape), String] {
@@ -1044,7 +1016,7 @@ fn typecheck_br_on_non_null(st : TcState, l : LabelIdx) -> TcResult {
   let non_null_rt = RefType::new(false, ht)
   let want_last = ValType::ref_type(non_null_rt)
   let last = label_ts[end]
-  if not(Match::matches(last, want_last, st.env)) {
+  if !Match::matches(last, want_last, st.env) {
     return Err("br_on_non_null label must end with non-nullable ref type")
   }
   if st.reachable {
@@ -1232,7 +1204,7 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
         None => return Err("Invalid catch label index")
       }
       let payload = tag_payload_types(st.env, tag)
-      if not(Match::matches(payload, label_types, st.env)) {
+      if !Match::matches(payload, label_types, st.env) {
         return Err("catch types (payload) do not match label types")
       }
       Ok(st)
@@ -1253,7 +1225,7 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
           RefType::new(false, HeapType::abs(AbsHeapType::exn())),
         ),
       )
-      if not(Match::matches(expected, label_types, st.env)) {
+      if !Match::matches(expected, label_types, st.env) {
         return Err(
           "catch_ref types (payload + exnref) do not match label types",
         )
@@ -1282,7 +1254,7 @@ fn typecheck_catch_clause(st : TcState, c : Catch) -> TcResult {
           RefType::new(false, HeapType::abs(AbsHeapType::exn())),
         ),
       ]
-      if not(Match::matches(expected, label_types, st.env)) {
+      if !Match::matches(expected, label_types, st.env) {
         return Err("catch_all_ref label must expect exnref")
       }
       Ok(st)
@@ -1813,7 +1785,7 @@ fn typecheck_ref_test(st : TcState, nullable : Bool, ht : HeapType) -> TcResult 
   }
 
   // Spec: rt <: rt_in OR rt_in <: rt (types must be in same hierarchy)
-  if not(Match::matches(rt, rt_in, st.env) || Match::matches(rt_in, rt, st.env)) {
+  if !(Match::matches(rt, rt_in, st.env) || Match::matches(rt_in, rt, st.env)) {
     return Err("ref.test target does not match operand type")
   }
   Ok(st1.push1(ValType::i32()))
@@ -3679,7 +3651,7 @@ pub impl Typecheck for Instruction with typecheck(self, st) {
 
 ///|
 fn assert_stack(state : TcState, expected : Array[ValType]) -> Unit {
-  if not(equals(state.stack, expected)) {
+  if !equals(state.stack, expected) {
     abort("Stack mismatch: expected \{expected}, got \{state.stack}")
   }
 }

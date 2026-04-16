@@ -17,7 +17,7 @@ pub enum HotVerifyError {
   InvalidControlChild(NodeId, Int, NodeId)
   InvalidBranchTarget(NodeId, LabelId)
   InvalidBranchArity(NodeId, LabelId, Int, Int)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn hot_verify_type_id_is_valid(func : HotFunc, ty : TypeId) -> Bool {

@@ -33,7 +33,7 @@ pub struct WatRoundtripFuzzStats {
   script_iterations : Int
   module_commands : Int
   rendered_scripts : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn run_wat_roundtrip_fuzz(

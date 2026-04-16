@@ -6,7 +6,7 @@ pub struct HotPostDominators {
   ipdoms : Array[BlockId]
   children : Array[Array[BlockId]]
   frontiers : Array[Array[BlockId]]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn postdom_has_reachable(reachable : Bitset, block_id : BlockId) -> Bool {

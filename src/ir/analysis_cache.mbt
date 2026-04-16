@@ -2,7 +2,7 @@
 pub struct HotCacheEntry[T] {
   built_at_revision : Int
   value : T
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotCfgOrders {
@@ -13,14 +13,14 @@ pub struct HotCfgOrders {
   reverse_exit_postorder : Array[BlockId]
   reverse_exit_postorder_with_exceptions : Array[BlockId]
   worklist_seed : Array[BlockId]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotEffectsSummary {
   node_masks : Array[EffectMask]
   block_masks : Array[EffectMask]
   root_region_mask : EffectMask
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotAnalysisCache {
@@ -33,7 +33,7 @@ pub struct HotAnalysisCache {
   mut liveness : HotCacheEntry[HotLiveness]?
   mut effects : HotCacheEntry[HotEffectsSummary]?
   mut ssa : HotCacheEntry[HotLocalSsa]?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotAnalysisCache::new() -> HotAnalysisCache {

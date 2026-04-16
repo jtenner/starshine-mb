@@ -6,7 +6,7 @@ pub enum CliInputFormat {
   Wasm
   Wat
   Wast
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn CliInputFormat::wasm() -> CliInputFormat {
@@ -28,7 +28,7 @@ pub enum CliOutputTarget {
   StdoutOutput
   FileOutput(String)
   DirOutput(String)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn CliOutputTarget::stdout() -> CliOutputTarget {
@@ -50,7 +50,7 @@ pub enum CliOptimizationFlag {
   OptimizePreset
   ShrinkPreset
   OLevel(Int, Bool)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn CliOptimizationFlag::optimize() -> CliOptimizationFlag {
@@ -74,7 +74,7 @@ pub fn CliOptimizationFlag::olevel(
 pub enum TrapMode {
   Allow
   Never
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn TrapMode::allow() -> TrapMode {
@@ -91,7 +91,7 @@ pub enum CliTracingLevel {
   Pass
   Phase
   Helper
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn CliTracingLevel::pass() -> CliTracingLevel {
@@ -121,7 +121,64 @@ pub enum CliParseError {
   InvalidOptimizationFlag(String)
   InvalidTrapMode(String)
   InvalidTracingLevel(String)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for CliParseError with output(self, logger) {
+  match self {
+    InvalidTrapMode(arg) => {
+      logger.write_string("InvalidTrapMode(")
+      logger.write_string(arg)
+      logger.write_char(')')
+    }
+    InvalidOptimizationFlag(arg) => {
+      logger.write_string("InvalidOptimizationFlag(")
+      logger.write_string(arg)
+      logger.write_char(')')
+    }
+    InvalidFunctionIndexList(arg) => {
+      logger.write_string("InvalidFunctionIndexList(")
+      logger.write_string(arg)
+      logger.write_char(')')
+    }
+    InvalidDumpPath(arg) => {
+      logger.write_string("InvalidDumpPath(")
+      logger.write_string(arg)
+      logger.write_char(')')
+    }
+    UnexpectedFlagValue(arg) => {
+      logger.write_string("UnexpectedFlagValue(")
+      logger.write_string(arg)
+      logger.write_char(')')
+    }
+    InvalidLongFlag(arg) => {
+      logger.write_string("InvalidLongFlag(")
+      logger.write_string(arg)
+      logger.write_char(')')
+    }
+    UnknownShortFlag(arg) => {
+      logger.write_string("UnknownShortFlag(")
+      logger.write_char(arg)
+      logger.write_char(')')
+    }
+    StdinNeedsFormat => logger.write_string("StdinNeedsFormat")
+    InvalidInputFormat(arg) => {
+      logger.write_string("InvalidInputFormat(")
+      logger.write_string(arg)
+      logger.write_char(')')
+    }
+    MissingFlagValue(arg) => {
+      logger.write_string("MissingFlagValue(")
+      logger.write_string(arg)
+      logger.write_char(')')
+    }
+    InvalidTracingLevel(arg) => {
+      logger.write_string("InvalidTracingLevel(")
+      logger.write_string(arg)
+      logger.write_char(')')
+    }
+  }
+}
 
 ///|
 pub fn CliParseError::missing_flag_value(flag : String) -> CliParseError {
@@ -199,7 +256,7 @@ pub struct CliParseResult {
   mut low_memory_bound : UInt64?
   mut closed_world : Bool?
   mut tracing : CliTracingLevel?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn CliParseResult::new(

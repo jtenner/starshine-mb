@@ -515,22 +515,6 @@ fn remove_unused_brs_region_has_removable_tail_target(
 }
 
 ///|
-fn remove_unused_brs_live_children(
-  func : @ir.HotFunc,
-  node_id : Int,
-) -> Array[Int] {
-  let children : Array[Int] = []
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    let child_id = @ir.hot_child_get(func, node_id, slot)
-    if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
-      continue
-    }
-    children.push(child_id)
-  }
-  children
-}
-
-///|
 fn remove_unused_brs_compute_cycle_scan(
   func : @ir.HotFunc,
 ) -> RemoveUnusedBrsCycleScan {
@@ -713,25 +697,6 @@ fn remove_unused_brs_replace_with_child(
   @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, child_id))
   remove_unused_brs_mark_mutated(ctx, func, "replace-with-child")
   remove_unused_brs_delete_unused_nodes(ctx, func, detached)
-  true
-}
-
-///|
-fn remove_unused_brs_replace_with_node(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  node_id : Int,
-  replacement_id : Int,
-  detached? : Array[Int] = [],
-) -> Bool {
-  if replacement_id < 0 || !@ir.hot_node_is_live(func, replacement_id) {
-    return false
-  }
-  @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, replacement_id))
-  remove_unused_brs_mark_mutated(ctx, func, "replace-with-node")
-  let removed = detached.copy()
-  removed.push(replacement_id)
-  remove_unused_brs_delete_unused_nodes(ctx, func, removed)
   true
 }
 

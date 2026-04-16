@@ -2,7 +2,14 @@
 pub enum GenValidMode {
   Natural
   CoverageForced
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for GenValidMode with output(self, logger) {
+  match self {
+    Natural => logger.write_string("Natural") 
+    CoverageForced => logger.write_string("CoverageForced")
+  }
+}
 
 ///|
 pub struct GenValidSectionBias {
@@ -14,7 +21,27 @@ pub struct GenValidSectionBias {
   start_percent : Int
   elems_percent : Int
   datas_percent : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for GenValidSectionBias with output(self, logger) {
+  logger.write_string("GenValidSectionBias {imports_percent: ")
+  self.imports_percent.output(logger)
+  logger.write_string(", tables_percent: ")
+  self.tables_percent.output(logger)
+  logger.write_string(", mems_percent: ")
+  self.mems_percent.output(logger)
+  logger.write_string(", globals_percent: ")
+  self.globals_percent.output(logger)
+  logger.write_string(", tags_percent: ")
+  self.tags_percent.output(logger)
+  logger.write_string(", start_percent: ")
+  self.start_percent.output(logger)
+  logger.write_string(", elems_percent: ")
+  self.elems_percent.output(logger)
+  logger.write_string(", datas_percent: ")
+  self.datas_percent.output(logger)
+  logger.write_char('}')
+}
 
 ///|
 pub fn GenValidSectionBias::natural_default() -> GenValidSectionBias {
@@ -59,7 +86,36 @@ pub struct GenValidFeatureToggles {
   allow_calls : Bool
   allow_call_indirect : Bool
   allow_branch_heavy_control : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for GenValidFeatureToggles with output(self, logger) {
+  logger.write_string(", allow_imports:")
+  self.allow_imports.output(logger)
+  logger.write_string(", allow_tables:")
+  self.allow_tables.output(logger)
+  logger.write_string(", allow_mems:")
+  self.allow_mems.output(logger)
+  logger.write_string(", allow_globals:")
+  self.allow_globals.output(logger)
+  logger.write_string(", allow_tags:")
+  self.allow_tags.output(logger)
+  logger.write_string(", allow_start:")
+  self.allow_start.output(logger)
+  logger.write_string(", allow_elems:")
+  self.allow_elems.output(logger)
+  logger.write_string(", allow_datas:")
+  self.allow_datas.output(logger)
+  logger.write_string(", allow_ref_types:")
+  self.allow_ref_types.output(logger)
+  logger.write_string(", allow_v128:")
+  self.allow_v128.output(logger)
+  logger.write_string(", allow_calls:")
+  self.allow_calls.output(logger)
+  logger.write_string(", allow_call_indirect:")
+  self.allow_call_indirect.output(logger)
+  logger.write_string(", allow_branch_heavy_control:")
+  self.allow_branch_heavy_control.output(logger)
+}
 
 ///|
 pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
@@ -109,7 +165,45 @@ pub struct GenValidConfig {
   max_body_depth : Int
   section_bias : GenValidSectionBias
   features : GenValidFeatureToggles
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for GenValidConfig with output(self, logger) {
+  logger.write_string("GenValidConfig {mode: ")
+  self.mode.output(logger)
+  logger.write_string(", max_type_defs: ")
+  self.max_type_defs.output(logger)
+  logger.write_string(", max_imports: ")
+  self.max_imports.output(logger)
+  logger.write_string(", max_defined_funcs: ")
+  self.max_defined_funcs.output(logger)
+  logger.write_string(", max_tables: ")
+  self.max_tables.output(logger)
+  logger.write_string(", max_mems: ")
+  self.max_mems.output(logger)
+  logger.write_string(", max_globals: ")
+  self.max_globals.output(logger)
+  logger.write_string(", max_tags: ")
+  self.max_tags.output(logger)
+  logger.write_string(", max_elems: ")
+  self.max_elems.output(logger)
+  logger.write_string(", max_datas: ")
+  self.max_datas.output(logger)
+  logger.write_string(", max_params: ")
+  self.max_params.output(logger)
+  logger.write_string(", max_results: ")
+  self.max_results.output(logger)
+  logger.write_string(", max_locals: ")
+  self.max_locals.output(logger)
+  logger.write_string(", max_body_statements: ")
+  self.max_body_statements.output(logger)
+  logger.write_string(", max_body_depth: ")
+  self.max_body_depth.output(logger)
+  logger.write_string(", section_bias: ")
+  self.section_bias.output(logger)
+  logger.write_string(", features: ")
+  self.features.output(logger)
+  logger.write_char('}')
+}
 
 ///|
 pub fn GenValidConfig::natural_default() -> GenValidConfig {
@@ -173,7 +267,7 @@ pub struct GenValidFeatureFacts {
   has_call : Bool
   has_call_indirect : Bool
   has_branch_heavy_control : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct GenValidFeatureStats {
@@ -199,7 +293,55 @@ pub struct GenValidFeatureStats {
   calls : Int
   call_indirect : Int
   branch_heavy_control : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for GenValidFeatureStats with output(self, logger) {
+  logger.write_string("GenValidFeatureStats {mode: ")
+  self.mode.output(logger)
+  logger.write_string(", modules: ")
+  self.modules.output(logger)
+  logger.write_string(", imports: ")
+  self.imports.output(logger)
+  logger.write_string(", func_exports: ")
+  self.func_exports.output(logger)
+  logger.write_string(", table_exports: ")
+  self.table_exports.output(logger)
+  logger.write_string(", mem_exports: ")
+  self.mem_exports.output(logger)
+  logger.write_string(", global_exports: ")
+  self.global_exports.output(logger)
+  logger.write_string(", tag_exports: ")
+  self.tag_exports.output(logger)
+  logger.write_string(", starts: ")
+  self.starts.output(logger)
+  logger.write_string(", lacks_start: ")
+  self.lacks_start.output(logger)
+  logger.write_string(", tables: ")
+  self.tables.output(logger)
+  logger.write_string(", mems: ")
+  self.mems.output(logger)
+  logger.write_string(", globals: ")
+  self.globals.output(logger)
+  logger.write_string(", tags: ")
+  self.tags.output(logger)
+  logger.write_string(", elems: ")
+  self.elems.output(logger)
+  logger.write_string(", datas: ")
+  self.datas.output(logger)
+  logger.write_string(", data_count: ")
+  self.data_count.output(logger)
+  logger.write_string(", ref_types: ")
+  self.ref_types.output(logger)
+  logger.write_string(", v128: ")
+  self.v128.output(logger)
+  logger.write_string(", calls: ")
+  self.calls.output(logger)
+  logger.write_string(", call_indirect: ")
+  self.call_indirect.output(logger)
+  logger.write_string(", branch_heavy_control: ")
+  self.branch_heavy_control.output(logger)
+  logger.write_char('}')
+}
 
 ///|
 pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats {
@@ -1752,8 +1894,8 @@ pub fn gen_valid_feature_facts(
   }
   match mod.export_sec {
     Some(ExportSec(exports)) =>
-      for export in exports {
-        let Export(_, idx) = export
+      for export_ in exports {
+        let Export(_, idx) = export_
         match idx {
           FuncExternIdx(_) => has_func_exports = true
           TableExternIdx(_) => has_table_exports = true

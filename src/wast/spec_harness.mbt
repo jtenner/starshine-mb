@@ -3,7 +3,7 @@ pub enum WastSpecFileStatus {
   Passed
   Skipped(String)
   Failed(String)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct WastSpecFileReport {
@@ -12,7 +12,7 @@ pub struct WastSpecFileReport {
   total_commands : Int
   checked_commands : Int
   skipped_commands : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct WastSpecRunSummary {
@@ -21,27 +21,27 @@ pub struct WastSpecRunSummary {
   passed_files : Int
   skipped_files : Int
   failed_files : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum WastStaticAssertionKind {
   Malformed
   Invalid
   Unlinkable
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum WastStaticAssertionStage {
   ParseOrLowerRejected
   ValidateRejected
   ValidBeforeLink
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct WastStaticAssertionResult {
   kind : WastStaticAssertionKind
   stage : WastStaticAssertionStage
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 #cfg(target="native")

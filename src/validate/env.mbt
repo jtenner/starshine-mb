@@ -7,7 +7,19 @@ pub(all) struct LabelStack {
   parents : Array[Int]
   mut head : Int
   mut len : Int
-} derive(Hash, Show)
+} derive(Hash, Debug)
+
+pub impl Show for LabelStack with output(self, logger) {
+  logger.write_string("LabelStack {values: ")
+  self.values.output(logger)
+  logger.write_string(", parents: ")
+  self.parents.output(logger) 
+  logger.write_string(", head: ")
+  self.head.output(logger)
+  logger.write_string(", len: ")
+  self.len.output(logger)
+  logger.write_char('}')
+}
 
 ///|
 pub fn LabelStack::new() -> LabelStack {
@@ -84,7 +96,37 @@ pub(all) struct Env {
   locals : Locals
   labels : LabelStack
   return_type : Array[ValType]?
-} derive(Hash, Show)
+} derive(Hash, Debug)
+
+pub impl Show for Env with output(self, logger) {
+  logger.write_string("Env {global_types: ")
+  self.global_types.output(logger)
+  logger.write_string(", rec_stack: ")
+  self.rec_stack.output(logger)
+  logger.write_string(", funcs: ")
+  self.funcs.output(logger)
+  logger.write_string(", func_type_idxs: ")
+  self.func_type_idxs.output(logger)
+  logger.write_string(", tables: ")
+  self.tables.output(logger)
+  logger.write_string(", mems: ")
+  self.mems.output(logger)
+  logger.write_string(", globals: ")
+  self.globals.output(logger)
+  logger.write_string(", elems: ")
+  self.elems.output(logger)
+  logger.write_string(", datas: ")
+  self.datas.output(logger)
+  logger.write_string(", tags: ")
+  self.tags.output(logger)
+  logger.write_string(", locals: ")
+  self.locals.output(logger)
+  logger.write_string(", labels: ")
+  self.labels.output(logger)
+  logger.write_string(", return_type: ")
+  self.return_type.output(logger)
+  logger.write_char('}')
+}
 
 ///|
 pub fn Env::resolve_subtype(env : Env, idx : TypeIdx) -> SubType? {

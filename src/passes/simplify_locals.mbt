@@ -56,7 +56,6 @@ priv struct SimplifyLocalsBranchExit {
   set_idx : Int
   set_id : Int
   br_id : Int
-  local_id : Int
   value_id : Int
 }
 
@@ -1382,7 +1381,6 @@ fn simplify_locals_find_branch_exit_set_for_local(
           set_idx: idx,
           set_id: node_id,
           br_id,
-          local_id,
           value_id,
         })
       }

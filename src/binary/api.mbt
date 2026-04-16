@@ -3,12 +3,48 @@ pub suberror DecodeError {
   Decode(BinaryDecodeError)
   DecodeAt(BinaryDecodeError, Int, Int)
   TrailingBytes(Int, Int)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for DecodeError with output(self, logger) {
+  match self {
+    DecodeAt(err, a, b) => {
+      logger.write_string("DecodeAt(")
+      err.output(logger)
+      logger.write_string(", ")
+      a.output(logger)
+      logger.write_string(", ")
+      b.output(logger)
+      logger.write_char(')')
+    }
+    Decode(err) => {
+      logger.write_string("Decode(")
+      err.output(logger)
+      logger.write_char(')')
+    }
+    TrailingBytes(a, b) => {
+      logger.write_string("TrailingBytes(")
+      a.output(logger)
+      logger.write_string(", ")
+      b.output(logger)
+      logger.write_char(')')
+    }
+  } 
+}
 
 ///|
 pub suberror EncodeError {
   Encode(BinaryEncodeError)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+pub impl Show for EncodeError with output(self, logger) {
+  match self {
+    Encode(err) => {
+      logger.write_string("Encode(")
+      err.output(logger)
+      logger.write_char(')')
+    }
+  }
+}
 
 ///|
 pub fn decode_module(bytes : Bytes) -> Result[@lib.Module, DecodeError] {

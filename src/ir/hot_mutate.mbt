@@ -353,7 +353,7 @@ pub fn hot_alloc_children(func : HotFunc, count : Int) -> Int {
 pub struct HotChildSpanRewrite {
   node_id : NodeId
   new_children : Array[NodeId]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotChildSpanRewrite::new(

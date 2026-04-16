@@ -2,7 +2,7 @@
 pub enum TabsOrSpaces {
   Tabs
   Spaces
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn TabsOrSpaces::tabs() -> TabsOrSpaces {
@@ -21,7 +21,7 @@ pub struct PrettyPrintContext {
   tab_width : UInt
   continuation_indent : UInt
   source_indent_width : UInt
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn PrettyPrintContext::new(

@@ -33,7 +33,7 @@ pub struct WastRoundtripFuzzStats {
   script_iterations : Int
   module_commands : Int
   rendered_scripts : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn run_wast_roundtrip_fuzz(

@@ -755,7 +755,7 @@ fn wt_resolve_label(
 
 ///|
 fn wt_parse_i32(text : String) -> Result[@lib.I32, String] {
-  let v = @strconv.parse_int64(text) catch {
+  let v = @string.parse_int64(text) catch {
     _ => return Err("invalid i32 literal: \{text}")
   }
   Ok(@lib.I32(v.to_int()))
@@ -763,7 +763,7 @@ fn wt_parse_i32(text : String) -> Result[@lib.I32, String] {
 
 ///|
 fn wt_parse_i64(text : String) -> Result[@lib.I64, String] {
-  let v = @strconv.parse_int64(text) catch {
+  let v = @string.parse_int64(text) catch {
     _ => return Err("invalid i64 literal: \{text}")
   }
   Ok(@lib.I64(v))
@@ -839,7 +839,7 @@ fn wt_parse_u64_decimal(text : String, kind : String) -> Result[UInt64, String] 
 ///|
 fn wt_parse_u64_literal(text : String, kind : String) -> Result[UInt64, String] {
   let trimmed = text.trim().to_string()
-  let parsed_signed = @strconv.parse_int64(trimmed) catch {
+  let parsed_signed = @string.parse_int64(trimmed) catch {
     _ =>
       if trimmed.has_prefix("0x") || trimmed.has_prefix("0X") {
         return wt_parse_hex_u64(trimmed, kind)
@@ -861,7 +861,7 @@ fn wt_parse_f64(text : String) -> Result[@lib.F64, String] {
     lowered.has_prefix("-nan:") {
     return Ok(@lib.F64(@double.not_a_number))
   }
-  let v = @strconv.parse_double(text) catch {
+  let v = @string.parse_double(text) catch {
     _ => return Err("invalid f64 literal: \{text}")
   }
   Ok(@lib.F64(v))
@@ -878,7 +878,7 @@ fn wt_parse_f32(text : String) -> Result[@lib.F32, String] {
 
 ///|
 fn wt_parse_i64_literal(text : String, kind : String) -> Result[Int64, String] {
-  let parsed = @strconv.parse_int64(text) catch {
+  let parsed = @string.parse_int64(text) catch {
     _ => return Err("invalid \{kind} literal: \{text}")
   }
   Ok(parsed)
@@ -4580,7 +4580,6 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
             @lib.Instruction::i16x8_extmul_high_i8x16u(),
           )
         }
-        _ => fail("expected i16x8 no-immediate lowered body")
       }
 
       match funcs[1] {
@@ -4601,7 +4600,6 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
             @lib.Instruction::i32x4_trunc_sat_f64x2u_zero(),
           )
         }
-        _ => fail("expected i32x4 no-immediate lowered body")
       }
 
       match funcs[2] {
@@ -4621,7 +4619,6 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
             @lib.Instruction::i64x2_extmul_high_i32x4u(),
           )
         }
-        _ => fail("expected i64x2 no-immediate lowered body")
       }
 
       match funcs[3] {
@@ -4642,7 +4639,6 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
             @lib.Instruction::f32x4_demote_f64x2_zero(),
           )
         }
-        _ => fail("expected f32x4 no-immediate lowered body")
       }
 
       match funcs[4] {
@@ -4663,7 +4659,6 @@ test "wast_to_binary_module lowers SIMD no-immediate ops for i16x8 i32x4 i64x2 f
             @lib.Instruction::f64x2_promote_low_f32x4(),
           )
         }
-        _ => fail("expected f64x2 no-immediate lowered body")
       }
     }
     _ =>

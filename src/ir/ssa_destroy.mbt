@@ -2,7 +2,7 @@
 pub struct HotSsaCopy {
   source_local : LocalId
   target_local : LocalId
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotSsaCopy::new(
@@ -19,7 +19,7 @@ pub fn HotSsaCopy::new(
 pub struct HotSsaConcreteLocals {
   value_locals : Array[LocalId]
   extra_local_types : Array[ValType]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotSsaConcreteLocals::new(
@@ -32,20 +32,20 @@ pub fn HotSsaConcreteLocals::new(
 ///|
 pub enum HotSsaDestroyPolicy {
   ReusePhiLocals
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 struct HotSsaPendingInsert {
   insert_idx : Int
   nodes : Array[NodeId]
   order : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 struct HotSsaRegionInsertGroup {
   region_ref : HotRegionRef
   inserts : Array[HotSsaPendingInsert]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn ssa_destroy_local_type(func : HotFunc, local_id : LocalId) -> ValType {

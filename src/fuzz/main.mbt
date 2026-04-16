@@ -2,7 +2,7 @@
 pub enum FuzzOutputMode {
   Text
   Jsonl
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct FuzzCliArgs {
@@ -11,14 +11,14 @@ pub struct FuzzCliArgs {
   seed : UInt64
   seed_i64 : Int64
   output_mode : FuzzOutputMode
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct EmitGenValidBatchArgs {
   count : Int
   seed : UInt64
   out_dir : String
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn EmitGenValidBatchArgs::new(
@@ -36,7 +36,7 @@ pub enum FuzzCliCommand {
   ListSuites
   ListProfiles
   EmitGenValidBatch(EmitGenValidBatchArgs)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct FuzzSuiteResult {
@@ -45,7 +45,7 @@ pub struct FuzzSuiteResult {
   seed : Int64
   attempts : Int
   elapsed_ms : UInt64
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn fuzz_ascii_lower(input : String) -> String {
@@ -140,8 +140,9 @@ fn run_validate_valid_suite(
     Err(e) => return Err(e)
   }
   let normalized = run_config.profile
-  let (min_text_attempts, min_text_stable) =
-    validate_valid_text_companion_requirements(normalized)
+  let (min_text_attempts, min_text_stable) = validate_valid_text_companion_requirements(
+    normalized,
+  )
 
   let direct_stats = match run_validate_valid_fuzz(normalized, seed) {
     Ok(stats) => stats

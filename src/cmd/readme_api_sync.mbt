@@ -2,7 +2,7 @@
 struct ReadmeApiVerifyBlock {
   interface_path : String
   signatures : Array[String]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn ReadmeApiVerifyBlock::new(

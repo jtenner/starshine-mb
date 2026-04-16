@@ -9,7 +9,7 @@ priv enum RumeItem {
   Global(UInt)
   Table(UInt)
   Mem(UInt)
-  Tag(UInt)
+  Tag
   Elem(UInt)
   Data(UInt)
 }
@@ -110,7 +110,6 @@ fn rume_imported_counts(mod_ : @lib.Module) -> (Int, Int, Int, Int, Int) {
           @lib.Import(_, _, @lib.MemExternType(_)) => mem_imports += 1
           @lib.Import(_, _, @lib.GlobalExternType(_)) => global_imports += 1
           @lib.Import(_, _, @lib.TagExternType(_)) => tag_imports += 1
-          _ => ()
         }
       }
     None => ()
@@ -362,7 +361,7 @@ fn rume_mark_tag(
     return
   }
   used_tags[slot] = true
-  queue.push(RumeItem::Tag(raw))
+  queue.push(RumeItem::Tag)
 }
 
 ///|
@@ -932,7 +931,7 @@ fn rume_collect_liveness_with_import_parent_policy(
         )
       RumeItem::Mem(abs_idx) =>
         rume_process_mem(abs_idx, queue, used_datas, mem_to_datas)
-      RumeItem::Tag(_) => ()
+      RumeItem::Tag => ()
       RumeItem::Elem(elem_idx) =>
         rume_process_elem(
           mod_, elem_idx, queue, used_funcs, used_globals, used_tables, used_mems,

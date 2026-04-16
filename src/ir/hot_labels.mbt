@@ -5,14 +5,14 @@ pub enum HotControlRegionRole {
   ElseRegion
   CatchRegion
   CatchListRegion
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotControlRegionSlotInfo {
   slot : Int
   role : HotControlRegionRole
   required : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn hot_label_alloc(

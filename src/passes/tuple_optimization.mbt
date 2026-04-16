@@ -10,7 +10,7 @@ struct HotTupleOptimizationGroup {
   mut valid_uses : Int
   neighbors : Array[Int]
   mut bad : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 struct HotTupleOptimizationQuerySummary {
@@ -47,7 +47,7 @@ struct HotTupleOptimizationRootSlot {
   region_ref : @ir.HotRegionRef
   lane_idx : Int
   slot : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn tuple_optimization_descriptor() -> @ir.HotPassDescriptor {

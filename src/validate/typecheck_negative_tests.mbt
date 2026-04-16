@@ -899,7 +899,7 @@ test "Typecheck if with both unreachable branches yields unreachable" {
     state,
   )
   match result {
-    Ok(st) => assert_true(not(st.reachable))
+    Ok(st) => assert_true(!st.reachable)
     Err(e) => fail("Expected Ok (both unreachable), got Err: \{e}")
   }
 }

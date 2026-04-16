@@ -11,19 +11,19 @@ pub enum HotSsaValueOrigin {
   LocalSetDef(NodeId)
   LocalTeeDef(NodeId)
   PhiDef(PhiId)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum HotSsaUseOrigin {
   LocalGetUse(NodeId)
   PhiInputUse(PhiId, BlockId)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotSsaPhi {
   block : BlockId
   local_id : LocalId
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotSsaPhi::new(block : BlockId, local_id : LocalId) -> HotSsaPhi {
@@ -40,7 +40,7 @@ pub fn HotSsaPhi::new(block : BlockId, local_id : LocalId) -> HotSsaPhi {
 pub struct HotSsaPhiInput {
   predecessor : BlockId
   value_id : SsaValueId
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotSsaPhiInput::new(
@@ -69,7 +69,7 @@ pub struct HotLocalSsa {
   local_get_values : Array[SsaValueId]
   local_write_defs : Array[SsaValueId]
   value_uses : Array[Array[HotSsaUseOrigin]]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn HotLocalSsa::new(
@@ -118,12 +118,12 @@ pub fn HotLocalSsa::new(
 ///|
 pub enum HotSsaRenamePolicy {
   DominatorTreeRename
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum HotSsaDestructionPolicy {
   ParallelCopiesInPredecessors
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum HotSsaExcludedFeature {
@@ -131,7 +131,7 @@ pub enum HotSsaExcludedFeature {
   PersistentHotPhiNodes
   IrOwnedSsaBodies
   NonLocalValues
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 fn ssa_require_value_range(ssa : HotLocalSsa, value_id : SsaValueId) -> Unit {

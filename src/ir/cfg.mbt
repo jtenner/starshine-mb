@@ -2,7 +2,7 @@
 pub struct CfgEdge {
   kind : CfgEdgeKind
   block : BlockId
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotBlockInfo {
@@ -14,14 +14,14 @@ pub struct HotBlockInfo {
   region_holder : NodeId
   start_slot : Int
   end_slot : Int
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct CfgRegionRootBlock {
   region_holder : NodeId
   slot : Int
   block : BlockId
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct HotCfg {
@@ -31,7 +31,7 @@ pub struct HotCfg {
   mut entry_block : BlockId
   mut exit_block : BlockId
   mut exceptional_exit_block : BlockId?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 priv struct CfgBuilder {

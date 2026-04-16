@@ -2,14 +2,14 @@
 pub struct ValidateTraceCliArgs {
   repeats : Int
   corpora : Array[String]
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub enum ValidateTraceCliCommand {
   Run(ValidateTraceCliArgs)
   Help
   ListCorpora
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub struct ValidateTraceBenchmarkResult {
@@ -19,7 +19,7 @@ pub struct ValidateTraceBenchmarkResult {
   phase_totals : String
   helper_totals : String
   hotspots : String?
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 struct ValidateTraceCorpus {
