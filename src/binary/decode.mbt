@@ -827,27 +827,23 @@ pub impl Decode for NameMap with decode(bytes, i) {
   let entries : Array[NameAssoc] = []
   let mut next = i
   let mut prev_idx : UInt? = None
-  loop len {
-    0 => break
-    remaining => {
-      let (entry, decoded_next) = match
-        (
-          Decode::decode(bytes, next) :
-          Result[(NameAssoc, Int), BinaryDecodeError]) {
-        Ok(t) => t
-        Err(err) => return Err(err)
-      }
-      let idx = entry.0
-      match prev_idx {
-        Some(prev) if idx <= prev =>
-          return Err(BinaryDecodeError::InvalidNameMapOrder)
-        _ => ()
-      }
-      prev_idx = Some(idx)
-      entries.push(entry)
-      next = decoded_next
-      continue remaining - 1
+  let mut remaining = len
+  while remaining > 0 {
+    let (entry, decoded_next) = match
+      (Decode::decode(bytes, next) : Result[(NameAssoc, Int), BinaryDecodeError]) {
+      Ok(t) => t
+      Err(err) => return Err(err)
     }
+    let idx = entry.0
+    match prev_idx {
+      Some(prev) if idx <= prev =>
+        return Err(BinaryDecodeError::InvalidNameMapOrder)
+      _ => ()
+    }
+    prev_idx = Some(idx)
+    entries.push(entry)
+    next = decoded_next
+    remaining = remaining - 1
   }
   Ok((NameMap::new(entries), next))
 }
@@ -875,27 +871,25 @@ pub impl Decode for IndirectNameMap with decode(bytes, i) {
   let entries : Array[IndirectNameAssoc] = []
   let mut next = i
   let mut prev_idx : UInt? = None
-  loop len {
-    0 => break
-    remaining => {
-      let (entry, decoded_next) = match
-        (
-          Decode::decode(bytes, next) :
-          Result[(IndirectNameAssoc, Int), BinaryDecodeError]) {
-        Ok(t) => t
-        Err(err) => return Err(err)
-      }
-      let idx = entry.0
-      match prev_idx {
-        Some(prev) if idx <= prev =>
-          return Err(BinaryDecodeError::InvalidNameMapOrder)
-        _ => ()
-      }
-      prev_idx = Some(idx)
-      entries.push(entry)
-      next = decoded_next
-      continue remaining - 1
+  let mut remaining = len
+  while remaining > 0 {
+    let (entry, decoded_next) = match
+      (
+        Decode::decode(bytes, next) :
+        Result[(IndirectNameAssoc, Int), BinaryDecodeError]) {
+      Ok(t) => t
+      Err(err) => return Err(err)
     }
+    let idx = entry.0
+    match prev_idx {
+      Some(prev) if idx <= prev =>
+        return Err(BinaryDecodeError::InvalidNameMapOrder)
+      _ => ()
+    }
+    prev_idx = Some(idx)
+    entries.push(entry)
+    next = decoded_next
+    remaining = remaining - 1
   }
   Ok((IndirectNameMap::new(entries), next))
 }
@@ -2154,18 +2148,18 @@ fn decode_expr_with_depth(
     return Err(BinaryDecodeError::InstructionNestingLimitExceeded)
   }
   let a = Array::new()
-  let i = loop i {
-    i =>
-      match decode_instruction_with_depth(bytes, i, depth + 1) {
-        Ok((inst, i)) => {
-          a.push(inst)
-          continue i
-        }
-        Err(_) if bytes.get(i) == Some(0x0B) => break i + 1
-        Err(t) => return Err(t)
+  let mut i = i
+  while true {
+    match decode_instruction_with_depth(bytes, i, depth + 1) {
+      Ok((inst, next)) => {
+        a.push(inst)
+        i = next
       }
+      Err(_) if bytes.get(i) == Some(0x0B) => break
+      Err(t) => return Err(t)
+    }
   }
-  Ok((Expr::new(a), i))
+  Ok((Expr::new(a), i + 1))
 }
 
 ///|

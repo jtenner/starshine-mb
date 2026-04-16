@@ -6,7 +6,7 @@ sources:
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - ../../../../../src/passes/tuple_optimization.mbt
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
-  - ../../../../../src/cmd/cmd_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/cmd/cmd_native_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
 related:

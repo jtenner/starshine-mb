@@ -44,15 +44,14 @@ fn[T : Encode + Decode + Eq + Show + @quickcheck.Arbitrary] roundtrip_arbitrary_
   st : @splitmix.RandomState,
 ) -> Array[T] raise {
   let a = Array::new(capacity=count)
-  loop count {
-    0 => break a
-    n => {
-      let val = T::arbitrary(n, st)
-      roundtrip(val)
-      a.push(val)
-      continue n - 1
-    }
+  let mut i = 0
+  while i < count {
+    let val = T::arbitrary(i, st)
+    roundtrip(val)
+    a.push(val)
+    i += 1
   }
+  a
 }
 
 ///|

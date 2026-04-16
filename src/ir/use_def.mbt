@@ -2,14 +2,24 @@
 pub enum HotUseSlotKind {
   ChildUseSlot
   RootUseSlot
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotUseSlotKind with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotUseSite {
   user : NodeId
   slot : Int
   kind : HotUseSlotKind
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotUseSite with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotUseDef {

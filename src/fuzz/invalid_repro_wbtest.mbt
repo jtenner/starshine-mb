@@ -1,7 +1,4 @@
 ///|
-using @fs {read_file_sync}
-
-///|
 using @validate {
   apply_validate_invalid_ast_strategy,
   validate_invalid_ast_strategy_by_stable_id,

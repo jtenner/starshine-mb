@@ -1,15 +1,4 @@
 ///|
-using @binary {decode_module, encode_module}
-
-///|
-using @validate {
-  type GenValidConfig,
-  gen_valid_module_with_config,
-  validate_module,
-  validation_error_message,
-}
-
-///|
 test "parse_fuzz_cli_args defaults to all smoke seed" {
   let parsed = parse_fuzz_cli_args([])
   assert_eq(parsed.suite, "all")

@@ -200,12 +200,13 @@ pub enum HotPassRegistryCategory {
   BoundaryOnly
   Removed
   Preset
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn HotPassRegistryCategory::boundary_only() -> Self
 pub fn HotPassRegistryCategory::hot_pass() -> Self
 pub fn HotPassRegistryCategory::module_pass() -> Self
 pub fn HotPassRegistryCategory::preset() -> Self
 pub fn HotPassRegistryCategory::removed() -> Self
+pub impl Show for HotPassRegistryCategory
 
 pub struct HotPassRegistryEntry {
   name : String
@@ -213,7 +214,8 @@ pub struct HotPassRegistryEntry {
   category : HotPassRegistryCategory
   descriptor : @ir.HotPassDescriptor?
   expanded_passes : Array[String]
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for HotPassRegistryEntry
 
 pub struct HotPassResult {
   changed : Bool

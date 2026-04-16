@@ -8,7 +8,7 @@ sources:
 related:
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pick_load_signs_test.mbt
-  - ../../../../../src/cmd/cmd_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
 ---
 
 # `pick-load-signs` Binaryen Parity
@@ -31,7 +31,7 @@ Recognized usage evidence comes from:
 
 - The implementation lives in [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt).
 - The focused suite lives in [`../../../../../src/passes/pick_load_signs_test.mbt`](../../../../../src/passes/pick_load_signs_test.mbt).
-- CLI and debug-artifact coverage lives in [`../../../../../src/cmd/cmd_test.mbt`](../../../../../src/cmd/cmd_test.mbt).
+- CLI and debug-artifact coverage lives in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
 - The pass is active in the optimize and shrink pipelines after `optimize-instructions`.
 - The pass manager includes a module-memory fast skip and raw candidate screening so functions without exact candidate surface can avoid hot lift.
 
@@ -51,4 +51,4 @@ Recognized usage evidence comes from:
 - Follow-up health rerun: [`../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md`](../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md)
 - Implementation: [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt)
 - Focused tests: [`../../../../../src/passes/pick_load_signs_test.mbt`](../../../../../src/passes/pick_load_signs_test.mbt)
-- CLI coverage: [`../../../../../src/cmd/cmd_test.mbt`](../../../../../src/cmd/cmd_test.mbt)
+- CLI coverage: [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)

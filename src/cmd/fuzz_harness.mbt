@@ -21,7 +21,12 @@ pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?
   binaryen_valid : Bool?
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for DifferentialValidationReport with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct CmdFuzzStats {
@@ -32,7 +37,12 @@ pub struct CmdFuzzStats {
   optimized : Int
   roundtripped : Int
   differential_checked : Int
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for CmdFuzzStats with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn CmdFuzzStats::new(
@@ -65,7 +75,12 @@ pub struct FuzzFailureReport {
   optimize_passes : Array[String]
   minimized_passes : Array[String]
   wasm : Bytes?
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for FuzzFailureReport with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn FuzzFailureReport::new(

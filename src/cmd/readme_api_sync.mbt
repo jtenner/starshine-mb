@@ -2,7 +2,12 @@
 struct ReadmeApiVerifyBlock {
   interface_path : String
   signatures : Array[String]
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for ReadmeApiVerifyBlock with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 fn ReadmeApiVerifyBlock::new(

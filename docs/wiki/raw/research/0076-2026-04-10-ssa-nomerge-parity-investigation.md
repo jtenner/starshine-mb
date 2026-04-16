@@ -102,7 +102,7 @@
 
 ## Validation Plan
 
-- Keep the committed native artifact replay in `src/cmd/cmd_test.mbt` green as the safety regression for current-source `ssa-nomerge`.
+- Keep the committed native artifact replay in `src/cmd/cmd_wbtest.mbt` green as the safety regression for current-source `ssa-nomerge`.
 - Keep the `10000 / 10000` `gen-valid` compare-pass lane green as the semantic parity signoff floor for reduced cases.
 - Keep the new reduced unreachable compare-carrier regressions green in `src/ir/hot_lift_test.mbt` and `src/passes/ssa_nomerge_test.mbt`, and continue reducing the remaining artifact-only `Func 523` delta behind the traced skip.
 - Add artifact-backed assertions that validate the emitted module bytes, not only decode success, whenever a new replay surface is introduced.

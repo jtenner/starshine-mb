@@ -26,7 +26,7 @@ sources:
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
-  - ../../../../../src/cmd/cmd_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
 related:
   - ./pattern-catalog.md
@@ -105,7 +105,7 @@ related:
 - Preset replay coverage for the three modeled RUB slots:
   [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - CLI and artifact replay coverage:
-  [`../../../../../src/cmd/cmd_test.mbt`](../../../../../src/cmd/cmd_test.mbt)
+  [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 
 ## What Is Already In Good Shape
 

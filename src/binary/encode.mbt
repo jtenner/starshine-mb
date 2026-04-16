@@ -205,15 +205,14 @@ pub impl[T : Encode] Encode for @list.List[T] with encode(val, buf) {
   if Encode::encode(@lib.U32(val.length().reinterpret_as_uint()), buf) is Err(t) {
     return Err(t)
   }
-  loop val {
-    Empty => Ok(())
-    More(val, tail~) => {
-      if Encode::encode(val, buf) is Err(t) {
-        break Err(t)
-      }
-      continue tail
+  let mut cursor = val
+  while cursor is More(val, tail~) {
+    if Encode::encode(val, buf) is Err(t) {
+      return Err(t)
     }
+    cursor = tail
   }
+  Ok(())
 }
 
 ///|
@@ -956,28 +955,6 @@ fn encode_raw_name_sec_payload_as_custom_section(
     payload.write_bytes(payload_bytes)
     Ok(())
   })
-}
-
-///|
-fn binary_encode_flatten_subtypes(type_sec : TypeSec?) -> Array[SubType] {
-  let out : Array[SubType] = []
-  match type_sec {
-    Some(TypeSec(rec_types)) =>
-      for rec_type in rec_types {
-        let mut subtype_idx = 0U
-        while true {
-          match rec_type.get_subtype(subtype_idx) {
-            Some(subtype) => {
-              out.push(subtype)
-              subtype_idx += 1U
-            }
-            None => break
-          }
-        }
-      }
-    None => ()
-  }
-  out
 }
 
 ///|
@@ -1734,22 +1711,10 @@ pub impl Encode for Module with encode(val, buf) {
           return Err(t)
         }
         match val.code_sec {
-          Some(CodeSec(funcs)) => {
-            let encoded_funcs : Array[Func] = []
-            let module_env = Env::new().with_module(val)
-            let func_type_idxs = match val.func_sec {
-              Some(FuncSec(type_idxs)) => type_idxs
-              None => []
-            }
-            let mut func_idx = 0
-            for func in funcs {
-              encoded_funcs.push(func)
-              func_idx += 1
-            }
-            if Encode::encode(Some(CodeSec::new(encoded_funcs)), buf) is Err(t) {
+          Some(CodeSec(funcs)) =>
+            if Encode::encode(Some(CodeSec::new(funcs)), buf) is Err(t) {
               return Err(t)
             }
-          }
           None => ()
         }
         if Encode::encode(val.data_sec, buf) is Err(t) {

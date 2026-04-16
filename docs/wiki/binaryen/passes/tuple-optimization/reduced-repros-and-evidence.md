@@ -5,7 +5,7 @@ last_reviewed: 2026-04-10
 sources:
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
-  - ../../../../../src/cmd/cmd_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/cmd/cmd_native_wbtest.mbt
   - ../../../../../agent-todo.md
   - ../../../../../CHANGELOG.md
@@ -48,7 +48,7 @@ These families are currently represented by in-tree reduced tests and are part o
 Where these live:
 
 - white-box analysis and rewrite fixtures in `src/passes/tuple_optimization_wbtest.mbt`
-- black-box shape checks in `src/cmd/cmd_test.mbt`
+- black-box shape checks in `src/cmd/cmd_wbtest.mbt`
 - direct Binaryen-compare checks in `src/cmd/cmd_native_wbtest.mbt`
 
 ## Historical Bug Families That Moved The Artifact Head
@@ -109,7 +109,7 @@ What changed:
 
 Current branch check on `2026-04-10`:
 
-- `moon test --package jtenner/starshine/cmd --file cmd_test.mbt --filter '*tuple-optimization*'`
+- `moon test --package jtenner/starshine/cmd --file cmd_wbtest.mbt --filter '*tuple-optimization*'`
 - result: `7 / 7` passed
 
 Interpretation:

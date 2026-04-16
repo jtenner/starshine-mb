@@ -19,7 +19,7 @@ sources:
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
-  - ../../../../../src/cmd/cmd_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
   - ./index.md
   - ./pattern-catalog.md

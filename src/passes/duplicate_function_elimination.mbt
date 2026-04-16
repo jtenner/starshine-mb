@@ -562,7 +562,7 @@ fn dfe_expr_mentions_type_idxs(expr : @lib.Expr) -> Bool {
 }
 
 ///|
-fn dfe_locals_mention_type_idxs(locals : @lib.Locals) -> Bool {
+fn _dfe_locals_mention_type_idxs(locals : @lib.Locals) -> Bool {
   let runs = locals.runs()
   let mut idx = 0
   while idx < runs.length() {
@@ -2235,7 +2235,7 @@ fn dfe_rewrite_expr_type_idxs(
 }
 
 ///|
-fn dfe_rewrite_locals_type_idxs(
+fn _dfe_rewrite_locals_type_idxs(
   locals : @lib.Locals,
   remap : Map[UInt, UInt],
 ) -> @lib.Locals {
@@ -2871,7 +2871,7 @@ fn dfe_rewrite_name_map_filtered(
 }
 
 ///|
-fn dfe_rewrite_local_name_map_filtered(
+fn _dfe_rewrite_local_name_map_filtered(
   names : @lib.IndirectNameMap,
   remap : Map[UInt, UInt],
   drop_unmapped : Bool,

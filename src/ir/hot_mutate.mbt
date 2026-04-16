@@ -572,9 +572,7 @@ pub fn hot_control_demote_if_to_block(
     flags: hot_default_flags_for_op(HotOp::Block),
     imm0: label_id,
   }
-  let label = hot_label_get(func, label_id)
   func.labels[label_id] = {
-    ..label,
     kind: HotLabelKind::BlockLabel,
     owner: if_id,
     result_type: next_node.ty,

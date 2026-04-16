@@ -41,9 +41,10 @@ pub fn verify_readme_api_signatures_with_required_blocks(String, Array[(String, 
 pub suberror CmdEncodeError {
   Encode(@binary.EncodeError)
   Adapter(String)
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn CmdEncodeError::adapter(String) -> Self
 pub fn CmdEncodeError::encode(@binary.EncodeError) -> Self
+pub impl Show for CmdEncodeError
 
 // Types and methods
 pub enum CmdError {
@@ -61,9 +62,10 @@ pub enum CmdError {
   OutputWriteFailed(String)
   AmbiguousOutputFile(String)
   NoInputFiles
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn CmdError::ambiguous_output_file(String) -> Self
 pub fn CmdError::unknown_pass_flag(String) -> Self
+pub impl Show for CmdError
 
 pub struct CmdFuzzStats {
   attempts : Int
@@ -73,8 +75,9 @@ pub struct CmdFuzzStats {
   optimized : Int
   roundtripped : Int
   differential_checked : Int
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn CmdFuzzStats::new(attempts? : Int, generated_valid? : Int, generated_invalid? : Int, pipeline_validated? : Int, optimized? : Int, roundtripped? : Int, differential_checked? : Int) -> Self
+pub impl Show for CmdFuzzStats
 
 pub struct CmdIO {
   get_env : (String) -> String?
@@ -107,8 +110,9 @@ pub struct CmdRunSummary {
   closed_world : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn CmdRunSummary::new(input_files? : Array[String], output_files? : Array[String], resolved_passes? : Array[String], optimize_level? : Int, shrink_level? : Int, traps_never_happen? : Bool, monomorphize_min_benefit? : Int, closed_world? : Bool, low_memory_unused? : Bool, low_memory_bound? : UInt64) -> Self
+pub impl Show for CmdRunSummary
 
 pub struct DifferentialAdapters {
   wasm_tools_validate : (Bytes) -> Result[Bool, String]
@@ -120,7 +124,8 @@ pub struct DifferentialValidationReport {
   internal_valid : Bool
   wasm_tools_valid : Bool?
   binaryen_valid : Bool?
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for DifferentialValidationReport
 
 pub struct FuzzFailurePersistIO {
   ensure_dir : (String) -> Result[Unit, String]
@@ -137,13 +142,15 @@ pub struct FuzzFailureReport {
   optimize_passes : Array[String]
   minimized_passes : Array[String]
   wasm : Bytes?
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn FuzzFailureReport::new(UInt64, Int, Int, String, String, optimize_passes? : Array[String], minimized_passes? : Array[String], wasm? : Bytes?) -> Self
+pub impl Show for FuzzFailureReport
 
 pub struct InliningOptions {
   no_op : Bool
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn InliningOptions::new() -> Self
+pub impl Show for InliningOptions
 
 pub struct OptimizeOptions {
   optimize_level : Int
@@ -157,26 +164,30 @@ pub struct OptimizeOptions {
   traps_never_happen : Bool
   validation_policy : OptimizeValidationPolicy
   stack_function_passes : Bool
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn OptimizeOptions::new(optimize_level? : Int, shrink_level? : Int, inlining? : InliningOptions, monomorphize_min_benefit? : Int, closed_world? : Bool, zero_filled_memory? : Bool, low_memory_unused? : Bool, low_memory_bound? : UInt64, traps_never_happen? : Bool, validation_policy? : OptimizeValidationPolicy, stack_function_passes? : Bool) -> Self
+pub impl Show for OptimizeOptions
 
 pub enum OptimizeTracingLevel {
   Pass
   Phase
   Helper
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn OptimizeTracingLevel::helper() -> Self
 pub fn OptimizeTracingLevel::pass() -> Self
 pub fn OptimizeTracingLevel::phase() -> Self
+pub impl Show for OptimizeTracingLevel
 
 pub enum OptimizeValidationPolicy {
   FinalModuleOnly
   AfterSegment
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn OptimizeValidationPolicy::after_segment() -> Self
 pub fn OptimizeValidationPolicy::final_module_only() -> Self
+pub impl Show for OptimizeValidationPolicy
 
-type ReadmeApiVerifyBlock derive(Eq, Show, @debug.Debug)
+type ReadmeApiVerifyBlock derive(Eq, @debug.Debug)
+pub impl Show for ReadmeApiVerifyBlock
 
 // Type aliases
 

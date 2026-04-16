@@ -14,13 +14,23 @@ pub enum CmdError {
   OutputWriteFailed(String)
   AmbiguousOutputFile(String)
   NoInputFiles
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for CmdError with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub suberror CmdEncodeError {
   Encode(EncodeError)
   Adapter(String)
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for CmdEncodeError with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn CmdEncodeError::encode(err : EncodeError) -> CmdEncodeError {
@@ -112,7 +122,12 @@ pub struct CmdRunSummary {
   closed_world : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for CmdRunSummary with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn CmdRunSummary::new(
@@ -146,7 +161,12 @@ pub enum OptimizeTracingLevel {
   Pass
   Phase
   Helper
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for OptimizeTracingLevel with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn OptimizeTracingLevel::pass() -> OptimizeTracingLevel {
@@ -188,7 +208,12 @@ enum CmdPipelineStep {
 pub enum OptimizeValidationPolicy {
   FinalModuleOnly
   AfterSegment
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for OptimizeValidationPolicy with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn OptimizeValidationPolicy::final_module_only() -> OptimizeValidationPolicy {
@@ -203,7 +228,12 @@ pub fn OptimizeValidationPolicy::after_segment() -> OptimizeValidationPolicy {
 ///|
 pub struct InliningOptions {
   no_op : Bool
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for InliningOptions with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn InliningOptions::new() -> InliningOptions {
@@ -223,7 +253,12 @@ pub struct OptimizeOptions {
   traps_never_happen : Bool
   validation_policy : OptimizeValidationPolicy
   stack_function_passes : Bool
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for OptimizeOptions with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn OptimizeOptions::new(

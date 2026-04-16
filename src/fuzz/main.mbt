@@ -673,8 +673,8 @@ fn run_single_suite(
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "cmd-harness" =>
-      match run_cmd_fuzz_harness_profile(profile, seed) {
-        Ok(stats) => stats.attempts
+      match run_fuzz_cmd_harness_profile(profile, seed) {
+        Ok(attempts) => attempts
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }

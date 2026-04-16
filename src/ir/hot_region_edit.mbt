@@ -1,7 +1,12 @@
 ///|
 pub struct HotRegionRef {
   holder : NodeId
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotRegionRef with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn HotRegionRef::root() -> HotRegionRef {

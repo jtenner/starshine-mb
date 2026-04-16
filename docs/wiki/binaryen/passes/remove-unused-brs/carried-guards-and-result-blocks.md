@@ -11,7 +11,7 @@ sources:
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/perf_test.mbt
-  - ../../../../../src/cmd/cmd_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
 related:
   - ./pattern-catalog.md

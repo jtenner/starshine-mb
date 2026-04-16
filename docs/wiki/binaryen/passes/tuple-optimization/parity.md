@@ -7,7 +7,7 @@ sources:
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/tuple_optimization.mbt
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
-  - ../../../../../src/cmd/cmd_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/cmd/cmd_native_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -32,7 +32,7 @@ related:
 
 - The implementation lives in [`../../../../../src/passes/tuple_optimization.mbt`](../../../../../src/passes/tuple_optimization.mbt).
 - Focused white-box coverage lives in [`../../../../../src/passes/tuple_optimization_wbtest.mbt`](../../../../../src/passes/tuple_optimization_wbtest.mbt).
-- CLI and emitted-module shape checks live in [`../../../../../src/cmd/cmd_test.mbt`](../../../../../src/cmd/cmd_test.mbt).
+- CLI and emitted-module shape checks live in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
 - Direct native Binaryen comparison lives in [`../../../../../src/cmd/cmd_native_wbtest.mbt`](../../../../../src/cmd/cmd_native_wbtest.mbt).
 - Preset placement is still intentionally deferred in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 
@@ -44,7 +44,7 @@ Fresh local checks taken for this doc update on `2026-04-10`:
   - result: `15 / 15` passed
 - `moon test --package jtenner/starshine/passes --file tuple_optimization_wbtest.mbt`
   - result: `42 / 42` passed
-- `moon test --package jtenner/starshine/cmd --file cmd_test.mbt --filter '*tuple-optimization*'`
+- `moon test --package jtenner/starshine/cmd --file cmd_wbtest.mbt --filter '*tuple-optimization*'`
   - result: `7 / 7` passed
 
 Interpretation:

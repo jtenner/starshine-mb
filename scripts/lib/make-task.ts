@@ -65,8 +65,8 @@ export function updateReadmeBenchmarks(argv: string[]): void {
   const rows = [
     {
       name: "Single CLI pipeline test (`run_cmd_with_adapter runs requested passes for each module`)",
-      command: [moonBin, ["test", "--quiet", "--package", "jtenner/starshine/cmd", "--file", "cmd_test.mbt", "--index", "5"]] as const,
-      displayCommand: "moon test --quiet --package jtenner/starshine/cmd --file cmd_test.mbt --index 5",
+      command: [moonBin, ["test", "--quiet", "--package", "jtenner/starshine/cmd", "--file", "cmd_wbtest.mbt", "--index", "5"]] as const,
+      displayCommand: "moon test --quiet --package jtenner/starshine/cmd --file cmd_wbtest.mbt --index 5",
     },
     {
       name: "Fuzz runner smoke (`src/fuzz` cmd-harness suite)",

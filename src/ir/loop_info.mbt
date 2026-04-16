@@ -2,7 +2,12 @@
 pub struct HotLoopExit {
   from : BlockId
   edge : CfgEdge
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotLoopExit with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotLoopSummary {
@@ -12,7 +17,12 @@ pub struct HotLoopSummary {
   exits : Array[HotLoopExit]
   parent : Int
   depth : Int
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotLoopSummary with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotLoopInfo {

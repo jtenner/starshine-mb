@@ -1,11 +1,8 @@
 ///|
-using @binary {trait Decode, trait Encode}
+using @binary {trait Decode}
 
 ///|
-using @cli {type CliInputFormat}
-
-///|
-using @lib {type Module, type Func, type CodeSec}
+using @lib {type Func, type CodeSec}
 
 ///|
 fn bytes_from_string(text : String) -> Bytes {

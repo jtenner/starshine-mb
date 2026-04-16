@@ -24,20 +24,18 @@ pub fn heap2local_summary() -> String {
 priv struct H2LUseSite {
   source_node_id : Int
   user_node_id : Int
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct H2LCopySite {
   source_node_id : Int
   write_node_id : Int
-  target_local : Int
-} derive(Eq, Debug)
+}
 
 ///|
 priv struct H2LCandidate {
   write_node_id : Int
   init_node_id : Int
-  struct_type : @lib.TypeIdx
   fields : Array[@lib.FieldType]
   use_sites : Array[H2LUseSite]
   copy_sites : Array[H2LCopySite]
@@ -456,11 +454,7 @@ fn h2l_collect_source_use(
         if writes.length() != 1 || writes[0] != site.user {
           return false
         }
-        copy_sites.push({
-          source_node_id,
-          write_node_id: site.user,
-          target_local,
-        })
+        copy_sites.push({ source_node_id, write_node_id: site.user })
         if !family_locals.contains(target_local) {
           family_locals.push(target_local)
         }
@@ -561,14 +555,7 @@ fn h2l_find_candidate_for_local(
   if use_sites.is_empty() {
     return None
   }
-  Some({
-    write_node_id,
-    init_node_id,
-    struct_type,
-    fields,
-    use_sites,
-    copy_sites,
-  })
+  Some({ write_node_id, init_node_id, fields, use_sites, copy_sites })
 }
 
 ///|

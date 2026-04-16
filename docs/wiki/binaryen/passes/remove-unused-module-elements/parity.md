@@ -10,7 +10,7 @@ sources:
 related:
   - ./index.md
   - ./retention-and-index-rewrites.md
-  - ../../../../../src/cmd/cmd_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../scripts/self-optimize-compare.ts
 ---
 
@@ -29,7 +29,7 @@ related:
 
 - The implementation lives in [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt).
 - The focused suite lives in [`../../../../../src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt).
-- Explicit pass execution also has CLI and compare-tool coverage through [`../../../../../src/cmd/cmd_test.mbt`](../../../../../src/cmd/cmd_test.mbt) and [`../../../../../scripts/self-optimize-compare.ts`](../../../../../scripts/self-optimize-compare.ts).
+- Explicit pass execution also has CLI and compare-tool coverage through [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) and [`../../../../../scripts/self-optimize-compare.ts`](../../../../../scripts/self-optimize-compare.ts).
 
 ## Focused Coverage Now Locked In
 

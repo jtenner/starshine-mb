@@ -24,14 +24,24 @@ pub struct HotBlockInfo {
   region_holder : NodeId
   start_slot : Int
   end_slot : Int
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotBlockInfo with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct CfgRegionRootBlock {
   region_holder : NodeId
   slot : Int
   block : BlockId
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for CfgRegionRootBlock with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotCfg {

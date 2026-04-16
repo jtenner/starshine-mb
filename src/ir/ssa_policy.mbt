@@ -11,19 +11,34 @@ pub enum HotSsaValueOrigin {
   LocalSetDef(NodeId)
   LocalTeeDef(NodeId)
   PhiDef(PhiId)
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotSsaValueOrigin with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub enum HotSsaUseOrigin {
   LocalGetUse(NodeId)
   PhiInputUse(PhiId, BlockId)
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotSsaUseOrigin with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotSsaPhi {
   block : BlockId
   local_id : LocalId
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotSsaPhi with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn HotSsaPhi::new(block : BlockId, local_id : LocalId) -> HotSsaPhi {
@@ -40,7 +55,12 @@ pub fn HotSsaPhi::new(block : BlockId, local_id : LocalId) -> HotSsaPhi {
 pub struct HotSsaPhiInput {
   predecessor : BlockId
   value_id : SsaValueId
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotSsaPhiInput with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn HotSsaPhiInput::new(
@@ -69,7 +89,12 @@ pub struct HotLocalSsa {
   local_get_values : Array[SsaValueId]
   local_write_defs : Array[SsaValueId]
   value_uses : Array[Array[HotSsaUseOrigin]]
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotLocalSsa with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn HotLocalSsa::new(
@@ -118,12 +143,22 @@ pub fn HotLocalSsa::new(
 ///|
 pub enum HotSsaRenamePolicy {
   DominatorTreeRename
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotSsaRenamePolicy with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub enum HotSsaDestructionPolicy {
   ParallelCopiesInPredecessors
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotSsaDestructionPolicy with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub enum HotSsaExcludedFeature {
@@ -131,7 +166,12 @@ pub enum HotSsaExcludedFeature {
   PersistentHotPhiNodes
   IrOwnedSsaBodies
   NonLocalValues
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotSsaExcludedFeature with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 fn ssa_require_value_range(ssa : HotLocalSsa, value_id : SsaValueId) -> Unit {

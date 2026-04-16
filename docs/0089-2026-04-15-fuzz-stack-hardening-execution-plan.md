@@ -12,7 +12,7 @@
 - Validator fuzz hardening summary: [`docs/wiki/validate/fuzz-hardening.md`](./wiki/validate/fuzz-hardening.md)
 - Archived validator fuzz research: [`docs/wiki/raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md`](./wiki/raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md)
 - Fuzz runner entrypoint: [`src/fuzz/main.mbt`](../src/fuzz/main.mbt)
-- Fuzz runner tests: [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt)
+- Fuzz runner tests: [`src/fuzz/main_wbtest.mbt`](../src/fuzz/main_wbtest.mbt)
 - Valid generator: [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt)
 - Validator entrypoints and exported valid-fuzz helper: [`src/validate/validate.mbt`](../src/validate/validate.mbt)
 - Cmd fuzz harness and repro persistence helpers: [`src/cmd/fuzz_harness.mbt`](../src/cmd/fuzz_harness.mbt)
@@ -107,7 +107,7 @@ For every slice below:
 
 - Write the failing test first.
 - Run the narrowest relevant package tests while iterating.
-- For generator or fuzz-runner changes, add or update `src/fuzz/main_test.mbt` coverage.
+- For generator or fuzz-runner changes, add or update `src/fuzz/main_wbtest.mbt` coverage.
 - For any public API change in `src/validate` or `src/fuzz`, review the generated `.mbti` diff.
 - Before commit for any landed slice, run at minimum:
   - `moon info`
@@ -161,7 +161,7 @@ If that mismatch is not resolved first, every later slice risks updating the wro
 ### Files most likely to change
 
 - [`src/fuzz/main.mbt`](../src/fuzz/main.mbt)
-- [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt)
+- [`src/fuzz/main_wbtest.mbt`](../src/fuzz/main_wbtest.mbt)
 - [`src/fuzz/imports.mbt`](../src/fuzz/imports.mbt)
 - [`scripts/lib/fuzz-task.ts`](../scripts/lib/fuzz-task.ts)
 - wrapper tests under [`scripts/test/`](../scripts/test)
@@ -225,7 +225,7 @@ The next slices need a shared way to say:
 - [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt)
 - [`src/validate/validate.mbt`](../src/validate/validate.mbt)
 - [`src/fuzz/main.mbt`](../src/fuzz/main.mbt)
-- [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt)
+- [`src/fuzz/main_wbtest.mbt`](../src/fuzz/main_wbtest.mbt)
 - generated package interface files if public types are exported
 
 ### Concrete tasks
@@ -309,7 +309,7 @@ Current `gen_valid_module` is topology-poor. It mostly emits a tiny core shape. 
 
 - [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt)
 - [`src/fuzz/main.mbt`](../src/fuzz/main.mbt)
-- [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt)
+- [`src/fuzz/main_wbtest.mbt`](../src/fuzz/main_wbtest.mbt)
 - batch emission logic if default mode selection changes
 
 ### Concrete tasks
@@ -643,7 +643,7 @@ Without explicit feature reporting, generation drift is invisible and later agen
 ### Files most likely to change
 
 - [`src/validate/validate.mbt`](../src/validate/validate.mbt)
-- [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt)
+- [`src/fuzz/main_wbtest.mbt`](../src/fuzz/main_wbtest.mbt)
 - generated package interface files if public stats surfaces change
 
 ### Concrete tasks
@@ -681,12 +681,12 @@ Without explicit feature reporting, generation drift is invisible and later agen
 - The landed floor matrix is intentionally split by profile:
   - `smoke` requires only a curated subset (`imports`, `start`/`no-start`, `tables`, `mems`, `ref_types`, `v128`, direct calls, `call_indirect`, branch-heavy control)
   - `ci` / `stress` require a broader section/export/data/control matrix with stricter counts so dead generator families are visible before the invalid-lane work starts in [`FUZ006`](#fuz006-ast-invalid-mutator-registry-and-diagnostic-accounting)
-- Added focused tests for the new floor-check helper and updated the fixed-seed deterministic stats test so it locks in the resolved floor set as part of the public `validate-valid` result surface. Added fuzz-runner coverage in [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt) that `validate-valid` profile errors still route through the validator runner cleanly.
+- Added focused tests for the new floor-check helper and updated the fixed-seed deterministic stats test so it locks in the resolved floor set as part of the public `validate-valid` result surface. Added fuzz-runner coverage in [`src/fuzz/main_wbtest.mbt`](../src/fuzz/main_wbtest.mbt) that `validate-valid` profile errors still route through the validator runner cleanly.
 
 ### Validation
 
 - `moon test --package jtenner/starshine/validate --file validate.mbt`
-- `moon test --package jtenner/starshine/fuzz --file main_test.mbt`
+- `moon test --package jtenner/starshine/fuzz --file main_wbtest.mbt`
 - `moon info`
 - `moon fmt`
 - `moon test src/validate`
@@ -716,7 +716,7 @@ This was the core missing rejection layer in the current tree. The older docs de
 - [`src/validate/invalid_fuzzer.mbt`](../src/validate/invalid_fuzzer.mbt)
 - [`src/fuzz/main.mbt`](../src/fuzz/main.mbt)
 - [`src/fuzz/imports.mbt`](../src/fuzz/imports.mbt)
-- [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt)
+- [`src/fuzz/main_wbtest.mbt`](../src/fuzz/main_wbtest.mbt)
 - package interfaces/tests
 
 ### Concrete tasks
@@ -827,15 +827,15 @@ AST mutation alone cannot cover malformed section order, bad lengths, malformed 
 
 ### Validation
 
-- Added focused blackbox coverage in [`src/fuzz/invalid_binary_test.mbt`](../src/fuzz/invalid_binary_test.mbt) for:
+- Added focused blackbox coverage in [`src/fuzz/invalid_binary_wbtest.mbt`](../src/fuzz/invalid_binary_wbtest.mbt) for:
   - registry surface and expected-stage labels
   - a deterministic decode-stage rejection (`trailing-garbage`)
   - a deterministic validate-stage rejection (`invalid-func-type-index`)
   - fixed-seed deterministic run stats with both decode and validate buckets exercised
-- Updated [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt) so suite inventory/help and profile-error routing now treat `validate-invalid-binary` as active instead of reserved.
+- Updated [`src/fuzz/main_wbtest.mbt`](../src/fuzz/main_wbtest.mbt) so suite inventory/help and profile-error routing now treat `validate-invalid-binary` as active instead of reserved.
 - Verification run for this slice:
-  - `moon test --package jtenner/starshine/fuzz --file invalid_binary_test.mbt`
-  - `moon test --package jtenner/starshine/fuzz --file main_test.mbt`
+  - `moon test --package jtenner/starshine/fuzz --file invalid_binary_wbtest.mbt`
+  - `moon test --package jtenner/starshine/fuzz --file main_wbtest.mbt`
   - `moon test src/fuzz`
   - `moon test src/validate`
   - `moon run src/fuzz -- validate-invalid-binary smoke --seed 0x5eed`
@@ -910,18 +910,18 @@ Add text-level invalidation and spec-seeded replay so parser/lower/validate reje
 
 ### Validation
 
-- Added focused fuzz-package coverage in [`src/fuzz/invalid_text_test.mbt`](../src/fuzz/invalid_text_test.mbt) for:
+- Added focused fuzz-package coverage in [`src/fuzz/invalid_text_wbtest.mbt`](../src/fuzz/invalid_text_wbtest.mbt) for:
   - inline text strategy registry/stage coverage
   - spec-seed registry/stage coverage
   - fixed-seed deterministic text-lane stats
   - fixed-seed deterministic spec-seed stats
-- Updated [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt) so suite inventory/help and profile-error routing now treat both `validate-invalid-text` and `validate-invalid-spec-seed` as active instead of reserved.
+- Updated [`src/fuzz/main_wbtest.mbt`](../src/fuzz/main_wbtest.mbt) so suite inventory/help and profile-error routing now treat both `validate-invalid-text` and `validate-invalid-spec-seed` as active instead of reserved.
 - Verification run for this slice:
   - `moon info`
   - `moon fmt`
   - `moon test --package jtenner/starshine/wast --file spec_harness.mbt`
-  - `moon test --package jtenner/starshine/fuzz --file invalid_text_test.mbt`
-  - `moon test --package jtenner/starshine/fuzz --file main_test.mbt`
+  - `moon test --package jtenner/starshine/fuzz --file invalid_text_wbtest.mbt`
+  - `moon test --package jtenner/starshine/fuzz --file main_wbtest.mbt`
   - `moon test src/wast`
   - `moon test src/fuzz`
   - `moon test src/validate`
@@ -958,7 +958,7 @@ The cmd fuzz harness already has useful persistence patterns. Invalid fuzz shoul
 - [`src/fuzz/invalid_binary.mbt`](../src/fuzz/invalid_binary.mbt)
 - [`src/fuzz/invalid_text.mbt`](../src/fuzz/invalid_text.mbt)
 - [`src/fuzz/invalid_repro.mbt`](../src/fuzz/invalid_repro.mbt)
-- [`src/fuzz/invalid_repro_test.mbt`](../src/fuzz/invalid_repro_test.mbt)
+- [`src/fuzz/invalid_repro_wbtest.mbt`](../src/fuzz/invalid_repro_wbtest.mbt)
 
 ### Outcome
 
@@ -991,7 +991,7 @@ The cmd fuzz harness already has useful persistence patterns. Invalid fuzz shoul
 
 ### Validation
 
-- Added focused fuzz-package coverage in [`src/fuzz/invalid_repro_test.mbt`](../src/fuzz/invalid_repro_test.mbt) for:
+- Added focused fuzz-package coverage in [`src/fuzz/invalid_repro_wbtest.mbt`](../src/fuzz/invalid_repro_wbtest.mbt) for:
   - deterministic persistence layout and metadata contents
   - metadata parse/load roundtrip from persisted artifacts
   - reduced AST replay
@@ -999,7 +999,7 @@ The cmd fuzz harness already has useful persistence patterns. Invalid fuzz shoul
   - reduced inline-text replay
   - reduced spec-seed replay
 - Verification run for this slice:
-  - `moon test --package jtenner/starshine/fuzz --file invalid_repro_test.mbt`
+  - `moon test --package jtenner/starshine/fuzz --file invalid_repro_wbtest.mbt`
   - `moon test src/fuzz`
   - `moon test src/validate`
   - `moon run src/fuzz -- validate-invalid-ast smoke --seed 0x5eed`
@@ -1048,7 +1048,7 @@ Without a cleanup slice, the repo would end up with widened generators and inval
 
 ### Validation
 
-- `moon test --package jtenner/starshine/fuzz --file main_test.mbt`
+- `moon test --package jtenner/starshine/fuzz --file main_wbtest.mbt`
 - `bun scripts/test/task-family-commands.ts`
 - `moon test src/fuzz`
 - `moon test src/validate`

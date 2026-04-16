@@ -90,5 +90,5 @@ jobs:
         run: |
           moon test --target native \
             -p jtenner/starshine/cmd \
-            -f fuzz_harness_test.mbt \
+            -f fuzz_harness_wbtest.mbt \
             -F "*differential_validate_wasm agrees with installed wasm-tools and binaryen validators*"

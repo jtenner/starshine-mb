@@ -1,6 +1,6 @@
 import {
   "jtenner/starshine/binary" @binary,
-  "jtenner/starshine/cmd" @cmd,
+  "jtenner/starshine/passes" @passes,
   "jtenner/starshine/lib" @lib,
   "jtenner/starshine/fs" @fs,
   "jtenner/starshine/validate" @validate,

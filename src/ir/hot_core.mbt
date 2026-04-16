@@ -87,7 +87,47 @@ pub enum HotOp {
   CatchAll
   Atomic
   Simd
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotOp with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub fn HotOp::br_on_non_null() -> HotOp {
+  BrOnNonNull
+}
+
+///|
+pub fn HotOp::br_on_cast() -> HotOp {
+  BrOnCast
+}
+
+///|
+pub fn HotOp::br_on_cast_fail() -> HotOp {
+  BrOnCastFail
+}
+
+///|
+pub fn HotOp::ref_get_desc() -> HotOp {
+  RefGetDesc
+}
+
+///|
+pub fn HotOp::rethrow() -> HotOp {
+  Rethrow
+}
+
+///|
+pub fn HotOp::catch_() -> HotOp {
+  Catch
+}
+
+///|
+pub fn HotOp::catch_all() -> HotOp {
+  CatchAll
+}
 
 ///|
 pub struct HotNode {
@@ -98,14 +138,24 @@ pub struct HotNode {
   imm1 : Int
   child_base : Int
   child_count : Int
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotNode with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotLocals {
   param_count : Int
   params : Array[ValType]
   locals : Array[ValType]
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotLocals with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn HotLocals::new(
@@ -154,7 +204,12 @@ pub struct HotLabelInfo {
   result_type : TypeId
   owner : NodeId
   branch_arity : Int
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotLabelInfo with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub enum HotConstPayload {
@@ -164,18 +219,33 @@ pub enum HotConstPayload {
   F64Const(F64)
   RefNullConst(RefType)
   StringConst(Bytes)
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotConstPayload with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotMemArg {
   memarg : MemArg
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotMemArg with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotBranchTable {
   targets : Array[LabelId]
   default_target : LabelId
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotBranchTable with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub enum HotCatchArm {
@@ -183,28 +253,58 @@ pub enum HotCatchArm {
   CatchRefArm(TagIdx, LabelId)
   CatchAllArm(LabelId)
   CatchAllRefArm(LabelId)
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotCatchArm with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotCatchInfo {
   catches : Array[HotCatchArm]
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotCatchInfo with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotCallSig {
   type_idx : TypeIdx
   table_idx : TableIdx?
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotCallSig with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub struct HotInstrPayload {
   instr : Instruction
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotInstrPayload with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub enum HotStringBuiltin {
   NewWtf16Array
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotStringBuiltin with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub fn HotStringBuiltin::new_wtf16_array() -> HotStringBuiltin {
+  NewWtf16Array
+}
 
 ///|
 pub struct HotFunc {

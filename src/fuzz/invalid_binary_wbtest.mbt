@@ -1,14 +1,4 @@
 ///|
-using @lib {type Module}
-
-///|
-using @validate {
-  type ValidationIssueFamily,
-  validation_error_diagnostic,
-  validation_issue_family,
-}
-
-///|
 fn invalid_binary_test_validation_family_label(
   family : ValidationIssueFamily,
 ) -> String {

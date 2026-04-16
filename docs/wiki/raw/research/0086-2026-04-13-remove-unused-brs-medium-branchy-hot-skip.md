@@ -4,7 +4,7 @@ status: completed
 last_reviewed: 2026-04-13
 sources:
   - ../../../../src/passes/remove_unused_brs.mbt
-  - ../../../../src/cmd/cmd_test.mbt
+  - ../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../agent-todo.md
 ---
 
@@ -74,7 +74,7 @@ with `Normalized WAT equal: yes` and `Canonical function compare equal: yes`.
 - Added `remove_unused_brs_can_skip_medium_branchy_block_ladder(...)` in `src/passes/remove_unused_brs.mbt`.
 - Hooked it into the lifted front door in `remove_unused_brs_run(...)` with the trace reason:
   - `skip-hot reason=medium-branchy-block-ladder-noop`
-- Added a native artifact-backed regression in `src/cmd/cmd_test.mbt`:
+- Added a native artifact-backed regression in `src/cmd/cmd_wbtest.mbt`:
   - `run_cmd_with_adapter traces remove-unused-brs medium branchy hot skip on extracted debug artifact func 1547`
 
 This keeps the detector anchored to the real canonical artifact instead of only to a reduced fixture.
@@ -84,8 +84,8 @@ This keeps the detector anchored to the real canonical artifact instead of only 
 - `moon fmt`
 - `moon test --package jtenner/starshine/passes --file remove_unused_brs_test.mbt`
   - `91/91` passed
-- `moon test --target native --package jtenner/starshine/cmd --file cmd_test.mbt --filter 'run_cmd_with_adapter traces remove-unused-brs medium branchy hot skip on extracted debug artifact func 1547'`
-- `moon test --target native --package jtenner/starshine/cmd --file cmd_test.mbt --filter 'run_cmd_with_adapter validates remove-unused-brs on debug artifact'`
+- `moon test --target native --package jtenner/starshine/cmd --file cmd_wbtest.mbt --filter 'run_cmd_with_adapter traces remove-unused-brs medium branchy hot skip on extracted debug artifact func 1547'`
+- `moon test --target native --package jtenner/starshine/cmd --file cmd_wbtest.mbt --filter 'run_cmd_with_adapter validates remove-unused-brs on debug artifact'`
 - `bun scripts/pass-fuzz-compare.ts --pass remove-unused-brs --generator gen-valid --count 200 --max-failures 20 --out-dir .tmp/pass-fuzz-rub-genvalid-200-after-medium-branchy-hot-skip`
   - `200/200` compared
   - `0` mismatches

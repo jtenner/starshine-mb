@@ -11,6 +11,7 @@ import {
   "moonbitlang/core/encoding/utf8",
   "moonbitlang/core/env",
   "moonbitlang/core/hashmap",
+  "moonbitlang/core/debug",
   "moonbitlang/core/json",
   "moonbitlang/core/quickcheck/splitmix",
 }

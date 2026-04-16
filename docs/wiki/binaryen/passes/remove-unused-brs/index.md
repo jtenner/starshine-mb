@@ -26,7 +26,7 @@ sources:
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
-  - ../../../../../src/cmd/cmd_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
 related:
   - ./pattern-catalog.md

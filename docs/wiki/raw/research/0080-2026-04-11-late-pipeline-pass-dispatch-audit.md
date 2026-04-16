@@ -31,7 +31,7 @@
 - [`src/passes/simplify_locals.mbt`](../../../../src/passes/simplify_locals.mbt)
 - [`src/passes/optimize_test.mbt`](../../../../src/passes/optimize_test.mbt)
 - [`src/passes/trace_golden_test.mbt`](../../../../src/passes/trace_golden_test.mbt)
-- [`src/cmd/cmd_test.mbt`](../../../../src/cmd/cmd_test.mbt)
+- [`src/cmd/cmd_wbtest.mbt`](../../../../src/cmd/cmd_wbtest.mbt)
 - [`docs/wiki/binaryen/passes/index.md`](../../binaryen/passes/index.md)
 - Wiki landing pages for the listed late-pass names
 

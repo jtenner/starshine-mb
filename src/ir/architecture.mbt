@@ -7,7 +7,12 @@ pub enum HotAnalysis {
   Effects
   LoopInfo
   Ssa
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotAnalysis with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn HotAnalysis::cfg() -> HotAnalysis {
@@ -49,7 +54,12 @@ pub struct HotPassDescriptor {
   name : String
   requires : Array[HotAnalysis]
   invalidates : Array[HotAnalysis]
-} derive(Eq, Debug, Show)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for HotPassDescriptor with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn HotPassDescriptor::new(

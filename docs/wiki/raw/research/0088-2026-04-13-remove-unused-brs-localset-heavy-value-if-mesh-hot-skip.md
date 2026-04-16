@@ -4,7 +4,7 @@ status: completed
 last_reviewed: 2026-04-13
 sources:
   - ../../../../src/passes/remove_unused_brs.mbt
-  - ../../../../src/cmd/cmd_test.mbt
+  - ../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../agent-todo.md
 ---
 
@@ -64,7 +64,7 @@ The key calibration lesson is the same as the last two slices: the landed detect
 - Hooked it into `remove_unused_brs_run(...)` with the trace reason:
   - `skip-hot reason=localset-heavy-value-if-mesh-noop`
 - Kept it after the earlier `call-heavy-mixed-if-mesh-noop` gate so the broader call-heavy slice retains its existing trace reason and coverage.
-- Added a native artifact-backed regression in `src/cmd/cmd_test.mbt`:
+- Added a native artifact-backed regression in `src/cmd/cmd_wbtest.mbt`:
   - `run_cmd_with_adapter traces remove-unused-brs localset-heavy value-if mesh hot skip on extracted debug artifact func 3021`
 
 ## Validation
@@ -72,8 +72,8 @@ The key calibration lesson is the same as the last two slices: the landed detect
 - `moon fmt`
 - `moon test --package jtenner/starshine/passes --file remove_unused_brs_test.mbt`
   - `91/91` passed
-- `moon test --target native --package jtenner/starshine/cmd --file cmd_test.mbt --filter 'run_cmd_with_adapter traces remove-unused-brs call-heavy mixed-if mesh hot skip on extracted debug artifact func 408'`
-- `moon test --target native --package jtenner/starshine/cmd --file cmd_test.mbt --filter 'run_cmd_with_adapter traces remove-unused-brs localset-heavy value-if mesh hot skip on extracted debug artifact func 3021'`
+- `moon test --target native --package jtenner/starshine/cmd --file cmd_wbtest.mbt --filter 'run_cmd_with_adapter traces remove-unused-brs call-heavy mixed-if mesh hot skip on extracted debug artifact func 408'`
+- `moon test --target native --package jtenner/starshine/cmd --file cmd_wbtest.mbt --filter 'run_cmd_with_adapter traces remove-unused-brs localset-heavy value-if mesh hot skip on extracted debug artifact func 3021'`
 - `bun scripts/pass-fuzz-compare.ts --pass remove-unused-brs --generator gen-valid --count 200 --max-failures 20 --out-dir .tmp/pass-fuzz-rub-genvalid-200-after-localset-heavy-value-if-mesh`
   - `200/200` compared
   - `0` mismatches

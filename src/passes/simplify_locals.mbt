@@ -1135,26 +1135,6 @@ fn simplify_locals_region_last_live_non_nop_root_idx(
 }
 
 ///|
-fn simplify_locals_region_prev_live_non_nop_root_idx(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-  before_idx : Int,
-) -> Int? {
-  let mut idx = before_idx - 1
-  while idx >= 0 {
-    let node_id = @ir.hot_region_get(func, region_ref, idx)
-    if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
-      match @ir.hot_node_get(func, node_id).op {
-        @ir.HotOp::Nop => ()
-        _ => return Some(idx)
-      }
-    }
-    idx = idx - 1
-  }
-  None
-}
-
-///|
 fn simplify_locals_region_next_live_non_nop_root_idx(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
