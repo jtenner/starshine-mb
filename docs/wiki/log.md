@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-16] fix | restore the validator AST invalid fuzz lane
+
+- Added `src/validate/invalid_fuzzer.mbt` with a checked-in AST invalid strategy registry, deterministic smoke/ci/stress profile resolution, expected `ValidationIssueFamily` accounting, and per-strategy `attempted` / `applicable` / `mutated` / `rejected` / `rejected_expected` stats.
+- Restored `validate-invalid-ast` as a live `src/fuzz` suite and updated the fuzz runner truth surfaces in `tooling/fuzz-runner.md` so only the still-missing binary/text/spec-seed lanes remain reserved.
+- Updated `validate/fuzz-hardening.md`, `docs/wiki/index.md`, `docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`, and `agent-todo.md` so the validator-fuzz handoff now records `[FUZ]006` as complete and points the next unfinished slice at `[FUZ]007`.
+
 ## [2026-04-16] fix | close the gen-valid-exposed RUME no-op start-section family
 
 - Updated `src/passes/remove_unused_module_elements.mbt` so `RUME` now matches the proved Binaryen no-op `start` rule for defined single-`nop` start targets: it skips `start`-rooted liveness for that exact family, drops `start_sec` during rewrite, and still preserves the nearby empty-body negative boundary.

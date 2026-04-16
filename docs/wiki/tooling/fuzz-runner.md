@@ -27,9 +27,9 @@ related:
 - Bun wrapper: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts)
 - Discovery commands:
   `--help`, `--list-suites`, `--list-profiles`
-- Current active suites are `validate-valid`, `binary-roundtrip`, `wast-roundtrip`, `wat-roundtrip`, and `cmd-harness`.
-- `--list-suites` currently prints an inventory line per suite as `active\t<name>` or `reserved\t<name>` so the future invalid-lane ids are visible without being misrepresented as runnable.
-- The reserved future invalid-lane ids are `validate-invalid-ast`, `validate-invalid-binary`, `validate-invalid-text`, and `validate-invalid-spec-seed`.
+- Current active suites are `validate-valid`, `validate-invalid-ast`, `binary-roundtrip`, `wast-roundtrip`, `wat-roundtrip`, and `cmd-harness`.
+- `--list-suites` currently prints an inventory line per suite as `active\t<name>` or `reserved\t<name>` so the still-missing invalid lanes are visible without being misrepresented as runnable.
+- The remaining reserved future invalid-lane ids are `validate-invalid-binary`, `validate-invalid-text`, and `validate-invalid-spec-seed`.
 
 ## Practical Rule
 

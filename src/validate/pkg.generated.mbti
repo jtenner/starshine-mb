@@ -8,6 +8,8 @@ import {
 }
 
 // Values
+pub fn apply_validate_invalid_ast_strategy(ValidateInvalidAstStrategyId, @lib.Module) -> Result[ValidateInvalidAstMutation, String]
+
 pub fn check_validate_valid_feature_floors(GenValidFeatureStats, Array[ValidateValidFeatureFloor]) -> Array[ValidateValidFeatureFloorFailure]
 
 pub fn default_gen_valid_config() -> GenValidConfig
@@ -33,6 +35,8 @@ pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
 pub fn make_state(Env, Array[@lib.ValType]) -> TcState
 
 pub fn make_state_owned(Env, Array[@lib.ValType]) -> TcState
+
+pub fn run_validate_invalid_ast_fuzz(String, UInt64) -> Result[ValidateInvalidAstFuzzStats, String]
 
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
 
@@ -80,6 +84,10 @@ pub fn validate_globalsec(@lib.GlobalSec?, Env) -> Result[Env, String]
 
 pub fn validate_importsec(@lib.ImportSec?, Env) -> Result[Env, String]
 
+pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec]
+
+pub fn validate_invalid_ast_run_config(String) -> Result[ValidateInvalidAstRunConfig, String]
+
 pub fn validate_memsec(@lib.MemSec?, Env) -> Result[Env, String]
 
 pub fn validate_module(@lib.Module) -> Result[Unit, ValidationError]
@@ -103,6 +111,8 @@ pub fn validation_error_diagnostic(ValidationError) -> ValidationDiagnostic
 pub fn validation_error_func_idx(ValidationError) -> @lib.FuncIdx?
 
 pub fn validation_error_message(ValidationError) -> String
+
+pub fn validation_issue_family(ValidationIssue) -> ValidationIssueFamily
 
 pub fn validation_issue_message(ValidationIssue) -> String
 
@@ -319,6 +329,57 @@ pub struct TcState {
 }
 pub impl Show for TcState
 
+pub struct ValidateInvalidAstFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  generator_config : GenValidConfig
+  required_strategies : Array[ValidateInvalidAstStrategyId]
+  strategy_stats : Array[ValidateInvalidAstStrategyStats]
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidAstMutation {
+  strategy : ValidateInvalidAstStrategyId
+  applicable : Bool
+  expected_family : ValidationIssueFamily
+  mutated_module : @lib.Module
+} derive(@debug.Debug)
+
+pub struct ValidateInvalidAstRunConfig {
+  profile : String
+  attempts : Int
+  generator_config : GenValidConfig
+  required_strategies : Array[ValidateInvalidAstStrategyId]
+} derive(Eq, @debug.Debug)
+
+pub enum ValidateInvalidAstStrategyId {
+  DuplicateExportName
+  InvalidStartSignature
+  MissingDataCount
+  UndeclaredRefFunc
+  InvalidNameSectionFuncIndex
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidAstStrategySpec {
+  id : ValidateInvalidAstStrategyId
+  stable_id : String
+  display_name : String
+  layer : String
+  expected_family : ValidationIssueFamily
+  required_in_smoke : Bool
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidAstStrategyStats {
+  strategy : ValidateInvalidAstStrategyId
+  stable_id : String
+  expected_family : ValidationIssueFamily
+  attempted : Int
+  applicable : Int
+  mutated : Int
+  rejected : Int
+  rejected_expected : Int
+} derive(Eq, @debug.Debug)
+
 pub struct ValidateValidFeatureFloor {
   key : ValidateValidFeatureKey
   min_count : Int
@@ -395,6 +456,24 @@ pub enum ValidationIssue {
   FunctionBody(String)
 } derive(Eq, @debug.Debug)
 pub impl Show for ValidationIssue
+
+pub enum ValidationIssueFamily {
+  TypeSectionFamily
+  ImportSectionFamily
+  FunctionSectionFamily
+  TableSectionFamily
+  MemorySectionFamily
+  TagSectionFamily
+  GlobalSectionFamily
+  ElementSectionFamily
+  DataSectionFamily
+  DataCountSectionFamily
+  StartSectionFamily
+  ExportSectionFamily
+  CodeSectionFamily
+  NameSectionFamily
+  FunctionBodyFamily
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 pub type TcResult = Result[TcState, String]

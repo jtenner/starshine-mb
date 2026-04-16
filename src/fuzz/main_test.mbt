@@ -153,14 +153,15 @@ test "emit_gen_valid_batch_artifacts matches the pinned coverage-forced generato
 ///|
 test "fuzz suite inventory separates active and reserved suite ids" {
   assert_eq(fuzz_active_suite_names(), [
-    "wast-roundtrip", "wat-roundtrip", "validate-valid", "binary-roundtrip", "cmd-harness",
+    "wast-roundtrip", "wat-roundtrip", "validate-valid", "validate-invalid-ast",
+    "binary-roundtrip", "cmd-harness",
   ])
   assert_eq(fuzz_reserved_suite_names(), [
-    "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text", "validate-invalid-spec-seed",
+    "validate-invalid-binary", "validate-invalid-text", "validate-invalid-spec-seed",
   ])
   assert_eq(fuzz_suite_inventory_lines(), [
     "active\twast-roundtrip", "active\twat-roundtrip", "active\tvalidate-valid",
-    "active\tbinary-roundtrip", "active\tcmd-harness", "reserved\tvalidate-invalid-ast",
+    "active\tvalidate-invalid-ast", "active\tbinary-roundtrip", "active\tcmd-harness",
     "reserved\tvalidate-invalid-binary", "reserved\tvalidate-invalid-text", "reserved\tvalidate-invalid-spec-seed",
   ])
 }
@@ -170,12 +171,12 @@ test "fuzz usage text distinguishes active and reserved suites" {
   let usage = fuzz_usage_text()
   assert_true(
     usage.contains(
-      "active suites: wast-roundtrip, wat-roundtrip, validate-valid, binary-roundtrip, cmd-harness",
+      "active suites: wast-roundtrip, wat-roundtrip, validate-valid, validate-invalid-ast, binary-roundtrip, cmd-harness",
     ),
   )
   assert_true(
     usage.contains(
-      "reserved suite ids: validate-invalid-ast, validate-invalid-binary, validate-invalid-text, validate-invalid-spec-seed",
+      "reserved suite ids: validate-invalid-binary, validate-invalid-text, validate-invalid-spec-seed",
     ),
   )
   assert_true(usage.contains("coverage-forced batch"))
@@ -199,12 +200,12 @@ test "format_fuzz_suite_result supports jsonl output" {
 }
 
 ///|
-test "run_fuzz_suite reports reserved invalid suite ids clearly" {
-  match run_fuzz_suite("validate-invalid-ast", "smoke", 0x5eedL) {
-    Ok(_) => fail("expected reserved suite error")
+test "run_fuzz_suite routes validate-invalid-ast profile errors through the AST invalid runner" {
+  match run_fuzz_suite("validate-invalid-ast", "not-a-profile", 0x5eedL) {
+    Ok(_) => fail("expected validate-invalid-ast profile error")
     Err(msg) => {
-      assert_true(msg.contains("validate-invalid-ast"))
-      assert_true(msg.contains("reserved"))
+      assert_true(msg.contains("unknown validate-invalid-ast fuzz profile"))
+      assert_false(msg.contains("reserved"))
       assert_false(msg.contains("unknown suite"))
     }
   }

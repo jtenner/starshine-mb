@@ -32,10 +32,10 @@
   - `wast-roundtrip`
   - `wat-roundtrip`
   - `validate-valid`
+  - `validate-invalid-ast`
   - `binary-roundtrip`
   - `cmd-harness`
-- `src/fuzz/main.mbt` also reserves these accepted-but-not-yet-runnable suite ids for the later rejection lanes, and reports them as reserved in help/list output instead of pretending they are live:
-  - `validate-invalid-ast`
+- `src/fuzz/main.mbt` now reserves only the still-missing validator rejection lanes, and reports them as reserved in help/list output instead of pretending they are live:
   - `validate-invalid-binary`
   - `validate-invalid-text`
   - `validate-invalid-spec-seed`
@@ -707,20 +707,22 @@ Without explicit feature reporting, generation drift is invisible and later agen
 
 **Slice id:** `[FUZ]006`
 
+**Status:** completed 2026-04-16.
+
 ### Goal
 
 Reintroduce an explicit AST-level invalid/rejection fuzz engine with honest per-strategy accounting.
 
 ### Why
 
-This is the core missing rejection layer in the current tree. The older docs describe it, but the code is gone from this workspace.
+This was the core missing rejection layer in the current tree. The older docs described it, but the code was gone from this workspace until this slice restored an active AST lane.
 
 ### Files most likely to change
 
-- likely a new [`src/validate/invalid_fuzzer.mbt`](../src/validate)
+- [`src/validate/invalid_fuzzer.mbt`](../src/validate/invalid_fuzzer.mbt)
 - [`src/fuzz/main.mbt`](../src/fuzz/main.mbt)
 - [`src/fuzz/imports.mbt`](../src/fuzz/imports.mbt)
-- [`src/validate/validate.mbt`](../src/validate/validate.mbt) only if new tests expose validator issues
+- [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt)
 - package interfaces/tests
 
 ### Concrete tasks
@@ -752,16 +754,39 @@ This is the core missing rejection layer in the current tree. The older docs des
   - `call_indirect` mismatch once valid generation can seed the family
 - Make required strategies fail the suite if they are never exercised.
 
+### Outcome
+
+- Added a new public AST invalid-fuzz engine in [`src/validate/invalid_fuzzer.mbt`](../src/validate/invalid_fuzzer.mbt) with one checked-in registry driving the current strategy ids, stable names, layer tag, expected diagnostic families, smoke-required set, and fixed profile ladder.
+- Restored `validate-invalid-ast` as a real active fuzz suite in [`src/fuzz/main.mbt`](../src/fuzz/main.mbt) instead of leaving it reserved, while keeping `validate-invalid-binary`, `validate-invalid-text`, and `validate-invalid-spec-seed` explicitly reserved for the later slices.
+- Landed honest per-strategy accounting in `run_validate_invalid_ast_fuzz(...)` with deterministic stats for:
+  - attempted
+  - applicable
+  - mutated
+  - rejected
+  - rejected-with-expected-family
+- The initial curated AST strategy set now exercises and checks these exact high-value families on every smoke run:
+  - duplicate export names
+  - invalid start signature
+  - missing datacount for `memory.init`
+  - undeclared `ref.func`
+  - out-of-range function indices in the structured name section
+- The runner now fails if any required smoke strategy never becomes applicable, never mutates, or never reaches its expected diagnostic family, instead of treating any rejection as good enough.
+- The mutators intentionally start from widened `coverage-forced` valid modules and then add the smallest targeted invalidating rewrite needed for the strategy, so this slice restores the AST rejection lane without rebiasing the main broad valid generator path.
+
 ### Validation
 
-- dedicated unit tests proving selected strategies really mutate the module and map to the intended diagnostic family
-- `moon run src/fuzz -- validate-invalid-ast smoke --seed 0x5eed` once suite exists
-- smoke profile must exercise a curated required subset on every run
+- Added dedicated validate-package tests proving the curated strategies really mutate a fixed-seed valid module and reject with the intended diagnostic family (`ExportSection`, `StartSection`, `FunctionBody`, or `NameSection` as appropriate).
+- Added a fixed-seed deterministic stats test for `run_validate_invalid_ast_fuzz("smoke", 0x5eed)` that requires every landed strategy to record non-zero attempted/applicable/mutated/rejected/rejected-with-expected-family counts.
+- Updated fuzz-package coverage so suite inventory/help now treats `validate-invalid-ast` as active and routes profile errors through the AST invalid runner instead of the old reserved-suite message.
+- `moon test src/validate`
+- `moon test src/fuzz`
+- `moon run src/fuzz -- validate-invalid-ast smoke --seed 0x5eed`
 
 ### Exit criteria
 
 - The tree has a real AST invalid fuzz lane again.
 - Coverage accounting is strategy-aware and diagnostic-aware rather than just “got some error”.
+- `[FUZ]007` is now the next unfinished validator fuzz slice.
 
 ---
 
