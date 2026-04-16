@@ -636,6 +636,8 @@ Topology alone will not exercise much validator logic if bodies still only emit 
 
 **Slice id:** `[FUZ]005`
 
+**Status:** completed 2026-04-16.
+
 ### Goal
 
 Make generator breadth measurable so the new wider generator cannot silently regress back into a narrow shape.
@@ -646,9 +648,9 @@ Without explicit feature reporting, generation drift is invisible and later agen
 
 ### Files most likely to change
 
-- [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt)
-- [`src/fuzz/main.mbt`](../src/fuzz/main.mbt)
-- exported stats surfaces if needed
+- [`src/validate/validate.mbt`](../src/validate/validate.mbt)
+- [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt)
+- generated package interface files if public stats surfaces change
 
 ### Concrete tasks
 
@@ -670,6 +672,34 @@ Without explicit feature reporting, generation drift is invisible and later agen
 
 - A broken generator mode or dead feature family can no longer pass invisibly.
 - Feature breadth is visible in stats rather than inferred from hope.
+
+### Outcome
+
+- Extended [`src/validate/validate.mbt`](../src/validate/validate.mbt) with a public machine-readable coverage-floor surface for `validate-valid` runs:
+  - `ValidateValidFeatureKey`
+  - `ValidateValidFeatureFloor`
+  - `ValidateValidFeatureFloorFailure`
+  - `validate_valid_feature_actual_count(...)`
+  - `check_validate_valid_feature_floors(...)`
+- `ValidateValidRunConfig` now resolves per-profile coverage floors alongside the generator config, so the profile ladder owns both generation budgets and minimum required breadth facts in one place.
+- `ValidateValidFuzzStats` now carries the resolved coverage floors with the aggregated `GenValidFeatureStats`, making the success surface explicit about both observed breadth and what the run required.
+- `run_validate_valid_fuzz(...)` now fails with a detailed floor-miss error if the required curated feature families do not clear their per-profile minimums, instead of only checking that generated modules validate.
+- The landed floor matrix is intentionally split by profile:
+  - `smoke` requires only a curated subset (`imports`, `start`/`no-start`, `tables`, `mems`, `ref_types`, `v128`, direct calls, `call_indirect`, branch-heavy control)
+  - `ci` / `stress` require a broader section/export/data/control matrix with stricter counts so dead generator families are visible before the invalid-lane work starts in [`FUZ006`](#fuz006-ast-invalid-mutator-registry-and-diagnostic-accounting)
+- Added focused tests for the new floor-check helper and updated the fixed-seed deterministic stats test so it locks in the resolved floor set as part of the public `validate-valid` result surface. Added fuzz-runner coverage in [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt) that `validate-valid` profile errors still route through the validator runner cleanly.
+
+### Validation
+
+- `moon test --package jtenner/starshine/validate --file validate.mbt`
+- `moon test --package jtenner/starshine/fuzz --file main_test.mbt`
+- `moon info`
+- `moon fmt`
+- `moon test src/validate`
+- `moon test src/fuzz`
+- `moon test`
+- `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`
+- `moon run src/fuzz -- validate-valid ci --seed 0x5eed`
 
 ---
 

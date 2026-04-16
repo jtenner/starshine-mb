@@ -8,6 +8,8 @@ import {
 }
 
 // Values
+pub fn check_validate_valid_feature_floors(GenValidFeatureStats, Array[ValidateValidFeatureFloor]) -> Array[ValidateValidFeatureFloorFailure]
+
 pub fn default_gen_valid_config() -> GenValidConfig
 
 pub fn descriptor_compatible(@lib.RefType, @lib.RefType, Env) -> Bool
@@ -91,6 +93,8 @@ pub fn validate_tablesec(@lib.TableSec?, Env) -> Result[Env, String]
 pub fn validate_tagsec(@lib.TagSec?, Env) -> Result[Env, String]
 
 pub fn validate_typesec(@lib.TypeSec?, Env) -> Result[Env, String]
+
+pub fn validate_valid_feature_actual_count(GenValidFeatureStats, ValidateValidFeatureKey) -> Int
 
 pub fn validate_valid_run_config(String) -> Result[ValidateValidRunConfig, String]
 
@@ -315,6 +319,40 @@ pub struct TcState {
 }
 pub impl Show for TcState
 
+pub struct ValidateValidFeatureFloor {
+  key : ValidateValidFeatureKey
+  min_count : Int
+} derive(Eq, Show, @debug.Debug)
+
+pub struct ValidateValidFeatureFloorFailure {
+  key : ValidateValidFeatureKey
+  min_count : Int
+  actual_count : Int
+} derive(Eq, Show, @debug.Debug)
+
+pub enum ValidateValidFeatureKey {
+  Imports
+  FuncExports
+  TableExports
+  MemExports
+  GlobalExports
+  TagExports
+  Starts
+  LacksStart
+  Tables
+  Mems
+  Globals
+  Tags
+  Elems
+  Datas
+  DataCount
+  RefTypes
+  V128
+  Calls
+  CallIndirect
+  BranchHeavyControl
+} derive(Eq, Show, @debug.Debug)
+
 pub struct ValidateValidFuzzStats {
   profile : String
   seed : UInt64
@@ -322,12 +360,14 @@ pub struct ValidateValidFuzzStats {
   validated : Int
   generator_config : GenValidConfig
   feature_stats : GenValidFeatureStats
+  feature_floors : Array[ValidateValidFeatureFloor]
 } derive(Eq, Show, @debug.Debug)
 
 pub struct ValidateValidRunConfig {
   profile : String
   attempts : Int
   generator_config : GenValidConfig
+  feature_floors : Array[ValidateValidFeatureFloor]
 } derive(Eq, Show, @debug.Debug)
 
 pub struct ValidationDiagnostic {

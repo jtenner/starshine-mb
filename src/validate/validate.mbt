@@ -3251,6 +3251,44 @@ pub struct ValidateValidRunConfig {
   profile : String
   attempts : Int
   generator_config : GenValidConfig
+  feature_floors : Array[ValidateValidFeatureFloor]
+} derive(Eq, Show, Debug)
+
+///|
+pub enum ValidateValidFeatureKey {
+  Imports
+  FuncExports
+  TableExports
+  MemExports
+  GlobalExports
+  TagExports
+  Starts
+  LacksStart
+  Tables
+  Mems
+  Globals
+  Tags
+  Elems
+  Datas
+  DataCount
+  RefTypes
+  V128
+  Calls
+  CallIndirect
+  BranchHeavyControl
+} derive(Eq, Show, Debug)
+
+///|
+pub struct ValidateValidFeatureFloor {
+  key : ValidateValidFeatureKey
+  min_count : Int
+} derive(Eq, Show, Debug)
+
+///|
+pub struct ValidateValidFeatureFloorFailure {
+  key : ValidateValidFeatureKey
+  min_count : Int
+  actual_count : Int
 } derive(Eq, Show, Debug)
 
 ///|
@@ -3261,7 +3299,171 @@ pub struct ValidateValidFuzzStats {
   validated : Int
   generator_config : GenValidConfig
   feature_stats : GenValidFeatureStats
+  feature_floors : Array[ValidateValidFeatureFloor]
 } derive(Eq, Show, Debug)
+
+///|
+fn validate_valid_feature_floor(
+  key : ValidateValidFeatureKey,
+  min_count : Int,
+) -> ValidateValidFeatureFloor {
+  { key, min_count }
+}
+
+///|
+pub fn validate_valid_feature_actual_count(
+  stats : GenValidFeatureStats,
+  key : ValidateValidFeatureKey,
+) -> Int {
+  match key {
+    Imports => stats.imports
+    FuncExports => stats.func_exports
+    TableExports => stats.table_exports
+    MemExports => stats.mem_exports
+    GlobalExports => stats.global_exports
+    TagExports => stats.tag_exports
+    Starts => stats.starts
+    LacksStart => stats.lacks_start
+    Tables => stats.tables
+    Mems => stats.mems
+    Globals => stats.globals
+    Tags => stats.tags
+    Elems => stats.elems
+    Datas => stats.datas
+    DataCount => stats.data_count
+    RefTypes => stats.ref_types
+    V128 => stats.v128
+    Calls => stats.calls
+    CallIndirect => stats.call_indirect
+    BranchHeavyControl => stats.branch_heavy_control
+  }
+}
+
+///|
+pub fn check_validate_valid_feature_floors(
+  stats : GenValidFeatureStats,
+  floors : Array[ValidateValidFeatureFloor],
+) -> Array[ValidateValidFeatureFloorFailure] {
+  let failures : Array[ValidateValidFeatureFloorFailure] = []
+  for floor in floors {
+    let actual_count = validate_valid_feature_actual_count(stats, floor.key)
+    if actual_count < floor.min_count {
+      failures.push({ key: floor.key, min_count: floor.min_count, actual_count })
+    }
+  }
+  failures
+}
+
+///|
+fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
+  match key {
+    Imports => "imports"
+    FuncExports => "func_exports"
+    TableExports => "table_exports"
+    MemExports => "mem_exports"
+    GlobalExports => "global_exports"
+    TagExports => "tag_exports"
+    Starts => "starts"
+    LacksStart => "lacks_start"
+    Tables => "tables"
+    Mems => "mems"
+    Globals => "globals"
+    Tags => "tags"
+    Elems => "elems"
+    Datas => "datas"
+    DataCount => "data_count"
+    RefTypes => "ref_types"
+    V128 => "v128"
+    Calls => "calls"
+    CallIndirect => "call_indirect"
+    BranchHeavyControl => "branch_heavy_control"
+  }
+}
+
+///|
+fn validate_valid_feature_floor_failures_message(
+  failures : Array[ValidateValidFeatureFloorFailure],
+) -> String {
+  let out = StringBuilder::new()
+  let mut i = 0
+  while i < failures.length() {
+    if i > 0 {
+      out.write_string(", ")
+    }
+    let failure = failures[i]
+    out.write_string(
+      "\{validate_valid_feature_key_label(failure.key)} actual=\{failure.actual_count} min=\{failure.min_count}",
+    )
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn validate_valid_feature_floors_for_profile(
+  normalized : String,
+) -> Array[ValidateValidFeatureFloor] {
+  match normalized {
+    "smoke" =>
+      [
+        validate_valid_feature_floor(Imports, 1),
+        validate_valid_feature_floor(Starts, 1),
+        validate_valid_feature_floor(LacksStart, 1),
+        validate_valid_feature_floor(Tables, 1),
+        validate_valid_feature_floor(Mems, 1),
+        validate_valid_feature_floor(RefTypes, 1),
+        validate_valid_feature_floor(V128, 1),
+        validate_valid_feature_floor(Calls, 1),
+        validate_valid_feature_floor(CallIndirect, 1),
+        validate_valid_feature_floor(BranchHeavyControl, 1),
+      ]
+    "ci" =>
+      [
+        validate_valid_feature_floor(Imports, 100),
+        validate_valid_feature_floor(TableExports, 100),
+        validate_valid_feature_floor(MemExports, 100),
+        validate_valid_feature_floor(GlobalExports, 250),
+        validate_valid_feature_floor(TagExports, 50),
+        validate_valid_feature_floor(Starts, 50),
+        validate_valid_feature_floor(LacksStart, 500),
+        validate_valid_feature_floor(Tables, 100),
+        validate_valid_feature_floor(Mems, 100),
+        validate_valid_feature_floor(Globals, 250),
+        validate_valid_feature_floor(Tags, 50),
+        validate_valid_feature_floor(Elems, 25),
+        validate_valid_feature_floor(Datas, 25),
+        validate_valid_feature_floor(DataCount, 25),
+        validate_valid_feature_floor(RefTypes, 500),
+        validate_valid_feature_floor(V128, 500),
+        validate_valid_feature_floor(Calls, 500),
+        validate_valid_feature_floor(CallIndirect, 100),
+        validate_valid_feature_floor(BranchHeavyControl, 250),
+      ]
+    "stress" =>
+      [
+        validate_valid_feature_floor(Imports, 2000),
+        validate_valid_feature_floor(TableExports, 2000),
+        validate_valid_feature_floor(MemExports, 2000),
+        validate_valid_feature_floor(GlobalExports, 5000),
+        validate_valid_feature_floor(TagExports, 1000),
+        validate_valid_feature_floor(Starts, 1000),
+        validate_valid_feature_floor(LacksStart, 10000),
+        validate_valid_feature_floor(Tables, 2000),
+        validate_valid_feature_floor(Mems, 2000),
+        validate_valid_feature_floor(Globals, 5000),
+        validate_valid_feature_floor(Tags, 1000),
+        validate_valid_feature_floor(Elems, 500),
+        validate_valid_feature_floor(Datas, 500),
+        validate_valid_feature_floor(DataCount, 500),
+        validate_valid_feature_floor(RefTypes, 10000),
+        validate_valid_feature_floor(V128, 10000),
+        validate_valid_feature_floor(Calls, 10000),
+        validate_valid_feature_floor(CallIndirect, 2000),
+        validate_valid_feature_floor(BranchHeavyControl, 5000),
+      ]
+    _ => abort("unreachable validate-valid profile")
+  }
+}
 
 ///|
 pub fn validate_valid_run_config(
@@ -3301,7 +3503,13 @@ pub fn validate_valid_run_config(
       }
     _ => abort("unreachable validate-valid profile")
   }
-  Ok(ValidateValidRunConfig::{ profile: normalized, attempts, generator_config })
+  let feature_floors = validate_valid_feature_floors_for_profile(normalized)
+  Ok(ValidateValidRunConfig::{
+    profile: normalized,
+    attempts,
+    generator_config,
+    feature_floors,
+  })
 }
 
 ///|
@@ -3316,6 +3524,7 @@ pub fn run_validate_valid_fuzz(
   let normalized = run_config.profile
   let attempts = run_config.attempts
   let generator_config = run_config.generator_config
+  let feature_floors = run_config.feature_floors
   let rnd = @splitmix.new(seed~)
   let mut validated = 0
   let mut iteration = 0
@@ -3338,6 +3547,14 @@ pub fn run_validate_valid_fuzz(
       continue n - 1
     }
   }
+  let floor_failures = check_validate_valid_feature_floors(
+    feature_stats, feature_floors,
+  )
+  if !floor_failures.is_empty() {
+    return Err(
+      "validate-valid fuzz feature floors failed: profile=\{normalized} seed=\{seed} \{validate_valid_feature_floor_failures_message(floor_failures)}",
+    )
+  }
   Ok(ValidateValidFuzzStats::{
     profile: normalized,
     seed,
@@ -3345,6 +3562,7 @@ pub fn run_validate_valid_fuzz(
     validated,
     generator_config,
     feature_stats,
+    feature_floors,
   })
 }
 
@@ -3538,6 +3756,31 @@ test "validate_valid_run_config returns profile attempts and generator config" {
     stress.generator_config.max_body_statements >=
     ci.generator_config.max_body_statements,
   )
+  assert_true(smoke.feature_floors.length() > 0)
+  assert_true(ci.feature_floors.length() >= smoke.feature_floors.length())
+  assert_true(stress.feature_floors.length() >= ci.feature_floors.length())
+}
+
+///|
+test "check_validate_valid_feature_floors reports unmet minimums" {
+  let floors = [
+    { key: Imports, min_count: 2 },
+    { key: FuncExports, min_count: 4 },
+    { key: Calls, min_count: 1 },
+    { key: BranchHeavyControl, min_count: 3 },
+  ]
+  let stats = {
+    ..GenValidFeatureStats::empty(Natural),
+    modules: 4,
+    imports: 1,
+    func_exports: 4,
+    calls: 1,
+    branch_heavy_control: 0,
+  }
+  assert_eq(check_validate_valid_feature_floors(stats, floors), [
+    { key: Imports, min_count: 2, actual_count: 1 },
+    { key: BranchHeavyControl, min_count: 3, actual_count: 0 },
+  ])
 }
 
 ///|
@@ -3563,6 +3806,13 @@ test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
   assert_eq(first.validated, 128)
   assert_eq(first.generator_config.mode, Natural)
   assert_eq(first.feature_stats.mode, Natural)
+  assert_eq(
+    first.feature_floors,
+    match validate_valid_run_config("smoke") {
+      Ok(v) => v.feature_floors
+      Err(msg) => fail(msg)
+    },
+  )
   assert_eq(first.feature_stats.modules, 128)
   assert_eq(first.feature_stats.func_exports, 128)
   assert_true(first.feature_stats.imports > 0)

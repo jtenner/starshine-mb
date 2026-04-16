@@ -228,3 +228,14 @@ test "run_fuzz_suite routes binary-roundtrip to binary runner" {
     }
   }
 }
+
+///|
+test "run_fuzz_suite routes validate-valid profile errors through the validator runner" {
+  match run_fuzz_suite("validate-valid", "not-a-profile", 0x5eedL) {
+    Ok(_) => fail("expected validate-valid profile error")
+    Err(msg) => {
+      assert_true(msg.contains("unknown validate-valid fuzz profile"))
+      assert_false(msg.contains("unknown suite"))
+    }
+  }
+}
