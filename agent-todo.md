@@ -7,6 +7,34 @@
 - Keep each slice actionable enough to implement directly without re-deriving the architecture.
 - Move completed work to `CHANGELOG.md`.
 
+## CLI Startup Performance Cleanup (Active Slice)
+
+### Slice out startup-path cleanup work from CLI audit
+
+- [PRF001] Short-circuit help/version execution before config/env merge - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - Move `--help`, `--version`, and `--spec` early-return paths ahead of config resolution so startup avoids file I/O and config JSON parse on fast path.
+
+- [PRF002] Cache pass registry lookup data in hot CLI/pipeline paths - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - Replace repeated `pass_registry_lookup` array reconstruction with an indexed/static cache and reuse it for pass resolution in `cmd_resolve_pipeline_steps` and help text emission.
+
+- [PRF003] Refactor `parse_olevel_text` to avoid full parser recursion - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - Parse `O*`/`-O*` values directly from raw strings for config/env/CLI paths, and remove `parse_cli_args([flag])` from this helper.
+
+- [PRF004] Reduce startup allocations in parser helper functions - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - Audit `trim().to_string()`, `ascii_lower`, and split/loop parsers in `src/cli/cli.mbt` and `src/cmd/cmd.mbt` to avoid repeated temporary string creation for short flags/env/config values.
+
+- [PRF005] Rework glob expansion to avoid O(P×C) repeated scans - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - Reduce per-pattern full candidate rescans and avoid repeated normalization/matching work in `expand_globs`/`glob_match` for startup `--glob` workflows.
+
+- [PRF006] Add path-normalization caching for startup path handling - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - Cache normalized path values in argument/config/env flows and avoid duplicate `normalize_cli_path` passes inside glob matching and target resolution.
+
+- [PRF007] Lazy-load environment overlay and tighten startup help-text path - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - Only read env vars and build pass lists when those layers affect active execution mode, and cache help text/pass-list rendering for one-time startup use.
+
+- [PRF008] Remove tiny hot-path string churn in suffix/dispatch checks - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - Replace per-character `to_string()` suffix comparisons and other char-by-char allocation patterns with cheap scalar comparisons.
+
 ## Current Parity Focus
 - `simplify-locals` is back to a green source-level validation baseline on this branch:
   - `moon test src/passes`
