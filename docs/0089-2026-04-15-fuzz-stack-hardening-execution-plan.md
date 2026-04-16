@@ -471,13 +471,15 @@ Exact case write-up:
 
 **Slice id:** `[FUZ]003B`
 
+**Status:** completed 2026-04-16.
+
 ### Goal
 
 Close the next deterministic `remove-unused-module-elements` mismatch family still exposed by the widened `coverage-forced` `gen-valid` batch after [`FUZ003A`](#fuz003a-gen-valid-rume-imported-function-parity-follow-up).
 
 ### Why before `FUZ004`
 
-The widened topology baseline is now good enough to expose a second exact `RUME` parity family on the same small smoke lane. Before widening body generation further, the fuzz stack should either close that known deterministic mismatch or document a proven blocker with exact saved repros.
+The widened topology baseline was good enough to expose a second exact `RUME` parity family on the same small smoke lane. Closing that known deterministic mismatch before widening body generation again keeps the valid-generator baseline clean instead of carrying a known downstream compare-pass hole into broader fuzz work.
 
 ### Exact trigger
 
@@ -485,7 +487,7 @@ Focused smoke rerun after the imported-function fix:
 
 - `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003a-genvalid-smoke`
 
-Observed result:
+Observed result before this slice:
 
 - `comparedCount=20`
 - `normalizedMatchCount=18`
@@ -503,37 +505,41 @@ Exact case write-up:
 
 - [`docs/wiki/raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md`](./wiki/raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md)
 
-### What the repros show
+### Outcome
 
-- The imported-function family from [`FUZ003A`](#fuz003a-gen-valid-rume-imported-function-parity-follow-up) is already gone.
-- In both remaining saved cases, Binaryen and Starshine keep the same live function, exports, elem segment, table, memory, global, tag, and data surface.
-- The visible normalized difference is only the `start` section: Binaryen drops it while Starshine still preserves it.
-- Both saved `start` targets normalize to nullary no-op functions, but the exact upstream drop preconditions are not yet proven beyond those saved cases.
-
-### Files most likely to change
-
-- [`src/passes/remove_unused_module_elements.mbt`](../src/passes/remove_unused_module_elements.mbt)
-- [`src/passes/remove_unused_module_elements_test.mbt`](../src/passes/remove_unused_module_elements_test.mbt)
-- this handoff doc and [`agent-todo.md`](../agent-todo.md) for follow-up state
-
-### Concrete tasks
-
-- Add focused `start`-section regressions beside the existing imported-element `RUME` tests.
-- Reduce the positive boundary plus at least one nearby negative boundary so the kept rule is explicit instead of guessed from the smoke output.
-- Make `RUME` match the exact proved Binaryen behavior for this `start`-section family without broadening into observable `start`-function deletion.
-- Re-run the small `gen-valid` compare-pass smoke to prove the family is gone before resuming broader fuzz widening.
+- Added focused `start`-section regressions in [`src/passes/remove_unused_module_elements_test.mbt`](../src/passes/remove_unused_module_elements_test.mbt) for:
+  - a surviving exported + elem-linked nullary `nop` start function
+  - the same family with locals still present
+  - the nearby negative boundary where an empty-body start must remain
+  - a start-only `nop` function that Binaryen removes entirely once `start` stops keeping it alive
+- Updated [`src/passes/remove_unused_module_elements.mbt`](../src/passes/remove_unused_module_elements.mbt) so `RUME` now matches the proved Binaryen rule for this family:
+  - treat `start` as removable only when it targets a **defined** function whose body is exactly a single `nop`
+  - ignore local declarations when checking that exact body shape
+  - skip `start`-rooted liveness for that exact family, so a start-only single-`nop` function disappears entirely while otherwise-live exported/elem-linked functions remain
+  - suppress the rewritten `start_sec` in the final module whenever that exact family is detected
+- The imported-function follow-up from [`FUZ003A`](#fuz003a-gen-valid-rume-imported-function-parity-follow-up) remains intact; its focused regression now correctly expects the remapped live function to stay while the now-no-op `start` section disappears.
+- The follow-up smoke lane is now clean again, so [`FUZ004`](#fuz004-environment-aware-body-generation-and-type-widening) can resume from a widened topology baseline without this deterministic `RUME` parity hole.
 
 ### Validation
 
+- `moon info`
+- `moon fmt`
+- `moon test --package jtenner/starshine/passes --file remove_unused_module_elements_test.mbt`
 - `moon test src/passes`
-- `moon test src/cmd` if CLI-facing replay coverage changes
 - `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003b-genvalid-smoke`
+  - `comparedCount=20`
+  - `normalizedMatchCount=20`
+  - `mismatchCount=0`
+  - `validationFailureCount=0`
+  - `generatorFailureCount=0`
+  - `commandFailureCount=0`
+- `moon test`
 
 ### Exit criteria
 
-- The saved `case-000002-gen-valid` and `case-000020-gen-valid` repros match Binaryen.
+- The saved `case-000002-gen-valid` and `case-000020-gen-valid` repros now match Binaryen.
 - The follow-up smoke no longer reports this `start`-section-only mismatch family.
-- `FUZ004` can resume from a widened topology baseline without carrying this next deterministic `RUME` compare-pass hole.
+- `FUZ004` is now the next unfinished fuzz-stack slice.
 
 ---
 

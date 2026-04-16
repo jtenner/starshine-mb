@@ -255,6 +255,42 @@ fn rume_defined_tag_count(mod_ : @lib.Module) -> Int {
 }
 
 ///|
+fn rume_lookup_defined_func(
+  mod_ : @lib.Module,
+  idx : @lib.FuncIdx,
+) -> @lib.Func? {
+  let @lib.FuncIdx(raw_idx) = idx
+  let def_idx = raw_idx.reinterpret_as_int() - rume_imported_func_count(mod_)
+  if def_idx < 0 {
+    return None
+  }
+  match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.get(def_idx)
+    None => None
+  }
+}
+
+///|
+fn rume_func_body_is_single_nop(func_ : @lib.Func) -> Bool {
+  match func_ {
+    @lib.Func(_, @lib.Expr([@lib.Nop])) => true
+    _ => false
+  }
+}
+
+///|
+fn rume_has_binaryen_noop_start_sec(mod_ : @lib.Module) -> Bool {
+  match mod_.start_sec {
+    Some(@lib.StartSec(func_idx)) =>
+      match rume_lookup_defined_func(mod_, func_idx) {
+        Some(func_) => rume_func_body_is_single_nop(func_)
+        None => false
+      }
+    None => false
+  }
+}
+
+///|
 fn rume_mark_func(
   queue : Array[RumeItem],
   used_funcs : @bitset.BitSet,
@@ -844,10 +880,14 @@ fn rume_collect_liveness_with_import_parent_policy(
   let table_to_elems = rume_build_table_to_elem_map(used_tables.length(), mod_)
   let mem_to_datas = rume_build_mem_to_data_map(used_mems.length(), mod_)
   let queue : Array[RumeItem] = []
+  let drop_noop_start_sec = rume_has_binaryen_noop_start_sec(mod_)
 
-  match mod_.start_sec {
-    Some(@lib.StartSec(func_idx)) => rume_mark_func(queue, used_funcs, func_idx)
-    None => ()
+  if !drop_noop_start_sec {
+    match mod_.start_sec {
+      Some(@lib.StartSec(func_idx)) =>
+        rume_mark_func(queue, used_funcs, func_idx)
+      None => ()
+    }
   }
   match mod_.export_sec {
     Some(@lib.ExportSec(exports)) =>
@@ -2292,7 +2332,9 @@ fn rume_apply_module_rewrite(
     tag_remap_is_identity &&
     elem_remap_is_identity &&
     data_remap_is_identity)
-  if !code_body_rewrite_needed &&
+  let drop_noop_start_sec = rume_has_binaryen_noop_start_sec(mod_)
+  if !drop_noop_start_sec &&
+    !code_body_rewrite_needed &&
     rume_all_true(kept_funcs) &&
     rume_all_true(kept_globals) &&
     rume_all_true(kept_tables) &&
@@ -2336,10 +2378,14 @@ fn rume_apply_module_rewrite(
     None => None
   }
 
-  let next_start_sec = match mod_.start_sec {
-    Some(@lib.StartSec(func_idx)) =>
-      Some(@lib.StartSec::new(rume_rewrite_func_idx(func_idx, func_remap)))
-    None => None
+  let next_start_sec = if drop_noop_start_sec {
+    None
+  } else {
+    match mod_.start_sec {
+      Some(@lib.StartSec(func_idx)) =>
+        Some(@lib.StartSec::new(rume_rewrite_func_idx(func_idx, func_remap)))
+      None => None
+    }
   }
 
   let next_import_sec = match mod_.import_sec {

@@ -2,16 +2,16 @@
 
 ## Status
 
-- Active downstream follow-up as of 2026-04-16.
+- Completed 2026-04-16 under `[FUZ]003B`.
 - Exposed by the same focused rerun that closed the imported-function family from [`0090`](./0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md).
-- The focused rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003a-genvalid-smoke` reached `20/20` compared cases with `18` normalized matches, `2` mismatches, `0` validation failures, `0` generator failures, and `0` command failures.
-- The remaining mismatches are `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/` and `case-000020-gen-valid/`.
+- The pre-fix focused rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003a-genvalid-smoke` reached `20/20` compared cases with `18` normalized matches, `2` mismatches, `0` validation failures, `0` generator failures, and `0` command failures.
+- The post-fix focused rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003b-genvalid-smoke` is now `20/20` compared cases with `20` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, and `0` command failures.
 
 ## Scope
 
 - Capture the next distinct `gen-valid`-seeded `remove-unused-module-elements` parity family revealed after the imported-function fix landed.
-- Keep this follow-up separate from the already-closed imported-function/type-compaction work so the next slice does not reopen solved behavior.
-- Document the exact saved repros and the still-open uncertainty about Binaryen's precise no-op `start`-section pruning rule.
+- Keep this follow-up separate from the already-closed imported-function/type-compaction work so the next slice did not reopen solved behavior.
+- Record the exact saved repros, the reduced positive and negative boundaries, and the final kept Binaryen-matching rule for this no-op `start`-section family.
 
 ## Trigger
 
@@ -116,50 +116,41 @@ Starshine again keeps:
 (start $0)
 ```
 
-## Current best reading of the family
+## Resolved rule
 
-Observed Binaryen behavior in both saved cases is consistent with this narrower statement:
+The reduced boundary work for `[FUZ]003B` now supports this narrower exact rule for the family seen in the saved repros:
 
-- when the surviving `start` target is also otherwise live and normalizes to a nullary no-op function with no observable work, Binaryen drops the `start` section during `RUME`
+- Binaryen drops `start` during `remove-unused-module-elements` when `start` targets a **defined** nullary function whose body is exactly a single `nop`.
+- Local declarations do not matter for this exact family: the saved `case-000020-gen-valid` still drops `start` even though the function keeps locals.
+- If that single-`nop` function is otherwise live through exports or elem segments, Binaryen keeps the function and only drops `start`.
+- If that single-`nop` function is rooted only by `start`, Binaryen drops both `start` and the now-unreachable function.
+- The nearby negative boundary is important: an **empty-body** start function is *not* dropped by Binaryen, so the rule is narrower than “any observably empty start”.
 
-However, that should still be treated as an informed hypothesis, not yet a proven exact contract.
+This is still intentionally conservative. The checked-in Starshine fix matches only that proved exact boundary instead of generalizing to broader “side-effect-free start” deletion.
 
-## Important uncertainty
+## Outcome
 
-The exact upstream preconditions are not yet pinned down.
+The landed Starshine change now mirrors the proved rule by:
 
-Open questions that the next slice should answer before broad rewriting:
+- detecting defined `start` targets whose body is exactly one `nop`
+- skipping `start`-rooted liveness for that exact family
+- omitting `start_sec` from the rewritten module for that exact family
+- keeping the otherwise-live exported/elem-linked function body untouched when other roots keep it alive
+- preserving the nearby empty-body negative boundary unchanged
 
-- Does Binaryen drop the `start` only for empty/no-op nullary functions, or for any side-effect-free start target?
-- Are local declarations alone irrelevant, as `case-000020` suggests?
-- Does the rule depend on the function also being kept alive through exports or elem segments, or would Binaryen drop the `start` even if it were the only remaining live path?
-- Is this truly part of `remove-unused-module-elements`, or a normalization side effect from another cleanup performed inside Binaryen's pass pipeline?
+## Landed implementation focus
 
-The next implementation slice should start by reducing the exact positive boundary and at least one nearby negative boundary, rather than guessing a broad semantic rule.
+The landed change in [`src/passes/remove_unused_module_elements.mbt`](../../../src/passes/remove_unused_module_elements.mbt) touches the two expected control points:
 
-## Likely implementation focus
+- `rume_collect_liveness_with_import_parent_policy(...)` now skips marking the start target live for the exact defined-single-`nop` family.
+- `rume_apply_module_rewrite(...)` now omits `start_sec` for that same exact family and avoids the old early-return fast path when dropping `start` is the only required rewrite.
 
-Investigate [`src/passes/remove_unused_module_elements.mbt`](../../../src/passes/remove_unused_module_elements.mbt), especially:
+Focused regressions now live in [`src/passes/remove_unused_module_elements_test.mbt`](../../../src/passes/remove_unused_module_elements_test.mbt) for:
 
-- the liveness mark from `start_sec`
-- the unconditional `start_sec` rewrite path in `rume_apply_module_rewrite`
-- whether there is already an in-tree helper that can classify a function body as observably empty under the same conservative rules Binaryen uses here
-- whether the drop belongs in `RUME` proper or in a narrower post-rewrite cleanup guarded by exact preconditions
-
-Relevant current sites include:
-
-- `rume_collect_liveness_with_import_parent_policy(...)`, which marks the start target live
-- `rume_apply_module_rewrite(...)`, which currently rewrites `start_sec` whenever the target survives
-
-## Required next-slice deliverables
-
-1. Add focused regressions in `src/passes/remove_unused_module_elements_test.mbt` for the saved `start`-section family.
-2. Reduce the exact positive boundary plus at least one nearby negative boundary so the kept rule is explicit and safe.
-3. Update `remove-unused-module-elements` only if the preconditions are proven narrowly enough to avoid dropping observable `start` behavior.
-4. Re-run at minimum:
-   - `moon test --package jtenner/starshine/passes --file remove_unused_module_elements_test.mbt`
-   - `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003b-genvalid-smoke`
-5. Record whether the family closes cleanly or exposes another distinct downstream mismatch family afterward.
+1. exported/elem-linked single-`nop` start targets
+2. the same family with locals still present
+3. the empty-body negative boundary
+4. a start-only single-`nop` function that should disappear entirely once `start` no longer roots it
 
 ## Why this is a fuzz slice, not only a pass slice
 

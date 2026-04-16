@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-16] fix | close the gen-valid-exposed RUME no-op start-section family
+
+- Updated `src/passes/remove_unused_module_elements.mbt` so `RUME` now matches the proved Binaryen no-op `start` rule for defined single-`nop` start targets: it skips `start`-rooted liveness for that exact family, drops `start_sec` during rewrite, and still preserves the nearby empty-body negative boundary.
+- Added focused regressions in `src/passes/remove_unused_module_elements_test.mbt` for exported/elem-linked single-`nop` start targets, the same family with locals still present, the empty-body negative boundary, and the start-only single-`nop` case that should disappear entirely once `start` stops rooting it.
+- Updated `docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`, `agent-todo.md`, `validate/fuzz-hardening.md`, `docs/wiki/index.md`, and `raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md` so the validator-fuzz handoff now records `[FUZ]003B` as complete, the exact kept rule is documented, and the next unfinished fuzz slice is `[FUZ]004`.
+
 ## [2026-04-16] research | capture the next gen-valid-exposed RUME start-section family
 
 - Added `raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md` to capture the two saved `gen-valid` `remove-unused-module-elements` mismatches that remain after the imported-function fix, including the exact `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/` and `case-000020-gen-valid/` repro folders plus the current uncertainty about Binaryen's precise no-op `start`-section pruning rule.

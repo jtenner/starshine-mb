@@ -430,6 +430,116 @@ fn rume_test_imported_func_remap_fixture() -> @lib.Module {
 }
 
 ///|
+fn rume_test_start_noop_export_fixture(locals : @lib.Locals) -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(rume_test_type_sec())
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("dead_import"),
+        @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_table_sec(
+    @lib.TableSec::new([@lib.Table::new(rume_test_table_type(), None)]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("main"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("table0"),
+        @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_start_sec(@lib.StartSec::new(@lib.FuncIdx::new(1U)))
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(locals, @lib.Expr::new([@lib.Instruction::nop()])),
+    ]),
+  )
+}
+
+///|
+fn rume_test_empty_start_export_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(rume_test_type_sec())
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("dead_import"),
+        @lib.ExternType::func(@lib.TypeIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_table_sec(
+    @lib.TableSec::new([@lib.Table::new(rume_test_table_type(), None)]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("main"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("table0"),
+        @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_start_sec(@lib.StartSec::new(@lib.FuncIdx::new(1U)))
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([@lib.Func::new(@lib.Locals::empty(), @lib.Expr::new([]))]),
+  )
+}
+
+///|
+fn rume_test_start_only_noop_fixture() -> @lib.Module {
+  @lib.Module::new()
+  .with_type_sec(rume_test_type_sec())
+  .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+  .with_start_sec(@lib.StartSec::new(@lib.FuncIdx::new(0U)))
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::single(1U, @lib.ValType::i32()),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+    ]),
+  )
+}
+
+///|
 fn rume_test_empty_active_data_fixture() -> @lib.Module {
   @lib.Module::new()
   .with_type_sec(rume_test_type_sec())
@@ -1031,10 +1141,7 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
     }
     _ => fail("expected rewritten exported function and table indices")
   }
-  match optimized.start_sec {
-    Some(@lib.StartSec(@lib.FuncIdx(start_idx))) => assert_eq(start_idx, 0U)
-    _ => fail("expected rewritten start function index")
-  }
+  assert_eq(optimized.start_sec, None)
   match optimized.elem_sec {
     Some(
       @lib.ElemSec(
@@ -1071,6 +1178,172 @@ test "remove-unused-module-elements drops unused imported functions and dead fun
     Err(err) =>
       fail(
         "expected imported-function remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops no-op start sections while keeping otherwise-live functions" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_start_noop_export_fixture(@lib.Locals::empty()),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected no-op-start remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  assert_eq(optimized.import_sec, None)
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(main_idx))),
+          @lib.Export(_, @lib.TableExternIdx(@lib.TableIdx(table_idx))),
+        ]
+      )
+    ) => {
+      assert_eq(main_idx, 0U)
+      assert_eq(table_idx, 0U)
+    }
+    _ => fail("expected rewritten exports for the live no-op start fixture")
+  }
+  assert_eq(optimized.start_sec, None)
+  match optimized.elem_sec {
+    Some(
+      @lib.ElemSec(
+        [
+          @lib.Elem(
+            @lib.Active(@lib.TableIdx(table_idx), _),
+            @lib.FuncsElemKind([@lib.FuncIdx(elem_func_idx)])
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(table_idx, 0U)
+      assert_eq(elem_func_idx, 0U)
+    }
+    _ =>
+      fail(
+        "expected rewritten active elem segment for the live no-op start fixture",
+      )
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      assert_eq(body, [@lib.Instruction::nop()])
+    _ => fail("expected the live no-op start function body to remain")
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected no-op-start remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops no-op start sections even when the kept function still has locals" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_start_noop_export_fixture(
+        @lib.Locals::new([
+          @lib.LocalRun::new(1U, @lib.ValType::i64()),
+          @lib.LocalRun::new(1U, @lib.ValType::i32()),
+          @lib.LocalRun::new(1U, @lib.ValType::f64()),
+        ]),
+      ),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected locals-no-op-start remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  assert_eq(optimized.start_sec, None)
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(locals, @lib.Expr(body))])) => {
+      assert_eq(
+        locals,
+        @lib.Locals::new([
+          @lib.LocalRun::new(1U, @lib.ValType::i64()),
+          @lib.LocalRun::new(1U, @lib.ValType::i32()),
+          @lib.LocalRun::new(1U, @lib.ValType::f64()),
+        ]),
+      )
+      assert_eq(body, [@lib.Instruction::nop()])
+    }
+    _ => fail("expected the live locals+nop start function body to remain")
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected locals-no-op-start remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements keeps empty-body start sections" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_empty_start_export_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected empty-start remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  match optimized.start_sec {
+    Some(@lib.StartSec(@lib.FuncIdx(start_idx))) => assert_eq(start_idx, 0U)
+    _ => fail("expected empty-body start section to remain")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected empty-start remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops start-only no-op functions entirely" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_start_only_noop_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected start-only-no-op remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  assert_eq(optimized.start_sec, None)
+  assert_eq(optimized.func_sec, None)
+  assert_eq(optimized.code_sec, None)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected start-only-no-op remove-unused-module-elements module to validate, got \{err}",
       )
   }
 }
