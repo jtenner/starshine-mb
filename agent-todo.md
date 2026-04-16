@@ -565,6 +565,95 @@ Observed unique-pass order
    - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
 
+### Validator fuzz stack widening and rejection coverage
+
+Goal
+- Rebuild the validator-side fuzz stack so valid generation covers much more of the wasm surface and explicit invalid/rejection lanes exist for AST, binary, text, and spec-seeded inputs.
+
+Why
+- The current checked-in tree is strong on valid roundtrip and pass-parity fuzzing, but still weak on intentional rejection coverage. Older docs describe invalid-fuzz files and suites that are not present in the current workspace, so future agents need one truthful backlog and one canonical handoff document before implementation resumes.
+
+Deliverables
+- Keep the active handoff document in [0089](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#L1) current as the canonical orientation doc for this work.
+- Reconcile the live Moon/Bun fuzz-suite surface with current code and help text.
+- Split valid generation into `natural` and `coverage-forced` modes with shared config and feature-fact stats.
+- Land explicit invalid/rejection lanes for AST, binary, text, and spec-seeded inputs.
+- Persist replayable invalid-fuzz repro artifacts and shrinkers.
+- Remove misleading or duplicated runner surfaces such as stale valid-fuzz logic splits or generator names that no longer match reality.
+
+Required APIs
+- `src/fuzz/main.mbt`, `src/fuzz/main_test.mbt`, `src/fuzz/imports.mbt`.
+- `src/validate/gen_valid.mbt`, `src/validate/validate.mbt`, and the likely new `src/validate/invalid_fuzzer.mbt`.
+- `src/cmd/fuzz_harness.mbt` for existing persistence/report helpers.
+- `scripts/lib/fuzz-task.ts`, `scripts/test/*`, and `scripts/lib/pass-fuzz-compare-task.ts`.
+- `src/lib/arbitrary.mbt`, `src/wast/arbitrary.mbt`, `src/wast/spec_harness.mbt`, and `tests/spec` seed material.
+
+Invariants
+- Keep heavy randomized work in `src/fuzz`, not `moon test`.
+- Preserve `suite` / `profile` / `seed` reproducibility.
+- Do not silently break `--emit-gen-valid-batch` or the pass-fuzz compare harness that consumes it.
+- Count invalid-fuzz coverage as `attempted`, `applicable`, `mutated`, `rejected`, and `expected-family-matched`, not just “some error occurred”.
+- Prefer validator issue families over brittle message-only matching where the API already exposes them.
+- Keep docs and help text truthful: do not advertise suites or lanes until they are really in-tree.
+
+Dependencies
+- Active handoff doc: [0089](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#L1)
+- Living validator-fuzz summary: [docs/wiki/validate/fuzz-hardening.md](/home/jtenner/Projects/starshine-mb/docs/wiki/validate/fuzz-hardening.md#L1)
+- Archived validator-fuzz research: [0058](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md#L1)
+
+Exit Criteria
+- The active tree has truthful fuzz-suite entrypoints, broader measurable valid generation, explicit invalid/rejection lanes, and replayable failure artifacts.
+- A fresh agent can resume the work from `agent-todo.md` and [0089](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#L1) without re-deriving the architecture from chat history.
+
+Suggested Tests
+- `moon test src/fuzz`
+- `moon test src/validate`
+- `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`
+- future smoke lanes from `[FUZ]006`-`[FUZ]008` once they exist
+- `moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`
+- targeted `bun scripts/pass-fuzz-compare.ts --generator gen-valid ...` smoke after any batch-surface change
+
+1. Reconcile entry surfaces and naming before widening behavior.
+   - [FUZ]001 - Suite Surface And Inventory Reconciliation.
+     - Deliverables: align Moon/Bun suite lists and help text, restore or add the invalid-suite names called for by the new plan, decide whether `run_wasm_smith_fuzz_harness` must be renamed or made truthful, and choose one owner for exported valid-fuzz logic.
+     - Doc: [0089 FUZ001](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz001-suite-surface-and-inventory-reconciliation)
+2. Land the shared config/stats foundation.
+   - [FUZ]002 - Shared Fuzz Config And Feature-Fact Plumbing.
+     - Deliverables: add explicit generator config/mode vocabulary, size and feature controls, and deterministic feature-fact stats so later slices stop duplicating policy.
+     - Doc: [0089 FUZ002](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz002-shared-fuzz-config-and-feature-fact-plumbing)
+3. Widen valid generation topology first.
+   - [FUZ]003 - Multi-Mode Valid Topology Generator.
+     - Deliverables: split `gen_valid` into `natural` and `coverage-forced` modes, widen section topology, add section-absence variation, and keep the emitted batch contract explicit and stable.
+     - Doc: [0089 FUZ003](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz003-multi-mode-valid-topology-generator)
+4. Widen body generation and actual type surface.
+   - [FUZ]004 - Environment-Aware Body Generation And Type Widening.
+     - Deliverables: replace flat stub bodies with recursive environment-aware generation, add structured control flow and section-dependent instructions, and widen value/type usage beyond the current tiny numeric-only set.
+     - Doc: [0089 FUZ004](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz004-environment-aware-body-generation-and-type-widening)
+5. Make breadth measurable and enforceable.
+   - [FUZ]005 - Generator Observability And Coverage Floors.
+     - Deliverables: record exercised feature facts, aggregate them per run, and add realistic per-profile floors so high-value generator families cannot silently go dead.
+     - Doc: [0089 FUZ005](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz005-generator-observability-and-coverage-floors)
+6. Restore AST-level invalid/rejection fuzz with honest accounting.
+   - [FUZ]006 - AST Invalid Mutator Registry And Diagnostic Accounting.
+     - Deliverables: add a new AST invalid-fuzz engine with a single strategy registry, prerequisite checks, expected diagnostic families, and required-strategy exercise floors.
+     - Doc: [0089 FUZ006](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz006-ast-invalid-mutator-registry-and-diagnostic-accounting)
+7. Add malformed and decode-boundary byte corruption coverage.
+   - [FUZ]007 - Binary Invalid Corruption Lane.
+     - Deliverables: mutate encoded wasm bytes, classify malformed-vs-invalid outcomes, and land a binary-invalid suite that covers byte-level rejection families the AST mutators cannot express.
+     - Doc: [0089 FUZ007](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz007-binary-invalid-corruption-lane)
+8. Add parser/lower/validate invalid lanes from text and spec seeds.
+   - [FUZ]008 - Text And Spec-Seed Invalid Lane.
+     - Deliverables: add text-invalid and spec-seeded invalid/malformed/unlinkable suites built on `src/wast` and `tests/spec`, with explicit stage distinctions.
+     - Doc: [0089 FUZ008](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz008-text-and-spec-seed-invalid-lane)
+9. Persist failures and make them replayable.
+   - [FUZ]009 - Repro Persistence, Shrinkers, And Replay Corpus.
+     - Deliverables: persist invalid-fuzz metadata plus wasm/text artifacts, add bounded reducers/shrinkers, and make saved failures replayable without the original random session.
+     - Doc: [0089 FUZ009](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz009-repro-persistence-shrinkers-and-replay-corpus)
+10. Finish by removing drift between harnesses, wrappers, and docs.
+   - [FUZ]010 - Harness, Wrapper, And Docs Source-Of-Truth Alignment.
+     - Deliverables: eliminate duplicated valid-fuzz logic where possible, keep wrapper/help surfaces synchronized with Moon, preserve or explicitly version any public batch contract, and update docs/wiki/backlog as slices land.
+     - Doc: [0089 FUZ010](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz010-harness-wrapper-and-docs-source-of-truth-alignment)
+
 ### MoonBit formal verification rollout (`moon prove`)
 
 Goal
