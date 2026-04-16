@@ -140,7 +140,7 @@ test "emit_gen_valid_batch_artifacts matches the pinned coverage-forced generato
     Err(e) => fail("expected gen-valid artifact success, got \{e}")
   }
   let direct = gen_valid_module_with_config(
-    @splitmix.new(0x5eedUL~),
+    @splitmix.new(seed=0x5eedUL),
     GenValidConfig::coverage_forced_default(),
   )
   let encoded = match encode_module(direct) {
@@ -152,28 +152,17 @@ test "emit_gen_valid_batch_artifacts matches the pinned coverage-forced generato
 
 ///|
 test "fuzz suite inventory separates active and reserved suite ids" {
-  assert_eq(
-    fuzz_active_suite_names(),
-    [
-      "wast-roundtrip", "wat-roundtrip", "validate-valid", "binary-roundtrip", "cmd-harness",
-    ],
-  )
-  assert_eq(
-    fuzz_reserved_suite_names(),
-    [
-      "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text",
-      "validate-invalid-spec-seed",
-    ],
-  )
-  assert_eq(
-    fuzz_suite_inventory_lines(),
-    [
-      "active\twast-roundtrip", "active\twat-roundtrip", "active\tvalidate-valid",
-      "active\tbinary-roundtrip", "active\tcmd-harness",
-      "reserved\tvalidate-invalid-ast", "reserved\tvalidate-invalid-binary",
-      "reserved\tvalidate-invalid-text", "reserved\tvalidate-invalid-spec-seed",
-    ],
-  )
+  assert_eq(fuzz_active_suite_names(), [
+    "wast-roundtrip", "wat-roundtrip", "validate-valid", "binary-roundtrip", "cmd-harness",
+  ])
+  assert_eq(fuzz_reserved_suite_names(), [
+    "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text", "validate-invalid-spec-seed",
+  ])
+  assert_eq(fuzz_suite_inventory_lines(), [
+    "active\twast-roundtrip", "active\twat-roundtrip", "active\tvalidate-valid",
+    "active\tbinary-roundtrip", "active\tcmd-harness", "reserved\tvalidate-invalid-ast",
+    "reserved\tvalidate-invalid-binary", "reserved\tvalidate-invalid-text", "reserved\tvalidate-invalid-spec-seed",
+  ])
 }
 
 ///|

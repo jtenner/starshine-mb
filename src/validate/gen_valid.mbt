@@ -238,10 +238,13 @@ pub fn GenValidFeatureStats::record(
     ..self,
     modules: self.modules + 1,
     imports: self.imports + gen_valid_bool_count(facts.has_imports),
-    func_exports: self.func_exports + gen_valid_bool_count(facts.has_func_exports),
-    table_exports: self.table_exports + gen_valid_bool_count(facts.has_table_exports),
+    func_exports: self.func_exports +
+    gen_valid_bool_count(facts.has_func_exports),
+    table_exports: self.table_exports +
+    gen_valid_bool_count(facts.has_table_exports),
     mem_exports: self.mem_exports + gen_valid_bool_count(facts.has_mem_exports),
-    global_exports: self.global_exports + gen_valid_bool_count(facts.has_global_exports),
+    global_exports: self.global_exports +
+    gen_valid_bool_count(facts.has_global_exports),
     tag_exports: self.tag_exports + gen_valid_bool_count(facts.has_tag_exports),
     starts: self.starts + gen_valid_bool_count(facts.has_start),
     lacks_start: self.lacks_start + gen_valid_bool_count(facts.lacks_start),
@@ -255,9 +258,10 @@ pub fn GenValidFeatureStats::record(
     ref_types: self.ref_types + gen_valid_bool_count(facts.uses_ref_types),
     v128: self.v128 + gen_valid_bool_count(facts.uses_v128),
     calls: self.calls + gen_valid_bool_count(facts.has_call),
-    call_indirect: self.call_indirect + gen_valid_bool_count(facts.has_call_indirect),
+    call_indirect: self.call_indirect +
+    gen_valid_bool_count(facts.has_call_indirect),
     branch_heavy_control: self.branch_heavy_control +
-      gen_valid_bool_count(facts.has_branch_heavy_control),
+    gen_valid_bool_count(facts.has_branch_heavy_control),
   }
 }
 
@@ -299,7 +303,11 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
 
 ///|
 fn gen_valid_bool_count(flag : Bool) -> Int {
-  if flag { 1 } else { 0 }
+  if flag {
+    1
+  } else {
+    0
+  }
 }
 
 ///|
@@ -313,7 +321,11 @@ fn gen_valid_clamp_non_negative(value : Int) -> Int {
 
 ///|
 fn gen_valid_min_int(left : Int, right : Int) -> Int {
-  if left < right { left } else { right }
+  if left < right {
+    left
+  } else {
+    right
+  }
 }
 
 ///|
@@ -420,7 +432,9 @@ fn gen_result_types(ctx : GenValidContext) -> Array[ValType] {
 
 ///|
 fn gen_param_types(ctx : GenValidContext) -> Array[ValType] {
-  let count = ctx.random_int(gen_valid_clamp_non_negative(ctx.config.max_params) + 1)
+  let count = ctx.random_int(
+    gen_valid_clamp_non_negative(ctx.config.max_params) + 1,
+  )
   let params : Array[ValType] = []
   for _ in 0..<count {
     params.push(gen_valid_valtype(ctx))
@@ -430,7 +444,9 @@ fn gen_param_types(ctx : GenValidContext) -> Array[ValType] {
 
 ///|
 fn gen_local_types(ctx : GenValidContext) -> Array[ValType] {
-  let count = ctx.random_int(gen_valid_clamp_non_negative(ctx.config.max_locals) + 1)
+  let count = ctx.random_int(
+    gen_valid_clamp_non_negative(ctx.config.max_locals) + 1,
+  )
   let locals : Array[ValType] = []
   for _ in 0..<count {
     locals.push(gen_valid_valtype(ctx))
@@ -591,7 +607,8 @@ fn gen_valid_choose_optional_count(
   let bounded_max = gen_valid_clamp_non_negative(max_count)
   if !allow || bounded_max <= 0 {
     0
-  } else if ctx.config.mode == CoverageForced || gen_valid_roll_percent(ctx, percent) {
+  } else if ctx.config.mode == CoverageForced ||
+    gen_valid_roll_percent(ctx, percent) {
     1 + ctx.random_int(bounded_max)
   } else {
     0
@@ -616,10 +633,7 @@ fn gen_valid_active_i32_offset() -> Expr {
 }
 
 ///|
-fn gen_valid_pick_type_idx(
-  ctx : GenValidContext,
-  type_count : Int,
-) -> TypeIdx {
+fn gen_valid_pick_type_idx(ctx : GenValidContext, type_count : Int) -> TypeIdx {
   TypeIdx::new(ctx.random_int(type_count).reinterpret_as_uint())
 }
 
@@ -681,8 +695,10 @@ pub fn gen_valid_module_with_config(
     0
   }
   let has_start = config.features.allow_start &&
-    (ctx.config.mode == CoverageForced ||
-    gen_valid_roll_percent(ctx, config.section_bias.start_percent))
+    (
+      ctx.config.mode == CoverageForced ||
+      gen_valid_roll_percent(ctx, config.section_bias.start_percent)
+    )
   let total_type_users = import_func_count + defined_func_count + tag_count
   let max_type_defs = if gen_valid_clamp_non_negative(config.max_type_defs) <= 0 {
     1
@@ -699,11 +715,7 @@ pub fn gen_valid_module_with_config(
   let type_params : Array[Array[ValType]] = []
   let type_results : Array[Array[ValType]] = []
   for i = 0; i < type_count; i = i + 1 {
-    let params = if i == 0 && has_start {
-      []
-    } else {
-      gen_param_types(ctx)
-    }
+    let params = if i == 0 && has_start { [] } else { gen_param_types(ctx) }
     let results = if i == 0 && (has_start || tag_count > 0) {
       []
     } else {
@@ -753,8 +765,10 @@ pub fn gen_valid_module_with_config(
 
   let funcs : Array[Func] = []
   for type_idx in func_type_idxs {
-    let TypeIdx(type_idx_u) = type_idx
-    let type_idx_i = type_idx_u.reinterpret_as_int()
+    let type_idx_i = match type_idx {
+      TypeIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
+      RecIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
+    }
     funcs.push(
       gen_valid_build_func(
         ctx,
@@ -769,7 +783,10 @@ pub fn gen_valid_module_with_config(
   for _ in 0..<table_count {
     tables.push(
       Table::new(
-        TableType::new(RefType::abs(AbsHeapType::func()), Limits::i32(1U, Some(4U))),
+        TableType::new(
+          RefType::abs(AbsHeapType::func()),
+          Limits::i32(1U, Some(4U)),
+        ),
         None,
       ),
     )
@@ -786,7 +803,9 @@ pub fn gen_valid_module_with_config(
   }
 
   let total_func_count = import_func_count + defined_func_count
-  let first_defined_func_idx = FuncIdx::new(import_func_count.reinterpret_as_uint())
+  let first_defined_func_idx = FuncIdx::new(
+    import_func_count.reinterpret_as_uint(),
+  )
 
   let elems : Array[Elem] = []
   if table_count > 0 && total_func_count > 0 {
@@ -816,16 +835,24 @@ pub fn gen_valid_module_with_config(
     Export::new(Name::new("main"), ExternIdx::func(first_defined_func_idx)),
   ]
   if table_count > 0 {
-    exports.push(Export::new(Name::new("table0"), ExternIdx::table(TableIdx::new(0U))))
+    exports.push(
+      Export::new(Name::new("table0"), ExternIdx::table(TableIdx::new(0U))),
+    )
   }
   if mem_count > 0 {
-    exports.push(Export::new(Name::new("memory0"), ExternIdx::mem(MemIdx::new(0U))))
+    exports.push(
+      Export::new(Name::new("memory0"), ExternIdx::mem(MemIdx::new(0U))),
+    )
   }
   if global_count > 0 {
-    exports.push(Export::new(Name::new("global0"), ExternIdx::global(GlobalIdx::new(0U))))
+    exports.push(
+      Export::new(Name::new("global0"), ExternIdx::global(GlobalIdx::new(0U))),
+    )
   }
   if tag_count > 0 {
-    exports.push(Export::new(Name::new("tag0"), ExternIdx::tag(TagIdx::new(0U))))
+    exports.push(
+      Export::new(Name::new("tag0"), ExternIdx::tag(TagIdx::new(0U))),
+    )
   }
 
   let mut mod = Module::new().with_type_sec(TypeSec::new(type_defs))
@@ -985,10 +1012,7 @@ fn gen_valid_scan_expr(expr : Expr) -> GenValidInstrFacts {
 fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
   match instr {
     Call(_) | ReturnCall(_) =>
-      GenValidInstrFacts::{
-        ..GenValidInstrFacts::empty(),
-        has_call: true,
-      }
+      GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), has_call: true }
     CallIndirect(_, _) | ReturnCallIndirect(_, _) =>
       GenValidInstrFacts::{
         ..GenValidInstrFacts::empty(),
@@ -1003,10 +1027,7 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         branch_ops: 1,
       }
     Br(_) | BrIf(_) | BrTable(_, _) =>
-      GenValidInstrFacts::{
-        ..GenValidInstrFacts::empty(),
-        branch_ops: 1,
-      }
+      GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), branch_ops: 1 }
     Block(bt, body) | Loop(bt, body) => {
       let (has_ref, has_v128) = gen_valid_scan_block_type(bt)
       let body_facts = gen_valid_scan_expr(body)
@@ -1026,7 +1047,10 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         control_nodes: 1,
         branch_ops: 1,
       }
-      facts = gen_valid_merge_instr_facts(facts, gen_valid_scan_expr(Expr::new(then_body)))
+      facts = gen_valid_merge_instr_facts(
+        facts,
+        gen_valid_scan_expr(Expr::new(then_body)),
+      )
       match else_body {
         Some(branch) =>
           facts = gen_valid_merge_instr_facts(
@@ -1068,10 +1092,7 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         uses_ref_types: true,
       }
     V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-      GenValidInstrFacts::{
-        ..GenValidInstrFacts::empty(),
-        uses_v128: true,
-      }
+      GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), uses_v128: true }
     _ => GenValidInstrFacts::empty()
   }
 }
@@ -1162,7 +1183,9 @@ pub fn gen_valid_feature_facts(
           let GlobalType(vt, _) = global_type
           let (has_ref, has_v128_fact) = gen_valid_scan_val_type(vt)
           let expr_facts = gen_valid_scan_expr(expr)
-          uses_ref_types = uses_ref_types || has_ref || expr_facts.uses_ref_types
+          uses_ref_types = uses_ref_types ||
+            has_ref ||
+            expr_facts.uses_ref_types
           uses_v128 = uses_v128 || has_v128_fact || expr_facts.uses_v128
           has_call = has_call || expr_facts.has_call
           has_call_indirect = has_call_indirect || expr_facts.has_call_indirect

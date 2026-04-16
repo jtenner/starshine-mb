@@ -61,22 +61,21 @@ fn fuzz_ascii_lower(input : String) -> String {
 }
 
 ///|
-fn fuzz_active_suite_names() -> Array[String] {
+pub fn fuzz_active_suite_names() -> Array[String] {
   [
     "wast-roundtrip", "wat-roundtrip", "validate-valid", "binary-roundtrip", "cmd-harness",
   ]
 }
 
 ///|
-fn fuzz_reserved_suite_names() -> Array[String] {
+pub fn fuzz_reserved_suite_names() -> Array[String] {
   [
-    "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text",
-    "validate-invalid-spec-seed",
+    "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text", "validate-invalid-spec-seed",
   ]
 }
 
 ///|
-fn fuzz_suite_inventory_lines() -> Array[String] {
+pub fn fuzz_suite_inventory_lines() -> Array[String] {
   let lines : Array[String] = []
   for suite in fuzz_active_suite_names() {
     lines.push("active\t\{suite}")
@@ -107,7 +106,7 @@ fn fuzz_join(values : Array[String], sep : String) -> String {
 }
 
 ///|
-fn fuzz_usage_text() -> String {
+pub fn fuzz_usage_text() -> String {
   let active_suites = fuzz_join(fuzz_active_suite_names(), ", ")
   let reserved_suites = fuzz_join(fuzz_reserved_suite_names(), ", ")
   let profiles = fuzz_join(fuzz_profile_names(), ", ")

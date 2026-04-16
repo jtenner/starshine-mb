@@ -8,13 +8,13 @@ import {
 }
 
 // Values
+pub fn default_gen_valid_config() -> GenValidConfig
+
 pub fn descriptor_compatible(@lib.RefType, @lib.RefType, Env) -> Bool
 
 pub fn diff(@lib.RefType, @lib.RefType) -> Result[@lib.RefType, String]
 
 pub fn empty_env() -> Env
-
-pub fn default_gen_valid_config() -> GenValidConfig
 
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
 
@@ -33,8 +33,6 @@ pub fn make_state(Env, Array[@lib.ValType]) -> TcState
 pub fn make_state_owned(Env, Array[@lib.ValType]) -> TcState
 
 pub fn run_validate_valid_fuzz(String, UInt64) -> Result[ValidateValidFuzzStats, String]
-
-pub fn validate_valid_run_config(String) -> Result[ValidateValidRunConfig, String]
 
 pub fn tc_escape_none() -> TcEscape
 
@@ -93,6 +91,8 @@ pub fn validate_tablesec(@lib.TableSec?, Env) -> Result[Env, String]
 pub fn validate_tagsec(@lib.TagSec?, Env) -> Result[Env, String]
 
 pub fn validate_typesec(@lib.TypeSec?, Env) -> Result[Env, String]
+
+pub fn validate_valid_run_config(String) -> Result[ValidateValidRunConfig, String]
 
 pub fn validation_error_diagnostic(ValidationError) -> ValidationDiagnostic
 
@@ -198,6 +198,8 @@ pub struct GenValidConfig {
 pub fn GenValidConfig::coverage_forced_default() -> Self
 pub fn GenValidConfig::natural_default() -> Self
 
+type GenValidContext
+
 pub struct GenValidFeatureFacts {
   mode : GenValidMode
   has_imports : Bool
@@ -220,11 +222,6 @@ pub struct GenValidFeatureFacts {
   has_call : Bool
   has_call_indirect : Bool
   has_branch_heavy_control : Bool
-} derive(Eq, Show, @debug.Debug)
-
-pub enum GenValidMode {
-  Natural
-  CoverageForced
 } derive(Eq, Show, @debug.Debug)
 
 pub struct GenValidFeatureStats {
@@ -272,6 +269,13 @@ pub struct GenValidFeatureToggles {
 pub fn GenValidFeatureToggles::coverage_forced_default() -> Self
 pub fn GenValidFeatureToggles::natural_default() -> Self
 
+type GenValidInstrFacts
+
+pub enum GenValidMode {
+  Natural
+  CoverageForced
+} derive(Eq, Show, @debug.Debug)
+
 pub struct GenValidSectionBias {
   imports_percent : Int
   tables_percent : Int
@@ -284,8 +288,6 @@ pub struct GenValidSectionBias {
 } derive(Eq, Show, @debug.Debug)
 pub fn GenValidSectionBias::coverage_forced_default() -> Self
 pub fn GenValidSectionBias::natural_default() -> Self
-
-type GenValidContext
 
 pub(all) struct LabelStack {
   values : Array[Array[@lib.ValType]]

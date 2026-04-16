@@ -10,6 +10,14 @@ pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Byte
 
 pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
 
+pub fn fuzz_active_suite_names() -> Array[String]
+
+pub fn fuzz_reserved_suite_names() -> Array[String]
+
+pub fn fuzz_suite_inventory_lines() -> Array[String]
+
+pub fn fuzz_usage_text() -> String
+
 pub fn parse_fuzz_cli_args(Array[String]) -> FuzzCliArgs
 
 pub fn parse_fuzz_cli_command(Array[String]) -> FuzzCliCommand

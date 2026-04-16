@@ -3338,16 +3338,14 @@ pub fn run_validate_valid_fuzz(
       continue n - 1
     }
   }
-  Ok(
-    ValidateValidFuzzStats::{
-      profile: normalized,
-      seed,
-      attempts,
-      validated,
-      generator_config,
-      feature_stats,
-    },
-  )
+  Ok(ValidateValidFuzzStats::{
+    profile: normalized,
+    seed,
+    attempts,
+    validated,
+    generator_config,
+    feature_stats,
+  })
 }
 
 ///|
@@ -3369,8 +3367,14 @@ test "validate_valid_run_config returns profile attempts and generator config" {
   assert_eq(ci.attempts, 5000)
   assert_eq(stress.attempts, 100000)
   assert_eq(smoke.generator_config.mode, Natural)
-  assert_true(ci.generator_config.max_defined_funcs >= smoke.generator_config.max_defined_funcs)
-  assert_true(stress.generator_config.max_body_statements >= ci.generator_config.max_body_statements)
+  assert_true(
+    ci.generator_config.max_defined_funcs >=
+    smoke.generator_config.max_defined_funcs,
+  )
+  assert_true(
+    stress.generator_config.max_body_statements >=
+    ci.generator_config.max_body_statements,
+  )
 }
 
 ///|
@@ -3412,7 +3416,7 @@ test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
 ///|
 test "gen_valid coverage-forced mode emits widened topology and shared type pool" {
   let mod = gen_valid_module_with_config(
-    @splitmix.new(0x5eedUL~),
+    @splitmix.new(seed=0x5eedUL),
     GenValidConfig::coverage_forced_default(),
   )
   match validate_module(mod) {
@@ -3488,7 +3492,10 @@ test "gen_valid_feature_facts record imports sections exports and instruction fa
     .with_table_sec(
       TableSec::new([
         Table::new(
-          TableType::new(RefType::abs(AbsHeapType::func()), Limits::i32(1U, Some(1U))),
+          TableType::new(
+            RefType::abs(AbsHeapType::func()),
+            Limits::i32(1U, Some(1U)),
+          ),
           None,
         ),
       ]),
@@ -3552,7 +3559,11 @@ test "gen_valid_feature_facts record imports sections exports and instruction fa
             Instruction::block(BlockType::void_(), Expr::new([])),
             Instruction::loop_(BlockType::void_(), Expr::new([])),
             Instruction::i32_const(I32(1)),
-            Instruction::if_(BlockType::void_(), [Instruction::nop()], Some([Instruction::nop()])),
+            Instruction::if_(
+              BlockType::void_(),
+              [Instruction::nop()],
+              Some([Instruction::nop()]),
+            ),
           ]),
         ),
       ]),
