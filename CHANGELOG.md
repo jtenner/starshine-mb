@@ -7,6 +7,7 @@
 ## 2026-04-16 Perf: remove per-char CLI suffix and dispatch allocation churn
 
 - **tiny CLI startup dispatch micro-optimizations** by **@jtenner**. Updated [`agent-todo.md`](./agent-todo.md) and [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt) so `cmd_path_has_ascii_suffix_ignore_case` and the `dump=` / `extract-functions=` flag dispatch checks now compare using scalar character operations instead of transient `to_string()` allocations. Added focused unit coverage for case-insensitive suffix dispatch and exact textual prefix dispatch.
+- **bare help/version fast-path startup short-circuit** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), and [`src/cmd/cmd_wbtest.mbt`](./src/cmd/cmd_wbtest.mbt) so exact `--help` / `-h` and `--version` / `-V` invocations now return before runtime prep or `STARSHINE_INPUT` probing. Focused cmd wbtests lock the no-env-probe contract for the trivial startup path.
 
 ## 2026-04-16 Fuzz: align runner, wrapper, and docs truth surfaces
 

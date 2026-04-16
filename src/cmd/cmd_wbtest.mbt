@@ -4660,6 +4660,28 @@ test "run_cmd_with_adapter prints help text and exits successfully for --help" {
 }
 
 ///|
+test "run_cmd_with_adapter fast-paths bare --help without env probing" {
+  let stdout_writes : Array[Bytes] = []
+  let env_lookups : Array[String] = []
+  let io = CmdIO::new(
+    get_env=fn(name) {
+      env_lookups.push(name)
+      None
+    },
+    write_stdout=fn(bytes) {
+      stdout_writes.push(bytes)
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["--help"], io) {
+    Ok(_) => ()
+    Err(e) => fail("expected help success, got \{e}")
+  }
+  assert_eq(env_lookups, [])
+  assert_eq(stdout_writes.length(), 1)
+}
+
+///|
 test "run_cmd_with_adapter prints version and exits successfully for --version" {
   let stdout_writes : Array[Bytes] = []
   let io = CmdIO::new(write_stdout=fn(bytes) {
@@ -4674,6 +4696,28 @@ test "run_cmd_with_adapter prints version and exits successfully for --version" 
   assert_eq(summary.output_files, [])
   assert_eq(stdout_writes.length(), 1)
   assert_eq(bytes_to_ascii_string(stdout_writes[0]), "v0.1.0\n")
+}
+
+///|
+test "run_cmd_with_adapter fast-paths bare --version without env probing" {
+  let stdout_writes : Array[Bytes] = []
+  let env_lookups : Array[String] = []
+  let io = CmdIO::new(
+    get_env=fn(name) {
+      env_lookups.push(name)
+      None
+    },
+    write_stdout=fn(bytes) {
+      stdout_writes.push(bytes)
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["--version"], io) {
+    Ok(_) => ()
+    Err(e) => fail("expected version success, got \{e}")
+  }
+  assert_eq(env_lookups, [])
+  assert_eq(stdout_writes.length(), 1)
 }
 
 ///|

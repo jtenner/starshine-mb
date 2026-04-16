@@ -3060,6 +3060,34 @@ fn output_path_for_default_target(
 }
 
 ///|
+fn cmd_try_trivial_startup_exit(
+  args : Array[String],
+  io : CmdIO,
+) -> Result[CmdRunSummary, CmdError]? {
+  if args.length() != 1 {
+    return None
+  }
+  match args[0] {
+    "--help" | "-h" =>
+      Some(
+        match (io.write_stdout)(string_to_bytes(cmd_help_text())) {
+          Ok(_) => Ok(CmdRunSummary::new())
+          Err(e) => Err(CmdError::OutputWriteFailed("stdout for --help: \{e}"))
+        },
+      )
+    "--version" | "-V" =>
+      Some(
+        match (io.write_stdout)(string_to_bytes("\{cmd_version_text()}\n")) {
+          Ok(_) => Ok(CmdRunSummary::new())
+          Err(e) =>
+            Err(CmdError::OutputWriteFailed("stdout for --version: \{e}"))
+        },
+      )
+    _ => None
+  }
+}
+
+///|
 /// CLI entrypoint used by the Node runtime bridge and tests.
 /// It builds a merged CLI/env/config view, constructs a scheduled pass list, then
 /// routes requested pass names through the active hot pass pipeline.
@@ -3068,6 +3096,10 @@ pub fn run_cmd_with_adapter(
   io : CmdIO,
   config_json? : String? = None,
 ) -> Result[CmdRunSummary, CmdError] {
+  match cmd_try_trivial_startup_exit(args, io) {
+    Some(result) => return result
+    None => ()
+  }
   cmd_prepare_runtime()
   if args.length() > 0 {
     if args[0] == "spec" || args[0] == "spec-runner" {

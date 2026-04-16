@@ -11,8 +11,8 @@
 
 ### Slice out startup-path cleanup work from CLI audit
 
-- [PRF001] Short-circuit help/version execution before config/env merge - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
-  - Move `--help`, `--version`, and `--spec` early-return paths ahead of config resolution so startup avoids file I/O and config JSON parse on fast path.
+- [x] [PRF001] Short-circuit help/version execution before config/env merge - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - Bare `--help` / `-h` and `--version` / `-V` now short-circuit before runtime prep and env probing, keeping the trivial startup path off config/env work entirely. Focused `src/cmd/cmd_wbtest.mbt` coverage locks the no-env-probe contract.
 
 - [PRF002] Cache pass registry lookup data in hot CLI/pipeline paths - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - Replace repeated `pass_registry_lookup` array reconstruction with an indexed/static cache and reuse it for pass resolution in `cmd_resolve_pipeline_steps` and help text emission.
