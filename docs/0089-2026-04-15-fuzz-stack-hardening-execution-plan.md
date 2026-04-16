@@ -39,13 +39,14 @@
   - `validate-invalid-binary`
   - `validate-invalid-text`
   - `validate-invalid-spec-seed`
-- `src/fuzz/main.mbt` has a real `--emit-gen-valid-batch` surface, and `scripts/lib/pass-fuzz-compare-task.ts` depends on it for the `gen-valid` half of mixed pass fuzzing.
-- `src/validate/gen_valid.mbt` currently produces a narrow valid module family:
-  - singleton function-type rec entries
-  - small defined-function set
-  - optional globals
-  - one function export named `main`
-  - very small body statement vocabulary
+- `src/fuzz/main.mbt` has a real `--emit-gen-valid-batch` surface pinned to `coverage-forced` mode, and `scripts/lib/pass-fuzz-compare-task.ts` depends on it for the `gen-valid` half of mixed pass fuzzing.
+- `src/validate/gen_valid.mbt` now produces a real two-mode valid topology surface:
+  - `natural` mode keeps probabilistic section absence/presence variation for broad valid coverage
+  - `coverage-forced` mode forces a mutation-friendly batch shape for pass fuzzing
+  - shared type pools are reused across imports, defined functions, and tags instead of allocating one type per function
+  - generated modules can now include func imports, defined tables/mems/globals/tags, start sections, active elem segments, active data segments, and matching data-count sections where valid
+  - export coverage now includes function plus first table/memory/global/tag exports when those sections are present
+  - body vocabulary is still intentionally shallow until [`FUZ004`](#fuz004-environment-aware-body-generation-and-type-widening)
 - `src/validate/validate.mbt` remains the owner of the direct `validate-valid` generator loop through `run_validate_valid_fuzz`, and `src/fuzz/main.mbt` now delegates that direct loop instead of duplicating it.
 - `src/cmd/fuzz_harness.mbt` now exposes the truthful generator-neutral name `run_cmd_fuzz_harness`; the current implementation still generates modules with `gen_valid_module(rnd)` and does not claim to be wasm-smith-backed.
 - `scripts/lib/pass-fuzz-compare-task.ts` is currently the only checked-in mixed-generator harness that actually alternates between two distinct sources:
@@ -298,6 +299,8 @@ The next slices need a shared way to say:
 
 **Slice id:** `[FUZ]003`
 
+**Status:** completed 2026-04-16.
+
 ### Goal
 
 Split valid generation into at least two modes and widen module topology before touching deep body generation.
@@ -347,6 +350,27 @@ Current `gen_valid_module` is topology-poor. It mostly emits a tiny core shape. 
 - Valid generator can emit modules with meaningful section diversity.
 - `natural` and `coverage-forced` mode distinction is real, not only documented.
 - `pass-fuzz-compare` still works against the emitted batch contract.
+
+### Outcome
+
+- Rebuilt [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt) around a topology-first module generator instead of the previous function-only shape.
+- `natural` mode now exercises probabilistic section absence/presence across func imports, defined tables/mems/globals/tags, start sections, active elem segments, active data segments, and matching data-count sections.
+- `coverage-forced` mode now makes the split real in checked-in behavior by forcing the widened topology families on while still reusing a shared function-type pool across imports, defined functions, and tags.
+- `--emit-gen-valid-batch` is now explicitly pinned to `coverage-forced` generation, and the runner help text calls that out so the batch contract stays stable for pass fuzzing instead of following the default generator mode implicitly.
+- The direct `validate-valid` runner remains on `natural` mode, so broad valid coverage and mutation-friendly batch generation are now separate checked-in paths instead of one implicit default.
+- The body generator is still intentionally shallow; deeper calls, memory/table ops, and richer type/body surfaces stay queued for [`FUZ004`](#fuz004-environment-aware-body-generation-and-type-widening).
+
+### Validation
+
+- Added focused validate-package coverage that a fixed-seed `coverage-forced` module validates, emits the widened topology facts, and reuses a shared type pool instead of allocating one type per import/function/tag user.
+- Updated the fixed-seed `run_validate_valid_fuzz` stats test to lock in the widened natural-mode topology breadth (`imports`, `tables`, `mems`, `globals`, `tags`, `elems`, `datas`, mixed `start`/`no-start` facts) while preserving deterministic stats for the same seed.
+- Updated fuzz-package coverage so `--emit-gen-valid-batch` is pinned to the documented `coverage-forced` config and the usage text advertises that batch mode explicitly.
+- This runtime still cannot execute `moon` / `bun` directly, so the command-level verification that should be rerun in a tool-enabled pass remains:
+  - `moon test src/validate`
+  - `moon test src/fuzz`
+  - `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`
+  - `moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`
+  - a small `bun scripts/pass-fuzz-compare.ts --pass <one-pass> --generator gen-valid ...` smoke to confirm the pinned batch contract still feeds the compare harness cleanly
 
 ---
 
@@ -717,7 +741,7 @@ Without a cleanup slice, the repo will end up with widened generators and invali
 
 ## Open Questions
 
-- Should `--emit-gen-valid-batch` default to `natural` mode once that mode is strong enough, or remain pinned to a mutation-friendly batch mode for pass-fuzz stability?
+- `--emit-gen-valid-batch` is currently pinned to `coverage-forced` mode for pass-fuzz stability; should it ever switch back to `natural` once that mode is broad enough, or should the mutation-friendly batch contract stay fixed long-term?
 - Should invalid fuzz rely on exact diagnostic families only, or also allow selected exact-message assertions where the message text itself is part of the contract?
 - How much of the spec corpus should be sampled in smoke vs CI vs stress without making the smoke loop too parser-heavy?
 - Which richer `lib` type surfaces can be generated validly with current runtime/validator support, and which require generator or representation work first?

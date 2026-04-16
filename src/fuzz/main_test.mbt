@@ -3,7 +3,7 @@ using @binary {decode_module, encode_module}
 
 ///|
 using @validate {
-  default_gen_valid_config,
+  type GenValidConfig,
   gen_valid_module_with_config,
   validate_module,
   validation_error_message,
@@ -134,18 +134,18 @@ test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files"
 }
 
 ///|
-test "emit_gen_valid_batch_artifacts matches shared default generator config" {
+test "emit_gen_valid_batch_artifacts matches the pinned coverage-forced generator config" {
   let artifacts = match emit_gen_valid_batch_artifacts(1, 0x5eedUL) {
     Ok(v) => v
     Err(e) => fail("expected gen-valid artifact success, got \{e}")
   }
   let direct = gen_valid_module_with_config(
     @splitmix.new(0x5eedUL~),
-    default_gen_valid_config(),
+    GenValidConfig::coverage_forced_default(),
   )
   let encoded = match encode_module(direct) {
     Ok(v) => v
-    Err(e) => fail("expected direct default-config module to encode, got \{e}")
+    Err(e) => fail("expected direct coverage-forced module to encode, got \{e}")
   }
   assert_eq(artifacts[0].1, encoded)
 }
@@ -189,6 +189,7 @@ test "fuzz usage text distinguishes active and reserved suites" {
       "reserved suite ids: validate-invalid-ast, validate-invalid-binary, validate-invalid-text, validate-invalid-spec-seed",
     ),
   )
+  assert_true(usage.contains("coverage-forced batch"))
 }
 
 ///|

@@ -3398,7 +3398,76 @@ test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
   assert_eq(first.feature_stats.mode, Natural)
   assert_eq(first.feature_stats.modules, 128)
   assert_eq(first.feature_stats.func_exports, 128)
-  assert_eq(first.feature_stats.lacks_start, 128)
+  assert_true(first.feature_stats.imports > 0)
+  assert_true(first.feature_stats.tables > 0)
+  assert_true(first.feature_stats.mems > 0)
+  assert_true(first.feature_stats.globals > 0)
+  assert_true(first.feature_stats.tags > 0)
+  assert_true(first.feature_stats.elems > 0)
+  assert_true(first.feature_stats.datas > 0)
+  assert_true(first.feature_stats.starts > 0)
+  assert_true(first.feature_stats.lacks_start > 0)
+}
+
+///|
+test "gen_valid coverage-forced mode emits widened topology and shared type pool" {
+  let mod = gen_valid_module_with_config(
+    @splitmix.new(0x5eedUL~),
+    GenValidConfig::coverage_forced_default(),
+  )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected coverage-forced module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  let facts = gen_valid_feature_facts(mod, CoverageForced)
+  assert_true(facts.has_imports)
+  assert_true(facts.has_func_exports)
+  assert_true(facts.has_table_exports)
+  assert_true(facts.has_mem_exports)
+  assert_true(facts.has_global_exports)
+  assert_true(facts.has_tag_exports)
+  assert_true(facts.has_start)
+  assert_true(facts.has_tables)
+  assert_true(facts.has_mems)
+  assert_true(facts.has_globals)
+  assert_true(facts.has_tags)
+  assert_true(facts.has_elems)
+  assert_true(facts.has_datas)
+  assert_true(facts.has_data_count)
+
+  let import_func_count = match mod.import_sec {
+    Some(ImportSec(imports)) => {
+      let mut count = 0
+      for imp in imports {
+        let Import(_, _, extern_type) = imp
+        match extern_type {
+          FuncExternType(_) => count += 1
+          _ => ()
+        }
+      }
+      count
+    }
+    None => 0
+  }
+  let defined_func_count = match mod.func_sec {
+    Some(FuncSec(type_idxs)) => type_idxs.length()
+    None => 0
+  }
+  let tag_count = match mod.tag_sec {
+    Some(TagSec(tags)) => tags.length()
+    None => 0
+  }
+  let type_count = match mod.type_sec {
+    Some(TypeSec(types)) => types.length()
+    None => 0
+  }
+  assert_true(import_func_count > 0)
+  assert_true(defined_func_count > 0)
+  assert_true(tag_count > 0)
+  assert_true(type_count < import_func_count + defined_func_count + tag_count)
 }
 
 ///|

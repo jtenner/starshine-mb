@@ -8,7 +8,13 @@ using @cmd {run_cmd_fuzz_harness_profile}
 using @lib {trace_elapsed_ms, trace_now_ms, trace_now_us}
 
 ///|
-using @validate {gen_valid_module, run_validate_valid_fuzz, validate_module, validation_error_message}
+using @validate {
+  type GenValidConfig,
+  gen_valid_module_with_config,
+  run_validate_valid_fuzz,
+  validate_module,
+  validation_error_message,
+}
 
 ///|
 using @fs {write_file_bytes}

@@ -111,7 +111,7 @@ fn fuzz_usage_text() -> String {
   let active_suites = fuzz_join(fuzz_active_suite_names(), ", ")
   let reserved_suites = fuzz_join(fuzz_reserved_suite_names(), ", ")
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> (coverage-forced batch)\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -699,7 +699,10 @@ pub fn emit_gen_valid_batch_artifacts(
   let artifacts : Array[(String, Bytes)] = []
   let mut i = 0
   while i < count {
-    let mod = gen_valid_module(rnd)
+    let mod = gen_valid_module_with_config(
+      rnd,
+      GenValidConfig::coverage_forced_default(),
+    )
     match validate_module(mod) {
       Ok(_) => ()
       Err(err) =>

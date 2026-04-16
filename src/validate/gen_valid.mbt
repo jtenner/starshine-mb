@@ -552,10 +552,11 @@ fn append_void_stmt(
 }
 
 ///|
-pub fn gen_valid_tfunc(
+fn gen_valid_build_func(
   ctx : GenValidContext,
   accepts : Array[ValType],
   returns : Array[ValType],
+  globals : Array[GlobalType],
 ) -> Func {
   let locals = gen_local_types(ctx)
   let all_local_types = gen_all_local_types(accepts, locals)
@@ -563,7 +564,7 @@ pub fn gen_valid_tfunc(
   let stmt_count = 1 +
     ctx.random_int(gen_valid_clamp_non_negative(ctx.config.max_body_statements))
   for _ in 0..<stmt_count {
-    append_void_stmt(body_instrs, ctx, all_local_types, [])
+    append_void_stmt(body_instrs, ctx, all_local_types, globals)
   }
   for ret in returns {
     append_value_instrs(body_instrs, ctx, ret, all_local_types)
@@ -572,33 +573,162 @@ pub fn gen_valid_tfunc(
 }
 
 ///|
+pub fn gen_valid_tfunc(
+  ctx : GenValidContext,
+  accepts : Array[ValType],
+  returns : Array[ValType],
+) -> Func {
+  gen_valid_build_func(ctx, accepts, returns, [])
+}
+
+///|
+fn gen_valid_choose_optional_count(
+  ctx : GenValidContext,
+  allow : Bool,
+  max_count : Int,
+  percent : Int,
+) -> Int {
+  let bounded_max = gen_valid_clamp_non_negative(max_count)
+  if !allow || bounded_max <= 0 {
+    0
+  } else if ctx.config.mode == CoverageForced || gen_valid_roll_percent(ctx, percent) {
+    1 + ctx.random_int(bounded_max)
+  } else {
+    0
+  }
+}
+
+///|
+fn gen_valid_choose_defined_func_count(ctx : GenValidContext) -> Int {
+  let bounded_max = gen_valid_clamp_non_negative(ctx.config.max_defined_funcs)
+  if bounded_max <= 1 {
+    1
+  } else if ctx.config.mode == CoverageForced {
+    2 + ctx.random_int(bounded_max - 1)
+  } else {
+    1 + ctx.random_int(bounded_max)
+  }
+}
+
+///|
+fn gen_valid_active_i32_offset() -> Expr {
+  Expr::new([Instruction::i32_const(I32(0))])
+}
+
+///|
+fn gen_valid_pick_type_idx(
+  ctx : GenValidContext,
+  type_count : Int,
+) -> TypeIdx {
+  TypeIdx::new(ctx.random_int(type_count).reinterpret_as_uint())
+}
+
+///|
 pub fn gen_valid_module_with_config(
   rnd : RandomState,
   config : GenValidConfig,
 ) -> Module {
   let ctx = GenValidContext::new(rnd, config)
-  let type_defs : Array[RecType] = []
-  let func_type_idxs : Array[TypeIdx] = []
-  let funcs : Array[Func] = []
-  let globals : Array[Global] = []
-  let max_funcs = gen_valid_min_int(
-    gen_valid_clamp_non_negative(config.max_defined_funcs),
-    gen_valid_clamp_non_negative(config.max_type_defs),
+  let import_func_count = gen_valid_choose_optional_count(
+    ctx,
+    config.features.allow_imports,
+    config.max_imports,
+    config.section_bias.imports_percent,
   )
-  let func_count = if max_funcs <= 1 {
+  let defined_func_count = gen_valid_choose_defined_func_count(ctx)
+  let table_count = gen_valid_choose_optional_count(
+    ctx,
+    config.features.allow_tables,
+    config.max_tables,
+    config.section_bias.tables_percent,
+  )
+  let mem_count = gen_valid_choose_optional_count(
+    ctx,
+    config.features.allow_mems,
+    config.max_mems,
+    config.section_bias.mems_percent,
+  )
+  let global_count = gen_valid_choose_optional_count(
+    ctx,
+    config.features.allow_globals,
+    config.max_globals,
+    config.section_bias.globals_percent,
+  )
+  let tag_count = gen_valid_choose_optional_count(
+    ctx,
+    config.features.allow_tags,
+    config.max_tags,
+    config.section_bias.tags_percent,
+  )
+  let elem_count = if table_count > 0 {
+    gen_valid_choose_optional_count(
+      ctx,
+      config.features.allow_elems,
+      config.max_elems,
+      config.section_bias.elems_percent,
+    )
+  } else {
+    0
+  }
+  let data_count = if mem_count > 0 {
+    gen_valid_choose_optional_count(
+      ctx,
+      config.features.allow_datas,
+      config.max_datas,
+      config.section_bias.datas_percent,
+    )
+  } else {
+    0
+  }
+  let has_start = config.features.allow_start &&
+    (ctx.config.mode == CoverageForced ||
+    gen_valid_roll_percent(ctx, config.section_bias.start_percent))
+  let total_type_users = import_func_count + defined_func_count + tag_count
+  let max_type_defs = if gen_valid_clamp_non_negative(config.max_type_defs) <= 0 {
     1
   } else {
-    1 + ctx.random_int(max_funcs)
+    gen_valid_clamp_non_negative(config.max_type_defs)
   }
-  let global_count = if !config.features.allow_globals || config.max_globals <= 0 {
-    0
-  } else if config.mode == CoverageForced {
-    1 + ctx.random_int(gen_valid_clamp_non_negative(config.max_globals))
-  } else if gen_valid_roll_percent(ctx, config.section_bias.globals_percent) {
-    1 + ctx.random_int(gen_valid_clamp_non_negative(config.max_globals))
+  let type_count = if ctx.config.mode == CoverageForced && total_type_users > 1 {
+    1 + ctx.random_int(gen_valid_min_int(max_type_defs, total_type_users - 1))
   } else {
-    0
+    1 + ctx.random_int(max_type_defs)
   }
+
+  let type_defs : Array[RecType] = []
+  let type_params : Array[Array[ValType]] = []
+  let type_results : Array[Array[ValType]] = []
+  for i = 0; i < type_count; i = i + 1 {
+    let params = if i == 0 && has_start {
+      []
+    } else {
+      gen_param_types(ctx)
+    }
+    let results = if i == 0 && (has_start || tag_count > 0) {
+      []
+    } else {
+      gen_result_types(ctx)
+    }
+    type_params.push(params)
+    type_results.push(results)
+    type_defs.push(
+      RecType::new(SubType::comp_type(CompType::func(params, results))),
+    )
+  }
+
+  let imports : Array[Import] = []
+  for i = 0; i < import_func_count; i = i + 1 {
+    let type_idx = gen_valid_pick_type_idx(ctx, type_count)
+    imports.push(
+      Import::new(
+        Name::new("env"),
+        Name::new("imported_func_\{i}"),
+        ExternType::func(type_idx),
+      ),
+    )
+  }
+
+  let globals : Array[Global] = []
   for _ in 0..<global_count {
     let vt = gen_valid_valtype(ctx)
     globals.push(
@@ -609,42 +739,128 @@ pub fn gen_valid_module_with_config(
     let Global(gt, _) = g
     gt
   })
-  for i = 0; i < func_count; i = i + 1 {
-    let params = gen_param_types(ctx)
-    let results = gen_result_types(ctx)
-    type_defs.push(
-      RecType::new(SubType::comp_type(CompType::func(params, results))),
+
+  let func_type_idxs : Array[TypeIdx] = []
+  for i = 0; i < defined_func_count; i = i + 1 {
+    func_type_idxs.push(
+      if i == 0 && has_start {
+        TypeIdx::new(0U)
+      } else {
+        gen_valid_pick_type_idx(ctx, type_count)
+      },
     )
-    func_type_idxs.push(TypeIdx::new(i.reinterpret_as_uint()))
-    let local_types = gen_local_types(ctx)
-    let all_local_types = gen_all_local_types(params, local_types)
-    let body_instrs : Array[Instruction] = []
-    let stmt_count = 1 +
-      ctx.random_int(gen_valid_clamp_non_negative(config.max_body_statements))
-    for _ in 0..<stmt_count {
-      append_void_stmt(body_instrs, ctx, all_local_types, global_types)
-    }
-    for ret in results {
-      append_value_instrs(body_instrs, ctx, ret, all_local_types)
-    }
+  }
+
+  let funcs : Array[Func] = []
+  for type_idx in func_type_idxs {
+    let TypeIdx(type_idx_u) = type_idx
+    let type_idx_i = type_idx_u.reinterpret_as_int()
     funcs.push(
-      Func::new(Locals::from_types(local_types), Expr::new(body_instrs)),
+      gen_valid_build_func(
+        ctx,
+        type_params[type_idx_i],
+        type_results[type_idx_i],
+        global_types,
+      ),
     )
   }
-  let mod = Module::new()
-    .with_type_sec(TypeSec::new(type_defs))
-    .with_func_sec(FuncSec::new(func_type_idxs))
-    .with_code_sec(CodeSec::new(funcs))
-  let mod = if globals.is_empty() {
-    mod
-  } else {
-    mod.with_global_sec(GlobalSec::new(globals))
+
+  let tables : Array[Table] = []
+  for _ in 0..<table_count {
+    tables.push(
+      Table::new(
+        TableType::new(RefType::abs(AbsHeapType::func()), Limits::i32(1U, Some(4U))),
+        None,
+      ),
+    )
   }
-  mod.with_export_sec(
-    ExportSec::new([
-      Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(0))),
-    ]),
-  )
+
+  let mems : Array[MemType] = []
+  for _ in 0..<mem_count {
+    mems.push(MemType::new(Limits::i32(1U, Some(4U))))
+  }
+
+  let tags : Array[TagType] = []
+  for _ in 0..<tag_count {
+    tags.push(TagType::new(TypeIdx::new(0U)))
+  }
+
+  let total_func_count = import_func_count + defined_func_count
+  let first_defined_func_idx = FuncIdx::new(import_func_count.reinterpret_as_uint())
+
+  let elems : Array[Elem] = []
+  if table_count > 0 && total_func_count > 0 {
+    for _ in 0..<elem_count {
+      elems.push(
+        Elem::new(
+          ElemMode::active(TableIdx::new(0U), gen_valid_active_i32_offset()),
+          ElemKind::funcs([first_defined_func_idx]),
+        ),
+      )
+    }
+  }
+
+  let datas : Array[Data] = []
+  if mem_count > 0 {
+    for _ in 0..<data_count {
+      datas.push(
+        Data::new(
+          DataMode::active(MemIdx::new(0U), gen_valid_active_i32_offset()),
+          b"gen-valid",
+        ),
+      )
+    }
+  }
+
+  let exports : Array[Export] = [
+    Export::new(Name::new("main"), ExternIdx::func(first_defined_func_idx)),
+  ]
+  if table_count > 0 {
+    exports.push(Export::new(Name::new("table0"), ExternIdx::table(TableIdx::new(0U))))
+  }
+  if mem_count > 0 {
+    exports.push(Export::new(Name::new("memory0"), ExternIdx::mem(MemIdx::new(0U))))
+  }
+  if global_count > 0 {
+    exports.push(Export::new(Name::new("global0"), ExternIdx::global(GlobalIdx::new(0U))))
+  }
+  if tag_count > 0 {
+    exports.push(Export::new(Name::new("tag0"), ExternIdx::tag(TagIdx::new(0U))))
+  }
+
+  let mut mod = Module::new().with_type_sec(TypeSec::new(type_defs))
+  if !imports.is_empty() {
+    mod = mod.with_import_sec(ImportSec::new(imports))
+  }
+  mod = mod.with_func_sec(FuncSec::new(func_type_idxs))
+  if !tables.is_empty() {
+    mod = mod.with_table_sec(TableSec::new(tables))
+  }
+  if !mems.is_empty() {
+    mod = mod.with_mem_sec(MemSec::new(mems))
+  }
+  if !globals.is_empty() {
+    mod = mod.with_global_sec(GlobalSec::new(globals))
+  }
+  if !tags.is_empty() {
+    mod = mod.with_tag_sec(TagSec::new(tags))
+  }
+  if has_start {
+    mod = mod.with_start_sec(StartSec::new(first_defined_func_idx))
+  }
+  if !elems.is_empty() {
+    mod = mod.with_elem_sec(ElemSec::new(elems))
+  }
+  if !datas.is_empty() {
+    mod = mod.with_data_cnt_sec(
+      DataCntSec::new(U32(datas.length().reinterpret_as_uint())),
+    )
+  }
+  mod = mod.with_code_sec(CodeSec::new(funcs))
+  if !datas.is_empty() {
+    mod = mod.with_data_sec(DataSec::new(datas))
+  }
+  mod.with_export_sec(ExportSec::new(exports))
 }
 
 ///|
