@@ -3349,6 +3349,169 @@ pub fn run_validate_valid_fuzz(
 }
 
 ///|
+priv struct GenValidBodySurfaceFacts {
+  has_block : Bool
+  has_loop : Bool
+  has_if : Bool
+  has_br : Bool
+  has_br_if : Bool
+  has_memory_op : Bool
+  has_table_op : Bool
+} derive(Eq, Show, Debug)
+
+///|
+fn gen_valid_body_surface_facts_empty() -> GenValidBodySurfaceFacts {
+  {
+    has_block: false,
+    has_loop: false,
+    has_if: false,
+    has_br: false,
+    has_br_if: false,
+    has_memory_op: false,
+    has_table_op: false,
+  }
+}
+
+///|
+fn gen_valid_body_surface_facts_merge(
+  left : GenValidBodySurfaceFacts,
+  right : GenValidBodySurfaceFacts,
+) -> GenValidBodySurfaceFacts {
+  {
+    has_block: left.has_block || right.has_block,
+    has_loop: left.has_loop || right.has_loop,
+    has_if: left.has_if || right.has_if,
+    has_br: left.has_br || right.has_br,
+    has_br_if: left.has_br_if || right.has_br_if,
+    has_memory_op: left.has_memory_op || right.has_memory_op,
+    has_table_op: left.has_table_op || right.has_table_op,
+  }
+}
+
+///|
+fn gen_valid_body_surface_facts_expr(expr : Expr) -> GenValidBodySurfaceFacts {
+  let Expr(instrs) = expr
+  let mut facts = gen_valid_body_surface_facts_empty()
+  for instr in instrs {
+    facts = gen_valid_body_surface_facts_merge(
+      facts,
+      gen_valid_body_surface_facts_instr(instr),
+    )
+  }
+  facts
+}
+
+///|
+fn gen_valid_body_surface_facts_instr(
+  instr : Instruction,
+) -> GenValidBodySurfaceFacts {
+  match instr {
+    Block(_, body) =>
+      GenValidBodySurfaceFacts::{
+        ..gen_valid_body_surface_facts_expr(body),
+        has_block: true,
+      }
+    Loop(_, body) =>
+      GenValidBodySurfaceFacts::{
+        ..gen_valid_body_surface_facts_expr(body),
+        has_loop: true,
+      }
+    If(_, then_body, else_body) => {
+      let mut facts = GenValidBodySurfaceFacts::{
+        ..gen_valid_body_surface_facts_empty(),
+        has_if: true,
+      }
+      facts = gen_valid_body_surface_facts_merge(
+        facts,
+        gen_valid_body_surface_facts_expr(Expr::new(then_body)),
+      )
+      match else_body {
+        Some(branch) =>
+          facts = gen_valid_body_surface_facts_merge(
+            facts,
+            gen_valid_body_surface_facts_expr(Expr::new(branch)),
+          )
+        None => ()
+      }
+      facts
+    }
+    Br(_) =>
+      GenValidBodySurfaceFacts::{
+        ..gen_valid_body_surface_facts_empty(),
+        has_br: true,
+      }
+    BrIf(_) =>
+      GenValidBodySurfaceFacts::{
+        ..gen_valid_body_surface_facts_empty(),
+        has_br_if: true,
+      }
+    I32Load(_)
+    | I64Load(_)
+    | F32Load(_)
+    | F64Load(_)
+    | I32Load8S(_)
+    | I32Load8U(_)
+    | I32Load16S(_)
+    | I32Load16U(_)
+    | I64Load8S(_)
+    | I64Load8U(_)
+    | I64Load16S(_)
+    | I64Load16U(_)
+    | I64Load32S(_)
+    | I64Load32U(_)
+    | I32Store(_)
+    | I64Store(_)
+    | F32Store(_)
+    | F64Store(_)
+    | I32Store8(_)
+    | I32Store16(_)
+    | I64Store8(_)
+    | I64Store16(_)
+    | I64Store32(_)
+    | MemorySize(_)
+    | MemoryGrow(_)
+    | MemoryFill(_)
+    | MemoryCopy(_, _) =>
+      GenValidBodySurfaceFacts::{
+        ..gen_valid_body_surface_facts_empty(),
+        has_memory_op: true,
+      }
+    TableGet(_)
+    | TableSet(_)
+    | TableSize(_)
+    | TableGrow(_)
+    | TableFill(_)
+    | TableCopy(_, _)
+    | TableInit(_, _) =>
+      GenValidBodySurfaceFacts::{
+        ..gen_valid_body_surface_facts_empty(),
+        has_table_op: true,
+      }
+    _ => gen_valid_body_surface_facts_empty()
+  }
+}
+
+///|
+fn gen_valid_body_surface_facts_module(
+  mod : Module,
+) -> GenValidBodySurfaceFacts {
+  match mod.code_sec {
+    Some(CodeSec(funcs)) => {
+      let mut facts = gen_valid_body_surface_facts_empty()
+      for func in funcs {
+        let Func(_, body) = func
+        facts = gen_valid_body_surface_facts_merge(
+          facts,
+          gen_valid_body_surface_facts_expr(body),
+        )
+      }
+      facts
+    }
+    None => gen_valid_body_surface_facts_empty()
+  }
+}
+
+///|
 test "validate_valid_run_config returns profile attempts and generator config" {
   let smoke = match validate_valid_run_config("smoke") {
     Ok(v) => v
@@ -3411,6 +3574,11 @@ test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
   assert_true(first.feature_stats.datas > 0)
   assert_true(first.feature_stats.starts > 0)
   assert_true(first.feature_stats.lacks_start > 0)
+  assert_true(first.feature_stats.ref_types > 0)
+  assert_true(first.feature_stats.v128 > 0)
+  assert_true(first.feature_stats.calls > 0)
+  assert_true(first.feature_stats.call_indirect > 0)
+  assert_true(first.feature_stats.branch_heavy_control > 0)
 }
 
 ///|
@@ -3441,6 +3609,20 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
   assert_true(facts.has_elems)
   assert_true(facts.has_datas)
   assert_true(facts.has_data_count)
+  assert_true(facts.uses_ref_types)
+  assert_true(facts.uses_v128)
+  assert_true(facts.has_call)
+  assert_true(facts.has_call_indirect)
+  assert_true(facts.has_branch_heavy_control)
+
+  let body_surface = gen_valid_body_surface_facts_module(mod)
+  assert_true(body_surface.has_block)
+  assert_true(body_surface.has_loop)
+  assert_true(body_surface.has_if)
+  assert_true(body_surface.has_br)
+  assert_true(body_surface.has_br_if)
+  assert_true(body_surface.has_memory_op)
+  assert_true(body_surface.has_table_op)
 
   let import_func_count = match mod.import_sec {
     Some(ImportSec(imports)) => {

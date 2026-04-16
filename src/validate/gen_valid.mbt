@@ -72,8 +72,8 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_start: true,
     allow_elems: true,
     allow_datas: true,
-    allow_ref_types: false,
-    allow_v128: false,
+    allow_ref_types: true,
+    allow_v128: true,
     allow_calls: true,
     allow_call_indirect: true,
     allow_branch_heavy_control: true,
@@ -272,7 +272,7 @@ struct GenValidContext {
 }
 
 ///|
-struct GenValidInstrFacts {
+priv struct GenValidInstrFacts {
   uses_ref_types : Bool
   uses_v128 : Bool
   has_call : Bool
@@ -480,15 +480,170 @@ fn gen_matching_local_idx(
 }
 
 ///|
+priv struct GenValidFuncSig {
+  idx : FuncIdx
+  type_idx : TypeIdx
+  params : Array[ValType]
+  results : Array[ValType]
+}
+
+///|
+priv struct GenValidBodyEnv {
+  local_types : Array[ValType]
+  globals : Array[GlobalType]
+  tables : Array[TableType]
+  mems : Array[MemType]
+  funcs : Array[GenValidFuncSig]
+  declared_ref_func_idx : FuncIdx?
+  depth_left : Int
+  label_depth : Int
+}
+
+///|
+fn gen_matching_global_idx(
+  globals : Array[GlobalType],
+  vt : ValType,
+  mutable_only? : Bool = false,
+) -> GlobalIdx? {
+  for i = 0; i < globals.length(); i = i + 1 {
+    let GlobalType(global_vt, is_mut) = globals[i]
+    if global_vt == vt && (!mutable_only || is_mut) {
+      return Some(GlobalIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+  None
+}
+
+///|
+fn gen_valid_memarg() -> MemArg {
+  MemArg::new(U32(0), None, U64(0))
+}
+
+///|
+fn gen_valid_body_env_child(
+  env : GenValidBodyEnv,
+  add_void_label? : Bool = false,
+) -> GenValidBodyEnv {
+  let next_label_depth = if add_void_label {
+    env.label_depth + 1
+  } else {
+    env.label_depth
+  }
+  {
+    ..env,
+    depth_left: if env.depth_left > 0 {
+      env.depth_left - 1
+    } else {
+      0
+    },
+    label_depth: next_label_depth,
+  }
+}
+
+///|
+fn gen_valid_body_stmt_count(ctx : GenValidContext, depth_left : Int) -> Int {
+  let bounded = gen_valid_clamp_non_negative(ctx.config.max_body_statements)
+  let capped = if depth_left <= 0 {
+    gen_valid_min_int(2, bounded)
+  } else {
+    gen_valid_min_int(3, bounded)
+  }
+  1 + ctx.random_int(capped)
+}
+
+///|
+fn gen_valid_append_call_args(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  params : Array[ValType],
+) -> Unit {
+  let child_env = gen_valid_body_env_child(env)
+  for param in params {
+    append_value_instrs(out, ctx, param, child_env, prefer_local=true)
+  }
+}
+
+///|
+fn gen_valid_append_call_result_drops(
+  out : Array[Instruction],
+  results : Array[ValType],
+) -> Unit {
+  for _ in results {
+    out.push(Instruction::drop())
+  }
+}
+
+///|
+fn gen_valid_pick_callable_with_result(
+  ctx : GenValidContext,
+  funcs : Array[GenValidFuncSig],
+  vt : ValType,
+) -> GenValidFuncSig? {
+  let matches : Array[GenValidFuncSig] = []
+  for func in funcs {
+    if func.results == [vt] {
+      matches.push(func)
+    }
+  }
+  if matches.is_empty() {
+    None
+  } else {
+    Some(matches[ctx.random_int(matches.length())])
+  }
+}
+
+///|
+fn gen_valid_pick_callable(
+  ctx : GenValidContext,
+  funcs : Array[GenValidFuncSig],
+) -> GenValidFuncSig? {
+  if funcs.is_empty() {
+    None
+  } else {
+    Some(funcs[ctx.random_int(funcs.length())])
+  }
+}
+
+///|
+fn gen_valid_append_table_ref_value(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  rt : RefType,
+) -> Unit {
+  append_value_instrs(
+    out,
+    ctx,
+    ValType::ref_type(rt),
+    gen_valid_body_env_child(env),
+    prefer_local=false,
+  )
+}
+
+///|
+fn gen_valid_append_nested_void_instrs(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  let child = gen_valid_body_env_child(env, add_void_label=true)
+  let stmt_count = gen_valid_body_stmt_count(ctx, child.depth_left)
+  for _ in 0..<stmt_count {
+    append_void_stmt(out, ctx, child)
+  }
+}
+
+///|
 fn append_value_instrs(
   out : Array[Instruction],
   ctx : GenValidContext,
   vt : ValType,
-  local_types : Array[ValType],
+  env : GenValidBodyEnv,
   prefer_local? : Bool = true,
 ) -> Unit {
-  if prefer_local {
-    match gen_matching_local_idx(local_types, vt) {
+  if prefer_local && ctx.random_bool() {
+    match gen_matching_local_idx(env.local_types, vt) {
       Some(idx) => {
         out.push(Instruction::local_get(idx))
         return
@@ -496,75 +651,412 @@ fn append_value_instrs(
       None => ()
     }
   }
-  out.push(gen_const_instr(ctx, vt))
+  match gen_matching_global_idx(env.globals, vt) {
+    Some(idx) if ctx.random_int(5) == 0 => {
+      out.push(Instruction::global_get(idx))
+      return
+    }
+    _ => ()
+  }
+  if env.depth_left > 0 {
+    if ctx.config.features.allow_calls {
+      match gen_valid_pick_callable_with_result(ctx, env.funcs, vt) {
+        Some(target) if ctx.random_int(4) == 0 => {
+          gen_valid_append_call_args(out, ctx, env, target.params)
+          out.push(Instruction::call(target.idx))
+          return
+        }
+        _ => ()
+      }
+    }
+    if !env.mems.is_empty() && vt == ValType::i32() && ctx.random_int(5) == 0 {
+      out.push(Instruction::memory_size(MemIdx::new(0U)))
+      return
+    }
+    if ctx.config.features.allow_call_indirect && !env.tables.is_empty() {
+      match gen_valid_pick_callable_with_result(ctx, env.funcs, vt) {
+        Some(target) if ctx.random_int(4) == 0 => {
+          gen_valid_append_call_args(out, ctx, env, target.params)
+          out.push(Instruction::i32_const(I32(0)))
+          out.push(
+            Instruction::call_indirect(target.type_idx, TableIdx::new(0U)),
+          )
+          return
+        }
+        _ => ()
+      }
+    }
+    if ctx.config.features.allow_branch_heavy_control && ctx.random_int(5) == 0 {
+      let then_body : Array[Instruction] = []
+      let else_body : Array[Instruction] = []
+      let child = gen_valid_body_env_child(env)
+      append_value_instrs(then_body, ctx, vt, child, prefer_local=false)
+      append_value_instrs(else_body, ctx, vt, child, prefer_local=false)
+      out.push(
+        Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+      )
+      out.push(
+        Instruction::if_(BlockType::val_type(vt), then_body, Some(else_body)),
+      )
+      return
+    }
+    if ctx.config.features.allow_branch_heavy_control && ctx.random_int(5) == 0 {
+      let child_body : Array[Instruction] = []
+      append_value_instrs(
+        child_body,
+        ctx,
+        vt,
+        gen_valid_body_env_child(env),
+        prefer_local=false,
+      )
+      out.push(
+        Instruction::block(BlockType::val_type(vt), Expr::new(child_body)),
+      )
+      return
+    }
+    if !env.tables.is_empty() {
+      let TableType(rt, _) = env.tables[0]
+      if vt == ValType::ref_type(rt) && ctx.random_int(4) == 0 {
+        out.push(Instruction::i32_const(I32(0)))
+        out.push(Instruction::table_get(TableIdx::new(0U)))
+        return
+      }
+    }
+    if !env.mems.is_empty() {
+      let memarg = gen_valid_memarg()
+      match vt {
+        NumTypeValType(I32NumType) if ctx.random_int(4) == 0 => {
+          out.push(Instruction::i32_const(I32(0)))
+          out.push(Instruction::i32_load(memarg))
+          return
+        }
+        NumTypeValType(I64NumType) if ctx.random_int(4) == 0 => {
+          out.push(Instruction::i32_const(I32(0)))
+          out.push(Instruction::i64_load(memarg))
+          return
+        }
+        NumTypeValType(F32NumType) if ctx.random_int(4) == 0 => {
+          out.push(Instruction::i32_const(I32(0)))
+          out.push(Instruction::f32_load(memarg))
+          return
+        }
+        NumTypeValType(F64NumType) if ctx.random_int(4) == 0 => {
+          out.push(Instruction::i32_const(I32(0)))
+          out.push(Instruction::f64_load(memarg))
+          return
+        }
+        _ => ()
+      }
+    }
+    if !env.tables.is_empty() && vt == ValType::i32() && ctx.random_int(4) == 0 {
+      out.push(Instruction::table_size(TableIdx::new(0U)))
+      return
+    }
+  }
+  match vt {
+    RefTypeValType(rt) => {
+      let heap_type = rt.get_heap_type()
+      if ValType::ref_type(rt) == ValType::funcref() {
+        match env.declared_ref_func_idx {
+          Some(func_idx) if ctx.random_bool() => {
+            out.push(Instruction::ref_func(func_idx))
+            return
+          }
+          _ => ()
+        }
+      }
+      out.push(Instruction::ref_null(heap_type))
+    }
+    _ => out.push(gen_const_instr(ctx, vt))
+  }
 }
 
 ///|
 fn append_void_stmt(
   out : Array[Instruction],
   ctx : GenValidContext,
-  local_types : Array[ValType],
-  globals : Array[GlobalType],
+  env : GenValidBodyEnv,
 ) -> Unit {
   let branchy = ctx.config.features.allow_branch_heavy_control
-  match ctx.random_int(if branchy { 6 } else { 4 }) {
+  match ctx.random_int(if branchy { 12 } else { 8 }) {
     0 => out.push(Instruction::nop())
     1 => {
       let vt = gen_valid_valtype(ctx)
-      append_value_instrs(out, ctx, vt, local_types, prefer_local=false)
+      append_value_instrs(out, ctx, vt, env, prefer_local=false)
       out.push(Instruction::drop())
     }
     2 =>
-      if local_types.is_empty() {
+      if env.local_types.is_empty() {
         out.push(Instruction::nop())
       } else {
-        let idx = ctx.random_int(local_types.length())
-        let vt = local_types[idx]
-        append_value_instrs(out, ctx, vt, local_types, prefer_local=false)
+        let idx = ctx.random_int(env.local_types.length())
+        let vt = env.local_types[idx]
+        append_value_instrs(
+          out,
+          ctx,
+          vt,
+          gen_valid_body_env_child(env),
+          prefer_local=false,
+        )
         out.push(
           Instruction::local_set(LocalIdx::new(idx.reinterpret_as_uint())),
         )
       }
     3 =>
-      if local_types.is_empty() {
-        out.push(Instruction::nop())
-      } else {
-        let idx = ctx.random_int(local_types.length())
-        let vt = local_types[idx]
-        append_value_instrs(out, ctx, vt, local_types, prefer_local=false)
-        out.push(
-          Instruction::local_tee(LocalIdx::new(idx.reinterpret_as_uint())),
-        )
-        out.push(Instruction::drop())
+      match
+        gen_matching_global_idx(
+          env.globals,
+          gen_valid_valtype(ctx),
+          mutable_only=true,
+        ) {
+        Some(idx) => {
+          let GlobalIdx(idx_u) = idx
+          let GlobalType(vt, _) = env.globals[idx_u.reinterpret_as_int()]
+          append_value_instrs(
+            out,
+            ctx,
+            vt,
+            gen_valid_body_env_child(env),
+            prefer_local=false,
+          )
+          out.push(Instruction::global_set(idx))
+        }
+        None => out.push(Instruction::nop())
       }
-    4 => {
+    4 =>
+      if ctx.config.features.allow_calls {
+        match gen_valid_pick_callable(ctx, env.funcs) {
+          Some(target) => {
+            gen_valid_append_call_args(out, ctx, env, target.params)
+            out.push(Instruction::call(target.idx))
+            gen_valid_append_call_result_drops(out, target.results)
+          }
+          None => out.push(Instruction::nop())
+        }
+      } else {
+        out.push(Instruction::nop())
+      }
+    5 =>
+      if ctx.config.features.allow_call_indirect && !env.tables.is_empty() {
+        match gen_valid_pick_callable(ctx, env.funcs) {
+          Some(target) => {
+            gen_valid_append_call_args(out, ctx, env, target.params)
+            out.push(Instruction::i32_const(I32(0)))
+            out.push(
+              Instruction::call_indirect(target.type_idx, TableIdx::new(0U)),
+            )
+            gen_valid_append_call_result_drops(out, target.results)
+          }
+          None => out.push(Instruction::nop())
+        }
+      } else {
+        out.push(Instruction::nop())
+      }
+    6 =>
+      if !env.mems.is_empty() {
+        let memarg = gen_valid_memarg()
+        out.push(Instruction::memory_size(MemIdx::new(0U)))
+        out.push(Instruction::drop())
+        out.push(Instruction::i32_const(I32(0)))
+        out.push(Instruction::i32_const(I32(1)))
+        out.push(Instruction::i32_store(memarg))
+        out.push(Instruction::i32_const(I32(0)))
+        out.push(Instruction::i32_load(memarg))
+        out.push(Instruction::drop())
+      } else {
+        out.push(Instruction::nop())
+      }
+    7 =>
+      if !env.tables.is_empty() {
+        let TableType(rt, _) = env.tables[0]
+        out.push(Instruction::table_size(TableIdx::new(0U)))
+        out.push(Instruction::drop())
+        out.push(Instruction::i32_const(I32(0)))
+        gen_valid_append_table_ref_value(out, ctx, env, rt)
+        out.push(Instruction::table_set(TableIdx::new(0U)))
+        out.push(Instruction::i32_const(I32(0)))
+        out.push(Instruction::table_get(TableIdx::new(0U)))
+        out.push(Instruction::drop())
+      } else {
+        out.push(Instruction::nop())
+      }
+    8 => {
+      let body : Array[Instruction] = []
+      gen_valid_append_nested_void_instrs(body, ctx, env)
+      out.push(Instruction::block(BlockType::void_(), Expr::new(body)))
+    }
+    9 => {
+      let body : Array[Instruction] = []
+      gen_valid_append_nested_void_instrs(body, ctx, env)
+      if branchy {
+        body.push(
+          Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+        )
+        body.push(Instruction::br_if(LabelIdx::new(0U)))
+      }
+      out.push(Instruction::loop_(BlockType::void_(), Expr::new(body)))
+    }
+    10 => {
+      let then_body : Array[Instruction] = []
+      let else_body : Array[Instruction] = []
+      let child = gen_valid_body_env_child(env)
+      let branch_stmt_count = gen_valid_body_stmt_count(ctx, child.depth_left)
+      for _ in 0..<branch_stmt_count {
+        append_void_stmt(then_body, ctx, child)
+        append_void_stmt(else_body, ctx, child)
+      }
       out.push(
         Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
       )
-      out.push(
-        Instruction::if_(
-          BlockType::void_(),
-          [Instruction::nop()],
-          Some([Instruction::nop()]),
-        ),
-      )
+      out.push(Instruction::if_(BlockType::void_(), then_body, Some(else_body)))
     }
     _ =>
-      if globals.is_empty() {
-        out.push(
-          Instruction::block(
-            BlockType::void_(),
-            Expr::new([Instruction::nop()]),
-          ),
-        )
+      if branchy && env.label_depth > 0 {
+        if ctx.random_bool() {
+          out.push(
+            Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+          )
+          out.push(Instruction::br_if(LabelIdx::new(0U)))
+        } else {
+          out.push(Instruction::br(LabelIdx::new(0U)))
+        }
       } else {
-        let idx = ctx.random_int(globals.length())
-        out.push(
-          Instruction::global_get(GlobalIdx::new(idx.reinterpret_as_uint())),
-        )
-        out.push(Instruction::drop())
+        out.push(Instruction::nop())
       }
   }
+}
+
+///|
+fn gen_valid_append_coverage_prelude(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if ctx.config.features.allow_v128 {
+    out.push(
+      Instruction::v128_const(
+        b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+        b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      ),
+    )
+    out.push(Instruction::drop())
+  }
+  if ctx.config.features.allow_ref_types {
+    append_value_instrs(
+      out,
+      ctx,
+      ValType::funcref(),
+      gen_valid_body_env_child(env),
+      prefer_local=false,
+    )
+    out.push(Instruction::drop())
+    append_value_instrs(
+      out,
+      ctx,
+      ValType::externref(),
+      gen_valid_body_env_child(env),
+      prefer_local=false,
+    )
+    out.push(Instruction::drop())
+  }
+  if ctx.config.features.allow_calls {
+    match gen_valid_pick_callable(ctx, env.funcs) {
+      Some(target) => {
+        gen_valid_append_call_args(out, ctx, env, target.params)
+        out.push(Instruction::call(target.idx))
+        gen_valid_append_call_result_drops(out, target.results)
+      }
+      None => ()
+    }
+  }
+  if ctx.config.features.allow_call_indirect && !env.tables.is_empty() {
+    match gen_valid_pick_callable(ctx, env.funcs) {
+      Some(target) => {
+        gen_valid_append_call_args(out, ctx, env, target.params)
+        out.push(Instruction::i32_const(I32(0)))
+        out.push(Instruction::call_indirect(target.type_idx, TableIdx::new(0U)))
+        gen_valid_append_call_result_drops(out, target.results)
+      }
+      None => ()
+    }
+  }
+  if !env.mems.is_empty() {
+    let memarg = gen_valid_memarg()
+    out.push(Instruction::memory_size(MemIdx::new(0U)))
+    out.push(Instruction::drop())
+    out.push(Instruction::i32_const(I32(1)))
+    out.push(Instruction::memory_grow(MemIdx::new(0U)))
+    out.push(Instruction::drop())
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(7)))
+    out.push(Instruction::i32_store(memarg))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_load(memarg))
+    out.push(Instruction::drop())
+  }
+  if !env.tables.is_empty() {
+    let TableType(rt, _) = env.tables[0]
+    out.push(Instruction::table_size(TableIdx::new(0U)))
+    out.push(Instruction::drop())
+    out.push(Instruction::i32_const(I32(0)))
+    gen_valid_append_table_ref_value(out, ctx, env, rt)
+    out.push(Instruction::table_set(TableIdx::new(0U)))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::table_get(TableIdx::new(0U)))
+    out.push(Instruction::drop())
+    gen_valid_append_table_ref_value(out, ctx, env, rt)
+    out.push(Instruction::i32_const(I32(1)))
+    out.push(Instruction::table_grow(TableIdx::new(0U)))
+    out.push(Instruction::drop())
+  }
+  if !env.globals.is_empty() {
+    out.push(Instruction::global_get(GlobalIdx::new(0U)))
+    out.push(Instruction::drop())
+    let GlobalType(first_global_vt, _) = env.globals[0]
+    match
+      gen_matching_global_idx(env.globals, first_global_vt, mutable_only=true) {
+      Some(idx) => {
+        let GlobalIdx(idx_u) = idx
+        let GlobalType(vt, _) = env.globals[idx_u.reinterpret_as_int()]
+        append_value_instrs(
+          out,
+          ctx,
+          vt,
+          gen_valid_body_env_child(env),
+          prefer_local=false,
+        )
+        out.push(Instruction::global_set(idx))
+      }
+      None => ()
+    }
+  }
+  let branch_block_body = [
+    Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+    Instruction::br_if(LabelIdx::new(0U)),
+  ]
+  out.push(Instruction::block(BlockType::void_(), Expr::new(branch_block_body)))
+  out.push(
+    Instruction::loop_(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+        Instruction::br_if(LabelIdx::new(0U)),
+      ]),
+    ),
+  )
+  out.push(Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })))
+  out.push(
+    Instruction::if_(
+      BlockType::void_(),
+      [
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([Instruction::br(LabelIdx::new(0U))]),
+        ),
+      ],
+      Some([Instruction::nop()]),
+    ),
+  )
 }
 
 ///|
@@ -573,17 +1065,33 @@ fn gen_valid_build_func(
   accepts : Array[ValType],
   returns : Array[ValType],
   globals : Array[GlobalType],
+  tables : Array[TableType],
+  mems : Array[MemType],
+  funcs : Array[GenValidFuncSig],
+  declared_ref_func_idx : FuncIdx?,
 ) -> Func {
   let locals = gen_local_types(ctx)
   let all_local_types = gen_all_local_types(accepts, locals)
+  let env : GenValidBodyEnv = {
+    local_types: all_local_types,
+    globals,
+    tables,
+    mems,
+    funcs,
+    declared_ref_func_idx,
+    depth_left: gen_valid_clamp_non_negative(ctx.config.max_body_depth),
+    label_depth: 0,
+  }
   let body_instrs : Array[Instruction] = []
-  let stmt_count = 1 +
-    ctx.random_int(gen_valid_clamp_non_negative(ctx.config.max_body_statements))
+  if ctx.config.mode == CoverageForced {
+    gen_valid_append_coverage_prelude(body_instrs, ctx, env)
+  }
+  let stmt_count = gen_valid_body_stmt_count(ctx, env.depth_left)
   for _ in 0..<stmt_count {
-    append_void_stmt(body_instrs, ctx, all_local_types, globals)
+    append_void_stmt(body_instrs, ctx, env)
   }
   for ret in returns {
-    append_value_instrs(body_instrs, ctx, ret, all_local_types)
+    append_value_instrs(body_instrs, ctx, ret, env)
   }
   Func::new(Locals::from_types(locals), Expr::new(body_instrs))
 }
@@ -594,7 +1102,7 @@ pub fn gen_valid_tfunc(
   accepts : Array[ValType],
   returns : Array[ValType],
 ) -> Func {
-  gen_valid_build_func(ctx, accepts, returns, [])
+  gen_valid_build_func(ctx, accepts, returns, [], [], [], [], None)
 }
 
 ///|
@@ -743,8 +1251,9 @@ pub fn gen_valid_module_with_config(
   let globals : Array[Global] = []
   for _ in 0..<global_count {
     let vt = gen_valid_valtype(ctx)
+    let is_mut = ctx.config.mode == CoverageForced || ctx.random_bool()
     globals.push(
-      Global::new(GlobalType::new(vt, false), gen_const_expr(ctx, vt)),
+      Global::new(GlobalType::new(vt, is_mut), gen_const_expr(ctx, vt)),
     )
   }
   let global_types = globals.map(fn(g) {
@@ -763,6 +1272,65 @@ pub fn gen_valid_module_with_config(
     )
   }
 
+  let first_defined_func_idx = FuncIdx::new(
+    import_func_count.reinterpret_as_uint(),
+  )
+
+  let tables : Array[Table] = []
+  for _ in 0..<table_count {
+    tables.push(
+      Table::new(
+        TableType::new(
+          RefType::new(true, HeapType::abs(AbsHeapType::func())),
+          Limits::i32(1U, Some(4U)),
+        ),
+        None,
+      ),
+    )
+  }
+  let table_types = tables.map(fn(table) {
+    let Table(table_type, _) = table
+    table_type
+  })
+
+  let mems : Array[MemType] = []
+  for _ in 0..<mem_count {
+    mems.push(MemType::new(Limits::i32(1U, Some(4U))))
+  }
+
+  let func_sigs : Array[GenValidFuncSig] = []
+  for i = 0; i < imports.length(); i = i + 1 {
+    let Import(_, _, extern_type) = imports[i]
+    match extern_type {
+      FuncExternType(type_idx) => {
+        let type_idx_i = match type_idx {
+          TypeIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
+          RecIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
+        }
+        func_sigs.push({
+          idx: FuncIdx::new(i.reinterpret_as_uint()),
+          type_idx,
+          params: type_params[type_idx_i],
+          results: type_results[type_idx_i],
+        })
+      }
+      _ => ()
+    }
+  }
+  for i = 0; i < func_type_idxs.length(); i = i + 1 {
+    let type_idx = func_type_idxs[i]
+    let type_idx_i = match type_idx {
+      TypeIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
+      RecIdx(type_idx_u) => type_idx_u.reinterpret_as_int()
+    }
+    func_sigs.push({
+      idx: FuncIdx::new((import_func_count + i).reinterpret_as_uint()),
+      type_idx,
+      params: type_params[type_idx_i],
+      results: type_results[type_idx_i],
+    })
+  }
+
   let funcs : Array[Func] = []
   for type_idx in func_type_idxs {
     let type_idx_i = match type_idx {
@@ -775,26 +1343,12 @@ pub fn gen_valid_module_with_config(
         type_params[type_idx_i],
         type_results[type_idx_i],
         global_types,
+        table_types,
+        mems,
+        func_sigs,
+        Some(first_defined_func_idx),
       ),
     )
-  }
-
-  let tables : Array[Table] = []
-  for _ in 0..<table_count {
-    tables.push(
-      Table::new(
-        TableType::new(
-          RefType::abs(AbsHeapType::func()),
-          Limits::i32(1U, Some(4U)),
-        ),
-        None,
-      ),
-    )
-  }
-
-  let mems : Array[MemType] = []
-  for _ in 0..<mem_count {
-    mems.push(MemType::new(Limits::i32(1U, Some(4U))))
   }
 
   let tags : Array[TagType] = []
@@ -803,9 +1357,6 @@ pub fn gen_valid_module_with_config(
   }
 
   let total_func_count = import_func_count + defined_func_count
-  let first_defined_func_idx = FuncIdx::new(
-    import_func_count.reinterpret_as_uint(),
-  )
 
   let elems : Array[Elem] = []
   if table_count > 0 && total_func_count > 0 {

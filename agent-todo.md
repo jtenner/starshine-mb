@@ -619,7 +619,8 @@ Current status
 - `[FUZ]003` is complete. `gen_valid` now has a real topology-first split between `natural` and `coverage-forced` modes, widened section generation across imports/tables/mems/globals/tags/start/elem/data/datacount, shared type-pool reuse across imports/functions/tags, and a now-explicit `coverage-forced` `--emit-gen-valid-batch` contract for pass fuzzing.
 - `[FUZ]003A` is complete. `remove-unused-module-elements` now drops unused imported functions, compacts dead simple function types after that import removal, and keeps surviving export/elem/name references coherent through the remap. The imported-function rerun that exposed the downstream no-op `start` family has now been fully followed through under `[FUZ]003B`.
 - `[FUZ]003B` is complete. `remove-unused-module-elements` now matches the proved Binaryen no-op `start` rule for defined single-`nop` start targets: it drops the `start` section when the target body is exactly one `nop` (locals do not matter), keeps the otherwise-live exported/elem-linked function body, removes start-only single-`nop` functions entirely once `start` stops rooting them, and preserves the nearby empty-body negative boundary. The focused rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003b-genvalid-smoke` is now `20/20` compared cases with `20` normalized matches and `0` mismatches.
-- The next unfinished validator fuzz slice is `[FUZ]004`.
+- `[FUZ]004` is complete. `gen_valid` now builds recursive environment-aware bodies instead of the old flat stub sequence, widens live value/type usage to `v128` plus `funcref` / `externref`, and exercises section-dependent direct calls, `call_indirect`, memory/table ops, and structured `block` / `loop` / `if` / `br` / `br_if` control in both `natural` and `coverage-forced` generation. The `coverage-forced` batch contract now also carries a deterministic widened-surface prelude so every emitted batch module still hits the new body families.
+- The next unfinished validator fuzz slice is `[FUZ]005`.
 
 1. Land the shared config/stats foundation.
    - [FUZ]002 - Shared Fuzz Config And Feature-Fact Plumbing.
@@ -631,7 +632,7 @@ Current status
    - [FUZ]003 - Multi-Mode Valid Topology Generator.
      - Status: completed 2026-04-16.
      - Delivered: topology-first valid generation with a real `natural` vs `coverage-forced` split, widened imports/tables/mems/globals/tags/start/elem/data/datacount coverage, shared function-type reuse across imports/functions/tags, and an explicitly pinned `coverage-forced` `--emit-gen-valid-batch` contract for pass fuzzing.
-     - Remaining note: body generation is still intentionally shallow (`nop` / `drop` / local/global traffic + trivial structured control) until `[FUZ]004` widens the actual instruction and type surface.
+     - Remaining note: the earlier shallow-body limitation from this slice is now superseded by completed follow-up `[FUZ]004`.
      - Doc: [0089 FUZ003](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz003-multi-mode-valid-topology-generator)
    - [FUZ]003A - Gen-valid `RUME` imported-function parity follow-up.
      - Status: completed 2026-04-16.
@@ -647,7 +648,10 @@ Current status
      - Doc: [0089 FUZ003B](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz003b-gen-valid-rume-no-op-start-section-parity-follow-up) and [0091 research](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md#L1)
 4. Widen body generation and actual type surface.
    - [FUZ]004 - Environment-Aware Body Generation And Type Widening.
-     - Deliverables: replace flat stub bodies with recursive environment-aware generation, add structured control flow and section-dependent instructions, and widen value/type usage beyond the current tiny numeric-only set.
+     - Status: completed 2026-04-16.
+     - Delivered: recursive environment-aware body generation in `src/validate/gen_valid.mbt`, widened live `v128` / `funcref` / `externref` type usage, section-aware direct calls and `call_indirect`, local/global set traffic, memory/table instructions, and structured `block` / `loop` / `if` / `br` / `br_if` control with bounded body-depth fuel from `GenValidConfig`. `coverage-forced` generation now also prepends a deterministic widened-surface prelude so every emitted batch module exercises the new body families.
+     - Validation: `moon test --package jtenner/starshine/validate --file validate.mbt`; `moon test src/validate`; `moon test src/fuzz`; `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`; `mkdir -p .tmp/gen-valid-smoke && moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`; `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz004-genvalid-smoke` => `20/20` compared, `20` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures.
+     - Remaining note: this slice intentionally lands the smaller environment-aware widening first; richer GC-like recursive/subtype/struct/array generation is still deferred rather than being claimed live.
      - Doc: [0089 FUZ004](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz004-environment-aware-body-generation-and-type-widening)
 5. Make breadth measurable and enforceable.
    - [FUZ]005 - Generator Observability And Coverage Floors.

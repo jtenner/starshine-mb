@@ -269,8 +269,6 @@ pub struct GenValidFeatureToggles {
 pub fn GenValidFeatureToggles::coverage_forced_default() -> Self
 pub fn GenValidFeatureToggles::natural_default() -> Self
 
-type GenValidInstrFacts
-
 pub enum GenValidMode {
   Natural
   CoverageForced

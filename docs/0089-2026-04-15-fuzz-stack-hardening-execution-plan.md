@@ -46,7 +46,7 @@
   - shared type pools are reused across imports, defined functions, and tags instead of allocating one type per function
   - generated modules can now include func imports, defined tables/mems/globals/tags, start sections, active elem segments, active data segments, and matching data-count sections where valid
   - export coverage now includes function plus first table/memory/global/tag exports when those sections are present
-  - body vocabulary is still intentionally shallow until [`FUZ004`](#fuz004-environment-aware-body-generation-and-type-widening)
+  - body generation now uses recursive environment-aware control/value builders with direct calls, `call_indirect`, local/global traffic, memory/table ops, `block`/`loop`/`if`/`br`/`br_if`, and widened `v128` / `funcref` / `externref` value families; richer GC-specific recursive/subtype/struct/array generation is still deferred beyond the active hardening slices
 - `src/validate/validate.mbt` remains the owner of the direct `validate-valid` generator loop through `run_validate_valid_fuzz`, and `src/fuzz/main.mbt` now delegates that direct loop instead of duplicating it.
 - `src/cmd/fuzz_harness.mbt` now exposes the truthful generator-neutral name `run_cmd_fuzz_harness`; the current implementation still generates modules with `gen_valid_module(rnd)` and does not claim to be wasm-smith-backed.
 - `scripts/lib/pass-fuzz-compare-task.ts` is currently the only checked-in mixed-generator harness that actually alternates between two distinct sources:
@@ -360,7 +360,7 @@ Current `gen_valid_module` is topology-poor. It mostly emits a tiny core shape. 
 - `coverage-forced` mode now makes the split real in checked-in behavior by forcing the widened topology families on while still reusing a shared function-type pool across imports, defined functions, and tags.
 - `--emit-gen-valid-batch` is now explicitly pinned to `coverage-forced` generation, and the runner help text calls that out so the batch contract stays stable for pass fuzzing instead of following the default generator mode implicitly.
 - The direct `validate-valid` runner remains on `natural` mode, so broad valid coverage and mutation-friendly batch generation are now separate checked-in paths instead of one implicit default.
-- The body generator is still intentionally shallow; deeper calls, memory/table ops, and richer type/body surfaces stay queued for [`FUZ004`](#fuz004-environment-aware-body-generation-and-type-widening).
+- That earlier shallow-body limitation is now superseded by [`FUZ004`](#fuz004-environment-aware-body-generation-and-type-widening), which lands recursive environment-aware body generation plus the first widened `v128` / ref-type value surface.
 
 ### Validation
 
@@ -539,13 +539,15 @@ Exact case write-up:
 
 - The saved `case-000002-gen-valid` and `case-000020-gen-valid` repros now match Binaryen.
 - The follow-up smoke no longer reports this `start`-section-only mismatch family.
-- `FUZ004` is now the next unfinished fuzz-stack slice.
+- `FUZ005` is now the next unfinished fuzz-stack slice.
 
 ---
 
 ## FUZ004 Environment-Aware Body Generation And Type Widening
 
 **Slice id:** `[FUZ]004`
+
+**Status:** completed 2026-04-16.
 
 ### Goal
 
@@ -590,7 +592,7 @@ Topology alone will not exercise much validator logic if bodies still only emit 
   - exact refs / richer heap types
 - Keep this slice incremental. Land the smallest valid widening first, then push into richer GC-like surfaces.
 
-### Validation
+### Planned validation
 
 - `validate-valid` smoke must stay green
 - binary roundtrip on emitted modules must stay green
@@ -601,6 +603,32 @@ Topology alone will not exercise much validator logic if bodies still only emit 
 
 - Valid generated bodies exercise substantially more validator surface than the current flat stub generator.
 - The generator can emit meaningful structured control flow and section-dependent instructions without frequent accidental invalidity.
+
+### Outcome
+
+- Replaced the old flat stub body builder in [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt) with recursive environment-aware generation keyed off explicit local/global/table/memory/function context plus bounded body-depth fuel from `GenValidConfig`.
+- `natural` and `coverage-forced` generation now both widen the live value/type surface by enabling `v128`, `funcref`, and `externref` in generated params, locals, globals, returns, and body expressions where valid.
+- Value generation now knows how to build valid direct calls, `call_indirect`, ref-producing table reads, memory loads, `memory.size`, `table.size`, `ref.func` (only for declared/exported generated targets), `ref.null`, and structured value wrappers through result-typed `block` / `if` builders.
+- Void statement generation now emits meaningful structured control and section-dependent traffic: `block`, `loop`, `if`, `br`, `br_if`, local/global sets, memory `load` / `store` / `grow`, and table `get` / `set` / `grow` / `size` when those sections exist.
+- `coverage-forced` mode now prepends a deterministic widened-surface prelude so `--emit-gen-valid-batch` continues to be a stable mutation-friendly contract while guaranteeing that the batch lane still exercises the new call / table / memory / branch / ref / `v128` families on every module.
+- The incremental note inside this slice remains intentional: this run lands the smaller environment-aware body widening first, while richer GC-like recursive/subtype/struct/array generation stays explicitly deferred rather than being claimed live.
+
+### Validation
+
+- Added focused validate-package coverage that fixed-seed `coverage-forced` generation now proves the widened body surface directly: `block`, `loop`, `if`, `br`, `br_if`, memory ops, table ops, `v128`, ref types, direct calls, and `call_indirect`.
+- Updated the deterministic `run_validate_valid_fuzz("smoke", seed)` stats test so natural-mode runs now have to exercise `ref_types`, `v128`, direct calls, `call_indirect`, and branch-heavy control instead of only widened topology facts.
+- `moon test --package jtenner/starshine/validate --file validate.mbt`
+- `moon test src/validate`
+- `moon test src/fuzz`
+- `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`
+- `mkdir -p .tmp/gen-valid-smoke && moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`
+- `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz004-genvalid-smoke`
+  - `comparedCount=20`
+  - `normalizedMatchCount=20`
+  - `mismatchCount=0`
+  - `validationFailureCount=0`
+  - `generatorFailureCount=0`
+  - `commandFailureCount=0`
 
 ---
 
