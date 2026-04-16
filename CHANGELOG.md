@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-16 Perf: cache pass-registry lookup data on CLI startup paths
+
+- **pass registry cache for CLI/pipeline dispatch** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), and [`src/passes/pass_manager_wbtest.mbt`](./src/passes/pass_manager_wbtest.mbt) so the pass registry now builds one lazy indexed cache for `pass_registry_lookup(...)`, `cmd_resolve_pipeline_steps`, hot-pipeline expansion, and help-text pass enumeration instead of reconstructing/scanning the registry on every lookup. `cmd_resolve_pipeline_steps` now resolves pass flags through cached categories instead of materializing full registry entries, while the public `pass_registry_*` surfaces still return detached results so callers cannot mutate the shared preset-expansion or descriptor cache. Focused whitebox coverage locks both the cached lookup/help-entry contract and the detached public lookup boundary. This runtime still cannot execute `moon`/`bun` commands directly, so command-level verification remains pending for the next tool-enabled pass.
+
 ## 2026-04-16 Warnings: clear moon check surface
 
 - **moon check warning cleanup** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), selected docs/wiki references, [`scripts/lib/make-task.ts`](./scripts/lib/make-task.ts), package [`moon.pkg`](./src/cmd/moon.pkg) imports, the IR/cmd/passes warning sites under [`src/`](./src), and the fuzz/validate-trace test filenames so `moon check`, `moon fmt`, `moon info`, `moon test src/cmd`, `moon test src/fuzz`, and `moon test src/validate_trace` now run cleanly without the prior warning surface.

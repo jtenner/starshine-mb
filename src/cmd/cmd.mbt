@@ -1714,16 +1714,12 @@ fn cmd_resolve_pipeline_steps(
         }
       None => ()
     }
-    match @passes.pass_registry_lookup(flag) {
-      Some(entry) =>
-        match entry.category {
-          @passes.HotPassRegistryCategory::HotPass
-          | @passes.HotPassRegistryCategory::ModulePass
-          | @passes.HotPassRegistryCategory::Preset =>
-            out.push(CmdPipelineStep::PipelinePass(flag))
-          _ => return Err(CmdError::unknown_pass_flag(flag))
-        }
-      None => return Err(CmdError::unknown_pass_flag(flag))
+    match @passes.pass_registry_category(flag) {
+      Some(@passes.HotPassRegistryCategory::HotPass)
+      | Some(@passes.HotPassRegistryCategory::ModulePass)
+      | Some(@passes.HotPassRegistryCategory::Preset) =>
+        out.push(CmdPipelineStep::PipelinePass(flag))
+      _ => return Err(CmdError::unknown_pass_flag(flag))
     }
   }
   Ok(out)

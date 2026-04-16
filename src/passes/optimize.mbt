@@ -266,24 +266,94 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
 }
 
 ///|
+struct HotPassRegistryCache {
+  entries : Array[HotPassRegistryEntry]
+  lookup : @hashmap.HashMap[String, Int]
+  help_entries : Array[HotPassRegistryEntry]
+}
+
+///|
+fn HotPassRegistryCache::new() -> HotPassRegistryCache {
+  let entries = pass_registry_entries()
+  let lookup : @hashmap.HashMap[String, Int] = @hashmap.new(
+    capacity=entries.length() * 2 + 1,
+  )
+  let help_entries : Array[HotPassRegistryEntry] = []
+  let mut idx = 0
+  for entry in entries {
+    lookup.set(entry.name, idx)
+    match entry.category {
+      HotPassRegistryCategory::HotPass
+      | HotPassRegistryCategory::Preset => help_entries.push(entry)
+      _ => ()
+    }
+    idx += 1
+  }
+  { entries, lookup, help_entries }
+}
+
+///|
+let pass_registry_cache : HotPassRegistryCache = HotPassRegistryCache::new()
+
+///|
+fn pass_registry_lookup_index(name : String) -> Int? {
+  pass_registry_cache.lookup.get(name)
+}
+
+///|
+fn pass_registry_lookup_cached(name : String) -> HotPassRegistryEntry? {
+  match pass_registry_lookup_index(name) {
+    Some(idx) => Some(pass_registry_cache.entries[idx])
+    None => None
+  }
+}
+
+///|
+fn pass_registry_clone_descriptor(
+  descriptor : @ir.HotPassDescriptor,
+) -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new(
+    descriptor.name,
+    requires=descriptor.requires.copy(),
+    invalidates=descriptor.invalidates.copy(),
+  )
+}
+
+///|
+fn pass_registry_clone_entry(entry : HotPassRegistryEntry) -> HotPassRegistryEntry {
+  {
+    name: entry.name,
+    summary: entry.summary,
+    category: entry.category,
+    descriptor: match entry.descriptor {
+      Some(descriptor) => Some(pass_registry_clone_descriptor(descriptor))
+      None => None
+    },
+    expanded_passes: entry.expanded_passes.copy(),
+  }
+}
+
+///|
 pub fn pass_registry_all() -> Array[HotPassRegistryEntry] {
-  pass_registry_entries()
+  let entries : Array[HotPassRegistryEntry] = []
+  for entry in pass_registry_cache.entries {
+    entries.push(pass_registry_clone_entry(entry))
+  }
+  entries
 }
 
 ///|
 pub fn pass_registry_lookup(name : String) -> HotPassRegistryEntry? {
-  for entry in pass_registry_entries() {
-    if entry.name == name {
-      return Some(entry)
-    }
+  match pass_registry_lookup_cached(name) {
+    Some(entry) => Some(pass_registry_clone_entry(entry))
+    None => None
   }
-  None
 }
 
 ///|
 pub fn pass_registry_category(name : String) -> HotPassRegistryCategory? {
-  match pass_registry_lookup(name) {
-    Some(entry) => Some(entry.category)
+  match pass_registry_lookup_index(name) {
+    Some(idx) => Some(pass_registry_cache.entries[idx].category)
     None => None
   }
 }
@@ -368,7 +438,7 @@ fn run_hot_pipeline_expand_passes(
 ) -> Result[Array[HotPassRegistryEntry], String] {
   let expanded : Array[HotPassRegistryEntry] = []
   for name in requested_passes {
-    let entry = match pass_registry_lookup(name) {
+    let entry = match pass_registry_lookup_cached(name) {
       Some(entry) => entry
       None => return Err("unknown pass flag \{name}")
     }
@@ -390,7 +460,7 @@ fn run_hot_pipeline_expand_passes(
           shrink_preset_passes(options)
         }
         for expanded_name in preset_passes {
-          match pass_registry_lookup(expanded_name) {
+          match pass_registry_lookup_cached(expanded_name) {
             Some(pass_entry) => expanded.push(pass_entry)
             None =>
               return Err(

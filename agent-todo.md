@@ -14,8 +14,8 @@
 - [x] [PRF001] Short-circuit help/version execution before config/env merge - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - Bare `--help` / `-h` and `--version` / `-V` now short-circuit before runtime prep and env probing, keeping the trivial startup path off config/env work entirely. Focused `src/cmd/cmd_wbtest.mbt` coverage locks the no-env-probe contract.
 
-- [PRF002] Cache pass registry lookup data in hot CLI/pipeline paths - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
-  - Replace repeated `pass_registry_lookup` array reconstruction with an indexed/static cache and reuse it for pass resolution in `cmd_resolve_pipeline_steps` and help text emission.
+- [x] [PRF002] Cache pass registry lookup data in hot CLI/pipeline paths - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - `src/passes/optimize.mbt` now builds one lazy registry cache with indexed name lookup plus a prefiltered help-entry slice, while preserving detached public `pass_registry_*` results so callers cannot mutate the shared cache. `src/cmd/cmd.mbt` now resolves pass flags through cached categories instead of materializing full registry entries, and focused `src/passes/pass_manager_wbtest.mbt` coverage locks the cached lookup/help-entry contract plus the detached preset/descriptor boundary.
 
 - [PRF003] Refactor `parse_olevel_text` to avoid full parser recursion - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - Parse `O*`/`-O*` values directly from raw strings for config/env/CLI paths, and remove `parse_cli_args([flag])` from this helper.

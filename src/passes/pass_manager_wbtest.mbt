@@ -53,6 +53,85 @@ test "hot pipeline debug dump targets require traced vacuum or tuple targets" {
 }
 
 ///|
+test "pass registry cache indexes known flags and prefilters help entries" {
+  let simplify_locals_idx = match pass_registry_lookup_index("simplify-locals") {
+    Some(idx) => idx
+    None => fail("expected simplify-locals registry index")
+  }
+  assert_eq(pass_registry_cache.entries[simplify_locals_idx].name, "simplify-locals")
+  assert_eq(pass_registry_lookup_index("not-a-real-pass"), None)
+
+  let mut saw_optimize = false
+  let mut saw_memory_packing = false
+  for entry in pass_registry_cache.help_entries {
+    match entry.category {
+      HotPassRegistryCategory::HotPass
+      | HotPassRegistryCategory::Preset => ()
+      _ => fail("unexpected non-help registry category in cached help entries: \{entry}")
+    }
+    if entry.name == "optimize" {
+      saw_optimize = true
+    }
+    if entry.name == "memory-packing" {
+      saw_memory_packing = true
+    }
+  }
+  assert_true(saw_optimize)
+  assert_false(saw_memory_packing)
+}
+
+///|
+test "pass registry public lookup stays detached from cached preset expansions" {
+  let lookup = match pass_registry_lookup("optimize") {
+    Some(entry) => entry
+    None => fail("expected optimize registry entry")
+  }
+  lookup.expanded_passes.push("not-a-real-pass")
+
+  let fresh_lookup = match pass_registry_lookup("optimize") {
+    Some(entry) => entry
+    None => fail("expected optimize registry entry on second lookup")
+  }
+  let mut leaked_fake_pass = false
+  for pass_name in fresh_lookup.expanded_passes {
+    if pass_name == "not-a-real-pass" {
+      leaked_fake_pass = true
+    }
+  }
+  assert_false(leaked_fake_pass)
+}
+
+///|
+test "pass registry public lookup stays detached from cached descriptors" {
+  let baseline_requires_len = match pass_registry_lookup("vacuum") {
+    Some(entry) =>
+      match entry.descriptor {
+        Some(descriptor) => descriptor.requires.length()
+        None => fail("expected vacuum descriptor")
+      }
+    None => fail("expected vacuum registry entry")
+  }
+
+  let lookup = match pass_registry_lookup("vacuum") {
+    Some(entry) => entry
+    None => fail("expected vacuum registry entry")
+  }
+  match lookup.descriptor {
+    Some(descriptor) => descriptor.requires.push(@ir.HotAnalysis::cfg())
+    None => fail("expected vacuum descriptor")
+  }
+
+  let fresh_lookup = match pass_registry_lookup("vacuum") {
+    Some(entry) => entry
+    None => fail("expected vacuum registry entry on second lookup")
+  }
+  match fresh_lookup.descriptor {
+    Some(descriptor) => assert_eq(descriptor.requires.length(), baseline_requires_len)
+    None => fail("expected vacuum descriptor on second lookup")
+  }
+}
+
+///|
 #cfg(target="native")
 test "raw simplify-locals branchy structured gate accepts target-like stats" {
   let accepted = {
