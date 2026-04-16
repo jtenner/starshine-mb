@@ -32,7 +32,7 @@
 - [PRF007] Lazy-load environment overlay and tighten startup help-text path - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - Only read env vars and build pass lists when those layers affect active execution mode, and cache help text/pass-list rendering for one-time startup use.
 
-- [PRF008] Remove tiny hot-path string churn in suffix/dispatch checks - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+- [x] [PRF008] Remove tiny hot-path string churn in suffix/dispatch checks - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - Replace per-character `to_string()` suffix comparisons and other char-by-char allocation patterns with cheap scalar comparisons.
 
 ## Current Parity Focus

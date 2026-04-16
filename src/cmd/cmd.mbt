@@ -14,13 +14,13 @@ pub enum CmdError {
   OutputWriteFailed(String)
   AmbiguousOutputFile(String)
   NoInputFiles
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub suberror CmdEncodeError {
   Encode(EncodeError)
   Adapter(String)
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn CmdEncodeError::encode(err : EncodeError) -> CmdEncodeError {
@@ -112,7 +112,7 @@ pub struct CmdRunSummary {
   closed_world : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn CmdRunSummary::new(
@@ -146,7 +146,7 @@ pub enum OptimizeTracingLevel {
   Pass
   Phase
   Helper
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn OptimizeTracingLevel::pass() -> OptimizeTracingLevel {
@@ -188,7 +188,7 @@ enum CmdPipelineStep {
 pub enum OptimizeValidationPolicy {
   FinalModuleOnly
   AfterSegment
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn OptimizeValidationPolicy::final_module_only() -> OptimizeValidationPolicy {
@@ -203,7 +203,7 @@ pub fn OptimizeValidationPolicy::after_segment() -> OptimizeValidationPolicy {
 ///|
 pub struct InliningOptions {
   no_op : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn InliningOptions::new() -> InliningOptions {
@@ -223,7 +223,7 @@ pub struct OptimizeOptions {
   traps_never_happen : Bool
   validation_policy : OptimizeValidationPolicy
   stack_function_passes : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
 
 ///|
 pub fn OptimizeOptions::new(
@@ -268,6 +268,14 @@ fn ascii_lower(input : String) -> String {
     }
   }
   out.to_string()
+}
+
+fn ascii_lower_u16(c : UInt16) -> UInt16 {
+  if c >= 'A'.to_int().to_uint16() && c <= 'Z'.to_int().to_uint16() {
+    (c.to_int() + 32).to_uint16()
+  } else {
+    c
+  }
 }
 
 ///|
@@ -490,6 +498,26 @@ test "cmd_error_stderr_bytes preserves literal newlines for adapter encode error
   )
   assert_true(text.contains("line one\nline two"), msg=text)
   assert_false(text.contains("\\n"), msg=text)
+}
+
+test "cmd_path_has_ascii_suffix_ignore_case is case-insensitive for ascii extensions" {
+  assert_true(cmd_path_has_ascii_suffix_ignore_case("module.WASM", ".wasm"))
+  assert_true(cmd_path_has_ascii_suffix_ignore_case("module.wAt", ".wAt"))
+  assert_false(cmd_path_has_ascii_suffix_ignore_case("module.wasmx", ".wasm"))
+  assert_false(cmd_path_has_ascii_suffix_ignore_case("module", ".wasm"))
+}
+
+test "cmd dump and extract target parsers use exact textual dispatch" {
+  assert_eq(cmd_dump_pass_target("dump=out.wasm"), Some("out.wasm"))
+  assert_eq(cmd_dump_pass_target("x-dump=out.wasm"), None)
+  assert_eq(
+    cmd_extract_functions_pass_target("extract-functions=1,2,3"),
+    Some("1,2,3"),
+  )
+  assert_eq(
+    cmd_extract_functions_pass_target("extract-functions"),
+    None,
+  )
 }
 
 ///|
@@ -1445,7 +1473,7 @@ fn cmd_path_has_ascii_suffix_ignore_case(
   let start = path.length() - suffix.length()
   let mut i = 0
   while i < suffix.length() {
-    if ascii_lower(path[start + i].to_string()) != suffix[i].to_string() {
+    if ascii_lower_u16(path[start + i]) != ascii_lower_u16(suffix[i]) {
       return false
     }
     i += 1
@@ -1466,7 +1494,11 @@ fn cmd_dump_output_format(path : String) -> CmdPipelineDumpFormat? {
 
 ///|
 fn cmd_dump_pass_target(flag : String) -> String? {
-  if flag.length() <= 5 || flag.sub(end=5).to_string() != "dump=" {
+  if flag.length() <= 5 {
+    return None
+  }
+  if flag[0] != 'd' || flag[1] != 'u' || flag[2] != 'm' || flag[3] != 'p' ||
+    flag[4] != '=' {
     return None
   }
   Some(flag.sub(start=5).to_string())
@@ -1474,7 +1506,27 @@ fn cmd_dump_pass_target(flag : String) -> String? {
 
 ///|
 fn cmd_extract_functions_pass_target(flag : String) -> String? {
-  if flag.length() <= 18 || flag.sub(end=18).to_string() != "extract-functions=" {
+  if flag.length() <= 18 {
+    return None
+  }
+  if flag[0] != 'e' ||
+    flag[1] != 'x' ||
+    flag[2] != 't' ||
+    flag[3] != 'r' ||
+    flag[4] != 'a' ||
+    flag[5] != 'c' ||
+    flag[6] != 't' ||
+    flag[7] != '-' ||
+    flag[8] != 'f' ||
+    flag[9] != 'u' ||
+    flag[10] != 'n' ||
+    flag[11] != 'c' ||
+    flag[12] != 't' ||
+    flag[13] != 'i' ||
+    flag[14] != 'o' ||
+    flag[15] != 'n' ||
+    flag[16] != 's' ||
+    flag[17] != '=' {
     return None
   }
   Some(flag.sub(start=18).to_string())
