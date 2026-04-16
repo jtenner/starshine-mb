@@ -928,29 +928,6 @@ fn rume_collect_liveness(
 }
 
 ///|
-fn rume_build_abs_remap(
-  imported_count : Int,
-  kept_defined : @bitset.BitSet,
-) -> Array[Int] {
-  let remap = Array::make(imported_count + kept_defined.length(), -1)
-  let mut next_abs = 0
-  while next_abs < imported_count {
-    remap[next_abs] = next_abs
-    next_abs += 1
-  }
-  let mut def_idx = 0
-  while def_idx < kept_defined.length() {
-    let abs_idx = imported_count + def_idx
-    if kept_defined[def_idx] {
-      remap[abs_idx] = next_abs
-      next_abs += 1
-    }
-    def_idx += 1
-  }
-  remap
-}
-
-///|
 fn rume_build_used_remap(used : @bitset.BitSet) -> Array[Int] {
   let remap = Array::make(used.length(), -1)
   let mut next_idx = 0
@@ -1730,6 +1707,550 @@ fn rume_rewrite_func_annotation_sec(
 }
 
 ///|
+fn rume_mark_type_idx(used_types : @bitset.BitSet, idx : @lib.TypeIdx) -> Unit {
+  match idx {
+    @lib.TypeIdx(raw) => {
+      let slot = raw.reinterpret_as_int()
+      if slot >= 0 && slot < used_types.length() {
+        used_types[slot] = true
+      }
+    }
+    @lib.RecIdx(_) => ()
+  }
+}
+
+///|
+fn rume_mark_heap_type(
+  used_types : @bitset.BitSet,
+  heap_type : @lib.HeapType,
+) -> Unit {
+  match heap_type {
+    @lib.AbsHeapTypeHeapType(_) => ()
+    @lib.HeapType(type_idx) => rume_mark_type_idx(used_types, type_idx)
+    @lib.DefTypeHeapType(@lib.DefType(rec_type, _)) =>
+      rume_mark_rec_type_types(used_types, rec_type)
+  }
+}
+
+///|
+fn rume_mark_ref_type(
+  used_types : @bitset.BitSet,
+  ref_type : @lib.RefType,
+) -> Unit {
+  match ref_type {
+    @lib.HeapTypeRefType(_, _, heap_type) =>
+      rume_mark_heap_type(used_types, heap_type)
+    @lib.AbsHeapTypeRefType(_) => ()
+  }
+}
+
+///|
+fn rume_mark_val_type(
+  used_types : @bitset.BitSet,
+  val_type : @lib.ValType,
+) -> Unit {
+  match val_type {
+    @lib.RefTypeValType(ref_type) => rume_mark_ref_type(used_types, ref_type)
+    _ => ()
+  }
+}
+
+///|
+fn rume_mark_storage_type(
+  used_types : @bitset.BitSet,
+  storage_type : @lib.StorageType,
+) -> Unit {
+  match storage_type {
+    @lib.ValTypeStorageType(val_type) =>
+      rume_mark_val_type(used_types, val_type)
+    @lib.PackTypeStorageType(_) => ()
+  }
+}
+
+///|
+fn rume_mark_field_type(
+  used_types : @bitset.BitSet,
+  field_type : @lib.FieldType,
+) -> Unit {
+  let @lib.FieldType(storage_type, _) = field_type
+  rume_mark_storage_type(used_types, storage_type)
+}
+
+///|
+fn rume_mark_block_type(
+  used_types : @bitset.BitSet,
+  block_type : @lib.BlockType,
+) -> Unit {
+  match block_type {
+    @lib.VoidBlockType => ()
+    @lib.ValTypeBlockType(val_type) => rume_mark_val_type(used_types, val_type)
+    @lib.TypeIdxBlockType(type_idx) => rume_mark_type_idx(used_types, type_idx)
+  }
+}
+
+///|
+fn rume_mark_type_metadata(
+  used_types : @bitset.BitSet,
+  metadata : @lib.TypeMetadata,
+) -> Unit {
+  let { describes, descriptor } = metadata
+  match describes {
+    Some(type_idx) => rume_mark_type_idx(used_types, type_idx)
+    None => ()
+  }
+  match descriptor {
+    Some(type_idx) => rume_mark_type_idx(used_types, type_idx)
+    None => ()
+  }
+}
+
+///|
+fn rume_mark_comp_type(
+  used_types : @bitset.BitSet,
+  comp_type : @lib.CompType,
+) -> Unit {
+  match comp_type {
+    @lib.ArrayCompType(field_type) =>
+      rume_mark_field_type(used_types, field_type)
+    @lib.StructCompType(field_types) =>
+      for field_type in field_types {
+        rume_mark_field_type(used_types, field_type)
+      }
+    @lib.FuncCompType(params, results) => {
+      for param in params {
+        rume_mark_val_type(used_types, param)
+      }
+      for result in results {
+        rume_mark_val_type(used_types, result)
+      }
+    }
+  }
+}
+
+///|
+fn rume_mark_sub_type_types(
+  used_types : @bitset.BitSet,
+  subtype : @lib.SubType,
+) -> Unit {
+  match subtype {
+    @lib.SubType(_, supers, metadata, comp_type) => {
+      for super_type in supers {
+        rume_mark_type_idx(used_types, super_type)
+      }
+      rume_mark_type_metadata(used_types, metadata)
+      rume_mark_comp_type(used_types, comp_type)
+    }
+    @lib.CompTypeSubType(metadata, comp_type) => {
+      rume_mark_type_metadata(used_types, metadata)
+      rume_mark_comp_type(used_types, comp_type)
+    }
+  }
+}
+
+///|
+fn rume_mark_rec_type_types(
+  used_types : @bitset.BitSet,
+  rec_type : @lib.RecType,
+) -> Unit {
+  match rec_type {
+    @lib.SingleRecType(subtype) => rume_mark_sub_type_types(used_types, subtype)
+    @lib.GroupRecType(subtypes) =>
+      for subtype in subtypes {
+        rume_mark_sub_type_types(used_types, subtype)
+      }
+  }
+}
+
+///|
+fn rume_rec_type_mentions_type_idxs(rec_type : @lib.RecType) -> Bool {
+  match rec_type {
+    @lib.SingleRecType(subtype) => rume_sub_type_mentions_type_idxs(subtype)
+    @lib.GroupRecType(subtypes) => {
+      for subtype in subtypes {
+        if rume_sub_type_mentions_type_idxs(subtype) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
+fn rume_sub_type_mentions_type_idxs(subtype : @lib.SubType) -> Bool {
+  match subtype {
+    @lib.SubType(_, supers, metadata, comp_type) =>
+      supers.length() > 0 ||
+      rume_type_metadata_mentions_type_idxs(metadata) ||
+      rume_comp_type_mentions_type_idxs(comp_type)
+    @lib.CompTypeSubType(metadata, comp_type) =>
+      rume_type_metadata_mentions_type_idxs(metadata) ||
+      rume_comp_type_mentions_type_idxs(comp_type)
+  }
+}
+
+///|
+fn rume_type_metadata_mentions_type_idxs(metadata : @lib.TypeMetadata) -> Bool {
+  let { describes, descriptor } = metadata
+  describes is Some(_) || descriptor is Some(_)
+}
+
+///|
+fn rume_comp_type_mentions_type_idxs(comp_type : @lib.CompType) -> Bool {
+  match comp_type {
+    @lib.ArrayCompType(field_type) =>
+      rume_field_type_mentions_type_idxs(field_type)
+    @lib.StructCompType(field_types) => {
+      for field_type in field_types {
+        if rume_field_type_mentions_type_idxs(field_type) {
+          return true
+        }
+      }
+      false
+    }
+    @lib.FuncCompType(params, results) =>
+      rume_val_types_mention_type_idxs(params) ||
+      rume_val_types_mention_type_idxs(results)
+  }
+}
+
+///|
+fn rume_field_type_mentions_type_idxs(field_type : @lib.FieldType) -> Bool {
+  let @lib.FieldType(storage_type, _) = field_type
+  rume_storage_type_mentions_type_idxs(storage_type)
+}
+
+///|
+fn rume_storage_type_mentions_type_idxs(
+  storage_type : @lib.StorageType,
+) -> Bool {
+  match storage_type {
+    @lib.ValTypeStorageType(val_type) =>
+      rume_val_type_mentions_type_idxs(val_type)
+    @lib.PackTypeStorageType(_) => false
+  }
+}
+
+///|
+fn rume_val_types_mention_type_idxs(val_types : Array[@lib.ValType]) -> Bool {
+  for val_type in val_types {
+    if rume_val_type_mentions_type_idxs(val_type) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn rume_val_type_mentions_type_idxs(val_type : @lib.ValType) -> Bool {
+  match val_type {
+    @lib.RefTypeValType(ref_type) => rume_ref_type_mentions_type_idxs(ref_type)
+    _ => false
+  }
+}
+
+///|
+fn rume_ref_type_mentions_type_idxs(ref_type : @lib.RefType) -> Bool {
+  match ref_type {
+    @lib.HeapTypeRefType(_, _, heap_type) =>
+      rume_heap_type_mentions_type_idxs(heap_type)
+    @lib.AbsHeapTypeRefType(_) => false
+  }
+}
+
+///|
+fn rume_heap_type_mentions_type_idxs(heap_type : @lib.HeapType) -> Bool {
+  match heap_type {
+    @lib.AbsHeapTypeHeapType(_) => false
+    @lib.HeapType(_) => true
+    @lib.DefTypeHeapType(@lib.DefType(rec_type, _)) =>
+      rume_rec_type_mentions_type_idxs(rec_type)
+  }
+}
+
+///|
+fn rume_mark_type_instrs(
+  used_types : @bitset.BitSet,
+  instrs : Array[@lib.Instruction],
+) -> Unit {
+  for instr in instrs {
+    rume_mark_instruction_types(used_types, instr)
+  }
+}
+
+///|
+fn rume_mark_expr_types(used_types : @bitset.BitSet, expr : @lib.Expr) -> Unit {
+  let @lib.Expr(instrs) = expr
+  rume_mark_type_instrs(used_types, instrs)
+}
+
+///|
+fn rume_mark_instruction_types(
+  used_types : @bitset.BitSet,
+  instr : @lib.Instruction,
+) -> Unit {
+  match instr {
+    @lib.Block(block_type, expr) | @lib.Loop(block_type, expr) => {
+      rume_mark_block_type(used_types, block_type)
+      rume_mark_expr_types(used_types, expr)
+    }
+    @lib.If(block_type, then_body, else_body) => {
+      rume_mark_block_type(used_types, block_type)
+      rume_mark_type_instrs(used_types, then_body)
+      match else_body {
+        Some(body) => rume_mark_type_instrs(used_types, body)
+        None => ()
+      }
+    }
+    @lib.CallIndirect(type_idx, _)
+    | @lib.ReturnCallIndirect(type_idx, _)
+    | @lib.CallRef(type_idx)
+    | @lib.ReturnCallRef(type_idx)
+    | @lib.StructNew(type_idx)
+    | @lib.StructNewDefault(type_idx)
+    | @lib.StructNewDesc(type_idx)
+    | @lib.StructNewDefaultDesc(type_idx)
+    | @lib.StructGet(type_idx, _)
+    | @lib.StructGetS(type_idx, _)
+    | @lib.StructGetU(type_idx, _)
+    | @lib.StructSet(type_idx, _)
+    | @lib.ArrayNew(type_idx)
+    | @lib.ArrayNewDefault(type_idx)
+    | @lib.ArrayNewFixed(type_idx, _)
+    | @lib.ArrayNewData(type_idx, _)
+    | @lib.ArrayNewElem(type_idx, _)
+    | @lib.ArrayGet(type_idx)
+    | @lib.ArrayGetS(type_idx)
+    | @lib.ArrayGetU(type_idx)
+    | @lib.ArraySet(type_idx)
+    | @lib.ArrayFill(type_idx)
+    | @lib.ArrayInitData(type_idx, _)
+    | @lib.ArrayInitElem(type_idx, _)
+    | @lib.RefGetDesc(type_idx) => rume_mark_type_idx(used_types, type_idx)
+    @lib.ArrayCopy(src_type, dst_type) => {
+      rume_mark_type_idx(used_types, src_type)
+      rume_mark_type_idx(used_types, dst_type)
+    }
+    @lib.Select(Some(types)) =>
+      for val_type in types {
+        rume_mark_val_type(used_types, val_type)
+      }
+    @lib.TryTable(block_type, _, body) => {
+      rume_mark_block_type(used_types, block_type)
+      rume_mark_expr_types(used_types, body)
+    }
+    @lib.RefNull(ref_type) => rume_mark_ref_type(used_types, ref_type)
+    @lib.RefTest(_, heap_type)
+    | @lib.RefCast(_, heap_type)
+    | @lib.RefTestDesc(_, heap_type)
+    | @lib.RefCastDescEq(_, heap_type) =>
+      rume_mark_heap_type(used_types, heap_type)
+    @lib.BrOnCast(_, _, source, target)
+    | @lib.BrOnCastFail(_, _, source, target) => {
+      rume_mark_heap_type(used_types, source)
+      rume_mark_heap_type(used_types, target)
+    }
+    _ => ()
+  }
+}
+
+///|
+fn rume_collect_used_type_flags(mod_ : @lib.Module) -> @bitset.BitSet? {
+  match mod_.type_sec {
+    Some(@lib.TypeSec(rec_types)) => {
+      for rec_type in rec_types {
+        if rume_rec_type_mentions_type_idxs(rec_type) {
+          return None
+        }
+      }
+      let used_types = @bitset.BitSet::new(rec_types.length())
+      match mod_.import_sec {
+        Some(@lib.ImportSec(imports)) =>
+          for import_ in imports {
+            let @lib.Import(_, _, extern_type) = import_
+            match extern_type {
+              @lib.FuncExternType(type_idx) =>
+                rume_mark_type_idx(used_types, type_idx)
+              @lib.TableExternType(@lib.TableType(ref_type, _)) =>
+                rume_mark_ref_type(used_types, ref_type)
+              @lib.MemExternType(_) => ()
+              @lib.GlobalExternType(@lib.GlobalType(val_type, _)) =>
+                rume_mark_val_type(used_types, val_type)
+              @lib.TagExternType(@lib.TagType(type_idx)) =>
+                rume_mark_type_idx(used_types, type_idx)
+            }
+          }
+        None => ()
+      }
+      match mod_.func_sec {
+        Some(@lib.FuncSec(type_idxs)) =>
+          for type_idx in type_idxs {
+            rume_mark_type_idx(used_types, type_idx)
+          }
+        None => ()
+      }
+      match mod_.table_sec {
+        Some(@lib.TableSec(tables)) =>
+          for table in tables {
+            let @lib.Table(@lib.TableType(ref_type, _), init) = table
+            rume_mark_ref_type(used_types, ref_type)
+            match init {
+              Some(expr) => rume_mark_expr_types(used_types, expr)
+              None => ()
+            }
+          }
+        None => ()
+      }
+      match mod_.tag_sec {
+        Some(@lib.TagSec(tags)) =>
+          for tag in tags {
+            let @lib.TagType(type_idx) = tag
+            rume_mark_type_idx(used_types, type_idx)
+          }
+        None => ()
+      }
+      match mod_.global_sec {
+        Some(@lib.GlobalSec(globals)) =>
+          for global in globals {
+            let @lib.Global(@lib.GlobalType(val_type, _), init) = global
+            rume_mark_val_type(used_types, val_type)
+            rume_mark_expr_types(used_types, init)
+          }
+        None => ()
+      }
+      match mod_.elem_sec {
+        Some(@lib.ElemSec(elems)) =>
+          for elem in elems {
+            let @lib.Elem(mode, kind) = elem
+            match mode {
+              @lib.Active(_, expr) => rume_mark_expr_types(used_types, expr)
+              _ => ()
+            }
+            match kind {
+              @lib.FuncsElemKind(_) => ()
+              @lib.FuncExprsElemKind(exprs) =>
+                for expr in exprs {
+                  rume_mark_expr_types(used_types, expr)
+                }
+              @lib.TypedExprsElemKind(ref_type, exprs) => {
+                rume_mark_ref_type(used_types, ref_type)
+                for expr in exprs {
+                  rume_mark_expr_types(used_types, expr)
+                }
+              }
+            }
+          }
+        None => ()
+      }
+      match mod_.data_sec {
+        Some(@lib.DataSec(datas)) =>
+          for data in datas {
+            let @lib.Data(mode, _) = data
+            match mode {
+              @lib.Active(_, expr) => rume_mark_expr_types(used_types, expr)
+              @lib.Passive => ()
+            }
+          }
+        None => ()
+      }
+      match mod_.code_sec {
+        Some(@lib.CodeSec(funcs)) =>
+          for func in funcs {
+            let @lib.Func(locals, body) = func
+            for local_run in locals.runs() {
+              rume_mark_val_type(used_types, local_run.val_type())
+            }
+            rume_mark_expr_types(used_types, body)
+          }
+        None => ()
+      }
+      Some(used_types)
+    }
+    None => None
+  }
+}
+
+///|
+fn rume_build_type_remap(used_types : @bitset.BitSet) -> Map[UInt, UInt] {
+  let remap : Map[UInt, UInt] = {}
+  let mut next_idx = 0
+  let mut idx = 0
+  while idx < used_types.length() {
+    if used_types[idx] {
+      remap.set(idx.reinterpret_as_uint(), next_idx.reinterpret_as_uint())
+      next_idx += 1
+    }
+    idx += 1
+  }
+  remap
+}
+
+///|
+fn rume_rebuild_type_sec(
+  type_sec : @lib.TypeSec,
+  used_types : @bitset.BitSet,
+) -> @lib.TypeSec? {
+  let @lib.TypeSec(rec_types) = type_sec
+  let next : Array[@lib.RecType] = []
+  let mut idx = 0
+  while idx < rec_types.length() {
+    if used_types[idx] {
+      next.push(rec_types[idx])
+    }
+    idx += 1
+  }
+  if next.is_empty() {
+    None
+  } else {
+    Some(@lib.TypeSec::new(next))
+  }
+}
+
+///|
+fn rume_set_type_sec(
+  mod_ : @lib.Module,
+  type_sec : @lib.TypeSec?,
+) -> @lib.Module {
+  @lib.Module::new(
+    custom_secs=mod_.custom_secs,
+    type_sec~,
+    import_sec=mod_.import_sec,
+    func_annotation_sec=mod_.func_annotation_sec,
+    func_sec=mod_.func_sec,
+    table_sec=mod_.table_sec,
+    mem_sec=mod_.mem_sec,
+    tag_sec=mod_.tag_sec,
+    stringrefs_sec=mod_.stringrefs_sec,
+    global_sec=mod_.global_sec,
+    export_sec=mod_.export_sec,
+    start_sec=mod_.start_sec,
+    elem_sec=mod_.elem_sec,
+    data_cnt_sec=mod_.data_cnt_sec,
+    code_sec=mod_.code_sec,
+    data_sec=mod_.data_sec,
+    name_sec=mod_.name_sec,
+  )
+}
+
+///|
+fn rume_compact_type_sec(mod_ : @lib.Module) -> @lib.Module {
+  let used_types = match rume_collect_used_type_flags(mod_) {
+    Some(flags) => flags
+    None => return mod_
+  }
+  if rume_all_true(used_types) {
+    return mod_
+  }
+  let type_remap = rume_build_type_remap(used_types)
+  let rewritten = dfe_rewrite_module_type_idxs(mod_, type_remap)
+  match mod_.type_sec {
+    Some(type_sec) =>
+      rume_set_type_sec(rewritten, rume_rebuild_type_sec(type_sec, used_types))
+    None => rewritten
+  }
+}
+
+///|
 fn rume_apply_module_rewrite(
   mod_ : @lib.Module,
   used_funcs : @bitset.BitSet,
@@ -1750,7 +2271,7 @@ fn rume_apply_module_rewrite(
   let kept_tables = rume_kept_defined_from_used(used_tables, table_imports)
   let kept_mems = rume_kept_defined_from_used(used_mems, mem_imports)
   let kept_tags = rume_kept_defined_from_used(used_tags, tag_imports)
-  let func_remap = rume_build_abs_remap(func_imports, kept_funcs)
+  let func_remap = rume_build_used_remap(used_funcs)
   let global_remap = rume_build_used_remap(used_globals)
   let table_remap = rume_build_used_remap(used_tables)
   let mem_remap = rume_build_used_remap(used_mems)
@@ -1824,13 +2345,18 @@ fn rume_apply_module_rewrite(
   let next_import_sec = match mod_.import_sec {
     Some(@lib.ImportSec(imports)) => {
       let next : Array[@lib.Import] = []
+      let mut func_idx = 0
       let mut table_idx = 0
       let mut mem_idx = 0
       let mut global_idx = 0
       let mut tag_idx = 0
       for import_ in imports {
         let keep = match import_ {
-          @lib.Import(_, _, @lib.FuncExternType(_)) => true
+          @lib.Import(_, _, @lib.FuncExternType(_)) => {
+            let keep = used_funcs[func_idx]
+            func_idx += 1
+            keep
+          }
           @lib.Import(_, _, @lib.TableExternType(_)) => {
             let keep = used_tables[table_idx]
             table_idx += 1
@@ -2083,35 +2609,37 @@ fn rume_apply_module_rewrite(
     (None, _) => None
   }
 
-  @lib.Module::new(
-    custom_secs=mod_.custom_secs,
-    type_sec=mod_.type_sec,
-    import_sec=next_import_sec,
-    func_annotation_sec=rume_rewrite_func_annotation_sec(
-      mod_.func_annotation_sec,
-      func_remap,
-    ),
-    func_sec=next_func_sec,
-    table_sec=next_table_sec,
-    mem_sec=next_mem_sec,
-    tag_sec=next_tag_sec,
-    stringrefs_sec=mod_.stringrefs_sec,
-    global_sec=next_global_sec,
-    export_sec=next_export_sec,
-    start_sec=next_start_sec,
-    elem_sec=next_elem_sec,
-    data_cnt_sec=next_data_cnt_sec,
-    code_sec=next_code_sec,
-    data_sec=next_data_sec,
-    name_sec=rume_rewrite_name_sec(
-      mod_.name_sec,
-      func_remap,
-      table_remap,
-      mem_remap,
-      global_remap,
-      elem_remap,
-      data_remap,
-      tag_remap,
+  rume_compact_type_sec(
+    @lib.Module::new(
+      custom_secs=mod_.custom_secs,
+      type_sec=mod_.type_sec,
+      import_sec=next_import_sec,
+      func_annotation_sec=rume_rewrite_func_annotation_sec(
+        mod_.func_annotation_sec,
+        func_remap,
+      ),
+      func_sec=next_func_sec,
+      table_sec=next_table_sec,
+      mem_sec=next_mem_sec,
+      tag_sec=next_tag_sec,
+      stringrefs_sec=mod_.stringrefs_sec,
+      global_sec=next_global_sec,
+      export_sec=next_export_sec,
+      start_sec=next_start_sec,
+      elem_sec=next_elem_sec,
+      data_cnt_sec=next_data_cnt_sec,
+      code_sec=next_code_sec,
+      data_sec=next_data_sec,
+      name_sec=rume_rewrite_name_sec(
+        mod_.name_sec,
+        func_remap,
+        table_remap,
+        mem_remap,
+        global_remap,
+        elem_remap,
+        data_remap,
+        tag_remap,
+      ),
     ),
   )
 }

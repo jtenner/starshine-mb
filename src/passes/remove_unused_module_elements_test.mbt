@@ -348,6 +348,88 @@ fn rume_test_import_remap_fixture() -> @lib.Module {
 }
 
 ///|
+fn rume_test_imported_func_remap_fixture() -> @lib.Module {
+  let live_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let dead_import_type = @lib.RecType::new(
+    @lib.SubType::comp_type(
+      @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::f32()], [
+        @lib.ValType::i32(),
+      ]),
+    ),
+  )
+  @lib.Module::new()
+  .with_type_sec(@lib.TypeSec::new([live_type, dead_import_type]))
+  .with_import_sec(
+    @lib.ImportSec::new([
+      @lib.Import::new(
+        @lib.Name::from_string("env"),
+        @lib.Name::from_string("dead_import"),
+        @lib.ExternType::func(@lib.TypeIdx::new(1U)),
+      ),
+    ]),
+  )
+  .with_func_sec(
+    @lib.FuncSec::new([@lib.TypeIdx::new(0U), @lib.TypeIdx::new(0U)]),
+  )
+  .with_table_sec(
+    @lib.TableSec::new([@lib.Table::new(rume_test_table_type(), None)]),
+  )
+  .with_export_sec(
+    @lib.ExportSec::new([
+      @lib.Export::new(
+        @lib.Name::from_string("main"),
+        @lib.ExternIdx::func(@lib.FuncIdx::new(1U)),
+      ),
+      @lib.Export::new(
+        @lib.Name::from_string("table0"),
+        @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+      ),
+    ]),
+  )
+  .with_start_sec(@lib.StartSec::new(@lib.FuncIdx::new(1U)))
+  .with_elem_sec(
+    @lib.ElemSec::new([
+      @lib.Elem::new(
+        @lib.ElemMode::active(
+          @lib.TableIdx::new(0U),
+          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+        ),
+        @lib.ElemKind::funcs([@lib.FuncIdx::new(1U)]),
+      ),
+    ]),
+  )
+  .with_code_sec(
+    @lib.CodeSec::new([
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([@lib.Instruction::nop()]),
+      ),
+      @lib.Func::new(
+        @lib.Locals::empty(),
+        @lib.Expr::new([
+          @lib.Instruction::f32_const(@lib.F32::new(66.0)),
+          @lib.Instruction::drop(),
+          @lib.Instruction::nop(),
+        ]),
+      ),
+    ]),
+  )
+  .with_name_sec(
+    @lib.NameSec::new(
+      func_names=Some(
+        @lib.NameMap::new([
+          @lib.NameAssoc::new(0U, @lib.Name::from_string("dead_import")),
+          @lib.NameAssoc::new(1U, @lib.Name::from_string("main_func")),
+          @lib.NameAssoc::new(2U, @lib.Name::from_string("dead_defined")),
+        ]),
+      ),
+    ),
+  )
+}
+
+///|
 fn rume_test_empty_active_data_fixture() -> @lib.Module {
   @lib.Module::new()
   .with_type_sec(rume_test_type_sec())
@@ -898,6 +980,97 @@ test "remove-unused-module-elements drops unused imported module elements and re
     Err(err) =>
       fail(
         "expected imported-element remove-unused-module-elements module to validate, got \{err}",
+      )
+  }
+}
+
+///|
+test "remove-unused-module-elements drops unused imported functions and dead function types" {
+  let optimized = match
+    run_hot_pipeline(
+      rume_test_imported_func_remap_fixture(),
+      HotPipelineOptions::new(),
+      ["remove-unused-module-elements"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected imported-function remove-unused-module-elements success, got \{err}",
+      )
+  }
+
+  assert_eq(optimized.import_sec, None)
+  match optimized.type_sec {
+    Some(
+      @lib.TypeSec(
+        [@lib.SingleRecType(@lib.CompTypeSubType(_, @lib.FuncCompType([], [])))]
+      )
+    ) => ()
+    _ => fail("expected dead imported-function type to be removed")
+  }
+  match optimized.func_sec {
+    Some(@lib.FuncSec([@lib.TypeIdx(type_idx)])) => assert_eq(type_idx, 0U)
+    _ => fail("expected only the live defined function to remain")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(body))])) =>
+      assert_eq(body, [@lib.Instruction::nop()])
+    _ => fail("expected only the live defined function body to remain")
+  }
+  match optimized.export_sec {
+    Some(
+      @lib.ExportSec(
+        [
+          @lib.Export(_, @lib.FuncExternIdx(@lib.FuncIdx(main_idx))),
+          @lib.Export(_, @lib.TableExternIdx(@lib.TableIdx(table_idx))),
+        ]
+      )
+    ) => {
+      assert_eq(main_idx, 0U)
+      assert_eq(table_idx, 0U)
+    }
+    _ => fail("expected rewritten exported function and table indices")
+  }
+  match optimized.start_sec {
+    Some(@lib.StartSec(@lib.FuncIdx(start_idx))) => assert_eq(start_idx, 0U)
+    _ => fail("expected rewritten start function index")
+  }
+  match optimized.elem_sec {
+    Some(
+      @lib.ElemSec(
+        [
+          @lib.Elem(
+            @lib.Active(@lib.TableIdx(table_idx), _),
+            @lib.FuncsElemKind([@lib.FuncIdx(elem_func_idx)])
+          ),
+        ]
+      )
+    ) => {
+      assert_eq(table_idx, 0U)
+      assert_eq(elem_func_idx, 0U)
+    }
+    _ => fail("expected rewritten active elem segment function index")
+  }
+  match optimized.name_sec {
+    Some(sec) => {
+      let { func_names, .. } = sec
+      match func_names {
+        Some(@lib.NameMap([@lib.NameAssoc(0U, func_name)])) =>
+          assert_eq(func_name, @lib.Name::from_string("main_func"))
+        _ =>
+          fail(
+            "expected imported function names to be dropped and live name remapped",
+          )
+      }
+    }
+    None => fail("expected rewritten function names")
+  }
+
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected imported-function remove-unused-module-elements module to validate, got \{err}",
       )
   }
 }

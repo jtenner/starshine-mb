@@ -131,6 +131,7 @@ Work in this order unless a smaller prerequisite must be split out first:
 1. `FUZ001` suite surface and truth-in-naming reconciliation
 2. `FUZ002` shared config and stats plumbing
 3. `FUZ003` valid topology widening and mode split
+3a. `FUZ003A` `gen-valid`-seeded `RUME` imported-function parity follow-up
 4. `FUZ004` body generation and type widening
 5. `FUZ005` generator observability and coverage floors
 6. `FUZ006` AST invalid mutator registry
@@ -371,6 +372,97 @@ Current `gen_valid_module` is topology-poor. It mostly emits a tiny core shape. 
   - `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`
   - `moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`
   - a small `bun scripts/pass-fuzz-compare.ts --pass <one-pass> --generator gen-valid ...` smoke to confirm the pinned batch contract still feeds the compare harness cleanly
+
+---
+
+## FUZ003A Gen-valid `RUME` Imported-Function Parity Follow-Up
+
+**Slice id:** `[FUZ]003A`
+
+**Status:** completed 2026-04-16.
+
+### Goal
+
+Close the exact `remove-unused-module-elements` mismatch that widened `gen-valid` topology exposed immediately after [`FUZ003`](#fuz003-multi-mode-valid-topology-generator).
+
+### Why before `FUZ004`
+
+The widened topology is now live enough to exercise module-element trimming in ways the older generator never hit. Before widening body generation further, the fuzz stack should stop carrying a known deterministic compare-pass mismatch on the new `coverage-forced` batch contract.
+
+### Exact trigger
+
+Focused smoke run:
+
+- `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003-genvalid-smoke`
+
+Observed result:
+
+- `comparedCount=5`
+- `normalizedMatchCount=0`
+- `mismatchCount=5`
+- `validationFailureCount=0`
+- `generatorFailureCount=0`
+- `commandFailureCount=0`
+
+Saved primary repro:
+
+- `.tmp/pass-fuzz-fuz003-genvalid-smoke/failures/case-000001-gen-valid/`
+
+Exact case write-up:
+
+- [`docs/wiki/raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md`](./wiki/raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md)
+
+### What the repro shows
+
+- The widened `coverage-forced` generator now emits a live defined `main` function alongside an unused imported function.
+- Binaryen drops the unused imported function and its dead type from the normalized `RUME` output.
+- Starshine still preserves both, even though imported memory/table/global/tag pruning is already fixed in-tree.
+
+### Files most likely to change
+
+- [`src/passes/remove_unused_module_elements.mbt`](../src/passes/remove_unused_module_elements.mbt)
+- [`src/passes/remove_unused_module_elements_test.mbt`](../src/passes/remove_unused_module_elements_test.mbt)
+- this handoff doc and [`agent-todo.md`](../agent-todo.md) for follow-up state
+
+### Concrete tasks
+
+- Add a focused imported-function regression beside the existing imported memory/table/global/tag `RUME` tests.
+- Make `RUME` drop unused imported functions, not only imported memories/tables/globals/tags.
+- Rewrite any surviving function/type/name/export/start/elem references correctly after the import disappears.
+- Re-run the small `gen-valid` compare-pass smoke to prove the mismatch family is gone before resuming broader fuzz widening.
+
+### Validation
+
+- `moon test src/passes`
+- `moon test src/cmd` if CLI-facing replay coverage changes
+- `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003a-genvalid-smoke`
+
+### Exit criteria
+
+- The saved imported-function repro matches Binaryen.
+- The small `gen-valid` `RUME` compare-pass smoke no longer fails on this family.
+- `FUZ004` can resume from a widened topology baseline without carrying this known deterministic parity hole.
+
+### Outcome
+
+- Added a focused imported-function regression in [`src/passes/remove_unused_module_elements_test.mbt`](../src/passes/remove_unused_module_elements_test.mbt) that keeps a live exported/start/elem-defined function while demanding that an unused imported function and its dead simple function type disappear.
+- Updated [`src/passes/remove_unused_module_elements.mbt`](../src/passes/remove_unused_module_elements.mbt) so module-pass `RUME` now:
+  - remaps functions through the actual used-function bitset instead of assuming every imported function survives
+  - drops unused function imports from `import_sec`
+  - compacts dead simple function types after import removal by reusing the shared type-index rewrite machinery already present in the passes package
+- The focused rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003a-genvalid-smoke` now proves the targeted imported-function family is gone: the old saved repro `.tmp/pass-fuzz-fuz003-genvalid-smoke/failures/case-000001-gen-valid/` matches Binaryen after the fix.
+- The same rerun still reports two remaining mismatches at `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/` and `case-000020-gen-valid/`, but those are a distinct no-op start-section pruning family where Binaryen drops the `start` section and Starshine currently preserves it. That follow-up is not imported-function retention.
+
+### Validation
+
+- `moon test --package jtenner/starshine/passes --file remove_unused_module_elements_test.mbt`
+- `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003a-genvalid-smoke`
+  - `comparedCount=20`
+  - `normalizedMatchCount=18`
+  - `mismatchCount=2`
+  - `validationFailureCount=0`
+  - `generatorFailureCount=0`
+  - `commandFailureCount=0`
 
 ---
 

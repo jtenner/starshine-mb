@@ -21,15 +21,16 @@ related:
 - The active runnable suites are currently `validate-valid`, `binary-roundtrip`, `wast-roundtrip`, `wat-roundtrip`, and `cmd-harness`.
 - The future validator invalid suite ids are now reserved in the CLI as `validate-invalid-ast`, `validate-invalid-binary`, `validate-invalid-text`, and `validate-invalid-spec-seed`, but they are intentionally reported as reserved until their implementation slices land.
 - The direct `validate-valid` generator loop is currently owned by `run_validate_valid_fuzz`, while `src/fuzz/main.mbt` layers the extra text companion checks on top.
+- The widened `coverage-forced` `gen-valid` batch already exposed one concrete downstream parity hole and now has a checked-in closure for it: `remove-unused-module-elements` no longer preserves an unused imported function or its dead simple function type in the saved repro `.tmp/pass-fuzz-fuz003-genvalid-smoke/failures/case-000001-gen-valid/`; see [`../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md`](../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md).
 - Some future invalid strategies can still be effectively dead if the valid-module generator stays shaped around narrow mutation prerequisites instead of broad valid coverage.
 - A rejected module only counts as meaningful coverage if the intended mutation ran and the diagnostic family matches the expected failure class.
 - Heavy fuzz work stays in `src/fuzz`, not `moon test`.
 
 ## Main Gaps
 
-- Shared generator config and feature-fact plumbing is still missing, so later widening work would otherwise keep re-encoding policy in multiple places.
+- Shared generator config and feature-fact plumbing is now in-tree, but later widening and invalid-lane work still needs to keep reusing that one vocabulary instead of re-encoding policy at each callsite.
 - Coverage accounting is too weak to fail on dead or barely exercised strategies.
-- The valid generator still over-biases toward a narrow module family and misses imports, exports, absence-sensitive modules, and richer type shapes.
+- The widened valid generator now reaches imports, exports, and absence-sensitive topology, but that broader surface also means fuzz work must track and close newly exposed downstream parity holes instead of assuming the old pass smoke remains representative. The imported-function `RUME` family is now fixed, and the latest focused smoke already shows the next distinct downstream family: Binaryen currently drops no-op `start` sections in two saved `gen-valid` cases while Starshine still preserves them.
 - The invalid lane is currently absent from the checked-in tree, so AST, binary, text, and spec-seed rejection work all still need explicit suites.
 - Failures do not yet persist enough repro material.
 

@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-16] fix | close the gen-valid-exposed RUME imported-function family
+
+- Updated `src/passes/remove_unused_module_elements.mbt` so module-pass `RUME` now drops unused function imports, remaps surviving function indices through the real used-function bitset, and compacts dead simple function types after imported-function removal.
+- Added a focused imported-function regression in `src/passes/remove_unused_module_elements_test.mbt` that keeps a live exported/start/elem-defined function while requiring the unused imported function and its dead type to disappear.
+- Refreshed `docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`, `agent-todo.md`, `validate/fuzz-hardening.md`, and research note `raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md` so the validator-fuzz handoff now records the landed imported-function closure and the new distinct no-op start-section pruning follow-up revealed by the rerun.
+
+## [2026-04-16] research | capture gen-valid-exposed RUME imported-function parity case
+
+- Added `raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md` to capture the exact `gen-valid`-seeded `remove-unused-module-elements` mismatch exposed after `[FUZ]003`, including the reproducer command, the `5/5` mismatch summary, and the saved `.tmp/pass-fuzz-fuz003-genvalid-smoke/failures/case-000001-gen-valid/` artifact paths.
+- Updated `validate/fuzz-hardening.md` so the living validator-fuzz summary now records the active downstream parity follow-up exposed by widened `coverage-forced` generation instead of treating the topology widening as an isolated generator-only concern.
+- Updated `docs/wiki/index.md` so the validator fuzz entry now calls out the active `gen-valid` / `RUME` imported-function follow-up.
+
 ## [2026-04-16] maintain | record fuzz runner suite inventory reconciliation
 
 - Updated `tooling/fuzz-runner.md` so the living wiki now records the current active fuzz suites, the reserved future invalid-lane ids, and the `active` / `reserved` `--list-suites` output contract.
