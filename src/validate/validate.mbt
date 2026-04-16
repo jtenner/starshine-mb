@@ -3247,18 +3247,26 @@ fn validate_fuzz_ascii_lower(input : String) -> String {
 }
 
 ///|
+pub struct ValidateValidRunConfig {
+  profile : String
+  attempts : Int
+  generator_config : GenValidConfig
+} derive(Eq, Show, Debug)
+
+///|
 pub struct ValidateValidFuzzStats {
   profile : String
   seed : UInt64
   attempts : Int
   validated : Int
+  generator_config : GenValidConfig
+  feature_stats : GenValidFeatureStats
 } derive(Eq, Show, Debug)
 
 ///|
-pub fn run_validate_valid_fuzz(
+pub fn validate_valid_run_config(
   profile : String,
-  seed : UInt64,
-) -> Result[ValidateValidFuzzStats, String] {
+) -> Result[ValidateValidRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
     "smoke" => 128
@@ -3269,14 +3277,57 @@ pub fn run_validate_valid_fuzz(
         "unknown validate-valid fuzz profile '\{profile}'; expected smoke|ci|stress",
       )
   }
+  let generator_config = match normalized {
+    "smoke" => default_gen_valid_config()
+    "ci" =>
+      GenValidConfig::{
+        ..default_gen_valid_config(),
+        max_defined_funcs: 5,
+        max_globals: 3,
+        max_body_statements: 8,
+        max_locals: 4,
+      }
+    "stress" =>
+      GenValidConfig::{
+        ..default_gen_valid_config(),
+        max_type_defs: 6,
+        max_defined_funcs: 6,
+        max_globals: 4,
+        max_params: 3,
+        max_results: 2,
+        max_locals: 5,
+        max_body_statements: 10,
+        max_body_depth: 3,
+      }
+    _ => abort("unreachable validate-valid profile")
+  }
+  Ok(ValidateValidRunConfig::{ profile: normalized, attempts, generator_config })
+}
+
+///|
+pub fn run_validate_valid_fuzz(
+  profile : String,
+  seed : UInt64,
+) -> Result[ValidateValidFuzzStats, String] {
+  let run_config = match validate_valid_run_config(profile) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let normalized = run_config.profile
+  let attempts = run_config.attempts
+  let generator_config = run_config.generator_config
   let rnd = @splitmix.new(seed~)
   let mut validated = 0
   let mut iteration = 0
+  let mut feature_stats = GenValidFeatureStats::empty(generator_config.mode)
   loop attempts {
     0 => break ()
     n => {
       iteration += 1
-      let mod = gen_valid_module(rnd)
+      let mod = gen_valid_module_with_config(rnd, generator_config)
+      feature_stats = feature_stats.record(
+        gen_valid_feature_facts(mod, generator_config.mode),
+      )
       match validate_module(mod) {
         Ok(_) => validated += 1
         Err(err) =>
@@ -3287,7 +3338,39 @@ pub fn run_validate_valid_fuzz(
       continue n - 1
     }
   }
-  Ok(ValidateValidFuzzStats::{ profile: normalized, seed, attempts, validated })
+  Ok(
+    ValidateValidFuzzStats::{
+      profile: normalized,
+      seed,
+      attempts,
+      validated,
+      generator_config,
+      feature_stats,
+    },
+  )
+}
+
+///|
+test "validate_valid_run_config returns profile attempts and generator config" {
+  let smoke = match validate_valid_run_config("smoke") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let ci = match validate_valid_run_config("ci") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let stress = match validate_valid_run_config("stress") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(smoke.profile, "smoke")
+  assert_eq(smoke.attempts, 128)
+  assert_eq(ci.attempts, 5000)
+  assert_eq(stress.attempts, 100000)
+  assert_eq(smoke.generator_config.mode, Natural)
+  assert_true(ci.generator_config.max_defined_funcs >= smoke.generator_config.max_defined_funcs)
+  assert_true(stress.generator_config.max_body_statements >= ci.generator_config.max_body_statements)
 }
 
 ///|
@@ -3296,6 +3379,137 @@ test "run_validate_valid_fuzz rejects unknown profile" {
     Ok(_) => fail("expected unknown profile error")
     Err(msg) => assert_true(msg.contains("unknown validate-valid fuzz profile"))
   }
+}
+
+///|
+test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
+  let first = match run_validate_valid_fuzz("smoke", 0x5eedUL) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let second = match run_validate_valid_fuzz("smoke", 0x5eedUL) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(first, second)
+  assert_eq(first.attempts, 128)
+  assert_eq(first.validated, 128)
+  assert_eq(first.generator_config.mode, Natural)
+  assert_eq(first.feature_stats.mode, Natural)
+  assert_eq(first.feature_stats.modules, 128)
+  assert_eq(first.feature_stats.func_exports, 128)
+  assert_eq(first.feature_stats.lacks_start, 128)
+}
+
+///|
+test "gen_valid_feature_facts record imports sections exports and instruction families" {
+  let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("callee"),
+          ExternType::func(TypeIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_table_sec(
+      TableSec::new([
+        Table::new(
+          TableType::new(RefType::abs(AbsHeapType::func()), Limits::i32(1U, Some(1U))),
+          None,
+        ),
+      ]),
+    )
+    .with_mem_sec(MemSec::new([MemType::new(Limits::i32(1U, Some(1U)))]))
+    .with_tag_sec(TagSec::new([TagType::new(TypeIdx::new(0U))]))
+    .with_global_sec(
+      GlobalSec::new([
+        Global::new(
+          GlobalType::new(ValType::v128(), false),
+          Expr::new([
+            Instruction::v128_const(
+              b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+              b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+            ),
+          ]),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("main"), ExternIdx::func(FuncIdx::new(1U))),
+        Export::new(Name::new("table"), ExternIdx::table(TableIdx::new(0U))),
+        Export::new(Name::new("memory"), ExternIdx::mem(MemIdx::new(0U))),
+        Export::new(Name::new("global"), ExternIdx::global(GlobalIdx::new(0U))),
+        Export::new(Name::new("tag"), ExternIdx::tag(TagIdx::new(0U))),
+      ]),
+    )
+    .with_start_sec(StartSec::new(FuncIdx::new(1U)))
+    .with_elem_sec(
+      ElemSec::new([
+        Elem::new(
+          ElemMode::active(
+            TableIdx::new(0U),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
+          ElemKind::funcs([FuncIdx::new(1U)]),
+        ),
+      ]),
+    )
+    .with_data_cnt_sec(DataCntSec::new(U32(1U)))
+    .with_data_sec(
+      DataSec::new([
+        Data::new(
+          DataMode::active(
+            MemIdx::new(0U),
+            Expr::new([Instruction::i32_const(I32(0))]),
+          ),
+          b"fixture",
+        ),
+      ]),
+    )
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::call(FuncIdx::new(0U)),
+            Instruction::i32_const(I32(0)),
+            Instruction::call_indirect(TypeIdx::new(0U), TableIdx::new(0U)),
+            Instruction::block(BlockType::void_(), Expr::new([])),
+            Instruction::loop_(BlockType::void_(), Expr::new([])),
+            Instruction::i32_const(I32(1)),
+            Instruction::if_(BlockType::void_(), [Instruction::nop()], Some([Instruction::nop()])),
+          ]),
+        ),
+      ]),
+    )
+  let facts = gen_valid_feature_facts(mod, CoverageForced)
+  assert_eq(facts.mode, CoverageForced)
+  assert_true(facts.has_imports)
+  assert_true(facts.has_func_exports)
+  assert_true(facts.has_table_exports)
+  assert_true(facts.has_mem_exports)
+  assert_true(facts.has_global_exports)
+  assert_true(facts.has_tag_exports)
+  assert_true(facts.has_start)
+  assert_false(facts.lacks_start)
+  assert_true(facts.has_tables)
+  assert_true(facts.has_mems)
+  assert_true(facts.has_tags)
+  assert_true(facts.has_globals)
+  assert_true(facts.has_elems)
+  assert_true(facts.has_datas)
+  assert_true(facts.has_data_count)
+  assert_true(facts.uses_ref_types)
+  assert_true(facts.uses_v128)
+  assert_true(facts.has_call)
+  assert_true(facts.has_call_indirect)
+  assert_true(facts.has_branch_heavy_control)
 }
 
 ///|

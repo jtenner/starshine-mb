@@ -201,6 +201,8 @@ If that mismatch is not resolved first, every later slice risks updating the wro
 
 **Slice id:** `[FUZ]002`
 
+**Status:** completed 2026-04-16.
+
 ### Goal
 
 Create one shared configuration vocabulary for valid generation, invalid generation, and statistics.
@@ -258,6 +260,37 @@ The next slices need a shared way to say:
 
 - Later slices can widen generation without re-inventing configuration plumbing.
 - There is one explicit data structure that records generator mode and exercised features.
+
+### Outcome
+
+- Added shared public config vocabulary in [`src/validate/gen_valid.mbt`](../src/validate/gen_valid.mbt):
+  - `GenValidMode`
+  - `GenValidSectionBias`
+  - `GenValidFeatureToggles`
+  - `GenValidConfig`
+  - `default_gen_valid_config()`
+- Added generator feature reporting surfaces:
+  - `GenValidFeatureFacts`
+  - `GenValidFeatureStats`
+  - `gen_valid_feature_facts(mod, mode)`
+- Changed `GenValidContext` from random-state-only plumbing to config-aware plumbing, and taught the current valid generator to honor the compatibility-size budgets plus the first mode-sensitive section forcing (`globals` for `coverage-forced`).
+- Added `gen_valid_module_with_config(rnd, config)` so later slices can widen topology without changing every caller again.
+- Added `ValidateValidRunConfig` plus `validate_valid_run_config(profile)` so the profile ladder and generator defaults live in one place instead of being re-derived at each callsite.
+- Extended `ValidateValidFuzzStats` to carry the resolved generator config plus deterministic aggregated feature stats for the run.
+- Kept the default `gen_valid_module(rnd)` contract and `--emit-gen-valid-batch` behavior compatible for this slice; the broader topology controls stored in `GenValidConfig` are intentional foundation fields and do not all become active until [`FUZ003`](#fuz003-multi-mode-valid-topology-generator) and [`FUZ004`](#fuz004-environment-aware-body-generation-and-type-widening).
+
+### Validation
+
+- Added focused validate-package tests for:
+  - profile-to-generator config resolution
+  - deterministic `run_validate_valid_fuzz` stats on a fixed seed
+  - feature-fact extraction across imports, exports, sections, and selected instruction families
+- Added fuzz-package coverage that the emitted `gen-valid` batch still matches the shared default generator config for the same seed.
+- This runtime still cannot execute `moon` / `bun` directly, so the required command-level verification remains pending for the next tool-enabled pass:
+  - `moon test src/validate`
+  - `moon test src/fuzz`
+  - `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`
+  - `moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`
 
 ---
 

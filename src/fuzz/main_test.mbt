@@ -1,8 +1,13 @@
 ///|
-using @binary {decode_module}
+using @binary {decode_module, encode_module}
 
 ///|
-using @validate {validate_module, validation_error_message}
+using @validate {
+  default_gen_valid_config,
+  gen_valid_module_with_config,
+  validate_module,
+  validation_error_message,
+}
 
 ///|
 test "parse_fuzz_cli_args defaults to all smoke seed" {
@@ -126,6 +131,23 @@ test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files"
         )
     }
   }
+}
+
+///|
+test "emit_gen_valid_batch_artifacts matches shared default generator config" {
+  let artifacts = match emit_gen_valid_batch_artifacts(1, 0x5eedUL) {
+    Ok(v) => v
+    Err(e) => fail("expected gen-valid artifact success, got \{e}")
+  }
+  let direct = gen_valid_module_with_config(
+    @splitmix.new(0x5eedUL~),
+    default_gen_valid_config(),
+  )
+  let encoded = match encode_module(direct) {
+    Ok(v) => v
+    Err(e) => fail("expected direct default-config module to encode, got \{e}")
+  }
+  assert_eq(artifacts[0].1, encoded)
 }
 
 ///|

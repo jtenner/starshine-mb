@@ -615,11 +615,14 @@ Suggested Tests
 
 Current status
 - `[FUZ]001` is complete. The live fuzz runner now separates active suites from reserved invalid-lane ids, `src/cmd/fuzz_harness.mbt` uses truthful `run_cmd_fuzz_harness*` / `CmdFuzzStats` naming instead of the stale wasm-smith label, and `src/fuzz/main.mbt` delegates the direct `validate-valid` generation loop to `run_validate_valid_fuzz`.
-- The next unfinished validator fuzz slice is `[FUZ]002`.
+- `[FUZ]002` is complete. `src/validate/gen_valid.mbt` now exports shared generator config/mode/types (`GenValidMode`, `GenValidConfig`, section bias + feature toggles), `src/validate/validate.mbt` now resolves profile ladders through `validate_valid_run_config`, and `ValidateValidFuzzStats` now carries deterministic aggregated `GenValidFeatureStats` instead of only raw attempt counts. The current generator still keeps its pre-FUZ003 topology shape by default; the broader stored section controls are intentional foundation fields for the next slices.
+- The next unfinished validator fuzz slice is `[FUZ]003`.
 
 1. Land the shared config/stats foundation.
    - [FUZ]002 - Shared Fuzz Config And Feature-Fact Plumbing.
-     - Deliverables: add explicit generator config/mode vocabulary, size and feature controls, and deterministic feature-fact stats so later slices stop duplicating policy.
+     - Status: completed 2026-04-16.
+     - Delivered: config/mode vocabulary, shared validate-valid profile resolution, deterministic feature-fact aggregation, and batch-surface coverage that the shared default config still drives emitted `gen-valid` artifacts.
+     - Remaining note: `GenValidConfig` now carries future topology controls too, but many of those fields are intentionally only plumbed and observed until `[FUZ]003` and `[FUZ]004` start consuming them for imports/tables/mems/tags/start/data/elem/call widening.
      - Doc: [0089 FUZ002](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz002-shared-fuzz-config-and-feature-fact-plumbing)
 3. Widen valid generation topology first.
    - [FUZ]003 - Multi-Mode Valid Topology Generator.
