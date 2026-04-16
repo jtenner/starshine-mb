@@ -52,7 +52,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) - Repo rule that heavy fuzz belongs in `src/fuzz`, with reusable suite/profile/seed workflow plus the current active-vs-reserved suite inventory contract.
 - [`tooling/tracing-playbook.md`](tooling/tracing-playbook.md) - Shared `key=value` trace contract, timing helper use, hotspot summaries, and the no-trace-only-tests rule.
 - [`validation/moonbit-prove-strategy.md`](validation/moonbit-prove-strategy.md) - Current `moon prove` toolchain facts, the `9`-goal `src/validate_proof` helper kernel, and the blocker on proving `src/validate` directly.
-- [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) - Current validator fuzz surface truth, remaining hardening gaps, the staged order for config/generator/invalid-lane work, and the latest downstream pass-parity follow-ups exposed by widened `gen-valid` coverage.
+- [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) - Current validator fuzz surface truth, remaining hardening gaps, the staged order for config/generator/invalid-lane work, and the active downstream `RUME` imported-function plus no-op `start`-section follow-ups exposed by widened `gen-valid` coverage.
 - [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md) - Higher-level WAST support for GC type defs, `rec` groups, descriptor metadata, and flat type indexing after grouped entries.
 
 ## Entities

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-16] research | capture the next gen-valid-exposed RUME start-section family
+
+- Added `raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md` to capture the two saved `gen-valid` `remove-unused-module-elements` mismatches that remain after the imported-function fix, including the exact `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/` and `case-000020-gen-valid/` repro folders plus the current uncertainty about Binaryen's precise no-op `start`-section pruning rule.
+- Updated `docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md` and `agent-todo.md` so the next unfinished validator-fuzz slice is now the explicit `[FUZ]003B` start-section follow-up instead of jumping straight to broader body widening.
+- Updated `validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living validator-fuzz summary now points at the newly documented `RUME` no-op `start`-section family.
+
 ## [2026-04-16] fix | close the gen-valid-exposed RUME imported-function family
 
 - Updated `src/passes/remove_unused_module_elements.mbt` so module-pass `RUME` now drops unused function imports, remaps surviving function indices through the real used-function bitset, and compacts dead simple function types after imported-function removal.

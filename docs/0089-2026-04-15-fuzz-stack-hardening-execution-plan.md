@@ -132,6 +132,7 @@ Work in this order unless a smaller prerequisite must be split out first:
 2. `FUZ002` shared config and stats plumbing
 3. `FUZ003` valid topology widening and mode split
 3a. `FUZ003A` `gen-valid`-seeded `RUME` imported-function parity follow-up
+3b. `FUZ003B` `gen-valid`-seeded `RUME` no-op start-section parity follow-up
 4. `FUZ004` body generation and type widening
 5. `FUZ005` generator observability and coverage floors
 6. `FUZ006` AST invalid mutator registry
@@ -451,7 +452,7 @@ Exact case write-up:
   - drops unused function imports from `import_sec`
   - compacts dead simple function types after import removal by reusing the shared type-index rewrite machinery already present in the passes package
 - The focused rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003a-genvalid-smoke` now proves the targeted imported-function family is gone: the old saved repro `.tmp/pass-fuzz-fuz003-genvalid-smoke/failures/case-000001-gen-valid/` matches Binaryen after the fix.
-- The same rerun still reports two remaining mismatches at `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/` and `case-000020-gen-valid/`, but those are a distinct no-op start-section pruning family where Binaryen drops the `start` section and Starshine currently preserves it. That follow-up is not imported-function retention.
+- The same rerun still reports two remaining mismatches at `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/` and `case-000020-gen-valid/`, but those are a distinct no-op start-section pruning family where Binaryen drops the `start` section and Starshine currently preserves it. That follow-up is not imported-function retention and is tracked under [`FUZ003B`](#fuz003b-gen-valid-rume-no-op-start-section-parity-follow-up).
 
 ### Validation
 
@@ -463,6 +464,76 @@ Exact case write-up:
   - `validationFailureCount=0`
   - `generatorFailureCount=0`
   - `commandFailureCount=0`
+
+---
+
+## FUZ003B Gen-valid `RUME` No-Op Start-Section Parity Follow-Up
+
+**Slice id:** `[FUZ]003B`
+
+### Goal
+
+Close the next deterministic `remove-unused-module-elements` mismatch family still exposed by the widened `coverage-forced` `gen-valid` batch after [`FUZ003A`](#fuz003a-gen-valid-rume-imported-function-parity-follow-up).
+
+### Why before `FUZ004`
+
+The widened topology baseline is now good enough to expose a second exact `RUME` parity family on the same small smoke lane. Before widening body generation further, the fuzz stack should either close that known deterministic mismatch or document a proven blocker with exact saved repros.
+
+### Exact trigger
+
+Focused smoke rerun after the imported-function fix:
+
+- `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003a-genvalid-smoke`
+
+Observed result:
+
+- `comparedCount=20`
+- `normalizedMatchCount=18`
+- `mismatchCount=2`
+- `validationFailureCount=0`
+- `generatorFailureCount=0`
+- `commandFailureCount=0`
+
+Saved repros:
+
+- `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/`
+- `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000020-gen-valid/`
+
+Exact case write-up:
+
+- [`docs/wiki/raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md`](./wiki/raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md)
+
+### What the repros show
+
+- The imported-function family from [`FUZ003A`](#fuz003a-gen-valid-rume-imported-function-parity-follow-up) is already gone.
+- In both remaining saved cases, Binaryen and Starshine keep the same live function, exports, elem segment, table, memory, global, tag, and data surface.
+- The visible normalized difference is only the `start` section: Binaryen drops it while Starshine still preserves it.
+- Both saved `start` targets normalize to nullary no-op functions, but the exact upstream drop preconditions are not yet proven beyond those saved cases.
+
+### Files most likely to change
+
+- [`src/passes/remove_unused_module_elements.mbt`](../src/passes/remove_unused_module_elements.mbt)
+- [`src/passes/remove_unused_module_elements_test.mbt`](../src/passes/remove_unused_module_elements_test.mbt)
+- this handoff doc and [`agent-todo.md`](../agent-todo.md) for follow-up state
+
+### Concrete tasks
+
+- Add focused `start`-section regressions beside the existing imported-element `RUME` tests.
+- Reduce the positive boundary plus at least one nearby negative boundary so the kept rule is explicit instead of guessed from the smoke output.
+- Make `RUME` match the exact proved Binaryen behavior for this `start`-section family without broadening into observable `start`-function deletion.
+- Re-run the small `gen-valid` compare-pass smoke to prove the family is gone before resuming broader fuzz widening.
+
+### Validation
+
+- `moon test src/passes`
+- `moon test src/cmd` if CLI-facing replay coverage changes
+- `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003b-genvalid-smoke`
+
+### Exit criteria
+
+- The saved `case-000002-gen-valid` and `case-000020-gen-valid` repros match Binaryen.
+- The follow-up smoke no longer reports this `start`-section-only mismatch family.
+- `FUZ004` can resume from a widened topology baseline without carrying this next deterministic `RUME` compare-pass hole.
 
 ---
 
