@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-16] maintain | align fuzz runner wrapper and truth surfaces
+
+- Updated `scripts/lib/fuzz-task.ts` and `scripts/test/task-family-commands.ts` so `bun fuzz run` now forwards the same discovery commands plus `--emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>` that `src/fuzz/main.mbt` already exposes, instead of carrying a narrower wrapper-only contract.
+- Updated `src/fuzz/main.mbt` so the top-level `validate-valid` suite now reuses `validate_valid_run_config(...)` for the shared profile ladder and only layers the text-companion checks on top of `run_validate_valid_fuzz(...)` instead of keeping another copy of the profile normalization logic.
+- Updated `tooling/fuzz-runner.md`, `validate/fuzz-hardening.md`, `docs/wiki/index.md`, `docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`, and `agent-todo.md` so the validator-fuzz handoff now records `[FUZ]010` as complete and no longer describes wrapper/docs alignment as unfinished fuzz-stack work.
+
 ## [2026-04-16] fix | persist validator invalid repros and replay helpers
 
 - Added `src/fuzz/invalid_repro.mbt` plus `src/fuzz/invalid_repro_test.mbt` with one shared invalid-failure report surface, stable `fuzz-corpus/invalid/<suite>/<strategy>/seed-<seed>-attempt-<attempt>/` persistence, metadata parse/load roundtrips, bounded shrink helpers, and direct replay helpers across AST, binary, text, and spec-seed artifacts.

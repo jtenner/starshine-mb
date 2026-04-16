@@ -13,12 +13,15 @@ export type FuzzOptions = {
   listSuites: boolean;
   listProfiles: boolean;
   help: boolean;
+  emitGenValidBatch: boolean;
+  batchCount: string | null;
+  batchOutDir: string | null;
 };
 
 // Parse CLI arguments into validated command settings; defaults are kept conservative
 // and missing-value tokens fail immediately.
-export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
-  const options: FuzzOptions = {
+function defaultFuzzOptions(): FuzzOptions {
+  return {
     profile: "smoke",
     suite: "all",
     seed: null,
@@ -28,7 +31,88 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
     listSuites: false,
     listProfiles: false,
     help: false,
+    emitGenValidBatch: false,
+    batchCount: null,
+    batchOutDir: null,
   };
+}
+
+function parseEmitGenValidBatchArgs(argv: string[]): FuzzOptions {
+  const options = defaultFuzzOptions();
+  options.emitGenValidBatch = true;
+
+  for (let i = 0; i < argv.length; ) {
+    const token = argv[i];
+    if (token.startsWith("--count=")) {
+      options.batchCount = token.substring("--count=".length);
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--seed=")) {
+      options.seed = token.substring("--seed=".length);
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--out-dir=")) {
+      options.batchOutDir = token.substring("--out-dir=".length);
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--target=")) {
+      options.target = token.substring("--target=".length);
+      i += 1;
+      continue;
+    }
+    if (token.startsWith("--moon=")) {
+      options.moonBin = token.substring("--moon=".length);
+      i += 1;
+      continue;
+    }
+    switch (token) {
+      case "--count":
+        options.batchCount = argv[i + 1] ?? fail("missing value for --count");
+        i += 2;
+        break;
+      case "--seed":
+        options.seed = argv[i + 1] ?? fail("missing value for --seed");
+        i += 2;
+        break;
+      case "--out-dir":
+        options.batchOutDir = argv[i + 1] ?? fail("missing value for --out-dir");
+        i += 2;
+        break;
+      case "--target":
+        options.target = argv[i + 1] ?? fail("missing value for --target");
+        i += 2;
+        break;
+      case "--moon":
+        options.moonBin = argv[i + 1] ?? fail("missing value for --moon");
+        i += 2;
+        break;
+      default:
+        fail(`unknown option: ${token}`);
+    }
+  }
+
+  if (options.batchCount === null) {
+    fail("missing required --count for --emit-gen-valid-batch");
+  }
+  if (options.seed === null) {
+    fail("missing required --seed for --emit-gen-valid-batch");
+  }
+  if (options.batchOutDir === null) {
+    fail("missing required --out-dir for --emit-gen-valid-batch");
+  }
+  assertTarget(options.target);
+  return options;
+}
+
+export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
+  if (argv[0] === "--emit-gen-valid-batch") {
+    return parseEmitGenValidBatchArgs(argv.slice(1));
+  }
+
+  const options: FuzzOptions = defaultFuzzOptions();
 
   const positional: string[] = [];
   for (let i = 0; i < argv.length; ) {
@@ -166,6 +250,27 @@ export function parseFuzzRunArgs(argv: string[]): FuzzOptions {
 
 // Build `moon run src/fuzz` command from parsed options and run in the repo root.
 export function runFuzz(options: FuzzOptions, repoRoot = resolveWorkspaceRoot()): void {
+  if (options.emitGenValidBatch) {
+    runOrThrow(
+      options.moonBin,
+      [
+        "run",
+        "--target",
+        options.target,
+        "src/fuzz",
+        "--",
+        "--emit-gen-valid-batch",
+        "--count",
+        options.batchCount!,
+        "--seed",
+        options.seed!,
+        "--out-dir",
+        options.batchOutDir!,
+      ],
+      { cwd: repoRoot },
+    );
+    return;
+  }
   if (options.help) {
     runOrThrow(
       options.moonBin,
@@ -210,7 +315,7 @@ export function main(argv: string[]): void {
   }
   if (subcommand !== "run") {
     fail(
-      "usage: bun fuzz run [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <hex>|--seed=<hex>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]",
+      "usage: bun fuzz run [--profile <name>|--profile=<name>] [--suite <name>|--suite=<name>] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl|--output=<text|jsonl>] [--target <target>|--target=<target>] [--moon <path>|--moon=<path>] [--list-suites|--list-profiles|--help]\n   or: bun fuzz run --emit-gen-valid-batch --count <n>|--count=<n> --seed <uint64>|--seed=<uint64> --out-dir <dir>|--out-dir=<dir> [--target <target>|--target=<target>] [--moon <path>|--moon=<path>]\n   or: bun fuzz compare-pass [pass-fuzz-compare options]",
     );
   }
   runFuzz(parseFuzzRunArgs(rest));

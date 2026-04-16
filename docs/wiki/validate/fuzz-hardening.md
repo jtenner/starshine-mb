@@ -1,6 +1,6 @@
 ---
 kind: concept
-status: working
+status: supported
 last_reviewed: 2026-04-16
 sources:
   - ../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md
@@ -26,8 +26,8 @@ related:
 
 - The current checked-in fuzz runner is now strong on valid-module coverage plus four distinct validator rejection lanes: AST-invalid, binary-invalid, text-invalid, and spec-seeded invalid/malformed/unlinkable replay.
 - The active runnable suites are currently `validate-valid`, `validate-invalid-ast`, `validate-invalid-binary`, `validate-invalid-text`, `validate-invalid-spec-seed`, `binary-roundtrip`, `wast-roundtrip`, `wat-roundtrip`, and `cmd-harness`.
-- The fuzz runner no longer carries reserved validator-rejection suite ids in the CLI; the next open work is wrapper/docs source-of-truth cleanup, not suite activation.
-- The direct `validate-valid` generator loop is currently owned by `run_validate_valid_fuzz`, while `src/fuzz/main.mbt` layers the extra text companion checks on top.
+- The fuzz runner no longer carries reserved validator-rejection suite ids in the CLI, and the Bun wrapper now forwards the same discovery plus `--emit-gen-valid-batch` surfaces as the Moon entrypoint instead of exposing a narrower wrapper-only contract.
+- The direct `validate-valid` generator loop is owned by `run_validate_valid_fuzz`, while `src/fuzz/main.mbt` now only layers the extra text companion checks on top and reuses `validate_valid_run_config(...)` for the shared profile ladder instead of keeping a second copy.
 - The widened `coverage-forced` `gen-valid` batch already exposed and now closed two concrete downstream `RUME` parity holes:
   - `remove-unused-module-elements` no longer preserves an unused imported function or its dead simple function type in the saved repro `.tmp/pass-fuzz-fuz003-genvalid-smoke/failures/case-000001-gen-valid/`; see [`../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md`](../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md).
   - `remove-unused-module-elements` now also matches Binaryen's no-op `start` pruning family for defined single-`nop` start targets, including the saved repros `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/` and `case-000020-gen-valid/`; see [`../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md`](../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md).
@@ -49,13 +49,9 @@ related:
 
 ## Main Gaps
 
-- Shared generator config and feature-fact plumbing is now in-tree, but later widening and invalid-lane work still needs to keep reusing that one vocabulary instead of re-encoding policy at each callsite.
-- Coverage accounting is too weak to fail on dead or barely exercised strategies.
-- The widened valid generator now reaches imports, exports, and absence-sensitive topology, which means fuzz work must keep tracking and closing newly exposed downstream parity holes instead of assuming the old pass smoke remains representative. The first two exact `RUME` families surfaced by widened `gen-valid` coverage — unused imported functions/dead simple types and no-op `start`-section pruning for defined single-`nop` start targets — are now both closed, and the focused `gen-valid` `remove-unused-module-elements` smoke lane is back to `20/20` normalized matches.
-- The AST, binary, text, and spec-seed invalid lanes are now all back in-tree, but only the first stage-aware deterministic cores are landed so far.
-- The binary lane intentionally starts with a curated core instead of the full malformed-byte matrix; malformed LEBs, UTF-8 corruption, and richer immediate corruption families still remain open follow-up work.
-- The invalid lanes now have persisted repro metadata, saved artifacts, and bounded shrink/replay helpers, but the top-level wrapper/help/docs surfaces still need one last cleanup pass so the shared runner contract stays truthful everywhere.
-- The remaining fuzz-stack work is now wrapper/docs source-of-truth alignment rather than another missing rejection surface.
+- The shared config, valid-coverage, invalid-lane, repro-persistence, and wrapper truth surfaces from the original hardening plan are now all landed in-tree.
+- Follow-up work is now about widening specific families rather than rebuilding the stack shape: richer binary corruption families (for example malformed LEBs and UTF-8 corruption), richer GC-shaped valid generation, and any newly exposed downstream parity holes from the broader generator.
+- The binary lane intentionally still starts with a curated deterministic corruption core instead of the full malformed-byte matrix, so future widening should add new families without weakening the current stage-aware accounting and replay contract.
 
 ## Hardening Order
 
@@ -63,7 +59,7 @@ related:
 2. Add shared config/stats plumbing: centralize mode, size, feature, and exercised-fact bookkeeping before widening behavior.
 3. Widen valid coverage: split broad sampling from forced-coverage generation and add richer topology, bodies, and measurable breadth.
 4. Widen invalid coverage: add AST, binary, text, and spec-seed invalid lanes with diagnostic-aware accounting.
-5. Improve CI ergonomics: keep persisted repro artifacts and machine-readable reporting stable while the final wrapper/docs cleanup removes remaining surface drift.
+5. Improve CI ergonomics: keep persisted repro artifacts and machine-readable reporting stable while wrapper/docs surfaces stay aligned with the live runner.
 
 ## Practical Rule
 

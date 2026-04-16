@@ -609,8 +609,12 @@ Suggested Tests
 - `moon test src/fuzz`
 - `moon test src/validate`
 - `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`
-- future smoke lanes from `[FUZ]006`-`[FUZ]008` once they exist
+- `moon run src/fuzz -- validate-invalid-ast smoke --seed 0x5eed`
+- `moon run src/fuzz -- validate-invalid-binary smoke --seed 0x5eed`
+- `moon run src/fuzz -- validate-invalid-text smoke --seed 0x5eed`
+- `moon run src/fuzz -- validate-invalid-spec-seed smoke --seed 0x5eed`
 - `moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`
+- `bun fuzz run --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke-bun`
 - targeted `bun scripts/pass-fuzz-compare.ts --generator gen-valid ...` smoke after any batch-surface change
 
 Current status
@@ -625,7 +629,8 @@ Current status
 - `[FUZ]007` is complete. `src/fuzz/invalid_binary.mbt` now adds a real `validate-invalid-binary` corruption lane backed by a checked-in byte-mutation registry, deterministic smoke/ci/stress profile resolution, and stage-aware per-strategy accounting (`attempted`, `applicable`, `mutated`, `decode_rejected`, `validate_rejected`, `rejected_expected`, `accepted`). The initial binary strategy set covers trailing garbage, truncated modules, duplicate type sections, wrong section order, and out-of-range function-section type indices, so the runner now distinguishes decode-malformed cases from decode-success/validate-reject cases instead of treating the suite id as reserved.
 - `[FUZ]008` is complete. `src/fuzz/invalid_text.mbt` now adds real `validate-invalid-text` and `validate-invalid-spec-seed` lanes with deterministic smoke/ci/stress profile resolution, stable inline-text plus corpus-seed registries, and explicit stage accounting for `parse_or_lower_rejected`, `validate_rejected`, `valid_before_link`, and `matched_expected`. `src/wast/spec_harness.mbt` now exports shared static-assertion evaluation helpers so the spec harness and the new fuzz runners reuse one interpretation of `assert_malformed`, `assert_invalid`, and `assert_unlinkable` instead of drifting.
 - `[FUZ]009` is complete. `src/fuzz/invalid_repro.mbt` now provides one shared invalid-fuzz repro surface with deterministic report metadata, stable corpus-path persistence, bounded per-source shrinkers, and direct replay helpers across AST, binary, text, and spec-seed artifacts. The new `src/fuzz/invalid_repro_test.mbt` coverage also proves persisted metadata roundtrips plus one reduced replay path per source kind.
-- The next unfinished validator fuzz slice is `[FUZ]010`.
+- `[FUZ]010` is complete. `src/fuzz/main.mbt` now reuses `validate_valid_run_config(...)` for the shared `validate-valid` profile ladder instead of re-deriving it, `scripts/lib/fuzz-task.ts` now forwards `--emit-gen-valid-batch` through `bun fuzz run` beside the existing discovery commands, and the wiki/backlog/handoff docs no longer describe wrapper/docs alignment as unfinished fuzz-stack work.
+- The validator fuzz-stack hardening slices are complete; future work is incremental family widening rather than another active `[FUZ]` backlog slice.
 
 1. Land the shared config/stats foundation.
    - [FUZ]002 - Shared Fuzz Config And Feature-Fact Plumbing.
@@ -703,7 +708,11 @@ Current status
      - Doc: [0089 FUZ009](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz009-repro-persistence-shrinkers-and-replay-corpus)
 10. Finish by removing drift between harnesses, wrappers, and docs.
    - [FUZ]010 - Harness, Wrapper, And Docs Source-Of-Truth Alignment.
-     - Deliverables: eliminate duplicated valid-fuzz logic where possible, keep wrapper/help surfaces synchronized with Moon, preserve or explicitly version any public batch contract, and update docs/wiki/backlog as slices land.
+     - Status: completed 2026-04-16.
+     - Delivered: `src/fuzz/main.mbt` now reuses `validate_valid_run_config(...)` for the shared `validate-valid` profile ladder and only keeps the text-companion thresholds as runner-local policy, so `run_validate_valid_suite` no longer re-derives the direct valid-fuzz profile normalization logic.
+     - Delivered: `scripts/lib/fuzz-task.ts` plus `scripts/test/task-family-commands.ts` now keep the Bun wrapper aligned with the Moon runner for `--emit-gen-valid-batch` as well as `--help`, `--list-suites`, and `--list-profiles`, preserving the pinned `coverage-forced` batch contract through both entry surfaces.
+     - Validation: `moon test --package jtenner/starshine/fuzz --file main_test.mbt`; `bun scripts/test/task-family-commands.ts`; `moon test src/fuzz`; `moon test src/validate`; `moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`; `bun fuzz run --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke-bun`; `bun fuzz run --list-suites`; `bun fuzz run --help`.
+     - Remaining note: the original fuzz-stack hardening backlog is now complete. Future generator or rejection-family widening should start as a new explicitly scoped backlog slice instead of reusing the `[FUZ]001`-`[FUZ]010` handoff chain.
      - Doc: [0089 FUZ010](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz010-harness-wrapper-and-docs-source-of-truth-alignment)
 
 ### MoonBit formal verification rollout (`moon prove`)

@@ -241,6 +241,29 @@ process.exit(0);
   );
 
   fs.writeFileSync(logPath, "");
+  const fuzzBatchOutDir = path.join(tmpdir, "fuzz-batch-out");
+  runBun(
+    repoRoot,
+    [
+      "fuzz",
+      "run",
+      "--emit-gen-valid-batch",
+      "--count",
+      "3",
+      "--seed",
+      "0x5eed",
+      "--out-dir",
+      fuzzBatchOutDir,
+    ],
+    env,
+  );
+  const actualFuzzBatch = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualFuzzBatch === `run --target wasm-gc src/fuzz -- --emit-gen-valid-batch --count 3 --seed 0x5eed --out-dir ${fuzzBatchOutDir}`,
+    `unexpected fuzz batch command log:\n${actualFuzzBatch}`,
+  );
+
+  fs.writeFileSync(logPath, "");
   const comparePassOutDir = path.join(tmpdir, "compare-pass-out");
   runBun(
     repoRoot,
@@ -264,7 +287,7 @@ process.exit(0);
   );
   const actualComparePass = fs.readFileSync(logPath, "utf8").trim();
   assert(
-    actualComparePass === `build --target native --release --package jtenner/starshine/cmd\nrun --target native --release src/fuzz -- --emit-gen-valid-batch --count 16 --seed 0x5eed --out-dir ${path.join(comparePassOutDir, "inputs", "gen-valid")}`,
+    actualComparePass === `run --target native --release src/fuzz -- --emit-gen-valid-batch --count 16 --seed 0x5eed --out-dir ${path.join(comparePassOutDir, "inputs", "gen-valid")}`,
     `unexpected compare-pass command log:\n${actualComparePass}`,
   );
 

@@ -27,9 +27,11 @@ related:
 - Bun wrapper: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts)
 - Discovery commands:
   `--help`, `--list-suites`, `--list-profiles`
+- Batch command:
+  `--emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>`
 - Current active suites are `validate-valid`, `validate-invalid-ast`, `validate-invalid-binary`, `validate-invalid-text`, `validate-invalid-spec-seed`, `binary-roundtrip`, `wast-roundtrip`, `wat-roundtrip`, and `cmd-harness`.
-- `--list-suites` still prints an inventory line per suite as `active\t<name>` or `reserved\t<name>`, but after `[FUZ]008` there are no reserved validator-rejection suite ids left in the current tree.
-- The text/spec-seed rejection lanes are now first-class entrypoints instead of placeholders, and the shared invalid repro helpers now cover persistence/replay/shrinking too, so the next fuzz-stack work is wrapper/docs source-of-truth cleanup rather than activating more suite names.
+- `--list-suites` still prints an inventory line per suite as `active\t<name>` or `reserved\t<name>`, but there are currently no reserved validator-rejection suite ids left in the tree.
+- The Bun wrapper now forwards the same discovery and batch surfaces as the Moon entrypoint, so `bun fuzz run --help`, `--list-suites`, `--list-profiles`, and `--emit-gen-valid-batch ...` stay aligned with `src/fuzz/main.mbt` instead of carrying a narrower wrapper-only contract.
 
 ## Practical Rule
 

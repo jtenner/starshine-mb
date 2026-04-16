@@ -38,8 +38,8 @@
   - `validate-invalid-spec-seed`
   - `binary-roundtrip`
   - `cmd-harness`
-- `src/fuzz/main.mbt` no longer carries any reserved validator-rejection suite ids in help/list output; the next fuzz-stack work is now harness/docs cleanup under [`FUZ010`](#fuz010-harness-wrapper-and-docs-source-of-truth-alignment), not activating more placeholder suite names.
-- `src/fuzz/main.mbt` has a real `--emit-gen-valid-batch` surface pinned to `coverage-forced` mode, and `scripts/lib/pass-fuzz-compare-task.ts` depends on it for the `gen-valid` half of mixed pass fuzzing.
+- `src/fuzz/main.mbt` no longer carries any reserved validator-rejection suite ids in help/list output, and the final harness/docs cleanup from [`FUZ010`](#fuz010-harness-wrapper-and-docs-source-of-truth-alignment) is now landed instead of remaining a pending follow-up.
+- `src/fuzz/main.mbt` has a real `--emit-gen-valid-batch` surface pinned to `coverage-forced` mode, `scripts/lib/pass-fuzz-compare-task.ts` depends on it for the `gen-valid` half of mixed pass fuzzing, and `scripts/lib/fuzz-task.ts` now forwards that same batch command through `bun fuzz run` instead of leaving it Moon-only.
 - `src/validate/gen_valid.mbt` now produces a real two-mode valid topology surface:
   - `natural` mode keeps probabilistic section absence/presence variation for broad valid coverage
   - `coverage-forced` mode forces a mutation-friendly batch shape for pass fuzzing
@@ -47,7 +47,7 @@
   - generated modules can now include func imports, defined tables/mems/globals/tags, start sections, active elem segments, active data segments, and matching data-count sections where valid
   - export coverage now includes function plus first table/memory/global/tag exports when those sections are present
   - body generation now uses recursive environment-aware control/value builders with direct calls, `call_indirect`, local/global traffic, memory/table ops, `block`/`loop`/`if`/`br`/`br_if`, and widened `v128` / `funcref` / `externref` value families; richer GC-specific recursive/subtype/struct/array generation is still deferred beyond the active hardening slices
-- `src/validate/validate.mbt` remains the owner of the direct `validate-valid` generator loop through `run_validate_valid_fuzz`, and `src/fuzz/main.mbt` now delegates that direct loop instead of duplicating it.
+- `src/validate/validate.mbt` remains the owner of the direct `validate-valid` generator loop through `run_validate_valid_fuzz`, and `src/fuzz/main.mbt` now delegates that direct loop while reusing `validate_valid_run_config(...)` for the shared profile ladder instead of re-deriving it.
 - `src/cmd/fuzz_harness.mbt` now exposes the truthful generator-neutral name `run_cmd_fuzz_harness`; the current implementation still generates modules with `gen_valid_module(rnd)` and does not claim to be wasm-smith-backed.
 - `scripts/lib/pass-fuzz-compare-task.ts` is currently the only checked-in mixed-generator harness that actually alternates between two distinct sources:
   - `wasm-tools smith`
@@ -61,15 +61,9 @@
 
 ### Important contradictions a future agent must not miss
 
-- Older docs and changelog entries refer to `src/validate/invalid_fuzzer.mbt`, `validate-invalid`, `binary-invalid`, `text-invalid`, and `spec-seed` suites. Those are **not present in the current checked-in tree**.
-- Do not assume those lanes still exist under renamed files. Treat them as missing implementation work until code is actually restored or replaced in-tree.
-- The current tree is therefore much stronger at:
-  - valid roundtrip stability
-  - pass parity on valid inputs
-  than it is at:
-  - intentional invalid mutation coverage
-  - malformed binary/text rejection coverage
-  - persisted rejection repros
+- Older docs and changelog entries that describe the invalid/rejection lanes as missing are now stale historical context, not current tree truth.
+- The current checked-in tree **does** contain explicit AST, binary, text, and spec-seed invalid suites plus shared invalid repro persistence/replay helpers.
+- Do not reintroduce wrapper/docs drift by treating `--emit-gen-valid-batch` as Moon-only; the Bun wrapper now forwards that surface too, and future docs should keep Moon/Bun help, suite inventory, profile expectations, and batch-contract wording aligned.
 
 ## Target End State
 
@@ -1017,7 +1011,7 @@ The cmd fuzz harness already has useful persistence patterns. Invalid fuzz shoul
 
 - Real invalid-fuzz failures now have a checked-in report/persistence/replay shape instead of only opaque strings.
 - A fresh agent can replay or shrink a saved invalid failure directly from the persisted metadata and artifact bytes.
-- `[FUZ]010` is now the next unfinished validator fuzz slice.
+- `[FUZ]010` remains the final source-of-truth cleanup slice for the active fuzz-stack handoff.
 
 ---
 
@@ -1025,13 +1019,15 @@ The cmd fuzz harness already has useful persistence patterns. Invalid fuzz shoul
 
 **Slice id:** `[FUZ]010`
 
+**Status:** completed 2026-04-16.
+
 ### Goal
 
 Finish by removing drift between exported helpers, runner entrypoints, wrapper surfaces, and docs.
 
 ### Why
 
-Without a cleanup slice, the repo will end up with widened generators and invalid lanes but still carry stale names, duplicate logic, and misleading docs.
+Without a cleanup slice, the repo would end up with widened generators and invalid lanes but still carry stale names, duplicate logic, and misleading docs.
 
 ### Files most likely to change
 
@@ -1043,28 +1039,29 @@ Without a cleanup slice, the repo will end up with widened generators and invali
 - validator-fuzz wiki pages once the active implementation catches up
 - `agent-todo.md` and this doc as slices complete
 
-### Concrete tasks
+### Outcome
 
-- Eliminate or intentionally justify duplicate valid-fuzz logic between:
-  - `run_validate_valid_fuzz`
-  - `run_validate_valid_suite`
-- Keep the truthful cmd-harness helper naming aligned across Moon package interfaces, Node typings, wrapper docs, and any future generator-source changes.
-- Ensure Bun wrapper surface matches Moon suite/help/output surface.
-- Update active docs and wiki pages to describe only current live behavior.
-- Keep this handoff doc current until the work is absorbed into more durable docs/wiki pages.
+- Updated [`src/fuzz/main.mbt`](../src/fuzz/main.mbt) so `run_validate_valid_suite` now reuses [`validate_valid_run_config(...)`](../src/validate/validate.mbt) for the shared `validate-valid` profile ladder instead of keeping another copy of the direct valid-fuzz profile normalization logic. The suite-local policy that remains in `src/fuzz/main.mbt` is now explicitly only the extra text companion thresholds layered on top of `run_validate_valid_fuzz(...)`.
+- Updated [`scripts/lib/fuzz-task.ts`](../scripts/lib/fuzz-task.ts) so `bun fuzz run` now forwards the same `--emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>` surface that [`src/fuzz/main.mbt`](../src/fuzz/main.mbt) already exposes, alongside the existing `--help`, `--list-suites`, and `--list-profiles` discovery commands.
+- Updated [`scripts/test/task-family-commands.ts`](../scripts/test/task-family-commands.ts) so the checked-in wrapper contract proves both the direct Bun batch forwarding and the current compare-pass `gen-valid` batch invocation shape.
+- Refreshed the active docs and wiki pages so they no longer describe wrapper/docs alignment as pending fuzz-stack work. The durable docs now describe the aligned Moon/Bun runner contract and the completed `[FUZ]001`-`[FUZ]010` hardening chain truthfully.
 
 ### Validation
 
+- `moon test --package jtenner/starshine/fuzz --file main_test.mbt`
+- `bun scripts/test/task-family-commands.ts`
 - `moon test src/fuzz`
-- wrapper command tests under `scripts/test/`
-- `bun fuzz run --help`
+- `moon test src/validate`
+- `moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`
+- `bun fuzz run --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke-bun`
 - `bun fuzz run --list-suites`
-- `bun validate readme-api-sync` if README surfaces change
+- `bun fuzz run --help`
 
 ### Exit criteria
 
 - No active doc or wrapper help text lies about the fuzz stack.
 - There is one source of truth for suite names, profile expectations, and runner surface behavior.
+- The original validator fuzz-stack hardening backlog is complete, so any future widening work should start as a new explicitly scoped backlog slice instead of pretending `[FUZ]010` is still open.
 
 ## Handoff Rules
 

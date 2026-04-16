@@ -13,6 +13,7 @@ using @validate {
   gen_valid_module_with_config,
   run_validate_invalid_ast_fuzz,
   run_validate_valid_fuzz,
+  validate_valid_run_config,
   validate_module,
   validation_error_message,
 }

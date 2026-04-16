@@ -119,20 +119,29 @@ pub fn fuzz_usage_text() -> String {
 }
 
 ///|
+fn validate_valid_text_companion_requirements(
+  normalized : String,
+) -> (Int, Int) {
+  match normalized {
+    "smoke" => (0, 0)
+    "ci" => (20, 2)
+    "stress" => (80, 8)
+    _ => abort("unreachable validate-valid text companion profile")
+  }
+}
+
+///|
 fn run_validate_valid_suite(
   profile : String,
   seed : UInt64,
 ) -> Result[Int, String] {
-  let normalized = fuzz_ascii_lower(profile.trim().to_string())
-  let (_, min_text_attempts, min_text_stable) = match normalized {
-    "smoke" => (128, 0, 0)
-    "ci" => (5000, 20, 2)
-    "stress" => (100000, 80, 8)
-    _ =>
-      return Err(
-        "unknown validate-valid fuzz profile '\{profile}'; expected smoke|ci|stress",
-      )
+  let run_config = match validate_valid_run_config(profile) {
+    Ok(config) => config
+    Err(e) => return Err(e)
   }
+  let normalized = run_config.profile
+  let (min_text_attempts, min_text_stable) =
+    validate_valid_text_companion_requirements(normalized)
 
   let direct_stats = match run_validate_valid_fuzz(normalized, seed) {
     Ok(stats) => stats
