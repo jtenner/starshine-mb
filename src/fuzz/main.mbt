@@ -64,15 +64,13 @@ fn fuzz_ascii_lower(input : String) -> String {
 pub fn fuzz_active_suite_names() -> Array[String] {
   [
     "wast-roundtrip", "wat-roundtrip", "validate-valid", "validate-invalid-ast",
-    "binary-roundtrip", "cmd-harness",
+    "validate-invalid-binary", "binary-roundtrip", "cmd-harness",
   ]
 }
 
 ///|
 pub fn fuzz_reserved_suite_names() -> Array[String] {
-  [
-    "validate-invalid-binary", "validate-invalid-text", "validate-invalid-spec-seed",
-  ]
+  ["validate-invalid-text", "validate-invalid-spec-seed"]
 }
 
 ///|
@@ -640,15 +638,19 @@ fn run_single_suite(
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
+    "validate-invalid-binary" =>
+      match run_validate_invalid_binary_fuzz(profile, seed) {
+        Ok(stats) => stats.attempts
+        Err(e) =>
+          return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
+      }
     "cmd-harness" =>
       match run_cmd_fuzz_harness_profile(profile, seed) {
         Ok(stats) => stats.attempts
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
-    "validate-invalid-binary"
-    | "validate-invalid-text"
-    | "validate-invalid-spec-seed" =>
+    "validate-invalid-text" | "validate-invalid-spec-seed" =>
       return Err(
         "suite '\{suite}' is reserved for a planned validator rejection lane and is not implemented yet",
       )

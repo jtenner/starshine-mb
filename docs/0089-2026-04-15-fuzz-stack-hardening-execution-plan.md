@@ -33,10 +33,10 @@
   - `wat-roundtrip`
   - `validate-valid`
   - `validate-invalid-ast`
+  - `validate-invalid-binary`
   - `binary-roundtrip`
   - `cmd-harness`
 - `src/fuzz/main.mbt` now reserves only the still-missing validator rejection lanes, and reports them as reserved in help/list output instead of pretending they are live:
-  - `validate-invalid-binary`
   - `validate-invalid-text`
   - `validate-invalid-spec-seed`
 - `src/fuzz/main.mbt` has a real `--emit-gen-valid-batch` surface pinned to `coverage-forced` mode, and `scripts/lib/pass-fuzz-compare-task.ts` depends on it for the `gen-valid` half of mixed pass fuzzing.
@@ -757,7 +757,7 @@ This was the core missing rejection layer in the current tree. The older docs de
 ### Outcome
 
 - Added a new public AST invalid-fuzz engine in [`src/validate/invalid_fuzzer.mbt`](../src/validate/invalid_fuzzer.mbt) with one checked-in registry driving the current strategy ids, stable names, layer tag, expected diagnostic families, smoke-required set, and fixed profile ladder.
-- Restored `validate-invalid-ast` as a real active fuzz suite in [`src/fuzz/main.mbt`](../src/fuzz/main.mbt) instead of leaving it reserved, while keeping `validate-invalid-binary`, `validate-invalid-text`, and `validate-invalid-spec-seed` explicitly reserved for the later slices.
+- Restored `validate-invalid-ast` as a real active fuzz suite in [`src/fuzz/main.mbt`](../src/fuzz/main.mbt) instead of leaving it reserved. [`FUZ007`](#fuz007-binary-invalid-corruption-lane) later promotes `validate-invalid-binary` to active too, leaving only `validate-invalid-text` and `validate-invalid-spec-seed` reserved for the remaining slices.
 - Landed honest per-strategy accounting in `run_validate_invalid_ast_fuzz(...)` with deterministic stats for:
   - attempted
   - applicable
@@ -794,6 +794,8 @@ This was the core missing rejection layer in the current tree. The older docs de
 
 **Slice id:** `[FUZ]007`
 
+**Status:** completed 2026-04-16.
+
 ### Goal
 
 Add a binary corruption lane that can test malformed decode behavior and decode-valid / validate-invalid boundaries that AST mutation cannot express.
@@ -804,42 +806,51 @@ AST mutation alone cannot cover malformed section order, bad lengths, malformed 
 
 ### Files most likely to change
 
-- invalid fuzz implementation files under `src/validate/` and `src/fuzz/`
-- possibly helpers under `src/binary/` only if reusable decode utilities are needed
+- invalid fuzz implementation files under `src/fuzz/`
 - runner and wrapper tests
 
-### Concrete tasks
+### Outcome
 
-- Encode valid seeds, then mutate bytes.
-- Add corruption families such as:
-  - duplicate sections
-  - wrong section order
-  - truncated payloads
-  - incorrect section lengths
-  - malformed LEB encodings
-  - invalid immediates / alignments / lane values where practical
-  - malformed UTF-8 in names or custom payloads
-  - code count mismatch
-  - trailing garbage
-- Bucket results as:
-  - decode malformed / parser rejected
-  - decode succeeded but validate rejected
-  - unexpectedly accepted
-- Start with valid seeds from:
-  - widened `gen_valid`
-  - saved emitted batch artifacts
-  - optional wasm-smith outputs later if needed
+- Added a new binary invalid runner in [`src/fuzz/invalid_binary.mbt`](../src/fuzz/invalid_binary.mbt) instead of trying to force a circular `validate` ↔ `binary` package dependency.
+- Landed one checked-in byte-corruption registry with deterministic smoke/ci/stress profile resolution and stable strategy ids:
+  - `trailing-garbage`
+  - `truncated-module`
+  - `duplicate-type-section`
+  - `wrong-section-order`
+  - `invalid-func-type-index`
+- The runner now records honest per-strategy stage facts for:
+  - `attempted`
+  - `applicable`
+  - `mutated`
+  - `decode_rejected`
+  - `validate_rejected`
+  - `rejected_expected`
+  - `accepted`
+- The initial curated family set proves both major byte-level buckets on widened `coverage-forced` `gen-valid` seeds:
+  - decode malformed / parser rejected via trailing garbage, truncation, duplicate type sections, and wrong section order
+  - decode succeeded but validator rejected via out-of-range function-section type indices
+- Promoted `validate-invalid-binary` to a real active suite in [`src/fuzz/main.mbt`](../src/fuzz/main.mbt); only `validate-invalid-text` and `validate-invalid-spec-seed` remain reserved in help and `--list-suites` output.
 
 ### Validation
 
-- `moon run src/fuzz -- validate-invalid-binary smoke --seed 0x5eed`
-- dedicated tests for a few deterministic corruption families
-- verify persisted repros decode or fail in the expected stage
+- Added focused blackbox coverage in [`src/fuzz/invalid_binary_test.mbt`](../src/fuzz/invalid_binary_test.mbt) for:
+  - registry surface and expected-stage labels
+  - a deterministic decode-stage rejection (`trailing-garbage`)
+  - a deterministic validate-stage rejection (`invalid-func-type-index`)
+  - fixed-seed deterministic run stats with both decode and validate buckets exercised
+- Updated [`src/fuzz/main_test.mbt`](../src/fuzz/main_test.mbt) so suite inventory/help and profile-error routing now treat `validate-invalid-binary` as active instead of reserved.
+- Verification run for this slice:
+  - `moon test --package jtenner/starshine/fuzz --file invalid_binary_test.mbt`
+  - `moon test --package jtenner/starshine/fuzz --file main_test.mbt`
+  - `moon test src/fuzz`
+  - `moon test src/validate`
+  - `moon run src/fuzz -- validate-invalid-binary smoke --seed 0x5eed`
 
 ### Exit criteria
 
 - The tree has a binary-invalid lane distinct from AST invalidation.
 - Malformed-vs-invalid stage distinctions are visible in the report surface.
+- `[FUZ]008` is now the next unfinished validator fuzz slice.
 
 ---
 

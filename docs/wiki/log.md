@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-16] fix | restore the validator binary invalid fuzz lane
+
+- Added `src/fuzz/invalid_binary.mbt` plus `src/fuzz/invalid_binary_test.mbt` with a checked-in byte-corruption registry, deterministic smoke/ci/stress profile resolution, and stage-aware per-strategy stats for `attempted` / `applicable` / `mutated` / `decode_rejected` / `validate_rejected` / `rejected_expected` / `accepted`.
+- Promoted `validate-invalid-binary` to a live `src/fuzz` suite and updated the fuzz runner truth surfaces in `tooling/fuzz-runner.md` so only `validate-invalid-text` and `validate-invalid-spec-seed` remain reserved.
+- Updated `validate/fuzz-hardening.md`, `docs/wiki/index.md`, `docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`, and `agent-todo.md` so the validator-fuzz handoff now records `[FUZ]007` as complete and points the next unfinished slice at `[FUZ]008`.
+
 ## [2026-04-16] fix | restore the validator AST invalid fuzz lane
 
 - Added `src/validate/invalid_fuzzer.mbt` with a checked-in AST invalid strategy registry, deterministic smoke/ci/stress profile resolution, expected `ValidationIssueFamily` accounting, and per-strategy `attempted` / `applicable` / `mutated` / `rejected` / `rejected_expected` stats.

@@ -2,10 +2,14 @@
 package "jtenner/starshine/fuzz"
 
 import {
+  "jtenner/starshine/lib",
+  "jtenner/starshine/validate",
   "moonbitlang/core/debug",
 }
 
 // Values
+pub fn apply_validate_invalid_binary_strategy(ValidateInvalidBinaryStrategyId, @lib.Module) -> Result[ValidateInvalidBinaryMutation, String]
+
 pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Bytes)], String]
 
 pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
@@ -23,6 +27,12 @@ pub fn parse_fuzz_cli_args(Array[String]) -> FuzzCliArgs
 pub fn parse_fuzz_cli_command(Array[String]) -> FuzzCliCommand
 
 pub fn run_fuzz_suite(String, String, Int64) -> Result[Array[FuzzSuiteResult], String]
+
+pub fn run_validate_invalid_binary_fuzz(String, UInt64) -> Result[ValidateInvalidBinaryFuzzStats, String]
+
+pub fn validate_invalid_binary_registry() -> Array[ValidateInvalidBinaryStrategySpec]
+
+pub fn validate_invalid_binary_run_config(String) -> Result[ValidateInvalidBinaryRunConfig, String]
 
 // Errors
 
@@ -62,6 +72,66 @@ pub struct FuzzSuiteResult {
   attempts : Int
   elapsed_ms : UInt64
 } derive(Eq, Show, @debug.Debug)
+
+pub enum ValidateInvalidBinaryExpectedResult {
+  DecodeRejected
+  ValidateRejected(String)
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidBinaryFuzzStats {
+  profile : String
+  seed : UInt64
+  attempts : Int
+  generator_config : @validate.GenValidConfig
+  required_strategies : Array[ValidateInvalidBinaryStrategyId]
+  strategy_stats : Array[ValidateInvalidBinaryStrategyStats]
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidBinaryMutation {
+  strategy : ValidateInvalidBinaryStrategyId
+  applicable : Bool
+  expected_result : ValidateInvalidBinaryExpectedResult
+  mutated_bytes : Bytes
+} derive(@debug.Debug)
+
+pub struct ValidateInvalidBinaryRunConfig {
+  profile : String
+  attempts : Int
+  generator_config : @validate.GenValidConfig
+  required_strategies : Array[ValidateInvalidBinaryStrategyId]
+} derive(Eq, @debug.Debug)
+
+type ValidateInvalidBinarySectionSpan derive(Eq, @debug.Debug)
+
+pub enum ValidateInvalidBinaryStrategyId {
+  TrailingGarbage
+  TruncatedModule
+  DuplicateTypeSection
+  WrongSectionOrder
+  InvalidFuncTypeIndex
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidBinaryStrategySpec {
+  id : ValidateInvalidBinaryStrategyId
+  stable_id : String
+  display_name : String
+  layer : String
+  expected_result : ValidateInvalidBinaryExpectedResult
+  required_in_smoke : Bool
+} derive(Eq, @debug.Debug)
+
+pub struct ValidateInvalidBinaryStrategyStats {
+  strategy : ValidateInvalidBinaryStrategyId
+  stable_id : String
+  expected_result : ValidateInvalidBinaryExpectedResult
+  attempted : Int
+  applicable : Int
+  mutated : Int
+  decode_rejected : Int
+  validate_rejected : Int
+  rejected_expected : Int
+  accepted : Int
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 
