@@ -370,7 +370,7 @@ pub fn validate_invalid_text_run_config(
 }
 
 ///|
-fn validate_invalid_text_strategy_by_stable_id(
+pub fn validate_invalid_text_strategy_by_stable_id(
   stable_id : String,
 ) -> ValidateInvalidTextStrategySpec? {
   for spec in validate_invalid_text_registry() {
@@ -408,12 +408,22 @@ fn validate_invalid_text_strategy_source(
 }
 
 ///|
-pub fn run_validate_invalid_text_case(
-  strategy : ValidateInvalidTextStrategyId,
+pub fn validate_invalid_text_source_by_stable_id(
+  stable_id : String,
+) -> Result[(String, String, ValidateInvalidTextAssertionKind), String] {
+  let spec = match validate_invalid_text_strategy_by_stable_id(stable_id) {
+    Some(v) => v
+    None => return Err("unknown validate-invalid-text strategy '\{stable_id}'")
+  }
+  Ok(validate_invalid_text_strategy_source(spec.id))
+}
+
+///|
+pub fn evaluate_validate_invalid_text_assertion_source(
+  source : String,
+  path : String,
+  expected_kind : ValidateInvalidTextAssertionKind,
 ) -> Result[ValidateInvalidTextStage, String] {
-  let (path, source, expected_kind) = validate_invalid_text_strategy_source(
-    strategy,
-  )
   let cmd = match
     validate_invalid_text_extract_assertion(source, path, expected_kind, 0) {
     Ok(v) => v
@@ -427,6 +437,16 @@ pub fn run_validate_invalid_text_case(
     return Err("validate-invalid-text kind mismatch for \{path}")
   }
   Ok(validate_invalid_text_stage_from_wast(result.stage))
+}
+
+///|
+pub fn run_validate_invalid_text_case(
+  strategy : ValidateInvalidTextStrategyId,
+) -> Result[ValidateInvalidTextStage, String] {
+  let (path, source, expected_kind) = validate_invalid_text_strategy_source(
+    strategy,
+  )
+  evaluate_validate_invalid_text_assertion_source(source, path, expected_kind)
 }
 
 ///|
@@ -705,7 +725,7 @@ pub fn validate_invalid_spec_seed_registry() -> Array[
 }
 
 ///|
-fn validate_invalid_spec_seed_by_stable_id(
+pub fn validate_invalid_spec_seed_by_stable_id(
   stable_id : String,
 ) -> ValidateInvalidSpecSeedSpec? {
   for spec in validate_invalid_spec_seed_registry() {
@@ -757,9 +777,9 @@ pub fn validate_invalid_spec_seed_run_config(
 }
 
 ///|
-pub fn run_validate_invalid_spec_seed_case(
+pub fn validate_invalid_spec_seed_assertion_source(
   seed_case : ValidateInvalidSpecSeedId,
-) -> Result[ValidateInvalidTextStage, String] {
+) -> Result[(String, String, ValidateInvalidTextAssertionKind), String] {
   let registry = validate_invalid_spec_seed_registry()
   let spec = registry[validate_invalid_spec_seed_index(seed_case)]
   let source = match read_file_sync(spec.path) {
@@ -776,24 +796,32 @@ pub fn run_validate_invalid_spec_seed_case(
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
-  let cmd = match
-    validate_invalid_text_extract_assertion(
-      assertion_source,
-      spec.path,
-      spec.assertion_kind,
-      0,
-    ) {
+  Ok((spec.path, assertion_source, spec.assertion_kind))
+}
+
+///|
+pub fn validate_invalid_spec_seed_assertion_source_by_stable_id(
+  stable_id : String,
+) -> Result[(String, String, ValidateInvalidTextAssertionKind), String] {
+  let spec = match validate_invalid_spec_seed_by_stable_id(stable_id) {
+    Some(v) => v
+    None => return Err("unknown validate-invalid-spec-seed case '\{stable_id}'")
+  }
+  validate_invalid_spec_seed_assertion_source(spec.id)
+}
+
+///|
+pub fn run_validate_invalid_spec_seed_case(
+  seed_case : ValidateInvalidSpecSeedId,
+) -> Result[ValidateInvalidTextStage, String] {
+  let (path, assertion_source, assertion_kind) = match
+    validate_invalid_spec_seed_assertion_source(seed_case) {
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
-  let result = match evaluate_wast_static_assertion(cmd, spec.path) {
-    Ok(v) => v
-    Err(msg) => return Err(msg)
-  }
-  if !validate_invalid_text_result_matches_kind(result, spec.assertion_kind) {
-    return Err("validate-invalid-spec-seed kind mismatch for \{spec.path}")
-  }
-  Ok(validate_invalid_text_stage_from_wast(result.stage))
+  evaluate_validate_invalid_text_assertion_source(
+    assertion_source, path, assertion_kind,
+  )
 }
 
 ///|

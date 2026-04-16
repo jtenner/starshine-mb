@@ -10,6 +10,10 @@ import {
 // Values
 pub fn apply_validate_invalid_ast_strategy(ValidateInvalidAstStrategyId, @lib.Module) -> Result[ValidateInvalidAstMutation, String]
 
+pub fn build_validate_invalid_ast_minimal_repro(ValidateInvalidAstStrategyId) -> Result[@lib.Module, String]
+
+pub fn build_validate_invalid_ast_minimal_repro_by_stable_id(String) -> Result[@lib.Module, String]
+
 pub fn check_validate_valid_feature_floors(GenValidFeatureStats, Array[ValidateValidFeatureFloor]) -> Array[ValidateValidFeatureFloorFailure]
 
 pub fn default_gen_valid_config() -> GenValidConfig
@@ -87,6 +91,8 @@ pub fn validate_importsec(@lib.ImportSec?, Env) -> Result[Env, String]
 pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec]
 
 pub fn validate_invalid_ast_run_config(String) -> Result[ValidateInvalidAstRunConfig, String]
+
+pub fn validate_invalid_ast_strategy_by_stable_id(String) -> ValidateInvalidAstStrategySpec?
 
 pub fn validate_memsec(@lib.MemSec?, Env) -> Result[Env, String]
 

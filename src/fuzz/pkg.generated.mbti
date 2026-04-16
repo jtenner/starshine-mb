@@ -10,7 +10,13 @@ import {
 // Values
 pub fn apply_validate_invalid_binary_strategy(ValidateInvalidBinaryStrategyId, @lib.Module) -> Result[ValidateInvalidBinaryMutation, String]
 
+pub fn build_validate_invalid_binary_minimal_repro(ValidateInvalidBinaryStrategyId) -> Result[Bytes, String]
+
+pub fn build_validate_invalid_binary_minimal_repro_by_stable_id(String) -> Result[Bytes, String]
+
 pub fn emit_gen_valid_batch_artifacts(Int, UInt64) -> Result[Array[(String, Bytes)], String]
+
+pub fn evaluate_validate_invalid_text_assertion_source(String, String, ValidateInvalidTextAssertionKind) -> Result[ValidateInvalidTextStage, String]
 
 pub fn format_fuzz_suite_result(FuzzSuiteResult, FuzzOutputMode) -> String
 
@@ -22,9 +28,25 @@ pub fn fuzz_suite_inventory_lines() -> Array[String]
 
 pub fn fuzz_usage_text() -> String
 
+pub fn invalid_fuzz_ast_source_kind() -> InvalidFuzzSourceKind
+
+pub fn invalid_fuzz_binary_source_kind() -> InvalidFuzzSourceKind
+
+pub fn invalid_fuzz_source_kind_name(InvalidFuzzSourceKind) -> String
+
+pub fn invalid_fuzz_spec_seed_source_kind() -> InvalidFuzzSourceKind
+
+pub fn invalid_fuzz_text_source_kind() -> InvalidFuzzSourceKind
+
 pub fn parse_fuzz_cli_args(Array[String]) -> FuzzCliArgs
 
 pub fn parse_fuzz_cli_command(Array[String]) -> FuzzCliCommand
+
+pub fn parse_invalid_fuzz_failure_report(String, (String) -> Result[Bytes, String]) -> Result[InvalidFuzzFailureReport, String]
+
+pub fn persist_invalid_fuzz_failure_report(InvalidFuzzFailureReport, InvalidFuzzPersistIO, corpus_dir? : String) -> Result[(String, Array[String]), String]
+
+pub fn replay_invalid_fuzz_failure_report(InvalidFuzzFailureReport, prefer_reduced? : Bool) -> Result[InvalidFuzzReplayResult, String]
 
 pub fn run_fuzz_suite(String, String, Int64) -> Result[Array[FuzzSuiteResult], String]
 
@@ -42,9 +64,19 @@ pub fn run_validate_invalid_text_case_by_stable_id(String) -> Result[String, Str
 
 pub fn run_validate_invalid_text_fuzz(String, UInt64) -> Result[ValidateInvalidTextFuzzStats, String]
 
+pub fn shrink_invalid_fuzz_failure_report(InvalidFuzzFailureReport) -> Result[InvalidFuzzFailureReport, String]
+
 pub fn validate_invalid_binary_registry() -> Array[ValidateInvalidBinaryStrategySpec]
 
 pub fn validate_invalid_binary_run_config(String) -> Result[ValidateInvalidBinaryRunConfig, String]
+
+pub fn validate_invalid_binary_strategy_by_stable_id(String) -> ValidateInvalidBinaryStrategySpec?
+
+pub fn validate_invalid_spec_seed_assertion_source(ValidateInvalidSpecSeedId) -> Result[(String, String, ValidateInvalidTextAssertionKind), String]
+
+pub fn validate_invalid_spec_seed_assertion_source_by_stable_id(String) -> Result[(String, String, ValidateInvalidTextAssertionKind), String]
+
+pub fn validate_invalid_spec_seed_by_stable_id(String) -> ValidateInvalidSpecSeedSpec?
 
 pub fn validate_invalid_spec_seed_registry() -> Array[ValidateInvalidSpecSeedSpec]
 
@@ -54,7 +86,11 @@ pub fn validate_invalid_text_registry() -> Array[ValidateInvalidTextStrategySpec
 
 pub fn validate_invalid_text_run_config(String) -> Result[ValidateInvalidTextRunConfig, String]
 
+pub fn validate_invalid_text_source_by_stable_id(String) -> Result[(String, String, ValidateInvalidTextAssertionKind), String]
+
 pub fn validate_invalid_text_stage_name(ValidateInvalidTextStage) -> String
+
+pub fn validate_invalid_text_strategy_by_stable_id(String) -> ValidateInvalidTextStrategySpec?
 
 // Errors
 
@@ -94,6 +130,50 @@ pub struct FuzzSuiteResult {
   attempts : Int
   elapsed_ms : UInt64
 } derive(Eq, Show, @debug.Debug)
+
+pub struct InvalidFuzzArtifact {
+  label : String
+  file_name : String
+  bytes : Bytes
+} derive(Eq, @debug.Debug)
+pub fn InvalidFuzzArtifact::new(String, String, Bytes) -> Self
+
+pub struct InvalidFuzzFailureReport {
+  suite : String
+  profile : String
+  seed : UInt64
+  attempt : Int
+  strategy_id : String
+  source_kind : InvalidFuzzSourceKind
+  expected_stage : String
+  expected_diagnostic_family : String?
+  actual_stage : String
+  actual_diagnostic_family : String?
+  source_path : String?
+  artifacts : Array[InvalidFuzzArtifact]
+  reduced_artifacts : Array[InvalidFuzzArtifact]
+} derive(Eq, @debug.Debug)
+pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, source_path? : String?, artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact]) -> Self
+
+pub struct InvalidFuzzPersistIO {
+  ensure_dir : (String) -> Result[Unit, String]
+  write_file : (String, Bytes) -> Result[Unit, String]
+}
+pub fn InvalidFuzzPersistIO::new(ensure_dir? : (String) -> Result[Unit, String], write_file? : (String, Bytes) -> Result[Unit, String]) -> Self
+
+pub struct InvalidFuzzReplayResult {
+  stage : String
+  diagnostic_family : String?
+  message : String?
+} derive(Eq, @debug.Debug)
+pub fn InvalidFuzzReplayResult::new(String, diagnostic_family? : String?, message? : String?) -> Self
+
+pub enum InvalidFuzzSourceKind {
+  AstInvalidSource
+  BinaryInvalidSource
+  TextInvalidSource
+  SpecSeedInvalidSource
+} derive(Eq, @debug.Debug)
 
 pub enum ValidateInvalidBinaryExpectedResult {
   DecodeRejected

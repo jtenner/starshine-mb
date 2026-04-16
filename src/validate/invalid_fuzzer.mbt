@@ -173,6 +173,18 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
 }
 
 ///|
+pub fn validate_invalid_ast_strategy_by_stable_id(
+  stable_id : String,
+) -> ValidateInvalidAstStrategySpec? {
+  for spec in validate_invalid_ast_registry() {
+    if spec.stable_id == stable_id {
+      return Some(spec)
+    }
+  }
+  None
+}
+
+///|
 fn validate_invalid_ast_strategy_index(
   id : ValidateInvalidAstStrategyId,
 ) -> Int {
@@ -540,6 +552,41 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
     },
   )
+}
+
+///|
+fn validate_invalid_ast_minimal_valid_module() -> Module {
+  let (base, _) = validate_invalid_ast_ensure_any_func(Module::new())
+  base
+}
+
+///|
+pub fn build_validate_invalid_ast_minimal_repro(
+  strategy : ValidateInvalidAstStrategyId,
+) -> Result[Module, String] {
+  let mutation = match
+    apply_validate_invalid_ast_strategy(
+      strategy,
+      validate_invalid_ast_minimal_valid_module(),
+    ) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  if !mutation.applicable {
+    return Err("validate-invalid-ast minimal repro is not applicable")
+  }
+  Ok(mutation.mutated_module)
+}
+
+///|
+pub fn build_validate_invalid_ast_minimal_repro_by_stable_id(
+  stable_id : String,
+) -> Result[Module, String] {
+  let spec = match validate_invalid_ast_strategy_by_stable_id(stable_id) {
+    Some(v) => v
+    None => return Err("unknown validate-invalid-ast strategy '\{stable_id}'")
+  }
+  build_validate_invalid_ast_minimal_repro(spec.id)
 }
 
 ///|

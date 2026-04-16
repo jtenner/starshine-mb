@@ -1,0 +1,414 @@
+///|
+using @fs {read_file_sync}
+
+///|
+using @validate {
+  apply_validate_invalid_ast_strategy,
+  validate_invalid_ast_strategy_by_stable_id,
+}
+
+///|
+fn invalid_repro_test_bytes_to_ascii(bytes : Bytes) -> String {
+  let out = StringBuilder::new()
+  for byte in bytes {
+    out.write_char(byte.to_int().unsafe_to_char())
+  }
+  out.to_string()
+}
+
+///|
+fn invalid_repro_test_string_bytes(text : String) -> Bytes {
+  let out : Array[Byte] = []
+  for c in text {
+    let code = c.to_int()
+    if code >= 0 && code <= 255 {
+      out.push(code.to_byte())
+    } else {
+      out.push('?'.to_int().to_byte())
+    }
+  }
+  Bytes::from_array(out)
+}
+
+///|
+fn invalid_repro_test_original_ast_report() -> Result[
+  InvalidFuzzFailureReport,
+  String,
+] {
+  let base = gen_valid_module_with_config(
+    @splitmix.new(seed=0x5eedUL),
+    GenValidConfig::coverage_forced_default(),
+  )
+  let spec = match
+    validate_invalid_ast_strategy_by_stable_id("duplicate-export-name") {
+    Some(v) => v
+    None => return Err("missing AST invalid strategy")
+  }
+  let mutation = match apply_validate_invalid_ast_strategy(spec.id, base) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let mutated = match encode_module(mutation.mutated_module) {
+    Ok(v) => v
+    Err(msg) => return Err("\{msg}")
+  }
+  Ok(
+    InvalidFuzzFailureReport::new(
+      "validate-invalid-ast",
+      "smoke",
+      0x5eedUL,
+      1,
+      "duplicate-export-name",
+      invalid_fuzz_ast_source_kind(),
+      "validate-rejected",
+      expected_diagnostic_family=Some("export"),
+      actual_stage="validate-rejected",
+      actual_diagnostic_family=Some("export"),
+      artifacts=[InvalidFuzzArtifact::new("original", "original.wasm", mutated)],
+    ),
+  )
+}
+
+///|
+fn invalid_repro_test_original_binary_report() -> Result[
+  InvalidFuzzFailureReport,
+  String,
+] {
+  let base = gen_valid_module_with_config(
+    @splitmix.new(seed=0x5eedUL),
+    GenValidConfig::coverage_forced_default(),
+  )
+  let spec = match
+    validate_invalid_binary_strategy_by_stable_id("invalid-func-type-index") {
+    Some(v) => v
+    None => return Err("missing binary invalid strategy")
+  }
+  let mutation = match apply_validate_invalid_binary_strategy(spec.id, base) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  Ok(
+    InvalidFuzzFailureReport::new(
+      "validate-invalid-binary",
+      "smoke",
+      0x5eedUL,
+      2,
+      "invalid-func-type-index",
+      invalid_fuzz_binary_source_kind(),
+      "validate-rejected",
+      expected_diagnostic_family=Some("function"),
+      actual_stage="validate-rejected",
+      actual_diagnostic_family=Some("function"),
+      artifacts=[
+        InvalidFuzzArtifact::new(
+          "original",
+          "original.wasm",
+          mutation.mutated_bytes,
+        ),
+      ],
+    ),
+  )
+}
+
+///|
+fn invalid_repro_test_original_text_report() -> Result[
+  InvalidFuzzFailureReport,
+  String,
+] {
+  let (path, source, _) = match
+    validate_invalid_text_source_by_stable_id("invalid-result-stack") {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  Ok(
+    InvalidFuzzFailureReport::new(
+      "validate-invalid-text",
+      "smoke",
+      0x5eedUL,
+      3,
+      "invalid-result-stack",
+      invalid_fuzz_text_source_kind(),
+      "validate-rejected",
+      actual_stage="validate-rejected",
+      source_path=Some(path),
+      artifacts=[
+        InvalidFuzzArtifact::new(
+          "original",
+          "original.wast",
+          invalid_repro_test_string_bytes("\n\n" + source + "\n"),
+        ),
+      ],
+    ),
+  )
+}
+
+///|
+fn invalid_repro_test_original_spec_seed_report() -> Result[
+  InvalidFuzzFailureReport,
+  String,
+] {
+  let spec = match
+    validate_invalid_spec_seed_by_stable_id(
+      "imports-unlinkable-unknown-import-1",
+    ) {
+    Some(v) => v
+    None => return Err("missing spec-seed case")
+  }
+  let source = match read_file_sync(spec.path) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  Ok(
+    InvalidFuzzFailureReport::new(
+      "validate-invalid-spec-seed",
+      "smoke",
+      0x5eedUL,
+      4,
+      spec.stable_id,
+      invalid_fuzz_spec_seed_source_kind(),
+      "valid-before-link",
+      actual_stage="valid-before-link",
+      source_path=Some(spec.path),
+      artifacts=[
+        InvalidFuzzArtifact::new(
+          "original",
+          "original.wast",
+          invalid_repro_test_string_bytes(source),
+        ),
+      ],
+    ),
+  )
+}
+
+///|
+test "persist_invalid_fuzz_failure_report writes deterministic suite strategy layout" {
+  let ensured_dirs : Array[String] = []
+  let writes : Array[(String, Bytes)] = []
+  let io = InvalidFuzzPersistIO::new(
+    ensure_dir=fn(path) {
+      ensured_dirs.push(path)
+      Ok(())
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let original = match invalid_repro_test_original_binary_report() {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let reduced = match
+    build_validate_invalid_binary_minimal_repro_by_stable_id("trailing-garbage") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let report = InvalidFuzzFailureReport::new(
+    "validate-invalid-binary",
+    "smoke",
+    0x5eedUL,
+    2,
+    "invalid-func-type-index",
+    invalid_fuzz_binary_source_kind(),
+    "validate-rejected",
+    expected_diagnostic_family=Some("function"),
+    actual_stage="validate-rejected",
+    actual_diagnostic_family=Some("function"),
+    artifacts=original.artifacts,
+    reduced_artifacts=[
+      InvalidFuzzArtifact::new("reduced", "reduced.wasm", reduced),
+    ],
+  )
+  let (meta_path, artifact_paths) = match
+    persist_invalid_fuzz_failure_report(
+      report,
+      io,
+      corpus_dir="tmp-invalid-corpus",
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(ensured_dirs, [
+    "tmp-invalid-corpus", "tmp-invalid-corpus/validate-invalid-binary", "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index",
+    "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2",
+  ])
+  assert_eq(
+    meta_path, "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2/repro.meta.txt",
+  )
+  assert_eq(artifact_paths, [
+    "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2/original.wasm",
+    "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2/reduced.wasm",
+  ])
+  let mut saw_meta = false
+  for entry in writes {
+    let path = entry.0
+    let bytes = entry.1
+    if path == meta_path {
+      saw_meta = true
+      let text = invalid_repro_test_bytes_to_ascii(bytes)
+      assert_true(text.contains("suite=validate-invalid-binary"))
+      assert_true(text.contains("strategy_id=invalid-func-type-index"))
+      assert_true(text.contains("source_kind=binary"))
+      assert_true(text.contains("artifact=original|original.wasm"))
+      assert_true(text.contains("reduced=reduced|reduced.wasm"))
+    }
+  }
+  assert_true(saw_meta)
+}
+
+///|
+test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
+  let writes : Map[String, Bytes] = {}
+  let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    writes[path] = bytes
+    Ok(())
+  })
+  let original = match invalid_repro_test_original_text_report() {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let report = InvalidFuzzFailureReport::new(
+    "validate-invalid-text",
+    "smoke",
+    0x5eedUL,
+    3,
+    "invalid-result-stack",
+    invalid_fuzz_text_source_kind(),
+    "validate-rejected",
+    actual_stage="validate-rejected",
+    source_path=original.source_path,
+    artifacts=original.artifacts,
+    reduced_artifacts=[
+      InvalidFuzzArtifact::new(
+        "reduced",
+        "reduced.wast",
+        invalid_repro_test_string_bytes(
+          "(assert_invalid (module (func (result i32) nop)) \"type mismatch\")",
+        ),
+      ),
+    ],
+  )
+  let (_, artifact_paths) = match
+    persist_invalid_fuzz_failure_report(report, io) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let meta_text = match
+    writes.get(
+      "fuzz-corpus/invalid/validate-invalid-text/invalid-result-stack/seed-24301-attempt-3/repro.meta.txt",
+    ) {
+    Some(v) => invalid_repro_test_bytes_to_ascii(v)
+    None => fail("missing persisted metadata")
+  }
+  let parsed = match
+    parse_invalid_fuzz_failure_report(meta_text, fn(name) {
+      for path in artifact_paths {
+        if path.contains("/" + name) {
+          match writes.get(path) {
+            Some(v) => return Ok(v)
+            None => ()
+          }
+        }
+      }
+      Err("missing artifact " + name)
+    }) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(parsed.suite, "validate-invalid-text")
+  assert_eq(parsed.strategy_id, "invalid-result-stack")
+  assert_eq(invalid_fuzz_source_kind_name(parsed.source_kind), "text")
+  assert_eq(parsed.artifacts.length(), 1)
+  assert_eq(parsed.reduced_artifacts.length(), 1)
+}
+
+///|
+test "shrink_invalid_fuzz_failure_report produces replayable AST reduced artifact" {
+  let report = match invalid_repro_test_original_ast_report() {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let shrunk = match shrink_invalid_fuzz_failure_report(report) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(shrunk.reduced_artifacts.length(), 1)
+  assert_true(
+    shrunk.reduced_artifacts[0].bytes.length() <
+    shrunk.artifacts[0].bytes.length(),
+  )
+  let replay = match replay_invalid_fuzz_failure_report(shrunk) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(replay.stage, "validate-rejected")
+  assert_eq(replay.diagnostic_family, Some("export"))
+}
+
+///|
+test "shrink_invalid_fuzz_failure_report produces replayable binary reduced artifact" {
+  let report = match invalid_repro_test_original_binary_report() {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let shrunk = match shrink_invalid_fuzz_failure_report(report) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(shrunk.reduced_artifacts.length(), 1)
+  assert_true(
+    shrunk.reduced_artifacts[0].bytes.length() <=
+    shrunk.artifacts[0].bytes.length(),
+  )
+  let replay = match replay_invalid_fuzz_failure_report(shrunk) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(replay.stage, "validate-rejected")
+  assert_eq(replay.diagnostic_family, Some("function"))
+}
+
+///|
+test "shrink_invalid_fuzz_failure_report produces replayable inline text reduced artifact" {
+  let report = match invalid_repro_test_original_text_report() {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let shrunk = match shrink_invalid_fuzz_failure_report(report) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(shrunk.reduced_artifacts.length(), 1)
+  let replay = match replay_invalid_fuzz_failure_report(shrunk) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(replay.stage, "validate-rejected")
+  assert_eq(replay.diagnostic_family, None)
+}
+
+///|
+test "shrink_invalid_fuzz_failure_report produces replayable spec-seed reduced artifact" {
+  let report = match invalid_repro_test_original_spec_seed_report() {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let shrunk = match shrink_invalid_fuzz_failure_report(report) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(shrunk.reduced_artifacts.length(), 1)
+  assert_true(
+    shrunk.reduced_artifacts[0].bytes.length() <
+    shrunk.artifacts[0].bytes.length(),
+  )
+  let replay = match replay_invalid_fuzz_failure_report(shrunk) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(replay.stage, "valid-before-link")
+  assert_eq(replay.diagnostic_family, None)
+}

@@ -197,6 +197,18 @@ pub fn validate_invalid_binary_registry() -> Array[
 }
 
 ///|
+pub fn validate_invalid_binary_strategy_by_stable_id(
+  stable_id : String,
+) -> ValidateInvalidBinaryStrategySpec? {
+  for spec in validate_invalid_binary_registry() {
+    if spec.stable_id == stable_id {
+      return Some(spec)
+    }
+  }
+  None
+}
+
+///|
 fn validate_invalid_binary_strategy_index(
   id : ValidateInvalidBinaryStrategyId,
 ) -> Int {
@@ -700,6 +712,41 @@ pub fn apply_validate_invalid_binary_strategy(
     InvalidFuncTypeIndex =>
       validate_invalid_binary_mutate_invalid_func_type_index(base)
   }
+}
+
+///|
+fn validate_invalid_binary_minimal_valid_module() -> Module {
+  validate_invalid_binary_ensure_defined_func(Module::new())
+}
+
+///|
+pub fn build_validate_invalid_binary_minimal_repro(
+  strategy : ValidateInvalidBinaryStrategyId,
+) -> Result[Bytes, String] {
+  let mutation = match
+    apply_validate_invalid_binary_strategy(
+      strategy,
+      validate_invalid_binary_minimal_valid_module(),
+    ) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  if !mutation.applicable {
+    return Err("validate-invalid-binary minimal repro is not applicable")
+  }
+  Ok(mutation.mutated_bytes)
+}
+
+///|
+pub fn build_validate_invalid_binary_minimal_repro_by_stable_id(
+  stable_id : String,
+) -> Result[Bytes, String] {
+  let spec = match validate_invalid_binary_strategy_by_stable_id(stable_id) {
+    Some(v) => v
+    None =>
+      return Err("unknown validate-invalid-binary strategy '\{stable_id}'")
+  }
+  build_validate_invalid_binary_minimal_repro(spec.id)
 }
 
 ///|

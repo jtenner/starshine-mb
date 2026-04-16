@@ -38,7 +38,7 @@
   - `validate-invalid-spec-seed`
   - `binary-roundtrip`
   - `cmd-harness`
-- `src/fuzz/main.mbt` no longer carries any reserved validator-rejection suite ids in help/list output; the next fuzz-stack work is now persistence and replay under [`FUZ009`](#fuz009-repro-persistence-shrinkers-and-replay-corpus), not activating more placeholder suite names.
+- `src/fuzz/main.mbt` no longer carries any reserved validator-rejection suite ids in help/list output; the next fuzz-stack work is now harness/docs cleanup under [`FUZ010`](#fuz010-harness-wrapper-and-docs-source-of-truth-alignment), not activating more placeholder suite names.
 - `src/fuzz/main.mbt` has a real `--emit-gen-valid-batch` surface pinned to `coverage-forced` mode, and `scripts/lib/pass-fuzz-compare-task.ts` depends on it for the `gen-valid` half of mixed pass fuzzing.
 - `src/validate/gen_valid.mbt` now produces a real two-mode valid topology surface:
   - `natural` mode keeps probabilistic section absence/presence variation for broad valid coverage
@@ -939,13 +939,15 @@ Add text-level invalidation and spec-seeded replay so parser/lower/validate reje
 
 - Text/parser rejection coverage exists as a first-class fuzz lane.
 - Spec invalid/malformed/unlinkable fixtures can seed targeted randomized rejection work.
-- `[FUZ]009` is now the next unfinished validator fuzz slice.
+- `[FUZ]009` is complete, so `[FUZ]010` is now the next unfinished validator fuzz slice.
 
 ---
 
 ## FUZ009 Repro Persistence, Shrinkers, And Replay Corpus
 
 **Slice id:** `[FUZ]009`
+
+**Status:** completed 2026-04-16.
 
 ### Goal
 
@@ -958,37 +960,64 @@ The cmd fuzz harness already has useful persistence patterns. Invalid fuzz shoul
 ### Files most likely to change
 
 - invalid fuzz implementation files
-- [`src/cmd/fuzz_harness.mbt`](../src/cmd/fuzz_harness.mbt) if helper extraction/reuse is worth it
-- [`src/fuzz/main.mbt`](../src/fuzz/main.mbt)
-- wrapper/tests
+- [`src/validate/invalid_fuzzer.mbt`](../src/validate/invalid_fuzzer.mbt)
+- [`src/fuzz/invalid_binary.mbt`](../src/fuzz/invalid_binary.mbt)
+- [`src/fuzz/invalid_text.mbt`](../src/fuzz/invalid_text.mbt)
+- [`src/fuzz/invalid_repro.mbt`](../src/fuzz/invalid_repro.mbt)
+- [`src/fuzz/invalid_repro_test.mbt`](../src/fuzz/invalid_repro_test.mbt)
 
-### Concrete tasks
+### Outcome
 
-- Define a validator-invalid failure report shape that can persist:
+- Added a new shared invalid-fuzz repro surface in [`src/fuzz/invalid_repro.mbt`](../src/fuzz/invalid_repro.mbt):
+  - `InvalidFuzzFailureReport`
+  - `InvalidFuzzArtifact`
+  - `InvalidFuzzReplayResult`
+  - `InvalidFuzzPersistIO`
+  - `persist_invalid_fuzz_failure_report(...)`
+  - `parse_invalid_fuzz_failure_report(...)`
+  - `shrink_invalid_fuzz_failure_report(...)`
+  - `replay_invalid_fuzz_failure_report(...)`
+- The persisted report shape now records the required deterministic repro facts in one place:
   - suite
   - profile
   - seed
+  - attempt
   - strategy id
-  - stage
-  - expected vs actual diagnostic family
-  - source kind (AST / binary / text / spec-seed)
-  - module/text/bytes artifacts where relevant
-- Persist deterministic repro material to a stable directory layout.
-- Add at least small, bounded shrink/reduce helpers for:
-  - AST mutation replay
-  - byte mutation replay
-  - text mutation replay
-- Make replay possible without the original random run.
+  - source kind (`ast`, `binary`, `text`, `spec-seed`)
+  - expected vs actual stage
+  - expected vs actual diagnostic family when relevant
+  - original plus reduced artifacts
+- Persistence now uses a stable per-suite/per-strategy directory layout rooted at `fuzz-corpus/invalid/<suite>/<strategy>/seed-<seed>-attempt-<attempt>/` with deterministic artifact names plus `repro.meta.txt` metadata.
+- Added bounded shrink/reduce helpers for every current invalid source kind:
+  - AST replay now reduces to strategy-specific minimal invalid modules via new public minimal-repro builders in [`src/validate/invalid_fuzzer.mbt`](../src/validate/invalid_fuzzer.mbt)
+  - binary replay now reduces to strategy-specific minimal corrupted wasm bytes via new public minimal-repro builders in [`src/fuzz/invalid_binary.mbt`](../src/fuzz/invalid_binary.mbt)
+  - inline text replay now reduces to the exact canonical single-assertion source for the chosen stable strategy id
+  - spec-seed replay now reduces large `tests/spec` fixtures down to the exact extracted raw assertion S-expression already used by the lane
+- Replay no longer depends on rerunning the original random loop: the saved metadata plus persisted artifact bytes are enough to re-check the rejection stage/family for AST, binary, text, and spec-seed cases directly.
 
 ### Validation
 
-- deterministic persistence tests similar in spirit to the existing cmd harness persistence tests
-- one replay test per source kind once the suites exist
+- Added focused fuzz-package coverage in [`src/fuzz/invalid_repro_test.mbt`](../src/fuzz/invalid_repro_test.mbt) for:
+  - deterministic persistence layout and metadata contents
+  - metadata parse/load roundtrip from persisted artifacts
+  - reduced AST replay
+  - reduced binary replay
+  - reduced inline-text replay
+  - reduced spec-seed replay
+- Verification run for this slice:
+  - `moon test --package jtenner/starshine/fuzz --file invalid_repro_test.mbt`
+  - `moon test src/fuzz`
+  - `moon test src/validate`
+  - `moon run src/fuzz -- validate-invalid-ast smoke --seed 0x5eed`
+  - `moon run src/fuzz -- validate-invalid-binary smoke --seed 0x5eed`
+  - `moon run src/fuzz -- validate-invalid-text smoke --seed 0x5eed`
+  - `moon run src/fuzz -- validate-invalid-spec-seed smoke --seed 0x5eed`
 
 ### Exit criteria
 
-- Real invalid-fuzz failures produce actionable artifacts, not just log lines.
-- A fresh agent can replay a saved invalid failure directly from the persisted metadata.
+- Real invalid-fuzz failures now have a checked-in report/persistence/replay shape instead of only opaque strings.
+- A fresh agent can replay or shrink a saved invalid failure directly from the persisted metadata and artifact bytes.
+- `[FUZ]010` is now the next unfinished validator fuzz slice.
 
 ---
 

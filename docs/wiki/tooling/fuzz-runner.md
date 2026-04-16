@@ -29,13 +29,13 @@ related:
   `--help`, `--list-suites`, `--list-profiles`
 - Current active suites are `validate-valid`, `validate-invalid-ast`, `validate-invalid-binary`, `validate-invalid-text`, `validate-invalid-spec-seed`, `binary-roundtrip`, `wast-roundtrip`, `wat-roundtrip`, and `cmd-harness`.
 - `--list-suites` still prints an inventory line per suite as `active\t<name>` or `reserved\t<name>`, but after `[FUZ]008` there are no reserved validator-rejection suite ids left in the current tree.
-- The text/spec-seed rejection lanes are now first-class entrypoints instead of placeholders, so the next fuzz-stack work is persistence/replay ergonomics rather than activating more suite names.
+- The text/spec-seed rejection lanes are now first-class entrypoints instead of placeholders, and the shared invalid repro helpers now cover persistence/replay/shrinking too, so the next fuzz-stack work is wrapper/docs source-of-truth cleanup rather than activating more suite names.
 
 ## Practical Rule
 
 - When adding fuzz work, add or extend a named `src/fuzz` suite instead of burying it in `moon test`.
 - Keep deterministic reducers and invariants beside implementation tests, and keep long randomized exploration in the fuzz runner.
-- Preserve the suite/profile/seed contract in both Moon and Bun entrypoints so failures stay reproducible.
+- Preserve the suite/profile/seed contract in both Moon and Bun entrypoints so failures stay reproducible, and keep persisted invalid-repro metadata compatible with that same contract.
 
 ## Sources
 

@@ -49,10 +49,10 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`ir2/registry-map.md`](ir2/registry-map.md) - Current live pass registry categories, preset composition, and the caveat that the original March batch map is now partially stale.
 - [`ir2/test-matrix.md`](ir2/test-matrix.md) - Shared helper and golden matrix for deterministic IR2 lift, analysis, lowering, and pass-trace coverage.
 - [`strings/string-const-surface.md`](strings/string-const-surface.md) - Public surface, binary string-literal section, constant-expression rule, and IR payload handling for `string.const`.
-- [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) - Repo rule that heavy fuzz belongs in `src/fuzz`, with reusable suite/profile/seed workflow plus the now-fully-active validator rejection suite inventory through `validate-invalid-text` and `validate-invalid-spec-seed`.
+- [`tooling/fuzz-runner.md`](tooling/fuzz-runner.md) - Repo rule that heavy fuzz belongs in `src/fuzz`, with reusable suite/profile/seed workflow, the fully-active validator rejection suite inventory, and the current note that wrapper/docs alignment is the last open fuzz-surface cleanup.
 - [`tooling/tracing-playbook.md`](tooling/tracing-playbook.md) - Shared `key=value` trace contract, timing helper use, hotspot summaries, and the no-trace-only-tests rule.
 - [`validation/moonbit-prove-strategy.md`](validation/moonbit-prove-strategy.md) - Current `moon prove` toolchain facts, the `9`-goal `src/validate_proof` helper kernel, and the blocker on proving `src/validate` directly.
-- [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) - Current validator fuzz surface truth, including the live AST, binary, text, and spec-seed invalid suites, the remaining repro-persistence gap, the staged hardening order, and the now-closed downstream `RUME` imported-function plus no-op `start`-section parity families exposed by widened `gen-valid` coverage.
+- [`validate/fuzz-hardening.md`](validate/fuzz-hardening.md) - Current validator fuzz surface truth, including the live AST, binary, text, and spec-seed invalid suites, the shared invalid repro persistence/replay/shrinking surface, the staged hardening order, and the now-closed downstream `RUME` imported-function plus no-op `start`-section parity families exposed by widened `gen-valid` coverage.
 - [`wast/gc-type-authoring.md`](wast/gc-type-authoring.md) - Higher-level WAST support for GC type defs, `rec` groups, descriptor metadata, and flat type indexing after grouped entries.
 
 ## Entities

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-16] fix | persist validator invalid repros and replay helpers
+
+- Added `src/fuzz/invalid_repro.mbt` plus `src/fuzz/invalid_repro_test.mbt` with one shared invalid-failure report surface, stable `fuzz-corpus/invalid/<suite>/<strategy>/seed-<seed>-attempt-<attempt>/` persistence, metadata parse/load roundtrips, bounded shrink helpers, and direct replay helpers across AST, binary, text, and spec-seed artifacts.
+- Updated `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_text.mbt` so each current invalid source kind now exposes a deterministic minimal replay/reduction surface instead of requiring the original random run to reconstruct a failing case.
+- Updated `validate/fuzz-hardening.md`, `tooling/fuzz-runner.md`, `docs/wiki/index.md`, `docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md`, and `agent-todo.md` so the validator-fuzz handoff now records `[FUZ]009` as complete and points the next unfinished slice at `[FUZ]010` wrapper/docs alignment.
+
 ## [2026-04-16] fix | restore the validator text and spec-seed invalid fuzz lanes
 
 - Added `src/fuzz/invalid_text.mbt` plus `src/fuzz/invalid_text_test.mbt` with two deterministic stage-aware fuzz lanes: inline text invalidation and selected `tests/spec` invalid/malformed/unlinkable seed replay.
