@@ -99,7 +99,7 @@ pub struct EmitGenValidBatchArgs {
   count : Int
   seed : UInt64
   out_dir : String
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn EmitGenValidBatchArgs::new(Int, UInt64, String) -> Self
 
 pub struct FuzzCliArgs {
@@ -108,7 +108,7 @@ pub struct FuzzCliArgs {
   seed : UInt64
   seed_i64 : Int64
   output_mode : FuzzOutputMode
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 
 pub enum FuzzCliCommand {
   Run(FuzzCliArgs)
@@ -116,12 +116,12 @@ pub enum FuzzCliCommand {
   ListSuites
   ListProfiles
   EmitGenValidBatch(EmitGenValidBatchArgs)
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 
 pub enum FuzzOutputMode {
   Text
   Jsonl
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 
 pub struct FuzzSuiteResult {
   suite : String
@@ -129,7 +129,7 @@ pub struct FuzzSuiteResult {
   seed : Int64
   attempts : Int
   elapsed_ms : UInt64
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 
 pub struct InvalidFuzzArtifact {
   label : String

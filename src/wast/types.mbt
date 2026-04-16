@@ -7,6 +7,7 @@ pub enum LiteralType {
   Nan
 } derive(Eq, Debug)
 
+///|
 pub impl Show for LiteralType with output(self, logger) {
   match self {
     Int => logger.write_string("Int")
@@ -22,6 +23,7 @@ pub enum ErrorLevel {
   Error
 } derive(Eq, Debug)
 
+///|
 pub impl Show for ErrorLevel with output(_self, logger) {
   logger.write_string("Error")
 }
@@ -38,6 +40,7 @@ pub struct Location {
   last_column : Int
 } derive(Eq, Debug)
 
+///|
 pub impl Show for Location with output(self, logger) {
   logger.write_string("Location {filename: ")
   self.filename.output(logger)
@@ -56,6 +59,7 @@ pub struct Literal {
   text : String
 } derive(Eq, Debug)
 
+///|
 pub impl Show for Literal with output(self, logger) {
   logger.write_string("Location {literal_type: ")
   self.literal_type.output(logger)
@@ -71,6 +75,7 @@ pub struct Token {
   value : TokenValue
 } derive(Eq, Debug)
 
+///|
 pub impl Show for Token with output(self, logger) {
   logger.write_string("Token {location: ")
   self.location.output(logger)
@@ -87,6 +92,11 @@ pub struct LexerError {
   location : Location
   message : String
 } derive(Eq, Debug)
+
+///|
+pub impl Show for LexerError with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 priv enum ReservedChars {
@@ -113,6 +123,7 @@ pub enum HeapTypeRef {
   NoExn
 } derive(Eq, Debug)
 
+///|
 pub impl Show for HeapTypeRef with output(self, logger) {
   match self {
     TypeNum(val) => {
@@ -147,6 +158,7 @@ pub impl Show for HeapTypeRef with output(self, logger) {
     NoExn => logger.write_string("NoExn")
   }
 }
+
 ///|
 pub enum ValueType {
   I32
@@ -164,6 +176,7 @@ pub enum ValueType {
   NonNullTypedFuncRef(HeapTypeRef)
 } derive(Eq, Debug)
 
+///|
 pub impl Show for ValueType with output(self, logger) {
   match self {
     I32 => logger.write_string("I32")
@@ -727,6 +740,7 @@ pub enum Opcode {
   I32x4RelaxedDotI8x16I7x16AddS
 } derive(Eq, Debug)
 
+///|
 pub impl Show for Opcode with output(self, logger) {
   match self {
     Unreachable => logger.write_string("Unreachable")
@@ -755,7 +769,8 @@ pub impl Show for Opcode with output(self, logger) {
     StringEncodeWtf16Array => logger.write_string("StringEncodeWtf16Array")
     StringNewLossyUtf8Array => logger.write_string("StringNewLossyUtf8Array")
     StringNewWtf8Array => logger.write_string("StringNewWtf8Array")
-    StringEncodeLossyUtf8Array => logger.write_string("StringEncodeLossyUtf8Array")
+    StringEncodeLossyUtf8Array =>
+      logger.write_string("StringEncodeLossyUtf8Array")
     StringEncodeWtf8Array => logger.write_string("StringEncodeWtf8Array")
     AnyConvertExtern => logger.write_string("AnyConvertExtern")
     ExternConvertAny => logger.write_string("ExternConvertAny")
@@ -1194,8 +1209,10 @@ pub impl Show for Opcode with output(self, logger) {
     I8x16RelaxedSwizzle => logger.write_string("I8x16RelaxedSwizzle")
     I32x4RelaxedTruncF32x4S => logger.write_string("I32x4RelaxedTruncF32x4S")
     I32x4RelaxedTruncF32x4U => logger.write_string("I32x4RelaxedTruncF32x4U")
-    I32x4RelaxedTruncF64x2SZero => logger.write_string("I32x4RelaxedTruncF64x2SZero")
-    I32x4RelaxedTruncF64x2UZero => logger.write_string("I32x4RelaxedTruncF64x2UZero")
+    I32x4RelaxedTruncF64x2SZero =>
+      logger.write_string("I32x4RelaxedTruncF64x2SZero")
+    I32x4RelaxedTruncF64x2UZero =>
+      logger.write_string("I32x4RelaxedTruncF64x2UZero")
     F32x4RelaxedMadd => logger.write_string("F32x4RelaxedMadd")
     F32x4RelaxedNmadd => logger.write_string("F32x4RelaxedNmadd")
     F64x2RelaxedMadd => logger.write_string("F64x2RelaxedMadd")
@@ -1209,8 +1226,10 @@ pub impl Show for Opcode with output(self, logger) {
     F64x2RelaxedMin => logger.write_string("F64x2RelaxedMin")
     F64x2RelaxedMax => logger.write_string("F64x2RelaxedMax")
     I16x8RelaxedQ15mulrS => logger.write_string("I16x8RelaxedQ15mulrS")
-    I16x8RelaxedDotI8x16I7x16S => logger.write_string("I16x8RelaxedDotI8x16I7x16S")
-    I32x4RelaxedDotI8x16I7x16AddS => logger.write_string("I32x4RelaxedDotI8x16I7x16AddS")
+    I16x8RelaxedDotI8x16I7x16S =>
+      logger.write_string("I16x8RelaxedDotI8x16I7x16S")
+    I32x4RelaxedDotI8x16I7x16AddS =>
+      logger.write_string("I32x4RelaxedDotI8x16I7x16AddS")
   }
 }
 
@@ -1292,6 +1311,7 @@ pub enum TokenType {
   SimdShapeToken(SimdShape)
 } derive(Eq, Debug)
 
+///|
 pub impl Show for TokenType with output(self, logger) {
   match self {
     Eof => logger.write_string("Eof")
@@ -1383,6 +1403,7 @@ pub enum TokenValue {
   Opcode(Opcode)
 } derive(Eq, Debug)
 
+///|
 pub impl Show for TokenValue with output(self, logger) {
   match self {
     None => logger.write_string("None")
@@ -1390,7 +1411,7 @@ pub impl Show for TokenValue with output(self, logger) {
       logger.write_string("Text(")
       text.output(logger)
       logger.write_char(')')
-    } 
+    }
     Literal(lit) => {
       logger.write_string("Literal(")
       lit.output(logger)

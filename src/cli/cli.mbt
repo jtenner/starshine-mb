@@ -1237,3 +1237,33 @@ pub fn resolve_closed_world(
     None => default
   }
 }
+
+///|
+pub impl Show for CliInputFormat with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for CliOutputTarget with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for CliOptimizationFlag with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for TrapMode with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for CliTracingLevel with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for CliParseResult with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}

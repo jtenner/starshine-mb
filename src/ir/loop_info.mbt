@@ -2,7 +2,7 @@
 pub struct HotLoopExit {
   from : BlockId
   edge : CfgEdge
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotLoopSummary {
@@ -12,7 +12,7 @@ pub struct HotLoopSummary {
   exits : Array[HotLoopExit]
   parent : Int
   depth : Int
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotLoopInfo {

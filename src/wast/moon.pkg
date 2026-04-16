@@ -8,4 +8,6 @@ import {
   "moonbitlang/core/quickcheck",
   "moonbitlang/core/quickcheck/splitmix",
   "moonbitlang/core/strconv",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/string",
 }

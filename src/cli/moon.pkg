@@ -1,3 +1,4 @@
 import {
   "moonbitlang/core/set",
+  "moonbitlang/core/debug",
 }

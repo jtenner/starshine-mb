@@ -444,6 +444,7 @@ pub struct GlobalSec(Array[Global]) derive(Eq, Arbitrary, Hash, Debug)
 ///|
 pub struct StringRefsSec(Array[Bytes]) derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for StringRefsSec with output(self, logger) {
   logger.write_string("StringRefSec(")
   self.0.output(logger)
@@ -495,10 +496,13 @@ pub struct CodeSec(Array[Func]) derive(Eq, Hash, Debug)
 pub struct DataSec(Array[Data]) derive(Eq, Hash, Debug)
 
 ///|
-///| `CastOp` stores `(source_nullable, target_nullable)` for `br_on_cast`
+
+///|
+/// `CastOp` stores `(source_nullable, target_nullable)` for `br_on_cast`
 /// and `br_on_cast_fail`. It does not encode descriptor-cast exactness.
 pub struct CastOp(Bool, Bool) derive(Eq, Arbitrary, Hash, Debug)
 
+///|
 pub impl Show for CastOp with output(self, logger) {
   logger.write_string("CastOp(")
   self.0.output(logger)
@@ -1553,6 +1557,7 @@ pub enum UnaryOp {
   I32x4RelaxedTruncZeroF64x2UOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for UnaryOp with output(self, logger) {
   match self {
     I32EqzOp => logger.write_string("I32EqzOp")
@@ -1660,24 +1665,34 @@ pub impl Show for UnaryOp with output(self, logger) {
     I64x2ExtendHighI32x4SOp => logger.write_string("I64x2ExtendHighI32x4SOp")
     I64x2ExtendLowI32x4UOp => logger.write_string("I64x2ExtendLowI32x4UOp")
     I64x2ExtendHighI32x4UOp => logger.write_string("I64x2ExtendHighI32x4UOp")
-    I16x8ExtaddPairwiseI8x16SOp => logger.write_string("I16x8ExtaddPairwiseI8x16SOp")
-    I16x8ExtaddPairwiseI8x16UOp => logger.write_string("I16x8ExtaddPairwiseI8x16UOp")
-    I32x4ExtaddPairwiseI16x8SOp => logger.write_string("I32x4ExtaddPairwiseI16x8SOp")
-    I32x4ExtaddPairwiseI16x8UOp => logger.write_string("I32x4ExtaddPairwiseI16x8UOp")
+    I16x8ExtaddPairwiseI8x16SOp =>
+      logger.write_string("I16x8ExtaddPairwiseI8x16SOp")
+    I16x8ExtaddPairwiseI8x16UOp =>
+      logger.write_string("I16x8ExtaddPairwiseI8x16UOp")
+    I32x4ExtaddPairwiseI16x8SOp =>
+      logger.write_string("I32x4ExtaddPairwiseI16x8SOp")
+    I32x4ExtaddPairwiseI16x8UOp =>
+      logger.write_string("I32x4ExtaddPairwiseI16x8UOp")
     F32x4DemoteF64x2ZeroOp => logger.write_string("F32x4DemoteF64x2ZeroOp")
     F64x2PromoteLowF32x4Op => logger.write_string("F64x2PromoteLowF32x4Op")
     I32x4TruncSatF32x4SOp => logger.write_string("I32x4TruncSatF32x4SOp")
     I32x4TruncSatF32x4UOp => logger.write_string("I32x4TruncSatF32x4UOp")
     F32x4ConvertI32x4SOp => logger.write_string("F32x4ConvertI32x4SOp")
     F32x4ConvertI32x4UOp => logger.write_string("F32x4ConvertI32x4UOp")
-    I32x4TruncSatF64x2SZeroOp => logger.write_string("I32x4TruncSatF64x2SZeroOp")
-    I32x4TruncSatF64x2UZeroOp => logger.write_string("I32x4TruncSatF64x2UZeroOp")
+    I32x4TruncSatF64x2SZeroOp =>
+      logger.write_string("I32x4TruncSatF64x2SZeroOp")
+    I32x4TruncSatF64x2UZeroOp =>
+      logger.write_string("I32x4TruncSatF64x2UZeroOp")
     F64x2ConvertLowI32x4SOp => logger.write_string("F64x2ConvertLowI32x4SOp")
     F64x2ConvertLowI32x4UOp => logger.write_string("F64x2ConvertLowI32x4UOp")
-    I32x4RelaxedTruncF32x4SOp => logger.write_string("I32x4RelaxedTruncF32x4SOp")
-    I32x4RelaxedTruncF32x4UOp => logger.write_string("I32x4RelaxedTruncF32x4UOp")
-    I32x4RelaxedTruncZeroF64x2SOp => logger.write_string("I32x4RelaxedTruncZeroF64x2SOp")
-    I32x4RelaxedTruncZeroF64x2UOp => logger.write_string("I32x4RelaxedTruncZeroF64x2UOp")
+    I32x4RelaxedTruncF32x4SOp =>
+      logger.write_string("I32x4RelaxedTruncF32x4SOp")
+    I32x4RelaxedTruncF32x4UOp =>
+      logger.write_string("I32x4RelaxedTruncF32x4UOp")
+    I32x4RelaxedTruncZeroF64x2SOp =>
+      logger.write_string("I32x4RelaxedTruncZeroF64x2SOp")
+    I32x4RelaxedTruncZeroF64x2UOp =>
+      logger.write_string("I32x4RelaxedTruncZeroF64x2UOp")
   }
 }
 
@@ -1916,6 +1931,7 @@ pub enum BinaryOp {
   I16x8RelaxedDotI8x16I7x16SOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for BinaryOp with output(self, logger) {
   match self {
     I32EqOp => logger.write_string("I32EqOp")
@@ -2118,7 +2134,8 @@ pub impl Show for BinaryOp with output(self, logger) {
     F64x2RelaxedMinOp => logger.write_string("F64x2RelaxedMinOp")
     F64x2RelaxedMaxOp => logger.write_string("F64x2RelaxedMaxOp")
     I16x8RelaxedQ15mulrSOp => logger.write_string("I16x8RelaxedQ15mulrSOp")
-    I16x8RelaxedDotI8x16I7x16SOp => logger.write_string("I16x8RelaxedDotI8x16I7x16SOp")
+    I16x8RelaxedDotI8x16I7x16SOp =>
+      logger.write_string("I16x8RelaxedDotI8x16I7x16SOp")
   }
 }
 
@@ -2163,6 +2180,7 @@ pub enum LoadOp {
   V128Load64ZeroOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for LoadOp with output(self, logger) {
   match self {
     V128Load32ZeroOp => logger.write_string("V128Load32ZeroOp")
@@ -2227,6 +2245,7 @@ pub enum StoreOp {
   V128StoreOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for StoreOp with output(self, logger) {
   match self {
     I32StoreOp => logger.write_string("I32StoreOp")
@@ -2295,6 +2314,7 @@ pub enum AtomicRmwOp {
   I64AtomicRmw32XchgUOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for AtomicRmwOp with output(self, logger) {
   match self {
     I32AtomicRmwAddOp => logger.write_string("I32AtomicRmwAddOp")
@@ -2353,6 +2373,7 @@ pub enum AtomicCmpxchgOp {
   I64AtomicRmw32CmpxchgUOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for AtomicCmpxchgOp with output(self, logger) {
   match self {
     I32AtomicRmwCmpxchgOp => logger.write_string("I32AtomicRmwCmpxchgOp")
@@ -2378,6 +2399,7 @@ pub enum ExtractLaneOp {
   F64x2ExtractLaneOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for ExtractLaneOp with output(self, logger) {
   match self {
     I8x16ExtractLaneSOp => logger.write_string("I8x16ExtractLaneSOp")
@@ -2402,6 +2424,7 @@ pub enum ReplaceLaneOp {
   F64x2ReplaceLaneOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for ReplaceLaneOp with output(self, logger) {
   match self {
     I8x16ReplaceLaneOp => logger.write_string("I8x16ReplaceLaneOp")
@@ -2430,6 +2453,7 @@ pub enum V128ShiftOp {
   I64x2ShrUOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for V128ShiftOp with output(self, logger) {
   match self {
     I8x16ShlOp => logger.write_string("I8x16ShlOp")
@@ -2462,6 +2486,7 @@ pub enum V128TernaryOp {
   I32x4RelaxedDotI8x16I7x16AddSOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for V128TernaryOp with output(self, logger) {
   match self {
     F64x2RelaxedNmaddOp => logger.write_string("F64x2RelaxedNmaddOp")
@@ -2473,7 +2498,8 @@ pub impl Show for V128TernaryOp with output(self, logger) {
     I16x8RelaxedLaneselectOp => logger.write_string("I16x8RelaxedLaneselectOp")
     I8x16RelaxedLaneselectOp => logger.write_string("I8x16RelaxedLaneselectOp")
     V128BitselectOp => logger.write_string("V128BitselectOp")
-    I32x4RelaxedDotI8x16I7x16AddSOp => logger.write_string("I32x4RelaxedDotI8x16I7x16AddSOp")
+    I32x4RelaxedDotI8x16I7x16AddSOp =>
+      logger.write_string("I32x4RelaxedDotI8x16I7x16AddSOp")
   }
 }
 
@@ -2486,6 +2512,7 @@ pub enum V128LoadLaneOp {
   V128Load64LaneOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for V128LoadLaneOp with output(self, logger) {
   match self {
     V128Load8LaneOp => logger.write_string("V128Load8LaneOp")
@@ -2504,6 +2531,7 @@ pub enum V128StoreLaneOp {
   V128Store64LaneOp
 } derive(Eq, Hash, Debug)
 
+///|
 pub impl Show for V128StoreLaneOp with output(self, logger) {
   match self {
     V128Store8LaneOp => logger.write_string("V128Store8LaneOp")

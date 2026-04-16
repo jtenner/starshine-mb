@@ -14,13 +14,13 @@ pub enum CmdError {
   OutputWriteFailed(String)
   AmbiguousOutputFile(String)
   NoInputFiles
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub suberror CmdEncodeError {
   Encode(EncodeError)
   Adapter(String)
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub fn CmdEncodeError::encode(err : EncodeError) -> CmdEncodeError {
@@ -112,7 +112,7 @@ pub struct CmdRunSummary {
   closed_world : Bool
   low_memory_unused : Bool
   low_memory_bound : UInt64
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub fn CmdRunSummary::new(
@@ -146,7 +146,7 @@ pub enum OptimizeTracingLevel {
   Pass
   Phase
   Helper
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub fn OptimizeTracingLevel::pass() -> OptimizeTracingLevel {
@@ -188,7 +188,7 @@ enum CmdPipelineStep {
 pub enum OptimizeValidationPolicy {
   FinalModuleOnly
   AfterSegment
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub fn OptimizeValidationPolicy::final_module_only() -> OptimizeValidationPolicy {
@@ -203,7 +203,7 @@ pub fn OptimizeValidationPolicy::after_segment() -> OptimizeValidationPolicy {
 ///|
 pub struct InliningOptions {
   no_op : Bool
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub fn InliningOptions::new() -> InliningOptions {
@@ -223,7 +223,7 @@ pub struct OptimizeOptions {
   traps_never_happen : Bool
   validation_policy : OptimizeValidationPolicy
   stack_function_passes : Bool
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub fn OptimizeOptions::new(
@@ -270,6 +270,7 @@ fn ascii_lower(input : String) -> String {
   out.to_string()
 }
 
+///|
 fn ascii_lower_u16(c : UInt16) -> UInt16 {
   if c >= 'A'.to_int().to_uint16() && c <= 'Z'.to_int().to_uint16() {
     (c.to_int() + 32).to_uint16()
@@ -500,6 +501,7 @@ test "cmd_error_stderr_bytes preserves literal newlines for adapter encode error
   assert_false(text.contains("\\n"), msg=text)
 }
 
+///|
 test "cmd_path_has_ascii_suffix_ignore_case is case-insensitive for ascii extensions" {
   assert_true(cmd_path_has_ascii_suffix_ignore_case("module.WASM", ".wasm"))
   assert_true(cmd_path_has_ascii_suffix_ignore_case("module.wAt", ".wAt"))
@@ -507,6 +509,7 @@ test "cmd_path_has_ascii_suffix_ignore_case is case-insensitive for ascii extens
   assert_false(cmd_path_has_ascii_suffix_ignore_case("module", ".wasm"))
 }
 
+///|
 test "cmd dump and extract target parsers use exact textual dispatch" {
   assert_eq(cmd_dump_pass_target("dump=out.wasm"), Some("out.wasm"))
   assert_eq(cmd_dump_pass_target("x-dump=out.wasm"), None)
@@ -514,10 +517,7 @@ test "cmd dump and extract target parsers use exact textual dispatch" {
     cmd_extract_functions_pass_target("extract-functions=1,2,3"),
     Some("1,2,3"),
   )
-  assert_eq(
-    cmd_extract_functions_pass_target("extract-functions"),
-    None,
-  )
+  assert_eq(cmd_extract_functions_pass_target("extract-functions"), None)
 }
 
 ///|
@@ -1497,7 +1497,10 @@ fn cmd_dump_pass_target(flag : String) -> String? {
   if flag.length() <= 5 {
     return None
   }
-  if flag[0] != 'd' || flag[1] != 'u' || flag[2] != 'm' || flag[3] != 'p' ||
+  if flag[0] != 'd' ||
+    flag[1] != 'u' ||
+    flag[2] != 'm' ||
+    flag[3] != 'p' ||
     flag[4] != '=' {
     return None
   }

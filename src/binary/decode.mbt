@@ -55,6 +55,7 @@ pub suberror BinaryDecodeError {
   InstructionNestingLimitExceeded
 } derive(Eq, Debug)
 
+///|
 pub impl Show for BinaryDecodeError with output(self, logger) {
   match self {
     IndexOutOfBounds => logger.write_string("IndexOutOfBounds")
@@ -66,35 +67,46 @@ pub impl Show for BinaryDecodeError with output(self, logger) {
     InvalidMutByte => logger.write_string("InvalidMutByte")
     InvalidStorageType => logger.write_string("InvalidStorageType")
     InvalidPackedType => logger.write_string("InvalidPackedType")
-    InvalidUnsignedLebBitWidth => logger.write_string("InvalidUnsignedLebBitWidth")
-    UnexpectedEofInUnsignedLeb => logger.write_string("UnexpectedEofInUnsignedLeb")
+    InvalidUnsignedLebBitWidth =>
+      logger.write_string("InvalidUnsignedLebBitWidth")
+    UnexpectedEofInUnsignedLeb =>
+      logger.write_string("UnexpectedEofInUnsignedLeb")
     UnsignedLebTooManyBytes => logger.write_string("UnsignedLebTooManyBytes")
-    UnsignedLebOutOfRangeForBitWidth => logger.write_string("UnsignedLebOutOfRangeForBitWidth")
-    UnsignedLebTerminalHasNonZeroUnusedBits => logger.write_string("UnsignedLebTerminalHasNonZeroUnusedBits")
+    UnsignedLebOutOfRangeForBitWidth =>
+      logger.write_string("UnsignedLebOutOfRangeForBitWidth")
+    UnsignedLebTerminalHasNonZeroUnusedBits =>
+      logger.write_string("UnsignedLebTerminalHasNonZeroUnusedBits")
     UnreachableDecodeState => logger.write_string("UnreachableDecodeState")
     InvalidSignedLebBitWidth => logger.write_string("InvalidSignedLebBitWidth")
     UnexpectedEofInSignedLeb => logger.write_string("UnexpectedEofInSignedLeb")
     SignedLebTooManyBytes => logger.write_string("SignedLebTooManyBytes")
-    SignedLebOutOfRangeForBitWidth => logger.write_string("SignedLebOutOfRangeForBitWidth")
-    SignedLebPositiveTerminalHasNonZeroUnusedBits => logger.write_string("SignedLebPositiveTerminalHasNonZeroUnusedBits")
-    SignedLebTerminalHasWrongSignExtensionBits => logger.write_string("SignedLebTerminalHasWrongSignExtensionBits")
+    SignedLebOutOfRangeForBitWidth =>
+      logger.write_string("SignedLebOutOfRangeForBitWidth")
+    SignedLebPositiveTerminalHasNonZeroUnusedBits =>
+      logger.write_string("SignedLebPositiveTerminalHasNonZeroUnusedBits")
+    SignedLebTerminalHasWrongSignExtensionBits =>
+      logger.write_string("SignedLebTerminalHasWrongSignExtensionBits")
     InvalidS33Range => logger.write_string("InvalidS33Range")
     InvalidBoolByte => logger.write_string("InvalidBoolByte")
     InvalidLaneIndex => logger.write_string("InvalidLaneIndex")
     NegativeNameLength => logger.write_string("NegativeNameLength")
     InvalidUtf8Name => logger.write_string("InvalidUtf8Name")
     InvalidSectionHeader => logger.write_string("InvalidSectionHeader")
-    SectionPayloadLengthOutOfRange => logger.write_string("SectionPayloadLengthOutOfRange")
-    InvalidSectionPayloadTrailingBytes => logger.write_string("InvalidSectionPayloadTrailingBytes")
+    SectionPayloadLengthOutOfRange =>
+      logger.write_string("SectionPayloadLengthOutOfRange")
+    InvalidSectionPayloadTrailingBytes =>
+      logger.write_string("InvalidSectionPayloadTrailingBytes")
     DuplicateNameSection => logger.write_string("DuplicateNameSection")
     InvalidNameSubsectionId => logger.write_string("InvalidNameSubsectionId")
-    InvalidNameSubsectionOrder => logger.write_string("InvalidNameSubsectionOrder")
+    InvalidNameSubsectionOrder =>
+      logger.write_string("InvalidNameSubsectionOrder")
     InvalidNameMapOrder => logger.write_string("InvalidNameMapOrder")
     InvalidMagicHeader => logger.write_string("InvalidMagicHeader")
     InvalidModule => logger.write_string("InvalidModule")
     InvalidElemHeader => logger.write_string("InvalidElemHeader")
     InvalidDataHeader => logger.write_string("InvalidDataHeader")
-    CustomSectionPayloadLengthOutOfRange => logger.write_string("CustomSectionPayloadLengthOutOfRange")
+    CustomSectionPayloadLengthOutOfRange =>
+      logger.write_string("CustomSectionPayloadLengthOutOfRange")
     InvalidLimits => logger.write_string("InvalidLimits")
     InvalidTagType => logger.write_string("InvalidTagType")
     InvalidExternTypeHeader => logger.write_string("InvalidExternTypeHeader")
@@ -105,11 +117,14 @@ pub impl Show for BinaryDecodeError with output(self, logger) {
     InvalidCastOp => logger.write_string("InvalidCastOp")
     InvalidMemArg => logger.write_string("InvalidMemArg")
     InvalidStringRefSection => logger.write_string("InvalidStringRefSection")
-    InvalidStringLiteralIndex => logger.write_string("InvalidStringLiteralIndex")
+    InvalidStringLiteralIndex =>
+      logger.write_string("InvalidStringLiteralIndex")
     InvalidInstruction => logger.write_string("InvalidInstruction")
-    InvalidAtomicFenceImmediate => logger.write_string("InvalidAtomicFenceImmediate")
+    InvalidAtomicFenceImmediate =>
+      logger.write_string("InvalidAtomicFenceImmediate")
     InvalidAtomicInstruction => logger.write_string("InvalidAtomicInstruction")
-    InstructionNestingLimitExceeded => logger.write_string("InstructionNestingLimitExceeded")
+    InstructionNestingLimitExceeded =>
+      logger.write_string("InstructionNestingLimitExceeded")
   }
 }
 

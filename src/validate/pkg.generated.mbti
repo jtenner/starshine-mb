@@ -143,7 +143,7 @@ pub(all) struct Env {
   locals : @lib.Locals
   labels : LabelStack
   return_type : Array[@lib.ValType]?
-} derive(Hash, Show)
+} derive(Hash, @debug.Debug)
 pub fn Env::append_rectype_types(Self, @lib.RecType) -> Self
 pub fn Env::descriptor_result_type(Self, @lib.TypeIdx, @lib.RefType?) -> Result[@lib.ValType, String]
 pub fn Env::expand_blocktype(Self, @lib.BlockType) -> Result[(Array[@lib.ValType], Array[@lib.ValType]), String]
@@ -195,6 +195,7 @@ pub fn Env::with_return_type(Self, Array[@lib.ValType]?) -> Self
 pub fn Env::with_tables(Self, Array[@lib.TableType]) -> Self
 pub fn Env::with_tags(Self, Array[@lib.TagType]) -> Self
 pub fn Env::with_types(Self, Array[@lib.SubType]) -> Self
+pub impl Show for Env
 
 pub struct GenValidConfig {
   mode : GenValidMode
@@ -214,9 +215,10 @@ pub struct GenValidConfig {
   max_body_depth : Int
   section_bias : GenValidSectionBias
   features : GenValidFeatureToggles
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn GenValidConfig::coverage_forced_default() -> Self
 pub fn GenValidConfig::natural_default() -> Self
+pub impl Show for GenValidConfig
 
 type GenValidContext
 
@@ -242,7 +244,7 @@ pub struct GenValidFeatureFacts {
   has_call : Bool
   has_call_indirect : Bool
   has_branch_heavy_control : Bool
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 
 pub struct GenValidFeatureStats {
   mode : GenValidMode
@@ -267,9 +269,10 @@ pub struct GenValidFeatureStats {
   calls : Int
   call_indirect : Int
   branch_heavy_control : Int
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
 pub fn GenValidFeatureStats::record(Self, GenValidFeatureFacts) -> Self
+pub impl Show for GenValidFeatureStats
 
 pub struct GenValidFeatureToggles {
   allow_imports : Bool
@@ -285,14 +288,16 @@ pub struct GenValidFeatureToggles {
   allow_calls : Bool
   allow_call_indirect : Bool
   allow_branch_heavy_control : Bool
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn GenValidFeatureToggles::coverage_forced_default() -> Self
 pub fn GenValidFeatureToggles::natural_default() -> Self
+pub impl Show for GenValidFeatureToggles
 
 pub enum GenValidMode {
   Natural
   CoverageForced
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for GenValidMode
 
 pub struct GenValidSectionBias {
   imports_percent : Int
@@ -303,22 +308,24 @@ pub struct GenValidSectionBias {
   start_percent : Int
   elems_percent : Int
   datas_percent : Int
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn GenValidSectionBias::coverage_forced_default() -> Self
 pub fn GenValidSectionBias::natural_default() -> Self
+pub impl Show for GenValidSectionBias
 
 pub(all) struct LabelStack {
   values : Array[Array[@lib.ValType]]
   parents : Array[Int]
   mut head : Int
   mut len : Int
-} derive(Hash, Show)
+} derive(Hash, @debug.Debug)
 pub fn LabelStack::copy(Self) -> Self
 pub fn LabelStack::from_labels(Array[Array[@lib.ValType]]) -> Self
 pub fn LabelStack::get(Self, Int) -> Array[@lib.ValType]?
 pub fn LabelStack::length(Self) -> Int
 pub fn LabelStack::new() -> Self
 pub fn LabelStack::push(Self, Array[@lib.ValType]) -> Unit
+pub impl Show for LabelStack
 
 pub enum TcEscape {
   NoTcEscape
@@ -389,13 +396,15 @@ pub struct ValidateInvalidAstStrategyStats {
 pub struct ValidateValidFeatureFloor {
   key : ValidateValidFeatureKey
   min_count : Int
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for ValidateValidFeatureFloor
 
 pub struct ValidateValidFeatureFloorFailure {
   key : ValidateValidFeatureKey
   min_count : Int
   actual_count : Int
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for ValidateValidFeatureFloorFailure
 
 pub enum ValidateValidFeatureKey {
   Imports
@@ -418,7 +427,8 @@ pub enum ValidateValidFeatureKey {
   Calls
   CallIndirect
   BranchHeavyControl
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for ValidateValidFeatureKey
 
 pub struct ValidateValidFuzzStats {
   profile : String
@@ -428,14 +438,15 @@ pub struct ValidateValidFuzzStats {
   generator_config : GenValidConfig
   feature_stats : GenValidFeatureStats
   feature_floors : Array[ValidateValidFeatureFloor]
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for ValidateValidFuzzStats
 
 pub struct ValidateValidRunConfig {
   profile : String
   attempts : Int
   generator_config : GenValidConfig
   feature_floors : Array[ValidateValidFeatureFloor]
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 
 pub struct ValidationDiagnostic {
   issue : ValidationIssue

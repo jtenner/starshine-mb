@@ -50,6 +50,50 @@ struct HotTupleOptimizationRootSlot {
 } derive(Eq, Debug)
 
 ///|
+pub impl Show for HotTupleOptimizationGroup with output(self, logger) {
+  logger.write_string("HotTupleOptimizationGroup(")
+  logger.write_string("producer=")
+  self.producer.output(logger)
+  logger.write_string(", ")
+  logger.write_string("lane_locals=")
+  self.lane_locals.output(logger)
+  logger.write_string(", ")
+  logger.write_string("defining_nodes=")
+  self.defining_nodes.output(logger)
+  logger.write_string(", ")
+  logger.write_string("host_lane=")
+  match self.host_lane {
+    Some(host_lane) => host_lane.output(logger)
+    None => logger.write_string("None")
+  }
+  logger.write_string(", ")
+  logger.write_string("copy_source=")
+  match self.copy_source {
+    Some(copy_source) => copy_source.output(logger)
+    None => logger.write_string("None")
+  }
+  logger.write_string(", ")
+  logger.write_string("copy_payload_locals=")
+  match self.copy_payload_locals {
+    Some(copy_payload_locals) => copy_payload_locals.output(logger)
+    None => logger.write_string("None")
+  }
+  logger.write_string(", ")
+  logger.write_string("uses=")
+  self.uses.output(logger)
+  logger.write_string(", ")
+  logger.write_string("valid_uses=")
+  self.valid_uses.output(logger)
+  logger.write_string(", ")
+  logger.write_string("neighbors=")
+  self.neighbors.output(logger)
+  logger.write_string(", ")
+  logger.write_string("bad=")
+  self.bad.output(logger)
+  logger.write_char(')')
+}
+
+///|
 pub fn tuple_optimization_descriptor() -> @ir.HotPassDescriptor {
   @ir.HotPassDescriptor::new(
     "tuple-optimization",

@@ -24,6 +24,7 @@ pub struct TcState {
   escape : TcEscape
 }
 
+///|
 pub impl Show for TcState with output(self, logger) {
   logger.write_string("TcState {env: ")
   self.env.output(logger)

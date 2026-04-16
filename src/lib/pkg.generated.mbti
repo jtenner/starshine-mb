@@ -130,7 +130,7 @@ pub enum AtomicCmpxchgOp {
   I64AtomicRmw8CmpxchgUOp
   I64AtomicRmw16CmpxchgUOp
   I64AtomicRmw32CmpxchgUOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn AtomicCmpxchgOp::i32() -> Self
 pub fn AtomicCmpxchgOp::i32_16_u() -> Self
 pub fn AtomicCmpxchgOp::i32_8_u() -> Self
@@ -138,6 +138,7 @@ pub fn AtomicCmpxchgOp::i64() -> Self
 pub fn AtomicCmpxchgOp::i64_16_u() -> Self
 pub fn AtomicCmpxchgOp::i64_32_u() -> Self
 pub fn AtomicCmpxchgOp::i64_8_u() -> Self
+pub impl Show for AtomicCmpxchgOp
 
 pub enum AtomicRmwOp {
   I32AtomicRmwAddOp
@@ -182,7 +183,7 @@ pub enum AtomicRmwOp {
   I64AtomicRmw8XchgUOp
   I64AtomicRmw16XchgUOp
   I64AtomicRmw32XchgUOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn AtomicRmwOp::i32_16_add_u() -> Self
 pub fn AtomicRmwOp::i32_16_and_u() -> Self
 pub fn AtomicRmwOp::i32_16_or_u() -> Self
@@ -225,6 +226,7 @@ pub fn AtomicRmwOp::i64_or() -> Self
 pub fn AtomicRmwOp::i64_sub() -> Self
 pub fn AtomicRmwOp::i64_xchg() -> Self
 pub fn AtomicRmwOp::i64_xor() -> Self
+pub impl Show for AtomicRmwOp
 
 pub enum BinaryOp {
   I32EqOp
@@ -428,7 +430,7 @@ pub enum BinaryOp {
   F64x2RelaxedMaxOp
   I16x8RelaxedQ15mulrSOp
   I16x8RelaxedDotI8x16I7x16SOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn BinaryOp::f32_add() -> Self
 pub fn BinaryOp::f32_copysign() -> Self
 pub fn BinaryOp::f32_div() -> Self
@@ -631,6 +633,7 @@ pub fn BinaryOp::v128_andnot() -> Self
 pub fn BinaryOp::v128_or() -> Self
 pub fn BinaryOp::v128_xor() -> Self
 pub impl PrettyPrint for BinaryOp
+pub impl Show for BinaryOp
 
 pub enum BlockType {
   VoidBlockType
@@ -643,11 +646,12 @@ pub fn BlockType::void_() -> Self
 pub impl PrettyPrint for BlockType
 pub impl Show for BlockType
 
-pub struct CastOp(Bool, Bool) derive(Eq, Hash, Show, @debug.Debug, @quickcheck.Arbitrary)
+pub struct CastOp(Bool, Bool) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
 pub fn CastOp::new(Bool, Bool) -> Self
 pub fn CastOp::source_nullable(Self) -> Bool
 pub fn CastOp::target_nullable(Self) -> Bool
 pub impl PrettyPrint for CastOp
+pub impl Show for CastOp
 
 pub enum Catch {
   Catch(TagIdx, LabelIdx)
@@ -835,7 +839,7 @@ pub enum ExtractLaneOp {
   I64x2ExtractLaneOp
   F32x4ExtractLaneOp
   F64x2ExtractLaneOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn ExtractLaneOp::f32x4_extract_lane() -> Self
 pub fn ExtractLaneOp::f64x2_extract_lane() -> Self
 pub fn ExtractLaneOp::i16x8_extract_lane_s() -> Self
@@ -845,6 +849,7 @@ pub fn ExtractLaneOp::i64x2_extract_lane() -> Self
 pub fn ExtractLaneOp::i8x16_extract_lane_s() -> Self
 pub fn ExtractLaneOp::i8x16_extract_lane_u() -> Self
 pub impl PrettyPrint for ExtractLaneOp
+pub impl Show for ExtractLaneOp
 
 pub(all) struct F32(Float) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
 #deprecated
@@ -2130,7 +2135,7 @@ pub enum LoadOp {
   V128Load64SplatOp
   V128Load32ZeroOp
   V128Load64ZeroOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn LoadOp::f32_load() -> Self
 pub fn LoadOp::f64_load() -> Self
 pub fn LoadOp::i32_atomic_load() -> Self
@@ -2166,6 +2171,7 @@ pub fn LoadOp::v128_load8_splat() -> Self
 pub fn LoadOp::v128_load8x8s() -> Self
 pub fn LoadOp::v128_load8x8u() -> Self
 pub impl PrettyPrint for LoadOp
+pub impl Show for LoadOp
 
 pub struct LocalIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
 #deprecated
@@ -2369,7 +2375,7 @@ pub struct PrettyPrintContext {
   tab_width : UInt
   continuation_indent : UInt
   source_indent_width : UInt
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn PrettyPrintContext::indent(Self, UInt) -> String
 pub fn PrettyPrintContext::indent_unit(Self) -> String
 pub fn PrettyPrintContext::new(max_line_width? : UInt, tabs_or_spaces? : TabsOrSpaces, tab_width? : UInt, continuation_indent? : UInt, source_indent_width? : UInt) -> Self
@@ -2410,7 +2416,7 @@ pub enum ReplaceLaneOp {
   I64x2ReplaceLaneOp
   F32x4ReplaceLaneOp
   F64x2ReplaceLaneOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn ReplaceLaneOp::f32x4_replace_lane() -> Self
 pub fn ReplaceLaneOp::f64x2_replace_lane() -> Self
 pub fn ReplaceLaneOp::i16x8_replace_lane() -> Self
@@ -2418,6 +2424,7 @@ pub fn ReplaceLaneOp::i32x4_replace_lane() -> Self
 pub fn ReplaceLaneOp::i64x2_replace_lane() -> Self
 pub fn ReplaceLaneOp::i8x16_replace_lane() -> Self
 pub impl PrettyPrint for ReplaceLaneOp
+pub impl Show for ReplaceLaneOp
 
 pub(all) struct S33(UInt) derive(Eq, Hash, @debug.Debug)
 #deprecated
@@ -2462,7 +2469,7 @@ pub enum StoreOp {
   I64AtomicStore16Op
   I64AtomicStore32Op
   V128StoreOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn StoreOp::f32_store() -> Self
 pub fn StoreOp::f64_store() -> Self
 pub fn StoreOp::i32_atomic_store() -> Self
@@ -2481,11 +2488,13 @@ pub fn StoreOp::i64_store32() -> Self
 pub fn StoreOp::i64_store8() -> Self
 pub fn StoreOp::v128_store() -> Self
 pub impl PrettyPrint for StoreOp
+pub impl Show for StoreOp
 
-pub struct StringRefsSec(Array[Bytes]) derive(Eq, Hash, Show, @debug.Debug)
+pub struct StringRefsSec(Array[Bytes]) derive(Eq, Hash, @debug.Debug)
 #deprecated
 pub fn StringRefsSec::inner(Self) -> Array[Bytes]
 pub fn StringRefsSec::new(Array[Bytes]) -> Self
+pub impl Show for StringRefsSec
 
 pub enum SubType {
   SubType(Bool, Array[TypeIdx], TypeMetadata, CompType)
@@ -2529,7 +2538,7 @@ pub impl Show for TableType
 pub enum TabsOrSpaces {
   Tabs
   Spaces
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn TabsOrSpaces::spaces() -> Self
 pub fn TabsOrSpaces::tabs() -> Self
 
@@ -2715,7 +2724,7 @@ pub enum UnaryOp {
   I32x4RelaxedTruncF32x4UOp
   I32x4RelaxedTruncZeroF64x2SOp
   I32x4RelaxedTruncZeroF64x2UOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn UnaryOp::f32_abs() -> Self
 pub fn UnaryOp::f32_ceil() -> Self
 pub fn UnaryOp::f32_convert_i32s() -> Self
@@ -2840,18 +2849,20 @@ pub fn UnaryOp::i8x16_popcnt() -> Self
 pub fn UnaryOp::v128_any_true() -> Self
 pub fn UnaryOp::v128_not() -> Self
 pub impl PrettyPrint for UnaryOp
+pub impl Show for UnaryOp
 
 pub enum V128LoadLaneOp {
   V128Load8LaneOp
   V128Load16LaneOp
   V128Load32LaneOp
   V128Load64LaneOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn V128LoadLaneOp::v128_load16_lane() -> Self
 pub fn V128LoadLaneOp::v128_load32_lane() -> Self
 pub fn V128LoadLaneOp::v128_load64_lane() -> Self
 pub fn V128LoadLaneOp::v128_load8_lane() -> Self
 pub impl PrettyPrint for V128LoadLaneOp
+pub impl Show for V128LoadLaneOp
 
 pub enum V128ShiftOp {
   I8x16ShlOp
@@ -2866,7 +2877,7 @@ pub enum V128ShiftOp {
   I64x2ShlOp
   I64x2ShrSOp
   I64x2ShrUOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn V128ShiftOp::i16x8_shl() -> Self
 pub fn V128ShiftOp::i16x8_shr_s() -> Self
 pub fn V128ShiftOp::i16x8_shr_u() -> Self
@@ -2880,18 +2891,20 @@ pub fn V128ShiftOp::i8x16_shl() -> Self
 pub fn V128ShiftOp::i8x16_shr_s() -> Self
 pub fn V128ShiftOp::i8x16_shr_u() -> Self
 pub impl PrettyPrint for V128ShiftOp
+pub impl Show for V128ShiftOp
 
 pub enum V128StoreLaneOp {
   V128Store8LaneOp
   V128Store16LaneOp
   V128Store32LaneOp
   V128Store64LaneOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn V128StoreLaneOp::v128_store16_lane() -> Self
 pub fn V128StoreLaneOp::v128_store32_lane() -> Self
 pub fn V128StoreLaneOp::v128_store64_lane() -> Self
 pub fn V128StoreLaneOp::v128_store8_lane() -> Self
 pub impl PrettyPrint for V128StoreLaneOp
+pub impl Show for V128StoreLaneOp
 
 pub enum V128TernaryOp {
   V128BitselectOp
@@ -2904,7 +2917,7 @@ pub enum V128TernaryOp {
   F64x2RelaxedMaddOp
   F64x2RelaxedNmaddOp
   I32x4RelaxedDotI8x16I7x16AddSOp
-} derive(Eq, Hash, Show, @debug.Debug)
+} derive(Eq, Hash, @debug.Debug)
 pub fn V128TernaryOp::f32x4_relaxed_madd() -> Self
 pub fn V128TernaryOp::f32x4_relaxed_nmadd() -> Self
 pub fn V128TernaryOp::f64x2_relaxed_madd() -> Self
@@ -2916,6 +2929,7 @@ pub fn V128TernaryOp::i64x2_relaxed_laneselect() -> Self
 pub fn V128TernaryOp::i8x16_relaxed_laneselect() -> Self
 pub fn V128TernaryOp::v128_bitselect() -> Self
 pub impl PrettyPrint for V128TernaryOp
+pub impl Show for V128TernaryOp
 
 pub enum ValType {
   NumTypeValType(NumType)

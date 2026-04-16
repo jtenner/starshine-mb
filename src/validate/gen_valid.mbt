@@ -4,9 +4,10 @@ pub enum GenValidMode {
   CoverageForced
 } derive(Eq, Debug)
 
+///|
 pub impl Show for GenValidMode with output(self, logger) {
   match self {
-    Natural => logger.write_string("Natural") 
+    Natural => logger.write_string("Natural")
     CoverageForced => logger.write_string("CoverageForced")
   }
 }
@@ -23,6 +24,7 @@ pub struct GenValidSectionBias {
   datas_percent : Int
 } derive(Eq, Debug)
 
+///|
 pub impl Show for GenValidSectionBias with output(self, logger) {
   logger.write_string("GenValidSectionBias {imports_percent: ")
   self.imports_percent.output(logger)
@@ -88,6 +90,7 @@ pub struct GenValidFeatureToggles {
   allow_branch_heavy_control : Bool
 } derive(Eq, Debug)
 
+///|
 pub impl Show for GenValidFeatureToggles with output(self, logger) {
   logger.write_string(", allow_imports:")
   self.allow_imports.output(logger)
@@ -167,6 +170,7 @@ pub struct GenValidConfig {
   features : GenValidFeatureToggles
 } derive(Eq, Debug)
 
+///|
 pub impl Show for GenValidConfig with output(self, logger) {
   logger.write_string("GenValidConfig {mode: ")
   self.mode.output(logger)
@@ -295,6 +299,7 @@ pub struct GenValidFeatureStats {
   branch_heavy_control : Int
 } derive(Eq, Debug)
 
+///|
 pub impl Show for GenValidFeatureStats with output(self, logger) {
   logger.write_string("GenValidFeatureStats {mode: ")
   self.mode.output(logger)

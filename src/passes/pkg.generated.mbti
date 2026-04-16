@@ -217,7 +217,7 @@ pub struct HotPassRegistryEntry {
 
 pub struct HotPassResult {
   changed : Bool
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn HotPassResult::changed() -> Self
 pub fn HotPassResult::unchanged() -> Self
 
@@ -229,20 +229,20 @@ pub struct HotPerfCounters {
   cfg_builds : Int
   dataflow_builds : Int
   traversal_visits : Int
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn HotPerfCounters::new(node_allocs? : Int, child_span_allocs? : Int, side_table_allocs? : Int, region_splices? : Int, cfg_builds? : Int, dataflow_builds? : Int, traversal_visits? : Int) -> Self
 
 pub struct HotPerfDumpOptions {
   hot_func : Bool
   cfg : Bool
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn HotPerfDumpOptions::new(hot_func? : Bool, cfg? : Bool) -> Self
 
 pub struct HotPerfHotSnapshot {
   node_count : Int
   child_span_count : Int
   side_table_count : Int
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn HotPerfHotSnapshot::empty() -> Self
 
 pub struct HotPerfSession {
@@ -270,7 +270,7 @@ pub fn HotPipelineOptions::new(verify_policy? : HotPipelineVerifyPolicy, validat
 pub enum HotPipelineVerifyPolicy {
   FinalModuleOnly
   AfterEachPass
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn HotPipelineVerifyPolicy::after_each_pass() -> Self
 pub fn HotPipelineVerifyPolicy::final_module_only() -> Self
 
@@ -281,11 +281,12 @@ pub enum HotPipelineVerifyTarget {
 
 type HotTupleOptimizationAnalysis derive(Eq, @debug.Debug)
 
-type HotTupleOptimizationGroup derive(Eq, Show, @debug.Debug)
+type HotTupleOptimizationGroup derive(Eq, @debug.Debug)
+pub impl Show for HotTupleOptimizationGroup
 
 type HotTupleOptimizationQuerySummary derive(Eq, @debug.Debug)
 
-type HotTupleOptimizationRootSlot derive(Eq, Show, @debug.Debug)
+type HotTupleOptimizationRootSlot derive(Eq, @debug.Debug)
 
 // Type aliases
 

@@ -18,14 +18,14 @@ pub struct DiffChange {
   lhs_del : Int
   rhs_at : Int
   rhs_add : Int
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn DiffChange::new(Int, Int, Int, Int) -> Self
 
 pub enum DiffCompareMode {
   CompareLines
   CompareWords
   CompareChars
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn DiffCompareMode::chars() -> Self
 pub fn DiffCompareMode::lines() -> Self
 pub fn DiffCompareMode::words() -> Self
@@ -35,7 +35,7 @@ pub struct DiffOptions {
   ignore_whitespace : Bool
   ignore_case : Bool
   ignore_accents : Bool
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 pub fn DiffOptions::new(compare? : DiffCompareMode, ignore_whitespace? : Bool, ignore_case? : Bool, ignore_accents? : Bool) -> Self
 
 // Type aliases

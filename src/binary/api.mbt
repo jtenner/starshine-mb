@@ -5,6 +5,7 @@ pub suberror DecodeError {
   TrailingBytes(Int, Int)
 } derive(Eq, Debug)
 
+///|
 pub impl Show for DecodeError with output(self, logger) {
   match self {
     DecodeAt(err, a, b) => {
@@ -28,7 +29,7 @@ pub impl Show for DecodeError with output(self, logger) {
       b.output(logger)
       logger.write_char(')')
     }
-  } 
+  }
 }
 
 ///|
@@ -36,6 +37,7 @@ pub suberror EncodeError {
   Encode(BinaryEncodeError)
 } derive(Eq, Debug)
 
+///|
 pub impl Show for EncodeError with output(self, logger) {
   match self {
     Encode(err) => {

@@ -87,7 +87,7 @@ pub enum HotOp {
   CatchAll
   Atomic
   Simd
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotNode {
@@ -98,14 +98,14 @@ pub struct HotNode {
   imm1 : Int
   child_base : Int
   child_count : Int
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotLocals {
   param_count : Int
   params : Array[ValType]
   locals : Array[ValType]
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub fn HotLocals::new(
@@ -154,7 +154,7 @@ pub struct HotLabelInfo {
   result_type : TypeId
   owner : NodeId
   branch_arity : Int
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub enum HotConstPayload {
@@ -164,18 +164,18 @@ pub enum HotConstPayload {
   F64Const(F64)
   RefNullConst(RefType)
   StringConst(Bytes)
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotMemArg {
   memarg : MemArg
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotBranchTable {
   targets : Array[LabelId]
   default_target : LabelId
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub enum HotCatchArm {
@@ -183,28 +183,28 @@ pub enum HotCatchArm {
   CatchRefArm(TagIdx, LabelId)
   CatchAllArm(LabelId)
   CatchAllRefArm(LabelId)
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotCatchInfo {
   catches : Array[HotCatchArm]
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotCallSig {
   type_idx : TypeIdx
   table_idx : TableIdx?
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotInstrPayload {
   instr : Instruction
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub enum HotStringBuiltin {
   NewWtf16Array
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotFunc {

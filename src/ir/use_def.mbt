@@ -2,14 +2,14 @@
 pub enum HotUseSlotKind {
   ChildUseSlot
   RootUseSlot
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotUseSite {
   user : NodeId
   slot : Int
   kind : HotUseSlotKind
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotUseDef {

@@ -11,6 +11,17 @@ pub enum CfgEdgeKind {
 } derive(Eq, Debug)
 
 ///|
+pub impl Show for CfgEdgeKind with output(self, logger) {
+  match self {
+    FallthroughEdge => logger.write_string("FallthroughEdge")
+    BranchEdge => logger.write_string("BranchEdge")
+    ReturnEdge => logger.write_string("ReturnEdge")
+    ExceptionalEdge => logger.write_string("ExceptionalEdge")
+    UnreachableExitEdge => logger.write_string("UnreachableExitEdge")
+  }
+}
+
+///|
 pub enum CfgBlockBoundaryReason {
   RootEntry
   ControlHeader
@@ -24,12 +35,37 @@ pub enum CfgBlockBoundaryReason {
 } derive(Eq, Debug)
 
 ///|
+pub impl Show for CfgBlockBoundaryReason with output(self, logger) {
+  match self {
+    RootEntry => logger.write_string("RootEntry")
+    ControlHeader => logger.write_string("ControlHeader")
+    LoopHeader => logger.write_string("LoopHeader")
+    BodyRegionEntry => logger.write_string("BodyRegionEntry")
+    ThenRegionEntry => logger.write_string("ThenRegionEntry")
+    ElseRegionEntry => logger.write_string("ElseRegionEntry")
+    CatchRegionEntry => logger.write_string("CatchRegionEntry")
+    CatchListRegionEntry => logger.write_string("CatchListRegionEntry")
+    Terminator => logger.write_string("Terminator")
+  }
+}
+
+///|
 pub enum CfgControlSuccessorPolicy {
   InlineBodyRegion
   SplitThenElse
   SplitBodyCatch
   SplitBodyCatchList
 } derive(Eq, Debug)
+
+///|
+pub impl Show for CfgControlSuccessorPolicy with output(self, logger) {
+  match self {
+    InlineBodyRegion => logger.write_string("InlineBodyRegion")
+    SplitThenElse => logger.write_string("SplitThenElse")
+    SplitBodyCatch => logger.write_string("SplitBodyCatch")
+    SplitBodyCatchList => logger.write_string("SplitBodyCatchList")
+  }
+}
 
 ///|
 pub enum CfgExceptionTargetPolicy {
@@ -39,6 +75,17 @@ pub enum CfgExceptionTargetPolicy {
   ToCatchListRegion
   DelegateToTarget
 } derive(Eq, Debug)
+
+///|
+pub impl Show for CfgExceptionTargetPolicy with output(self, logger) {
+  match self {
+    NoExceptionEdge => logger.write_string("NoExceptionEdge")
+    PropagateToCaller => logger.write_string("PropagateToCaller")
+    ToCatchRegion => logger.write_string("ToCatchRegion")
+    ToCatchListRegion => logger.write_string("ToCatchListRegion")
+    DelegateToTarget => logger.write_string("DelegateToTarget")
+  }
+}
 
 ///|
 fn cfg_is_root_node(func : HotFunc, node_id : NodeId) -> Bool {

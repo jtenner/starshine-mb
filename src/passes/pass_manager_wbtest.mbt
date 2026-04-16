@@ -53,6 +53,7 @@ test "hot pipeline debug dump targets require traced vacuum or tuple targets" {
 }
 
 ///|
+#cfg(target="native")
 test "raw simplify-locals branchy structured gate accepts target-like stats" {
   let accepted = {
     locals_count: 184,

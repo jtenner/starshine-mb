@@ -8,6 +8,7 @@ pub enum Index {
   Id(String)
 } derive(Eq, Debug)
 
+///|
 pub impl Show for Index with output(self, logger) {
   match self {
     Num(val) => {
@@ -29,6 +30,7 @@ pub struct Limits {
   max : UInt?
 } derive(Eq, Debug)
 
+///|
 pub impl Show for Limits with output(self, logger) {
   logger.write_string("Limits {min: ")
   self.min.output(logger)
@@ -281,6 +283,7 @@ pub enum SimdShape {
   F64x2
 } derive(Eq, Debug)
 
+///|
 pub impl Show for SimdShape with output(self, logger) {
   match self {
     I8x16 => logger.write_string("I8x16")
@@ -297,6 +300,7 @@ pub struct ShuffleLanes {
   lanes : FixedArray[UInt] // 16 lane indices
 } derive(Eq, Debug)
 
+///|
 pub impl Show for ShuffleLanes with output(self, logger) {
   logger.write_string("ShuffleLanes {lanes: ")
   self.lanes.output(logger)
@@ -311,6 +315,7 @@ pub enum CatchClause {
   CatchAllRefClause(Index)
 } derive(Eq, Debug)
 
+///|
 pub impl Show for CatchClause with output(self, logger) {
   match self {
     CatchClause(idx1, idx2) => {
@@ -593,6 +598,7 @@ pub suberror ParserError {
   Custom(String)
 } derive(Eq, Debug)
 
+///|
 pub impl Show for ParserError with output(self, logger) {
   match self {
     UnexpectedToken(tok, msg) => {
@@ -6397,4 +6403,199 @@ test "parse if inside loop" {
   let parser = WastParser::new(lexer)
   let _ = parser.parse_module()
   assert_false(parser.has_errors())
+}
+
+///|
+pub impl Show for FuncType with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for TypeUse with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Annotation with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for InlineExport with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for ImportDesc with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Import with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for ExportDesc with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Export with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for TableType with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for MemoryType with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for GlobalType with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Local with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Func with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Global with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Table with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Memory with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Tag with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for FieldStorage with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for StructFieldDef with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for TypeDefBody with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for TypeDefMetadata with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for TypeDef with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for DataSegment with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for ElemSegment with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for ElemInitExpr with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Start with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for ModuleField with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for MemArg with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for BlockType with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for V128Const with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for LegacyCatchClause with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for Instruction with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for WastValue with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for WastResult with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for WastAction with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for WastActionType with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for WastCommand with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for WastModuleDef with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
+
+///|
+pub impl Show for ParseError with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
 }

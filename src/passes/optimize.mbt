@@ -5,7 +5,7 @@ pub enum HotPassRegistryCategory {
   BoundaryOnly
   Removed
   Preset
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub fn HotPassRegistryCategory::hot_pass() -> HotPassRegistryCategory {
@@ -39,7 +39,7 @@ pub struct HotPassRegistryEntry {
   category : HotPassRegistryCategory
   descriptor : @ir.HotPassDescriptor?
   expanded_passes : Array[String]
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 fn pass_registry_entry_hot(

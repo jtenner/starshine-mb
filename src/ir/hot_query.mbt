@@ -7,7 +7,7 @@ fn hot_query_op(func : HotFunc, node_id : NodeId) -> HotOp {
 pub enum HotSimpleValueKey {
   ConstValue(HotConstPayload)
   LocalGetValue(LocalId)
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 fn hot_query_single_result_is_numeric(func : HotFunc, node_id : NodeId) -> Bool {

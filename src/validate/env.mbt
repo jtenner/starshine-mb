@@ -9,11 +9,12 @@ pub(all) struct LabelStack {
   mut len : Int
 } derive(Hash, Debug)
 
+///|
 pub impl Show for LabelStack with output(self, logger) {
   logger.write_string("LabelStack {values: ")
   self.values.output(logger)
   logger.write_string(", parents: ")
-  self.parents.output(logger) 
+  self.parents.output(logger)
   logger.write_string(", head: ")
   self.head.output(logger)
   logger.write_string(", len: ")
@@ -98,6 +99,7 @@ pub(all) struct Env {
   return_type : Array[ValType]?
 } derive(Hash, Debug)
 
+///|
 pub impl Show for Env with output(self, logger) {
   logger.write_string("Env {global_types: ")
   self.global_types.output(logger)

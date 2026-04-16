@@ -33,6 +33,10 @@ using @lib {
   type Module,
   type SubType,
   type CompType,
+  type I32,
+  type I64,
+  type F32,
+  type F64,
 }
 
 ///|

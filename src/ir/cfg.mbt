@@ -5,6 +5,16 @@ pub struct CfgEdge {
 } derive(Eq, Debug)
 
 ///|
+pub impl Show for CfgEdge with output(self, logger) {
+  let { kind, block } = self
+  logger.write_string("{kind: ")
+  kind.output(logger)
+  logger.write_string(", block: ")
+  block.output(logger)
+  logger.write_char('}')
+}
+
+///|
 pub struct HotBlockInfo {
   id : BlockId
   nodes : Array[NodeId]
@@ -14,14 +24,14 @@ pub struct HotBlockInfo {
   region_holder : NodeId
   start_slot : Int
   end_slot : Int
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct CfgRegionRootBlock {
   region_holder : NodeId
   slot : Int
   block : BlockId
-} derive(Eq, Debug)
+} derive(Eq, Debug, Show)
 
 ///|
 pub struct HotCfg {

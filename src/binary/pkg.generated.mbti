@@ -76,7 +76,8 @@ pub suberror BinaryDecodeError {
   InvalidAtomicFenceImmediate
   InvalidAtomicInstruction
   InstructionNestingLimitExceeded
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for BinaryDecodeError
 
 pub suberror BinaryEncodeError {
   CannotEncodeRecursiveIndexHeapType
@@ -97,31 +98,34 @@ pub suberror BinaryEncodeError {
   RawNameCustomSectionUnsupported
   CannotEncodeStringConstWithoutModuleContext
   StringConstLiteralMissingFromSection
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for BinaryEncodeError
 
 pub suberror DecodeError {
   Decode(BinaryDecodeError)
   DecodeAt(BinaryDecodeError, Int, Int)
   TrailingBytes(Int, Int)
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for DecodeError
 
 pub suberror EncodeError {
   Encode(BinaryEncodeError)
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
+pub impl Show for EncodeError
 
 // Types and methods
 pub struct BinaryRoundtripFuzzStats {
   profile : String
   seed : UInt64
   attempts : Int
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 
 pub struct ModuleDecodeErrorDetail {
   err : BinaryDecodeError
   section_offset : Int?
   section_len : Int?
   trailing_offset : Int?
-} derive(Eq, Show, @debug.Debug)
+} derive(Eq, @debug.Debug)
 
 // Type aliases
 

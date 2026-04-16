@@ -3278,6 +3278,7 @@ pub enum ValidateValidFeatureKey {
   BranchHeavyControl
 } derive(Eq, Debug)
 
+///|
 pub impl Show for ValidateValidFeatureKey with output(self, logger) {
   match self {
     Imports => logger.write_string("Imports")
@@ -3309,6 +3310,7 @@ pub struct ValidateValidFeatureFloor {
   min_count : Int
 } derive(Eq, Debug)
 
+///|
 pub impl Show for ValidateValidFeatureFloor with output(self, logger) {
   logger.write_string("ValidateValidFeatureFloor { key: ")
   self.key.output(logger)
@@ -3324,6 +3326,7 @@ pub struct ValidateValidFeatureFloorFailure {
   actual_count : Int
 } derive(Eq, Debug)
 
+///|
 pub impl Show for ValidateValidFeatureFloorFailure with output(self, logger) {
   logger.write_string("ValidateValidFeatureFloorFailure { key: ")
   self.key.output(logger)
@@ -3345,6 +3348,7 @@ pub struct ValidateValidFuzzStats {
   feature_floors : Array[ValidateValidFeatureFloor]
 } derive(Eq, Debug)
 
+///|
 pub impl Show for ValidateValidFuzzStats with output(self, logger) {
   logger.write_string("ValidateValidFuzzStats {profile: ")
   self.profile.output(logger)
@@ -3362,6 +3366,7 @@ pub impl Show for ValidateValidFuzzStats with output(self, logger) {
   self.feature_floors.output(logger)
   logger.write_char('}')
 }
+
 ///|
 fn validate_valid_feature_floor(
   key : ValidateValidFeatureKey,
