@@ -282,6 +282,22 @@ process.exit(0);
   );
 
   fs.writeFileSync(logPath, "");
+  runBun(repoRoot, ["fuzz", "run", "--list-suites"], env);
+  const actualFuzzListSuites = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualFuzzListSuites === "run --target wasm-gc src/fuzz -- --list-suites",
+    `unexpected fuzz list-suites command log:\n${actualFuzzListSuites}`,
+  );
+
+  fs.writeFileSync(logPath, "");
+  runBun(repoRoot, ["fuzz", "run", "--list-profiles"], env);
+  const actualFuzzListProfiles = fs.readFileSync(logPath, "utf8").trim();
+  assert(
+    actualFuzzListProfiles === "run --target wasm-gc src/fuzz -- --list-profiles",
+    `unexpected fuzz list-profiles command log:\n${actualFuzzListProfiles}`,
+  );
+
+  fs.writeFileSync(logPath, "");
   runBun(
     repoRoot,
     ["validate", "trace-benchmark", "--repeat", "2", "--corpus", "deep-control", "--corpus", "ref-func-heavy", "--target", "native"],

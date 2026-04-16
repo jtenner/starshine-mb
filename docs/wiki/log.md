@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-16] maintain | record fuzz runner suite inventory reconciliation
+
+- Updated `tooling/fuzz-runner.md` so the living wiki now records the current active fuzz suites, the reserved future invalid-lane ids, and the `active` / `reserved` `--list-suites` output contract.
+- Updated `validate/fuzz-hardening.md` so the validator-fuzz summary now reflects the current live valid-only surface, the reserved invalid suite ids, and the new hardening order instead of describing the removed old invalid lane as if it were still checked in.
+- Updated `docs/wiki/index.md` so the catalog descriptions now mention the active-vs-reserved suite inventory boundary and the refreshed validator-fuzz hardening summary.
+
 ## [2026-04-15] maintain | record simplify-locals helper no-op raw skips
 
 - Updated the living `simplify-locals` raw-lane and performance frontier pages so the new `branch-dense-structured-call-heavy-noop`, `block-rich-structured-call-heavy-noop`, `call-dense-structured-walker-noop`, and `low-local-decision-ladder-noop` contracts are part of the durable wiki instead of only the code and perf tests.

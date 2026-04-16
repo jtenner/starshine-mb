@@ -54,8 +54,8 @@ test "differential_validate_wasm reports mismatch when wasm-tools diverges" {
 }
 
 ///|
-test "run_wasm_smith_fuzz_harness supports zero-target configuration" {
-  let stats = match run_wasm_smith_fuzz_harness(0, seed=0x5eedUL) {
+test "run_cmd_fuzz_harness supports zero-target configuration" {
+  let stats = match run_cmd_fuzz_harness(0, seed=0x5eedUL) {
     Ok(v) => v
     Err(e) => fail("expected zero-target harness success, got \{e}")
   }
@@ -65,8 +65,8 @@ test "run_wasm_smith_fuzz_harness supports zero-target configuration" {
 }
 
 ///|
-test "run_wasm_smith_fuzz_harness_profile rejects unknown profile" {
-  match run_wasm_smith_fuzz_harness_profile("not-a-profile", 0x5eedUL) {
+test "run_cmd_fuzz_harness_profile rejects unknown profile" {
+  match run_cmd_fuzz_harness_profile("not-a-profile", 0x5eedUL) {
     Ok(_) => fail("expected unknown profile error")
     Err(msg) => assert_true(msg.contains("unknown cmd-harness fuzz profile"))
   }
@@ -138,14 +138,14 @@ test "persist_fuzz_failure_report writes deterministic corpus artifacts" {
 }
 
 ///|
-test "run_wasm_smith_fuzz_harness emits failure report on differential mismatch" {
+test "run_cmd_fuzz_harness emits failure report on differential mismatch" {
   let reports : Array[FuzzFailureReport] = []
   let adapters = DifferentialAdapters::new(
     wasm_tools_validate=fn(_) { Ok(false) },
     binaryen_validate=fn(_) { Ok(true) },
   )
   match
-    run_wasm_smith_fuzz_harness(
+    run_cmd_fuzz_harness(
       1,
       seed=0x5eedUL,
       differential_adapters=Some(adapters),
@@ -174,13 +174,13 @@ test "run_wasm_smith_fuzz_harness emits failure report on differential mismatch"
 }
 
 ///|
-test "run_wasm_smith_fuzz_harness includes callback failure diagnostics" {
+test "run_cmd_fuzz_harness includes callback failure diagnostics" {
   let adapters = DifferentialAdapters::new(
     wasm_tools_validate=fn(_) { Ok(false) },
     binaryen_validate=fn(_) { Ok(true) },
   )
   match
-    run_wasm_smith_fuzz_harness(
+    run_cmd_fuzz_harness(
       1,
       seed=1234UL,
       differential_adapters=Some(adapters),
@@ -197,10 +197,10 @@ test "run_wasm_smith_fuzz_harness includes callback failure diagnostics" {
 }
 
 ///|
-test "run_wasm_smith_fuzz_harness reports explicit hot pass names on optimize failure" {
+test "run_cmd_fuzz_harness reports explicit hot pass names on optimize failure" {
   let reports : Array[FuzzFailureReport] = []
   match
-    run_wasm_smith_fuzz_harness(
+    run_cmd_fuzz_harness(
       1,
       seed=0x5eedUL,
       optimize_passes=["global-struct-inference-desc-cast"],

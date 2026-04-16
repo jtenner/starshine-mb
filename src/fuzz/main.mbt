@@ -61,10 +61,30 @@ fn fuzz_ascii_lower(input : String) -> String {
 }
 
 ///|
-fn fuzz_suite_names() -> Array[String] {
+fn fuzz_active_suite_names() -> Array[String] {
   [
     "wast-roundtrip", "wat-roundtrip", "validate-valid", "binary-roundtrip", "cmd-harness",
   ]
+}
+
+///|
+fn fuzz_reserved_suite_names() -> Array[String] {
+  [
+    "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text",
+    "validate-invalid-spec-seed",
+  ]
+}
+
+///|
+fn fuzz_suite_inventory_lines() -> Array[String] {
+  let lines : Array[String] = []
+  for suite in fuzz_active_suite_names() {
+    lines.push("active\t\{suite}")
+  }
+  for suite in fuzz_reserved_suite_names() {
+    lines.push("reserved\t\{suite}")
+  }
+  lines
 }
 
 ///|
@@ -88,9 +108,10 @@ fn fuzz_join(values : Array[String], sep : String) -> String {
 
 ///|
 fn fuzz_usage_text() -> String {
-  let suites = fuzz_join(fuzz_suite_names(), ", ")
+  let active_suites = fuzz_join(fuzz_active_suite_names(), ", ")
+  let reserved_suites = fuzz_join(fuzz_reserved_suite_names(), ", ")
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>\nsuites: \{suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -99,7 +120,7 @@ fn run_validate_valid_suite(
   seed : UInt64,
 ) -> Result[Int, String] {
   let normalized = fuzz_ascii_lower(profile.trim().to_string())
-  let (attempts, min_text_attempts, min_text_stable) = match normalized {
+  let (_, min_text_attempts, min_text_stable) = match normalized {
     "smoke" => (128, 0, 0)
     "ci" => (5000, 20, 2)
     "stress" => (100000, 80, 8)
@@ -109,45 +130,14 @@ fn run_validate_valid_suite(
       )
   }
 
-  let rnd = @splitmix.new(seed~)
-  let mut validated = 0
+  let direct_stats = match run_validate_valid_fuzz(normalized, seed) {
+    Ok(stats) => stats
+    Err(e) => return Err(e)
+  }
+  let attempts = direct_stats.attempts
+  let validated = direct_stats.validated
   let mut roundtrip = 0
   let mut stable = 0
-  let mut iteration = 0
-  for _ in 0..<attempts {
-    iteration += 1
-    let mod = gen_valid_module(rnd)
-
-    match validate_module(mod) {
-      Ok(_) => validated += 1
-      Err(err) =>
-        return Err(
-          "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} direct-validate-error=\{validation_error_message(err)}",
-        )
-    }
-
-    let bytes = match encode_module(mod) {
-      Ok(value) => value
-      Err(err) =>
-        return Err(
-          "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} encode-error=\{err}",
-        )
-    }
-    let decoded = match decode_module(bytes) {
-      Ok(value) => value
-      Err(err) =>
-        return Err(
-          "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} decode-error=\{err}",
-        )
-    }
-    match validate_module(decoded) {
-      Ok(_) => ()
-      Err(err) =>
-        return Err(
-          "validate-valid fuzz failed: profile=\{normalized} seed=\{seed} iteration=\{iteration} binary-roundtrip-validate-error=\{validation_error_message(err)}",
-        )
-    }
-  }
   if min_text_attempts > 0 {
     let text_seed = seed ^ 0x574154554c
     match run_wat_roundtrip_fuzz(normalized, text_seed) {
@@ -645,11 +635,18 @@ fn run_single_suite(
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
     "cmd-harness" =>
-      match run_wasm_smith_fuzz_harness_profile(profile, seed) {
+      match run_cmd_fuzz_harness_profile(profile, seed) {
         Ok(stats) => stats.attempts
         Err(e) =>
           return Err("suite=\{suite} profile=\{profile} seed=\{seed_i64}: \{e}")
       }
+    "validate-invalid-ast"
+    | "validate-invalid-binary"
+    | "validate-invalid-text"
+    | "validate-invalid-spec-seed" =>
+      return Err(
+        "suite '\{suite}' is reserved for a planned validator rejection lane and is not implemented yet",
+      )
     _ => return Err("unknown suite '\{suite}'")
   }
   Ok(FuzzSuiteResult::{
@@ -748,7 +745,7 @@ pub fn run_fuzz_suite(
   let suite_name = fuzz_ascii_lower(suite.trim().to_string())
   let profile_name = fuzz_ascii_lower(profile.trim().to_string())
   if suite_name == "all" {
-    let suites = fuzz_suite_names()
+    let suites = fuzz_active_suite_names()
     let out : Array[FuzzSuiteResult] = []
     for name in suites {
       match run_single_suite(name, profile_name, seed_i64) {
@@ -829,8 +826,8 @@ fn main {
   match parse_fuzz_cli_command(args) {
     FuzzCliCommand::Help => println(fuzz_usage_text())
     FuzzCliCommand::ListSuites =>
-      for suite in fuzz_suite_names() {
-        println(suite)
+      for line in fuzz_suite_inventory_lines() {
+        println(line)
       }
     FuzzCliCommand::ListProfiles =>
       for profile in fuzz_profile_names() {

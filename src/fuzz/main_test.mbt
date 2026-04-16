@@ -129,6 +129,47 @@ test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files"
 }
 
 ///|
+test "fuzz suite inventory separates active and reserved suite ids" {
+  assert_eq(
+    fuzz_active_suite_names(),
+    [
+      "wast-roundtrip", "wat-roundtrip", "validate-valid", "binary-roundtrip", "cmd-harness",
+    ],
+  )
+  assert_eq(
+    fuzz_reserved_suite_names(),
+    [
+      "validate-invalid-ast", "validate-invalid-binary", "validate-invalid-text",
+      "validate-invalid-spec-seed",
+    ],
+  )
+  assert_eq(
+    fuzz_suite_inventory_lines(),
+    [
+      "active\twast-roundtrip", "active\twat-roundtrip", "active\tvalidate-valid",
+      "active\tbinary-roundtrip", "active\tcmd-harness",
+      "reserved\tvalidate-invalid-ast", "reserved\tvalidate-invalid-binary",
+      "reserved\tvalidate-invalid-text", "reserved\tvalidate-invalid-spec-seed",
+    ],
+  )
+}
+
+///|
+test "fuzz usage text distinguishes active and reserved suites" {
+  let usage = fuzz_usage_text()
+  assert_true(
+    usage.contains(
+      "active suites: wast-roundtrip, wat-roundtrip, validate-valid, binary-roundtrip, cmd-harness",
+    ),
+  )
+  assert_true(
+    usage.contains(
+      "reserved suite ids: validate-invalid-ast, validate-invalid-binary, validate-invalid-text, validate-invalid-spec-seed",
+    ),
+  )
+}
+
+///|
 test "format_fuzz_suite_result supports jsonl output" {
   let parsed = parse_fuzz_cli_args(["--jsonl"])
   let result = match run_fuzz_suite("cmd-harness", "smoke", -42L) {
@@ -143,6 +184,18 @@ test "format_fuzz_suite_result supports jsonl output" {
   assert_true(line.contains("\"attempts\":128"))
   assert_true(line.contains("\"pass\":true"))
   assert_true(line.contains("\"elapsed_ms\":"))
+}
+
+///|
+test "run_fuzz_suite reports reserved invalid suite ids clearly" {
+  match run_fuzz_suite("validate-invalid-ast", "smoke", 0x5eedL) {
+    Ok(_) => fail("expected reserved suite error")
+    Err(msg) => {
+      assert_true(msg.contains("validate-invalid-ast"))
+      assert_true(msg.contains("reserved"))
+      assert_false(msg.contains("unknown suite"))
+    }
+  }
 }
 
 ///|

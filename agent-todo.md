@@ -613,11 +613,11 @@ Suggested Tests
 - `moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`
 - targeted `bun scripts/pass-fuzz-compare.ts --generator gen-valid ...` smoke after any batch-surface change
 
-1. Reconcile entry surfaces and naming before widening behavior.
-   - [FUZ]001 - Suite Surface And Inventory Reconciliation.
-     - Deliverables: align Moon/Bun suite lists and help text, restore or add the invalid-suite names called for by the new plan, decide whether `run_wasm_smith_fuzz_harness` must be renamed or made truthful, and choose one owner for exported valid-fuzz logic.
-     - Doc: [0089 FUZ001](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz001-suite-surface-and-inventory-reconciliation)
-2. Land the shared config/stats foundation.
+Current status
+- `[FUZ]001` is complete. The live fuzz runner now separates active suites from reserved invalid-lane ids, `src/cmd/fuzz_harness.mbt` uses truthful `run_cmd_fuzz_harness*` / `CmdFuzzStats` naming instead of the stale wasm-smith label, and `src/fuzz/main.mbt` delegates the direct `validate-valid` generation loop to `run_validate_valid_fuzz`.
+- The next unfinished validator fuzz slice is `[FUZ]002`.
+
+1. Land the shared config/stats foundation.
    - [FUZ]002 - Shared Fuzz Config And Feature-Fact Plumbing.
      - Deliverables: add explicit generator config/mode vocabulary, size and feature controls, and deterministic feature-fact stats so later slices stop duplicating policy.
      - Doc: [0089 FUZ002](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz002-shared-fuzz-config-and-feature-fact-plumbing)

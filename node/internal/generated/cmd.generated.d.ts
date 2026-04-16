@@ -10,7 +10,7 @@ export type DifferentialValidationReport = OpaqueHandle<"cmd.DifferentialValidat
 export type FuzzFailurePersistIO = OpaqueHandle<"cmd.FuzzFailurePersistIO">;
 export type FuzzFailureReport = OpaqueHandle<"cmd.FuzzFailureReport">;
 export type ReadmeApiVerifyBlock = OpaqueHandle<"cmd.ReadmeApiVerifyBlock">;
-export type WasmSmithFuzzStats = OpaqueHandle<"cmd.WasmSmithFuzzStats">;
+export type CmdFuzzStats = OpaqueHandle<"cmd.CmdFuzzStats">;
 
 export function cmdHelpText(): string;
 export function cmdVersionText(): string;
@@ -22,8 +22,8 @@ export function runCmd(arg0: Array<string>): StarshineResult<CmdRunSummary, CmdE
 export function runCmdExitCode(arg0: Array<string>): number;
 export function runCmdExitCodeWithAdapter(arg0: Array<string>, arg1: CmdIO, configJson?: string | null): number;
 export function runCmdWithAdapter(arg0: Array<string>, arg1: CmdIO, configJson?: string | null): StarshineResult<CmdRunSummary, CmdError>;
-export function runWasmSmithFuzzHarness(...args: never[]): never;
-export function runWasmSmithFuzzHarnessProfile(arg0: string, arg1: bigint): StarshineResult<WasmSmithFuzzStats, string>;
+export function runCmdFuzzHarness(...args: never[]): never;
+export function runCmdFuzzHarnessProfile(arg0: string, arg1: bigint): StarshineResult<CmdFuzzStats, string>;
 export function verifyReadmeApiSignatures(arg0: string, arg1: Array<[string, string]>): StarshineResult<void, string>;
 export function verifyReadmeApiSignaturesWithRequiredBlocks(arg0: string, arg1: Array<[string, string]>, arg2: Array<string>): StarshineResult<void, string>;
 
@@ -69,7 +69,7 @@ export const ReadmeApiVerifyBlock: {
   show(value: ReadmeApiVerifyBlock): string;
 };
 
-export const WasmSmithFuzzStats: {
-  new(attempts?: number, generatedValid?: number, generatedInvalid?: number, pipelineValidated?: number, optimized?: number, roundtripped?: number, differentialChecked?: number): WasmSmithFuzzStats;
-  show(value: WasmSmithFuzzStats): string;
+export const CmdFuzzStats: {
+  new(attempts?: number, generatedValid?: number, generatedInvalid?: number, pipelineValidated?: number, optimized?: number, roundtripped?: number, differentialChecked?: number): CmdFuzzStats;
+  show(value: CmdFuzzStats): string;
 };

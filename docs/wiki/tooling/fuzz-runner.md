@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-16
 sources:
   - ../raw/research/0003-2026-03-12-fuzz-migration.md
 related:
@@ -27,7 +27,9 @@ related:
 - Bun wrapper: [`../../../scripts/lib/fuzz-task.ts`](../../../scripts/lib/fuzz-task.ts)
 - Discovery commands:
   `--help`, `--list-suites`, `--list-profiles`
-- Common suites include `validate-valid`, `binary-roundtrip`, `wast-roundtrip`, `wat-roundtrip`, and `cmd-harness`.
+- Current active suites are `validate-valid`, `binary-roundtrip`, `wast-roundtrip`, `wat-roundtrip`, and `cmd-harness`.
+- `--list-suites` currently prints an inventory line per suite as `active\t<name>` or `reserved\t<name>` so the future invalid-lane ids are visible without being misrepresented as runnable.
+- The reserved future invalid-lane ids are `validate-invalid-ast`, `validate-invalid-binary`, `validate-invalid-text`, and `validate-invalid-spec-seed`.
 
 ## Practical Rule
 

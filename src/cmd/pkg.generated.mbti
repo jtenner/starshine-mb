@@ -29,9 +29,9 @@ pub fn run_cmd_exit_code_with_adapter(Array[String], CmdIO, config_json? : Strin
 
 pub fn run_cmd_with_adapter(Array[String], CmdIO, config_json? : String?) -> Result[CmdRunSummary, CmdError]
 
-pub fn run_wasm_smith_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[String], differential_adapters? : DifferentialAdapters?, differential_every? : Int, on_failure? : ((FuzzFailureReport) -> Result[Unit, String])?) -> Result[WasmSmithFuzzStats, String]
+pub fn run_cmd_fuzz_harness(Int, seed? : UInt64, optimize_passes? : Array[String], differential_adapters? : DifferentialAdapters?, differential_every? : Int, on_failure? : ((FuzzFailureReport) -> Result[Unit, String])?) -> Result[CmdFuzzStats, String]
 
-pub fn run_wasm_smith_fuzz_harness_profile(String, UInt64) -> Result[WasmSmithFuzzStats, String]
+pub fn run_cmd_fuzz_harness_profile(String, UInt64) -> Result[CmdFuzzStats, String]
 
 pub fn verify_readme_api_signatures(String, Array[(String, String)]) -> Result[Unit, String]
 
@@ -167,7 +167,7 @@ pub fn OptimizeValidationPolicy::final_module_only() -> Self
 
 type ReadmeApiVerifyBlock derive(Eq, Show, @debug.Debug)
 
-pub struct WasmSmithFuzzStats {
+pub struct CmdFuzzStats {
   attempts : Int
   generated_valid : Int
   generated_invalid : Int
@@ -176,7 +176,7 @@ pub struct WasmSmithFuzzStats {
   roundtripped : Int
   differential_checked : Int
 } derive(Eq, Show, @debug.Debug)
-pub fn WasmSmithFuzzStats::new(attempts? : Int, generated_valid? : Int, generated_invalid? : Int, pipeline_validated? : Int, optimized? : Int, roundtripped? : Int, differential_checked? : Int) -> Self
+pub fn CmdFuzzStats::new(attempts? : Int, generated_valid? : Int, generated_invalid? : Int, pipeline_validated? : Int, optimized? : Int, roundtripped? : Int, differential_checked? : Int) -> Self
 
 // Type aliases
 

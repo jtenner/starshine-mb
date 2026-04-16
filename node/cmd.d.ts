@@ -80,8 +80,8 @@ export interface FuzzFailureReport {
 
 export type ReadmeApiVerifyBlock = OpaqueHandle<"cmd.ReadmeApiVerifyBlock">;
 
-export interface WasmSmithFuzzStats {
-  readonly __starshineBrand: "cmd.WasmSmithFuzzStats";
+export interface CmdFuzzStats {
+  readonly __starshineBrand: "cmd.CmdFuzzStats";
   readonly attempts: number;
   readonly generatedValid: number;
   readonly generatedInvalid: number;
@@ -119,7 +119,7 @@ export function runCmdWithAdapter(
   io: CmdIO,
   configJson?: string | null,
 ): StarshineResult<CmdRunSummary, CmdError>;
-export function runWasmSmithFuzzHarness(
+export function runCmdFuzzHarness(
   validTarget: number,
   seed?: bigint,
   optimizePasses?: Array<unknown>,
@@ -127,7 +127,11 @@ export function runWasmSmithFuzzHarness(
   differentialAdapters?: DifferentialAdapters | null,
   differentialEvery?: number,
   onFailure?: ((report: FuzzFailureReport) => StarshineResult<void, string>) | null,
-): StarshineResult<WasmSmithFuzzStats, string>;
+): StarshineResult<CmdFuzzStats, string>;
+export function runCmdFuzzHarnessProfile(
+  profile: string,
+  seed: bigint,
+): StarshineResult<CmdFuzzStats, string>;
 export function verifyReadmeApiSignatures(
   text: string,
   signatures: Array<[string, string]>,
@@ -219,7 +223,7 @@ export const ReadmeApiVerifyBlock: {
   show(value: ReadmeApiVerifyBlock): string;
 };
 
-export const WasmSmithFuzzStats: {
+export const CmdFuzzStats: {
   new(
     attempts?: number,
     generatedValid?: number,
@@ -228,6 +232,6 @@ export const WasmSmithFuzzStats: {
     optimized?: number,
     roundtripped?: number,
     differentialChecked?: number,
-  ): WasmSmithFuzzStats;
-  show(value: WasmSmithFuzzStats): string;
+  ): CmdFuzzStats;
+  show(value: CmdFuzzStats): string;
 };

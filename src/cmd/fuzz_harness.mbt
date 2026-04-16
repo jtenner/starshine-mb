@@ -24,7 +24,7 @@ pub struct DifferentialValidationReport {
 } derive(Eq, Show, Debug)
 
 ///|
-pub struct WasmSmithFuzzStats {
+pub struct CmdFuzzStats {
   attempts : Int
   generated_valid : Int
   generated_invalid : Int
@@ -35,7 +35,7 @@ pub struct WasmSmithFuzzStats {
 } derive(Eq, Show, Debug)
 
 ///|
-pub fn WasmSmithFuzzStats::new(
+pub fn CmdFuzzStats::new(
   attempts? : Int = 0,
   generated_valid? : Int = 0,
   generated_invalid? : Int = 0,
@@ -43,7 +43,7 @@ pub fn WasmSmithFuzzStats::new(
   optimized? : Int = 0,
   roundtripped? : Int = 0,
   differential_checked? : Int = 0,
-) -> WasmSmithFuzzStats {
+) -> CmdFuzzStats {
   {
     attempts,
     generated_valid,
@@ -364,14 +364,14 @@ pub fn differential_validate_wasm(
 }
 
 ///|
-pub fn run_wasm_smith_fuzz_harness(
+pub fn run_cmd_fuzz_harness(
   valid_target : Int,
   seed? : UInt64 = 0x5eedUL,
   optimize_passes? : Array[String] = [],
   differential_adapters? : DifferentialAdapters? = None,
   differential_every? : Int = 0,
   on_failure? : ((FuzzFailureReport) -> Result[Unit, String])? = None,
-) -> Result[WasmSmithFuzzStats, String] {
+) -> Result[CmdFuzzStats, String] {
   let pass_names = fuzz_clone_passes(optimize_passes)
   if valid_target < 0 {
     let report = FuzzFailureReport::new(
@@ -567,7 +567,7 @@ pub fn run_wasm_smith_fuzz_harness(
     }
   }
   Ok(
-    WasmSmithFuzzStats::new(
+    CmdFuzzStats::new(
       attempts~,
       generated_valid~,
       generated_invalid~,
@@ -593,10 +593,10 @@ fn fuzz_profile_ascii_lower(input : String) -> String {
 }
 
 ///|
-pub fn run_wasm_smith_fuzz_harness_profile(
+pub fn run_cmd_fuzz_harness_profile(
   profile : String,
   seed : UInt64,
-) -> Result[WasmSmithFuzzStats, String] {
+) -> Result[CmdFuzzStats, String] {
   let normalized = fuzz_profile_ascii_lower(profile.trim().to_string())
   let valid_target = match normalized {
     "smoke" => 128
@@ -607,7 +607,7 @@ pub fn run_wasm_smith_fuzz_harness_profile(
         "unknown cmd-harness fuzz profile '\{profile}'; expected smoke|ci|stress",
       )
   }
-  run_wasm_smith_fuzz_harness(valid_target, seed~, optimize_passes=[])
+  run_cmd_fuzz_harness(valid_target, seed~, optimize_passes=[])
 }
 
 ///|

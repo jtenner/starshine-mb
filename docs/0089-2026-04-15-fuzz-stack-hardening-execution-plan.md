@@ -28,12 +28,17 @@
 
 ### What is active in the checked-in tree
 
-- `src/fuzz/main.mbt` currently exposes only these suites:
+- `src/fuzz/main.mbt` currently exposes these **active** runnable suites:
   - `wast-roundtrip`
   - `wat-roundtrip`
   - `validate-valid`
   - `binary-roundtrip`
   - `cmd-harness`
+- `src/fuzz/main.mbt` also reserves these accepted-but-not-yet-runnable suite ids for the later rejection lanes, and reports them as reserved in help/list output instead of pretending they are live:
+  - `validate-invalid-ast`
+  - `validate-invalid-binary`
+  - `validate-invalid-text`
+  - `validate-invalid-spec-seed`
 - `src/fuzz/main.mbt` has a real `--emit-gen-valid-batch` surface, and `scripts/lib/pass-fuzz-compare-task.ts` depends on it for the `gen-valid` half of mixed pass fuzzing.
 - `src/validate/gen_valid.mbt` currently produces a narrow valid module family:
   - singleton function-type rec entries
@@ -41,8 +46,8 @@
   - optional globals
   - one function export named `main`
   - very small body statement vocabulary
-- `src/validate/validate.mbt` still exports `run_validate_valid_fuzz`, but `src/fuzz/main.mbt` also implements its own `run_validate_valid_suite`; that duplicates profile and validation logic and is a drift risk.
-- `src/cmd/fuzz_harness.mbt` exposes `run_wasm_smith_fuzz_harness`, but the current implementation generates modules with `gen_valid_module(rnd)` rather than calling an actual wasm-smith frontend.
+- `src/validate/validate.mbt` remains the owner of the direct `validate-valid` generator loop through `run_validate_valid_fuzz`, and `src/fuzz/main.mbt` now delegates that direct loop instead of duplicating it.
+- `src/cmd/fuzz_harness.mbt` now exposes the truthful generator-neutral name `run_cmd_fuzz_harness`; the current implementation still generates modules with `gen_valid_module(rnd)` and does not claim to be wasm-smith-backed.
 - `scripts/lib/pass-fuzz-compare-task.ts` is currently the only checked-in mixed-generator harness that actually alternates between two distinct sources:
   - `wasm-tools smith`
   - in-repo `gen-valid` batch artifacts
@@ -141,6 +146,8 @@ Do not try to land `FUZ006`-`FUZ009` before the suite-surface and config work ex
 
 **Slice id:** `[FUZ]001`
 
+**Status:** completed 2026-04-16.
+
 ### Goal
 
 Make the active fuzz suite surface truthful again before widening it.
@@ -163,20 +170,17 @@ If that mismatch is not resolved first, every later slice risks updating the wro
 - wrapper tests under [`scripts/test/`](../scripts/test)
 - possibly [`src/cmd/fuzz_harness.mbt`](../src/cmd/fuzz_harness.mbt) if naming is corrected here
 
-### Concrete tasks
+### Outcome
 
-- Decide the canonical active suite names for the new rejection lanes before implementing them.
-  - Recommended names:
-    - `validate-invalid-ast`
-    - `validate-invalid-binary`
-    - `validate-invalid-text`
-    - `validate-invalid-spec-seed`
-- Add the suite names, help text, parser acceptance, and list output in one change.
-- Ensure Bun wrapper support and tests match the Moon entrypoint surface exactly.
-- Decide whether `run_wasm_smith_fuzz_harness` should:
-  - become truly wasm-smith-backed, or
-  - be renamed to a truthful generator-neutral name.
-- Decide whether `run_validate_valid_fuzz` remains public and delegated-to, or whether `src/fuzz/main.mbt` owns the logic and the exported validate helper becomes a thin wrapper.
+- Chose these canonical reserved suite ids for the future rejection lanes:
+  - `validate-invalid-ast`
+  - `validate-invalid-binary`
+  - `validate-invalid-text`
+  - `validate-invalid-spec-seed`
+- Added the suite ids to the Moon entrypoint inventory, help text, and `--list-suites` output, but marked them as `reserved` until their later implementation slices land.
+- Added Bun wrapper command coverage so `--help`, `--list-suites`, and `--list-profiles` continue to forward exactly to the Moon entrypoint surface.
+- Renamed the stale wasm-smith-labeled cmd helper surface to the truthful generator-neutral names `run_cmd_fuzz_harness`, `run_cmd_fuzz_harness_profile`, and `CmdFuzzStats`.
+- Kept `run_validate_valid_fuzz` as the direct valid-generation owner and made `src/fuzz/main.mbt` delegate to it for the generator loop before adding the extra text-companion checks.
 
 ### Validation
 
@@ -652,7 +656,7 @@ Without a cleanup slice, the repo will end up with widened generators and invali
 - Eliminate or intentionally justify duplicate valid-fuzz logic between:
   - `run_validate_valid_fuzz`
   - `run_validate_valid_suite`
-- Make the cmd harness name truthful if it remains gen-valid-backed.
+- Keep the truthful cmd-harness helper naming aligned across Moon package interfaces, Node typings, wrapper docs, and any future generator-source changes.
 - Ensure Bun wrapper surface matches Moon suite/help/output surface.
 - Update active docs and wiki pages to describe only current live behavior.
 - Keep this handoff doc current until the work is absorbed into more durable docs/wiki pages.
@@ -681,7 +685,6 @@ Without a cleanup slice, the repo will end up with widened generators and invali
 ## Open Questions
 
 - Should `--emit-gen-valid-batch` default to `natural` mode once that mode is strong enough, or remain pinned to a mutation-friendly batch mode for pass-fuzz stability?
-- Should `run_wasm_smith_fuzz_harness` be renamed, or should it genuinely start consuming wasm-smith outputs again?
 - Should invalid fuzz rely on exact diagnostic families only, or also allow selected exact-message assertions where the message text itself is part of the contract?
 - How much of the spec corpus should be sampled in smoke vs CI vs stress without making the smoke loop too parser-heavy?
 - Which richer `lib` type surfaces can be generated validly with current runtime/validator support, and which require generator or representation work first?
