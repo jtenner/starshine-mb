@@ -1186,8 +1186,13 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
 /// Parse environment overlay variables into a parse result shape.
 /// Environment values follow the same normalization rules as `parse_config_json`
 /// (trimmed values, alias keys, permissive leaf handling), and they are merged
-/// later with config+CLI using explicit precedence.
-fn parse_env_overlay(io : CmdIO) -> CliParseResult {
+/// later with config+CLI using explicit precedence. Only variables that can still
+/// affect the active execution mode are probed.
+fn parse_env_overlay(
+  io : CmdIO,
+  config : CliParseResult,
+  cli : CliParseResult,
+) -> CliParseResult {
   let mut input_format : CliInputFormat? = None
   let output_targets : Array[CliOutputTarget] = []
   let pass_flags : Array[String] = []
@@ -1200,154 +1205,184 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
   let mut tracing : CliTracingLevel? = None
   let mut debug_serial_passes = false
 
-  match (io.get_env)("STARSHINE_FORMAT") {
-    Some(raw) =>
-      match parse_input_format_name(raw) {
-        Some(format) => input_format = Some(format)
-        None => ()
-      }
-    None => ()
-  }
-  match (io.get_env)("STARSHINE_OUT") {
-    Some(raw) => {
-      let trimmed = trimmed_string(raw)
-      if trimmed.length() > 0 {
-        push_unique_output_target_local(
-          output_targets,
-          CliOutputTarget::file(normalize_cli_path(trimmed)),
-        )
-      }
+  let env_pass_flags_relevant = cli.pass_flags.length() == 0 &&
+    config.pass_flags.length() == 0
+  let env_optimize_flags_relevant = cli.optimize_flags.length() == 0
+  let env_output_targets_relevant = cli.output_targets.length() == 0
+
+  if cli.input_format is None {
+    match (io.get_env)("STARSHINE_FORMAT") {
+      Some(raw) =>
+        match parse_input_format_name(raw) {
+          Some(format) => input_format = Some(format)
+          None => ()
+        }
+      None => ()
     }
-    None => ()
   }
-  match (io.get_env)("STARSHINE_OUT_DIR") {
-    Some(raw) => {
-      let trimmed = trimmed_string(raw)
-      if trimmed.length() > 0 {
-        push_unique_output_target_local(
-          output_targets,
-          CliOutputTarget::dir(normalize_cli_path(trimmed)),
-        )
-      }
-    }
-    None => ()
-  }
-  match (io.get_env)("STARSHINE_STDOUT") {
-    Some(raw) =>
-      match parse_bool_string(raw) {
-        Some(true) =>
+  if env_output_targets_relevant {
+    match (io.get_env)("STARSHINE_OUT") {
+      Some(raw) => {
+        let trimmed = trimmed_string(raw)
+        if trimmed.length() > 0 {
           push_unique_output_target_local(
             output_targets,
-            CliOutputTarget::stdout(),
+            CliOutputTarget::file(normalize_cli_path(trimmed)),
           )
-        _ => ()
-      }
-    None => ()
-  }
-  match (io.get_env)("STARSHINE_PASSES") {
-    Some(raw) =>
-      for pass in parse_pass_list(raw) {
-        pass_flags.push(pass)
-      }
-    None => ()
-  }
-  match (io.get_env)("STARSHINE_TRAP_MODE") {
-    Some(raw) =>
-      match parse_trap_mode_name(raw) {
-        Some(mode) => trap_mode = Some(mode)
-        None => ()
-      }
-    None => ()
-  }
-  match (io.get_env)("STARSHINE_OPTIMIZE") {
-    Some(raw) =>
-      for part in parse_pass_list(raw) {
-        match part {
-          "optimize" => {
-            pass_flags.push("optimize")
-            optimize_flags.push(CliOptimizationFlag::optimize())
-          }
-          "shrink" => {
-            pass_flags.push("shrink")
-            optimize_flags.push(CliOptimizationFlag::shrink())
-          }
-          _ => ()
         }
       }
-    None => ()
-  }
-  match (io.get_env)("STARSHINE_PRESET") {
-    Some(raw) =>
-      for part in parse_pass_list(raw) {
-        match part {
-          "optimize" => {
-            pass_flags.push("optimize")
-            optimize_flags.push(CliOptimizationFlag::optimize())
-          }
-          "shrink" => {
-            pass_flags.push("shrink")
-            optimize_flags.push(CliOptimizationFlag::shrink())
-          }
-          _ => ()
+      None => ()
+    }
+    match (io.get_env)("STARSHINE_OUT_DIR") {
+      Some(raw) => {
+        let trimmed = trimmed_string(raw)
+        if trimmed.length() > 0 {
+          push_unique_output_target_local(
+            output_targets,
+            CliOutputTarget::dir(normalize_cli_path(trimmed)),
+          )
         }
       }
-    None => ()
+      None => ()
+    }
+    match (io.get_env)("STARSHINE_STDOUT") {
+      Some(raw) =>
+        match parse_bool_string(raw) {
+          Some(true) =>
+            push_unique_output_target_local(
+              output_targets,
+              CliOutputTarget::stdout(),
+            )
+          _ => ()
+        }
+      None => ()
+    }
   }
-  match (io.get_env)("STARSHINE_OLEVEL") {
-    Some(raw) =>
-      match parse_olevel_text(raw) {
-        Some(flag) => optimize_flags.push(flag)
-        None => ()
-      }
-    None => ()
+  if env_pass_flags_relevant {
+    match (io.get_env)("STARSHINE_PASSES") {
+      Some(raw) =>
+        for pass in parse_pass_list(raw) {
+          pass_flags.push(pass)
+        }
+      None => ()
+    }
   }
-  match (io.get_env)("STARSHINE_MONOMORPHIZE_MIN_BENEFIT") {
-    Some(raw) =>
-      match parse_non_negative_decimal(raw) {
-        Some(parsed_value) => monomorphize_min_benefit = Some(parsed_value)
-        None => ()
-      }
-    None => ()
+  if cli.trap_mode is None {
+    match (io.get_env)("STARSHINE_TRAP_MODE") {
+      Some(raw) =>
+        match parse_trap_mode_name(raw) {
+          Some(mode) => trap_mode = Some(mode)
+          None => ()
+        }
+      None => ()
+    }
   }
-  match (io.get_env)("STARSHINE_LOW_MEMORY_UNUSED") {
-    Some(raw) =>
-      match parse_bool_string(raw) {
-        Some(parsed_value) => low_memory_unused = Some(parsed_value)
-        None => ()
-      }
-    None => ()
+  if env_pass_flags_relevant || env_optimize_flags_relevant {
+    match (io.get_env)("STARSHINE_OPTIMIZE") {
+      Some(raw) =>
+        for part in parse_pass_list(raw) {
+          match part {
+            "optimize" => {
+              pass_flags.push("optimize")
+              optimize_flags.push(CliOptimizationFlag::optimize())
+            }
+            "shrink" => {
+              pass_flags.push("shrink")
+              optimize_flags.push(CliOptimizationFlag::shrink())
+            }
+            _ => ()
+          }
+        }
+      None => ()
+    }
+    match (io.get_env)("STARSHINE_PRESET") {
+      Some(raw) =>
+        for part in parse_pass_list(raw) {
+          match part {
+            "optimize" => {
+              pass_flags.push("optimize")
+              optimize_flags.push(CliOptimizationFlag::optimize())
+            }
+            "shrink" => {
+              pass_flags.push("shrink")
+              optimize_flags.push(CliOptimizationFlag::shrink())
+            }
+            _ => ()
+          }
+        }
+      None => ()
+    }
   }
-  match (io.get_env)("STARSHINE_LOW_MEMORY_BOUND") {
-    Some(raw) =>
-      match parse_non_negative_decimal(raw) {
-        Some(parsed_value) => low_memory_bound = Some(parsed_value.to_uint64())
-        None => ()
-      }
-    None => ()
+  if env_optimize_flags_relevant {
+    match (io.get_env)("STARSHINE_OLEVEL") {
+      Some(raw) =>
+        match parse_olevel_text(raw) {
+          Some(flag) => optimize_flags.push(flag)
+          None => ()
+        }
+      None => ()
+    }
   }
-  match (io.get_env)("STARSHINE_CLOSED_WORLD") {
-    Some(raw) =>
-      match parse_bool_string(raw) {
-        Some(parsed_value) => closed_world = Some(parsed_value)
-        None => ()
-      }
-    None => ()
+  if cli.monomorphize_min_benefit is None {
+    match (io.get_env)("STARSHINE_MONOMORPHIZE_MIN_BENEFIT") {
+      Some(raw) =>
+        match parse_non_negative_decimal(raw) {
+          Some(parsed_value) => monomorphize_min_benefit = Some(parsed_value)
+          None => ()
+        }
+      None => ()
+    }
   }
-  match (io.get_env)("STARSHINE_TRACING") {
-    Some(raw) =>
-      match parse_tracing_level_name(raw) {
-        Some(level) => tracing = Some(level)
-        None => ()
-      }
-    None => ()
+  if cli.low_memory_unused is None {
+    match (io.get_env)("STARSHINE_LOW_MEMORY_UNUSED") {
+      Some(raw) =>
+        match parse_bool_string(raw) {
+          Some(parsed_value) => low_memory_unused = Some(parsed_value)
+          None => ()
+        }
+      None => ()
+    }
   }
-  match (io.get_env)("STARSHINE_DEBUG_SERIAL_PASSES") {
-    Some(raw) =>
-      match parse_bool_string(raw) {
-        Some(parsed_value) => debug_serial_passes = parsed_value
-        None => ()
-      }
-    None => ()
+  if cli.low_memory_bound is None {
+    match (io.get_env)("STARSHINE_LOW_MEMORY_BOUND") {
+      Some(raw) =>
+        match parse_non_negative_decimal(raw) {
+          Some(parsed_value) =>
+            low_memory_bound = Some(parsed_value.to_uint64())
+          None => ()
+        }
+      None => ()
+    }
+  }
+  if cli.closed_world is None {
+    match (io.get_env)("STARSHINE_CLOSED_WORLD") {
+      Some(raw) =>
+        match parse_bool_string(raw) {
+          Some(parsed_value) => closed_world = Some(parsed_value)
+          None => ()
+        }
+      None => ()
+    }
+  }
+  if cli.tracing is None {
+    match (io.get_env)("STARSHINE_TRACING") {
+      Some(raw) =>
+        match parse_tracing_level_name(raw) {
+          Some(level) => tracing = Some(level)
+          None => ()
+        }
+      None => ()
+    }
+  }
+  if !(cli.debug_serial_passes || config.debug_serial_passes) {
+    match (io.get_env)("STARSHINE_DEBUG_SERIAL_PASSES") {
+      Some(raw) =>
+        match parse_bool_string(raw) {
+          Some(parsed_value) => debug_serial_passes = parsed_value
+          None => ()
+        }
+      None => ()
+    }
   }
   CliParseResult::new(
     input_format~,
@@ -2811,7 +2846,7 @@ pub fn cmd_version_text() -> String {
 }
 
 ///|
-pub fn cmd_help_text() -> String {
+fn cmd_build_help_text() -> String {
   let out = StringBuilder::new()
   for
     c in "Starshine Wasm Binary Toolkit \{cmd_version_text()}\nFast parsing, validation, optimization, and rewriting for Wasm modules.\n\nUsage:\n  starshine [flags] [passes] <input...>\n  starshine spec <tests/spec/*.wast ...>\n\nFlags and options:\n" {
@@ -2933,6 +2968,14 @@ pub fn cmd_help_text() -> String {
     }
   }
   out.to_string()
+}
+
+///|
+let cmd_help_text_cached : String = cmd_build_help_text()
+
+///|
+pub fn cmd_help_text() -> String {
+  cmd_help_text_cached
 }
 
 ///|
@@ -3329,12 +3372,11 @@ pub fn run_cmd_with_adapter(
     }
   }
 
-  let starshine_input = (io.get_env)("STARSHINE_INPUT")
-  let cli = match parse_cli_args(args, starshine_input~) {
+  let cli_base = match parse_cli_args(args) {
     Ok(parsed) => normalize_parse_result_paths(parsed)
     Err(e) => return Err(CmdError::CliParse(e))
   }
-  if cli.help_requested {
+  if cli_base.help_requested {
     let help = string_to_bytes(cmd_help_text())
     match (io.write_stdout)(help) {
       Ok(_) => return Ok(CmdRunSummary::new())
@@ -3342,13 +3384,42 @@ pub fn run_cmd_with_adapter(
         return Err(CmdError::OutputWriteFailed("stdout for --help: \{e}"))
     }
   }
-  if cli.version_requested {
+  if cli_base.version_requested {
     let version = string_to_bytes("\{cmd_version_text()}\n")
     match (io.write_stdout)(version) {
       Ok(_) => return Ok(CmdRunSummary::new())
       Err(e) =>
         return Err(CmdError::OutputWriteFailed("stdout for --version: \{e}"))
     }
+  }
+
+  let cli = match (io.get_env)("STARSHINE_INPUT") {
+    Some(raw) => {
+      let input_globs = cli_base.input_globs.copy()
+      for glob in @cli.parse_starshine_input_env(Some(raw)) {
+        input_globs.push(glob)
+      }
+      CliParseResult::new(
+        config_path=cli_base.config_path,
+        input_globs~,
+        glob_enabled=cli_base.glob_enabled,
+        help_requested=cli_base.help_requested,
+        version_requested=cli_base.version_requested,
+        debug_serial_passes=cli_base.debug_serial_passes,
+        read_stdin=cli_base.read_stdin,
+        input_format=cli_base.input_format,
+        output_targets=cli_base.output_targets.copy(),
+        pass_flags=cli_base.pass_flags.copy(),
+        optimize_flags=cli_base.optimize_flags.copy(),
+        trap_mode=cli_base.trap_mode,
+        monomorphize_min_benefit=cli_base.monomorphize_min_benefit,
+        low_memory_unused=cli_base.low_memory_unused,
+        low_memory_bound=cli_base.low_memory_bound,
+        closed_world=cli_base.closed_world,
+        tracing=cli_base.tracing,
+      )
+    }
+    None => cli_base
   }
 
   let config = match config_json {
@@ -3384,7 +3455,7 @@ pub fn run_cmd_with_adapter(
     }
   }
 
-  let env = parse_env_overlay(io)
+  let env = parse_env_overlay(io, config, cli)
   let merged = merge_parse_results(config, env, cli)
   let trace_level = cmd_resolve_optimize_trace_level(merged.tracing)
   let trace_optimize = trace_level is Some(_)

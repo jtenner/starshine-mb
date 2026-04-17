@@ -4711,6 +4711,66 @@ test "run_cmd_with_adapter fast-paths bare --help without env probing" {
 }
 
 ///|
+test "run_cmd_with_adapter exits on parsed help before STARSHINE_INPUT probing" {
+  let stdout_writes : Array[Bytes] = []
+  let env_lookups : Array[String] = []
+  let io = CmdIO::new(
+    get_env=fn(name) {
+      env_lookups.push(name)
+      None
+    },
+    write_stdout=fn(bytes) {
+      stdout_writes.push(bytes)
+      Ok(())
+    },
+  )
+  match run_cmd_with_adapter(["--help", "--stdin"], io) {
+    Ok(_) => ()
+    Err(e) => fail("expected parsed help success, got \{e}")
+  }
+  assert_eq(env_lookups, [])
+  assert_eq(stdout_writes.length(), 1)
+}
+
+///|
+test "run_cmd_with_adapter skips irrelevant env overlay probes when cli already fixes startup mode" {
+  let env_lookups : Array[String] = []
+  let wasm = encode_module_bytes(fixture_i32_const_module(20))
+  let io = CmdIO::new(
+    get_env=fn(name) {
+      env_lookups.push(name)
+      None
+    },
+    file_exists=fn(path) { path == "a.wasm" },
+    list_candidates=fn() { ["a.wasm"] },
+    read_file=fn(path) {
+      match path {
+        "a.wasm" => Ok(wasm)
+        _ => Err("missing fixture")
+      }
+    },
+    write_file=fn(_, _) { Ok(()) },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--format", "wasm", "--out", "out.wasm", "--trap-mode", "never", "--optimize-level",
+        "2", "--monomorphize-min-benefit", "7", "--low-memory-unused", "--low-memory-bound",
+        "64", "--closed-world", "--tracing", "helper", "--debug-serial-passes", "--vacuum",
+        "a.wasm",
+      ],
+      io,
+      config_json=Some("{}"),
+    ) {
+    Ok(v) => v
+    Err(e) => fail("expected run success, got \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["vacuum"])
+  assert_eq(summary.output_files, ["out.wasm"])
+  assert_eq(env_lookups, ["STARSHINE_INPUT", "STARSHINE_OPTIMIZE_MAX_PASSES"])
+}
+
+///|
 test "run_cmd_with_adapter prints version and exits successfully for --version" {
   let stdout_writes : Array[Bytes] = []
   let io = CmdIO::new(write_stdout=fn(bytes) {

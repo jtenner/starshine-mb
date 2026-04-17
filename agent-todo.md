@@ -29,8 +29,8 @@
 - [x] [PRF006] Add path-normalization caching for startup path handling - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - `src/cmd/cmd.mbt` now normalizes CLI config/output paths once via `normalize_parse_result_paths(...)`, reuses already-normalized merged input globs in `resolve_input_files_with_glob`, and routes default/file/dir output target resolution through normalized-path helpers instead of re-running `normalize_cli_path(...)` on values that startup parsing already canonicalized. Focused cmd helper tests lock the cached config/output normalization boundary plus normalized default/dir output path resolution.
 
-- [PRF007] Lazy-load environment overlay and tighten startup help-text path - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
-  - Only read env vars and build pass lists when those layers affect active execution mode, and cache help text/pass-list rendering for one-time startup use.
+- [x] [PRF007] Lazy-load environment overlay and tighten startup help-text path - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - `src/cmd/cmd.mbt` now caches the fully rendered CLI help text once, delays `STARSHINE_INPUT` probing until after the parsed help/version exits, and only probes `STARSHINE_*` overlay vars whose values can still affect the active execution mode after the config and CLI layers are known. Focused `src/cmd/cmd_wbtest.mbt` coverage locks the parsed-help no-env-probe path and the irrelevant-env-overlay skip boundary.
 
 - [x] [PRF008] Remove tiny hot-path string churn in suffix/dispatch checks - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - Replace per-character `to_string()` suffix comparisons and other char-by-char allocation patterns with cheap scalar comparisons.

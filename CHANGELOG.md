@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-17 Perf: lazy-load CLI env overlays and cache help text
+
+- **startup env-overlay gating and help-text caching** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), and [`src/cmd/cmd_wbtest.mbt`](./src/cmd/cmd_wbtest.mbt) so the cmd runtime now caches the fully rendered help text once, defers `STARSHINE_INPUT` probing until after parsed help/version exits, and only reads `STARSHINE_*` overlay vars whose values can still affect the active execution mode after the config and CLI layers are known. Added focused wbtests for the parsed-help no-env-probe boundary and for skipping irrelevant env overlay probes when CLI flags already fix the startup mode.
+
 ## 2026-04-17 Perf: cache normalized CLI startup paths
 
 - **startup path normalization caching for cmd runtime paths** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt) so CLI config/output paths are normalized once as they enter the cmd runtime, merged input globs are treated as already-normalized during resolution, and default/file/dir output target path derivation now reuses normalized startup paths instead of re-running `normalize_cli_path(...)` in later target resolution. Added focused cmd helper coverage for cached config/output normalization and normalized default/dir output path handling.
