@@ -26,8 +26,8 @@
 - [x] [PRF005] Rework glob expansion to avoid O(P×C) repeated scans - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - `src/cli/glob.mbt` now compiles normalized pattern/candidate paths once, reuses pre-split segments inside `glob_match`, and buckets candidates by absolute/prefix scope plus first literal segment so `expand_globs` avoids the old per-pattern normalize/re-split churn and most full candidate rescans. Focused `src/cli/glob_test.mbt` coverage now locks drive/absolute scope handling and cross-bucket first-pattern ordering.
 
-- [PRF006] Add path-normalization caching for startup path handling - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
-  - Cache normalized path values in argument/config/env flows and avoid duplicate `normalize_cli_path` passes inside glob matching and target resolution.
+- [x] [PRF006] Add path-normalization caching for startup path handling - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - `src/cmd/cmd.mbt` now normalizes CLI config/output paths once via `normalize_parse_result_paths(...)`, reuses already-normalized merged input globs in `resolve_input_files_with_glob`, and routes default/file/dir output target resolution through normalized-path helpers instead of re-running `normalize_cli_path(...)` on values that startup parsing already canonicalized. Focused cmd helper tests lock the cached config/output normalization boundary plus normalized default/dir output path resolution.
 
 - [PRF007] Lazy-load environment overlay and tighten startup help-text path - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - Only read env vars and build pass lists when those layers affect active execution mode, and cache help text/pass-list rendering for one-time startup use.

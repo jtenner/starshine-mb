@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-17 Perf: cache normalized CLI startup paths
+
+- **startup path normalization caching for cmd runtime paths** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), and [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt) so CLI config/output paths are normalized once as they enter the cmd runtime, merged input globs are treated as already-normalized during resolution, and default/file/dir output target path derivation now reuses normalized startup paths instead of re-running `normalize_cli_path(...)` in later target resolution. Added focused cmd helper coverage for cached config/output normalization and normalized default/dir output path handling.
+
 ## 2026-04-17 Perf: compile and bucket CLI glob expansion
 
 - **startup glob expansion compile/bucket cleanup** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cli/glob.mbt`](./src/cli/glob.mbt), [`src/cli/glob_test.mbt`](./src/cli/glob_test.mbt), and [`src/cli/moon.pkg`](./src/cli/moon.pkg) so startup `--glob` expansion no longer normalizes and re-splits every pattern/candidate pair. `glob_match(...)` now compares compiled normalized paths, while `expand_globs(...)` compiles candidates once and scans scoped absolute/prefix/first-segment buckets instead of rescanning the full candidate list for every pattern. Added focused tests for drive/absolute scope separation and cross-bucket first-pattern ordering.

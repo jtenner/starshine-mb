@@ -457,61 +457,104 @@ fn has_glob_wildcard(pattern : String) -> Bool {
 }
 
 ///|
-fn basename_of_path(path : String) -> String {
-  let normalized = normalize_cli_path(path)
+fn normalize_output_target_path(target : CliOutputTarget) -> CliOutputTarget {
+  match target {
+    StdoutOutput => target
+    FileOutput(path) => CliOutputTarget::file(normalize_cli_path(path))
+    DirOutput(dir) => CliOutputTarget::dir(normalize_cli_path(dir))
+  }
+}
+
+///|
+fn normalize_parse_result_paths(parsed : CliParseResult) -> CliParseResult {
+  let output_targets : Array[CliOutputTarget] = []
+  for target in parsed.output_targets {
+    push_unique_output_target_local(
+      output_targets,
+      normalize_output_target_path(target),
+    )
+  }
+  let config_path = match parsed.config_path {
+    Some(path) => Some(normalize_cli_path(path))
+    None => None
+  }
+  CliParseResult::new(
+    config_path~,
+    input_globs=parsed.input_globs.copy(),
+    glob_enabled=parsed.glob_enabled,
+    help_requested=parsed.help_requested,
+    version_requested=parsed.version_requested,
+    debug_serial_passes=parsed.debug_serial_passes,
+    read_stdin=parsed.read_stdin,
+    input_format=parsed.input_format,
+    output_targets~,
+    pass_flags=parsed.pass_flags.copy(),
+    optimize_flags=parsed.optimize_flags.copy(),
+    trap_mode=parsed.trap_mode,
+    monomorphize_min_benefit=parsed.monomorphize_min_benefit,
+    low_memory_unused=parsed.low_memory_unused,
+    low_memory_bound=parsed.low_memory_bound,
+    closed_world=parsed.closed_world,
+    tracing=parsed.tracing,
+  )
+}
+
+///|
+fn basename_of_normalized_path(path : String) -> String {
   let mut last_sep = -1
   let mut i = 0
-  while i < normalized.length() {
-    if normalized[i] == '/' {
+  while i < path.length() {
+    if path[i] == '/' {
       last_sep = i
     }
     i += 1
   }
   if last_sep < 0 {
-    return normalized
+    return path
   }
-  normalized.sub(start=last_sep + 1).to_string()
+  path.sub(start=last_sep + 1).to_string()
 }
 
 ///|
-fn path_with_wasm_extension(path : String) -> String {
-  let normalized = normalize_cli_path(path)
+fn path_with_wasm_extension_normalized(path : String) -> String {
   let mut last_dot = -1
   let mut i = 0
-  while i < normalized.length() {
-    if normalized[i] == '/' {
+  while i < path.length() {
+    if path[i] == '/' {
       last_dot = -1
-    } else if normalized[i] == '.' {
+    } else if path[i] == '.' {
       last_dot = i
     }
     i += 1
   }
   if last_dot >= 0 {
-    let stem = normalized.sub(end=last_dot).to_string()
+    let stem = path.sub(end=last_dot).to_string()
     "\{stem}.wasm"
   } else {
-    "\{normalized}.wasm"
+    "\{path}.wasm"
   }
 }
 
 ///|
-fn output_basename_for_input(path : String, format : CliInputFormat) -> String {
-  let base = basename_of_path(path)
+fn output_basename_for_normalized_input(
+  path : String,
+  format : CliInputFormat,
+) -> String {
+  let base = basename_of_normalized_path(path)
   match format {
     Wasm => base
-    Wat | Wast => path_with_wasm_extension(base)
+    Wat | Wast => path_with_wasm_extension_normalized(base)
   }
 }
 
 ///|
-fn join_cli_path(dir : String, file : String) -> String {
-  let normalized_dir = normalize_cli_path(dir)
-  if normalized_dir.length() == 0 || normalized_dir == "." {
+fn join_normalized_cli_path(dir : String, file : String) -> String {
+  if dir.length() == 0 || dir == "." {
     file
-  } else if normalized_dir[normalized_dir.length() - 1] == '/' {
-    "\{normalized_dir}\{file}"
+  } else if dir[dir.length() - 1] == '/' {
+    "\{dir}\{file}"
   } else {
-    "\{normalized_dir}/\{file}"
+    "\{dir}/\{file}"
   }
 }
 
@@ -704,6 +747,57 @@ test "parse_olevel_text rejects invalid raw O-level forms" {
   assert_eq(parse_olevel_text("o3"), None)
   assert_eq(parse_olevel_text("-O3zz"), None)
   assert_eq(parse_olevel_text("-O3Z"), None)
+}
+
+///|
+test "normalize_parse_result_paths caches normalized cli config and output paths" {
+  let parsed = CliParseResult::new(
+    config_path=Some("./configs/../starshine.json"),
+    input_globs=["src/**/*.wasm"],
+    output_targets=[
+      CliOutputTarget::file("./dist/../out/main.wasm"),
+      CliOutputTarget::dir("./build//subdir/.."),
+      CliOutputTarget::file("out/main.wasm"),
+      CliOutputTarget::dir("build"),
+    ],
+  )
+  let normalized = normalize_parse_result_paths(parsed)
+  assert_eq(normalized.config_path, Some("starshine.json"))
+  assert_eq(normalized.input_globs, ["src/**/*.wasm"])
+  assert_eq(normalized.output_targets, [
+    CliOutputTarget::file("out/main.wasm"),
+    CliOutputTarget::dir("build"),
+  ])
+}
+
+///|
+test "normalized output path helpers reuse normalized startup paths" {
+  assert_eq(
+    output_path_for_normalized_default_target(
+      "src/main/module.wasm",
+      CliInputFormat::wasm(),
+    ),
+    "src/main/module.wasm",
+  )
+  assert_eq(
+    output_path_for_normalized_default_target(
+      "src/main/module.wat",
+      CliInputFormat::wat(),
+    ),
+    "src/main/module.wasm",
+  )
+  assert_eq(
+    output_basename_for_normalized_input(
+      "src/main/module.wat",
+      CliInputFormat::wat(),
+    ),
+    "module.wasm",
+  )
+  assert_eq(
+    join_normalized_cli_path("dist/out", "module.wasm"),
+    "dist/out/module.wasm",
+  )
+  assert_eq(join_normalized_cli_path(".", "module.wasm"), "module.wasm")
 }
 
 ///|
@@ -1423,7 +1517,7 @@ fn merge_parse_results(
 /// package config file. Returns whether a real config was selected versus default.
 fn resolve_config_path(cli : CliParseResult, io : CmdIO) -> (String?, Bool) {
   match cli.config_path {
-    Some(path) => return (Some(normalize_cli_path(path)), true)
+    Some(path) => return (Some(path), true)
     None => ()
   }
   match (io.get_env)("STARSHINE_CONFIG") {
@@ -1451,8 +1545,7 @@ fn resolve_input_files_with_glob(
 ) -> Array[String] {
   let literal = Array::new()
   let patterns = Array::new()
-  for raw in globs {
-    let normalized = normalize_cli_path(trimmed_string(raw))
+  for normalized in globs {
     if normalized.length() == 0 {
       continue
     }
@@ -3172,13 +3265,13 @@ fn lower_text_module_for_pipeline(
 }
 
 ///|
-fn output_path_for_default_target(
+fn output_path_for_normalized_default_target(
   path : String,
   format : CliInputFormat,
 ) -> String {
   match format {
-    Wasm => normalize_cli_path(path)
-    Wat | Wast => path_with_wasm_extension(path)
+    Wasm => path
+    Wat | Wast => path_with_wasm_extension_normalized(path)
   }
 }
 
@@ -3238,7 +3331,7 @@ pub fn run_cmd_with_adapter(
 
   let starshine_input = (io.get_env)("STARSHINE_INPUT")
   let cli = match parse_cli_args(args, starshine_input~) {
-    Ok(parsed) => parsed
+    Ok(parsed) => normalize_parse_result_paths(parsed)
     Err(e) => return Err(CmdError::CliParse(e))
   }
   if cli.help_requested {
@@ -3642,7 +3735,9 @@ pub fn run_cmd_with_adapter(
     }
 
     if merged.output_targets.length() == 0 {
-      let out_path = output_path_for_default_target(input_path, format)
+      let out_path = output_path_for_normalized_default_target(
+        input_path, format,
+      )
       match (io.write_file)(out_path, out_bytes) {
         Ok(_) => output_files.push(out_path)
         Err(e) => return Err(CmdError::OutputWriteFailed("\{out_path}: \{e}"))
@@ -3666,7 +3761,7 @@ pub fn run_cmd_with_adapter(
               )
           }
         FileOutput(path) => {
-          let out_path = normalize_cli_path(path)
+          let out_path = path
           match (io.write_file)(out_path, out_bytes) {
             Ok(_) => output_files.push(out_path)
             Err(e) =>
@@ -3679,8 +3774,10 @@ pub fn run_cmd_with_adapter(
           )
         }
         DirOutput(dir) => {
-          let basename = output_basename_for_input(input_path, format)
-          let out_path = join_cli_path(dir, basename)
+          let basename = output_basename_for_normalized_input(
+            input_path, format,
+          )
+          let out_path = join_normalized_cli_path(dir, basename)
           match (io.write_file)(out_path, out_bytes) {
             Ok(_) => output_files.push(out_path)
             Err(e) =>
