@@ -346,6 +346,12 @@ fn trimmed_ascii_eq_ignore_case(input : String, expected : String) -> Bool {
 }
 
 ///|
+fn trimmed_string(input : String) -> String {
+  let (start, end) = trimmed_bounds(input)
+  input.sub(start~, end~).to_string()
+}
+
+///|
 fn parse_input_format(raw : String) -> CliInputFormat? {
   if trimmed_ascii_eq_ignore_case(raw, "wasm") {
     Some(CliInputFormat::wasm())
@@ -386,7 +392,7 @@ fn parse_tracing_level(raw : String) -> CliTracingLevel? {
 
 ///|
 fn append_input_glob(out : Array[String], raw : String) -> Unit {
-  let trimmed = raw.trim().to_string()
+  let trimmed = trimmed_string(raw)
   if trimmed.length() == 0 {
     return
   }
@@ -416,7 +422,7 @@ fn path_has_ascii_suffix_ignore_case(path : String, suffix : String) -> Bool {
 
 ///|
 fn parse_dump_pass_value(raw : String) -> Result[String, CliParseError] {
-  let value = raw.trim().to_string()
+  let value = trimmed_string(raw)
   if value.length() == 0 {
     return Err(CliParseError::missing_flag_value("--dump"))
   }
@@ -432,7 +438,7 @@ fn parse_print_pass_value(
   flag_name : String,
   raw : String,
 ) -> Result[String, CliParseError] {
-  let value = raw.trim().to_string()
+  let value = trimmed_string(raw)
   if value.length() == 0 {
     return Err(CliParseError::missing_flag_value(long_flag_name(flag_name)))
   }
@@ -443,8 +449,7 @@ fn parse_print_pass_value(
 fn parse_extract_functions_value(raw : String) -> Result[String, CliParseError] {
   let normalized_parts : Array[String] = []
   for part in raw.split(",") {
-    let trimmed = part.to_string().trim().to_string()
-    match parse_non_negative_decimal(trimmed) {
+    match parse_non_negative_decimal(part.to_string()) {
       Some(idx) => normalized_parts.push("\{idx}")
       None => return Err(CliParseError::invalid_function_index_list(raw))
     }

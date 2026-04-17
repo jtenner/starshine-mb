@@ -293,19 +293,6 @@ pub fn OptimizeOptions::new(
 const CMD_VERSION : String = "v0.1.0"
 
 ///|
-fn ascii_lower(input : String) -> String {
-  let out = StringBuilder::new()
-  for c in input {
-    if c >= 'A' && c <= 'Z' {
-      out.write_char((c.to_int() + 32).unsafe_to_char())
-    } else {
-      out.write_char(c)
-    }
-  }
-  out.to_string()
-}
-
-///|
 fn ascii_lower_u16(c : UInt16) -> UInt16 {
   if c >= 'A'.to_int().to_uint16() && c <= 'Z'.to_int().to_uint16() {
     (c.to_int() + 32).to_uint16()
@@ -315,40 +302,132 @@ fn ascii_lower_u16(c : UInt16) -> UInt16 {
 }
 
 ///|
-fn parse_bool_string(raw : String) -> Bool? {
-  match ascii_lower(raw.trim().to_string()) {
-    "1" | "true" | "yes" | "on" => Some(true)
-    "0" | "false" | "no" | "off" => Some(false)
-    _ => None
+fn is_ascii_space(c : UInt16) -> Bool {
+  c == ' '.to_int().to_uint16() ||
+  c == '\t'.to_int().to_uint16() ||
+  c == '\n'.to_int().to_uint16() ||
+  c == '\r'.to_int().to_uint16()
+}
+
+///|
+fn trimmed_bounds(input : String) -> (Int, Int) {
+  let mut start = 0
+  let mut end = input.length()
+  while start < end && is_ascii_space(input[start]) {
+    start += 1
   }
+  while end > start && is_ascii_space(input[end - 1]) {
+    end -= 1
+  }
+  (start, end)
+}
+
+///|
+fn trimmed_string(input : String) -> String {
+  let (start, end) = trimmed_bounds(input)
+  input.sub(start~, end~).to_string()
+}
+
+///|
+fn ascii_lower_eq_at_bounds(
+  input : String,
+  start : Int,
+  end : Int,
+  expected : String,
+) -> Bool {
+  if end - start != expected.length() {
+    return false
+  }
+  let mut i = 0
+  while i < expected.length() {
+    if ascii_lower_u16(input[start + i]) != expected[i] {
+      return false
+    }
+    i += 1
+  }
+  true
+}
+
+///|
+fn trimmed_ascii_lower_string(input : String) -> String {
+  let (start, end) = trimmed_bounds(input)
+  let out = StringBuilder::new()
+  let mut i = start
+  while i < end {
+    out.write_char(ascii_lower_u16(input[i]).unsafe_to_char())
+    i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn parse_bool_string(raw : String) -> Bool? {
+  let (start, end) = trimmed_bounds(raw)
+  if start == end {
+    return None
+  }
+  let len = end - start
+  if len == 1 {
+    let c = ascii_lower_u16(raw[start])
+    if c == '1' {
+      return Some(true)
+    }
+    if c == '0' {
+      return Some(false)
+    }
+  }
+  if ascii_lower_eq_at_bounds(raw, start, end, "true") ||
+    ascii_lower_eq_at_bounds(raw, start, end, "yes") ||
+    ascii_lower_eq_at_bounds(raw, start, end, "on") {
+    return Some(true)
+  }
+  if ascii_lower_eq_at_bounds(raw, start, end, "false") ||
+    ascii_lower_eq_at_bounds(raw, start, end, "no") ||
+    ascii_lower_eq_at_bounds(raw, start, end, "off") {
+    return Some(false)
+  }
+  None
 }
 
 ///|
 fn parse_input_format_name(raw : String) -> CliInputFormat? {
-  match ascii_lower(raw.trim().to_string()) {
-    "wasm" => Some(CliInputFormat::wasm())
-    "wat" => Some(CliInputFormat::wat())
-    "wast" => Some(CliInputFormat::wast())
-    _ => None
+  let (start, end) = trimmed_bounds(raw)
+  if ascii_lower_eq_at_bounds(raw, start, end, "wasm") {
+    Some(CliInputFormat::wasm())
+  } else if ascii_lower_eq_at_bounds(raw, start, end, "wat") {
+    Some(CliInputFormat::wat())
+  } else if ascii_lower_eq_at_bounds(raw, start, end, "wast") {
+    Some(CliInputFormat::wast())
+  } else {
+    None
   }
 }
 
 ///|
 fn parse_trap_mode_name(raw : String) -> TrapMode? {
-  match ascii_lower(raw.trim().to_string()) {
-    "allow" | "traps-may-happen" => Some(TrapMode::allow())
-    "never" | "traps-never-happen" => Some(TrapMode::never())
-    _ => None
+  let (start, end) = trimmed_bounds(raw)
+  if ascii_lower_eq_at_bounds(raw, start, end, "allow") ||
+    ascii_lower_eq_at_bounds(raw, start, end, "traps-may-happen") {
+    Some(TrapMode::allow())
+  } else if ascii_lower_eq_at_bounds(raw, start, end, "never") ||
+    ascii_lower_eq_at_bounds(raw, start, end, "traps-never-happen") {
+    Some(TrapMode::never())
+  } else {
+    None
   }
 }
 
 ///|
 fn parse_tracing_level_name(raw : String) -> CliTracingLevel? {
-  match ascii_lower(raw.trim().to_string()) {
-    "pass" => Some(CliTracingLevel::pass())
-    "phase" => Some(CliTracingLevel::phase())
-    "helper" => Some(CliTracingLevel::helper())
-    _ => None
+  let (start, end) = trimmed_bounds(raw)
+  if ascii_lower_eq_at_bounds(raw, start, end, "pass") {
+    Some(CliTracingLevel::pass())
+  } else if ascii_lower_eq_at_bounds(raw, start, end, "phase") {
+    Some(CliTracingLevel::phase())
+  } else if ascii_lower_eq_at_bounds(raw, start, end, "helper") {
+    Some(CliTracingLevel::helper())
+  } else {
+    None
   }
 }
 
@@ -557,22 +636,22 @@ test "cmd dump and extract target parsers use exact textual dispatch" {
 
 ///|
 fn parse_olevel_text(raw : String) -> CliOptimizationFlag? {
-  let trimmed = raw.trim().to_string()
-  if trimmed.length() == 0 {
+  let (start, end) = trimmed_bounds(raw)
+  if start == end {
     return None
   }
-  let mut i = 0
-  if trimmed[0] == '-' {
+  let mut i = start
+  if raw[i] == '-' {
     i += 1
   }
-  if i >= trimmed.length() || trimmed[i] != 'O' {
+  if i >= end || raw[i] != 'O' {
     return None
   }
   i += 1
   let mut saw_digit = false
   let mut level = 2
-  while i < trimmed.length() {
-    let c = trimmed[i]
+  while i < end {
+    let c = raw[i]
     if c < '0' || c > '9' {
       break
     }
@@ -584,14 +663,14 @@ fn parse_olevel_text(raw : String) -> CliOptimizationFlag? {
     i += 1
   }
   let mut size_bias = false
-  if i < trimmed.length() {
-    if trimmed[i] != 'z' {
+  if i < end {
+    if raw[i] != 'z' {
       return None
     }
     size_bias = true
     i += 1
   }
-  if i != trimmed.length() {
+  if i != end {
     return None
   }
   Some(CliOptimizationFlag::olevel(level, size_bias))
@@ -600,7 +679,10 @@ fn parse_olevel_text(raw : String) -> CliOptimizationFlag? {
 ///|
 test "parse_olevel_text parses direct raw O-level forms" {
   assert_eq(parse_olevel_text("O"), Some(CliOptimizationFlag::olevel(2, false)))
-  assert_eq(parse_olevel_text("-O"), Some(CliOptimizationFlag::olevel(2, false)))
+  assert_eq(
+    parse_olevel_text("-O"),
+    Some(CliOptimizationFlag::olevel(2, false)),
+  )
   assert_eq(
     parse_olevel_text("  O3z  "),
     Some(CliOptimizationFlag::olevel(3, true)),
@@ -628,9 +710,9 @@ test "parse_olevel_text rejects invalid raw O-level forms" {
 fn parse_pass_list(raw : String) -> Array[String] {
   let out = Array::new()
   for part in raw.split(",") {
-    let trimmed = ascii_lower(part.to_string().trim().to_string())
-    if trimmed.length() > 0 {
-      out.push(trimmed)
+    let lowered = trimmed_ascii_lower_string(part.to_string())
+    if lowered.length() > 0 {
+      out.push(lowered)
     }
   }
   out
@@ -638,16 +720,19 @@ fn parse_pass_list(raw : String) -> Array[String] {
 
 ///|
 fn parse_non_negative_decimal(raw : String) -> Int? {
-  let text = raw.trim().to_string()
-  if text.length() == 0 {
+  let (start, end) = trimmed_bounds(raw)
+  if start == end {
     return None
   }
   let mut value = 0
-  for c in text {
+  let mut i = start
+  while i < end {
+    let c = raw[i]
     if c < '0' || c > '9' {
       return None
     }
     value = value * 10 + (c.to_int() - '0'.to_int())
+    i += 1
   }
   Some(value)
 }
@@ -712,7 +797,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
           for glob in globs {
             match glob {
               String(raw) => {
-                let normalized = normalize_cli_path(raw.trim().to_string())
+                let normalized = normalize_cli_path(trimmed_string(raw))
                 if normalized.length() > 0 {
                   append_unique_string(input_globs, normalized)
                 }
@@ -751,7 +836,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       }
       match outputs.get("out") {
         Some(String(raw)) => {
-          let trimmed = raw.trim().to_string()
+          let trimmed = trimmed_string(raw)
           if trimmed.length() > 0 {
             push_unique_output_target_local(
               output_targets,
@@ -763,7 +848,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       }
       match outputs.get("outDir") {
         Some(String(raw)) => {
-          let trimmed = raw.trim().to_string()
+          let trimmed = trimmed_string(raw)
           if trimmed.length() > 0 {
             push_unique_output_target_local(
               output_targets,
@@ -775,7 +860,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       }
       match outputs.get("out-dir") {
         Some(String(raw)) => {
-          let trimmed = raw.trim().to_string()
+          let trimmed = trimmed_string(raw)
           if trimmed.length() > 0 {
             push_unique_output_target_local(
               output_targets,
@@ -794,10 +879,10 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
       for pass in passes {
         match pass {
           String(raw) => {
-            let trimmed = ascii_lower(raw.trim().to_string())
-            if trimmed.length() > 0 {
-              pass_flags.push(trimmed)
-              match trimmed {
+            let lowered = trimmed_ascii_lower_string(raw)
+            if lowered.length() > 0 {
+              pass_flags.push(lowered)
+              match lowered {
                 "optimize" =>
                   optimize_flags.push(CliOptimizationFlag::optimize())
                 "shrink" => optimize_flags.push(CliOptimizationFlag::shrink())
@@ -832,7 +917,7 @@ fn parse_config_json(text : String) -> Result[CliParseResult, CmdError] {
     Some(Object(optimize)) => {
       match optimize.get("preset") {
         Some(String(raw)) =>
-          match ascii_lower(raw.trim().to_string()) {
+          match trimmed_ascii_lower_string(raw) {
             "optimize" => {
               pass_flags.push("optimize")
               optimize_flags.push(CliOptimizationFlag::optimize())
@@ -1031,7 +1116,7 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
   }
   match (io.get_env)("STARSHINE_OUT") {
     Some(raw) => {
-      let trimmed = raw.trim().to_string()
+      let trimmed = trimmed_string(raw)
       if trimmed.length() > 0 {
         push_unique_output_target_local(
           output_targets,
@@ -1043,7 +1128,7 @@ fn parse_env_overlay(io : CmdIO) -> CliParseResult {
   }
   match (io.get_env)("STARSHINE_OUT_DIR") {
     Some(raw) => {
-      let trimmed = raw.trim().to_string()
+      let trimmed = trimmed_string(raw)
       if trimmed.length() > 0 {
         push_unique_output_target_local(
           output_targets,
@@ -1343,7 +1428,7 @@ fn resolve_config_path(cli : CliParseResult, io : CmdIO) -> (String?, Bool) {
   }
   match (io.get_env)("STARSHINE_CONFIG") {
     Some(raw) => {
-      let trimmed = raw.trim().to_string()
+      let trimmed = trimmed_string(raw)
       if trimmed.length() > 0 {
         return (Some(normalize_cli_path(trimmed)), true)
       }
@@ -1367,7 +1452,7 @@ fn resolve_input_files_with_glob(
   let literal = Array::new()
   let patterns = Array::new()
   for raw in globs {
-    let normalized = normalize_cli_path(raw.trim().to_string())
+    let normalized = normalize_cli_path(trimmed_string(raw))
     if normalized.length() == 0 {
       continue
     }
@@ -1667,7 +1752,7 @@ fn cmd_is_supported_print_kind(kind : String) -> Bool {
 
 ///|
 fn cmd_parse_print_selector(raw : String) -> CmdPipelinePrintSelector? {
-  let trimmed = raw.trim().to_string()
+  let trimmed = trimmed_string(raw)
   if trimmed.length() == 0 {
     return None
   }
@@ -2774,7 +2859,7 @@ fn parse_spec_cmd_args(
   while index < args.length() {
     let arg = args[index]
     if positional_only {
-      let normalized = normalize_cli_path(arg.trim().to_string())
+      let normalized = normalize_cli_path(trimmed_string(arg))
       if normalized.length() > 0 {
         append_unique_string(globs, normalized)
       }
@@ -2802,7 +2887,7 @@ fn parse_spec_cmd_args(
             ),
           )
         }
-        let normalized = normalize_cli_path(arg.trim().to_string())
+        let normalized = normalize_cli_path(trimmed_string(arg))
         if normalized.length() > 0 {
           append_unique_string(globs, normalized)
         }

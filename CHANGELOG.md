@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-17 Perf: reduce CLI parser helper allocation churn
+
+- **startup parser helper trim/lower allocation cleanup** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cli/cli.mbt`](./src/cli/cli.mbt), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), and [`src/ir/use_def_test.mbt`](./src/ir/use_def_test.mbt) so short startup config/env/parser helpers stop materializing repeated temporary strings for trim-plus-lowercase comparisons and split-loop parsing. `src/cmd/cmd.mbt` now uses shared trimmed-bounds helpers for bool/input-format/trap/tracing parsing plus raw O-level, decimal, and pass-list parsing, while `src/cli/cli.mbt` trims helper flag values through one trimmed-string path and avoids the extra split-part trim copy in `parse_extract_functions_value`. Also refreshed the unrelated `HotUseSite` expectation strings in `src/ir/use_def_test.mbt` so the repo-wide `moon test` lane is green again.
+
 ## 2026-04-16 Perf: parse O-level text directly on startup paths
 
 - **direct raw O-level parsing for config/env startup paths** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), and [`src/cmd/cmd_wbtest.mbt`](./src/cmd/cmd_wbtest.mbt) so `parse_olevel_text(...)` now parses trimmed `O*` / `-O*` strings directly into `CliOptimizationFlag::olevel(...)` instead of recursively calling `parse_cli_args([flag])` for config/env overlays. Focused helper tests lock accepted and rejected raw forms, while a cmd wbtest keeps the trimmed env `-Oz` path wired through the direct parser. This runtime still cannot execute `moon`/`bun` commands directly, so command-level verification remains pending for the next tool-enabled pass.

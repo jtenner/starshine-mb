@@ -18,11 +18,11 @@ test "use-def tracks child-edge use sites for expression trees" {
   let use_def = use_def_build(func)
 
   assert_eq(use_def_test_show_sites(node_use_sites(use_def, local_get)), [
-    "{user: \{add}, slot: 0, kind: ChildUseSlot}",
+    "{ user: \{add}, slot: 0, kind: ChildUseSlot }",
   ])
   assert_eq(node_use_count(use_def, const_), 1)
   assert_eq(use_def_test_show_sites(node_use_sites(use_def, add)), [
-    "{user: -1, slot: 0, kind: RootUseSlot}",
+    "{ user: -1, slot: 0, kind: RootUseSlot }",
   ])
 }
 
@@ -36,10 +36,10 @@ test "use-def distinguishes root-slot uses from child-slot uses" {
   let use_def = use_def_build(func)
 
   assert_eq(use_def_test_show_sites(node_use_sites(use_def, local_get)), [
-    "{user: \{block_id}, slot: 0, kind: RootUseSlot}",
+    "{ user: \{block_id}, slot: 0, kind: RootUseSlot }",
   ])
   assert_eq(use_def_test_show_sites(node_use_sites(use_def, block_id)), [
-    "{user: -1, slot: 0, kind: RootUseSlot}",
+    "{ user: -1, slot: 0, kind: RootUseSlot }",
   ])
 }
 

@@ -20,8 +20,8 @@
 - [x] [PRF003] Refactor `parse_olevel_text` to avoid full parser recursion - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - `src/cmd/cmd.mbt` now parses trimmed `O*` / `-O*` raw strings directly into `CliOptimizationFlag::olevel(...)` without routing through `parse_cli_args([flag])`. Focused helper tests lock accepted/rejected raw forms, and `src/cmd/cmd_wbtest.mbt` keeps the env-overlay `-Oz` startup path wired through the direct parser.
 
-- [PRF004] Reduce startup allocations in parser helper functions - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
-  - Audit `trim().to_string()`, `ascii_lower`, and split/loop parsers in `src/cli/cli.mbt` and `src/cmd/cmd.mbt` to avoid repeated temporary string creation for short flags/env/config values.
+- [x] [PRF004] Reduce startup allocations in parser helper functions - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - `src/cmd/cmd.mbt` now trims via shared bounds helpers, compares short config/env values against ASCII-lowered expectations without materializing lowercase temp strings, and parses raw O-level / decimal / pass-list values without the old trim-copy churn. `src/cli/cli.mbt` now trims dump/print/input helper values through one trimmed-string path and avoids the extra split-part trim copy in `parse_extract_functions_value`, keeping the startup parser helpers off repeated short-lived string allocation work.
 
 - [PRF005] Rework glob expansion to avoid O(P×C) repeated scans - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - Reduce per-pattern full candidate rescans and avoid repeated normalization/matching work in `expand_globs`/`glob_match` for startup `--glob` workflows.
