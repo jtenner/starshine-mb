@@ -35,6 +35,24 @@ test "glob_match handles question-mark and mixed wildcard segments" {
 }
 
 ///|
+test "glob_match keeps drive and absolute path scopes distinct" {
+  assert_true(glob_match("C:/src/*.wasm", "C:/src/a.wasm"))
+  assert_false(glob_match("C:/src/*.wasm", "D:/src/a.wasm"))
+  assert_false(glob_match("/src/*.wasm", "src/a.wasm"))
+}
+
+///|
+test "expand_globs keeps scoped pattern order across drive and absolute buckets" {
+  let out = expand_globs(["C:/src/*.wasm", "/root/**/*.wat"], [
+    "D:/src/a.wasm", "/root/b.wat", "C:/src/c.wasm", "/other/x.wat", "C:/src/a.wasm",
+    "/root/deep/nested/z.wat",
+  ])
+  assert_eq(out, [
+    "C:/src/a.wasm", "C:/src/c.wasm", "/root/b.wat", "/root/deep/nested/z.wat",
+  ])
+}
+
+///|
 test "expand_globs returns deterministic sorted normalized matches" {
   let out = expand_globs(["src/**/*.wasm"], [
     "src\\\\b.wasm", "src/a.wasm", "src/nested/c.wasm", "src/a.wasm",

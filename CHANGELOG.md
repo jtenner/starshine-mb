@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-17 Perf: compile and bucket CLI glob expansion
+
+- **startup glob expansion compile/bucket cleanup** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cli/glob.mbt`](./src/cli/glob.mbt), [`src/cli/glob_test.mbt`](./src/cli/glob_test.mbt), and [`src/cli/moon.pkg`](./src/cli/moon.pkg) so startup `--glob` expansion no longer normalizes and re-splits every pattern/candidate pair. `glob_match(...)` now compares compiled normalized paths, while `expand_globs(...)` compiles candidates once and scans scoped absolute/prefix/first-segment buckets instead of rescanning the full candidate list for every pattern. Added focused tests for drive/absolute scope separation and cross-bucket first-pattern ordering.
+
 ## 2026-04-17 Perf: reduce CLI parser helper allocation churn
 
 - **startup parser helper trim/lower allocation cleanup** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cli/cli.mbt`](./src/cli/cli.mbt), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), and [`src/ir/use_def_test.mbt`](./src/ir/use_def_test.mbt) so short startup config/env/parser helpers stop materializing repeated temporary strings for trim-plus-lowercase comparisons and split-loop parsing. `src/cmd/cmd.mbt` now uses shared trimmed-bounds helpers for bool/input-format/trap/tracing parsing plus raw O-level, decimal, and pass-list parsing, while `src/cli/cli.mbt` trims helper flag values through one trimmed-string path and avoids the extra split-part trim copy in `parse_extract_functions_value`. Also refreshed the unrelated `HotUseSite` expectation strings in `src/ir/use_def_test.mbt` so the repo-wide `moon test` lane is green again.

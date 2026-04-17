@@ -23,8 +23,8 @@
 - [x] [PRF004] Reduce startup allocations in parser helper functions - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - `src/cmd/cmd.mbt` now trims via shared bounds helpers, compares short config/env values against ASCII-lowered expectations without materializing lowercase temp strings, and parses raw O-level / decimal / pass-list values without the old trim-copy churn. `src/cli/cli.mbt` now trims dump/print/input helper values through one trimmed-string path and avoids the extra split-part trim copy in `parse_extract_functions_value`, keeping the startup parser helpers off repeated short-lived string allocation work.
 
-- [PRF005] Rework glob expansion to avoid O(P×C) repeated scans - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
-  - Reduce per-pattern full candidate rescans and avoid repeated normalization/matching work in `expand_globs`/`glob_match` for startup `--glob` workflows.
+- [x] [PRF005] Rework glob expansion to avoid O(P×C) repeated scans - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
+  - `src/cli/glob.mbt` now compiles normalized pattern/candidate paths once, reuses pre-split segments inside `glob_match`, and buckets candidates by absolute/prefix scope plus first literal segment so `expand_globs` avoids the old per-pattern normalize/re-split churn and most full candidate rescans. Focused `src/cli/glob_test.mbt` coverage now locks drive/absolute scope handling and cross-bucket first-pattern ordering.
 
 - [PRF006] Add path-normalization caching for startup path handling - (Ref [0092 startup audit](docs/wiki/raw/research/0092-2026-04-16-cli-startup-performance-issues.md))
   - Cache normalized path values in argument/config/env flows and avoid duplicate `normalize_cli_path` passes inside glob matching and target resolution.

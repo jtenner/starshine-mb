@@ -4,6 +4,49 @@ fn is_ascii_letter(c : UInt16) -> Bool {
 }
 
 ///|
+priv struct CompiledGlobPath {
+  normalized : String
+  prefix : String
+  absolute : Bool
+  segments : Array[String]
+}
+
+///|
+priv struct CompiledGlobPattern {
+  path : CompiledGlobPath
+  first_segment_literal : String?
+  min_segment_count : Int
+  max_segment_count : Int?
+}
+
+///|
+priv struct GlobPrefixBucket {
+  all : Array[CompiledGlobPath]
+  by_first_segment : @hashmap.HashMap[String, Array[CompiledGlobPath]]
+}
+
+///|
+fn GlobPrefixBucket::new() -> GlobPrefixBucket {
+  { all: [], by_first_segment: @hashmap.new(capacity=16) }
+}
+
+///|
+priv struct GlobAbsoluteBucket {
+  all : Array[CompiledGlobPath]
+  by_first_segment : @hashmap.HashMap[String, Array[CompiledGlobPath]]
+  by_prefix : @hashmap.HashMap[String, GlobPrefixBucket]
+}
+
+///|
+fn GlobAbsoluteBucket::new() -> GlobAbsoluteBucket {
+  {
+    all: [],
+    by_first_segment: @hashmap.new(capacity=16),
+    by_prefix: @hashmap.new(capacity=16),
+  }
+}
+
+///|
 fn split_normalized_path(path : String) -> (String, Bool, Array[String]) {
   let mut index = 0
   let mut prefix = ""
@@ -25,6 +68,47 @@ fn split_normalized_path(path : String) -> (String, Bool, Array[String]) {
     }
   }
   (prefix, absolute, segments)
+}
+
+///|
+fn compile_normalized_glob_path(normalized : String) -> CompiledGlobPath {
+  let (prefix, absolute, segments) = split_normalized_path(normalized)
+  { normalized, prefix, absolute, segments }
+}
+
+///|
+fn is_literal_glob_segment(segment : String) -> Bool {
+  if segment == "**" {
+    return false
+  }
+  for c in segment {
+    if c == '*' || c == '?' {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn compile_glob_pattern(pattern : String) -> CompiledGlobPattern {
+  let path = compile_normalized_glob_path(normalize_cli_path(pattern))
+  let mut first_segment_literal : String? = None
+  if path.segments.length() > 0 {
+    let first = path.segments[0]
+    if is_literal_glob_segment(first) {
+      first_segment_literal = Some(first)
+    }
+  }
+  let mut min_segment_count = 0
+  let mut max_segment_count : Int? = Some(path.segments.length())
+  for segment in path.segments {
+    if segment == "**" {
+      max_segment_count = None
+    } else {
+      min_segment_count += 1
+    }
+  }
+  { path, first_segment_literal, min_segment_count, max_segment_count }
 }
 
 ///|
@@ -102,6 +186,36 @@ fn glob_match_segments(
 }
 
 ///|
+fn compiled_glob_pattern_matches_candidate(
+  pattern : CompiledGlobPattern,
+  candidate : CompiledGlobPath,
+) -> Bool {
+  if pattern.path.prefix.length() > 0 && pattern.path.prefix != candidate.prefix {
+    return false
+  }
+  if pattern.path.absolute != candidate.absolute {
+    return false
+  }
+  let candidate_segment_count = candidate.segments.length()
+  if candidate_segment_count < pattern.min_segment_count {
+    return false
+  }
+  match pattern.max_segment_count {
+    Some(max_segment_count) if candidate_segment_count > max_segment_count =>
+      return false
+    _ => ()
+  }
+  match pattern.first_segment_literal {
+    Some(first_segment) =>
+      if candidate_segment_count == 0 || candidate.segments[0] != first_segment {
+        return false
+      }
+    None => ()
+  }
+  glob_match_segments(pattern.path.segments, 0, candidate.segments, 0)
+}
+
+///|
 pub fn normalize_cli_path(path : String) -> String {
   let separators = StringBuilder::new()
   for c in path {
@@ -164,22 +278,93 @@ pub fn normalize_cli_path(path : String) -> String {
 }
 
 ///|
+fn glob_bucket_add_candidate_by_first_segment(
+  by_first_segment : @hashmap.HashMap[String, Array[CompiledGlobPath]],
+  candidate : CompiledGlobPath,
+) -> Unit {
+  if candidate.segments.length() == 0 {
+    return
+  }
+  let first_segment = candidate.segments[0]
+  match by_first_segment.get(first_segment) {
+    Some(bucket) => bucket.push(candidate)
+    None => by_first_segment.set(first_segment, [candidate])
+  }
+}
+
+///|
+fn glob_prefix_bucket_add(
+  bucket : GlobPrefixBucket,
+  candidate : CompiledGlobPath,
+) -> Unit {
+  bucket.all.push(candidate)
+  glob_bucket_add_candidate_by_first_segment(bucket.by_first_segment, candidate)
+}
+
+///|
+fn glob_absolute_bucket_add(
+  bucket : GlobAbsoluteBucket,
+  candidate : CompiledGlobPath,
+) -> Unit {
+  bucket.all.push(candidate)
+  glob_bucket_add_candidate_by_first_segment(bucket.by_first_segment, candidate)
+  if candidate.prefix.length() == 0 {
+    return
+  }
+  let prefix_bucket = match bucket.by_prefix.get(candidate.prefix) {
+    Some(existing) => existing
+    None => {
+      let new_bucket = GlobPrefixBucket::new()
+      bucket.by_prefix.set(candidate.prefix, new_bucket)
+      new_bucket
+    }
+  }
+  glob_prefix_bucket_add(prefix_bucket, candidate)
+}
+
+///|
+fn glob_bucket_candidates_for_first_segment(
+  all : Array[CompiledGlobPath],
+  by_first_segment : @hashmap.HashMap[String, Array[CompiledGlobPath]],
+  first_segment_literal : String?,
+) -> Array[CompiledGlobPath]? {
+  match first_segment_literal {
+    Some(first_segment) => by_first_segment.get(first_segment)
+    None => Some(all)
+  }
+}
+
+///|
+fn glob_absolute_bucket_candidates(
+  bucket : GlobAbsoluteBucket,
+  pattern : CompiledGlobPattern,
+) -> Array[CompiledGlobPath]? {
+  if pattern.path.prefix.length() > 0 {
+    match bucket.by_prefix.get(pattern.path.prefix) {
+      Some(prefix_bucket) =>
+        glob_bucket_candidates_for_first_segment(
+          prefix_bucket.all,
+          prefix_bucket.by_first_segment,
+          pattern.first_segment_literal,
+        )
+      None => None
+    }
+  } else {
+    glob_bucket_candidates_for_first_segment(
+      bucket.all,
+      bucket.by_first_segment,
+      pattern.first_segment_literal,
+    )
+  }
+}
+
+///|
 pub fn glob_match(pattern : String, candidate : String) -> Bool {
-  let normalized_pattern = normalize_cli_path(pattern)
-  let normalized_candidate = normalize_cli_path(candidate)
-  let (pattern_prefix, pattern_absolute, pattern_segments) = split_normalized_path(
-    normalized_pattern,
+  let compiled_pattern = compile_glob_pattern(pattern)
+  let compiled_candidate = compile_normalized_glob_path(
+    normalize_cli_path(candidate),
   )
-  let (candidate_prefix, candidate_absolute, candidate_segments) = split_normalized_path(
-    normalized_candidate,
-  )
-  if pattern_prefix.length() > 0 && pattern_prefix != candidate_prefix {
-    return false
-  }
-  if pattern_absolute != candidate_absolute {
-    return false
-  }
-  glob_match_segments(pattern_segments, 0, candidate_segments, 0)
+  compiled_glob_pattern_matches_candidate(compiled_pattern, compiled_candidate)
 }
 
 ///|
@@ -198,16 +383,40 @@ pub fn expand_globs(
   }
   normalized_candidates.sort()
 
+  let relative_candidates = GlobAbsoluteBucket::new()
+  let absolute_candidates = GlobAbsoluteBucket::new()
+  for normalized in normalized_candidates {
+    let compiled = compile_normalized_glob_path(normalized)
+    if compiled.absolute {
+      glob_absolute_bucket_add(absolute_candidates, compiled)
+    } else {
+      glob_absolute_bucket_add(relative_candidates, compiled)
+    }
+  }
+
+  let compiled_patterns = Array::new()
+  for pattern in patterns {
+    compiled_patterns.push(compile_glob_pattern(pattern))
+  }
+
   let out = Array::new()
   let seen_out : Set[String] = Set::new()
-  for pattern in patterns {
-    let normalized_pattern = normalize_cli_path(pattern)
-    for candidate in normalized_candidates {
-      if glob_match(normalized_pattern, candidate) &&
-        !seen_out.contains(candidate) {
-        seen_out.add(candidate)
-        out.push(candidate)
-      }
+  for pattern in compiled_patterns {
+    let candidates_for_pattern = if pattern.path.absolute {
+      glob_absolute_bucket_candidates(absolute_candidates, pattern)
+    } else {
+      glob_absolute_bucket_candidates(relative_candidates, pattern)
+    }
+    match candidates_for_pattern {
+      Some(bucket_candidates) =>
+        for candidate in bucket_candidates {
+          if compiled_glob_pattern_matches_candidate(pattern, candidate) &&
+            !seen_out.contains(candidate.normalized) {
+            seen_out.add(candidate.normalized)
+            out.push(candidate.normalized)
+          }
+        }
+      None => ()
     }
   }
   out
