@@ -173,10 +173,14 @@ fn gen_invalid_ast_strategy_label(
 ) -> String {
   match strategy {
     DuplicateExportName => "duplicate-export-name"
+    InvalidExportFuncIndex => "invalid-export-func-index"
     InvalidStartSignature => "invalid-start-signature"
+    StartFuncOutOfRange => "start-func-out-of-range"
     MissingDataCount => "missing-datacount"
+    MissingDataCountDataDrop => "missing-datacount-data-drop"
     UndeclaredRefFunc => "undeclared-ref-func"
     InvalidNameSectionFuncIndex => "invalid-name-section-func-index"
+    InvalidMemoryNameSectionIndex => "invalid-memory-name-section-index"
     InvalidFuncTypeIndex => "invalid-func-type-index"
     FuncSecWithoutCodeSec => "funcsec-without-codesec"
     MutableGlobalGetInConstInit => "mutable-global-get-in-const-init"

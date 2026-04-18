@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: deepen AST invalid coverage within covered validator families
+
+- **add secondary AST invalid strategies inside already-covered export, start, function-body, and name families** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), and [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt) so the AST invalid lane now also covers `invalid-export-func-index`, `start-func-out-of-range`, `missing-datacount-data-drop`, and `invalid-memory-name-section-index` in addition to the earlier family-complete baseline. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate`, and `moon info`.
+
 ## 2026-04-18 Fix: widen inline text and spec-seed invalid fixture coverage
 
 - **add more inline text and spec-seed invalid fixtures across malformed, invalid, and unlinkable stages** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_text.mbt`](./src/fuzz/invalid_text.mbt), and [`src/fuzz/invalid_text_wbtest.mbt`](./src/fuzz/invalid_text_wbtest.mbt) so the text lanes now cover extra malformed trailing-garbage, mutable-global const-init, and unknown-memory-import cases plus second malformed/invalid/unlinkable spec-seed assertions from the committed spec corpus. Verification for this slice: `moon test src/fuzz`.

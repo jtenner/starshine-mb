@@ -399,6 +399,48 @@ test "gen_invalid_ast_generate supports datacount-section invalid strategy" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid export func index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efdUL),
+      GenInvalidAstParams::repro_seed(InvalidExportFuncIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-export-func-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ExportSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports missing-datacount data.drop strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5effUL),
+      GenInvalidAstParams::repro_seed(MissingDataCountDataDrop),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected missing-datacount-data-drop mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionBodyFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_params_profile_name identifies named and custom profiles" {
   assert_eq(
     gen_invalid_ast_params_profile_name(

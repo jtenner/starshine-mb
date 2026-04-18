@@ -79,6 +79,10 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidTagTypeIndex
   DescriptorOnFuncType
   DataCountWithoutDataSec
+  InvalidExportFuncIndex
+  StartFuncOutOfRange
+  MissingDataCountDataDrop
+  InvalidMemoryNameSectionIndex
 } derive(Eq, Debug)
 
 ///|
@@ -246,6 +250,34 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "datacount section without data section",
       DataCountSectionFamily,
     ),
+    validate_invalid_ast_strategy_spec(
+      InvalidExportFuncIndex,
+      "invalid-export-func-index",
+      "export function index out of range",
+      ExportSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      StartFuncOutOfRange,
+      "start-func-out-of-range",
+      "start function index out of range",
+      StartSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      MissingDataCountDataDrop,
+      "missing-datacount-data-drop",
+      "missing datacount for data.drop",
+      FunctionBodyFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidMemoryNameSectionIndex,
+      "invalid-memory-name-section-index",
+      "invalid memory name index",
+      NameSectionFamily,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -282,6 +314,10 @@ fn validate_invalid_ast_strategy_index(
     InvalidTagTypeIndex => 13
     DescriptorOnFuncType => 14
     DataCountWithoutDataSec => 15
+    InvalidExportFuncIndex => 16
+    StartFuncOutOfRange => 17
+    MissingDataCountDataDrop => 18
+    InvalidMemoryNameSectionIndex => 19
   }
 }
 
@@ -583,6 +619,32 @@ fn validate_invalid_ast_with_func_names(
 }
 
 ///|
+fn validate_invalid_ast_with_memory_names(
+  mod : Module,
+  memory_names : NameMap,
+) -> Module {
+  let next_name_sec = match mod.name_sec {
+    Some(name_sec) =>
+      NameSec::new(
+        module_name=name_sec.module_name,
+        func_names=name_sec.func_names,
+        local_names=name_sec.local_names,
+        label_names=name_sec.label_names,
+        type_names=name_sec.type_names,
+        table_names=name_sec.table_names,
+        memory_names=Some(memory_names),
+        global_names=name_sec.global_names,
+        elem_names=name_sec.elem_names,
+        data_names=name_sec.data_names,
+        field_names=name_sec.field_names,
+        tag_names=name_sec.tag_names,
+      )
+    None => NameSec::new(memory_names=Some(memory_names))
+  }
+  mod.with_name_sec(next_name_sec)
+}
+
+///|
 fn validate_invalid_ast_mutate_duplicate_export_name(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -607,6 +669,23 @@ fn validate_invalid_ast_mutate_duplicate_export_name(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_export_func_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = FuncIdx::new(
+    validate_invalid_ast_total_func_count(mod).reinterpret_as_uint(),
+  )
+  let exports = validate_invalid_ast_export_entries(mod)
+  exports.push(Export::new(Name::new("bad"), ExternIdx::func(bad_idx)))
+  {
+    strategy: InvalidExportFuncIndex,
+    applicable: true,
+    expected_family: ExportSectionFamily,
+    mutated_module: mod.with_export_sec(ExportSec::new(exports)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_start_signature(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -622,6 +701,21 @@ fn validate_invalid_ast_mutate_invalid_start_signature(
     applicable: true,
     expected_family: StartSectionFamily,
     mutated_module: base.with_start_sec(StartSec::new(func_idx)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_start_func_out_of_range(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = FuncIdx::new(
+    validate_invalid_ast_total_func_count(mod).reinterpret_as_uint(),
+  )
+  {
+    strategy: StartFuncOutOfRange,
+    applicable: true,
+    expected_family: StartSectionFamily,
+    mutated_module: mod.with_start_sec(StartSec::new(bad_idx)),
   }
 }
 
@@ -648,6 +742,27 @@ fn validate_invalid_ast_mutate_missing_datacount(
   )
   {
     strategy: MissingDataCount,
+    applicable: true,
+    expected_family: FunctionBodyFamily,
+    mutated_module: validate_invalid_ast_without_data_cnt_sec(with_func),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_missing_datacount_data_drop(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let (with_data, data_idx) = validate_invalid_ast_append_passive_data(mod)
+  let body = Expr::new([Instruction::data_drop(data_idx)])
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    with_data,
+    [],
+    [],
+    Locals::empty(),
+    body,
+  )
+  {
+    strategy: MissingDataCountDataDrop,
     applicable: true,
     expected_family: FunctionBodyFamily,
     mutated_module: validate_invalid_ast_without_data_cnt_sec(with_func),
@@ -689,6 +804,22 @@ fn validate_invalid_ast_mutate_invalid_name_section_func_index(
     applicable: true,
     expected_family: NameSectionFamily,
     mutated_module: validate_invalid_ast_with_func_names(base, func_names),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_memory_name_section_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = validate_invalid_ast_mem_entries(mod)
+    .length()
+    .reinterpret_as_uint()
+  let memory_names = NameMap::new([NameAssoc::new(bad_idx, Name::new("mem"))])
+  {
+    strategy: InvalidMemoryNameSectionIndex,
+    applicable: true,
+    expected_family: NameSectionFamily,
+    mutated_module: validate_invalid_ast_with_memory_names(mod, memory_names),
   }
 }
 
@@ -952,12 +1083,20 @@ pub fn apply_validate_invalid_ast_strategy(
     match strategy {
       DuplicateExportName =>
         validate_invalid_ast_mutate_duplicate_export_name(base)
+      InvalidExportFuncIndex =>
+        validate_invalid_ast_mutate_invalid_export_func_index(base)
       InvalidStartSignature =>
         validate_invalid_ast_mutate_invalid_start_signature(base)
+      StartFuncOutOfRange =>
+        validate_invalid_ast_mutate_start_func_out_of_range(base)
       MissingDataCount => validate_invalid_ast_mutate_missing_datacount(base)
+      MissingDataCountDataDrop =>
+        validate_invalid_ast_mutate_missing_datacount_data_drop(base)
       UndeclaredRefFunc => validate_invalid_ast_mutate_undeclared_ref_func(base)
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
+      InvalidMemoryNameSectionIndex =>
+        validate_invalid_ast_mutate_invalid_memory_name_section_index(base)
       InvalidFuncTypeIndex =>
         validate_invalid_ast_mutate_invalid_func_type_index(base)
       FuncSecWithoutCodeSec =>
@@ -1204,6 +1343,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "mutable-global-get-in-const-init", "non-constant-data-offset", "invalid-imported-func-type-index",
     "mutable-global-get-in-table-init", "non-constant-elem-offset", "shared-memory-without-max",
     "invalid-tag-type-index", "descriptor-on-func-type", "datacount-without-data-sec",
+    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
+    "invalid-memory-name-section-index",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   assert_eq(smoke_required.length(), 16)
@@ -1456,6 +1597,58 @@ test "datacount without data section strategy rejects with DataCountSection fami
       DataCountWithoutDataSec,
       0x5efcUL,
       DataCountSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid export func index strategy rejects with ExportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidExportFuncIndex,
+      0x5efdUL,
+      ExportSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "start func out of range strategy rejects with StartSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      StartFuncOutOfRange,
+      0x5efeUL,
+      StartSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "missing datacount data.drop strategy rejects with FunctionBody family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      MissingDataCountDataDrop,
+      0x5effUL,
+      FunctionBodyFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid memory name index strategy rejects with NameSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidMemoryNameSectionIndex,
+      0x5f00UL,
+      NameSectionFamily,
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

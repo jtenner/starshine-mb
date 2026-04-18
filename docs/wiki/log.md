@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record deeper AST invalid breadth inside covered families
+
+- Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture the next breadth step after family completion: the AST invalid lane now has secondary strategies inside already-covered export, start, function-body, and name families instead of only one representative strategy in each.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now distinguish family completeness from intra-family breadth and record the newer out-of-range export/start/name plus `data.drop`-based missing-datacount coverage.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record wider text and spec-seed fixture coverage
 
 - Reviewed the already-modified text invalid sources `src/fuzz/invalid_text.mbt` and `src/fuzz/invalid_text_wbtest.mbt` to capture the next fixture-breadth step: the inline text lane now has multiple malformed, invalid, and unlinkable fixtures instead of just one of each, and the spec-seed lane now carries second malformed/invalid/unlinkable assertions from the committed spec corpus.
