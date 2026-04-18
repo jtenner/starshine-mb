@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] fix | retire `[O4Z]003` generated slot-19 `precompute` corruption
+
+- Added `docs/wiki/raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md` to record that the saved slot-19 predecessor from `0096` now replays cleanly on the current tree, stays `wasm-tools validate` clean, and matches Binaryen at normalized-WAT / canonical-function granularity.
+- Updated `docs/wiki/binaryen/passes/precompute/index.md` and `docs/wiki/index.md` so the living wiki no longer describes slot `19` `func 108` raw-result loss as an active blocker; the durable frontier is back to parity/runtime work plus future lower-shape follow-ups, not this retired invalid-output witness.
+- Added cmd-level native regressions in `src/cmd/cmd_wbtest.mbt` for both the full saved slot-19 predecessor and the extracted `Func 108` replay, and updated `agent-todo.md` so the generated `-O4z` active blocker list now starts at `[O4Z]004`.
+
 ## [2026-04-18] maintain | promote official GitHub release pages in Binaryen source-of-truth guidance
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/global-refining/index.md`, `docs/wiki/binaryen/passes/memory-packing/index.md`, `docs/wiki/binaryen/passes/once-reduction/index.md`, `docs/wiki/binaryen/passes/dead-code-elimination/index.md`, `docs/wiki/binaryen/passes/heap2local/index.md`, `docs/wiki/binaryen/passes/remove-unused-brs/index.md`, and `docs/wiki/index.md` after a fresh Binaryen source sweep.

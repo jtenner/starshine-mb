@@ -7,6 +7,7 @@ sources:
   - ../../../../../src/passes/precompute_test.mbt
   - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - ../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md
+  - ../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
 related:
   - ../../no-dwarf-default-optimize-path.md
   - ../late-pipeline-dispatch.md
@@ -18,9 +19,9 @@ related:
 - Current summary: Fold exact constant integer expressions that are trap-free and stable across the top-level precompute slots.
 - Current Binaryen terminology check: upstream-facing sources still expose both `--precompute` and `--precompute-propagate`; this page keeps the repo's `precompute` umbrella label and records the ordered audit's Binaryen slot names explicitly when they differ.
 - Newer upstream activity is behavioral, not terminological: the Chromium-hosted Binaryen mirror shows a 2025-08-27 `Precompute` rewrite that reworked child-retention logic and removed the older dual-cache split, a 2026-03-23 fix that keeps GC writes like `ArrayStore` in the effects model instead of precomputing through them, a 2026-03-25 fix that stopped folding GC `struct` / `array` atomic RMW and `cmpxchg` ops because those instructions both read and write heap state, and a 2026-03-26 multibyte-array-access follow-up that deliberately treats `array.load` as `NONCONSTANT_FLOW` for now instead of folding it like an ordinary constant read. Treat this repo's older `version_129`-backed `precompute` notes as a tagged oracle rather than a claim about current trunk internals.
-- Current 2026-04-18 ordered generated-artifact follow-up: the early generated `cmd.wasm` slot at Binaryen slot `19` (`precompute-propagate`) still exits Starshine with status `0` but emits invalid raw wasm; both Binaryen canonicalization and direct `wasm-tools validate` agree that `func 108` is missing its required `i32` result. The later slot `43` still completes with meaningful equality, so the living inference is that this is a predecessor-state-specific corruption family, not blanket evidence that every `precompute` replay is currently broken.
-- Treat the current open blocker as "slot-19 raw-result loss on `func 108`" rather than as a generic `precompute` instability label until a reduced repro proves which exact rewrite drops the carried value.
-- Use [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md) for the current tail roster until dedicated strategy and parity pages land.
+- Current 2026-04-18 ordered generated-artifact follow-up: the early generated `cmd.wasm` slot at Binaryen slot `19` (`precompute-propagate`) is now retired by [0105](../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md). The same saved predecessor from [0096](../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md) now exits `0`, stays `wasm-tools validate` clean, and matches Binaryen at normalized-WAT / canonical-function granularity.
+- The durable lesson from that retirement is narrower than "precompute is fully signed off": keep the slot-19 predecessor as a cmd-level regression because the failure used to be silent invalid raw output in `func 108`, but move the living precompute frontier back to parity/runtime work instead of treating slot `19` as an active corruption blocker.
+- Use [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md) for the broader late-pass roster until dedicated strategy and parity pages land.
 
 ## Sources
 
