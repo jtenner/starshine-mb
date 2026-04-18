@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | anchor Binaryen release horizon with Chromium refs plus main changelog
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after another non-GitHub Binaryen source sweep so the living wiki now cites the Chromium refs listing directly as the anchor for the current reachable release horizon: `refs/heads/main` is present, and `version_129` is still the newest directly reachable release tag in that mirror listing.
+- Recorded the matching current-trunk caution explicitly: the Chromium-mirror `main` `CHANGELOG.md` currently leads with a C API worker-threading note rather than a newer optimization-pass addition, which is useful as a freshness check but still not strong enough to replace the tagged release-note pages as the source-of-truth boundary for pass-addition claims.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the wording refresh.
+
 ## [2026-04-18] maintain | refine Binaryen package-surface lag notes
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after another non-GitHub Binaryen source sweep so the living wiki now says explicitly that the Debian `wasm-opt` manpage and the published `wasm_opt::Pass` enum are both incomplete in different directions: Debian already exposes some upstream-only passes such as `--minimize-rec-groups` / `--string-lowering`, while docs.rs still exposes older names like `RemoveUnusedTypes` without surfacing those newer additions.
