@@ -1783,6 +1783,9 @@ fn hot_lower_impl_try_pack_split_parent_exit_payload(
             Unreachable => ()
             _ => return None
           }
+          if hot_lower_impl_body_targets_removed_label(prefix_body, 1) {
+            return None
+          }
         }
         _ => return None
       }

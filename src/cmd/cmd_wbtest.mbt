@@ -6156,6 +6156,111 @@ test "run_cmd_with_adapter validates optimize-instructions on debug artifact" {
 
 ///|
 #cfg(target="native")
+test "run_cmd_with_adapter validates optimize-instructions on generated O4z slot16 predecessor" {
+  let input_path = ".artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/12-slot15-remove-unused-names/binaryen.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected saved ordered O4z predecessor at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--optimize-instructions", "--out", output_path, input_path],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected optimize-instructions ordered O4z slot16 predecessor replay success, got \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["optimize-instructions"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected generated O4z slot16 optimize-instructions output to stay wasm-tools-valid, got \{err}",
+      )
+  }
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter keeps extracted generated O4z slot16 optimize-instructions func1818 output wasm-tools-valid" {
+  let input_path = ".artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/12-slot15-remove-unused-names/binaryen.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected saved ordered O4z predecessor at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--extract-functions=1818", "--optimize-instructions", "--out", output_path,
+        input_path,
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected extracted generated O4z slot16 optimize-instructions func1818 replay success, got \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, [
+    "extract-functions=1818", "optimize-instructions",
+  ])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected extracted generated O4z slot16 optimize-instructions func1818 output to stay wasm-tools-valid, got \{err}",
+      )
+  }
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter validates heap-store-optimization on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let output_path = "out.wasm"

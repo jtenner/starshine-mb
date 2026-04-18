@@ -373,7 +373,7 @@ test "hot lower preserves carried payload forwarders with trailing stores and re
 }
 
 ///|
-test "hot lower repacks flattened parent-exit payloads under child wrappers" {
+test "hot lower keeps flattened parent-exit payloads unpacked when child exits still target the wrapper" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32) (result i32) (local i32) (block $block10 (result i32) (block $block9 (block $block8 (local.set 1 (i32.const 1)) (if (local.get 0) (then (local.set 1 (i32.const 7)) (br $block8)) (else (local.set 1 (i32.const 9)) (br $block9))) unreachable) (br $block10 (local.get 1))))))",
   )
@@ -390,33 +390,28 @@ test "hot lower repacks flattened parent-exit payloads under child wrappers" {
               @lib.BlockType::void_(),
               @lib.Expr::new([
                 @lib.Instruction::block(
-                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.BlockType::void_(),
                   @lib.Expr::new([
-                    @lib.Instruction::block(
+                    @lib.Instruction::i32_const(@lib.I32(1)),
+                    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                    @lib.Instruction::if_(
                       @lib.BlockType::void_(),
-                      @lib.Expr::new([
-                        @lib.Instruction::i32_const(@lib.I32(1)),
+                      [
+                        @lib.Instruction::i32_const(@lib.I32(7)),
                         @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-                        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-                        @lib.Instruction::if_(
-                          @lib.BlockType::void_(),
-                          [
-                            @lib.Instruction::i32_const(@lib.I32(7)),
-                            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-                            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-                          ],
-                          Some([
-                            @lib.Instruction::i32_const(@lib.I32(9)),
-                            @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
-                            @lib.Instruction::br(@lib.LabelIdx::new(3U)),
-                          ]),
-                        ),
-                        @lib.Instruction::unreachable_(),
+                        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                      ],
+                      Some([
+                        @lib.Instruction::i32_const(@lib.I32(9)),
+                        @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+                        @lib.Instruction::br(@lib.LabelIdx::new(2U)),
                       ]),
                     ),
-                    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+                    @lib.Instruction::unreachable_(),
                   ]),
                 ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
                 @lib.Instruction::br(@lib.LabelIdx::new(1U)),
               ]),
             ),
@@ -428,7 +423,7 @@ test "hot lower repacks flattened parent-exit payloads under child wrappers" {
 }
 
 ///|
-test "hot lower repacks split parent-exit payload wrappers with a two-root prefix carrier" {
+test "hot lower keeps split parent-exit payload wrappers unpacked when child exits still target the wrapper" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit1 (block $exit0 (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $exit0)) (else (local.set 2 (i32.const 9)) (br $exit1))) unreachable) (br $outer (local.get 2))))))",
   )
@@ -445,31 +440,26 @@ test "hot lower repacks split parent-exit payload wrappers with a two-root prefi
               @lib.BlockType::void_(),
               @lib.Expr::new([
                 @lib.Instruction::block(
-                  @lib.BlockType::val_type(@lib.ValType::i32()),
+                  @lib.BlockType::void_(),
                   @lib.Expr::new([
-                    @lib.Instruction::block(
+                    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+                    @lib.Instruction::if_(
                       @lib.BlockType::void_(),
-                      @lib.Expr::new([
-                        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
-                        @lib.Instruction::if_(
-                          @lib.BlockType::void_(),
-                          [
-                            @lib.Instruction::i32_const(@lib.I32(7)),
-                            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-                            @lib.Instruction::br(@lib.LabelIdx::new(1U)),
-                          ],
-                          Some([
-                            @lib.Instruction::i32_const(@lib.I32(9)),
-                            @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
-                            @lib.Instruction::br(@lib.LabelIdx::new(3U)),
-                          ]),
-                        ),
-                        @lib.Instruction::unreachable_(),
+                      [
+                        @lib.Instruction::i32_const(@lib.I32(7)),
+                        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                        @lib.Instruction::br(@lib.LabelIdx::new(1U)),
+                      ],
+                      Some([
+                        @lib.Instruction::i32_const(@lib.I32(9)),
+                        @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                        @lib.Instruction::br(@lib.LabelIdx::new(2U)),
                       ]),
                     ),
-                    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+                    @lib.Instruction::unreachable_(),
                   ]),
                 ),
+                @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
                 @lib.Instruction::br(@lib.LabelIdx::new(1U)),
               ]),
             ),
