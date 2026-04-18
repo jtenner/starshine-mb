@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record newer Precompute GC heap-effect drift
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` and `docs/wiki/binaryen/passes/precompute/index.md` after a fresh non-GitHub upstream check to record the newer Chromium-mirror `2026-03-25` `Precompute` change that stops folding GC `struct` / `array` atomic RMW and `cmpxchg` ops because they read and write heap state, alongside the already-tracked `2025-08-27` child-retention rewrite.
+- Refreshed `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md` so both human catalogs mention the broader `precompute` drift note instead of only the older child-retention change.
+- Reran a repo-local markdown-link health check over `docs/wiki/**/*.md`; there were still no broken relative links after the refresh.
+
 ## [2026-04-18] maintain | tighten Binaryen terminology evidence for late-pass stubs
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` so the 2026-04-18 non-GitHub terminology check now explicitly records direct Debian manpage confirmation for `--heap-store-optimization` and `--remove-unused-brs`, instead of implying that only the Rust bindings carried those names.
