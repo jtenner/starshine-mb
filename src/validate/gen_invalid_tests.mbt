@@ -315,6 +315,90 @@ test "gen_invalid_ast_generate supports import-section invalid func type strateg
 }
 
 ///|
+test "gen_invalid_ast_generate supports element-section invalid offset strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef8UL),
+      GenInvalidAstParams::repro_seed(NonConstantElemOffset),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected non-constant-elem-offset base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected non-constant-elem-offset mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ElementSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports tag-section invalid type strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efaUL),
+      GenInvalidAstParams::repro_seed(InvalidTagTypeIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-tag-type-index base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-tag-type-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == TagSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports datacount-section invalid strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efcUL),
+      GenInvalidAstParams::repro_seed(DataCountWithoutDataSec),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected datacount-without-data base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected datacount-without-data mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == DataCountSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_params_profile_name identifies named and custom profiles" {
   assert_eq(
     gen_invalid_ast_params_profile_name(

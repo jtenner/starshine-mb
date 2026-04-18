@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record full AST validator-family coverage
+
+- Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture the latest widening step: the AST invalid lane now also reaches element-section, memory-section, tag-section, type-section, and datacount-section failures, and the checked-in registry test now locks that every current `ValidationIssueFamily` has at least one deterministic AST invalid strategy.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe AST invalid coverage as family-complete and shift the remaining work toward adding more breadth within covered families plus widening the binary invalid lane.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record import/table AST invalid strategies
 
 - Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture the next widening step after the earlier function/code/global/data additions: the AST invalid lane now also reaches import-section and table-section failures through `invalid-imported-func-type-index` and `mutable-global-get-in-table-init`.

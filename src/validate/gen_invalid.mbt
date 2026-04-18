@@ -183,6 +183,11 @@ fn gen_invalid_ast_strategy_label(
     NonConstantDataOffset => "non-constant-data-offset"
     InvalidImportedFuncTypeIndex => "invalid-imported-func-type-index"
     MutableGlobalGetInTableInit => "mutable-global-get-in-table-init"
+    NonConstantElemOffset => "non-constant-elem-offset"
+    SharedMemoryWithoutMax => "shared-memory-without-max"
+    InvalidTagTypeIndex => "invalid-tag-type-index"
+    DescriptorOnFuncType => "descriptor-on-func-type"
+    DataCountWithoutDataSec => "datacount-without-data-sec"
   }
 }
 

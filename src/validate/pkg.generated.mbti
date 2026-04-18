@@ -429,6 +429,11 @@ pub enum ValidateInvalidAstStrategyId {
   NonConstantDataOffset
   InvalidImportedFuncTypeIndex
   MutableGlobalGetInTableInit
+  NonConstantElemOffset
+  SharedMemoryWithoutMax
+  InvalidTagTypeIndex
+  DescriptorOnFuncType
+  DataCountWithoutDataSec
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidAstStrategySpec {

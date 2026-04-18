@@ -74,6 +74,11 @@ pub enum ValidateInvalidAstStrategyId {
   NonConstantDataOffset
   InvalidImportedFuncTypeIndex
   MutableGlobalGetInTableInit
+  NonConstantElemOffset
+  SharedMemoryWithoutMax
+  InvalidTagTypeIndex
+  DescriptorOnFuncType
+  DataCountWithoutDataSec
 } derive(Eq, Debug)
 
 ///|
@@ -211,6 +216,36 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "mutable global.get in table initializer",
       TableSectionFamily,
     ),
+    validate_invalid_ast_strategy_spec(
+      NonConstantElemOffset,
+      "non-constant-elem-offset",
+      "non-constant active element offset",
+      ElementSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      SharedMemoryWithoutMax,
+      "shared-memory-without-max",
+      "shared memory without maximum",
+      MemorySectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidTagTypeIndex,
+      "invalid-tag-type-index",
+      "invalid tag type index",
+      TagSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      DescriptorOnFuncType,
+      "descriptor-on-func-type",
+      "descriptor metadata on function type",
+      TypeSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      DataCountWithoutDataSec,
+      "datacount-without-data-sec",
+      "datacount section without data section",
+      DataCountSectionFamily,
+    ),
   ]
 }
 
@@ -242,6 +277,11 @@ fn validate_invalid_ast_strategy_index(
     NonConstantDataOffset => 8
     InvalidImportedFuncTypeIndex => 9
     MutableGlobalGetInTableInit => 10
+    NonConstantElemOffset => 11
+    SharedMemoryWithoutMax => 12
+    InvalidTagTypeIndex => 13
+    DescriptorOnFuncType => 14
+    DataCountWithoutDataSec => 15
   }
 }
 
@@ -489,6 +529,30 @@ fn validate_invalid_ast_without_code_sec(mod : Module) -> Module {
     data_cnt_sec=mod.data_cnt_sec,
     code_sec=None,
     data_sec=mod.data_sec,
+  )
+}
+
+///|
+fn validate_invalid_ast_without_data_sec(mod : Module) -> Module {
+  Module::new(
+    custom_secs=mod.custom_secs,
+    name_sec=mod.name_sec,
+    raw_name_sec_payload=mod.raw_name_sec_payload,
+    type_sec=mod.type_sec,
+    import_sec=mod.import_sec,
+    func_annotation_sec=mod.func_annotation_sec,
+    func_sec=mod.func_sec,
+    table_sec=mod.table_sec,
+    mem_sec=mod.mem_sec,
+    tag_sec=mod.tag_sec,
+    stringrefs_sec=mod.stringrefs_sec,
+    global_sec=mod.global_sec,
+    export_sec=mod.export_sec,
+    start_sec=mod.start_sec,
+    elem_sec=mod.elem_sec,
+    data_cnt_sec=mod.data_cnt_sec,
+    code_sec=mod.code_sec,
+    data_sec=None,
   )
 }
 
@@ -779,6 +843,100 @@ fn validate_invalid_ast_mutate_mutable_global_get_in_table_init(
 }
 
 ///|
+fn validate_invalid_ast_mutate_non_constant_elem_offset(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let tables = validate_invalid_ast_table_entries(mod)
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  if tables.length() == 0 {
+    tables.push(
+      Table::new(TableType::new(func_ref, Limits::i32(1, None)), None),
+    )
+  }
+  let elem = Elem::new(
+    ElemMode::active(
+      TableIdx::new(0U),
+      Expr::new([Instruction::i32_const(I32(1)), Instruction::drop()]),
+    ),
+    ElemKind::funcs([]),
+  )
+  {
+    strategy: NonConstantElemOffset,
+    applicable: true,
+    expected_family: ElementSectionFamily,
+    mutated_module: mod
+    .with_table_sec(TableSec::new(tables))
+    .with_elem_sec(ElemSec::new([elem])),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_shared_memory_without_max(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let mems = validate_invalid_ast_mem_entries(mod)
+  mems.push(MemType::new(Limits::i32(1, None), shared=true))
+  {
+    strategy: SharedMemoryWithoutMax,
+    applicable: true,
+    expected_family: MemorySectionFamily,
+    mutated_module: mod.with_mem_sec(MemSec::new(mems)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_tag_type_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let tags : Array[TagType] = []
+  let bad_type_idx = TypeIdx::new(
+    validate_invalid_ast_type_entries(mod).length().reinterpret_as_uint(),
+  )
+  tags.push(TagType::new(bad_type_idx))
+  {
+    strategy: InvalidTagTypeIndex,
+    applicable: true,
+    expected_family: TagSectionFamily,
+    mutated_module: mod.with_tag_sec(TagSec::new(tags)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_descriptor_on_func_type(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let types = validate_invalid_ast_type_entries(mod)
+  types.push(
+    RecType::new(
+      SubType::comp_type(
+        CompType::func([], []),
+        metadata=TypeMetadata::new(descriptor=Some(TypeIdx::new(0U))),
+      ),
+    ),
+  )
+  {
+    strategy: DescriptorOnFuncType,
+    applicable: true,
+    expected_family: TypeSectionFamily,
+    mutated_module: mod.with_type_sec(TypeSec::new(types)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_datacount_without_data_sec(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  {
+    strategy: DataCountWithoutDataSec,
+    applicable: true,
+    expected_family: DataCountSectionFamily,
+    mutated_module: validate_invalid_ast_without_data_sec(mod).with_data_cnt_sec(
+      DataCntSec::new(U32(1U)),
+    ),
+  }
+}
+
+///|
 pub fn apply_validate_invalid_ast_strategy(
   strategy : ValidateInvalidAstStrategyId,
   mod : Module,
@@ -812,6 +970,16 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_imported_func_type_index(base)
       MutableGlobalGetInTableInit =>
         validate_invalid_ast_mutate_mutable_global_get_in_table_init(base)
+      NonConstantElemOffset =>
+        validate_invalid_ast_mutate_non_constant_elem_offset(base)
+      SharedMemoryWithoutMax =>
+        validate_invalid_ast_mutate_shared_memory_without_max(base)
+      InvalidTagTypeIndex =>
+        validate_invalid_ast_mutate_invalid_tag_type_index(base)
+      DescriptorOnFuncType =>
+        validate_invalid_ast_mutate_descriptor_on_func_type(base)
+      DataCountWithoutDataSec =>
+        validate_invalid_ast_mutate_datacount_without_data_sec(base)
     },
   )
 }
@@ -1034,10 +1202,11 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "duplicate-export-name", "invalid-start-signature", "missing-datacount", "undeclared-ref-func",
     "invalid-name-section-func-index", "invalid-func-type-index", "funcsec-without-codesec",
     "mutable-global-get-in-const-init", "non-constant-data-offset", "invalid-imported-func-type-index",
-    "mutable-global-get-in-table-init",
+    "mutable-global-get-in-table-init", "non-constant-elem-offset", "shared-memory-without-max",
+    "invalid-tag-type-index", "descriptor-on-func-type", "datacount-without-data-sec",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 11)
+  assert_eq(smoke_required.length(), 16)
 }
 
 ///|
@@ -1225,6 +1394,99 @@ test "mutable global.get table-init strategy rejects with TableSection family" {
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "non-constant elem offset strategy rejects with ElementSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      NonConstantElemOffset,
+      0x5ef8UL,
+      ElementSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "shared memory without max strategy rejects with MemorySection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      SharedMemoryWithoutMax,
+      0x5ef9UL,
+      MemorySectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid tag type index strategy rejects with TagSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidTagTypeIndex,
+      0x5efaUL,
+      TagSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "descriptor-on-func type strategy rejects with TypeSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      DescriptorOnFuncType,
+      0x5efbUL,
+      TypeSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "datacount without data section strategy rejects with DataCountSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      DataCountWithoutDataSec,
+      0x5efcUL,
+      DataCountSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "validate_invalid_ast_registry covers every validation issue family" {
+  let registry = validate_invalid_ast_registry()
+  let expected = [
+    TypeSectionFamily,
+    ImportSectionFamily,
+    FunctionSectionFamily,
+    TableSectionFamily,
+    MemorySectionFamily,
+    TagSectionFamily,
+    GlobalSectionFamily,
+    ElementSectionFamily,
+    DataSectionFamily,
+    DataCountSectionFamily,
+    StartSectionFamily,
+    ExportSectionFamily,
+    CodeSectionFamily,
+    NameSectionFamily,
+    FunctionBodyFamily,
+  ]
+  for family in expected {
+    assert_true(
+      registry.any(fn(spec) { spec.expected_family == family }),
+      msg="missing family " + validation_issue_family_label(family),
+    )
   }
 }
 
