@@ -30,6 +30,10 @@ pub fn gen_invalid_ast_seed_config(GenInvalidAstParams) -> GenValidConfig
 
 pub fn gen_invalid_ast_seed_module(@splitmix.RandomState, GenInvalidAstParams) -> Result[@lib.Module, String]
 
+pub fn gen_invalid_require_defined_func_gen_valid_config(GenValidConfig) -> GenValidConfig
+
+pub fn gen_invalid_require_memory_data_gen_valid_config(GenValidConfig) -> GenValidConfig
+
 pub fn gen_invalid_small_gen_valid_config(GenValidConfig) -> GenValidConfig
 
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts

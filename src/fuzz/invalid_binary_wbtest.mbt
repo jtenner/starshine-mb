@@ -256,6 +256,21 @@ test "gen_invalid_binary coverage_forced_seed uses coverage-forced defaults" {
 }
 
 ///|
+test "gen_invalid_binary new enables strategy prereqs by default" {
+  let params = GenInvalidBinaryParams::new(InvalidFuncTypeIndex)
+  assert_true(params.require_strategy_prereqs)
+}
+
+///|
+test "gen_invalid_binary new can disable strategy prereqs" {
+  let params = GenInvalidBinaryParams::new(
+    InvalidFuncTypeIndex,
+    require_strategy_prereqs=false,
+  )
+  assert_false(params.require_strategy_prereqs)
+}
+
+///|
 test "gen_invalid_binary small_natural_seed uses a smaller natural config" {
   let params = GenInvalidBinaryParams::small_natural_seed(TrailingGarbage)
   let natural = GenValidConfig::natural_default()
@@ -269,6 +284,12 @@ test "gen_invalid_binary small_natural_seed uses a smaller natural config" {
     params.generator_config.max_body_statements < natural.max_body_statements,
   )
   assert_true(params.generator_config.max_body_depth < natural.max_body_depth)
+}
+
+///|
+test "gen_invalid_binary small_natural_seed enables strategy prereqs by default" {
+  let params = GenInvalidBinaryParams::small_natural_seed(InvalidFuncTypeIndex)
+  assert_true(params.require_strategy_prereqs)
 }
 
 ///|
@@ -333,4 +354,5 @@ test "gen_invalid_binary repro_seed matches small coverage-forced seed defaults"
   )
   assert_true(repro.seed_mode == small.seed_mode)
   assert_true(repro.generator_config == small.generator_config)
+  assert_true(repro.require_strategy_prereqs == small.require_strategy_prereqs)
 }

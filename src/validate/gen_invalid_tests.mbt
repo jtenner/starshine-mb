@@ -115,6 +115,18 @@ test "gen_invalid_ast coverage_forced_seed uses coverage-forced defaults" {
 }
 
 ///|
+test "gen_invalid_require_defined_func_gen_valid_config widens type and func minimums" {
+  let restrictive = GenValidConfig::{
+    ..GenValidConfig::natural_default(),
+    max_type_defs: 0,
+    max_defined_funcs: 0,
+  }
+  let adjusted = gen_invalid_require_defined_func_gen_valid_config(restrictive)
+  assert_eq(adjusted.max_type_defs, 1)
+  assert_eq(adjusted.max_defined_funcs, 1)
+}
+
+///|
 test "gen_invalid_small_gen_valid_config shrinks a natural config" {
   let natural = GenValidConfig::natural_default()
   let shrunk = gen_invalid_small_gen_valid_config(natural)

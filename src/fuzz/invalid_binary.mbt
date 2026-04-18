@@ -64,6 +64,7 @@ pub struct GenInvalidBinaryParams {
   strategy : ValidateInvalidBinaryStrategyId
   seed_mode : GenInvalidBinarySeedMode
   generator_config : GenValidConfig
+  require_strategy_prereqs : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -71,30 +72,44 @@ pub fn GenInvalidBinaryParams::new(
   strategy : ValidateInvalidBinaryStrategyId,
   seed_mode? : GenInvalidBinarySeedMode = RandomValidSeed,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
-  { strategy, seed_mode, generator_config }
+  { strategy, seed_mode, generator_config, require_strategy_prereqs }
 }
 
 ///|
 pub fn GenInvalidBinaryParams::natural_seed(
   strategy : ValidateInvalidBinaryStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::natural_default(),
+  require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
-  { strategy, seed_mode: RandomValidSeed, generator_config }
+  {
+    strategy,
+    seed_mode: RandomValidSeed,
+    generator_config,
+    require_strategy_prereqs,
+  }
 }
 
 ///|
 pub fn GenInvalidBinaryParams::coverage_forced_seed(
   strategy : ValidateInvalidBinaryStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
-  { strategy, seed_mode: RandomValidSeed, generator_config }
+  {
+    strategy,
+    seed_mode: RandomValidSeed,
+    generator_config,
+    require_strategy_prereqs,
+  }
 }
 
 ///|
 pub fn GenInvalidBinaryParams::small_natural_seed(
   strategy : ValidateInvalidBinaryStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::natural_default(),
+  require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
     strategy,
@@ -102,6 +117,7 @@ pub fn GenInvalidBinaryParams::small_natural_seed(
     generator_config: @validate.gen_invalid_small_gen_valid_config(
       generator_config,
     ),
+    require_strategy_prereqs,
   }
 }
 
@@ -109,6 +125,7 @@ pub fn GenInvalidBinaryParams::small_natural_seed(
 pub fn GenInvalidBinaryParams::small_coverage_forced_seed(
   strategy : ValidateInvalidBinaryStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
     strategy,
@@ -116,6 +133,7 @@ pub fn GenInvalidBinaryParams::small_coverage_forced_seed(
     generator_config: @validate.gen_invalid_small_gen_valid_config(
       generator_config,
     ),
+    require_strategy_prereqs,
   }
 }
 
@@ -123,10 +141,12 @@ pub fn GenInvalidBinaryParams::small_coverage_forced_seed(
 pub fn GenInvalidBinaryParams::repro_seed(
   strategy : ValidateInvalidBinaryStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
   GenInvalidBinaryParams::small_coverage_forced_seed(
     strategy,
     generator_config~,
+    require_strategy_prereqs~,
   )
 }
 
@@ -134,8 +154,14 @@ pub fn GenInvalidBinaryParams::repro_seed(
 pub fn GenInvalidBinaryParams::minimal_seed(
   strategy : ValidateInvalidBinaryStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
-  { strategy, seed_mode: MinimalValidSeed, generator_config }
+  {
+    strategy,
+    seed_mode: MinimalValidSeed,
+    generator_config,
+    require_strategy_prereqs,
+  }
 }
 
 ///|
@@ -248,8 +274,15 @@ fn validate_invalid_binary_strategy_label(
 pub fn gen_invalid_binary_seed_config(
   params : GenInvalidBinaryParams,
 ) -> GenValidConfig {
-  ignore(params.strategy)
-  params.generator_config
+  if !params.require_strategy_prereqs {
+    return params.generator_config
+  }
+  let config = params.generator_config
+  match params.strategy {
+    InvalidFuncTypeIndex =>
+      @validate.gen_invalid_require_defined_func_gen_valid_config(config)
+    _ => config
+  }
 }
 
 ///|

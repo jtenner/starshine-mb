@@ -143,6 +143,38 @@ fn gen_invalid_min_int(left : Int, right : Int) -> Int {
 }
 
 ///|
+pub fn gen_invalid_require_defined_func_gen_valid_config(
+  config : GenValidConfig,
+) -> GenValidConfig {
+  GenValidConfig::{
+    ..config,
+    max_type_defs: gen_invalid_max_int(config.max_type_defs, 1),
+    max_defined_funcs: gen_invalid_max_int(config.max_defined_funcs, 1),
+  }
+}
+
+///|
+pub fn gen_invalid_require_memory_data_gen_valid_config(
+  config : GenValidConfig,
+) -> GenValidConfig {
+  GenValidConfig::{
+    ..config,
+    max_mems: gen_invalid_max_int(config.max_mems, 1),
+    max_datas: gen_invalid_max_int(config.max_datas, 1),
+    section_bias: GenValidSectionBias::{
+      ..config.section_bias,
+      mems_percent: 100,
+      datas_percent: 100,
+    },
+    features: GenValidFeatureToggles::{
+      ..config.features,
+      allow_mems: true,
+      allow_datas: true,
+    },
+  }
+}
+
+///|
 pub fn gen_invalid_small_gen_valid_config(
   config : GenValidConfig,
 ) -> GenValidConfig {
@@ -174,22 +206,7 @@ pub fn gen_invalid_ast_seed_config(
   }
   let config = params.generator_config
   match params.strategy {
-    MissingDataCount =>
-      GenValidConfig::{
-        ..config,
-        max_mems: gen_invalid_max_int(config.max_mems, 1),
-        max_datas: gen_invalid_max_int(config.max_datas, 1),
-        section_bias: GenValidSectionBias::{
-          ..config.section_bias,
-          mems_percent: 100,
-          datas_percent: 100,
-        },
-        features: GenValidFeatureToggles::{
-          ..config.features,
-          allow_mems: true,
-          allow_datas: true,
-        },
-      }
+    MissingDataCount => gen_invalid_require_memory_data_gen_valid_config(config)
     _ => config
   }
 }

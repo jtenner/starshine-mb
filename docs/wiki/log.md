@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record shared strategy-prereq shapers for `gen_invalid`
+
+- Reviewed the already-modified invalid-generation files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_binary_wbtest.mbt` to capture the next public-API refinement after the compact/repro seed work: validate now exports reusable strategy-prereq seed shapers, and binary invalid-generation params now carry an explicit `require_strategy_prereqs` toggle on every constructor.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the shared validate-side prerequisite shapers (`gen_invalid_require_memory_data_gen_valid_config(...)`, `gen_invalid_require_defined_func_gen_valid_config(...)`) and the new binary opt-out toggle instead of treating all seed widening as implicit package-internal behavior.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record named repro-seed helpers on `gen_invalid`
 
 - Reviewed the already-modified invalid-generation and report-builder files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, `src/fuzz/invalid_binary_wbtest.mbt`, `src/fuzz/invalid_repro.mbt`, and `src/fuzz/invalid_repro_wbtest.mbt` to capture the latest public-API refinement: both the validate and fuzz package surfaces now expose a semantic `repro_seed(...)` constructor in addition to the lower-level `small_coverage_forced_seed(...)` helper.
