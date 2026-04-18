@@ -441,6 +441,9 @@ pub enum ValidateInvalidAstStrategyId {
   CodeSecWithoutFuncSec
   InvalidTableNameSectionIndex
   InvalidGlobalNameSectionIndex
+  InvalidTypeNameSectionIndex
+  InvalidElemNameSectionIndex
+  InvalidDataNameSectionIndex
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidAstStrategySpec {

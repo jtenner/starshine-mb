@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record deeper AST name-section breadth
+
+- Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture another AST breadth step: the curated invalid lane now covers out-of-range type-name, elem-name, and data-name indices in addition to the earlier function/memory/table/global name-section cases.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the AST name-section surface as broader than the earlier function/memory/table/global-only set.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record another AST-binary-text invalid widening pass
 
 - Reviewed the already-modified validator and fuzz invalid sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, `src/fuzz/invalid_binary_wbtest.mbt`, `src/fuzz/invalid_text.mbt`, and `src/fuzz/invalid_text_wbtest.mbt` to capture the next release-hardening step: the AST lane now adds more name/code breadth, the binary lane now adds both header-corruption cases and more encoded invalid-module families, and the text/spec lanes now add another malformed/invalid/unlinkable round instead of stopping at two examples per stage family.

@@ -86,6 +86,9 @@ pub enum ValidateInvalidAstStrategyId {
   CodeSecWithoutFuncSec
   InvalidTableNameSectionIndex
   InvalidGlobalNameSectionIndex
+  InvalidTypeNameSectionIndex
+  InvalidElemNameSectionIndex
+  InvalidDataNameSectionIndex
 } derive(Eq, Debug)
 
 ///|
@@ -302,6 +305,27 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       NameSectionFamily,
       required_in_smoke=false,
     ),
+    validate_invalid_ast_strategy_spec(
+      InvalidTypeNameSectionIndex,
+      "invalid-type-name-section-index",
+      "invalid type name index",
+      NameSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidElemNameSectionIndex,
+      "invalid-elem-name-section-index",
+      "invalid elem name index",
+      NameSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidDataNameSectionIndex,
+      "invalid-data-name-section-index",
+      "invalid data name index",
+      NameSectionFamily,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -345,6 +369,9 @@ fn validate_invalid_ast_strategy_index(
     CodeSecWithoutFuncSec => 20
     InvalidTableNameSectionIndex => 21
     InvalidGlobalNameSectionIndex => 22
+    InvalidTypeNameSectionIndex => 23
+    InvalidElemNameSectionIndex => 24
+    InvalidDataNameSectionIndex => 25
   }
 }
 
@@ -364,9 +391,9 @@ pub fn validate_invalid_ast_run_config(
 ) -> Result[ValidateInvalidAstRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 24
-    "ci" => 240
-    "stress" => 2400
+    "smoke" => 26
+    "ci" => 260
+    "stress" => 2600
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -440,6 +467,14 @@ fn validate_invalid_ast_table_entries(mod : Module) -> Array[Table] {
 fn validate_invalid_ast_data_entries(mod : Module) -> Array[Data] {
   match mod.data_sec {
     Some(DataSec(entries)) => entries.copy()
+    None => []
+  }
+}
+
+///|
+fn validate_invalid_ast_elem_entries(mod : Module) -> Array[Elem] {
+  match mod.elem_sec {
+    Some(ElemSec(entries)) => entries.copy()
     None => []
   }
 }
@@ -772,6 +807,84 @@ fn validate_invalid_ast_with_global_names(
 }
 
 ///|
+fn validate_invalid_ast_with_type_names(
+  mod : Module,
+  type_names : NameMap,
+) -> Module {
+  let next_name_sec = match mod.name_sec {
+    Some(name_sec) =>
+      NameSec::new(
+        module_name=name_sec.module_name,
+        func_names=name_sec.func_names,
+        local_names=name_sec.local_names,
+        label_names=name_sec.label_names,
+        type_names=Some(type_names),
+        table_names=name_sec.table_names,
+        memory_names=name_sec.memory_names,
+        global_names=name_sec.global_names,
+        elem_names=name_sec.elem_names,
+        data_names=name_sec.data_names,
+        field_names=name_sec.field_names,
+        tag_names=name_sec.tag_names,
+      )
+    None => NameSec::new(type_names=Some(type_names))
+  }
+  mod.with_name_sec(next_name_sec)
+}
+
+///|
+fn validate_invalid_ast_with_elem_names(
+  mod : Module,
+  elem_names : NameMap,
+) -> Module {
+  let next_name_sec = match mod.name_sec {
+    Some(name_sec) =>
+      NameSec::new(
+        module_name=name_sec.module_name,
+        func_names=name_sec.func_names,
+        local_names=name_sec.local_names,
+        label_names=name_sec.label_names,
+        type_names=name_sec.type_names,
+        table_names=name_sec.table_names,
+        memory_names=name_sec.memory_names,
+        global_names=name_sec.global_names,
+        elem_names=Some(elem_names),
+        data_names=name_sec.data_names,
+        field_names=name_sec.field_names,
+        tag_names=name_sec.tag_names,
+      )
+    None => NameSec::new(elem_names=Some(elem_names))
+  }
+  mod.with_name_sec(next_name_sec)
+}
+
+///|
+fn validate_invalid_ast_with_data_names(
+  mod : Module,
+  data_names : NameMap,
+) -> Module {
+  let next_name_sec = match mod.name_sec {
+    Some(name_sec) =>
+      NameSec::new(
+        module_name=name_sec.module_name,
+        func_names=name_sec.func_names,
+        local_names=name_sec.local_names,
+        label_names=name_sec.label_names,
+        type_names=name_sec.type_names,
+        table_names=name_sec.table_names,
+        memory_names=name_sec.memory_names,
+        global_names=name_sec.global_names,
+        elem_names=name_sec.elem_names,
+        data_names=Some(data_names),
+        field_names=name_sec.field_names,
+        tag_names=name_sec.tag_names,
+      )
+    None => NameSec::new(data_names=Some(data_names))
+  }
+  mod.with_name_sec(next_name_sec)
+}
+
+///|
 fn validate_invalid_ast_mutate_duplicate_export_name(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -992,6 +1105,54 @@ fn validate_invalid_ast_mutate_invalid_global_name_section_index(
     applicable: true,
     expected_family: NameSectionFamily,
     mutated_module: validate_invalid_ast_with_global_names(mod, global_names),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_type_name_section_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = validate_invalid_ast_type_entries(mod)
+    .length()
+    .reinterpret_as_uint()
+  let type_names = NameMap::new([NameAssoc::new(bad_idx, Name::new("ty"))])
+  {
+    strategy: InvalidTypeNameSectionIndex,
+    applicable: true,
+    expected_family: NameSectionFamily,
+    mutated_module: validate_invalid_ast_with_type_names(mod, type_names),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_elem_name_section_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = validate_invalid_ast_elem_entries(mod)
+    .length()
+    .reinterpret_as_uint()
+  let elem_names = NameMap::new([NameAssoc::new(bad_idx, Name::new("elem"))])
+  {
+    strategy: InvalidElemNameSectionIndex,
+    applicable: true,
+    expected_family: NameSectionFamily,
+    mutated_module: validate_invalid_ast_with_elem_names(mod, elem_names),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_data_name_section_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = validate_invalid_ast_data_entries(mod)
+    .length()
+    .reinterpret_as_uint()
+  let data_names = NameMap::new([NameAssoc::new(bad_idx, Name::new("data"))])
+  {
+    strategy: InvalidDataNameSectionIndex,
+    applicable: true,
+    expected_family: NameSectionFamily,
+    mutated_module: validate_invalid_ast_with_data_names(mod, data_names),
   }
 }
 
@@ -1275,6 +1436,12 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_table_name_section_index(base)
       InvalidGlobalNameSectionIndex =>
         validate_invalid_ast_mutate_invalid_global_name_section_index(base)
+      InvalidTypeNameSectionIndex =>
+        validate_invalid_ast_mutate_invalid_type_name_section_index(base)
+      InvalidElemNameSectionIndex =>
+        validate_invalid_ast_mutate_invalid_elem_name_section_index(base)
+      InvalidDataNameSectionIndex =>
+        validate_invalid_ast_mutate_invalid_data_name_section_index(base)
       InvalidFuncTypeIndex =>
         validate_invalid_ast_mutate_invalid_func_type_index(base)
       FuncSecWithoutCodeSec =>
@@ -1523,7 +1690,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-tag-type-index", "descriptor-on-func-type", "datacount-without-data-sec",
     "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
     "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   assert_eq(smoke_required.length(), 16)
@@ -1874,6 +2042,45 @@ test "invalid global name index strategy rejects with NameSection family" {
 }
 
 ///|
+test "invalid type name index strategy rejects with NameSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidTypeNameSectionIndex,
+      0x5f04UL,
+      NameSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid elem name index strategy rejects with NameSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidElemNameSectionIndex,
+      0x5f05UL,
+      NameSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid data name index strategy rejects with NameSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidDataNameSectionIndex,
+      0x5f06UL,
+      NameSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "validate_invalid_ast_registry covers every validation issue family" {
   let registry = validate_invalid_ast_registry()
   let expected = [
@@ -1912,7 +2119,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 24)
+  assert_eq(first.attempts, 26)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)
