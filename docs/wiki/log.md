@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] fix | retire the extracted slot-16 `Func 652` carrier-wrapper failure and surface the remaining blocker
+
+- Added `docs/wiki/raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md` to capture the resolved part of `[O4Z]002`: the extracted slot-16 `Func 652` replay was failing because `hot_lower_impl_stackify_wrapped_struct_set_prefixes(...)` inserted a new `block (result i32)` in front of a wrapped `local.set` carrier even though child branches still targeted the parent exit label.
+- Updated `docs/wiki/binaryen/passes/optimize-instructions/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the living wiki now records the retired `Func 652` blocker explicitly and no longer describes slot 16 as only the old paired `Func 652` / `Func 1818` suspicion. The current landing-page truth is that the extracted `Func 652` witness is fixed, while the full slot-16 replay now advances to the still-open shared `Func 1818` family.
+- Updated `agent-todo.md` so `[O4Z]002` stays active but now points at the narrowed state accurately: the old `Func 652` sub-bug is retired by `0103`, and the remaining direct replay failure for slot 16 is the newly surfaced `Func 1818` underflow.
+
 ## [2026-04-18] maintain | widen Binaryen upstream-only pass boundary notes again
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after a fresh non-GitHub Binaryen release-note pass so the living wiki now records one more upstream-only addition that was missing from the earlier lower-bound catalog: `ReorderTypes` is already called out by Chromium-hosted `version_125`, between the previously tracked `version_124` and `version_126` additions.

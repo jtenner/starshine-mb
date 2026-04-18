@@ -32,12 +32,15 @@ Suggested tests
 
 - `2026-04-18`: `[O4Z]001` is retired by [0102 slot 14 `if br` large-condition guard](docs/wiki/raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md). The remaining active blockers start at `[O4Z]002`.
 
-- [ ] [O4Z]002 Early ordered `optimize-instructions` dies in final module validation on `Func 652` - (Ref [0095 slot 16 optimize-instructions underflow](docs/wiki/raw/research/0095-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-stack-underflow.md))
-  - Current blocker: Binaryen slot `16`; direct Starshine replay exits nonzero with `error: final module validate: stack underflow` and `Offending function idx=(Func 652)`.
+- [ ] [O4Z]002 Early ordered `optimize-instructions` still fails, but the original `Func 652` blocker is retired - (Refs [0095 slot 16 optimize-instructions underflow](docs/wiki/raw/research/0095-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-stack-underflow.md), [0103 slot 16 `Func 652` carrier guard follow-up](docs/wiki/raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md))
+  - Current blocker: Binaryen slot `16`; the extracted `Func 652` witness is fixed by [0103], but the full direct replay now advances to `error: final module validate: stack underflow` with `Offending function idx=(Func 1818)`, aligning the remaining early-slot failure with the later `Func 1818` family.
   - Saved predecessor input: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/12-slot15-remove-unused-names/binaryen.wasm`
   - Reproduce:
     - `_build/native/release/build/cmd/cmd.exe --optimize-instructions --out .artifacts/tmp-direct-optimize-instructions-failure.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/12-slot15-remove-unused-names/binaryen.wasm > .artifacts/tmp-direct-optimize-instructions-failure.log 2>&1`
     - `grep -E 'final module validate|Offending function idx' .artifacts/tmp-direct-optimize-instructions-failure.log`
+    - `_build/native/release/build/cmd/cmd.exe --extract-functions 652 --out .artifacts/o4z002-f652-input.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/12-slot15-remove-unused-names/binaryen.wasm`
+    - `_build/native/release/build/cmd/cmd.exe --optimize-instructions --out .artifacts/o4z002-f652-fixed.wasm .artifacts/o4z002-f652-input.wasm`
+    - `wasm-tools validate .artifacts/o4z002-f652-fixed.wasm`
 
 - [ ] [O4Z]003 Early ordered `precompute` emits invalid raw wasm with a missing `i32` result - (Ref [0096 slot 19 precompute invalid raw output](docs/wiki/raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md))
   - Current blocker: Binaryen slot `19`; direct Starshine replay exits `0`, but `wasm-tools validate .artifacts/tmp-direct-precompute-slot19.raw.wasm` fails at `func 108` with `type mismatch: expected i32 but nothing on stack`.

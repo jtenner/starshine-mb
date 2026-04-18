@@ -2713,6 +2713,9 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                             body,
                             idx + 3,
                             source_local,
+                          ) &&
+                          !hot_lower_impl_body_targets_removed_label(
+                            prefix_body, 1,
                           ) {
                           match target_local {
                             LocalIdx(raw_local) => {

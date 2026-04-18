@@ -1805,6 +1805,19 @@ test "hot lower preserves mixed-depth result if escapes without inserting a type
 }
 
 ///|
+test "hot lower keeps wrapped local.set prefixes void when child exits still target the parent" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (param i32 i32) (result i32) (local i32) (block $outer (block $mid (local.get 0) (if (then (local.get 1) (if (then (i32.const 7) (local.set 2) (br $mid)) (else (br $outer))) unreachable) (else (br $outer))) unreachable) (local.get 2) (local.set 1) (local.get 1) return) (i32.const 0)))",
+  )
+  let validated = ir_test_assert_verify_and_lower(fixture)
+  let pretty = validated.pretty_print_func(@lib.FuncIdx::new(0U))
+
+  assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 2))"), msg=pretty)
+  assert_false(pretty.contains("(block (I32)"), msg=pretty)
+}
+
+///|
 test "hot lower peels nested br payload blocks with unreachable child payloads" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (func (param i32 i32) (result i32) (local i32) (block $outer (result i32) (block $exit (block $work (if (i32.eq (local.get 0) (i32.const 1)) (then (local.set 2 (local.get 1)) (br $work)) (else (local.set 2 (i32.const 9)) (br $exit))) unreachable) (br $outer (local.get 2))) (i32.const 0))))",

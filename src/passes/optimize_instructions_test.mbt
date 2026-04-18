@@ -1849,6 +1849,26 @@ test "optimize-instructions keeps zero sentinels after returning ifs with dead a
 }
 
 ///|
+test "optimize-instructions keeps wrapped local.set prefixes void when child exits still target the parent" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32 i32) (result i32) (local i32) (block $outer (block $mid (local.get 0) (i32.const 0) (i32.eq) (if (then (br $outer)) (else (local.get 1) (if (then (i32.const 7) (local.set 2) (br $mid)) (else (br $outer))) unreachable)) unreachable) (local.get 2) (local.set 1) (local.get 1) return) (i32.const 0))))",
+      ["optimize-instructions"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected optimize-instructions mixed-depth local.set prefix success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("(local.set (Local 1))"), msg=pretty)
+  assert_true(pretty.contains("(local.get (Local 2))"), msg=pretty)
+  assert_false(pretty.contains("(block (I32)"), msg=pretty)
+}
+
+///|
 test "optimize-instructions does not reorder across the same local" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32) (result i32) local.get 0 local.get 0 local.tee 0 i32.const 1 i32.shl i32.add))",
