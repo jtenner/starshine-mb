@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | correct docs.rs heap-store terminology caveat
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/heap-store-optimization/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after a fresh non-GitHub source check because the published `wasm_opt::Pass` enum page does **not** currently expose `HeapStoreOptimization`, even though the Debian experimental `wasm-opt` `122` manpage still lists `--heap-store-optimization`.
+- Tightened the source-of-truth guidance accordingly: for this pass name, treat the Debian CLI manpage as the stronger public terminology source and treat docs.rs as negative evidence of Rust-wrapper surface lag, not as evidence that upstream Binaryen renamed or dropped the pass.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the correction.
+
+## [2026-04-18] fix | retire `[O4Z]002` slot-16 `optimize-instructions` after the `Func 1818` follow-up
+
+- Added `docs/wiki/raw/research/0104-2026-04-18-generated-o4z-optimize-instructions-slot16-func1818-parent-exit-payload-guard.md` to capture the remaining slot-16 `Func 1818` root cause: `hot_lower_impl_try_pack_split_parent_exit_payload(...)` was inserting a new typed carrier around a split parent-exit payload even when nested child branches still targeted the wrapper label one level out.
+- Updated `docs/wiki/binaryen/passes/optimize-instructions/index.md`, `docs/wiki/binaryen/passes/vacuum/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the living wiki now says the complete slot-16 story accurately: `Func 652` was fixed by `0103`, `Func 1818` was fixed by `0104`, the only remaining `optimize-instructions` ordered blocker is the later slot-44 replay, and the `vacuum` landing page no longer treats the retired slot-16 failures as evidence of a still-shared live blocker family.
+- Updated `agent-todo.md` so `[O4Z]002` is now checked off and the active generated-artifact corruption list starts at `[O4Z]003`.
+
 ## [2026-04-18] maintain | refresh current-trunk Binaryen changelog lead note
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after a fresh non-GitHub Binaryen source sweep because the Chromium-mirror `main` `CHANGELOG.md` no longer leads with the earlier worker-threading note; the current `Current Trunk` lead item is now the `MemorySegment` -> `DataSegment` API rename work.
