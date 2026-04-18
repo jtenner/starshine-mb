@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: widen inline text and spec invalid breadth yet again
+
+- **add another round of malformed, invalid, and unlinkable text/spec fixtures** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_text.mbt`](./src/fuzz/invalid_text.mbt), and [`src/fuzz/invalid_text_wbtest.mbt`](./src/fuzz/invalid_text_wbtest.mbt) so the text lanes now also cover `malformed-invalid-i32-hex-token`, `invalid-imported-start-func-param`, `unlinkable-incompatible-global-import-type`, plus sixth malformed/invalid spec seeds and a fourth incompatible-import-type spec seed from the committed corpus. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Fix: widen binary tag-name and datacount invalid coverage again
 
 - **add more deterministic binary invalid strategies for validator-rejected name and datacount modules** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), and [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt) so the binary invalid lane now also covers `invalid-tag-name-section-index-module`, `datacount-mismatch-too-small-module`, and `datacount-mismatch-too-large-module` in addition to the earlier name and datacount coverage. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.
