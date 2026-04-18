@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: widen inline text and spec invalid breadth again
+
+- **add another round of malformed, invalid, and unlinkable text/spec fixtures** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_text.mbt`](./src/fuzz/invalid_text.mbt), and [`src/fuzz/invalid_text_wbtest.mbt`](./src/fuzz/invalid_text_wbtest.mbt) so the text lanes now also cover `malformed-invalid-i64-const-token`, `invalid-start-func-result`, `unlinkable-incompatible-func-import-type`, plus fifth malformed/invalid spec seeds and a third incompatible-import-type spec seed from the committed corpus. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Fix: widen binary export-module invalid coverage again
 
 - **add more deterministic binary invalid strategies for validator-rejected export modules** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), and [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt) so the binary invalid lane now also covers `invalid-export-table-index-module`, `invalid-export-global-index-module`, and `invalid-export-tag-index-module` in addition to the earlier duplicate-export-name and other encoded validator-rejected module families. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.
