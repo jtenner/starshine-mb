@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | extend non-GitHub Binaryen release-note coverage through version_129
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after another Chromium-hosted Binaryen check so the living wiki now says explicitly that the directly reachable non-GitHub release-note horizon extends through `version_129`, not just the earlier `version_126` lower bound.
+- Recorded the precise conservative takeaway from those newer public changelog sections: the already tracked upstream-only pass additions are still the latest ones visible in reachable release notes (`version_119`, `version_124`, `version_125`, `version_126`), while `version_127` / `version_128` / `version_129` do not surface another optimization-pass addition relevant to Starshine's implemented folder map.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the catalog refresh.
+
 ## [2026-04-18] fix | retire the extracted slot-16 `Func 652` carrier-wrapper failure and surface the remaining blocker
 
 - Added `docs/wiki/raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md` to capture the resolved part of `[O4Z]002`: the extracted slot-16 `Func 652` replay was failing because `hot_lower_impl_stackify_wrapped_struct_set_prefixes(...)` inserted a new `block (result i32)` in front of a wrapped `local.set` carrier even though child branches still targeted the parent exit label.
