@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | correct late-pass blocker-count wording after slot-19 and slot-23 retirements
+
+- Rechecked the current Binaryen public-source hierarchy against the official GitHub `main` changelog and tagged release pages through `version_129`, plus the Chromium mirror commits already cited by the late-pass pages; this maintenance pass did not find a newer documented optimization-pass addition or rename affecting Starshine's current folder map.
+- Updated `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md` so their summaries no longer say the late `-O4z` audit still has `five` remaining blockers; after the `0105` and `0106` retirements, the living late-pass summary correctly narrows the open generated-artifact blocker set to `three`: `vacuum` slot `33`, `remove-unused-brs` slot `40`, and `optimize-instructions` slot `44`.
+- Reran a repo-local markdown-link health check over `docs/wiki/**/*.md`; there were still `0` broken relative links after the wording correction.
+
 ## [2026-04-18] fix | retire `[O4Z]004` generated slot-23 `vacuum` corruption
 
 - Added `docs/wiki/raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md` to record that the saved slot-23 predecessor from `0097` now replays cleanly on the current tree, the extracted `Func 652` replay also validates, and the Binaryen compare reports normalized-WAT plus canonical-function equality.

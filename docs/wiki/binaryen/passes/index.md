@@ -49,7 +49,7 @@ related:
 
 ## Tail Dispatch Notes
 
-- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note, now also recording that Debian/docs.rs/README package surfaces are all incomplete in different ways, that official GitHub release pages through `version_129` plus the Chromium refs listing still anchor the current public release horizon, that the current `main` changelog on both Chromium and official GitHub still lacks a newer documented optimization-pass addition, and that the living ordered-audit summary now names the exact five remaining generated-artifact blockers instead of only the broader failing-pass cluster.
+- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note, now also recording that Debian/docs.rs/README package surfaces are all incomplete in different ways, that official GitHub release pages through `version_129` plus the Chromium refs listing still anchor the current public release horizon, that the current `main` changelog on both Chromium and official GitHub still lacks a newer documented optimization-pass addition, and that the living ordered-audit summary now names the exact three remaining generated-artifact blockers instead of only the broader failing-pass cluster.
 
 ## Current Maintenance Rule
 
