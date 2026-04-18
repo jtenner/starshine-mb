@@ -47,10 +47,10 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-func-type-index", "invalid-start-signature-module", "invalid-imported-start-func-param-module",
     "invalid-imported-start-func-result-module", "invalid-imported-start-func-param-result-module",
     "invalid-imported-start-func-multi-param-module", "invalid-imported-start-func-f32-param-module",
-    "duplicate-export-name-module", "funcsec-without-codesec-module", "datacount-without-data-sec-module",
-    "invalid-name-section-func-index-module", "invalid-local-name-section-index-module",
-    "invalid-label-name-section-index-module", "bad-magic-header", "bad-version-header",
-    "codesec-without-funcsec-module", "invalid-table-name-section-index-module",
+    "invalid-imported-start-func-externref-param-module", "duplicate-export-name-module",
+    "funcsec-without-codesec-module", "datacount-without-data-sec-module", "invalid-name-section-func-index-module",
+    "invalid-local-name-section-index-module", "invalid-label-name-section-index-module",
+    "bad-magic-header", "bad-version-header", "codesec-without-funcsec-module", "invalid-table-name-section-index-module",
     "invalid-global-name-section-index-module", "reserved-section-id", "invalid-custom-section-name-utf8",
     "invalid-type-name-section-index-module", "invalid-field-name-section-index-module",
     "invalid-elem-name-section-index-module", "invalid-data-name-section-index-module",
@@ -65,15 +65,16 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     [
       "decode", "decode", "decode", "decode", "validate-function", "validate-start",
       "validate-start", "validate-start", "validate-start", "validate-start", "validate-start",
-      "validate-export", "validate-code", "validate-datacount", "validate-name",
-      "validate-name", "validate-name", "decode", "decode", "validate-code", "validate-name",
-      "validate-name", "decode", "decode", "validate-name", "validate-name", "validate-name",
-      "validate-name", "validate-export", "validate-export", "validate-export", "validate-export",
-      "validate-name", "validate-import", "validate-datacount", "validate-datacount",
+      "validate-start", "validate-export", "validate-code", "validate-datacount",
+      "validate-name", "validate-name", "validate-name", "decode", "decode", "validate-code",
+      "validate-name", "validate-name", "decode", "decode", "validate-name", "validate-name",
+      "validate-name", "validate-name", "validate-export", "validate-export", "validate-export",
+      "validate-export", "validate-name", "validate-import", "validate-datacount",
+      "validate-datacount",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 36)
+  assert_eq(smoke_required.length(), 37)
 }
 
 ///|
@@ -441,6 +442,17 @@ test "invalid imported start func f32-param binary strategy rejects at validate 
 }
 
 ///|
+test "invalid imported start func externref-param binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-imported-start-func-externref-param-module", 0x5f046UL, "start",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid export memory index binary strategy rejects at validate stage" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -517,7 +529,7 @@ test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 36)
+  assert_eq(first.attempts, 37)
   let mut saw_decode = false
   let mut saw_validate = false
   for stat in first.strategy_stats {
@@ -731,6 +743,49 @@ test "gen_invalid_binary_generate supports invalid imported-start-result modules
         Ok(_) =>
           fail(
             "expected decoded imported-start-invalid binary to fail validation",
+          )
+        Err(err) => {
+          let family = validation_issue_family(
+            validation_error_diagnostic(err).issue,
+          )
+          assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "start",
+          )
+        }
+      }
+  }
+}
+
+///|
+test "gen_invalid_binary_generate supports invalid imported-start-externref modules" {
+  let generated = match
+    gen_invalid_binary_generate(
+      @splitmix.new(seed=0x5ff224UL),
+      GenInvalidBinaryParams::repro_seed(
+        InvalidImportedStartFuncExternrefParamModule,
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-imported-start-func-externref-param-module base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match decode_module(generated.mutation.mutated_bytes) {
+    Err(err) =>
+      fail(
+        "expected decode success for invalid-imported-start-func-externref-param-module mutation, got \{err}",
+      )
+    Ok(decoded) =>
+      match validate_module(decoded) {
+        Ok(_) =>
+          fail(
+            "expected invalid-imported-start-func-externref-param-module mutation to fail validation",
           )
         Err(err) => {
           let family = validation_issue_family(

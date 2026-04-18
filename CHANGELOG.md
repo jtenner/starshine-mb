@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: widen imported-start externref and spec-seed breadth again
+
+- **add another widening pass across imported-start AST/binary/text cases and deeper committed spec seeds** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/validate/fuzz-hardening.md`](./docs/wiki/validate/fuzz-hardening.md), [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt), [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt), [`src/fuzz/invalid_text.mbt`](./src/fuzz/invalid_text.mbt), [`src/fuzz/invalid_text_wbtest.mbt`](./src/fuzz/invalid_text_wbtest.mbt), and [`src/fuzz/pkg.generated.mbti`](./src/fuzz/pkg.generated.mbti) so the AST, binary, and inline text lanes now also cover `invalid-imported-start-func-externref-param` plus its encoded `*-module` mirror, while the committed spec-seed lane now reaches twelfth malformed/invalid/unlinkable fixtures. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Chore: prune completed todo backlog
 
 - **remove completed fuzz-stack backlog and clean stale completion wording from the active todo list** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md) so `agent-todo.md` now keeps only active backlog items instead of retaining the finished validator fuzz hardening chain. Verification for this slice: doc-only change; no tests run.

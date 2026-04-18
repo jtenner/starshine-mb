@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record externref-start and twelfth-stage invalid widening
+
+- Reviewed the already-modified validator and fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_text.mbt` to capture another widening step: the AST and binary lanes now include imported-start `externref`-parameter invalid modules, the inline text lane now includes the matching invalid start fixture, and the committed spec-seed lane now advances to a twelfth malformed/invalid/unlinkable trio.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the wider imported-start surface and twelve-wide committed text/spec stage families.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record broader imported-start and eleventh-stage invalid widening
 
 - Reviewed the already-modified validator and fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_text.mbt` to capture another widening step: AST and binary coverage now include imported-start param+result, multi-param, and `f32`-param invalid modules, while the text lanes now also include start-index-out-of-range plus incompatible memory/table import-shape cases and the next stage of committed spec-seed picks.
