@@ -53,8 +53,10 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidDataNameSectionIndexModule
   InvalidExportTableIndexModule
   InvalidExportGlobalIndexModule
+  InvalidExportMemoryIndexModule
   InvalidExportTagIndexModule
   InvalidTagNameSectionIndexModule
+  InvalidImportedTagTypeIndexModule
   DataCountMismatchTooSmallModule
   DataCountMismatchTooLargeModule
 } derive(Eq, Debug)
@@ -350,8 +352,11 @@ fn validate_invalid_binary_strategy_label(
       "invalid-data-name-section-index-module"
     InvalidExportTableIndexModule => "invalid-export-table-index-module"
     InvalidExportGlobalIndexModule => "invalid-export-global-index-module"
+    InvalidExportMemoryIndexModule => "invalid-export-memory-index-module"
     InvalidExportTagIndexModule => "invalid-export-tag-index-module"
     InvalidTagNameSectionIndexModule => "invalid-tag-name-section-index-module"
+    InvalidImportedTagTypeIndexModule =>
+      "invalid-imported-tag-type-index-module"
     DataCountMismatchTooSmallModule => "datacount-mismatch-too-small-module"
     DataCountMismatchTooLargeModule => "datacount-mismatch-too-large-module"
   }
@@ -532,6 +537,12 @@ pub fn validate_invalid_binary_registry() -> Array[
       ValidateRejected("export"),
     ),
     validate_invalid_binary_strategy_spec(
+      InvalidExportMemoryIndexModule,
+      "invalid-export-memory-index-module",
+      "encoded module with out-of-range memory export index",
+      ValidateRejected("export"),
+    ),
+    validate_invalid_binary_strategy_spec(
       InvalidExportTagIndexModule,
       "invalid-export-tag-index-module",
       "encoded module with out-of-range tag export index",
@@ -542,6 +553,12 @@ pub fn validate_invalid_binary_registry() -> Array[
       "invalid-tag-name-section-index-module",
       "encoded module with out-of-range tag name index",
       ValidateRejected("name"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportedTagTypeIndexModule,
+      "invalid-imported-tag-type-index-module",
+      "encoded module with out-of-range imported tag type index",
+      ValidateRejected("import"),
     ),
     validate_invalid_binary_strategy_spec(
       DataCountMismatchTooSmallModule,
@@ -597,10 +614,12 @@ fn validate_invalid_binary_strategy_index(
     InvalidDataNameSectionIndexModule => 19
     InvalidExportTableIndexModule => 20
     InvalidExportGlobalIndexModule => 21
-    InvalidExportTagIndexModule => 22
-    InvalidTagNameSectionIndexModule => 23
-    DataCountMismatchTooSmallModule => 24
-    DataCountMismatchTooLargeModule => 25
+    InvalidExportMemoryIndexModule => 22
+    InvalidExportTagIndexModule => 23
+    InvalidTagNameSectionIndexModule => 24
+    InvalidImportedTagTypeIndexModule => 25
+    DataCountMismatchTooSmallModule => 26
+    DataCountMismatchTooLargeModule => 27
   }
 }
 
@@ -622,9 +641,9 @@ pub fn validate_invalid_binary_run_config(
     profile.trim().to_string(),
   )
   let attempts = match normalized {
-    "smoke" => 26
-    "ci" => 260
-    "stress" => 2600
+    "smoke" => 28
+    "ci" => 280
+    "stress" => 2800
     _ =>
       return Err(
         "unknown validate-invalid-binary fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1431,6 +1450,21 @@ pub fn apply_validate_invalid_binary_strategy(
         base,
       )
     }
+    InvalidExportMemoryIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-export-memory-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidExportMemoryIndexModule,
+        ast_strategy,
+        "export",
+        base,
+      )
+    }
     InvalidExportTagIndexModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy(
@@ -1458,6 +1492,21 @@ pub fn apply_validate_invalid_binary_strategy(
         InvalidTagNameSectionIndexModule,
         ast_strategy,
         "name",
+        base,
+      )
+    }
+    InvalidImportedTagTypeIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-imported-tag-type-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidImportedTagTypeIndexModule,
+        ast_strategy,
+        "import",
         base,
       )
     }

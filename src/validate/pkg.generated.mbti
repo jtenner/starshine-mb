@@ -428,6 +428,7 @@ pub enum ValidateInvalidAstStrategyId {
   MutableGlobalGetInConstInit
   NonConstantDataOffset
   InvalidImportedFuncTypeIndex
+  InvalidImportedTagTypeIndex
   MutableGlobalGetInTableInit
   NonConstantElemOffset
   SharedMemoryWithoutMax
@@ -446,6 +447,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidDataNameSectionIndex
   InvalidExportTableIndex
   InvalidExportGlobalIndex
+  InvalidExportMemoryIndex
   InvalidExportTagIndex
   InvalidTagNameSectionIndex
   DataCountMismatchTooSmall

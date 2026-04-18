@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record another three-front invalid widening pass
+
+- Reviewed the already-modified validator and fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_text.mbt` to capture another widening step: AST and binary coverage now include exported-memory and imported-tag invalid modules, while the text lanes now include malformed `i64` hex-token, imported-result-bearing start, and incompatible tag import cases plus seventh-stage spec seeds.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the AST export/import surface, the binary export/import surface, and the text/spec fixture depth as broader than the earlier six-wide state.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record a sixth text/spec widening pass
 
 - Reviewed the already-modified text invalid sources `src/fuzz/invalid_text.mbt` and `src/fuzz/invalid_text_wbtest.mbt` to capture another fixture-breadth step: the inline text lane now includes malformed `i32` hex-token, imported-start-param, and incompatible-global-import-type cases, and the spec-seed lane now carries sixth malformed/invalid assertions plus a fourth incompatible-import-type unlinkable assertion from the committed corpus.

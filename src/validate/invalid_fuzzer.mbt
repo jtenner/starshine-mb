@@ -73,6 +73,7 @@ pub enum ValidateInvalidAstStrategyId {
   MutableGlobalGetInConstInit
   NonConstantDataOffset
   InvalidImportedFuncTypeIndex
+  InvalidImportedTagTypeIndex
   MutableGlobalGetInTableInit
   NonConstantElemOffset
   SharedMemoryWithoutMax
@@ -91,6 +92,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidDataNameSectionIndex
   InvalidExportTableIndex
   InvalidExportGlobalIndex
+  InvalidExportMemoryIndex
   InvalidExportTagIndex
   InvalidTagNameSectionIndex
   DataCountMismatchTooSmall
@@ -227,6 +229,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       ImportSectionFamily,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidImportedTagTypeIndex,
+      "invalid-imported-tag-type-index",
+      "invalid imported tag type index",
+      ImportSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       MutableGlobalGetInTableInit,
       "mutable-global-get-in-table-init",
       "mutable global.get in table initializer",
@@ -347,6 +356,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidExportMemoryIndex,
+      "invalid-export-memory-index",
+      "export memory index out of range",
+      ExportSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidExportTagIndex,
       "invalid-export-tag-index",
       "export tag index out of range",
@@ -404,28 +420,30 @@ fn validate_invalid_ast_strategy_index(
     MutableGlobalGetInConstInit => 7
     NonConstantDataOffset => 8
     InvalidImportedFuncTypeIndex => 9
-    MutableGlobalGetInTableInit => 10
-    NonConstantElemOffset => 11
-    SharedMemoryWithoutMax => 12
-    InvalidTagTypeIndex => 13
-    DescriptorOnFuncType => 14
-    DataCountWithoutDataSec => 15
-    InvalidExportFuncIndex => 16
-    StartFuncOutOfRange => 17
-    MissingDataCountDataDrop => 18
-    InvalidMemoryNameSectionIndex => 19
-    CodeSecWithoutFuncSec => 20
-    InvalidTableNameSectionIndex => 21
-    InvalidGlobalNameSectionIndex => 22
-    InvalidTypeNameSectionIndex => 23
-    InvalidElemNameSectionIndex => 24
-    InvalidDataNameSectionIndex => 25
-    InvalidExportTableIndex => 26
-    InvalidExportGlobalIndex => 27
-    InvalidExportTagIndex => 28
-    InvalidTagNameSectionIndex => 29
-    DataCountMismatchTooSmall => 30
-    DataCountMismatchTooLarge => 31
+    InvalidImportedTagTypeIndex => 10
+    MutableGlobalGetInTableInit => 11
+    NonConstantElemOffset => 12
+    SharedMemoryWithoutMax => 13
+    InvalidTagTypeIndex => 14
+    DescriptorOnFuncType => 15
+    DataCountWithoutDataSec => 16
+    InvalidExportFuncIndex => 17
+    StartFuncOutOfRange => 18
+    MissingDataCountDataDrop => 19
+    InvalidMemoryNameSectionIndex => 20
+    CodeSecWithoutFuncSec => 21
+    InvalidTableNameSectionIndex => 22
+    InvalidGlobalNameSectionIndex => 23
+    InvalidTypeNameSectionIndex => 24
+    InvalidElemNameSectionIndex => 25
+    InvalidDataNameSectionIndex => 26
+    InvalidExportTableIndex => 27
+    InvalidExportGlobalIndex => 28
+    InvalidExportMemoryIndex => 29
+    InvalidExportTagIndex => 30
+    InvalidTagNameSectionIndex => 31
+    DataCountMismatchTooSmall => 32
+    DataCountMismatchTooLarge => 33
   }
 }
 
@@ -445,9 +463,9 @@ pub fn validate_invalid_ast_run_config(
 ) -> Result[ValidateInvalidAstRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 32
-    "ci" => 320
-    "stress" => 3200
+    "smoke" => 34
+    "ci" => 340
+    "stress" => 3400
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -591,6 +609,18 @@ fn validate_invalid_ast_imported_table_count(mod : Module) -> Int {
 }
 
 ///|
+fn validate_invalid_ast_imported_mem_count(mod : Module) -> Int {
+  let mut count = 0
+  for imp in validate_invalid_ast_import_entries(mod) {
+    let Import(_, _, et) = imp
+    if et is MemExternType(_) {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
 fn validate_invalid_ast_imported_tag_count(mod : Module) -> Int {
   let mut count = 0
   for imp in validate_invalid_ast_import_entries(mod) {
@@ -618,6 +648,12 @@ fn validate_invalid_ast_total_table_count(mod : Module) -> Int {
 fn validate_invalid_ast_total_global_count(mod : Module) -> Int {
   validate_invalid_ast_imported_global_count(mod) +
   validate_invalid_ast_global_entries(mod).length()
+}
+
+///|
+fn validate_invalid_ast_total_mem_count(mod : Module) -> Int {
+  validate_invalid_ast_imported_mem_count(mod) +
+  validate_invalid_ast_mem_entries(mod).length()
 }
 
 ///|
@@ -1066,6 +1102,23 @@ fn validate_invalid_ast_mutate_invalid_export_global_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_export_memory_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = MemIdx::new(
+    validate_invalid_ast_total_mem_count(mod).reinterpret_as_uint(),
+  )
+  let exports = validate_invalid_ast_export_entries(mod)
+  exports.push(Export::new(Name::new("bad-memory"), ExternIdx::mem(bad_idx)))
+  {
+    strategy: InvalidExportMemoryIndex,
+    applicable: true,
+    expected_family: ExportSectionFamily,
+    mutated_module: mod.with_export_sec(ExportSec::new(exports)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_export_tag_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -1482,6 +1535,29 @@ fn validate_invalid_ast_mutate_invalid_imported_func_type_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_imported_tag_type_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let imports = validate_invalid_ast_import_entries(mod)
+  let bad_type_idx = TypeIdx::new(
+    validate_invalid_ast_type_entries(mod).length().reinterpret_as_uint(),
+  )
+  imports.push(
+    Import::new(
+      Name::new("env"),
+      Name::new("tag"),
+      ExternType::tag(TagType::new(bad_type_idx)),
+    ),
+  )
+  {
+    strategy: InvalidImportedTagTypeIndex,
+    applicable: true,
+    expected_family: ImportSectionFamily,
+    mutated_module: mod.with_import_sec(ImportSec::new(imports)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_mutable_global_get_in_table_init(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -1630,6 +1706,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_export_table_index(base)
       InvalidExportGlobalIndex =>
         validate_invalid_ast_mutate_invalid_export_global_index(base)
+      InvalidExportMemoryIndex =>
+        validate_invalid_ast_mutate_invalid_export_memory_index(base)
       InvalidExportTagIndex =>
         validate_invalid_ast_mutate_invalid_export_tag_index(base)
       InvalidTagNameSectionIndex =>
@@ -1672,6 +1750,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_non_constant_data_offset(base)
       InvalidImportedFuncTypeIndex =>
         validate_invalid_ast_mutate_invalid_imported_func_type_index(base)
+      InvalidImportedTagTypeIndex =>
+        validate_invalid_ast_mutate_invalid_imported_tag_type_index(base)
       MutableGlobalGetInTableInit =>
         validate_invalid_ast_mutate_mutable_global_get_in_table_init(base)
       NonConstantElemOffset =>
@@ -1906,14 +1986,14 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "duplicate-export-name", "invalid-start-signature", "missing-datacount", "undeclared-ref-func",
     "invalid-name-section-func-index", "invalid-func-type-index", "funcsec-without-codesec",
     "mutable-global-get-in-const-init", "non-constant-data-offset", "invalid-imported-func-type-index",
-    "mutable-global-get-in-table-init", "non-constant-elem-offset", "shared-memory-without-max",
-    "invalid-tag-type-index", "descriptor-on-func-type", "datacount-without-data-sec",
-    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-tag-index", "invalid-tag-name-section-index", "datacount-mismatch-too-small",
-    "datacount-mismatch-too-large",
+    "invalid-imported-tag-type-index", "mutable-global-get-in-table-init", "non-constant-elem-offset",
+    "shared-memory-without-max", "invalid-tag-type-index", "descriptor-on-func-type",
+    "datacount-without-data-sec", "invalid-export-func-index", "start-func-out-of-range",
+    "missing-datacount-data-drop", "invalid-memory-name-section-index", "codesec-without-funcsec",
+    "invalid-table-name-section-index", "invalid-global-name-section-index", "invalid-type-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   assert_eq(smoke_required.length(), 16)
@@ -2087,6 +2167,19 @@ test "invalid imported func type index strategy rejects with ImportSection famil
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidImportedFuncTypeIndex,
       0x5ef6UL,
+      ImportSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid imported tag type index strategy rejects with ImportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidImportedTagTypeIndex,
+      0x5ef61UL,
       ImportSectionFamily,
     ) {
     Ok(_) => ()
@@ -2329,6 +2422,19 @@ test "invalid export global index strategy rejects with ExportSection family" {
 }
 
 ///|
+test "invalid export memory index strategy rejects with ExportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidExportMemoryIndex,
+      0x5f091UL,
+      ExportSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid export tag index strategy rejects with ExportSection family" {
   match
     invalid_ast_expect_strategy_rejects_with_family(
@@ -2419,7 +2525,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 32)
+  assert_eq(first.attempts, 34)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)

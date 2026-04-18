@@ -609,6 +609,27 @@ test "gen_invalid_ast_generate supports invalid export global index strategy" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid export memory index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f091UL),
+      GenInvalidAstParams::repro_seed(InvalidExportMemoryIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-export-memory-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ExportSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports invalid export tag index strategy" {
   let generated = match
     gen_invalid_ast_generate(
@@ -646,6 +667,27 @@ test "gen_invalid_ast_generate supports invalid tag name index strategy" {
         validation_error_diagnostic(err).issue,
       )
       assert_true(family == NameSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports invalid imported tag type index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f0aaUL),
+      GenInvalidAstParams::repro_seed(InvalidImportedTagTypeIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-imported-tag-type-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == ImportSectionFamily)
     }
   }
 }
