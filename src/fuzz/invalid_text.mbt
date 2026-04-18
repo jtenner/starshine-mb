@@ -269,7 +269,10 @@ pub enum ValidateInvalidTextStrategyId {
   MalformedInvalidI64BadOpcode
   InvalidImportedStartFuncF32Param
   InvalidImportedStartFuncExternrefParam
+  MalformedInvalidF64BadOpcode
+  InvalidImportedStartFuncFuncrefParam
   UnlinkableIncompatibleGlobalImportF64
+  UnlinkableIncompatibleMemoryImportMax
   InvalidStartFuncOutOfRange
   UnlinkableIncompatibleMemoryImportMin
   UnlinkableIncompatibleTableImportLimits
@@ -518,9 +521,27 @@ pub fn validate_invalid_text_registry() -> Array[
       ValidateRejectedStage,
     ),
     validate_invalid_text_strategy_spec(
+      MalformedInvalidF64BadOpcode,
+      "malformed-invalid-f64-bad-opcode",
+      "malformed text with an invalid f64 opcode token",
+      ParseOrLowerRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      InvalidImportedStartFuncFuncrefParam,
+      "invalid-imported-start-func-funcref-param",
+      "invalid text module with an imported funcref-parameter start function",
+      ValidateRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
       UnlinkableIncompatibleGlobalImportF64,
       "unlinkable-incompatible-global-import-f64",
       "valid text module with an incompatible f64 global import type",
+      ValidBeforeLinkStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      UnlinkableIncompatibleMemoryImportMax,
+      "unlinkable-incompatible-memory-import-max",
+      "valid text module with an incompatible memory import maximum",
       ValidBeforeLinkStage,
     ),
     validate_invalid_text_strategy_spec(
@@ -579,10 +600,13 @@ fn validate_invalid_text_strategy_index(
     MalformedInvalidI64BadOpcode => 27
     InvalidImportedStartFuncF32Param => 28
     InvalidImportedStartFuncExternrefParam => 29
-    UnlinkableIncompatibleGlobalImportF64 => 30
-    InvalidStartFuncOutOfRange => 31
-    UnlinkableIncompatibleMemoryImportMin => 32
-    UnlinkableIncompatibleTableImportLimits => 33
+    MalformedInvalidF64BadOpcode => 30
+    InvalidImportedStartFuncFuncrefParam => 31
+    UnlinkableIncompatibleGlobalImportF64 => 32
+    UnlinkableIncompatibleMemoryImportMax => 33
+    InvalidStartFuncOutOfRange => 34
+    UnlinkableIncompatibleMemoryImportMin => 35
+    UnlinkableIncompatibleTableImportLimits => 36
   }
 }
 
@@ -602,9 +626,9 @@ pub fn validate_invalid_text_run_config(
 ) -> Result[ValidateInvalidTextRunConfig, String] {
   let normalized = validate_invalid_text_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 34
-    "ci" => 340
-    "stress" => 3400
+    "smoke" => 37
+    "ci" => 370
+    "stress" => 3700
     _ =>
       return Err(
         "unknown validate-invalid-text fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -814,10 +838,28 @@ fn validate_invalid_text_strategy_source(
         "(assert_invalid (module (import \"m\" \"f\" (func (param externref))) (start 0)) \"start\")",
         InvalidTextAssertion,
       )
+    MalformedInvalidF64BadOpcode =>
+      (
+        "inline-text-invalid/malformed-invalid-f64-bad-opcode.wast",
+        "(assert_malformed (module quote \"(func (f64.conzt 0) drop)\") \"unknown operator\")",
+        MalformedTextAssertion,
+      )
+    InvalidImportedStartFuncFuncrefParam =>
+      (
+        "inline-text-invalid/invalid-imported-start-func-funcref-param.wast",
+        "(assert_invalid (module (import \"m\" \"f\" (func (param funcref))) (start 0)) \"start\")",
+        InvalidTextAssertion,
+      )
     UnlinkableIncompatibleGlobalImportF64 =>
       (
         "inline-text-invalid/unlinkable-incompatible-global-import-f64.wast",
         "(assert_unlinkable (module (import \"test\" \"global-i32\" (global f64))) \"incompatible import type\")",
+        UnlinkableTextAssertion,
+      )
+    UnlinkableIncompatibleMemoryImportMax =>
+      (
+        "inline-text-invalid/unlinkable-incompatible-memory-import-max.wast",
+        "(assert_unlinkable (module (import \"test-memory-2-4\" \"memory-2-4\" (memory 2 5))) \"incompatible import type\")",
         UnlinkableTextAssertion,
       )
     InvalidStartFuncOutOfRange =>
@@ -1087,6 +1129,9 @@ pub enum ValidateInvalidSpecSeedId {
   ConstMalformedQuote12
   StoreInvalidTypeMismatch1
   ImportsUnlinkableIncompatibleImportType10
+  ConstMalformedQuote13
+  StoreInvalidTypeMismatch2
+  ImportsUnlinkableIncompatibleImportType11
 } derive(Eq, Debug)
 
 ///|
@@ -1485,6 +1530,33 @@ pub fn validate_invalid_spec_seed_registry() -> Array[
       11,
       ValidBeforeLinkStage,
     ),
+    validate_invalid_spec_seed_spec(
+      ConstMalformedQuote13,
+      "const-malformed-quote-13",
+      "tests/spec const.wast thirteenth malformed quote assertion",
+      "tests/spec/const.wast",
+      MalformedTextAssertion,
+      12,
+      ParseOrLowerRejectedStage,
+    ),
+    validate_invalid_spec_seed_spec(
+      StoreInvalidTypeMismatch2,
+      "store-invalid-type-mismatch-2",
+      "tests/spec store.wast second invalid type-mismatch assertion",
+      "tests/spec/store.wast",
+      InvalidTextAssertion,
+      1,
+      ValidateRejectedStage,
+    ),
+    validate_invalid_spec_seed_spec(
+      ImportsUnlinkableIncompatibleImportType11,
+      "imports-unlinkable-incompatible-import-type-11",
+      "tests/spec imports.wast eleventh unlinkable incompatible-import-type assertion",
+      "tests/spec/imports.wast",
+      UnlinkableTextAssertion,
+      12,
+      ValidBeforeLinkStage,
+    ),
   ]
 }
 
@@ -1539,6 +1611,9 @@ fn validate_invalid_spec_seed_index(id : ValidateInvalidSpecSeedId) -> Int {
     ConstMalformedQuote12 => 33
     StoreInvalidTypeMismatch1 => 34
     ImportsUnlinkableIncompatibleImportType10 => 35
+    ConstMalformedQuote13 => 36
+    StoreInvalidTypeMismatch2 => 37
+    ImportsUnlinkableIncompatibleImportType11 => 38
   }
 }
 
@@ -1558,9 +1633,9 @@ pub fn validate_invalid_spec_seed_run_config(
 ) -> Result[ValidateInvalidSpecSeedRunConfig, String] {
   let normalized = validate_invalid_text_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 36
-    "ci" => 360
-    "stress" => 3600
+    "smoke" => 39
+    "ci" => 390
+    "stress" => 3900
     _ =>
       return Err(
         "unknown validate-invalid-spec-seed fuzz profile '\{profile}'; expected smoke|ci|stress",

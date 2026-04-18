@@ -47,15 +47,17 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-func-type-index", "invalid-start-signature-module", "invalid-imported-start-func-param-module",
     "invalid-imported-start-func-result-module", "invalid-imported-start-func-param-result-module",
     "invalid-imported-start-func-multi-param-module", "invalid-imported-start-func-f32-param-module",
-    "invalid-imported-start-func-externref-param-module", "duplicate-export-name-module",
-    "funcsec-without-codesec-module", "datacount-without-data-sec-module", "invalid-name-section-func-index-module",
-    "invalid-local-name-section-index-module", "invalid-label-name-section-index-module",
-    "bad-magic-header", "bad-version-header", "codesec-without-funcsec-module", "invalid-table-name-section-index-module",
-    "invalid-global-name-section-index-module", "reserved-section-id", "invalid-custom-section-name-utf8",
-    "invalid-type-name-section-index-module", "invalid-field-name-section-index-module",
-    "invalid-elem-name-section-index-module", "invalid-data-name-section-index-module",
-    "invalid-export-table-index-module", "invalid-export-global-index-module", "invalid-export-memory-index-module",
-    "invalid-export-tag-index-module", "invalid-tag-name-section-index-module", "invalid-imported-tag-type-index-module",
+    "invalid-imported-start-func-externref-param-module", "invalid-imported-start-func-funcref-param-module",
+    "duplicate-export-name-module", "funcsec-without-codesec-module", "datacount-without-data-sec-module",
+    "invalid-name-section-func-index-module", "invalid-local-name-section-index-module",
+    "invalid-label-name-section-index-module", "bad-magic-header", "bad-version-header",
+    "malformed-section-size-uleb", "section-payload-length-overflow", "codesec-without-funcsec-module",
+    "invalid-table-name-section-index-module", "invalid-global-name-section-index-module",
+    "reserved-section-id", "invalid-custom-section-name-utf8", "invalid-type-name-section-index-module",
+    "invalid-field-name-section-index-module", "invalid-elem-name-section-index-module",
+    "invalid-data-name-section-index-module", "invalid-export-table-index-module",
+    "invalid-export-global-index-module", "invalid-export-memory-index-module", "invalid-export-tag-index-module",
+    "invalid-tag-name-section-index-module", "invalid-imported-tag-type-index-module",
     "datacount-mismatch-too-small-module", "datacount-mismatch-too-large-module",
   ])
   assert_eq(
@@ -65,16 +67,16 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     [
       "decode", "decode", "decode", "decode", "validate-function", "validate-start",
       "validate-start", "validate-start", "validate-start", "validate-start", "validate-start",
-      "validate-start", "validate-export", "validate-code", "validate-datacount",
-      "validate-name", "validate-name", "validate-name", "decode", "decode", "validate-code",
-      "validate-name", "validate-name", "decode", "decode", "validate-name", "validate-name",
-      "validate-name", "validate-name", "validate-export", "validate-export", "validate-export",
-      "validate-export", "validate-name", "validate-import", "validate-datacount",
-      "validate-datacount",
+      "validate-start", "validate-start", "validate-export", "validate-code", "validate-datacount",
+      "validate-name", "validate-name", "validate-name", "decode", "decode", "decode",
+      "decode", "validate-code", "validate-name", "validate-name", "decode", "decode",
+      "validate-name", "validate-name", "validate-name", "validate-name", "validate-export",
+      "validate-export", "validate-export", "validate-export", "validate-name", "validate-import",
+      "validate-datacount", "validate-datacount",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 37)
+  assert_eq(smoke_required.length(), 40)
 }
 
 ///|
@@ -277,6 +279,28 @@ test "bad version header binary strategy rejects at decode stage" {
 }
 
 ///|
+test "malformed section size uleb binary strategy rejects at decode stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "malformed-section-size-uleb", 0x5efa1UL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "section payload length overflow binary strategy rejects at decode stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "section-payload-length-overflow", 0x5efa2UL, "decode",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "codesec without funcsec binary strategy rejects at validate stage" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -453,6 +477,17 @@ test "invalid imported start func externref-param binary strategy rejects at val
 }
 
 ///|
+test "invalid imported start func funcref-param binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-imported-start-func-funcref-param-module", 0x5f0461UL, "start",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid export memory index binary strategy rejects at validate stage" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -529,7 +564,7 @@ test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 37)
+  assert_eq(first.attempts, 40)
   let mut saw_decode = false
   let mut saw_validate = false
   for stat in first.strategy_stats {

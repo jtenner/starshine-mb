@@ -43,6 +43,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportedStartFuncMultiParamModule
   InvalidImportedStartFuncF32ParamModule
   InvalidImportedStartFuncExternrefParamModule
+  InvalidImportedStartFuncFuncrefParamModule
   DuplicateExportNameModule
   FuncSecWithoutCodeSecModule
   DataCountWithoutDataSecModule
@@ -51,6 +52,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidLabelNameSectionIndexModule
   BadMagicHeader
   BadVersionHeader
+  MalformedSectionSizeUleb
+  SectionPayloadLengthOverflow
   CodeSecWithoutFuncSecModule
   InvalidTableNameSectionIndexModule
   InvalidGlobalNameSectionIndexModule
@@ -351,6 +354,8 @@ fn validate_invalid_binary_strategy_label(
       "invalid-imported-start-func-f32-param-module"
     InvalidImportedStartFuncExternrefParamModule =>
       "invalid-imported-start-func-externref-param-module"
+    InvalidImportedStartFuncFuncrefParamModule =>
+      "invalid-imported-start-func-funcref-param-module"
     DuplicateExportNameModule => "duplicate-export-name-module"
     FuncSecWithoutCodeSecModule => "funcsec-without-codesec-module"
     DataCountWithoutDataSecModule => "datacount-without-data-sec-module"
@@ -362,6 +367,8 @@ fn validate_invalid_binary_strategy_label(
       "invalid-label-name-section-index-module"
     BadMagicHeader => "bad-magic-header"
     BadVersionHeader => "bad-version-header"
+    MalformedSectionSizeUleb => "malformed-section-size-uleb"
+    SectionPayloadLengthOverflow => "section-payload-length-overflow"
     CodeSecWithoutFuncSecModule => "codesec-without-funcsec-module"
     InvalidTableNameSectionIndexModule =>
       "invalid-table-name-section-index-module"
@@ -504,6 +511,12 @@ pub fn validate_invalid_binary_registry() -> Array[
       ValidateRejected("start"),
     ),
     validate_invalid_binary_strategy_spec(
+      InvalidImportedStartFuncFuncrefParamModule,
+      "invalid-imported-start-func-funcref-param-module",
+      "encoded module with invalid imported funcref-parameter start function",
+      ValidateRejected("start"),
+    ),
+    validate_invalid_binary_strategy_spec(
       DuplicateExportNameModule,
       "duplicate-export-name-module",
       "encoded module with duplicate export names",
@@ -549,6 +562,18 @@ pub fn validate_invalid_binary_registry() -> Array[
       BadVersionHeader,
       "bad-version-header",
       "bad wasm version header",
+      DecodeRejected,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedSectionSizeUleb,
+      "malformed-section-size-uleb",
+      "section size with a malformed uleb encoding",
+      DecodeRejected,
+    ),
+    validate_invalid_binary_strategy_spec(
+      SectionPayloadLengthOverflow,
+      "section-payload-length-overflow",
+      "section payload length that exceeds the module bytes",
       DecodeRejected,
     ),
     validate_invalid_binary_strategy_spec(
@@ -685,31 +710,34 @@ fn validate_invalid_binary_strategy_index(
     InvalidImportedStartFuncMultiParamModule => 9
     InvalidImportedStartFuncF32ParamModule => 10
     InvalidImportedStartFuncExternrefParamModule => 11
-    DuplicateExportNameModule => 12
-    FuncSecWithoutCodeSecModule => 13
-    DataCountWithoutDataSecModule => 14
-    InvalidNameSectionFuncIndexModule => 15
-    InvalidLocalNameSectionIndexModule => 16
-    InvalidLabelNameSectionIndexModule => 17
-    BadMagicHeader => 18
-    BadVersionHeader => 19
-    CodeSecWithoutFuncSecModule => 20
-    InvalidTableNameSectionIndexModule => 21
-    InvalidGlobalNameSectionIndexModule => 22
-    ReservedSectionId => 23
-    InvalidCustomSectionNameUtf8 => 24
-    InvalidTypeNameSectionIndexModule => 25
-    InvalidFieldNameSectionIndexModule => 26
-    InvalidElemNameSectionIndexModule => 27
-    InvalidDataNameSectionIndexModule => 28
-    InvalidExportTableIndexModule => 29
-    InvalidExportGlobalIndexModule => 30
-    InvalidExportMemoryIndexModule => 31
-    InvalidExportTagIndexModule => 32
-    InvalidTagNameSectionIndexModule => 33
-    InvalidImportedTagTypeIndexModule => 34
-    DataCountMismatchTooSmallModule => 35
-    DataCountMismatchTooLargeModule => 36
+    InvalidImportedStartFuncFuncrefParamModule => 12
+    DuplicateExportNameModule => 13
+    FuncSecWithoutCodeSecModule => 14
+    DataCountWithoutDataSecModule => 15
+    InvalidNameSectionFuncIndexModule => 16
+    InvalidLocalNameSectionIndexModule => 17
+    InvalidLabelNameSectionIndexModule => 18
+    BadMagicHeader => 19
+    BadVersionHeader => 20
+    MalformedSectionSizeUleb => 21
+    SectionPayloadLengthOverflow => 22
+    CodeSecWithoutFuncSecModule => 23
+    InvalidTableNameSectionIndexModule => 24
+    InvalidGlobalNameSectionIndexModule => 25
+    ReservedSectionId => 26
+    InvalidCustomSectionNameUtf8 => 27
+    InvalidTypeNameSectionIndexModule => 28
+    InvalidFieldNameSectionIndexModule => 29
+    InvalidElemNameSectionIndexModule => 30
+    InvalidDataNameSectionIndexModule => 31
+    InvalidExportTableIndexModule => 32
+    InvalidExportGlobalIndexModule => 33
+    InvalidExportMemoryIndexModule => 34
+    InvalidExportTagIndexModule => 35
+    InvalidTagNameSectionIndexModule => 36
+    InvalidImportedTagTypeIndexModule => 37
+    DataCountMismatchTooSmallModule => 38
+    DataCountMismatchTooLargeModule => 39
   }
 }
 
@@ -731,9 +759,9 @@ pub fn validate_invalid_binary_run_config(
     profile.trim().to_string(),
   )
   let attempts = match normalized {
-    "smoke" => 37
-    "ci" => 370
-    "stress" => 3700
+    "smoke" => 40
+    "ci" => 400
+    "stress" => 4000
     _ =>
       return Err(
         "unknown validate-invalid-binary fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1134,6 +1162,90 @@ fn validate_invalid_binary_mutate_bad_version_header(
 }
 
 ///|
+fn validate_invalid_binary_mutate_malformed_section_size_uleb(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let encoded = match validate_invalid_binary_encode_seed_module(mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let spans = match validate_invalid_binary_scan_sections(encoded) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  if spans.is_empty() {
+    return Ok(
+      validate_invalid_binary_mutation(
+        MalformedSectionSizeUleb,
+        DecodeRejected,
+        false,
+        encoded,
+      ),
+    )
+  }
+  let target = spans[0]
+  let replacement = [
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+    (0x80).to_byte(),
+  ]
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedSectionSizeUleb,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_replace_range(
+        encoded,
+        target.header_start + 1,
+        target.payload_start,
+        replacement,
+      ),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_section_payload_length_overflow(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let encoded = match validate_invalid_binary_encode_seed_module(mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let spans = match validate_invalid_binary_scan_sections(encoded) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  if spans.is_empty() {
+    return Ok(
+      validate_invalid_binary_mutation(
+        SectionPayloadLengthOverflow,
+        DecodeRejected,
+        false,
+        encoded,
+      ),
+    )
+  }
+  let target = spans[spans.length() - 1]
+  let replacement = validate_invalid_binary_encode_uleb(target.payload_len + 1)
+  Ok(
+    validate_invalid_binary_mutation(
+      SectionPayloadLengthOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_replace_range(
+        encoded,
+        target.header_start + 1,
+        target.payload_start,
+        replacement,
+      ),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_reserved_section_id(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -1349,6 +1461,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_func_type_index(base)
     BadMagicHeader => validate_invalid_binary_mutate_bad_magic_header(base)
     BadVersionHeader => validate_invalid_binary_mutate_bad_version_header(base)
+    MalformedSectionSizeUleb =>
+      validate_invalid_binary_mutate_malformed_section_size_uleb(base)
+    SectionPayloadLengthOverflow =>
+      validate_invalid_binary_mutate_section_payload_length_overflow(base)
     ReservedSectionId =>
       validate_invalid_binary_mutate_reserved_section_id(base)
     InvalidCustomSectionNameUtf8 =>
@@ -1451,6 +1567,21 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidImportedStartFuncExternrefParamModule,
+        ast_strategy,
+        "start",
+        base,
+      )
+    }
+    InvalidImportedStartFuncFuncrefParamModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-imported-start-func-funcref-param",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidImportedStartFuncFuncrefParamModule,
         ast_strategy,
         "start",
         base,

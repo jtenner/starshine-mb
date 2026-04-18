@@ -426,6 +426,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidImportedStartFuncMultiParam
   InvalidImportedStartFuncF32Param
   InvalidImportedStartFuncExternrefParam
+  InvalidImportedStartFuncFuncrefParam
   MissingDataCount
   UndeclaredRefFunc
   InvalidNameSectionFuncIndex

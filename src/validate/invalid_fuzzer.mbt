@@ -71,6 +71,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidImportedStartFuncMultiParam
   InvalidImportedStartFuncF32Param
   InvalidImportedStartFuncExternrefParam
+  InvalidImportedStartFuncFuncrefParam
   MissingDataCount
   UndeclaredRefFunc
   InvalidNameSectionFuncIndex
@@ -228,6 +229,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       InvalidImportedStartFuncExternrefParam,
       "invalid-imported-start-func-externref-param",
       "invalid imported start function with an externref parameter",
+      StartSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidImportedStartFuncFuncrefParam,
+      "invalid-imported-start-func-funcref-param",
+      "invalid imported start function with a funcref parameter",
       StartSectionFamily,
       required_in_smoke=false,
     ),
@@ -490,41 +498,42 @@ fn validate_invalid_ast_strategy_index(
     InvalidImportedStartFuncMultiParam => 5
     InvalidImportedStartFuncF32Param => 6
     InvalidImportedStartFuncExternrefParam => 7
-    MissingDataCount => 8
-    UndeclaredRefFunc => 9
-    InvalidNameSectionFuncIndex => 10
-    InvalidLocalNameSectionIndex => 11
-    InvalidLabelNameSectionIndex => 12
-    InvalidFuncTypeIndex => 13
-    FuncSecWithoutCodeSec => 14
-    MutableGlobalGetInConstInit => 15
-    NonConstantDataOffset => 16
-    InvalidImportedFuncTypeIndex => 17
-    InvalidImportedTagTypeIndex => 18
-    MutableGlobalGetInTableInit => 19
-    NonConstantElemOffset => 20
-    SharedMemoryWithoutMax => 21
-    InvalidTagTypeIndex => 22
-    DescriptorOnFuncType => 23
-    DataCountWithoutDataSec => 24
-    InvalidExportFuncIndex => 25
-    StartFuncOutOfRange => 26
-    MissingDataCountDataDrop => 27
-    InvalidMemoryNameSectionIndex => 28
-    CodeSecWithoutFuncSec => 29
-    InvalidTableNameSectionIndex => 30
-    InvalidGlobalNameSectionIndex => 31
-    InvalidTypeNameSectionIndex => 32
-    InvalidFieldNameSectionIndex => 33
-    InvalidElemNameSectionIndex => 34
-    InvalidDataNameSectionIndex => 35
-    InvalidExportTableIndex => 36
-    InvalidExportGlobalIndex => 37
-    InvalidExportMemoryIndex => 38
-    InvalidExportTagIndex => 39
-    InvalidTagNameSectionIndex => 40
-    DataCountMismatchTooSmall => 41
-    DataCountMismatchTooLarge => 42
+    InvalidImportedStartFuncFuncrefParam => 8
+    MissingDataCount => 9
+    UndeclaredRefFunc => 10
+    InvalidNameSectionFuncIndex => 11
+    InvalidLocalNameSectionIndex => 12
+    InvalidLabelNameSectionIndex => 13
+    InvalidFuncTypeIndex => 14
+    FuncSecWithoutCodeSec => 15
+    MutableGlobalGetInConstInit => 16
+    NonConstantDataOffset => 17
+    InvalidImportedFuncTypeIndex => 18
+    InvalidImportedTagTypeIndex => 19
+    MutableGlobalGetInTableInit => 20
+    NonConstantElemOffset => 21
+    SharedMemoryWithoutMax => 22
+    InvalidTagTypeIndex => 23
+    DescriptorOnFuncType => 24
+    DataCountWithoutDataSec => 25
+    InvalidExportFuncIndex => 26
+    StartFuncOutOfRange => 27
+    MissingDataCountDataDrop => 28
+    InvalidMemoryNameSectionIndex => 29
+    CodeSecWithoutFuncSec => 30
+    InvalidTableNameSectionIndex => 31
+    InvalidGlobalNameSectionIndex => 32
+    InvalidTypeNameSectionIndex => 33
+    InvalidFieldNameSectionIndex => 34
+    InvalidElemNameSectionIndex => 35
+    InvalidDataNameSectionIndex => 36
+    InvalidExportTableIndex => 37
+    InvalidExportGlobalIndex => 38
+    InvalidExportMemoryIndex => 39
+    InvalidExportTagIndex => 40
+    InvalidTagNameSectionIndex => 41
+    DataCountMismatchTooSmall => 42
+    DataCountMismatchTooLarge => 43
   }
 }
 
@@ -544,9 +553,9 @@ pub fn validate_invalid_ast_run_config(
 ) -> Result[ValidateInvalidAstRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 43
-    "ci" => 430
-    "stress" => 4300
+    "smoke" => 44
+    "ci" => 440
+    "stress" => 4400
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1497,6 +1506,38 @@ fn validate_invalid_ast_mutate_invalid_imported_start_func_externref_param(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_imported_start_func_funcref_param(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let type_idx = TypeIdx::new(0U)
+  let funcref = ValType::ref_type(
+    RefType::new(true, HeapType::abs(AbsHeapType::func())),
+  )
+  let imported = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([funcref], []))),
+      ]),
+    )
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("start"),
+          ExternType::func(type_idx),
+        ),
+      ]),
+    )
+  {
+    strategy: InvalidImportedStartFuncFuncrefParam,
+    applicable: true,
+    expected_family: StartSectionFamily,
+    mutated_module: imported.with_start_sec(StartSec::new(FuncIdx::new(0U))),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_start_func_out_of_range(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -2155,6 +2196,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_imported_start_func_externref_param(
           base,
         )
+      InvalidImportedStartFuncFuncrefParam =>
+        validate_invalid_ast_mutate_invalid_imported_start_func_funcref_param(
+          base,
+        )
       InvalidExportTableIndex =>
         validate_invalid_ast_mutate_invalid_export_table_index(base)
       InvalidExportGlobalIndex =>
@@ -2445,18 +2490,19 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "duplicate-export-name", "invalid-start-signature", "invalid-imported-start-func-param",
     "invalid-imported-start-func-result", "invalid-imported-start-func-param-result",
     "invalid-imported-start-func-multi-param", "invalid-imported-start-func-f32-param",
-    "invalid-imported-start-func-externref-param", "missing-datacount", "undeclared-ref-func",
-    "invalid-name-section-func-index", "invalid-local-name-section-index", "invalid-label-name-section-index",
-    "invalid-func-type-index", "funcsec-without-codesec", "mutable-global-get-in-const-init",
-    "non-constant-data-offset", "invalid-imported-func-type-index", "invalid-imported-tag-type-index",
-    "mutable-global-get-in-table-init", "non-constant-elem-offset", "shared-memory-without-max",
-    "invalid-tag-type-index", "descriptor-on-func-type", "datacount-without-data-sec",
-    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-imported-start-func-externref-param", "invalid-imported-start-func-funcref-param",
+    "missing-datacount", "undeclared-ref-func", "invalid-name-section-func-index",
+    "invalid-local-name-section-index", "invalid-label-name-section-index", "invalid-func-type-index",
+    "funcsec-without-codesec", "mutable-global-get-in-const-init", "non-constant-data-offset",
+    "invalid-imported-func-type-index", "invalid-imported-tag-type-index", "mutable-global-get-in-table-init",
+    "non-constant-elem-offset", "shared-memory-without-max", "invalid-tag-type-index",
+    "descriptor-on-func-type", "datacount-without-data-sec", "invalid-export-func-index",
+    "start-func-out-of-range", "missing-datacount-data-drop", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   assert_eq(smoke_required.length(), 16)
@@ -2604,6 +2650,19 @@ test "invalid imported start func externref-param strategy rejects with StartSec
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidImportedStartFuncExternrefParam,
       0x5eee24UL,
+      StartSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid imported start func funcref-param strategy rejects with StartSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidImportedStartFuncFuncrefParam,
+      0x5eee25UL,
       StartSectionFamily,
     ) {
     Ok(_) => ()
@@ -3105,7 +3164,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 43)
+  assert_eq(first.attempts, 44)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)
