@@ -141,10 +141,10 @@ These results are still not enough for final signoff because:
   - direct-use summary construction alone regressed the reduced pass timing
   - the current kept combination of forwarded-use memoization plus no-group summary skipping recovered that regression and moved reduced pass time to `0.511 ms`, but it still does not close the much larger Binaryen gap
 - the long `gen-valid` parity lane also exposed an infrastructure distinction:
-  - `moon run`-backed `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --generator gen-valid --count 10000 --max-failures 20 --out-dir /tmp/pass-fuzz-tuple-gen-valid-10000-emptysummary-2026-04-10` stopped after `2124` matches with `20` repeated missing-output validation failures
+  - historical `moon run`-backed `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --generator gen-valid --count 10000 --max-failures 20 --out-dir /tmp/pass-fuzz-tuple-gen-valid-10000-emptysummary-2026-04-10` stopped after `2124` matches with `20` repeated missing-output validation failures
   - direct replay of the first recorded input still writes valid output
   - the same `10000`-case lane is clean when the harness calls the built native binary directly via `--starshine-bin _build/native/release/build/cmd/cmd.exe`
-  - current evidence therefore points at launcher churn in the `moon run` path, not a tuple-opt semantic mismatch
+  - `pass-fuzz-compare` now retries that narrow successful-but-no-output `moon run` launcher churn, so the historical stop remains launcher evidence rather than a standing tuple-opt workaround or semantic mismatch
 
 ## Preset And Scheduler Gap
 

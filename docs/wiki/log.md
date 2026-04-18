@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] fix | retry successful-but-no-output `moon run` fuzz launcher churn
+
+- Updated `docs/wiki/binaryen/passes/tuple-optimization/parity.md` and `docs/wiki/binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md` so the historical `2124 / 10000` long-lane stop at `/tmp/pass-fuzz-tuple-gen-valid-10000-emptysummary-2026-04-10` is now documented as an old `pass-fuzz-compare` launcher artifact rather than a standing workflow requirement to prefer `--starshine-bin` for every very long lane.
+- The living tuple docs now record the narrower outcome: the harness retries a successful default `moon run` invocation that fails to materialize `starshine.raw.wasm`, so the earlier failure remains useful evidence about launcher churn without implying a current tuple-opt semantic mismatch or a permanent native-binary-only workaround.
+- Updated `agent-todo.md` to remove the retired long-lane launcher-workaround bullet from the tuple backlog.
+
 ## [2026-04-18] maintain | record docs.rs Binaryen pass-coverage contradiction
 
 - Ran another Binaryen primary-source/source-of-truth sweep against the official GitHub release horizon, the official GitHub `main` changelog, the Chromium mirror refs/changelog trail, and the current docs.rs `wasm_opt` pages before editing the wiki.

@@ -48,6 +48,7 @@ type ParseCommand =
 type StarshineInvocation = {
   command: string;
   argsPrefix: string[];
+  retryMissingOutput: boolean;
 };
 
 type CaseRecord = {
@@ -217,12 +218,14 @@ function resolveStarshineInvocation(
     return {
       command: resolveRepoPath(repoRoot, starshineBin),
       argsPrefix: [],
+      retryMissingOutput: false,
     };
   }
 
   return {
     command: moonBin,
     argsPrefix: ["run", "--target", "native", "--release", "src/cmd", "--"],
+    retryMissingOutput: true,
   };
 }
 
@@ -246,6 +249,39 @@ function commandFailureDetail(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+function hasNonEmptyFile(pathname: string): boolean {
+  try {
+    const stat = fs.statSync(pathname);
+    return stat.isFile() && stat.size > 0;
+  } catch {
+    return false;
+  }
+}
+
+function runStarshineWithRetry(
+  starshineInvocation: StarshineInvocation,
+  starshineArgs: string[],
+  starshineRawPath: string,
+  repoRoot: string,
+  repoTmpEnv: NodeJS.ProcessEnv,
+): void {
+  const maxAttempts = starshineInvocation.retryMissingOutput ? 3 : 1;
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    fs.rmSync(starshineRawPath, { force: true });
+    runOrThrow(starshineInvocation.command, starshineArgs, {
+      cwd: repoRoot,
+      env: repoTmpEnv,
+      stdio: "pipe",
+    });
+    if (hasNonEmptyFile(starshineRawPath)) {
+      return;
+    }
+  }
+  fail(
+    `Starshine command succeeded but did not create expected output after ${maxAttempts} attempt${maxAttempts === 1 ? "" : "s"}: ${starshineRawPath}`,
+  );
 }
 
 function classifyCommandFailure(detail: string): CommandFailureClass {
@@ -779,11 +815,13 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         inputPath,
       ];
       try {
-        runOrThrow(starshineInvocation.command, starshineArgs, {
-          cwd: repoRoot,
-          env: repoTmpEnv,
-          stdio: "pipe",
-        });
+        runStarshineWithRetry(
+          starshineInvocation,
+          starshineArgs,
+          starshineRawPath,
+          repoRoot,
+          repoTmpEnv,
+        );
       } catch (error) {
         summary.commandFailureCount += 1;
         failures += 1;

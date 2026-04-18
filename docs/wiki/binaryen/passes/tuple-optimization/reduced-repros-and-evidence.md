@@ -150,7 +150,7 @@ Fresh current-head fuzz evidence on `2026-04-10`:
 - `/tmp/pass-fuzz-tuple-smith-wbrefresh-2026-04-10` => `199 / 200` compared, `199` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `1` command failure
 - the refreshed short direct-binary lane after the white-box rebases still has the same lone `binaryen-rec-group-zero` failure at case `29`
 - `/tmp/pass-fuzz-tuple-gen-valid-10000-bin-sharedmarks-2026-04-10` => `10000 / 10000` compared, `10000` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures
-- `/tmp/pass-fuzz-tuple-gen-valid-10000-emptysummary-2026-04-10` => `2124 / 10000` compared, then `20` repeated missing-output validation failures in the `moon run` launcher path, not semantic mismatches
+- historical `/tmp/pass-fuzz-tuple-gen-valid-10000-emptysummary-2026-04-10` => `2124 / 10000` compared, then `20` repeated missing-output validation failures in the `moon run` launcher path; `pass-fuzz-compare` now retries that successful-but-no-output launcher churn instead of treating it as a standing semantic mismatch
 
 Standing larger evidence still includes the clean historical `gen-valid` lane at `10000 / 10000`.
 

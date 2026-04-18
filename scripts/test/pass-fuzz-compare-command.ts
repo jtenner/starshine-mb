@@ -1461,6 +1461,139 @@ process.exit(0);
   }
 }
 
+export function runPassFuzzCompareDefaultStarshineInvocationRetriesMissingOutputTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-default-starshine-retry-"));
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+  const starshineState = path.join(tmpdir, "starshine-state.txt");
+  const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "run" && args.includes("src/fuzz")) {
+  const outDir = args[args.indexOf("--out-dir") + 1];
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, "gen-valid-000001.wasm"), "gen-valid-1");
+  process.exit(0);
+}
+if (args[0] === "run" && args.includes("src/cmd")) {
+  const attempt = fs.existsSync(process.env.FAKE_STARSHINE_STATE)
+    ? Number(fs.readFileSync(process.env.FAKE_STARSHINE_STATE, "utf8"))
+    : 0;
+  fs.writeFileSync(process.env.FAKE_STARSHINE_STATE, String(attempt + 1));
+  if (attempt === 0) {
+    process.exit(0);
+  }
+  const outIndex = args.indexOf("--out");
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], "starshine");
+  process.exit(0);
+}
+process.exit(1);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("-o");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], args.includes("-S") ? "(module)\\n" : "binaryen");
+process.exit(0);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "smith") {
+  const outIndex = args.indexOf("-o");
+  fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+  fs.writeFileSync(args[outIndex + 1], "smith");
+}
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "1",
+      "--generator",
+      "gen-valid",
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--pass",
+      "remove-unused-brs",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_STARSHINE_STATE: starshineState,
+        FAKE_WASM_OPT_LOG: wasmOptLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+      },
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare default starshine retry failed:\n${result.stderr}`);
+  }
+
+  const moonLogs = readJsonlLog(moonLog);
+  assert(moonLogs.length === 3, `expected gen-valid plus two starshine launcher invocations, got ${moonLogs.length}`);
+  assert(
+    JSON.stringify(moonLogs[1]) === JSON.stringify(moonLogs[2]),
+    `expected retried moon invocations to match, got ${JSON.stringify(moonLogs.slice(1), null, 2)}`,
+  );
+  assert(
+    fs.readFileSync(starshineState, "utf8") === "2",
+    `expected exactly two starshine attempts, got ${fs.readFileSync(starshineState, "utf8")}`,
+  );
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    comparedCount: number;
+    normalizedMatchCount: number;
+    validationFailureCount: number;
+    commandFailureCount: number;
+  };
+  assert(summary.comparedCount === 1, `unexpected compared count ${summary.comparedCount}`);
+  assert(summary.normalizedMatchCount === 1, `unexpected normalized match count ${summary.normalizedMatchCount}`);
+  assert(summary.validationFailureCount === 0, `unexpected validation failure count ${summary.validationFailureCount}`);
+  assert(summary.commandFailureCount === 0, `unexpected command failure count ${summary.commandFailureCount}`);
+
+  const wasmToolsLogs = fs.readFileSync(wasmToolsLog, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line) as string[]);
+  const validateCalls = wasmToolsLogs.filter((args) => args[0] === "validate");
+  assert(validateCalls.length === 2, `expected baseline and final starshine validation only, got ${validateCalls.length}`);
+}
+
 if (import.meta.main) {
   runPassFuzzCompareCommandTest();
   runPassFuzzCompareListPassesCommandTest();
@@ -1474,4 +1607,5 @@ if (import.meta.main) {
   runPassFuzzCompareReplayLegacyCaseIndexTest();
   runPassFuzzCompareMinComparedGateTest();
   runPassFuzzCompareDefaultStarshineInvocationTest();
+  runPassFuzzCompareDefaultStarshineInvocationRetriesMissingOutputTest();
 }
