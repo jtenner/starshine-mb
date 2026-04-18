@@ -248,6 +248,9 @@ pub enum ValidateInvalidTextStrategyId {
   MalformedInvalidConstToken
   InvalidStartFuncParam
   UnlinkableUnknownGlobalImport
+  MalformedInvalidF64ConstToken
+  InvalidDuplicateExportName
+  UnlinkableUnknownTableImport
 } derive(Eq, Debug)
 
 ///|
@@ -366,6 +369,24 @@ pub fn validate_invalid_text_registry() -> Array[
       "valid text module with unknown global import",
       ValidBeforeLinkStage,
     ),
+    validate_invalid_text_strategy_spec(
+      MalformedInvalidF64ConstToken,
+      "malformed-invalid-f64-const-token",
+      "malformed text with an invalid f64 const token",
+      ParseOrLowerRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      InvalidDuplicateExportName,
+      "invalid-duplicate-export-name",
+      "invalid text module with duplicate export names",
+      ValidateRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      UnlinkableUnknownTableImport,
+      "unlinkable-unknown-table-import",
+      "valid text module with unknown table import",
+      ValidBeforeLinkStage,
+    ),
   ]
 }
 
@@ -383,6 +404,9 @@ fn validate_invalid_text_strategy_index(
     MalformedInvalidConstToken => 6
     InvalidStartFuncParam => 7
     UnlinkableUnknownGlobalImport => 8
+    MalformedInvalidF64ConstToken => 9
+    InvalidDuplicateExportName => 10
+    UnlinkableUnknownTableImport => 11
   }
 }
 
@@ -486,6 +510,24 @@ fn validate_invalid_text_strategy_source(
       (
         "inline-text-invalid/unlinkable-unknown-global-import.wast",
         "(assert_unlinkable (module (import \"env\" \"g\" (global i32))) \"unknown import\")",
+        UnlinkableTextAssertion,
+      )
+    MalformedInvalidF64ConstToken =>
+      (
+        "inline-text-invalid/malformed-invalid-f64-const-token.wast",
+        "(assert_malformed (module quote \"(func (result f64) (f64.const nan:canonical))\") \"unexpected token\")",
+        MalformedTextAssertion,
+      )
+    InvalidDuplicateExportName =>
+      (
+        "inline-text-invalid/invalid-duplicate-export-name.wast",
+        "(assert_invalid (module (func) (export \"dup\" (func 0)) (export \"dup\" (func 0))) \"duplicate export name\")",
+        InvalidTextAssertion,
+      )
+    UnlinkableUnknownTableImport =>
+      (
+        "inline-text-invalid/unlinkable-unknown-table-import.wast",
+        "(assert_unlinkable (module (import \"env\" \"t\" (table 1 funcref))) \"unknown import\")",
         UnlinkableTextAssertion,
       )
   }
@@ -710,6 +752,9 @@ pub enum ValidateInvalidSpecSeedId {
   ConstMalformedQuote3
   F32InvalidTypeMismatch3
   ImportsUnlinkableIncompatibleImportType1
+  ConstMalformedQuote4
+  F32InvalidTypeMismatch4
+  ImportsUnlinkableIncompatibleImportType2
 } derive(Eq, Debug)
 
 ///|
@@ -865,6 +910,33 @@ pub fn validate_invalid_spec_seed_registry() -> Array[
       2,
       ValidBeforeLinkStage,
     ),
+    validate_invalid_spec_seed_spec(
+      ConstMalformedQuote4,
+      "const-malformed-quote-4",
+      "tests/spec const.wast fourth malformed quote assertion",
+      "tests/spec/const.wast",
+      MalformedTextAssertion,
+      3,
+      ParseOrLowerRejectedStage,
+    ),
+    validate_invalid_spec_seed_spec(
+      F32InvalidTypeMismatch4,
+      "f32-invalid-type-mismatch-4",
+      "tests/spec f32.wast fourth invalid type-mismatch assertion",
+      "tests/spec/f32.wast",
+      InvalidTextAssertion,
+      3,
+      ValidateRejectedStage,
+    ),
+    validate_invalid_spec_seed_spec(
+      ImportsUnlinkableIncompatibleImportType2,
+      "imports-unlinkable-incompatible-import-type-2",
+      "tests/spec imports.wast second unlinkable incompatible-import-type assertion",
+      "tests/spec/imports.wast",
+      UnlinkableTextAssertion,
+      3,
+      ValidBeforeLinkStage,
+    ),
   ]
 }
 
@@ -892,6 +964,9 @@ fn validate_invalid_spec_seed_index(id : ValidateInvalidSpecSeedId) -> Int {
     ConstMalformedQuote3 => 6
     F32InvalidTypeMismatch3 => 7
     ImportsUnlinkableIncompatibleImportType1 => 8
+    ConstMalformedQuote4 => 9
+    F32InvalidTypeMismatch4 => 10
+    ImportsUnlinkableIncompatibleImportType2 => 11
   }
 }
 

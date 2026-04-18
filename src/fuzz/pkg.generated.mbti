@@ -330,6 +330,9 @@ pub enum ValidateInvalidSpecSeedId {
   ConstMalformedQuote3
   F32InvalidTypeMismatch3
   ImportsUnlinkableIncompatibleImportType1
+  ConstMalformedQuote4
+  F32InvalidTypeMismatch4
+  ImportsUnlinkableIncompatibleImportType2
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidSpecSeedRunConfig {
@@ -399,6 +402,9 @@ pub enum ValidateInvalidTextStrategyId {
   MalformedInvalidConstToken
   InvalidStartFuncParam
   UnlinkableUnknownGlobalImport
+  MalformedInvalidF64ConstToken
+  InvalidDuplicateExportName
+  UnlinkableUnknownTableImport
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidTextStrategySpec {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: widen inline text and spec-seed fixture breadth again
+
+- **add another round of malformed, invalid, and unlinkable text/spec fixtures** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_text.mbt`](./src/fuzz/invalid_text.mbt), and [`src/fuzz/invalid_text_wbtest.mbt`](./src/fuzz/invalid_text_wbtest.mbt) so the text lanes now also cover `malformed-invalid-f64-const-token`, `invalid-duplicate-export-name`, `unlinkable-unknown-table-import`, plus fourth malformed/invalid spec seeds and a second incompatible-import-type spec seed from the committed corpus. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Fix: widen binary decode and name-module invalid coverage again
 
 - **add more deterministic binary invalid strategies across raw decode corruption and encoded validator-rejected name cases** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), and [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt) so the binary invalid lane now also covers `reserved-section-id`, `invalid-custom-section-name-utf8`, `invalid-type-name-section-index-module`, `invalid-elem-name-section-index-module`, and `invalid-data-name-section-index-module` in addition to the earlier header/order/duplication/core corruptions and encoded validator-rejected module families. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record deeper inline/spec text fixture breadth
+
+- Reviewed the already-modified text invalid sources `src/fuzz/invalid_text.mbt` and `src/fuzz/invalid_text_wbtest.mbt` to capture another fixture-breadth step: the inline text lane now includes extra malformed `f64.const`, duplicate-export-name, and unknown-table-import cases, and the spec-seed lane now carries fourth malformed/invalid assertions plus a second incompatible-import-type unlinkable assertion from the committed corpus.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the text/spec lanes as four-wide per stage family instead of three-wide.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record broader binary decode and name coverage
 
 - Reviewed the already-modified binary invalid sources `src/fuzz/invalid_binary.mbt` and `src/fuzz/invalid_binary_wbtest.mbt` to capture another binary widening step: the curated lane now includes reserved-section-id and malformed custom-section-name UTF-8 decode failures plus encoded invalid type-name, elem-name, and data-name modules.
