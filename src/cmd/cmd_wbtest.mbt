@@ -5725,6 +5725,46 @@ test "run_cmd validates early remove-unused-brs optimize-prefix on debug artifac
 
 ///|
 #cfg(target="native")
+test "run_cmd validates remove-unused-brs on generated O4z slot14 predecessor" {
+  let input_path = ".artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/10-slot13-remove-unused-names/binaryen.wasm"
+  let output_path = native_tmp_file("rub-slot14-predecessor-output")
+  let invalid_dump_path = "/tmp/starshine-invalid-final.wasm"
+  let invalid_func_dump_path = "/tmp/starshine-invalid-final-func.txt"
+  native_remove_if_exists(output_path)
+  native_remove_if_exists(invalid_dump_path)
+  native_remove_if_exists(invalid_func_dump_path)
+
+  match run_cmd(["--remove-unused-brs", "--out", output_path, input_path]) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected native remove-unused-brs slot14 predecessor replay to validate, got \{err}",
+      )
+  }
+  match native_read_bytes(output_path) {
+    Some(bytes) => ignore(decode_module_bytes(bytes))
+    None => fail("expected optimized output at \{output_path}")
+  }
+  match native_read_bytes(invalid_dump_path) {
+    Some(_) =>
+      fail("did not expect invalid final-module dump at \{invalid_dump_path}")
+    None => ()
+  }
+  match native_read_bytes(invalid_func_dump_path) {
+    Some(_) =>
+      fail(
+        "did not expect invalid final-function dump at \{invalid_func_dump_path}",
+      )
+    None => ()
+  }
+
+  native_remove_if_exists(output_path)
+  native_remove_if_exists(invalid_dump_path)
+  native_remove_if_exists(invalid_func_dump_path)
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter validates remove-unused-brs on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let output_path = "out.wasm"
@@ -5756,6 +5796,49 @@ test "run_cmd_with_adapter validates remove-unused-brs on debug artifact" {
     Ok(v) => v
     Err(e) =>
       fail("expected remove-unused-brs artifact replay success, got \{e}")
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter validates remove-unused-brs on generated O4z slot14 predecessor" {
+  let input_path = ".artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/10-slot13-remove-unused-names/binaryen.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected saved ordered O4z predecessor at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--remove-unused-brs", "--out", output_path, input_path],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected remove-unused-brs ordered O4z predecessor replay success, got \{e}",
+      )
   }
   assert_eq(summary.input_files, [input_path])
   assert_eq(summary.output_files, [output_path])

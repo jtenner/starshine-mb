@@ -63,6 +63,7 @@ The key saved compare-harness error is:
 - This is the earlier of the two ordered `remove-unused-brs` corruption slots. It is not the same failure family as the later slot `40` issue.
 - The direct Starshine command exits zero, so the bug is currently an invalid emitted module rather than a pass-manager abort.
 - Because the saved predecessor input is already a Binaryen-produced module from slot `13`, this issue sits squarely in the ordered-prefix replay path rather than only on the original generated baseline.
+- Follow-up narrowing now lives in [0101 - slot 14 native/source divergence](./0101-2026-04-18-generated-o4z-rub-slot14-native-source-divergence.md): rebuilt native `cmd.exe` still reproduces the invalid `func 1354` output, but new in-process wbtests on the same saved predecessor stay green, so the remaining blocker is narrower than a generic RUB failure.
 
 ## Open questions
 

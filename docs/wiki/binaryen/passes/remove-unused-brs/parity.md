@@ -218,6 +218,12 @@ The active backlog now says the next work should be reduced in this order:
   - early slot `14` emits invalid raw wasm; `wasm-tools validate` fails at `func 1354` with `expected i32 but nothing on stack`
   - later slot `40` emits invalid raw wasm; `wasm-tools validate` fails at `func 1979` with `values remaining on stack at end of block`, while Binaryen's validator also flags an `if-else` true-arm type issue in function `1958`
 - Those generated-artifact ordered-prefix failures are now higher priority than another generic parity-diff hunt because they break ordered replay trust entirely on one generated artifact lane.
+- Slot `14` is now narrowed further by `0101`:
+  - rebuilt native `cmd.exe` still reproduces the invalid raw `func 1354` output on the saved slot-13 predecessor
+  - new in-process source-path wbtests on that same saved predecessor are green
+  - the printed invalid/native output shows a branch-bearing region wrapped in a new `block (result i32)` so an inner relative `br` now lands on a value block without carrying its payload
+  - that branch-depth explanation is still an inference from the emitted WAT plus the validator error, and the first conservative guard attempt did not change the reproducing native binary output
+- So the next blocker is no longer just “reduce slot 14 somehow”; it is isolating the exact native-binary mutation site before another candidate RUB fix is trusted.
 
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.

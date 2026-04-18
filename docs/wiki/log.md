@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] research | narrow `[O4Z]001` to a native/source divergence blocker
+
+- Added `docs/wiki/raw/research/0101-2026-04-18-generated-o4z-rub-slot14-native-source-divergence.md` to capture the current slot-14 blocker split: rebuilt native `cmd.exe` still emits invalid raw output on the saved predecessor from `0094`, while new in-process `run_cmd` / `run_cmd_with_adapter` wbtests on the same bytes stay green.
+- Updated `docs/wiki/binaryen/passes/remove-unused-brs/parity.md`, `docs/wiki/index.md`, and `agent-todo.md` so the living docs now record the narrower blocker explicitly instead of treating slot 14 as an undifferentiated RUB corruption.
+- Added focused cmd wbtests in `src/cmd/cmd_wbtest.mbt` for the saved slot-13 predecessor fixture so the repo now keeps the source-path behavior and the still-failing built-native behavior separate.
+
 ## [2026-04-18] maintain | record non-GitHub Binaryen source lag and paired late-pass blockers
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` so the living wiki now says explicitly that the non-GitHub Binaryen discovery surfaces available to this maintenance run lag the repo's older GitHub-sourced `version_129` source oracle, and that the older Debian/docs.rs package versions should be treated as source-availability lag rather than as evidence of upstream pass-name removal or reversion.
