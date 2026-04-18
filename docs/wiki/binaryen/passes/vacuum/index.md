@@ -19,4 +19,5 @@ related:
 - Active hot pass in the Starshine registry.
 - Current summary: Remove `nop` roots and region entries through hot IR cleanup.
 - Current 2026-04-18 ordered generated-artifact follow-up: the saved `cmd.wasm` audit found two hard corruption slots for this pass, both failing in final module validation (`Func 652` at Binaryen slot `23`, `Func 1818` at slot `33`).
+- Durable ordered-audit takeaway: each `vacuum` failure mirrors a nearby `optimize-instructions` failure on the same offending function, so treat the current blockers as shared ordered-prefix fragility around `Func 652` and `Func 1818` until reduced evidence proves one pass is solely responsible.
 - Use [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md) for the current tail roster until dedicated strategy and parity pages land.

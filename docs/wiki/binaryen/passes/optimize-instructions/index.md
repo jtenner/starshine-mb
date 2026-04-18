@@ -18,4 +18,5 @@ related:
 - Active hot pass in the Starshine registry.
 - Current summary: Fold safe exact-instruction peepholes such as constant eqz, shift masks, and compare-to-zero patterns.
 - Current 2026-04-18 ordered generated-artifact follow-up: the saved `cmd.wasm` audit found two hard corruption slots for this pass, both failing in final module validation (`Func 652` at Binaryen slot `16`, `Func 1818` at slot `44`).
+- Durable ordered-audit takeaway: both failures pair with neighboring `vacuum` failures on the same offending functions, so the current reduction priority is the shared ordered-prefix states around `Func 652` and `Func 1818`, not an `optimize-instructions`-only theory.
 - Use [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md) for the current tail roster until dedicated strategy and parity pages land.

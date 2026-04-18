@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record non-GitHub Binaryen source lag and paired late-pass blockers
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` so the living wiki now says explicitly that the non-GitHub Binaryen discovery surfaces available to this maintenance run lag the repo's older GitHub-sourced `version_129` source oracle, and that the older Debian/docs.rs package versions should be treated as source-availability lag rather than as evidence of upstream pass-name removal or reversion.
+- Updated `docs/wiki/binaryen/passes/optimize-instructions/index.md` and `docs/wiki/binaryen/passes/vacuum/index.md` so those landing pages now carry the durable ordered-audit conclusion that the current `Func 652` and `Func 1818` failures are paired `optimize-instructions` / `vacuum` ordered-prefix blockers, not yet isolated pass-only regressions.
+- Reran a repo-local markdown-link health check over `docs/wiki/**/*.md` and confirmed there are still no broken relative links after the wording refresh.
+
 ## [2026-04-18] maintain | reconcile Binaryen pass terminology and repair wiki links
 
 - Ran a non-GitHub Binaryen terminology check against the Debian experimental `wasm-opt` `122` manpage plus the current `wasm_opt` Rust docs/README mirrors, and recorded in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` that the current upstream-facing names still align with the wiki's late-pass folder map.
