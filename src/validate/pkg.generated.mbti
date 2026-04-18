@@ -425,6 +425,8 @@ pub enum ValidateInvalidAstStrategyId {
   MissingDataCount
   UndeclaredRefFunc
   InvalidNameSectionFuncIndex
+  InvalidLocalNameSectionIndex
+  InvalidLabelNameSectionIndex
   InvalidFuncTypeIndex
   FuncSecWithoutCodeSec
   MutableGlobalGetInConstInit

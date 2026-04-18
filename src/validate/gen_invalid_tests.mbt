@@ -463,6 +463,48 @@ test "gen_invalid_ast_generate supports invalid imported start func result strat
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid local name index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd3UL),
+      GenInvalidAstParams::repro_seed(InvalidLocalNameSectionIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-local-name-section-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == NameSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports invalid label name index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd4UL),
+      GenInvalidAstParams::repro_seed(InvalidLabelNameSectionIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-label-name-section-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == NameSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports missing-datacount data.drop strategy" {
   let generated = match
     gen_invalid_ast_generate(

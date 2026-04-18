@@ -43,6 +43,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   FuncSecWithoutCodeSecModule
   DataCountWithoutDataSecModule
   InvalidNameSectionFuncIndexModule
+  InvalidLocalNameSectionIndexModule
+  InvalidLabelNameSectionIndexModule
   BadMagicHeader
   BadVersionHeader
   CodeSecWithoutFuncSecModule
@@ -341,6 +343,10 @@ fn validate_invalid_binary_strategy_label(
     DataCountWithoutDataSecModule => "datacount-without-data-sec-module"
     InvalidNameSectionFuncIndexModule =>
       "invalid-name-section-func-index-module"
+    InvalidLocalNameSectionIndexModule =>
+      "invalid-local-name-section-index-module"
+    InvalidLabelNameSectionIndexModule =>
+      "invalid-label-name-section-index-module"
     BadMagicHeader => "bad-magic-header"
     BadVersionHeader => "bad-version-header"
     CodeSecWithoutFuncSecModule => "codesec-without-funcsec-module"
@@ -483,6 +489,18 @@ pub fn validate_invalid_binary_registry() -> Array[
       ValidateRejected("name"),
     ),
     validate_invalid_binary_strategy_spec(
+      InvalidLocalNameSectionIndexModule,
+      "invalid-local-name-section-index-module",
+      "encoded module with out-of-range local name index",
+      ValidateRejected("name"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidLabelNameSectionIndexModule,
+      "invalid-label-name-section-index-module",
+      "encoded module with out-of-range label name index",
+      ValidateRejected("name"),
+    ),
+    validate_invalid_binary_strategy_spec(
       BadMagicHeader,
       "bad-magic-header",
       "bad wasm magic header",
@@ -622,24 +640,26 @@ fn validate_invalid_binary_strategy_index(
     FuncSecWithoutCodeSecModule => 9
     DataCountWithoutDataSecModule => 10
     InvalidNameSectionFuncIndexModule => 11
-    BadMagicHeader => 12
-    BadVersionHeader => 13
-    CodeSecWithoutFuncSecModule => 14
-    InvalidTableNameSectionIndexModule => 15
-    InvalidGlobalNameSectionIndexModule => 16
-    ReservedSectionId => 17
-    InvalidCustomSectionNameUtf8 => 18
-    InvalidTypeNameSectionIndexModule => 19
-    InvalidElemNameSectionIndexModule => 20
-    InvalidDataNameSectionIndexModule => 21
-    InvalidExportTableIndexModule => 22
-    InvalidExportGlobalIndexModule => 23
-    InvalidExportMemoryIndexModule => 24
-    InvalidExportTagIndexModule => 25
-    InvalidTagNameSectionIndexModule => 26
-    InvalidImportedTagTypeIndexModule => 27
-    DataCountMismatchTooSmallModule => 28
-    DataCountMismatchTooLargeModule => 29
+    InvalidLocalNameSectionIndexModule => 12
+    InvalidLabelNameSectionIndexModule => 13
+    BadMagicHeader => 14
+    BadVersionHeader => 15
+    CodeSecWithoutFuncSecModule => 16
+    InvalidTableNameSectionIndexModule => 17
+    InvalidGlobalNameSectionIndexModule => 18
+    ReservedSectionId => 19
+    InvalidCustomSectionNameUtf8 => 20
+    InvalidTypeNameSectionIndexModule => 21
+    InvalidElemNameSectionIndexModule => 22
+    InvalidDataNameSectionIndexModule => 23
+    InvalidExportTableIndexModule => 24
+    InvalidExportGlobalIndexModule => 25
+    InvalidExportMemoryIndexModule => 26
+    InvalidExportTagIndexModule => 27
+    InvalidTagNameSectionIndexModule => 28
+    InvalidImportedTagTypeIndexModule => 29
+    DataCountMismatchTooSmallModule => 30
+    DataCountMismatchTooLargeModule => 31
   }
 }
 
@@ -661,9 +681,9 @@ pub fn validate_invalid_binary_run_config(
     profile.trim().to_string(),
   )
   let attempts = match normalized {
-    "smoke" => 30
-    "ci" => 300
-    "stress" => 3000
+    "smoke" => 32
+    "ci" => 320
+    "stress" => 3200
     _ =>
       return Err(
         "unknown validate-invalid-binary fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1377,6 +1397,36 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidNameSectionFuncIndexModule,
+        ast_strategy,
+        "name",
+        base,
+      )
+    }
+    InvalidLocalNameSectionIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-local-name-section-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidLocalNameSectionIndexModule,
+        ast_strategy,
+        "name",
+        base,
+      )
+    }
+    InvalidLabelNameSectionIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-label-name-section-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidLabelNameSectionIndexModule,
         ast_strategy,
         "name",
         base,

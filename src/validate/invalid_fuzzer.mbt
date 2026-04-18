@@ -1416,7 +1416,11 @@ fn validate_invalid_ast_mutate_invalid_local_name_section_index(
     )
     .with_import_sec(
       ImportSec::new([
-        Import::new(Name::new("env"), Name::new("f"), ExternType::func(TypeIdx::new(0U))),
+        Import::new(
+          Name::new("env"),
+          Name::new("f"),
+          ExternType::func(TypeIdx::new(0U)),
+        ),
       ]),
     )
   let local_names = IndirectNameMap::new([
@@ -1440,13 +1444,15 @@ fn validate_invalid_ast_mutate_invalid_label_name_section_index(
   ignore(mod)
   let imported = Module::new()
     .with_type_sec(
-      TypeSec::new([
-        RecType::new(SubType::comp_type(CompType::func([], []))),
-      ]),
+      TypeSec::new([RecType::new(SubType::comp_type(CompType::func([], [])))]),
     )
     .with_import_sec(
       ImportSec::new([
-        Import::new(Name::new("env"), Name::new("f"), ExternType::func(TypeIdx::new(0U))),
+        Import::new(
+          Name::new("env"),
+          Name::new("f"),
+          ExternType::func(TypeIdx::new(0U)),
+        ),
       ]),
     )
   let label_names = IndirectNameMap::new([
@@ -2199,17 +2205,17 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
   assert_eq(registry.map(fn(spec) { spec.stable_id }), [
     "duplicate-export-name", "invalid-start-signature", "invalid-imported-start-func-param",
     "invalid-imported-start-func-result", "missing-datacount", "undeclared-ref-func",
-    "invalid-name-section-func-index", "invalid-local-name-section-index",
-    "invalid-label-name-section-index", "invalid-func-type-index", "funcsec-without-codesec",
-    "mutable-global-get-in-const-init", "non-constant-data-offset", "invalid-imported-func-type-index",
-    "invalid-imported-tag-type-index", "mutable-global-get-in-table-init", "non-constant-elem-offset",
-    "shared-memory-without-max", "invalid-tag-type-index", "descriptor-on-func-type",
-    "datacount-without-data-sec", "invalid-export-func-index", "start-func-out-of-range",
-    "missing-datacount-data-drop", "invalid-memory-name-section-index", "codesec-without-funcsec",
-    "invalid-table-name-section-index", "invalid-global-name-section-index", "invalid-type-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-name-section-func-index", "invalid-local-name-section-index", "invalid-label-name-section-index",
+    "invalid-func-type-index", "funcsec-without-codesec", "mutable-global-get-in-const-init",
+    "non-constant-data-offset", "invalid-imported-func-type-index", "invalid-imported-tag-type-index",
+    "mutable-global-get-in-table-init", "non-constant-elem-offset", "shared-memory-without-max",
+    "invalid-tag-type-index", "descriptor-on-func-type", "datacount-without-data-sec",
+    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   assert_eq(smoke_required.length(), 16)

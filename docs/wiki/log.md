@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record local/label name and ninth-stage invalid widening
+
+- Reviewed the already-modified validator and fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_text.mbt` to capture another widening step: AST and binary coverage now include local-name and label-name invalid modules, while the text lanes now include another malformed bad-opcode case, an imported multi-param start case, an alternate global-type unlinkable case, and ninth-stage spec seeds.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe broader name-section AST/binary coverage and nine-wide text/spec stage families.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] research | retire generated O4z RUB slot40 block-stack leak
 
 - Re-read the slot-40 capture in `docs/wiki/raw/research/0099-2026-04-18-generated-o4z-rub-slot40-block-stack-leak.md`, the generated-artifact audit summary in `docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`, the current RUB parity page, and the in-tree `remove-unused-brs` implementation before reworking the later ordered replay.
