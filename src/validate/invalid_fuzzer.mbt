@@ -72,6 +72,8 @@ pub enum ValidateInvalidAstStrategyId {
   FuncSecWithoutCodeSec
   MutableGlobalGetInConstInit
   NonConstantDataOffset
+  InvalidImportedFuncTypeIndex
+  MutableGlobalGetInTableInit
 } derive(Eq, Debug)
 
 ///|
@@ -197,6 +199,18 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "non-constant active data offset",
       DataSectionFamily,
     ),
+    validate_invalid_ast_strategy_spec(
+      InvalidImportedFuncTypeIndex,
+      "invalid-imported-func-type-index",
+      "invalid imported function type index",
+      ImportSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      MutableGlobalGetInTableInit,
+      "mutable-global-get-in-table-init",
+      "mutable global.get in table initializer",
+      TableSectionFamily,
+    ),
   ]
 }
 
@@ -226,6 +240,8 @@ fn validate_invalid_ast_strategy_index(
     FuncSecWithoutCodeSec => 6
     MutableGlobalGetInConstInit => 7
     NonConstantDataOffset => 8
+    InvalidImportedFuncTypeIndex => 9
+    MutableGlobalGetInTableInit => 10
   }
 }
 
@@ -305,6 +321,14 @@ fn validate_invalid_ast_import_entries(mod : Module) -> Array[Import] {
 fn validate_invalid_ast_mem_entries(mod : Module) -> Array[MemType] {
   match mod.mem_sec {
     Some(MemSec(entries)) => entries.copy()
+    None => []
+  }
+}
+
+///|
+fn validate_invalid_ast_table_entries(mod : Module) -> Array[Table] {
+  match mod.table_sec {
+    Some(TableSec(entries)) => entries.copy()
     None => []
   }
 }
@@ -699,6 +723,62 @@ fn validate_invalid_ast_mutate_non_constant_data_offset(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_imported_func_type_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let imports = validate_invalid_ast_import_entries(mod)
+  let bad_type_idx = TypeIdx::new(
+    validate_invalid_ast_type_entries(mod).length().reinterpret_as_uint(),
+  )
+  imports.push(
+    Import::new(
+      Name::new("env"),
+      Name::new("f"),
+      ExternType::func(bad_type_idx),
+    ),
+  )
+  {
+    strategy: InvalidImportedFuncTypeIndex,
+    applicable: true,
+    expected_family: ImportSectionFamily,
+    mutated_module: mod.with_import_sec(ImportSec::new(imports)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_mutable_global_get_in_table_init(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let imports = validate_invalid_ast_import_entries(mod)
+  let tables = validate_invalid_ast_table_entries(mod)
+  let imported_global_idx = GlobalIdx::new(
+    validate_invalid_ast_imported_global_count(mod).reinterpret_as_uint(),
+  )
+  let func_ref = RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  imports.push(
+    Import::new(
+      Name::new("env"),
+      Name::new("g"),
+      ExternType::global(GlobalType::new(ValType::ref_type(func_ref), true)),
+    ),
+  )
+  tables.push(
+    Table::new(
+      TableType::new(func_ref, Limits::i32(1, None)),
+      Some(Expr::new([Instruction::global_get(imported_global_idx)])),
+    ),
+  )
+  {
+    strategy: MutableGlobalGetInTableInit,
+    applicable: true,
+    expected_family: TableSectionFamily,
+    mutated_module: mod
+    .with_import_sec(ImportSec::new(imports))
+    .with_table_sec(TableSec::new(tables)),
+  }
+}
+
+///|
 pub fn apply_validate_invalid_ast_strategy(
   strategy : ValidateInvalidAstStrategyId,
   mod : Module,
@@ -728,6 +808,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_mutable_global_get_in_const_init(base)
       NonConstantDataOffset =>
         validate_invalid_ast_mutate_non_constant_data_offset(base)
+      InvalidImportedFuncTypeIndex =>
+        validate_invalid_ast_mutate_invalid_imported_func_type_index(base)
+      MutableGlobalGetInTableInit =>
+        validate_invalid_ast_mutate_mutable_global_get_in_table_init(base)
     },
   )
 }
@@ -949,10 +1033,11 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
   assert_eq(registry.map(fn(spec) { spec.stable_id }), [
     "duplicate-export-name", "invalid-start-signature", "missing-datacount", "undeclared-ref-func",
     "invalid-name-section-func-index", "invalid-func-type-index", "funcsec-without-codesec",
-    "mutable-global-get-in-const-init", "non-constant-data-offset",
+    "mutable-global-get-in-const-init", "non-constant-data-offset", "invalid-imported-func-type-index",
+    "mutable-global-get-in-table-init",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 9)
+  assert_eq(smoke_required.length(), 11)
 }
 
 ///|
@@ -1111,6 +1196,32 @@ test "non-constant data offset strategy rejects with DataSection family" {
       NonConstantDataOffset,
       0x5ef5UL,
       DataSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid imported func type index strategy rejects with ImportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidImportedFuncTypeIndex,
+      0x5ef6UL,
+      ImportSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "mutable global.get table-init strategy rejects with TableSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      MutableGlobalGetInTableInit,
+      0x5ef7UL,
+      TableSectionFamily,
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

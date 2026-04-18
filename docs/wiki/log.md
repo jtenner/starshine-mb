@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record import/table AST invalid strategies
+
+- Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture the next widening step after the earlier function/code/global/data additions: the AST invalid lane now also reaches import-section and table-section failures through `invalid-imported-func-type-index` and `mutable-global-get-in-table-init`.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now treat import and table coverage as landed and narrow the remaining AST-invalid family gap to element/tag/type corners.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record wider AST invalid-family coverage
 
 - Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture the next release-hardening step: the AST invalid lane now reaches additional section families beyond export/start/body/name, specifically function-section, code-section, global-section, and data-section failures.

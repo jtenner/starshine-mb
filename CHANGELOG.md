@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: extend AST invalid-module coverage into import and table validators
+
+- **add new AST invalid mutation strategies for import-section and table-section failures** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), and [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt) so validator fuzzing now also covers `invalid-imported-func-type-index` and `mutable-global-get-in-table-init`, extending the AST invalid lane across import and table validators in addition to the already-landed export/start/function/code/global/data/name/body families. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate`, and `moon info`.
+
 ## 2026-04-18 Fix: widen AST invalid-module coverage across more validator families
 
 - **add new AST invalid mutation strategies for function-section, code-section, global-section, and data-section rejections** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), and [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt) so validator fuzzing now also covers `invalid-func-type-index`, `funcsec-without-codesec`, `mutable-global-get-in-const-init`, and `non-constant-data-offset` in addition to the earlier export/start/body/name families. This broadens invalid-module coverage before release without weakening deterministic repro/report behavior. Verification for this slice: `moon test src/validate`, `moon fmt src/validate`, and `moon info`.

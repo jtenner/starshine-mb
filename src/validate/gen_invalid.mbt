@@ -181,6 +181,8 @@ fn gen_invalid_ast_strategy_label(
     FuncSecWithoutCodeSec => "funcsec-without-codesec"
     MutableGlobalGetInConstInit => "mutable-global-get-in-const-init"
     NonConstantDataOffset => "non-constant-data-offset"
+    InvalidImportedFuncTypeIndex => "invalid-imported-func-type-index"
+    MutableGlobalGetInTableInit => "mutable-global-get-in-table-init"
   }
 }
 
