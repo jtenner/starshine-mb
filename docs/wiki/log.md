@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] research | retire generated O4z RUB slot40 block-stack leak
+
+- Re-read the slot-40 capture in `docs/wiki/raw/research/0099-2026-04-18-generated-o4z-rub-slot40-block-stack-leak.md`, the generated-artifact audit summary in `docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`, the current RUB parity page, and the in-tree `remove-unused-brs` implementation before reworking the later ordered replay.
+- Added the repair note `docs/wiki/raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md` to record that the unsafe `rewrite-tail-value-if-simple-payload-arm` family is now retired conservatively, along with the slot-37 predecessor replay evidence and the extracted `Func 3863` artifact-backed guard.
+- Updated `docs/wiki/binaryen/passes/remove-unused-brs/parity.md` and `docs/wiki/index.md` so the living docs now describe slot-40 as retired, name the conservative guard, and point future work at a narrower oracle-backed re-enable slice instead of leaving the old corruption description live.
+
 ## [2026-04-18] maintain | record imported-start and eighth-stage invalid widening
 
 - Reviewed the already-modified validator and fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_text.mbt` to capture another widening step: AST and binary coverage now include imported-start signature failures in both parameter and result directions, while the text lanes now include one more malformed bad-opcode case, an imported param+result start case, a global mutability unlinkable case, and eighth-stage spec seeds.

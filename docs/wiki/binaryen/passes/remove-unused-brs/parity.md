@@ -9,6 +9,7 @@ sources:
   - ../../../raw/research/0101-2026-04-18-generated-o4z-rub-slot14-native-source-divergence.md
   - ../../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md
   - ../../../raw/research/0099-2026-04-18-generated-o4z-rub-slot40-block-stack-leak.md
+  - ../../../raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
@@ -98,6 +99,11 @@ related:
   - the extracted `Func 1354` replay is now locked by an external `wasm-tools validate` cmd wbtest instead of only the in-tree decode path
   - Starshine now keeps the plain-`br` `if -> br_if` cleanup disabled when a large lifted function (`hot_node_count >= 256`) would need to reorder a non-reorder-safe condition
   - that guard is deliberately conservative: Binaryen already keeps a valid block-plus-branch shape on the extracted slot-14 oracle input, and the old Starshine rewrite was emitting invalid wasm there
+- The later ordered generated-artifact slot-40 corruption is now retired too:
+  - the slot-37 predecessor replay now emits wasm-tools-valid raw output again
+  - the extracted `Func 3863` replay is now locked by an external `wasm-tools validate` cmd wbtest
+  - the current tree retires `rewrite-tail-value-if-simple-payload-arm` conservatively because the slot-40 family still leaked carried values after later lowering/restructuring composition
+  - the saved slot-40 compare lane now returns `normalizedWatEqual=true` and `canonicalFuncPrettyEqual=true` on the predecessor replay
 - The remaining artifact work is not a generic "RUB still weak on branches" statement.
 - The remaining work is now concentrated in later shape families where:
   - the explicit compare still contains early type-order noise that may not be RUB logic at all

@@ -3899,104 +3899,15 @@ fn remove_unused_brs_try_rewrite_tail_value_if_simple_payload_arm(
   region_ref : @ir.HotRegionRef,
   label_refs : Array[Int],
 ) -> Bool {
-  if @ir.hot_region_result_arity(func, region_ref) != 1 {
-    return false
-  }
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  if root_count == 0 {
-    return false
-  }
-  let tail_idx = root_count - 1
-  let if_id = @ir.hot_region_get(func, region_ref, tail_idx)
-  if if_id < 0 || !@ir.hot_node_is_live(func, if_id) {
-    return false
-  }
-  let if_node = @ir.hot_node_get(func, if_id)
-  match if_node.op {
-    @ir.HotOp::If =>
-      if @ir.hot_node_result_arity(func, if_id) != 1 {
-        return false
-      }
-    _ => return false
-  }
-  let else_ref = match @ir.hot_region_else_ref(func, if_id) {
-    Some(else_ref) => else_ref
-    None => return false
-  }
-  let then_ref = @ir.hot_region_then_ref(func, if_id)
-  let if_label = @ir.hot_control_node_label(func, if_id)
-  if remove_unused_brs_label_is_used(label_refs, if_label) {
-    return false
-  }
-  let region_prefix : Array[Int] = []
-  for idx = 0; idx < tail_idx; idx = idx + 1 {
-    region_prefix.push(@ir.hot_region_get(func, region_ref, idx))
-  }
-  if region_prefix.is_empty() {
-    return false
-  }
-  let result_type = @ir.hot_type_results(func, @ir.hot_node_type(func, if_id))[0]
-  let try_build = fn(
-    simple_ref : @ir.HotRegionRef,
-    body_ref : @ir.HotRegionRef,
-    negate_condition : Bool,
-  ) -> Bool {
-    let (simple_prefix, simple_payload) = match
-      @ir.hot_region_split_trailing_payload_roots(func, simple_ref, 1) {
-      Some(split) => split
-      None => return false
-    }
-    for root_id in simple_prefix {
-      if @ir.cfg_terminator_edge_kinds(@ir.hot_node_get(func, root_id).op).length() >
-        0 {
-        return false
-      }
-    }
-    let block_id = @ir.hot_build_block(
-      func,
-      @lib.BlockType::val_type(result_type),
-      [],
-    )
-    let target = @ir.hot_control_node_label(func, block_id)
-    let guard_condition = if negate_condition {
-      remove_unused_brs_build_i32_eqz(func, @ir.hot_child_get(func, if_id, 0))
-    } else {
-      @ir.hot_child_get(func, if_id, 0)
-    }
-    let exit_branch = @ir.hot_build_br(func, target, values=simple_payload)
-    let guard_then = simple_prefix.copy()
-    guard_then.push(exit_branch)
-    let guard_if = @ir.hot_build_if(
-      func,
-      @lib.BlockType::void_(),
-      guard_condition,
-      guard_then,
-    )
-    let block_body = region_prefix.copy()
-    block_body.push(guard_if)
-    for root_id in remove_unused_brs_region_roots(func, body_ref) {
-      block_body.push(root_id)
-    }
-    @ir.hot_region_replace_body(
-      func,
-      @ir.hot_region_body_ref(func, block_id),
-      block_body,
-    )
-    ignore(pass_splice_region(ctx, func, region_ref, 0, root_count, [block_id]))
-    remove_unused_brs_delete_unused_nodes(ctx, func, [
-      if_id,
-      then_ref.holder,
-      else_ref.holder,
-    ])
-    remove_unused_brs_mark_mutated(
-      ctx, func, "rewrite-tail-value-if-simple-payload-arm",
-    )
-    true
-  }
-  if try_build(then_ref, else_ref, false) {
-    return true
-  }
-  try_build(else_ref, then_ref, true)
+  ignore(ctx)
+  ignore(func)
+  ignore(region_ref)
+  ignore(label_refs)
+  // Generated ordered -O4z slot40 still corrupts stack state after this rewrite
+  // composes with later lowering/restructuring steps. Keep it retired until the
+  // valid-context contract is reduced and re-landed under focused oracle-backed
+  // coverage.
+  false
 }
 
 ///|

@@ -182,6 +182,8 @@ fn gen_invalid_ast_strategy_label(
     MissingDataCountDataDrop => "missing-datacount-data-drop"
     UndeclaredRefFunc => "undeclared-ref-func"
     InvalidNameSectionFuncIndex => "invalid-name-section-func-index"
+    InvalidLocalNameSectionIndex => "invalid-local-name-section-index"
+    InvalidLabelNameSectionIndex => "invalid-label-name-section-index"
     InvalidMemoryNameSectionIndex => "invalid-memory-name-section-index"
     CodeSecWithoutFuncSec => "codesec-without-funcsec"
     InvalidTableNameSectionIndex => "invalid-table-name-section-index"

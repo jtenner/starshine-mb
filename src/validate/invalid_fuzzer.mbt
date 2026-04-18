@@ -70,6 +70,8 @@ pub enum ValidateInvalidAstStrategyId {
   MissingDataCount
   UndeclaredRefFunc
   InvalidNameSectionFuncIndex
+  InvalidLocalNameSectionIndex
+  InvalidLabelNameSectionIndex
   InvalidFuncTypeIndex
   FuncSecWithoutCodeSec
   MutableGlobalGetInConstInit
@@ -213,6 +215,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "invalid-name-section-func-index",
       "invalid function name index",
       NameSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidLocalNameSectionIndex,
+      "invalid-local-name-section-index",
+      "invalid local name index",
+      NameSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidLabelNameSectionIndex,
+      "invalid-label-name-section-index",
+      "invalid label name index",
+      NameSectionFamily,
+      required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
       InvalidFuncTypeIndex,
@@ -433,35 +449,37 @@ fn validate_invalid_ast_strategy_index(
     MissingDataCount => 4
     UndeclaredRefFunc => 5
     InvalidNameSectionFuncIndex => 6
-    InvalidFuncTypeIndex => 7
-    FuncSecWithoutCodeSec => 8
-    MutableGlobalGetInConstInit => 9
-    NonConstantDataOffset => 10
-    InvalidImportedFuncTypeIndex => 11
-    InvalidImportedTagTypeIndex => 12
-    MutableGlobalGetInTableInit => 13
-    NonConstantElemOffset => 14
-    SharedMemoryWithoutMax => 15
-    InvalidTagTypeIndex => 16
-    DescriptorOnFuncType => 17
-    DataCountWithoutDataSec => 18
-    InvalidExportFuncIndex => 19
-    StartFuncOutOfRange => 20
-    MissingDataCountDataDrop => 21
-    InvalidMemoryNameSectionIndex => 22
-    CodeSecWithoutFuncSec => 23
-    InvalidTableNameSectionIndex => 24
-    InvalidGlobalNameSectionIndex => 25
-    InvalidTypeNameSectionIndex => 26
-    InvalidElemNameSectionIndex => 27
-    InvalidDataNameSectionIndex => 28
-    InvalidExportTableIndex => 29
-    InvalidExportGlobalIndex => 30
-    InvalidExportMemoryIndex => 31
-    InvalidExportTagIndex => 32
-    InvalidTagNameSectionIndex => 33
-    DataCountMismatchTooSmall => 34
-    DataCountMismatchTooLarge => 35
+    InvalidLocalNameSectionIndex => 7
+    InvalidLabelNameSectionIndex => 8
+    InvalidFuncTypeIndex => 9
+    FuncSecWithoutCodeSec => 10
+    MutableGlobalGetInConstInit => 11
+    NonConstantDataOffset => 12
+    InvalidImportedFuncTypeIndex => 13
+    InvalidImportedTagTypeIndex => 14
+    MutableGlobalGetInTableInit => 15
+    NonConstantElemOffset => 16
+    SharedMemoryWithoutMax => 17
+    InvalidTagTypeIndex => 18
+    DescriptorOnFuncType => 19
+    DataCountWithoutDataSec => 20
+    InvalidExportFuncIndex => 21
+    StartFuncOutOfRange => 22
+    MissingDataCountDataDrop => 23
+    InvalidMemoryNameSectionIndex => 24
+    CodeSecWithoutFuncSec => 25
+    InvalidTableNameSectionIndex => 26
+    InvalidGlobalNameSectionIndex => 27
+    InvalidTypeNameSectionIndex => 28
+    InvalidElemNameSectionIndex => 29
+    InvalidDataNameSectionIndex => 30
+    InvalidExportTableIndex => 31
+    InvalidExportGlobalIndex => 32
+    InvalidExportMemoryIndex => 33
+    InvalidExportTagIndex => 34
+    InvalidTagNameSectionIndex => 35
+    DataCountMismatchTooSmall => 36
+    DataCountMismatchTooLarge => 37
   }
 }
 
@@ -481,9 +499,9 @@ pub fn validate_invalid_ast_run_config(
 ) -> Result[ValidateInvalidAstRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 36
-    "ci" => 360
-    "stress" => 3600
+    "smoke" => 38
+    "ci" => 380
+    "stress" => 3800
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -858,6 +876,58 @@ fn validate_invalid_ast_with_func_names(
         tag_names=name_sec.tag_names,
       )
     None => NameSec::new(func_names=Some(func_names))
+  }
+  mod.with_name_sec(next_name_sec)
+}
+
+///|
+fn validate_invalid_ast_with_local_names(
+  mod : Module,
+  local_names : IndirectNameMap,
+) -> Module {
+  let next_name_sec = match mod.name_sec {
+    Some(name_sec) =>
+      NameSec::new(
+        module_name=name_sec.module_name,
+        func_names=name_sec.func_names,
+        local_names=Some(local_names),
+        label_names=name_sec.label_names,
+        type_names=name_sec.type_names,
+        table_names=name_sec.table_names,
+        memory_names=name_sec.memory_names,
+        global_names=name_sec.global_names,
+        elem_names=name_sec.elem_names,
+        data_names=name_sec.data_names,
+        field_names=name_sec.field_names,
+        tag_names=name_sec.tag_names,
+      )
+    None => NameSec::new(local_names=Some(local_names))
+  }
+  mod.with_name_sec(next_name_sec)
+}
+
+///|
+fn validate_invalid_ast_with_label_names(
+  mod : Module,
+  label_names : IndirectNameMap,
+) -> Module {
+  let next_name_sec = match mod.name_sec {
+    Some(name_sec) =>
+      NameSec::new(
+        module_name=name_sec.module_name,
+        func_names=name_sec.func_names,
+        local_names=name_sec.local_names,
+        label_names=Some(label_names),
+        type_names=name_sec.type_names,
+        table_names=name_sec.table_names,
+        memory_names=name_sec.memory_names,
+        global_names=name_sec.global_names,
+        elem_names=name_sec.elem_names,
+        data_names=name_sec.data_names,
+        field_names=name_sec.field_names,
+        tag_names=name_sec.tag_names,
+      )
+    None => NameSec::new(label_names=Some(label_names))
   }
   mod.with_name_sec(next_name_sec)
 }
@@ -1334,6 +1404,66 @@ fn validate_invalid_ast_mutate_invalid_name_section_func_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_local_name_section_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let imported = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(Name::new("env"), Name::new("f"), ExternType::func(TypeIdx::new(0U))),
+      ]),
+    )
+  let local_names = IndirectNameMap::new([
+    IndirectNameAssoc::new(
+      0U,
+      NameMap::new([NameAssoc::new(1U, Name::new("too-far"))]),
+    ),
+  ])
+  {
+    strategy: InvalidLocalNameSectionIndex,
+    applicable: true,
+    expected_family: NameSectionFamily,
+    mutated_module: validate_invalid_ast_with_local_names(imported, local_names),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_label_name_section_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let imported = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], []))),
+      ]),
+    )
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(Name::new("env"), Name::new("f"), ExternType::func(TypeIdx::new(0U))),
+      ]),
+    )
+  let label_names = IndirectNameMap::new([
+    IndirectNameAssoc::new(
+      0U,
+      NameMap::new([NameAssoc::new(0U, Name::new("entry"))]),
+    ),
+  ])
+  {
+    strategy: InvalidLabelNameSectionIndex,
+    applicable: true,
+    expected_family: NameSectionFamily,
+    mutated_module: validate_invalid_ast_with_label_names(imported, label_names),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_memory_name_section_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -1806,6 +1936,10 @@ pub fn apply_validate_invalid_ast_strategy(
       UndeclaredRefFunc => validate_invalid_ast_mutate_undeclared_ref_func(base)
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
+      InvalidLocalNameSectionIndex =>
+        validate_invalid_ast_mutate_invalid_local_name_section_index(base)
+      InvalidLabelNameSectionIndex =>
+        validate_invalid_ast_mutate_invalid_label_name_section_index(base)
       InvalidMemoryNameSectionIndex =>
         validate_invalid_ast_mutate_invalid_memory_name_section_index(base)
       CodeSecWithoutFuncSec =>
@@ -2065,7 +2199,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
   assert_eq(registry.map(fn(spec) { spec.stable_id }), [
     "duplicate-export-name", "invalid-start-signature", "invalid-imported-start-func-param",
     "invalid-imported-start-func-result", "missing-datacount", "undeclared-ref-func",
-    "invalid-name-section-func-index", "invalid-func-type-index", "funcsec-without-codesec",
+    "invalid-name-section-func-index", "invalid-local-name-section-index",
+    "invalid-label-name-section-index", "invalid-func-type-index", "funcsec-without-codesec",
     "mutable-global-get-in-const-init", "non-constant-data-offset", "invalid-imported-func-type-index",
     "invalid-imported-tag-type-index", "mutable-global-get-in-table-init", "non-constant-elem-offset",
     "shared-memory-without-max", "invalid-tag-type-index", "descriptor-on-func-type",
@@ -2209,6 +2344,32 @@ test "invalid name-section func index strategy rejects with NameSection family" 
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidNameSectionFuncIndex,
       0x5ef1UL,
+      NameSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid local name index strategy rejects with NameSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidLocalNameSectionIndex,
+      0x5ef11UL,
+      NameSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid label name index strategy rejects with NameSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidLabelNameSectionIndex,
+      0x5ef12UL,
       NameSectionFamily,
     ) {
     Ok(_) => ()
@@ -2632,7 +2793,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 36)
+  assert_eq(first.attempts, 38)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)
