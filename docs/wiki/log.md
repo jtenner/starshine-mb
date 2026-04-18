@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | refine Binaryen package-surface lag notes
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after another non-GitHub Binaryen source sweep so the living wiki now says explicitly that the Debian `wasm-opt` manpage and the published `wasm_opt::Pass` enum are both incomplete in different directions: Debian already exposes some upstream-only passes such as `--minimize-rec-groups` / `--string-lowering`, while docs.rs still exposes older names like `RemoveUnusedTypes` without surfacing those newer additions.
+- Tightened the source-of-truth guidance around late-pass upkeep: use the Debian manpage and docs.rs enum as terminology lower bounds, but keep the Chromium-hosted release-note trail through `version_129` as the safer public baseline when reconciling newer upstream-only pass additions or absences.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the wording refresh.
+
 ## [2026-04-18] maintain | extend non-GitHub Binaryen release-note coverage through version_129
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after another Chromium-hosted Binaryen check so the living wiki now says explicitly that the directly reachable non-GitHub release-note horizon extends through `version_129`, not just the earlier `version_126` lower bound.
