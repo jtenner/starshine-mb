@@ -67,12 +67,12 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family and residual in-tree skip classification.
 - [`binaryen/passes/tuple-optimization/index.md`](binaryen/passes/tuple-optimization/index.md) - Hub page for tuple-opt overview, shapes, strategies, scheduler notes, reduced repros, and parity status.
 - [`binaryen/passes/dead-code-elimination/index.md`](binaryen/passes/dead-code-elimination/index.md) - Active hot-pass landing page; notes the current Binaryen `Dce` naming alignment until strategy pages land.
-- [`binaryen/passes/global-refining/index.md`](binaryen/passes/global-refining/index.md) - Active module-pass landing page; see the landing page until strategy pages land.
+- [`binaryen/passes/global-refining/index.md`](binaryen/passes/global-refining/index.md) - Active module-pass landing page; now also records the current non-GitHub `--global-refining` terminology sanity check.
 - [`binaryen/passes/global-struct-inference/index.md`](binaryen/passes/global-struct-inference/index.md) - Folder now has a landing page plus the existing parity note.
-- [`binaryen/passes/heap-store-optimization/index.md`](binaryen/passes/heap-store-optimization/index.md) - Active hot-pass landing page; see the landing page until strategy pages land.
+- [`binaryen/passes/heap-store-optimization/index.md`](binaryen/passes/heap-store-optimization/index.md) - Active hot-pass landing page; now also records the current non-GitHub `HeapStoreOptimization` terminology sanity check.
 - [`binaryen/passes/heap2local/index.md`](binaryen/passes/heap2local/index.md) - Folder now has a landing page plus the current parity note.
-- [`binaryen/passes/memory-packing/index.md`](binaryen/passes/memory-packing/index.md) - Active module-pass landing page; see the landing page until strategy pages land.
-- [`binaryen/passes/once-reduction/index.md`](binaryen/passes/once-reduction/index.md) - Active module-pass landing page; see the landing page until strategy pages land.
+- [`binaryen/passes/memory-packing/index.md`](binaryen/passes/memory-packing/index.md) - Active module-pass landing page; now also records the current non-GitHub `--memory-packing` terminology sanity check.
+- [`binaryen/passes/once-reduction/index.md`](binaryen/passes/once-reduction/index.md) - Active module-pass landing page; now also records the current non-GitHub `--once-reduction` terminology sanity check.
 - [`binaryen/passes/optimize-instructions/index.md`](binaryen/passes/optimize-instructions/index.md) - Active hot-pass landing page; see the landing page until strategy pages land.
 - [`binaryen/passes/pick-load-signs/index.md`](binaryen/passes/pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
 - [`binaryen/passes/precompute/index.md`](binaryen/passes/precompute/index.md) - Active hot-pass landing page; records the current `precompute` versus `precompute-propagate` alias boundary until strategy pages land.

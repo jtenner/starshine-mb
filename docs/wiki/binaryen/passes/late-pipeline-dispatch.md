@@ -44,7 +44,7 @@ related:
 
 - A 2026-04-18 web check against non-GitHub primary-ish sources still shows upstream-facing Binaryen surfaces exposing the same command-line names this wiki uses for `global-refining`, `memory-packing`, `once-reduction`, `optimize-instructions`, `precompute`, and `vacuum`.
 - The Debian experimental `wasm-opt` manpage for Binaryen `122` still lists `--once-reduction`, `--optimize-instructions`, `--precompute`, `--precompute-propagate`, and `--vacuum`, and describes `--global-refining` as a supported pass as well.
-- The current `wasm_opt` Rust bindings remain non-exhaustive and still include `GlobalRefining`, `MemoryPacking`, `OnceReduction`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, and `Vacuum`; they also describe `Dce` as `Removes unreachable code`, which matches this repo's `dead-code-elimination` terminology at the behavioral level.
+- The current `wasm_opt` Rust bindings remain non-exhaustive and still include `GlobalRefining`, `HeapStoreOptimization`, `MemoryPacking`, `OnceReduction`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, and `Vacuum`; they also describe `Dce` as `Removes unreachable code`, which matches this repo's `dead-code-elimination` terminology at the behavioral level.
 - These non-GitHub discovery surfaces currently lag the repo's GitHub-sourced `version_129` source oracle, so their older package version should be treated as source-availability lag, not as evidence that the pass names were reverted or removed upstream.
 - Because this maintenance run avoids GitHub by policy, this terminology check should be treated as a current naming sanity check rather than a direct source-code audit of Binaryen `main`.
 

@@ -26,9 +26,9 @@ related:
 
 - [`duplicate-function-elimination/index.md`](duplicate-function-elimination/index.md) - Expanded folder with hub page, shapes, strategy pages, metadata notes, and parity status.
 - [`remove-unused-module-elements/index.md`](remove-unused-module-elements/index.md) - Expanded folder with hub page, shapes, strategy pages, retention rules, and parity status.
-- [`memory-packing/index.md`](memory-packing/index.md) - Active module pass; see the landing page until strategy pages land.
-- [`once-reduction/index.md`](once-reduction/index.md) - Active module pass; see the landing page until strategy pages land.
-- [`global-refining/index.md`](global-refining/index.md) - Active module pass; see the landing page until strategy pages land.
+- [`memory-packing/index.md`](memory-packing/index.md) - Active module pass; the landing page now also records the current non-GitHub `--memory-packing` terminology sanity check.
+- [`once-reduction/index.md`](once-reduction/index.md) - Active module pass; the landing page now also records the current non-GitHub `--once-reduction` terminology sanity check.
+- [`global-refining/index.md`](global-refining/index.md) - Active module pass; the landing page now also records the current non-GitHub `--global-refining` terminology sanity check.
 - [`global-struct-inference/index.md`](global-struct-inference/index.md) - Folder now has a landing page plus the existing parity note.
 - [`reorder-locals/index.md`](reorder-locals/index.md) - Folder now has a landing page plus parity and multivalue-call scope notes.
 
@@ -40,7 +40,7 @@ related:
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
 - [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, and parity status.
 - [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass; see the landing page until strategy pages land.
-- [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass; see the landing page until strategy pages land.
+- [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass; the landing page now also records the current non-GitHub `HeapStoreOptimization` terminology sanity check.
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
 - [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with shapes, strategies, scheduler notes, reduced repro tracking, and parity status.

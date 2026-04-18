@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | refresh late-pass stub terminology checks
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` so the current non-GitHub Binaryen terminology check now explicitly includes `HeapStoreOptimization` alongside the already-tracked `GlobalRefining`, `MemoryPacking`, `OnceReduction`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, and `Vacuum` surfaces.
+- Refreshed the stub landing pages for `global-refining`, `memory-packing`, `once-reduction`, and `heap-store-optimization` so each page now records the current non-GitHub naming evidence and says explicitly that this maintenance run found no rename or deprecation signal in the available primary-ish sources.
+- Updated `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md` so both catalogs describe the refreshed terminology-check coverage instead of the older generic stub wording.
+- Reran a repo-local markdown-link health check over `docs/wiki/**/*.md` and confirmed there are still no broken relative links after the refresh.
+
 ## [2026-04-18] research | narrow `[O4Z]001` to a native/source divergence blocker
 
 - Added `docs/wiki/raw/research/0101-2026-04-18-generated-o4z-rub-slot14-native-source-divergence.md` to capture the current slot-14 blocker split: rebuilt native `cmd.exe` still emits invalid raw output on the saved predecessor from `0094`, while new in-process `run_cmd` / `run_cmd_with_adapter` wbtests on the same bytes stay green.
