@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | widen Binaryen upstream-only pass boundary notes again
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after a fresh non-GitHub Binaryen release-note pass so the living wiki now records one more upstream-only addition that was missing from the earlier lower-bound catalog: `ReorderTypes` is already called out by Chromium-hosted `version_125`, between the previously tracked `version_124` and `version_126` additions.
+- Kept the wording conservative and explicit about evidence quality: the reachable non-GitHub sources still provide a lower-bound public catalog rather than a full historical Binaryen pass audit, and this update only records the newly confirmed `version_125` gap instead of implying that the full upstream pass history has now been exhaustively reconciled.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the catalog refresh.
+
 ## [2026-04-18] maintain | ingest ordered-audit notes for DCE and heap2local
 
 - Updated `docs/wiki/binaryen/passes/dead-code-elimination/index.md` and `docs/wiki/binaryen/passes/heap2local/index.md` so the living pass stubs now absorb one durable takeaway from the 2026-04-18 generated `cmd.wasm` ordered `-O4z` audit: both passes are currently in the expensive-but-successful cluster rather than the hard-corruption cluster.
