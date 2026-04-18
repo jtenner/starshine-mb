@@ -30,12 +30,35 @@ pub fn EmitGenValidBatchArgs::new(
 }
 
 ///|
+pub struct EmitInvalidReproArgs {
+  suite : String
+  strategy_id : String
+  seed : UInt64
+  attempt : Int
+  profile : String
+  out_dir : String
+} derive(Eq, Debug)
+
+///|
+pub fn EmitInvalidReproArgs::new(
+  suite : String,
+  strategy_id : String,
+  seed : UInt64,
+  attempt : Int,
+  out_dir : String,
+  profile? : String = "smoke",
+) -> EmitInvalidReproArgs {
+  { suite, strategy_id, seed, attempt, profile, out_dir }
+}
+
+///|
 pub enum FuzzCliCommand {
   Run(FuzzCliArgs)
   Help
   ListSuites
   ListProfiles
   EmitGenValidBatch(EmitGenValidBatchArgs)
+  EmitInvalidRepro(EmitInvalidReproArgs)
 } derive(Eq, Debug)
 
 ///|
@@ -115,7 +138,7 @@ pub fn fuzz_usage_text() -> String {
     fuzz_join(reserved, ", ")
   }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> (coverage-forced batch)\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> (coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>]\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -478,6 +501,193 @@ fn fuzz_parse_emit_gen_valid_batch_args(
 }
 
 ///|
+fn fuzz_parse_emit_invalid_repro_args(
+  args : Array[String],
+) -> EmitInvalidReproArgs {
+  let mut suite : String? = None
+  let mut strategy_id : String? = None
+  let mut seed : UInt64? = None
+  let mut attempt : Int? = None
+  let mut profile : String? = None
+  let mut out_dir : String? = None
+  let mut i = 1
+  while i < args.length() {
+    let arg = args[i].trim().to_string()
+    if arg == "--suite" {
+      if i + 1 >= args.length() {
+        abort("missing value for --suite")
+      }
+      if suite is Some(_) {
+        abort("duplicate --suite flag")
+      }
+      suite = Some(args[i + 1])
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--suite=") {
+      if suite is Some(_) {
+        abort("duplicate --suite flag")
+      }
+      suite = Some(fuzz_tail_string(arg, 8))
+      i += 1
+      continue
+    }
+    if arg == "--strategy" {
+      if i + 1 >= args.length() {
+        abort("missing value for --strategy")
+      }
+      if strategy_id is Some(_) {
+        abort("duplicate --strategy flag")
+      }
+      strategy_id = Some(args[i + 1])
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--strategy=") {
+      if strategy_id is Some(_) {
+        abort("duplicate --strategy flag")
+      }
+      strategy_id = Some(fuzz_tail_string(arg, 11))
+      i += 1
+      continue
+    }
+    if arg == "--seed" {
+      if i + 1 >= args.length() {
+        abort("missing value for --seed")
+      }
+      if seed is Some(_) {
+        abort("duplicate --seed flag")
+      }
+      seed = Some(fuzz_parse_uint64_or_abort(args[i + 1]))
+      i += 2
+      continue
+    }
+    if fuzz_has_seed_equals_flag(arg) {
+      if seed is Some(_) {
+        abort("duplicate --seed flag")
+      }
+      seed = Some(fuzz_parse_uint64_or_abort(fuzz_tail_string(arg, 7)))
+      i += 1
+      continue
+    }
+    if arg == "--attempt" {
+      if i + 1 >= args.length() {
+        abort("missing value for --attempt")
+      }
+      if attempt is Some(_) {
+        abort("duplicate --attempt flag")
+      }
+      attempt = Some(
+        fuzz_parse_non_negative_decimal_or_abort("attempt", args[i + 1]),
+      )
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--attempt=") {
+      if attempt is Some(_) {
+        abort("duplicate --attempt flag")
+      }
+      attempt = Some(
+        fuzz_parse_non_negative_decimal_or_abort(
+          "attempt",
+          fuzz_tail_string(arg, 10),
+        ),
+      )
+      i += 1
+      continue
+    }
+    if arg == "--profile" {
+      if i + 1 >= args.length() {
+        abort("missing value for --profile")
+      }
+      if profile is Some(_) {
+        abort("duplicate --profile flag")
+      }
+      profile = Some(fuzz_ascii_lower(args[i + 1].trim().to_string()))
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--profile=") {
+      if profile is Some(_) {
+        abort("duplicate --profile flag")
+      }
+      profile = Some(
+        fuzz_ascii_lower(fuzz_tail_string(arg, 10).trim().to_string()),
+      )
+      i += 1
+      continue
+    }
+    if arg == "--out-dir" {
+      if i + 1 >= args.length() {
+        abort("missing value for --out-dir")
+      }
+      if out_dir is Some(_) {
+        abort("duplicate --out-dir flag")
+      }
+      out_dir = Some(args[i + 1])
+      i += 2
+      continue
+    }
+    if fuzz_has_prefix_text(arg, "--out-dir=") {
+      if out_dir is Some(_) {
+        abort("duplicate --out-dir flag")
+      }
+      out_dir = Some(fuzz_tail_string(arg, 10))
+      i += 1
+      continue
+    }
+    abort("unknown flag '\{arg}'")
+  }
+  let resolved_suite = match suite {
+    Some(v) =>
+      if v.trim().to_string().length() == 0 {
+        abort("--suite must not be empty")
+      } else {
+        v
+      }
+    None => abort("missing required --suite for --emit-invalid-repro")
+  }
+  let resolved_strategy_id = match strategy_id {
+    Some(v) =>
+      if v.trim().to_string().length() == 0 {
+        abort("--strategy must not be empty")
+      } else {
+        v
+      }
+    None => abort("missing required --strategy for --emit-invalid-repro")
+  }
+  let resolved_seed = match seed {
+    Some(v) => v
+    None => abort("missing required --seed for --emit-invalid-repro")
+  }
+  let resolved_attempt = match attempt {
+    Some(v) => v
+    None => abort("missing required --attempt for --emit-invalid-repro")
+  }
+  let resolved_out_dir = match out_dir {
+    Some(v) =>
+      if v.trim().to_string().length() == 0 {
+        abort("--out-dir must not be empty")
+      } else {
+        v
+      }
+    None => abort("missing required --out-dir for --emit-invalid-repro")
+  }
+  let resolved_profile = match profile {
+    Some(v) => v
+    None => "smoke"
+  }
+  EmitInvalidReproArgs::new(
+    resolved_suite,
+    resolved_strategy_id,
+    resolved_seed,
+    resolved_attempt,
+    resolved_out_dir,
+    profile=resolved_profile,
+  )
+}
+
+///|
 fn fuzz_parse_control_command(arg : String) -> FuzzCliCommand? {
   let normalized = fuzz_ascii_lower(arg.trim().to_string())
   match normalized {
@@ -491,11 +701,18 @@ fn fuzz_parse_control_command(arg : String) -> FuzzCliCommand? {
 
 ///|
 pub fn parse_fuzz_cli_command(args : Array[String]) -> FuzzCliCommand {
-  if args.length() > 0 &&
-    fuzz_ascii_lower(args[0].trim().to_string()) == "--emit-gen-valid-batch" {
-    return FuzzCliCommand::EmitGenValidBatch(
-      fuzz_parse_emit_gen_valid_batch_args(args),
-    )
+  if args.length() > 0 {
+    let command = fuzz_ascii_lower(args[0].trim().to_string())
+    if command == "--emit-gen-valid-batch" {
+      return FuzzCliCommand::EmitGenValidBatch(
+        fuzz_parse_emit_gen_valid_batch_args(args),
+      )
+    }
+    if command == "--emit-invalid-repro" {
+      return FuzzCliCommand::EmitInvalidRepro(
+        fuzz_parse_emit_invalid_repro_args(args),
+      )
+    }
   }
   let mut control : FuzzCliCommand? = None
   let mut i = 0
@@ -771,6 +988,41 @@ fn emit_gen_valid_batch_to_dir(
 }
 
 ///|
+fn emit_invalid_repro_report(
+  args : EmitInvalidReproArgs,
+) -> Result[InvalidFuzzFailureReport, String] {
+  build_invalid_fuzz_failure_report_by_suite_and_stable_id(
+    args.suite,
+    args.strategy_id,
+    args.seed,
+    args.attempt,
+    profile=args.profile,
+  )
+}
+
+///|
+fn emit_invalid_repro_to_dir(
+  args : EmitInvalidReproArgs,
+) -> Result[(String, Int), String] {
+  let report = match emit_invalid_repro_report(args) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  let io = InvalidFuzzPersistIO::new(ensure_dir=fn(path) { create_dir(path) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    write_file_bytes(path, bytes)
+  })
+  let (meta_path, artifact_paths) = match
+    persist_invalid_fuzz_failure_report(report, io, corpus_dir=args.out_dir) {
+    Ok(v) => v
+    Err(e) => return Err(e)
+  }
+  Ok((meta_path, artifact_paths.length()))
+}
+
+///|
 pub fn run_fuzz_suite(
   suite : String,
   profile : String,
@@ -872,6 +1124,14 @@ fn main {
         Ok(count) =>
           println(
             "generated=\{count} seed=\{args.seed} out_dir=\{args.out_dir}",
+          )
+        Err(e) => abort(e)
+      }
+    FuzzCliCommand::EmitInvalidRepro(args) =>
+      match emit_invalid_repro_to_dir(args) {
+        Ok((meta_path, artifact_count)) =>
+          println(
+            "meta_path=\{meta_path} artifacts=\{artifact_count} seed=\{args.seed} out_dir=\{args.out_dir}",
           )
         Err(e) => abort(e)
       }

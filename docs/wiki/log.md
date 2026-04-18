@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record `--emit-invalid-repro` on the fuzz CLI
+
+- Reviewed the already-modified CLI and repro files `src/fuzz/imports.mbt`, `src/fuzz/main.mbt`, and `src/fuzz/main_wbtest.mbt` to capture the next fuzz-ops improvement: the main fuzz CLI now exposes the shared invalid repro builder directly through `--emit-invalid-repro` instead of requiring callers to stitch together report building and persistence manually.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the new direct CLI path alongside the library-level repro builders and dispatcher.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record suite-dispatched invalid repro builder
 
 - Reviewed the already-modified repro files `src/fuzz/invalid_repro.mbt` and `src/fuzz/invalid_repro_wbtest.mbt` to capture the latest public utility improvement: callers now have a generic `build_invalid_fuzz_failure_report_by_suite_and_stable_id(...)` entrypoint instead of needing to select one of four source-kind-specific builders themselves.

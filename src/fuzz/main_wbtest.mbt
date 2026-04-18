@@ -93,6 +93,45 @@ test "parse_fuzz_cli_command detects emit-gen-valid-batch command" {
 }
 
 ///|
+test "parse_fuzz_cli_command detects emit-invalid-repro command" {
+  match
+    parse_fuzz_cli_command([
+      "--emit-invalid-repro", "--suite", "binary", "--strategy", "trailing-garbage",
+      "--seed", "0x5eed", "--attempt", "7", "--out-dir", "tmp/invalid", "--profile",
+      "ci",
+    ]) {
+    EmitInvalidRepro(args) => {
+      assert_eq(args.suite, "binary")
+      assert_eq(args.strategy_id, "trailing-garbage")
+      assert_eq(args.seed, 0x5eedUL)
+      assert_eq(args.attempt, 7)
+      assert_eq(args.profile, "ci")
+      assert_eq(args.out_dir, "tmp/invalid")
+    }
+    _ => fail("expected emit-invalid-repro command")
+  }
+}
+
+///|
+test "emit_invalid_repro_report builds a persisted-report-ready case" {
+  let report = match
+    emit_invalid_repro_report(
+      EmitInvalidReproArgs::new(
+        "ast", "duplicate-export-name", 0x5eedUL, 5, "tmp/invalid",
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(report.suite, "validate-invalid-ast")
+  assert_eq(report.strategy_id, "duplicate-export-name")
+  assert_eq(report.profile, "smoke")
+  assert_eq(report.seed_profile, Some("repro"))
+  assert_eq(report.seed_mode, Some("random-valid"))
+  assert_eq(report.artifacts.length(), 2)
+}
+
+///|
 test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files" {
   let first = match emit_gen_valid_batch_artifacts(2, 0x5eedUL) {
     Ok(v) => v
@@ -164,6 +203,7 @@ test "fuzz usage text distinguishes active and reserved suites" {
   )
   assert_true(usage.contains("reserved suite ids: (none)"))
   assert_true(usage.contains("coverage-forced batch"))
+  assert_true(usage.contains("--emit-invalid-repro"))
 }
 
 ///|

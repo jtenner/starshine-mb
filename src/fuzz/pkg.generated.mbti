@@ -125,6 +125,16 @@ pub struct EmitGenValidBatchArgs {
 } derive(Eq, @debug.Debug)
 pub fn EmitGenValidBatchArgs::new(Int, UInt64, String) -> Self
 
+pub struct EmitInvalidReproArgs {
+  suite : String
+  strategy_id : String
+  seed : UInt64
+  attempt : Int
+  profile : String
+  out_dir : String
+} derive(Eq, @debug.Debug)
+pub fn EmitInvalidReproArgs::new(String, String, UInt64, Int, String, profile? : String) -> Self
+
 pub struct FuzzCliArgs {
   suite : String
   profile : String
@@ -139,6 +149,7 @@ pub enum FuzzCliCommand {
   ListSuites
   ListProfiles
   EmitGenValidBatch(EmitGenValidBatchArgs)
+  EmitInvalidRepro(EmitInvalidReproArgs)
 } derive(Eq, @debug.Debug)
 
 pub enum FuzzOutputMode {

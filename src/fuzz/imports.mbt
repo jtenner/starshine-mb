@@ -17,7 +17,7 @@ using @validate {
 }
 
 ///|
-using @fs {read_file_sync, write_file_bytes}
+using @fs {create_dir, read_file_sync, write_file_bytes}
 
 ///|
 using @wast {

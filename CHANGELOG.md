@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: add a CLI command to emit persisted invalid repro bundles
+
+- **add `--emit-invalid-repro` to the fuzz CLI so AST, binary, text, and spec-seed repro bundles can be generated directly into a corpus directory** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/imports.mbt`](./src/fuzz/imports.mbt), [`src/fuzz/main.mbt`](./src/fuzz/main.mbt), and [`src/fuzz/main_wbtest.mbt`](./src/fuzz/main_wbtest.mbt) so the CLI now parses `--suite`, `--strategy`, `--seed`, `--attempt`, `--out-dir`, and optional `--profile`, builds the correct repro through the shared suite-dispatched report builder, and persists the resulting meta/artifact bundle with one command. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Fix: add a suite-dispatched invalid repro builder
 
 - **add a generic invalid repro builder that dispatches by suite/source kind aliases** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), and [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt) so callers can now build AST, binary, text, or spec-seed repro reports through one entrypoint, `build_invalid_fuzz_failure_report_by_suite_and_stable_id(...)`, using either full suite names like `validate-invalid-binary` or short aliases like `binary`. Verification for this slice: `moon test src/fuzz`.
