@@ -36,12 +36,12 @@ related:
 
 - [`ssa-nomerge/index.md`](ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family, fresh green compare evidence, and the remaining `Func 523` / `suspicious-escape-carrier` trace-level raw-lowering skips.
 - [`vacuum/index.md`](vacuum/index.md) - Active hot pass; the landing page now also records the current non-GitHub `unreachable`-preservation drift note.
-- [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass; see the landing page until strategy pages land.
+- [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass; the landing page now records the current `Dce` naming evidence plus the 2026-04-18 ordered-audit fact that DCE is expensive-but-successful rather than a current corruption blocker.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
 - [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, parity status, the retired slot-14 large-condition guard, and the newer upstream branches-to-traps drift note.
 - [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass; see the landing page until strategy pages land.
 - [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass; the landing page now also records the direct Debian manpage plus `wasm_opt::Pass` evidence for the current `HeapStoreOptimization` terminology.
-- [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note.
+- [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note, current `Heap2Local` terminology sanity check, and the ordered-audit note that H2L is expensive-but-successful rather than currently corrupting the generated artifact.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
 - [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with shapes, strategies, scheduler notes, reduced repro tracking, and parity status.
 - [`precompute/index.md`](precompute/index.md) - Active hot pass; the landing page now also records the current non-GitHub child-retention plus March 2026 GC-write, GC-atomic no-fold, and multibyte-array `array.load` no-fold drift notes.
