@@ -283,6 +283,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   CodeSecWithoutFuncSecModule
   InvalidTableNameSectionIndexModule
   InvalidGlobalNameSectionIndexModule
+  ReservedSectionId
+  InvalidCustomSectionNameUtf8
+  InvalidTypeNameSectionIndexModule
+  InvalidElemNameSectionIndexModule
+  InvalidDataNameSectionIndexModule
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: widen binary decode and name-module invalid coverage again
+
+- **add more deterministic binary invalid strategies across raw decode corruption and encoded validator-rejected name cases** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), and [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt) so the binary invalid lane now also covers `reserved-section-id`, `invalid-custom-section-name-utf8`, `invalid-type-name-section-index-module`, `invalid-elem-name-section-index-module`, and `invalid-data-name-section-index-module` in addition to the earlier header/order/duplication/core corruptions and encoded validator-rejected module families. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Fix: deepen AST name-section invalid breadth again
 
 - **add more deterministic AST invalid strategies for name-section rejection breadth** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), and [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt) so the AST invalid lane now also covers `invalid-type-name-section-index`, `invalid-elem-name-section-index`, and `invalid-data-name-section-index` in addition to the earlier function/memory/table/global name cases. Verification for this slice: `moon test src/validate`, `moon fmt src/validate`, and `moon info`.

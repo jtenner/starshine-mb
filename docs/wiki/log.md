@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record broader binary decode and name coverage
+
+- Reviewed the already-modified binary invalid sources `src/fuzz/invalid_binary.mbt` and `src/fuzz/invalid_binary_wbtest.mbt` to capture another binary widening step: the curated lane now includes reserved-section-id and malformed custom-section-name UTF-8 decode failures plus encoded invalid type-name, elem-name, and data-name modules.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the binary surface as broader than the earlier header/order/duplication/core plus function/table/global-name set.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record deeper AST name-section breadth
 
 - Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture another AST breadth step: the curated invalid lane now covers out-of-range type-name, elem-name, and data-name indices in addition to the earlier function/memory/table/global name-section cases.

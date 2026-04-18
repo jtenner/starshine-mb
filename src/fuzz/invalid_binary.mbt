@@ -46,6 +46,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   CodeSecWithoutFuncSecModule
   InvalidTableNameSectionIndexModule
   InvalidGlobalNameSectionIndexModule
+  ReservedSectionId
+  InvalidCustomSectionNameUtf8
+  InvalidTypeNameSectionIndexModule
+  InvalidElemNameSectionIndexModule
+  InvalidDataNameSectionIndexModule
 } derive(Eq, Debug)
 
 ///|
@@ -329,6 +334,14 @@ fn validate_invalid_binary_strategy_label(
       "invalid-table-name-section-index-module"
     InvalidGlobalNameSectionIndexModule =>
       "invalid-global-name-section-index-module"
+    ReservedSectionId => "reserved-section-id"
+    InvalidCustomSectionNameUtf8 => "invalid-custom-section-name-utf8"
+    InvalidTypeNameSectionIndexModule =>
+      "invalid-type-name-section-index-module"
+    InvalidElemNameSectionIndexModule =>
+      "invalid-elem-name-section-index-module"
+    InvalidDataNameSectionIndexModule =>
+      "invalid-data-name-section-index-module"
   }
 }
 
@@ -464,6 +477,36 @@ pub fn validate_invalid_binary_registry() -> Array[
       "encoded module with out-of-range global name index",
       ValidateRejected("name"),
     ),
+    validate_invalid_binary_strategy_spec(
+      ReservedSectionId,
+      "reserved-section-id",
+      "reserved wasm section id",
+      DecodeRejected,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidCustomSectionNameUtf8,
+      "invalid-custom-section-name-utf8",
+      "custom section with invalid utf8 name",
+      DecodeRejected,
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidTypeNameSectionIndexModule,
+      "invalid-type-name-section-index-module",
+      "encoded module with out-of-range type name index",
+      ValidateRejected("name"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidElemNameSectionIndexModule,
+      "invalid-elem-name-section-index-module",
+      "encoded module with out-of-range elem name index",
+      ValidateRejected("name"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidDataNameSectionIndexModule,
+      "invalid-data-name-section-index-module",
+      "encoded module with out-of-range data name index",
+      ValidateRejected("name"),
+    ),
   ]
 }
 
@@ -499,6 +542,11 @@ fn validate_invalid_binary_strategy_index(
     CodeSecWithoutFuncSecModule => 12
     InvalidTableNameSectionIndexModule => 13
     InvalidGlobalNameSectionIndexModule => 14
+    ReservedSectionId => 15
+    InvalidCustomSectionNameUtf8 => 16
+    InvalidTypeNameSectionIndexModule => 17
+    InvalidElemNameSectionIndexModule => 18
+    InvalidDataNameSectionIndexModule => 19
   }
 }
 
@@ -923,6 +971,72 @@ fn validate_invalid_binary_mutate_bad_version_header(
 }
 
 ///|
+fn validate_invalid_binary_mutate_reserved_section_id(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let encoded = match validate_invalid_binary_encode_seed_module(mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let spans = match validate_invalid_binary_scan_sections(encoded) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let mut target : ValidateInvalidBinarySectionSpan? = None
+  for span in spans {
+    if span.id != 0 {
+      target = Some(span)
+      break
+    }
+  }
+  let target = match target {
+    Some(v) => v
+    None =>
+      return Ok(
+        validate_invalid_binary_mutation(
+          ReservedSectionId,
+          DecodeRejected,
+          false,
+          encoded,
+        ),
+      )
+  }
+  let mutated = encoded.to_array()
+  mutated[target.header_start] = (13).to_byte()
+  Ok(
+    validate_invalid_binary_mutation(
+      ReservedSectionId,
+      DecodeRejected,
+      true,
+      Bytes::from_array(mutated),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_invalid_custom_section_name_utf8(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let encoded = match validate_invalid_binary_encode_seed_module(mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let mutated = encoded.to_array()
+  mutated.push((0).to_byte())
+  mutated.push((2).to_byte())
+  mutated.push((1).to_byte())
+  mutated.push((0x80).to_byte())
+  Ok(
+    validate_invalid_binary_mutation(
+      InvalidCustomSectionNameUtf8,
+      DecodeRejected,
+      true,
+      Bytes::from_array(mutated),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -1072,6 +1186,10 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_invalid_func_type_index(base)
     BadMagicHeader => validate_invalid_binary_mutate_bad_magic_header(base)
     BadVersionHeader => validate_invalid_binary_mutate_bad_version_header(base)
+    ReservedSectionId =>
+      validate_invalid_binary_mutate_reserved_section_id(base)
+    InvalidCustomSectionNameUtf8 =>
+      validate_invalid_binary_mutate_invalid_custom_section_name_utf8(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
@@ -1179,6 +1297,51 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidGlobalNameSectionIndexModule,
+        ast_strategy,
+        "name",
+        base,
+      )
+    }
+    InvalidTypeNameSectionIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-type-name-section-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidTypeNameSectionIndexModule,
+        ast_strategy,
+        "name",
+        base,
+      )
+    }
+    InvalidElemNameSectionIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-elem-name-section-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidElemNameSectionIndexModule,
+        ast_strategy,
+        "name",
+        base,
+      )
+    }
+    InvalidDataNameSectionIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-data-name-section-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidDataNameSectionIndexModule,
         ast_strategy,
         "name",
         base,
