@@ -92,6 +92,34 @@ pub fn GenInvalidBinaryParams::coverage_forced_seed(
 }
 
 ///|
+pub fn GenInvalidBinaryParams::small_natural_seed(
+  strategy : ValidateInvalidBinaryStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::natural_default(),
+) -> GenInvalidBinaryParams {
+  {
+    strategy,
+    seed_mode: RandomValidSeed,
+    generator_config: @validate.gen_invalid_small_gen_valid_config(
+      generator_config,
+    ),
+  }
+}
+
+///|
+pub fn GenInvalidBinaryParams::small_coverage_forced_seed(
+  strategy : ValidateInvalidBinaryStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+) -> GenInvalidBinaryParams {
+  {
+    strategy,
+    seed_mode: RandomValidSeed,
+    generator_config: @validate.gen_invalid_small_gen_valid_config(
+      generator_config,
+    ),
+  }
+}
+
+///|
 pub fn GenInvalidBinaryParams::minimal_seed(
   strategy : ValidateInvalidBinaryStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),

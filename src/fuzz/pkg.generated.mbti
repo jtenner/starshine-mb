@@ -160,6 +160,8 @@ pub fn GenInvalidBinaryParams::coverage_forced_seed(ValidateInvalidBinaryStrateg
 pub fn GenInvalidBinaryParams::minimal_seed(ValidateInvalidBinaryStrategyId, generator_config? : @validate.GenValidConfig) -> Self
 pub fn GenInvalidBinaryParams::natural_seed(ValidateInvalidBinaryStrategyId, generator_config? : @validate.GenValidConfig) -> Self
 pub fn GenInvalidBinaryParams::new(ValidateInvalidBinaryStrategyId, seed_mode? : GenInvalidBinarySeedMode, generator_config? : @validate.GenValidConfig) -> Self
+pub fn GenInvalidBinaryParams::small_coverage_forced_seed(ValidateInvalidBinaryStrategyId, generator_config? : @validate.GenValidConfig) -> Self
+pub fn GenInvalidBinaryParams::small_natural_seed(ValidateInvalidBinaryStrategyId, generator_config? : @validate.GenValidConfig) -> Self
 
 pub enum GenInvalidBinarySeedMode {
   RandomValidSeed

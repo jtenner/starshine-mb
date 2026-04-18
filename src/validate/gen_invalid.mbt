@@ -51,6 +51,34 @@ pub fn GenInvalidAstParams::coverage_forced_seed(
 }
 
 ///|
+pub fn GenInvalidAstParams::small_natural_seed(
+  strategy : ValidateInvalidAstStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::natural_default(),
+  require_strategy_prereqs? : Bool = true,
+) -> GenInvalidAstParams {
+  {
+    strategy,
+    seed_mode: RandomValidSeed,
+    generator_config: gen_invalid_small_gen_valid_config(generator_config),
+    require_strategy_prereqs,
+  }
+}
+
+///|
+pub fn GenInvalidAstParams::small_coverage_forced_seed(
+  strategy : ValidateInvalidAstStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  require_strategy_prereqs? : Bool = true,
+) -> GenInvalidAstParams {
+  {
+    strategy,
+    seed_mode: RandomValidSeed,
+    generator_config: gen_invalid_small_gen_valid_config(generator_config),
+    require_strategy_prereqs,
+  }
+}
+
+///|
 pub fn GenInvalidAstParams::minimal_seed(
   strategy : ValidateInvalidAstStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
@@ -89,6 +117,38 @@ fn gen_invalid_max_int(left : Int, right : Int) -> Int {
     left
   } else {
     right
+  }
+}
+
+///|
+fn gen_invalid_min_int(left : Int, right : Int) -> Int {
+  if left <= right {
+    left
+  } else {
+    right
+  }
+}
+
+///|
+pub fn gen_invalid_small_gen_valid_config(
+  config : GenValidConfig,
+) -> GenValidConfig {
+  GenValidConfig::{
+    ..config,
+    max_type_defs: gen_invalid_min_int(config.max_type_defs, 2),
+    max_imports: gen_invalid_min_int(config.max_imports, 1),
+    max_defined_funcs: gen_invalid_min_int(config.max_defined_funcs, 2),
+    max_tables: gen_invalid_min_int(config.max_tables, 1),
+    max_mems: gen_invalid_min_int(config.max_mems, 1),
+    max_globals: gen_invalid_min_int(config.max_globals, 1),
+    max_tags: gen_invalid_min_int(config.max_tags, 1),
+    max_elems: gen_invalid_min_int(config.max_elems, 1),
+    max_datas: gen_invalid_min_int(config.max_datas, 1),
+    max_params: gen_invalid_min_int(config.max_params, 1),
+    max_results: gen_invalid_min_int(config.max_results, 1),
+    max_locals: gen_invalid_min_int(config.max_locals, 1),
+    max_body_statements: gen_invalid_min_int(config.max_body_statements, 3),
+    max_body_depth: gen_invalid_min_int(config.max_body_depth, 1),
   }
 }
 

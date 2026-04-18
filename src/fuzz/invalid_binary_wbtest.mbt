@@ -254,3 +254,73 @@ test "gen_invalid_binary coverage_forced_seed uses coverage-forced defaults" {
   assert_true(params.seed_mode == RandomValidSeed)
   assert_true(params.generator_config == expected)
 }
+
+///|
+test "gen_invalid_binary small_natural_seed uses a smaller natural config" {
+  let params = GenInvalidBinaryParams::small_natural_seed(TrailingGarbage)
+  let natural = GenValidConfig::natural_default()
+  assert_true(params.seed_mode == RandomValidSeed)
+  assert_true(params.generator_config.mode == natural.mode)
+  assert_true(params.generator_config.max_type_defs < natural.max_type_defs)
+  assert_true(
+    params.generator_config.max_defined_funcs < natural.max_defined_funcs,
+  )
+  assert_true(
+    params.generator_config.max_body_statements < natural.max_body_statements,
+  )
+  assert_true(params.generator_config.max_body_depth < natural.max_body_depth)
+}
+
+///|
+test "gen_invalid_binary small_coverage_forced_seed uses a smaller coverage config" {
+  let params = GenInvalidBinaryParams::small_coverage_forced_seed(
+    TrailingGarbage,
+  )
+  let forced = GenValidConfig::coverage_forced_default()
+  assert_true(params.seed_mode == RandomValidSeed)
+  assert_true(params.generator_config.mode == forced.mode)
+  assert_true(params.generator_config.max_type_defs < forced.max_type_defs)
+  assert_true(
+    params.generator_config.max_defined_funcs < forced.max_defined_funcs,
+  )
+  assert_true(
+    params.generator_config.max_body_statements < forced.max_body_statements,
+  )
+  assert_true(params.generator_config.max_body_depth < forced.max_body_depth)
+}
+
+///|
+test "gen_invalid_binary_generate supports small coverage-forced seeds" {
+  let generated = match
+    gen_invalid_binary_generate(
+      @splitmix.new(seed=0x5eedUL),
+      GenInvalidBinaryParams::small_coverage_forced_seed(InvalidFuncTypeIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected small coverage-forced binary base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match decode_module(generated.mutation.mutated_bytes) {
+    Err(msg) =>
+      fail("expected small binary invalid bytes to decode first: \{msg}")
+    Ok(decoded) =>
+      match validate_module(decoded) {
+        Ok(_) => fail("expected small binary invalid bytes to fail validation")
+        Err(err) => {
+          let family = validation_issue_family(
+            validation_error_diagnostic(err).issue,
+          )
+          assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "function",
+          )
+        }
+      }
+  }
+}

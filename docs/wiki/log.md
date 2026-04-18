@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record compact random `gen_invalid` seed helpers
+
+- Reviewed the already-modified invalid-generation files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_binary_wbtest.mbt` to capture the next durable API refinement after the named natural/coverage-forced/minimal helpers: both the validate and fuzz package surfaces now also expose `small_natural_seed(...)` and `small_coverage_forced_seed(...)` entrypoints for callers that still want random valid seeds but prefer smaller repro-oriented modules.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the AST and binary `gen_invalid` surfaces in terms of five named seed families: natural, coverage-forced, small-natural, small-coverage-forced, and minimal.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record named natural and coverage-forced `gen_invalid` seed helpers
 
 - Reviewed the already-modified invalid-generation files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, `src/fuzz/invalid_binary_wbtest.mbt`, and the generated package signatures `src/validate/pkg.generated.mbti` plus `src/fuzz/pkg.generated.mbti` to capture one more durable public-API refinement: callers now have explicit `natural_seed(...)` and `coverage_forced_seed(...)` helpers in addition to the earlier `minimal_seed(...)` helper, instead of having to pass the matching `GenValidConfig` defaults manually.

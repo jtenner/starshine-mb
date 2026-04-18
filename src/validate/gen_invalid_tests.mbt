@@ -113,3 +113,61 @@ test "gen_invalid_ast coverage_forced_seed uses coverage-forced defaults" {
     GenValidFeatureToggles::coverage_forced_default(),
   )
 }
+
+///|
+test "gen_invalid_small_gen_valid_config shrinks a natural config" {
+  let natural = GenValidConfig::natural_default()
+  let shrunk = gen_invalid_small_gen_valid_config(natural)
+  assert_true(shrunk.mode == Natural)
+  assert_true(shrunk.max_type_defs < natural.max_type_defs)
+  assert_true(shrunk.max_defined_funcs < natural.max_defined_funcs)
+  assert_true(shrunk.max_body_statements < natural.max_body_statements)
+  assert_true(shrunk.max_body_depth < natural.max_body_depth)
+}
+
+///|
+test "gen_invalid_ast small_natural_seed uses a smaller natural config" {
+  let params = GenInvalidAstParams::small_natural_seed(DuplicateExportName)
+  let natural = GenValidConfig::natural_default()
+  assert_true(params.seed_mode == RandomValidSeed)
+  assert_true(params.generator_config.mode == Natural)
+  assert_true(params.generator_config.max_type_defs < natural.max_type_defs)
+  assert_true(
+    params.generator_config.max_defined_funcs < natural.max_defined_funcs,
+  )
+  assert_true(
+    params.generator_config.max_body_statements < natural.max_body_statements,
+  )
+  assert_true(params.generator_config.max_body_depth < natural.max_body_depth)
+}
+
+///|
+test "gen_invalid_ast small_coverage_forced_seed uses a smaller coverage config" {
+  let params = GenInvalidAstParams::small_coverage_forced_seed(
+    DuplicateExportName,
+  )
+  let forced = GenValidConfig::coverage_forced_default()
+  assert_true(params.seed_mode == RandomValidSeed)
+  assert_true(params.generator_config.mode == CoverageForced)
+  assert_true(params.generator_config.max_type_defs < forced.max_type_defs)
+  assert_true(
+    params.generator_config.max_defined_funcs < forced.max_defined_funcs,
+  )
+  assert_true(
+    params.generator_config.max_body_statements < forced.max_body_statements,
+  )
+  assert_true(params.generator_config.max_body_depth < forced.max_body_depth)
+}
+
+///|
+test "gen_invalid_ast small_natural_seed still widens missing-datacount prereqs" {
+  let adjusted = gen_invalid_ast_seed_config(
+    GenInvalidAstParams::small_natural_seed(MissingDataCount),
+  )
+  assert_eq(adjusted.max_mems, 1)
+  assert_eq(adjusted.max_datas, 1)
+  assert_eq(adjusted.section_bias.mems_percent, 100)
+  assert_eq(adjusted.section_bias.datas_percent, 100)
+  assert_true(adjusted.features.allow_mems)
+  assert_true(adjusted.features.allow_datas)
+}

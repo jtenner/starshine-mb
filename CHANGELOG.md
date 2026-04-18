@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: add compact random seed variants to `gen_invalid`
+
+- **add smaller-but-still-random seed helpers for AST and binary invalid generation** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), and [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt) so callers now have `small_natural_seed(...)` and `small_coverage_forced_seed(...)` helpers beside the existing named natural, coverage-forced, and minimal seed builders. The new helpers keep random valid seeding but shrink module/body limits to produce smaller repro-friendly modules, and the new tests lock both the config shrinking behavior and a real small-seed invalid-binary generation path. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Fix: route shared repro/report helpers through named seed variants and public consumers
 
 - **exercise the new named `gen_invalid` seed helpers through downstream report builders and cross-package wbtests** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/gen_invalid_wbtest.mbt`](./src/fuzz/gen_invalid_wbtest.mbt), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), and [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt) so downstream callers now prove `natural_seed(...)` through the public validate API, AST/binary invalid report builders default through the named `coverage_forced_seed(...)` helpers instead of the generic constructor, and the shared repro/report tests cover natural, coverage-forced, and minimal seed flows end-to-end. Verification for this slice: `moon test src/fuzz` and `moon fmt src/fuzz`.
