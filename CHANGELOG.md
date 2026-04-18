@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: widen AST tag-name and datacount invalid breadth again
+
+- **add more deterministic AST invalid strategies for name-section and datacount rejection breadth** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), and [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt) so the AST invalid lane now also covers `invalid-tag-name-section-index`, `datacount-mismatch-too-small`, and `datacount-mismatch-too-large` in addition to the earlier tag/data/name coverage. Verification for this slice: `moon test src/validate`, `moon fmt src/validate`, and `moon info`.
+
 ## 2026-04-18 Fix: widen inline text and spec invalid breadth again
 
 - **add another round of malformed, invalid, and unlinkable text/spec fixtures** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_text.mbt`](./src/fuzz/invalid_text.mbt), and [`src/fuzz/invalid_text_wbtest.mbt`](./src/fuzz/invalid_text_wbtest.mbt) so the text lanes now also cover `malformed-invalid-i64-const-token`, `invalid-start-func-result`, `unlinkable-incompatible-func-import-type`, plus fifth malformed/invalid spec seeds and a third incompatible-import-type spec seed from the committed corpus. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.

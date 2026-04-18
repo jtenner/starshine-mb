@@ -447,6 +447,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidExportTableIndex
   InvalidExportGlobalIndex
   InvalidExportTagIndex
+  InvalidTagNameSectionIndex
+  DataCountMismatchTooSmall
+  DataCountMismatchTooLarge
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidAstStrategySpec {

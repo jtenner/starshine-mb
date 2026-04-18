@@ -630,6 +630,69 @@ test "gen_invalid_ast_generate supports invalid export tag index strategy" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid tag name index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f0aUL),
+      GenInvalidAstParams::repro_seed(InvalidTagNameSectionIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-tag-name-section-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == NameSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports datacount mismatch too-small strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f0bUL),
+      GenInvalidAstParams::repro_seed(DataCountMismatchTooSmall),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected datacount-mismatch-too-small mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == DataCountSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports datacount mismatch too-large strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5f0cUL),
+      GenInvalidAstParams::repro_seed(DataCountMismatchTooLarge),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected datacount-mismatch-too-large mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == DataCountSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_params_profile_name identifies named and custom profiles" {
   assert_eq(
     gen_invalid_ast_params_profile_name(

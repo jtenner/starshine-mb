@@ -92,6 +92,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidExportTableIndex
   InvalidExportGlobalIndex
   InvalidExportTagIndex
+  InvalidTagNameSectionIndex
+  DataCountMismatchTooSmall
+  DataCountMismatchTooLarge
 } derive(Eq, Debug)
 
 ///|
@@ -350,6 +353,27 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       ExportSectionFamily,
       required_in_smoke=false,
     ),
+    validate_invalid_ast_strategy_spec(
+      InvalidTagNameSectionIndex,
+      "invalid-tag-name-section-index",
+      "invalid tag name index",
+      NameSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      DataCountMismatchTooSmall,
+      "datacount-mismatch-too-small",
+      "datacount section smaller than data segment count",
+      DataCountSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      DataCountMismatchTooLarge,
+      "datacount-mismatch-too-large",
+      "datacount section larger than data segment count",
+      DataCountSectionFamily,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -399,6 +423,9 @@ fn validate_invalid_ast_strategy_index(
     InvalidExportTableIndex => 26
     InvalidExportGlobalIndex => 27
     InvalidExportTagIndex => 28
+    InvalidTagNameSectionIndex => 29
+    DataCountMismatchTooSmall => 30
+    DataCountMismatchTooLarge => 31
   }
 }
 
@@ -418,9 +445,9 @@ pub fn validate_invalid_ast_run_config(
 ) -> Result[ValidateInvalidAstRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 29
-    "ci" => 290
-    "stress" => 2900
+    "smoke" => 32
+    "ci" => 320
+    "stress" => 3200
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -938,6 +965,32 @@ fn validate_invalid_ast_with_data_names(
 }
 
 ///|
+fn validate_invalid_ast_with_tag_names(
+  mod : Module,
+  tag_names : NameMap,
+) -> Module {
+  let next_name_sec = match mod.name_sec {
+    Some(name_sec) =>
+      NameSec::new(
+        module_name=name_sec.module_name,
+        func_names=name_sec.func_names,
+        local_names=name_sec.local_names,
+        label_names=name_sec.label_names,
+        type_names=name_sec.type_names,
+        table_names=name_sec.table_names,
+        memory_names=name_sec.memory_names,
+        global_names=name_sec.global_names,
+        elem_names=name_sec.elem_names,
+        data_names=name_sec.data_names,
+        field_names=name_sec.field_names,
+        tag_names=Some(tag_names),
+      )
+    None => NameSec::new(tag_names=Some(tag_names))
+  }
+  mod.with_name_sec(next_name_sec)
+}
+
+///|
 fn validate_invalid_ast_mutate_duplicate_export_name(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -1261,6 +1314,57 @@ fn validate_invalid_ast_mutate_invalid_data_name_section_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_tag_name_section_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = validate_invalid_ast_total_tag_count(mod).reinterpret_as_uint()
+  let tag_names = NameMap::new([NameAssoc::new(bad_idx, Name::new("tag"))])
+  {
+    strategy: InvalidTagNameSectionIndex,
+    applicable: true,
+    expected_family: NameSectionFamily,
+    mutated_module: validate_invalid_ast_with_tag_names(mod, tag_names),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_datacount_mismatch_too_small(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let (with_first, _) = validate_invalid_ast_append_passive_data(mod)
+  let (with_second, _) = validate_invalid_ast_append_passive_data(with_first)
+  let actual = validate_invalid_ast_data_entries(with_second)
+    .length()
+    .reinterpret_as_uint()
+  {
+    strategy: DataCountMismatchTooSmall,
+    applicable: true,
+    expected_family: DataCountSectionFamily,
+    mutated_module: with_second.with_data_cnt_sec(
+      DataCntSec::new(U32(actual - 1U)),
+    ),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_datacount_mismatch_too_large(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let (with_first, _) = validate_invalid_ast_append_passive_data(mod)
+  let actual = validate_invalid_ast_data_entries(with_first)
+    .length()
+    .reinterpret_as_uint()
+  {
+    strategy: DataCountMismatchTooLarge,
+    applicable: true,
+    expected_family: DataCountSectionFamily,
+    mutated_module: with_first.with_data_cnt_sec(
+      DataCntSec::new(U32(actual + 1U)),
+    ),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_func_type_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -1528,6 +1632,12 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_export_global_index(base)
       InvalidExportTagIndex =>
         validate_invalid_ast_mutate_invalid_export_tag_index(base)
+      InvalidTagNameSectionIndex =>
+        validate_invalid_ast_mutate_invalid_tag_name_section_index(base)
+      DataCountMismatchTooSmall =>
+        validate_invalid_ast_mutate_datacount_mismatch_too_small(base)
+      DataCountMismatchTooLarge =>
+        validate_invalid_ast_mutate_datacount_mismatch_too_large(base)
       InvalidStartSignature =>
         validate_invalid_ast_mutate_invalid_start_signature(base)
       StartFuncOutOfRange =>
@@ -1802,7 +1912,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
     "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-elem-name-section-index",
     "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-tag-index",
+    "invalid-export-tag-index", "invalid-tag-name-section-index", "datacount-mismatch-too-small",
+    "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   assert_eq(smoke_required.length(), 16)
@@ -2231,6 +2342,45 @@ test "invalid export tag index strategy rejects with ExportSection family" {
 }
 
 ///|
+test "invalid tag name index strategy rejects with NameSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidTagNameSectionIndex,
+      0x5f0aUL,
+      NameSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "datacount mismatch too-small strategy rejects with DataCountSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      DataCountMismatchTooSmall,
+      0x5f0bUL,
+      DataCountSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "datacount mismatch too-large strategy rejects with DataCountSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      DataCountMismatchTooLarge,
+      0x5f0cUL,
+      DataCountSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "validate_invalid_ast_registry covers every validation issue family" {
   let registry = validate_invalid_ast_registry()
   let expected = [
@@ -2269,7 +2419,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 29)
+  assert_eq(first.attempts, 32)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)

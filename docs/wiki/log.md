@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record broader AST tag-name and datacount breadth
+
+- Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture another AST widening step: the curated lane now includes out-of-range tag-name indices plus datacount mismatches in both too-small and too-large directions.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the AST datacount and tag-name surfaces as broader than the earlier memory.init/data.drop and non-tag-name-only set.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record another text/spec widening pass
 
 - Reviewed the already-modified text invalid sources `src/fuzz/invalid_text.mbt` and `src/fuzz/invalid_text_wbtest.mbt` to capture another fixture-breadth step: the inline text lane now includes malformed `i64.const`, start-with-result, and typed incompatible-function-import cases, and the spec-seed lane now carries fifth malformed/invalid assertions plus a third incompatible-import-type unlinkable assertion from the committed corpus.
