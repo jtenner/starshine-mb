@@ -30,8 +30,17 @@ related:
 
 ## Current Ordered Audit
 
-- The 2026-04-18 generated `cmd.wasm` audit observed 56 top-level slots, 34 implemented Starshine slots, and 7 hard corruption slots.
-- The hard-failure cluster is concentrated in `remove-unused-brs`, `optimize-instructions`, `precompute`, and `vacuum`; the expensive-but-successful cluster includes `simplify-locals`, `dead-code-elimination`, `tuple-optimization`, `ssa-nomerge`, and `heap2local`.
+- The 2026-04-18 generated `cmd.wasm` audit observed 56 top-level slots, 34 implemented Starshine slots, and 7 hard corruption slots before later same-day fixes retired two of them.
+- The remaining open hard-failure cluster is now narrower and should be named precisely instead of as a generic late-pass cloud:
+  - `remove-unused-brs` later slot `40`: emits invalid raw wasm with a typed-`if` / block-stack mismatch (`0099`)
+  - `precompute` early slot `19`: emits invalid raw wasm where `func 108` loses a required `i32` result (`0096`)
+  - `vacuum` slot `23`: final-module validation underflow on `Func 652` (`0097`)
+  - `vacuum` slot `33`: final-module validation underflow on `Func 1818` (`0098`)
+  - `optimize-instructions` later slot `44`: final-module validation underflow on `Func 1818` (`0100`)
+- The same audit's earlier blockers are now explicitly retired in the living wiki:
+  - `remove-unused-brs` early slot `14` was fixed by the large non-reorder-safe plain-`br` condition guard in `0102`
+  - `optimize-instructions` early slot `16` was fixed by the paired HOT-lower carrier/parent-exit guards in `0103` and `0104`
+- The expensive-but-successful cluster is unchanged: `simplify-locals`, `dead-code-elimination`, `tuple-optimization`, `ssa-nomerge`, and `heap2local` still need runtime work, but they are not current corruption blockers.
 - Slot-specific raw follow-ups are `0094` through `0100`; use those notes for the exact failing states when reducing one corruption slot at a time.
 
 ## Compact Roster

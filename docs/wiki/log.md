@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | narrow the late-pass blocker roster after slot-14 and slot-16 retirements
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/precompute/index.md`, `docs/wiki/binaryen/passes/vacuum/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the living wiki no longer describes the 2026-04-18 generated `cmd.wasm` ordered `-O4z` fallout as only a broad failing-pass cluster.
+- The refreshed living summary now names the exact five remaining blockers explicitly: `remove-unused-brs` slot `40`, `precompute` slot `19`, `vacuum` slots `23` and `33`, and `optimize-instructions` slot `44`, while also calling out that slot `14` (`RUB`) and slot `16` (`optimize-instructions`) are already retired by `0102`, `0103`, and `0104`.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record README typo in Binaryen pass-name evidence ladder
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after another non-GitHub Binaryen source sweep because the bundled Binaryen README overview mirrored through `wasm-opt-sys` currently misspells `RemoveUnusedBrs` as `RemoveUnsedBrs`.

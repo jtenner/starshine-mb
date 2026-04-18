@@ -35,7 +35,7 @@ related:
 ## Active Hot Passes
 
 - [`ssa-nomerge/index.md`](ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family, fresh green compare evidence, and the remaining `Func 523` / `suspicious-escape-carrier` trace-level raw-lowering skips.
-- [`vacuum/index.md`](vacuum/index.md) - Active hot pass; the landing page now also records the current non-GitHub `unreachable`-preservation drift note.
+- [`vacuum/index.md`](vacuum/index.md) - Active hot pass; the landing page now records the current non-GitHub `unreachable`-preservation drift note plus the exact remaining slot-23 / slot-33 ordered-audit blockers.
 - [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass; the landing page now records the current `Dce` naming evidence plus the 2026-04-18 ordered-audit fact that DCE is expensive-but-successful rather than a current corruption blocker.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
 - [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, parity status, the retired slot-14 large-condition guard, and the newer upstream branches-to-traps drift note.
@@ -44,12 +44,12 @@ related:
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note, current `Heap2Local` terminology sanity check, and the ordered-audit note that H2L is expensive-but-successful rather than currently corrupting the generated artifact.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
 - [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with shapes, strategies, scheduler notes, reduced repro tracking, and parity status.
-- [`precompute/index.md`](precompute/index.md) - Active hot pass; the landing page now also records the current non-GitHub child-retention plus March 2026 GC-write, GC-atomic no-fold, and multibyte-array `array.load` no-fold drift notes.
+- [`precompute/index.md`](precompute/index.md) - Active hot pass; the landing page now records the current non-GitHub child-retention plus March 2026 GC-write, GC-atomic no-fold, and multibyte-array `array.load` no-fold drift notes, alongside the exact slot-19 `func 108` raw-result-loss blocker.
 - [`simplify-locals/index.md`](simplify-locals/index.md) - Expanded folder with overview, shapes, strategies, implementation map, validation, performance, and parity status.
 
 ## Tail Dispatch Notes
 
-- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note, now also recording that the non-GitHub Debian manpage, docs.rs pass-enum page, and bundled README overview are all incomplete in different ways; in particular the README mirror currently misspells `RemoveUnusedBrs` as `RemoveUnsedBrs`, while the Chromium refs page still shows `version_129` as the newest directly reachable release tag and the current `main` changelog still lacks a newer documented optimization-pass addition even after its lead item shifted to API rename notes.
+- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note, now also recording that the non-GitHub Debian manpage, docs.rs pass-enum page, and bundled README overview are all incomplete in different ways; in particular the README mirror currently misspells `RemoveUnusedBrs` as `RemoveUnsedBrs`, the Chromium refs page still shows `version_129` as the newest directly reachable release tag, the current `main` changelog still lacks a newer documented optimization-pass addition, and the living ordered-audit summary now names the exact five remaining generated-artifact blockers instead of only the broader failing-pass cluster.
 
 ## Current Maintenance Rule
 
