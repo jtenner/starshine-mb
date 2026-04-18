@@ -30,7 +30,7 @@ Suggested tests
 
 ### Ordered-slot corruption blockers
 
-- `2026-04-18`: `[O4Z]001` is retired by [0102 slot 14 `if br` large-condition guard](docs/wiki/raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md), `[O4Z]002` is retired by [0104 slot 16 `Func 1818` split parent-exit payload guard](docs/wiki/raw/research/0104-2026-04-18-generated-o4z-optimize-instructions-slot16-func1818-parent-exit-payload-guard.md), and `[O4Z]003` is retired by [0105 slot 19 `precompute` replay retirement](docs/wiki/raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md). The remaining active blockers start at `[O4Z]004`.
+- `2026-04-18`: `[O4Z]001` is retired by [0102 slot 14 `if br` large-condition guard](docs/wiki/raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md), `[O4Z]002` is retired by [0104 slot 16 `Func 1818` split parent-exit payload guard](docs/wiki/raw/research/0104-2026-04-18-generated-o4z-optimize-instructions-slot16-func1818-parent-exit-payload-guard.md), `[O4Z]003` is retired by [0105 slot 19 `precompute` replay retirement](docs/wiki/raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md), and `[O4Z]004` is retired by [0106 slot 23 `vacuum` replay retirement](docs/wiki/raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md). The remaining active blockers start at `[O4Z]005`.
 
 - [x] [O4Z]002 Early ordered `optimize-instructions` still fails, but the original `Func 652` blocker is retired - (Refs [0095 slot 16 optimize-instructions underflow](docs/wiki/raw/research/0095-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-stack-underflow.md), [0103 slot 16 `Func 652` carrier guard follow-up](docs/wiki/raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md), [0104 slot 16 `Func 1818` split parent-exit payload guard](docs/wiki/raw/research/0104-2026-04-18-generated-o4z-optimize-instructions-slot16-func1818-parent-exit-payload-guard.md))
   - Completed: the full Binaryen slot `16` replay now exits `0`, validates, and matches Binaryen's normalized WAT after the second HOT-lower guard in [0104].
@@ -48,12 +48,15 @@ Suggested tests
     - `wasm-tools validate .artifacts/o4z003-slot19-fixed.wasm`
     - `bun scripts/self-optimize-compare.ts .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/15-slot18-pick-load-signs/binaryen.wasm --starshine-bin _build/native/release/build/cmd/cmd.exe --out-dir .artifacts/o4z003-slot19-compare --precompute`
 
-- [ ] [O4Z]004 Ordered `vacuum` after tuple-opt dies in final module validation on `Func 652` - (Ref [0097 slot 23 vacuum underflow after tuple-opt](docs/wiki/raw/research/0097-2026-04-18-generated-o4z-vacuum-slot23-func652-stack-underflow.md))
-  - Current blocker: Binaryen slot `23`; direct Starshine replay exits nonzero with `error: final module validate: stack underflow` and `Offending function idx=(Func 652)`.
+- [x] [O4Z]004 Ordered `vacuum` after tuple-opt dies in final module validation on `Func 652` - (Refs [0097 slot 23 vacuum underflow after tuple-opt](docs/wiki/raw/research/0097-2026-04-18-generated-o4z-vacuum-slot23-func652-stack-underflow.md), [0106 slot 23 `vacuum` replay retirement](docs/wiki/raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md))
+  - Completed: the saved Binaryen slot `23` predecessor now replays cleanly; direct native `--vacuum` exits `0`, `wasm-tools validate` succeeds for both the full predecessor and extracted `Func 652`, and `bun scripts/self-optimize-compare.ts ... --vacuum` now reports `Normalized WAT equal: yes` plus `Canonical function compare equal: yes`.
   - Saved predecessor input: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/17-slot21-tuple-optimization/binaryen.wasm`
-  - Reproduce:
-    - `_build/native/release/build/cmd/cmd.exe --vacuum --out .artifacts/tmp-direct-vacuum-slot23.raw.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/17-slot21-tuple-optimization/binaryen.wasm > .artifacts/tmp-direct-vacuum-slot23.log 2>&1`
-    - `grep -E 'final module validate|Offending function idx' .artifacts/tmp-direct-vacuum-slot23.log`
+  - Fixed validation commands:
+    - `_build/native/release/build/cmd/cmd.exe --vacuum --out .artifacts/o4z004-slot23-fixed.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/17-slot21-tuple-optimization/binaryen.wasm`
+    - `wasm-tools validate .artifacts/o4z004-slot23-fixed.wasm`
+    - `_build/native/release/build/cmd/cmd.exe --extract-functions=652 --vacuum --out .artifacts/o4z004-slot23-f652-fixed.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/17-slot21-tuple-optimization/binaryen.wasm`
+    - `wasm-tools validate .artifacts/o4z004-slot23-f652-fixed.wasm`
+    - `bun scripts/self-optimize-compare.ts .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/17-slot21-tuple-optimization/binaryen.wasm --starshine-bin _build/native/release/build/cmd/cmd.exe --out-dir .artifacts/o4z004-slot23-compare --vacuum`
 
 - [ ] [O4Z]005 Ordered `vacuum` after `simplify-locals` dies in final module validation on `Func 1818` - (Ref [0098 slot 33 vacuum underflow after simplify-locals](docs/wiki/raw/research/0098-2026-04-18-generated-o4z-vacuum-slot33-func1818-stack-underflow.md))
   - Current blocker: Binaryen slot `33`; direct Starshine replay exits nonzero with `error: final module validate: stack underflow` and `Offending function idx=(Func 1818)`.

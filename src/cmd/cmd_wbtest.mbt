@@ -6443,6 +6443,103 @@ test "run_cmd_with_adapter keeps extracted generated O4z slot19 precompute func1
 
 ///|
 #cfg(target="native")
+test "run_cmd_with_adapter validates vacuum on generated O4z slot23 predecessor" {
+  let input_path = ".artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/17-slot21-tuple-optimization/binaryen.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected saved ordered O4z predecessor at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["--vacuum", "--out", output_path, input_path], io) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected vacuum ordered O4z slot23 predecessor replay success, got \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["vacuum"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected generated O4z slot23 vacuum output to stay wasm-tools-valid, got \{err}",
+      )
+  }
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter keeps extracted generated O4z slot23 vacuum func652 output wasm-tools-valid" {
+  let input_path = ".artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/17-slot21-tuple-optimization/binaryen.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected saved ordered O4z predecessor at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--extract-functions=652", "--vacuum", "--out", output_path, input_path],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected extracted generated O4z slot23 vacuum func652 replay success, got \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, ["extract-functions=652", "vacuum"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected extracted generated O4z slot23 vacuum func652 output to stay wasm-tools-valid, got \{err}",
+      )
+  }
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter validates precompute on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let output_path = "out.wasm"

@@ -5,6 +5,8 @@ last_reviewed: 2026-04-18
 sources:
   - ../../raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md
   - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
+  - ../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md
   - ../../../../src/cli/cli.mbt
   - ../../../../src/cmd/cmd.mbt
   - ../../../../src/passes/optimize.mbt
@@ -30,18 +32,18 @@ related:
 
 ## Current Ordered Audit
 
-- The 2026-04-18 generated `cmd.wasm` audit observed 56 top-level slots, 34 implemented Starshine slots, and 7 hard corruption slots before later same-day fixes retired two of them.
+- The 2026-04-18 generated `cmd.wasm` audit observed 56 top-level slots, 34 implemented Starshine slots, and 7 hard corruption slots before later same-day fixes retired four of them.
 - The remaining open hard-failure cluster is now narrower and should be named precisely instead of as a generic late-pass cloud:
-  - `remove-unused-brs` later slot `40`: emits invalid raw wasm with a typed-`if` / block-stack mismatch (`0099`)
-  - `precompute` early slot `19`: emits invalid raw wasm where `func 108` loses a required `i32` result (`0096`)
-  - `vacuum` slot `23`: final-module validation underflow on `Func 652` (`0097`)
   - `vacuum` slot `33`: final-module validation underflow on `Func 1818` (`0098`)
+  - `remove-unused-brs` later slot `40`: emits invalid raw wasm with a typed-`if` / block-stack mismatch (`0099`)
   - `optimize-instructions` later slot `44`: final-module validation underflow on `Func 1818` (`0100`)
 - The same audit's earlier blockers are now explicitly retired in the living wiki:
   - `remove-unused-brs` early slot `14` was fixed by the large non-reorder-safe plain-`br` condition guard in `0102`
   - `optimize-instructions` early slot `16` was fixed by the paired HOT-lower carrier/parent-exit guards in `0103` and `0104`
+  - `precompute` early slot `19` was retired by the writeback guards in `0105`
+  - `vacuum` slot `23` was retired by the follow-up replay confirmation in `0106`, which showed the old `Func 652` failure disappeared with the earlier HOT-lower carrier-wrapper guard from `0103`
 - The expensive-but-successful cluster is unchanged: `simplify-locals`, `dead-code-elimination`, `tuple-optimization`, `ssa-nomerge`, and `heap2local` still need runtime work, but they are not current corruption blockers.
-- Slot-specific raw follow-ups are `0094` through `0100`; use those notes for the exact failing states when reducing one corruption slot at a time.
+- Slot-specific raw follow-ups are `0094` through `0100`, with retirement confirmations in `0105` and `0106`; use those notes for the exact failing states or the later green replays when reducing one corruption slot at a time.
 
 ## Compact Roster
 
@@ -69,6 +71,8 @@ related:
 
 - Archived audit: [`../../raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md`](../../raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md)
 - Current ordered audit: [`../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md)
+- Retired slot-19 follow-up: [`../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md`](../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md)
+- Retired slot-23 follow-up: [`../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md`](../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md)
 - [`../../../../src/cli/cli.mbt`](../../../../src/cli/cli.mbt)
 - [`../../../../src/cmd/cmd.mbt`](../../../../src/cmd/cmd.mbt)
 - [`../../../../src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt)

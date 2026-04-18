@@ -35,7 +35,7 @@ related:
 ## Active Hot Passes
 
 - [`ssa-nomerge/index.md`](ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family, fresh green compare evidence, and the remaining `Func 523` / `suspicious-escape-carrier` trace-level raw-lowering skips.
-- [`vacuum/index.md`](vacuum/index.md) - Active hot pass; the landing page now records the current upstream `unreachable`-preservation drift note plus the exact remaining slot-23 / slot-33 ordered-audit blockers.
+- [`vacuum/index.md`](vacuum/index.md) - Active hot pass; the landing page now records the retired slot-23 replay, the remaining slot-33 ordered-audit blocker, and the upstream `unreachable`-preservation drift note.
 - [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass; the landing page now records the current `Dce` naming evidence plus the 2026-04-18 ordered-audit fact that DCE is expensive-but-successful rather than a current corruption blocker.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
 - [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, parity status, the retired slot-14 large-condition guard, and the newer upstream branches-to-traps drift note.

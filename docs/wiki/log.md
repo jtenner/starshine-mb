@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] fix | retire `[O4Z]004` generated slot-23 `vacuum` corruption
+
+- Added `docs/wiki/raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md` to record that the saved slot-23 predecessor from `0097` now replays cleanly on the current tree, the extracted `Func 652` replay also validates, and the Binaryen compare reports normalized-WAT plus canonical-function equality.
+- Updated `docs/wiki/binaryen/passes/vacuum/index.md`, `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the living wiki no longer treats slot `23` as an active `vacuum` blocker; the remaining live `vacuum` blocker is slot `33`, and the durable inference is that slot `23` was fallout from the earlier HOT-lower carrier-wrapper fix in `0103`, not a pass-local `vacuum` mutation bug.
+- Added cmd-level native regressions in `src/cmd/cmd_wbtest.mbt` for both the full saved slot-23 predecessor and the extracted `Func 652` replay, and updated `agent-todo.md` so the generated `-O4z` active blocker list now starts at `[O4Z]005`.
+
 ## [2026-04-18] fix | retire `[O4Z]003` generated slot-19 `precompute` corruption
 
 - Added `docs/wiki/raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md` to record that the saved slot-19 predecessor from `0096` now replays cleanly on the current tree, stays `wasm-tools validate` clean, and matches Binaryen at normalized-WAT / canonical-function granularity.

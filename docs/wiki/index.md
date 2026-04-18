@@ -78,7 +78,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/precompute/index.md`](binaryen/passes/precompute/index.md) - Active hot-pass landing page; records the current `precompute` versus `precompute-propagate` alias boundary plus the newer upstream child-retention, March 2026 GC-write handling, GC-atomic no-fold, and multibyte-array `array.load` no-fold drift notes until strategy pages land, and now records that the saved generated-artifact slot-19 `func 108` raw-result-loss witness is retired by `0105` rather than still being an active corruption blocker.
 - [`binaryen/passes/remove-unused-brs/index.md`](binaryen/passes/remove-unused-brs/index.md) - Hub page for RUB overview, shape catalog, strategies, bailout notes, the retired slot-14 large-condition guard, and current parity status.
 - [`binaryen/passes/remove-unused-names/index.md`](binaryen/passes/remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
-- [`binaryen/passes/vacuum/index.md`](binaryen/passes/vacuum/index.md) - Active hot-pass landing page; records the exact remaining slot-23 `Func 652` plus slot-33 `Func 1818` ordered blockers, along with the newer upstream `unreachable`-preservation note, until strategy pages land.
+- [`binaryen/passes/vacuum/index.md`](binaryen/passes/vacuum/index.md) - Active hot-pass landing page; now records the retired slot-23 `Func 652` replay, the remaining slot-33 `Func 1818` blocker, and the newer upstream `unreachable`-preservation note.
 
 ## Decisions
 
