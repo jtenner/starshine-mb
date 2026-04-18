@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | refresh current-trunk Binaryen changelog lead note
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after a fresh non-GitHub Binaryen source sweep because the Chromium-mirror `main` `CHANGELOG.md` no longer leads with the earlier worker-threading note; the current `Current Trunk` lead item is now the `MemorySegment` -> `DataSegment` API rename work.
+- Kept the wiki's conservative conclusion unchanged: this is still only a freshness check, and the reachable `main` changelog still does not document a newer optimization-pass addition beyond the already tracked release-note horizon through `version_129`.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the wording refresh.
+
 ## [2026-04-18] maintain | anchor Binaryen release horizon with Chromium refs plus main changelog
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after another non-GitHub Binaryen source sweep so the living wiki now cites the Chromium refs listing directly as the anchor for the current reachable release horizon: `refs/heads/main` is present, and `version_129` is still the newest directly reachable release tag in that mirror listing.
