@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | tighten docs.rs pass-enum source-of-truth wording
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/heap-store-optimization/index.md`, and `docs/wiki/index.md` after a fresh non-GitHub Binaryen source sweep to record one useful docs.rs nuance explicitly: the published `wasm_opt::Pass` page says its exposed enum variants follow the command-line pass names with Rust capitalization conventions.
+- Kept the conservative conclusion unchanged: that positive naming rule helps for entries the page does expose such as `RemoveUnusedBrs`, but the same page still omits `HeapStoreOptimization`, `MinimizeRecGroups`, and `StringLowering`, so those absences remain wrapper-surface lag evidence rather than proof of upstream renames or removals.
+- Reran a repo-local markdown-link health check over `docs/wiki/**/*.md`; there were still `0` broken relative links after the wording refresh.
+
 ## [2026-04-18] maintain | narrow the late-pass blocker roster after slot-14 and slot-16 retirements
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/precompute/index.md`, `docs/wiki/binaryen/passes/vacuum/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the living wiki no longer describes the 2026-04-18 generated `cmd.wasm` ordered `-O4z` fallout as only a broad failing-pass cluster.
