@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] research | retire generated O4z optimize-instructions slot44 replay
+
+- Re-read the slot-44 capture in `docs/wiki/raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md`, the generated-artifact audit summary in `docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`, the current `optimize-instructions` landing page, and the in-tree native cmd replay tests before checking whether the saved predecessor was still a live blocker.
+- Added `docs/wiki/raw/research/0109-2026-04-18-generated-o4z-optimize-instructions-slot44-retired-by-replay-verification.md` to record that the exact saved slot-43 predecessor now replays successfully, emits `wasm-tools`-valid output, and matches Binaryen at the normalized-WAT and canonical-function level, while making it explicit that the likely root cause is the already-landed shared HOT-lower guard work from `0103` and `0104` rather than a new pass-local rewrite in this run.
+- Updated `docs/wiki/binaryen/passes/optimize-instructions/index.md`, `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/remove-unused-brs/parity.md`, and `docs/wiki/index.md` so the living wiki no longer treats slot `44` as open, now records that the full generated-artifact hard-corruption set is retired, and drops the stale slot-40-open wording that had survived after `0108`.
+
 ## [2026-04-18] maintain | record funcref-start and decode-corruption invalid widening
 
 - Reviewed the already-modified validator and fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_text.mbt` to capture another widening step: AST and binary coverage now include imported-start `funcref`-parameter invalid modules, the binary lane now also covers malformed section-size ULEBs plus section-payload length overflows, and the inline text lane now also includes malformed `f64` bad-opcode, imported `funcref`-start, and incompatible memory-maximum fixtures.

@@ -8,6 +8,8 @@ sources:
   - ../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
   - ../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md
   - ../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md
+  - ../../raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md
+  - ../../raw/research/0109-2026-04-18-generated-o4z-optimize-instructions-slot44-retired-by-replay-verification.md
   - ../../../../src/cli/cli.mbt
   - ../../../../src/cmd/cmd.mbt
   - ../../../../src/passes/optimize.mbt
@@ -34,18 +36,18 @@ related:
 
 ## Current Ordered Audit
 
-- The 2026-04-18 generated `cmd.wasm` audit observed 56 top-level slots, 34 implemented Starshine slots, and 7 hard corruption slots before later same-day fixes retired five of them.
-- The remaining open hard-failure cluster is now narrower and should be named precisely instead of as a generic late-pass cloud:
-  - `remove-unused-brs` later slot `40`: emits invalid raw wasm with a typed-`if` / block-stack mismatch ([`0099`](../../raw/research/0099-2026-04-18-generated-o4z-rub-slot40-block-stack-leak.md))
-  - `optimize-instructions` later slot `44`: final-module validation underflow on `Func 1818` ([`0100`](../../raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md))
-- The same audit's earlier blockers are now explicitly retired in the living wiki:
+- The 2026-04-18 generated `cmd.wasm` audit observed 56 top-level slots, 34 implemented Starshine slots, and 7 hard corruption slots.
+- All 7 hard corruption slots are now retired on the current tree; there is no remaining open hard-failure cluster from that saved audit.
+- The retired blockers are now explicitly tracked in the living wiki:
   - `remove-unused-brs` early slot `14` was fixed by the large non-reorder-safe plain-`br` condition guard in [`0102`](../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md)
   - `optimize-instructions` early slot `16` was fixed by the paired HOT-lower carrier/parent-exit guards in [`0103`](../../raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md) and [`0104`](../../raw/research/0104-2026-04-18-generated-o4z-optimize-instructions-slot16-func1818-parent-exit-payload-guard.md)
   - `precompute` early slot `19` was retired by the writeback guards in [`0105`](../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md)
   - `vacuum` slot `23` was retired by the follow-up replay confirmation in [`0106`](../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md), which showed the old `Func 652` failure disappeared with the earlier HOT-lower carrier-wrapper guard from [`0103`](../../raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md)
   - `vacuum` slot `33` was retired by the validator-escape and guarded-writeback follow-up in [`0107`](../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md), which showed the saved predecessor now replays to a `wasm-tools`-valid module and canonically matches Binaryen even though the underlying repair lived in validation and pass-manager writeback hygiene rather than a new `vacuum`-local cleanup rewrite
+  - `remove-unused-brs` later slot `40` was retired by the conservative tail value-`if` rewrite guard in [`0108`](../../raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md)
+  - `optimize-instructions` later slot `44` was retired by the current-tree replay verification in [`0109`](../../raw/research/0109-2026-04-18-generated-o4z-optimize-instructions-slot44-retired-by-replay-verification.md), which showed the exact saved predecessor from [`0100`](../../raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md) now emits valid wasm and matches Binaryen at the normalized-WAT and canonical-function level without a new pass-local mutator change in this run
 - The expensive-but-successful cluster is unchanged: `simplify-locals`, `dead-code-elimination`, `tuple-optimization`, `ssa-nomerge`, and `heap2local` still need runtime work, but they are not current corruption blockers.
-- Slot-specific raw follow-ups are [`0094`](../../raw/research/0094-2026-04-18-generated-o4z-rub-slot14-missing-i32-result.md) through [`0100`](../../raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md), with retirement confirmations in [`0105`](../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md), [`0106`](../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md), and [`0107`](../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md); use those notes for the exact failing states or the later green replays when reducing one corruption slot at a time.
+- Slot-specific raw follow-ups are [`0094`](../../raw/research/0094-2026-04-18-generated-o4z-rub-slot14-missing-i32-result.md) through [`0100`](../../raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md), with retirement confirmations in [`0105`](../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md), [`0106`](../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md), [`0107`](../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md), [`0108`](../../raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md), and [`0109`](../../raw/research/0109-2026-04-18-generated-o4z-optimize-instructions-slot44-retired-by-replay-verification.md); use those notes for the exact failing states or the later green replays when reducing one corruption slot at a time.
 
 ## Compact Roster
 

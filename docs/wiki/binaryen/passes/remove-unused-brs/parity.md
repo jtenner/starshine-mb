@@ -230,13 +230,10 @@ related:
 
 The active backlog now says the next work should be reduced in this order:
 
-- The generated `_build/wasm/debug/build/cmd/cmd.wasm` ordered `-O4z` audit from `2026-04-18` still leaves one top-priority RUB corruption slot on Binaryen-produced predecessor states:
-  - later slot `40` emits invalid raw wasm; `wasm-tools validate` fails at `func 1979` with `values remaining on stack at end of block`, while Binaryen's validator also flags an `if-else` true-arm type issue in function `1958` ([`0099`](../../../raw/research/0099-2026-04-18-generated-o4z-rub-slot40-block-stack-leak.md))
-- Slot `14` is retired by [`0102`](../../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md):
-  - the exact mutator was the direct plain-`br` branch cleanup in `remove_unused_brs_try_rewrite_if_br(...)`
-  - the fix keeps that rewrite disabled for large lifted functions when the condition is not reorder-safe
-  - the saved predecessor replay and the extracted `Func 1354` replay now both validate again
-- So the remaining blocker is no longer “slot 14 native/source divergence”; it is the later slot-40 typed-block stack leak.
+- The generated `_build/wasm/debug/build/cmd/cmd.wasm` ordered `-O4z` audit from `2026-04-18` no longer leaves an open hard corruption slot for RUB on Binaryen-produced predecessor states:
+  - slot `14` is retired by [`0102`](../../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md)
+  - slot `40` is retired by [`0108`](../../../raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md)
+- So the remaining work is no longer a generated-artifact corruption blocker; it is parity reduction, canonicalization-noise separation, and runtime work inside already-valid replays.
 
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.

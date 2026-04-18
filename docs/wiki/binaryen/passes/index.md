@@ -39,7 +39,7 @@ related:
 - [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass; the landing page now records the current `Dce` naming evidence plus the 2026-04-18 ordered-audit fact that DCE is expensive-but-successful rather than a current corruption blocker.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
 - [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, parity status, the retired slot-14 large-condition guard, and the newer upstream branches-to-traps drift note.
-- [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass; the landing page now records the fully retired slot-16 `Func 652` / `Func 1818` HOT-lower bugs and the remaining later slot-44 blocker.
+- [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass; the landing page now records the fully retired slot-16 and slot-44 generated-artifact corruption witnesses, plus the current inference that the later slot-44 replay also fell with the earlier shared HOT-lower guards.
 - [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass; the landing page now records the Debian manpage as the strongest package-surface naming source in public docs, notes that the published `wasm_opt::Pass` enum page still omits `HeapStoreOptimization` even though that page's own naming rule says exposed variants follow CLI pass names with Rust capitalization, and now also records that the docs.rs crate overview overstates coverage by claiming `Pass` represents or exposes all Binaryen passes even though the enum page still omits this one.
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note, current `Heap2Local` terminology sanity check, and the ordered-audit note that H2L is expensive-but-successful rather than currently corrupting the generated artifact.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
@@ -49,7 +49,7 @@ related:
 
 ## Tail Dispatch Notes
 
-- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note, now also recording that Debian/docs.rs/README package surfaces are all incomplete in different ways, that official GitHub release pages through `version_129` plus the Chromium refs listing still anchor the current public release horizon, that the current `main` changelog on both Chromium and official GitHub still lacks a newer documented optimization-pass addition, and that the living ordered-audit summary now names the exact two remaining generated-artifact blockers instead of only the broader failing-pass cluster.
+- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note, now also recording that Debian/docs.rs/README package surfaces are all incomplete in different ways, that official GitHub release pages through `version_129` plus the Chromium refs listing still anchor the current public release horizon, that the current `main` changelog on both Chromium and official GitHub still lacks a newer documented optimization-pass addition, and that the living ordered-audit summary now records the full retirement of the generated-artifact hard-corruption set instead of an open late-pass blocker cluster.
 
 ## Current Maintenance Rule
 
