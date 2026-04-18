@@ -626,7 +626,7 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
   }
   let resolved_params = match params {
     Some(v) => v
-    None => @validate.GenInvalidAstParams::new(spec.id)
+    None => @validate.GenInvalidAstParams::coverage_forced_seed(spec.id)
   }
   let generated = match
     @validate.gen_invalid_ast_generate(@splitmix.new(seed~), resolved_params) {
@@ -693,7 +693,7 @@ pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
   }
   let resolved_params = match params {
     Some(v) => v
-    None => GenInvalidBinaryParams::new(spec.id)
+    None => GenInvalidBinaryParams::coverage_forced_seed(spec.id)
   }
   let generated = match
     gen_invalid_binary_generate(@splitmix.new(seed~), resolved_params) {

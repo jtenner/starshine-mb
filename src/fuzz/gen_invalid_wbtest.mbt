@@ -28,3 +28,33 @@ test "fuzz package can consume public gen-invalid AST generation API" {
     Err(_) => ()
   }
 }
+
+///|
+test "fuzz package can consume public natural-seed gen-invalid AST API" {
+  let strategy = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(
+      "duplicate-export-name",
+    ) {
+    Some(spec) => spec.id
+    None => fail("expected duplicate-export-name strategy to exist")
+  }
+  let generated = match
+    @validate.gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5eedUL),
+      @validate.GenInvalidAstParams::natural_seed(strategy),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected public natural-seed base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected natural-seed gen-invalid mutated module to fail")
+    Err(_) => ()
+  }
+}

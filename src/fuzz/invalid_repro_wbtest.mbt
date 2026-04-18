@@ -259,6 +259,52 @@ test "build_invalid_fuzz_binary_failure_report_by_stable_id supports minimal val
 }
 
 ///|
+test "build_invalid_fuzz_ast_failure_report_by_stable_id supports natural seeds" {
+  let spec = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(
+      "duplicate-export-name",
+    ) {
+    Some(v) => v
+    None => fail("missing AST invalid strategy")
+  }
+  let report = match
+    build_invalid_fuzz_ast_failure_report_by_stable_id(
+      "duplicate-export-name",
+      0x5eedUL,
+      11,
+      params=Some(@validate.GenInvalidAstParams::natural_seed(spec.id)),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(report.actual_stage, "validate-rejected")
+  assert_eq(report.actual_diagnostic_family, Some("export"))
+  assert_eq(report.artifacts.length(), 2)
+}
+
+///|
+test "build_invalid_fuzz_binary_failure_report_by_stable_id supports coverage-forced seeds" {
+  let spec = match
+    validate_invalid_binary_strategy_by_stable_id("invalid-func-type-index") {
+    Some(v) => v
+    None => fail("missing binary invalid strategy")
+  }
+  let report = match
+    build_invalid_fuzz_binary_failure_report_by_stable_id(
+      "invalid-func-type-index",
+      0x5eedUL,
+      12,
+      params=Some(GenInvalidBinaryParams::coverage_forced_seed(spec.id)),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(report.actual_stage, "validate-rejected")
+  assert_eq(report.actual_diagnostic_family, Some("function"))
+  assert_eq(report.artifacts.length(), 2)
+}
+
+///|
 test "build_invalid_fuzz_text_failure_report_by_stable_id preserves source path and stage" {
   let report = match
     build_invalid_fuzz_text_failure_report_by_stable_id(
