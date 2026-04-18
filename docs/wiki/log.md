@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | switch Binaryen source-of-truth wording from non-GitHub-only to official-source hierarchy
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/heap-store-optimization/index.md`, and `docs/wiki/index.md` after a fresh Binaryen source sweep to remove stale wording that implied this maintenance lane had to avoid GitHub as a documentation source.
+- Tightened the source-of-truth guidance instead of broadening claims: keep Chromium refs plus tagged release-note pages as the release-horizon baseline through `version_129`, keep Debian/docs.rs/README as incomplete package-surface corroboration, and use the official GitHub `main` changelog as the stronger current-trunk drift watch. The living wiki now records that Chromium and GitHub currently agree on the same `Current Trunk` lead item (`MemorySegment` -> `DataSegment` API renames) and still do not document a newer optimization-pass addition relevant to Starshine's pass catalog.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the wording refresh.
+
 ## [2026-04-18] maintain | tighten docs.rs pass-enum source-of-truth wording
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/heap-store-optimization/index.md`, and `docs/wiki/index.md` after a fresh non-GitHub Binaryen source sweep to record one useful docs.rs nuance explicitly: the published `wasm_opt::Pass` page says its exposed enum variants follow the command-line pass names with Rust capitalization conventions.
