@@ -24,6 +24,12 @@ pub fn diff(@lib.RefType, @lib.RefType) -> Result[@lib.RefType, String]
 
 pub fn empty_env() -> Env
 
+pub fn gen_invalid_ast_generate(@splitmix.RandomState, GenInvalidAstParams) -> Result[GenInvalidAstGenerated, String]
+
+pub fn gen_invalid_ast_seed_config(GenInvalidAstParams) -> GenValidConfig
+
+pub fn gen_invalid_ast_seed_module(@splitmix.RandomState, GenInvalidAstParams) -> Result[@lib.Module, String]
+
 pub fn gen_valid_feature_facts(@lib.Module, GenValidMode) -> GenValidFeatureFacts
 
 pub fn gen_valid_module(@splitmix.RandomState) -> @lib.Module
@@ -196,6 +202,25 @@ pub fn Env::with_tables(Self, Array[@lib.TableType]) -> Self
 pub fn Env::with_tags(Self, Array[@lib.TagType]) -> Self
 pub fn Env::with_types(Self, Array[@lib.SubType]) -> Self
 pub impl Show for Env
+
+pub struct GenInvalidAstGenerated {
+  base_module : @lib.Module
+  mutation : ValidateInvalidAstMutation
+} derive(@debug.Debug)
+
+pub struct GenInvalidAstParams {
+  strategy : ValidateInvalidAstStrategyId
+  seed_mode : GenInvalidSeedMode
+  generator_config : GenValidConfig
+  require_strategy_prereqs : Bool
+} derive(Eq, @debug.Debug)
+pub fn GenInvalidAstParams::minimal_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
+pub fn GenInvalidAstParams::new(ValidateInvalidAstStrategyId, seed_mode? : GenInvalidSeedMode, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
+
+pub enum GenInvalidSeedMode {
+  RandomValidSeed
+  MinimalValidSeed
+} derive(Eq, @debug.Debug)
 
 pub struct GenValidConfig {
   mode : GenValidMode

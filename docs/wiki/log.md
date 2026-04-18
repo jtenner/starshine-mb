@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record public `gen_invalid` seed/mutation surfaces
+
+- Reviewed the already-modified validator fuzz files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/gen_invalid_wbtest.mbt`, `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, `src/fuzz/invalid_binary_wbtest.mbt`, and the generated public interfaces `src/validate/pkg.generated.mbti` plus `src/fuzz/pkg.generated.mbti` to confirm one durable wiki-worthy change: the AST-invalid and binary-invalid helpers are now supported package surfaces, not only internal fuzz-runner implementation details.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now say explicitly that downstream packages can call `gen_invalid_ast_seed_config`, `gen_invalid_ast_seed_module`, `gen_invalid_ast_generate`, `gen_invalid_binary_seed_config`, `gen_invalid_binary_seed_module`, and `gen_invalid_binary_generate` through exported params/generated structs, with checked-in coverage for stable-id lookup plus both random-valid-seed and minimal-valid-seed modes.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | turn late ordered-audit note IDs into direct wiki links
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` and `docs/wiki/binaryen/passes/remove-unused-brs/parity.md` so the living wiki now links the active ordered `-O4z` blocker notes (`0099`, `0100`) and same-day retirement notes (`0102` through `0107`) directly instead of mentioning those raw-research IDs only as plain text.

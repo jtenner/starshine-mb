@@ -1,10 +1,4 @@
 ///|
-using @validate {
-  apply_validate_invalid_ast_strategy,
-  validate_invalid_ast_strategy_by_stable_id,
-}
-
-///|
 fn invalid_repro_test_bytes_to_ascii(bytes : Bytes) -> String {
   let out = StringBuilder::new()
   for byte in bytes {
@@ -32,37 +26,8 @@ fn invalid_repro_test_original_ast_report() -> Result[
   InvalidFuzzFailureReport,
   String,
 ] {
-  let base = gen_valid_module_with_config(
-    @splitmix.new(seed=0x5eedUL),
-    GenValidConfig::coverage_forced_default(),
-  )
-  let spec = match
-    validate_invalid_ast_strategy_by_stable_id("duplicate-export-name") {
-    Some(v) => v
-    None => return Err("missing AST invalid strategy")
-  }
-  let mutation = match apply_validate_invalid_ast_strategy(spec.id, base) {
-    Ok(v) => v
-    Err(msg) => return Err(msg)
-  }
-  let mutated = match encode_module(mutation.mutated_module) {
-    Ok(v) => v
-    Err(msg) => return Err("\{msg}")
-  }
-  Ok(
-    InvalidFuzzFailureReport::new(
-      "validate-invalid-ast",
-      "smoke",
-      0x5eedUL,
-      1,
-      "duplicate-export-name",
-      invalid_fuzz_ast_source_kind(),
-      "validate-rejected",
-      expected_diagnostic_family=Some("export"),
-      actual_stage="validate-rejected",
-      actual_diagnostic_family=Some("export"),
-      artifacts=[InvalidFuzzArtifact::new("original", "original.wasm", mutated)],
-    ),
+  build_invalid_fuzz_ast_failure_report_by_stable_id(
+    "duplicate-export-name", 0x5eedUL, 1,
   )
 }
 
@@ -71,39 +36,8 @@ fn invalid_repro_test_original_binary_report() -> Result[
   InvalidFuzzFailureReport,
   String,
 ] {
-  let base = gen_valid_module_with_config(
-    @splitmix.new(seed=0x5eedUL),
-    GenValidConfig::coverage_forced_default(),
-  )
-  let spec = match
-    validate_invalid_binary_strategy_by_stable_id("invalid-func-type-index") {
-    Some(v) => v
-    None => return Err("missing binary invalid strategy")
-  }
-  let mutation = match apply_validate_invalid_binary_strategy(spec.id, base) {
-    Ok(v) => v
-    Err(msg) => return Err(msg)
-  }
-  Ok(
-    InvalidFuzzFailureReport::new(
-      "validate-invalid-binary",
-      "smoke",
-      0x5eedUL,
-      2,
-      "invalid-func-type-index",
-      invalid_fuzz_binary_source_kind(),
-      "validate-rejected",
-      expected_diagnostic_family=Some("function"),
-      actual_stage="validate-rejected",
-      actual_diagnostic_family=Some("function"),
-      artifacts=[
-        InvalidFuzzArtifact::new(
-          "original",
-          "original.wasm",
-          mutation.mutated_bytes,
-        ),
-      ],
-    ),
+  build_invalid_fuzz_binary_failure_report_by_stable_id(
+    "invalid-func-type-index", 0x5eedUL, 2,
   )
 }
 
@@ -320,6 +254,52 @@ test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
   assert_eq(invalid_fuzz_source_kind_name(parsed.source_kind), "text")
   assert_eq(parsed.artifacts.length(), 1)
   assert_eq(parsed.reduced_artifacts.length(), 1)
+}
+
+///|
+test "build_invalid_fuzz_ast_failure_report_by_stable_id supports minimal valid seeds" {
+  let spec = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(
+      "invalid-start-signature",
+    ) {
+    Some(v) => v
+    None => fail("missing AST invalid strategy")
+  }
+  let report = match
+    build_invalid_fuzz_ast_failure_report_by_stable_id(
+      "invalid-start-signature",
+      0x5eedUL,
+      9,
+      params=Some(@validate.GenInvalidAstParams::minimal_seed(spec.id)),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(report.actual_stage, "validate-rejected")
+  assert_eq(report.actual_diagnostic_family, Some("start"))
+  assert_eq(report.artifacts.length(), 1)
+}
+
+///|
+test "build_invalid_fuzz_binary_failure_report_by_stable_id supports minimal valid seeds" {
+  let spec = match
+    validate_invalid_binary_strategy_by_stable_id("trailing-garbage") {
+    Some(v) => v
+    None => fail("missing binary invalid strategy")
+  }
+  let report = match
+    build_invalid_fuzz_binary_failure_report_by_stable_id(
+      "trailing-garbage",
+      0x5eedUL,
+      10,
+      params=Some(GenInvalidBinaryParams::minimal_seed(spec.id)),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(report.actual_stage, "decode-rejected")
+  assert_eq(report.actual_diagnostic_family, None)
+  assert_eq(report.artifacts.length(), 1)
 }
 
 ///|

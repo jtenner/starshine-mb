@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-16
+last_reviewed: 2026-04-18
 sources:
   - ../raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md
   - ../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md
   - ../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md
+  - ../../../src/fuzz/gen_invalid_wbtest.mbt
   - ../../../src/fuzz/invalid_binary.mbt
   - ../../../src/fuzz/invalid_repro.mbt
   - ../../../src/fuzz/invalid_text.mbt
+  - ../../../src/validate/gen_invalid.mbt
+  - ../../../src/validate/gen_invalid_tests.mbt
   - ../../../src/validate/invalid_fuzzer.mbt
   - ../../../src/wast/spec_harness.mbt
 related:
@@ -32,13 +35,17 @@ related:
   - `remove-unused-module-elements` no longer preserves an unused imported function or its dead simple function type in the saved repro `.tmp/pass-fuzz-fuz003-genvalid-smoke/failures/case-000001-gen-valid/`; see [`../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md`](../raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md).
   - `remove-unused-module-elements` now also matches Binaryen's no-op `start` pruning family for defined single-`nop` start targets, including the saved repros `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/` and `case-000020-gen-valid/`; see [`../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md`](../raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md).
 - The restored AST invalid lane now keeps one checked-in strategy registry and fails smoke runs when a required strategy never becomes applicable, never mutates, or never reaches the expected diagnostic family.
+- The AST lane now also has one shared `gen_invalid` helper in `src/validate/gen_invalid.mbt` that starts from either a random `gen_valid` seed or a minimal valid seed, optionally widens seed prerequisites per strategy, and then applies the parameterized invalid mutation before the runner records rejection-family stats.
+- That helper is now a real public integration surface rather than only an internal runner detail: `pkg.generated.mbti` exports `GenInvalidAstParams`, `GenInvalidAstGenerated`, `gen_invalid_ast_seed_config`, `gen_invalid_ast_seed_module`, and `gen_invalid_ast_generate`, and checked-in wbtests prove downstream packages can consume the API with a stable-id lookup plus both random and minimal valid seed modes.
 - The currently landed AST-invalid strategy set covers duplicate export names, invalid start signatures, missing datacount for `memory.init`, undeclared `ref.func`, and out-of-range function-name indices.
-- The binary invalid lane now also keeps one checked-in byte-corruption registry and distinguishes two rejection stages per strategy: decode rejected vs decode succeeded but validator rejected.
+- The binary invalid lane now also keeps one shared generator helper inside `src/fuzz/invalid_binary.mbt` that starts from either a random `gen_valid` seed or a minimal valid module before applying the chosen byte-corruption strategy.
+- The binary lane now mirrors the AST lane's package boundary too: the fuzz package exports `GenInvalidBinaryParams`, `GenInvalidBinaryGenerated`, `gen_invalid_binary_seed_config`, `gen_invalid_binary_seed_module`, and `gen_invalid_binary_generate`, and checked-in wbtests lock both the validator-rejected and decode-rejected minimal-seed paths.
+- The binary invalid lane also keeps one checked-in byte-corruption registry and distinguishes two rejection stages per strategy: decode rejected vs decode succeeded but validator rejected.
 - The currently landed binary-invalid strategy set covers trailing garbage, truncated modules, duplicate type sections, wrong section order, and out-of-range function-section type indices.
 - The text invalid lane now keeps one checked-in inline text registry and distinguishes three stage outcomes per strategy: parse/lower rejected, validator rejected after lowering, and valid-before-link for unlinkable cases.
 - The currently landed text-invalid strategy set covers a malformed quoted module, an invalid result-stack module, and a valid-but-unlinkable unknown import module.
 - The spec-seed lane now samples selected `tests/spec` assertions from the `assert_malformed`, `assert_invalid`, and `assert_unlinkable` categories, extracts the raw target assertion S-expression, and then reuses the shared WAST static-assertion evaluator so corpus replay follows the same semantics as the spec harness.
-- The current tree now also has one shared invalid repro surface in `src/fuzz/invalid_repro.mbt`: persisted reports record suite/profile/seed/attempt/strategy/source kind plus expected-vs-actual stage and diagnostic-family facts, and saved artifacts can be reduced and replayed without rerunning the original random loop.
+- The current tree now also has one shared invalid repro surface in `src/fuzz/invalid_repro.mbt`: persisted reports record suite/profile/seed/attempt/strategy/source kind plus expected-vs-actual stage and diagnostic-family facts, saved AST/binary reports are now built from the shared `gen_invalid` helpers instead of ad hoc mutation code, and saved artifacts can be reduced and replayed without rerunning the original random loop.
 - The bounded shrink surface now differs by source kind instead of pretending one reducer fits all cases:
   - AST strategies reduce to checked-in minimal invalid modules.
   - Binary strategies reduce to checked-in minimal corrupted wasm bytes.

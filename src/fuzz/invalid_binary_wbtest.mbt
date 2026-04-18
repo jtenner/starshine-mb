@@ -175,3 +175,66 @@ test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy
   assert_true(saw_decode)
   assert_true(saw_validate)
 }
+
+///|
+test "gen_invalid_binary_generate returns valid base and validator-rejected bytes" {
+  let generated = match
+    gen_invalid_binary_generate(
+      @splitmix.new(seed=0x5eedUL),
+      GenInvalidBinaryParams::new(
+        InvalidFuncTypeIndex,
+        generator_config=GenValidConfig::natural_default(),
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected binary gen-invalid base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  assert_true(generated.mutation.applicable)
+  match decode_module(generated.mutation.mutated_bytes) {
+    Err(msg) =>
+      fail("expected validator-rejected binary to decode first: \{msg}")
+    Ok(decoded) =>
+      match validate_module(decoded) {
+        Ok(_) => fail("expected decoded invalid binary to fail validation")
+        Err(err) => {
+          let family = validation_issue_family(
+            validation_error_diagnostic(err).issue,
+          )
+          assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "function",
+          )
+        }
+      }
+  }
+}
+
+///|
+test "gen_invalid_binary_generate supports minimal valid seeds for decode rejection" {
+  let generated = match
+    gen_invalid_binary_generate(
+      @splitmix.new(seed=0x5eedUL),
+      GenInvalidBinaryParams::minimal_seed(TrailingGarbage),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected minimal binary gen-invalid base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match decode_module(generated.mutation.mutated_bytes) {
+    Err(_) => ()
+    Ok(_) => fail("expected trailing-garbage minimal mutation to fail decode")
+  }
+}

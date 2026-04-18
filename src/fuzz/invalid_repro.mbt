@@ -590,6 +590,143 @@ fn invalid_fuzz_encode_module_artifact(
 }
 
 ///|
+fn invalid_fuzz_expected_binary_outcome(
+  expected_result : ValidateInvalidBinaryExpectedResult,
+) -> (String, String?) {
+  match expected_result {
+    DecodeRejected => ("decode-rejected", None)
+    ValidateRejected(family_label) => ("validate-rejected", Some(family_label))
+  }
+}
+
+///|
+fn invalid_fuzz_report_outcome_matches(
+  replay : InvalidFuzzReplayResult,
+  expected_stage : String,
+  expected_diagnostic_family : String?,
+) -> Bool {
+  if replay.stage != expected_stage {
+    return false
+  }
+  replay.diagnostic_family == expected_diagnostic_family
+}
+
+///|
+pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
+  strategy_id : String,
+  seed : UInt64,
+  attempt : Int,
+  profile? : String = "smoke",
+  params? : @validate.GenInvalidAstParams? = None,
+) -> Result[InvalidFuzzFailureReport, String] {
+  let spec = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(strategy_id) {
+    Some(v) => v
+    None => return Err("unknown AST invalid strategy '\{strategy_id}'")
+  }
+  let resolved_params = match params {
+    Some(v) => v
+    None => @validate.GenInvalidAstParams::new(spec.id)
+  }
+  let generated = match
+    @validate.gen_invalid_ast_generate(@splitmix.new(seed~), resolved_params) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let artifact = match
+    invalid_fuzz_encode_module_artifact(
+      "original",
+      "original.wasm",
+      generated.mutation.mutated_module,
+    ) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let replay = invalid_fuzz_replay_binary_like(artifact.bytes)
+  let expected_family = Some(invalid_fuzz_family_label(spec.expected_family))
+  if !invalid_fuzz_report_outcome_matches(
+      replay, "validate-rejected", expected_family,
+    ) {
+    let expected_family_text = expected_family.unwrap_or("")
+    let actual_family_text = replay.diagnostic_family.unwrap_or("")
+    return Err(
+      "AST invalid report outcome mismatch: strategy=\{strategy_id} expected_stage=validate-rejected expected_family=\{expected_family_text} actual_stage=\{replay.stage} actual_family=\{actual_family_text}",
+    )
+  }
+  Ok(
+    InvalidFuzzFailureReport::new(
+      "validate-invalid-ast",
+      profile,
+      seed,
+      attempt,
+      strategy_id,
+      invalid_fuzz_ast_source_kind(),
+      "validate-rejected",
+      expected_diagnostic_family=expected_family,
+      actual_stage=replay.stage,
+      actual_diagnostic_family=replay.diagnostic_family,
+      artifacts=[artifact],
+    ),
+  )
+}
+
+///|
+pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
+  strategy_id : String,
+  seed : UInt64,
+  attempt : Int,
+  profile? : String = "smoke",
+  params? : GenInvalidBinaryParams? = None,
+) -> Result[InvalidFuzzFailureReport, String] {
+  let spec = match validate_invalid_binary_strategy_by_stable_id(strategy_id) {
+    Some(v) => v
+    None => return Err("unknown binary invalid strategy '\{strategy_id}'")
+  }
+  let resolved_params = match params {
+    Some(v) => v
+    None => GenInvalidBinaryParams::new(spec.id)
+  }
+  let generated = match
+    gen_invalid_binary_generate(@splitmix.new(seed~), resolved_params) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let artifact = InvalidFuzzArtifact::new(
+    "original",
+    "original.wasm",
+    generated.mutation.mutated_bytes,
+  )
+  let replay = invalid_fuzz_replay_binary_like(artifact.bytes)
+  let (expected_stage, expected_family) = invalid_fuzz_expected_binary_outcome(
+    spec.expected_result,
+  )
+  if !invalid_fuzz_report_outcome_matches(
+      replay, expected_stage, expected_family,
+    ) {
+    let expected_family_text = expected_family.unwrap_or("")
+    let actual_family_text = replay.diagnostic_family.unwrap_or("")
+    return Err(
+      "binary invalid report outcome mismatch: strategy=\{strategy_id} expected_stage=\{expected_stage} expected_family=\{expected_family_text} actual_stage=\{replay.stage} actual_family=\{actual_family_text}",
+    )
+  }
+  Ok(
+    InvalidFuzzFailureReport::new(
+      "validate-invalid-binary",
+      profile,
+      seed,
+      attempt,
+      strategy_id,
+      invalid_fuzz_binary_source_kind(),
+      expected_stage,
+      expected_diagnostic_family=expected_family,
+      actual_stage=replay.stage,
+      actual_diagnostic_family=replay.diagnostic_family,
+      artifacts=[artifact],
+    ),
+  )
+}
+
+///|
 fn invalid_fuzz_binary_strategy_reduce(
   strategy_id : String,
 ) -> Result[InvalidFuzzArtifact, String] {

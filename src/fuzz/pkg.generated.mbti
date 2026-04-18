@@ -5,10 +5,15 @@ import {
   "jtenner/starshine/lib",
   "jtenner/starshine/validate",
   "moonbitlang/core/debug",
+  "moonbitlang/core/quickcheck/splitmix",
 }
 
 // Values
 pub fn apply_validate_invalid_binary_strategy(ValidateInvalidBinaryStrategyId, @lib.Module) -> Result[ValidateInvalidBinaryMutation, String]
+
+pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(String, UInt64, Int, profile? : String, params? : @validate.GenInvalidAstParams?) -> Result[InvalidFuzzFailureReport, String]
+
+pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(String, UInt64, Int, profile? : String, params? : GenInvalidBinaryParams?) -> Result[InvalidFuzzFailureReport, String]
 
 pub fn build_validate_invalid_binary_minimal_repro(ValidateInvalidBinaryStrategyId) -> Result[Bytes, String]
 
@@ -27,6 +32,12 @@ pub fn fuzz_reserved_suite_names() -> Array[String]
 pub fn fuzz_suite_inventory_lines() -> Array[String]
 
 pub fn fuzz_usage_text() -> String
+
+pub fn gen_invalid_binary_generate(@splitmix.RandomState, GenInvalidBinaryParams) -> Result[GenInvalidBinaryGenerated, String]
+
+pub fn gen_invalid_binary_seed_config(GenInvalidBinaryParams) -> @validate.GenValidConfig
+
+pub fn gen_invalid_binary_seed_module(@splitmix.RandomState, GenInvalidBinaryParams) -> Result[@lib.Module, String]
 
 pub fn invalid_fuzz_ast_source_kind() -> InvalidFuzzSourceKind
 
@@ -129,6 +140,24 @@ pub struct FuzzSuiteResult {
   seed : Int64
   attempts : Int
   elapsed_ms : UInt64
+} derive(Eq, @debug.Debug)
+
+pub struct GenInvalidBinaryGenerated {
+  base_module : @lib.Module
+  mutation : ValidateInvalidBinaryMutation
+} derive(@debug.Debug)
+
+pub struct GenInvalidBinaryParams {
+  strategy : ValidateInvalidBinaryStrategyId
+  seed_mode : GenInvalidBinarySeedMode
+  generator_config : @validate.GenValidConfig
+} derive(Eq, @debug.Debug)
+pub fn GenInvalidBinaryParams::minimal_seed(ValidateInvalidBinaryStrategyId, generator_config? : @validate.GenValidConfig) -> Self
+pub fn GenInvalidBinaryParams::new(ValidateInvalidBinaryStrategyId, seed_mode? : GenInvalidBinarySeedMode, generator_config? : @validate.GenValidConfig) -> Self
+
+pub enum GenInvalidBinarySeedMode {
+  RandomValidSeed
+  MinimalValidSeed
 } derive(Eq, @debug.Debug)
 
 pub struct InvalidFuzzArtifact {

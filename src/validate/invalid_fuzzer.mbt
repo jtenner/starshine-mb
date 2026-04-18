@@ -700,18 +700,18 @@ pub fn run_validate_invalid_ast_fuzz(
       stat_idx,
       attempted=current.attempted + 1,
     )
-    let base = gen_valid_module_with_config(rnd, generator_config)
-    match validate_module(base) {
-      Ok(_) => ()
-      Err(err) =>
+    let generated = match
+      gen_invalid_ast_generate(
+        rnd,
+        GenInvalidAstParams::new(spec.id, generator_config~),
+      ) {
+      Ok(v) => v
+      Err(msg) =>
         return Err(
-          "validate-invalid-ast base generation failed before mutation: profile=\{normalized} seed=\{seed} attempt=\{attempt + 1} strategy=\{spec.stable_id} error=\{validation_error_message(err)}",
+          "validate-invalid-ast generation failed: profile=\{normalized} seed=\{seed} attempt=\{attempt + 1} strategy=\{spec.stable_id} error=\{msg}",
         )
     }
-    let mutation = match apply_validate_invalid_ast_strategy(spec.id, base) {
-      Ok(v) => v
-      Err(msg) => return Err(msg)
-    }
+    let mutation = generated.mutation
     if mutation.applicable {
       let applicable_now = stats[stat_idx].applicable + 1
       validate_invalid_ast_update_strategy_stats(

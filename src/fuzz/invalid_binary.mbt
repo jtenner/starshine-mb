@@ -54,6 +54,36 @@ pub struct ValidateInvalidBinaryRunConfig {
 } derive(Eq, Debug)
 
 ///|
+pub enum GenInvalidBinarySeedMode {
+  RandomValidSeed
+  MinimalValidSeed
+} derive(Eq, Debug)
+
+///|
+pub struct GenInvalidBinaryParams {
+  strategy : ValidateInvalidBinaryStrategyId
+  seed_mode : GenInvalidBinarySeedMode
+  generator_config : GenValidConfig
+} derive(Eq, Debug)
+
+///|
+pub fn GenInvalidBinaryParams::new(
+  strategy : ValidateInvalidBinaryStrategyId,
+  seed_mode? : GenInvalidBinarySeedMode = RandomValidSeed,
+  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+) -> GenInvalidBinaryParams {
+  { strategy, seed_mode, generator_config }
+}
+
+///|
+pub fn GenInvalidBinaryParams::minimal_seed(
+  strategy : ValidateInvalidBinaryStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+) -> GenInvalidBinaryParams {
+  { strategy, seed_mode: MinimalValidSeed, generator_config }
+}
+
+///|
 pub struct ValidateInvalidBinaryMutation {
   strategy : ValidateInvalidBinaryStrategyId
   applicable : Bool
@@ -84,6 +114,12 @@ pub struct ValidateInvalidBinaryFuzzStats {
   required_strategies : Array[ValidateInvalidBinaryStrategyId]
   strategy_stats : Array[ValidateInvalidBinaryStrategyStats]
 } derive(Eq, Debug)
+
+///|
+pub struct GenInvalidBinaryGenerated {
+  base_module : Module
+  mutation : ValidateInvalidBinaryMutation
+} derive(Debug)
 
 ///|
 struct ValidateInvalidBinarySectionSpan {
@@ -138,6 +174,27 @@ fn validate_invalid_binary_expected_result_label(
     DecodeRejected => "decode"
     ValidateRejected(family_label) => "validate-" + family_label
   }
+}
+
+///|
+fn validate_invalid_binary_strategy_label(
+  strategy : ValidateInvalidBinaryStrategyId,
+) -> String {
+  match strategy {
+    TrailingGarbage => "trailing-garbage"
+    TruncatedModule => "truncated-module"
+    DuplicateTypeSection => "duplicate-type-section"
+    WrongSectionOrder => "wrong-section-order"
+    InvalidFuncTypeIndex => "invalid-func-type-index"
+  }
+}
+
+///|
+pub fn gen_invalid_binary_seed_config(
+  params : GenInvalidBinaryParams,
+) -> GenValidConfig {
+  ignore(params.strategy)
+  params.generator_config
 }
 
 ///|
@@ -720,6 +777,47 @@ fn validate_invalid_binary_minimal_valid_module() -> Module {
 }
 
 ///|
+pub fn gen_invalid_binary_seed_module(
+  rnd : @splitmix.RandomState,
+  params : GenInvalidBinaryParams,
+) -> Result[Module, String] {
+  let base = match params.seed_mode {
+    RandomValidSeed =>
+      gen_valid_module_with_config(rnd, gen_invalid_binary_seed_config(params))
+    MinimalValidSeed => validate_invalid_binary_minimal_valid_module()
+  }
+  match validate_module(base) {
+    Ok(_) => Ok(base)
+    Err(err) =>
+      Err(
+        "gen-invalid-binary base generation failed before corruption: strategy=\{validate_invalid_binary_strategy_label(params.strategy)} error=\{validation_error_message(err)}",
+      )
+  }
+}
+
+///|
+pub fn gen_invalid_binary_generate(
+  rnd : @splitmix.RandomState,
+  params : GenInvalidBinaryParams,
+) -> Result[GenInvalidBinaryGenerated, String] {
+  let base = match gen_invalid_binary_seed_module(rnd, params) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let mutation = match
+    apply_validate_invalid_binary_strategy(params.strategy, base) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  if !mutation.applicable {
+    return Err(
+      "gen-invalid-binary mutation was not applicable after valid seed generation: strategy=\{validate_invalid_binary_strategy_label(params.strategy)}",
+    )
+  }
+  Ok({ base_module: base, mutation })
+}
+
+///|
 pub fn build_validate_invalid_binary_minimal_repro(
   strategy : ValidateInvalidBinaryStrategyId,
 ) -> Result[Bytes, String] {
@@ -865,18 +963,18 @@ pub fn run_validate_invalid_binary_fuzz(
       stat_idx,
       attempted=stats[stat_idx].attempted + 1,
     )
-    let base = gen_valid_module_with_config(rnd, generator_config)
-    match validate_module(base) {
-      Ok(_) => ()
-      Err(err) =>
+    let generated = match
+      gen_invalid_binary_generate(
+        rnd,
+        GenInvalidBinaryParams::new(spec.id, generator_config~),
+      ) {
+      Ok(v) => v
+      Err(msg) =>
         return Err(
-          "validate-invalid-binary base generation failed before corruption: profile=\{normalized} seed=\{seed} attempt=\{attempt + 1} strategy=\{spec.stable_id} error=\{validation_error_message(err)}",
+          "validate-invalid-binary generation failed: profile=\{normalized} seed=\{seed} attempt=\{attempt + 1} strategy=\{spec.stable_id} error=\{msg}",
         )
     }
-    let mutation = match apply_validate_invalid_binary_strategy(spec.id, base) {
-      Ok(v) => v
-      Err(msg) => return Err(msg)
-    }
+    let mutation = generated.mutation
     if mutation.applicable {
       validate_invalid_binary_update_strategy_stats(
         stats,
