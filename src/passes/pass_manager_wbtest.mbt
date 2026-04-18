@@ -54,20 +54,26 @@ test "hot pipeline debug dump targets require traced vacuum or tuple targets" {
 
 ///|
 test "pass registry cache indexes known flags and prefilters help entries" {
-  let simplify_locals_idx = match pass_registry_lookup_index("simplify-locals") {
+  let simplify_locals_idx = match
+    pass_registry_lookup_index("simplify-locals") {
     Some(idx) => idx
     None => fail("expected simplify-locals registry index")
   }
-  assert_eq(pass_registry_cache.entries[simplify_locals_idx].name, "simplify-locals")
+  assert_eq(
+    pass_registry_cache.entries[simplify_locals_idx].name,
+    "simplify-locals",
+  )
   assert_eq(pass_registry_lookup_index("not-a-real-pass"), None)
 
   let mut saw_optimize = false
   let mut saw_memory_packing = false
   for entry in pass_registry_cache.help_entries {
     match entry.category {
-      HotPassRegistryCategory::HotPass
-      | HotPassRegistryCategory::Preset => ()
-      _ => fail("unexpected non-help registry category in cached help entries: \{entry}")
+      HotPassRegistryCategory::HotPass | HotPassRegistryCategory::Preset => ()
+      _ =>
+        fail(
+          "unexpected non-help registry category in cached help entries: \{entry}",
+        )
     }
     if entry.name == "optimize" {
       saw_optimize = true
@@ -126,7 +132,8 @@ test "pass registry public lookup stays detached from cached descriptors" {
     None => fail("expected vacuum registry entry on second lookup")
   }
   match fresh_lookup.descriptor {
-    Some(descriptor) => assert_eq(descriptor.requires.length(), baseline_requires_len)
+    Some(descriptor) =>
+      assert_eq(descriptor.requires.length(), baseline_requires_len)
     None => fail("expected vacuum descriptor on second lookup")
   }
 }

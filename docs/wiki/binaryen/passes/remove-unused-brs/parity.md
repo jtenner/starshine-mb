@@ -6,6 +6,8 @@ sources:
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - ../../../raw/research/0094-2026-04-18-generated-o4z-rub-slot14-missing-i32-result.md
+  - ../../../raw/research/0101-2026-04-18-generated-o4z-rub-slot14-native-source-divergence.md
+  - ../../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md
   - ../../../raw/research/0099-2026-04-18-generated-o4z-rub-slot40-block-stack-leak.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
@@ -91,6 +93,11 @@ related:
   - the later localset-heavy value-if mesh family now reports `skip-hot reason=localset-heavy-value-if-mesh-noop`
   - the traced unchanged artifact cluster `Func 837`, `Func 3021`, `Func 3120`, `Func 3130`, and `Func 3134` is now retired after lift
 - Newer upstream evidence now matters explicitly too: the Chromium-hosted Binaryen mirror shows a 2026-02-27 `RemoveUnusedBrs` change that rewrites branches-to-traps directly to traps. That behavior is newer than this repo's older `version_129` Binaryen oracle, so treat it as trunk drift to reconcile deliberately instead of assuming the current Starshine parity target already includes it.
+- The early ordered generated-artifact slot-14 corruption is now fixed too:
+  - the slot-13 predecessor replay no longer emits the invalid `func 1354` raw output
+  - the extracted `Func 1354` replay is now locked by an external `wasm-tools validate` cmd wbtest instead of only the in-tree decode path
+  - Starshine now keeps the plain-`br` `if -> br_if` cleanup disabled when a large lifted function (`hot_node_count >= 256`) would need to reorder a non-reorder-safe condition
+  - that guard is deliberately conservative: Binaryen already keeps a valid block-plus-branch shape on the extracted slot-14 oracle input, and the old Starshine rewrite was emitting invalid wasm there
 - The remaining artifact work is not a generic "RUB still weak on branches" statement.
 - The remaining work is now concentrated in later shape families where:
   - the explicit compare still contains early type-order noise that may not be RUB logic at all
@@ -217,16 +224,13 @@ related:
 
 The active backlog now says the next work should be reduced in this order:
 
-- The generated `_build/wasm/debug/build/cmd/cmd.wasm` ordered `-O4z` audit from `2026-04-18` found two new top-priority hard corruption slots on Binaryen-produced predecessor states:
-  - early slot `14` emits invalid raw wasm; `wasm-tools validate` fails at `func 1354` with `expected i32 but nothing on stack`
+- The generated `_build/wasm/debug/build/cmd/cmd.wasm` ordered `-O4z` audit from `2026-04-18` still leaves one top-priority RUB corruption slot on Binaryen-produced predecessor states:
   - later slot `40` emits invalid raw wasm; `wasm-tools validate` fails at `func 1979` with `values remaining on stack at end of block`, while Binaryen's validator also flags an `if-else` true-arm type issue in function `1958`
-- Those generated-artifact ordered-prefix failures are now higher priority than another generic parity-diff hunt because they break ordered replay trust entirely on one generated artifact lane.
-- Slot `14` is now narrowed further by `0101`:
-  - rebuilt native `cmd.exe` still reproduces the invalid raw `func 1354` output on the saved slot-13 predecessor
-  - new in-process source-path wbtests on that same saved predecessor are green
-  - the printed invalid/native output shows a branch-bearing region wrapped in a new `block (result i32)` so an inner relative `br` now lands on a value block without carrying its payload
-  - that branch-depth explanation is still an inference from the emitted WAT plus the validator error, and the first conservative guard attempt did not change the reproducing native binary output
-- So the next blocker is no longer just “reduce slot 14 somehow”; it is isolating the exact native-binary mutation site before another candidate RUB fix is trusted.
+- Slot `14` is retired by `0102`:
+  - the exact mutator was the direct plain-`br` branch cleanup in `remove_unused_brs_try_rewrite_if_br(...)`
+  - the fix keeps that rewrite disabled for large lifted functions when the condition is not reorder-safe
+  - the saved predecessor replay and the extracted `Func 1354` replay now both validate again
+- So the remaining blocker is no longer “slot 14 native/source divergence”; it is the later slot-40 typed-block stack leak.
 
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.

@@ -37,8 +37,9 @@ This is the canonical `if br` cleanup.
 
 - If the then arm is a plain `br`, the pass replaces the whole `if` with `br_if`.
 - If the then arm is itself a `br_if`, the pass can combine the outer and inner conditions when both are reorder-safe.
+- After the 2026-04-18 slot-14 generated-artifact fix, Starshine also keeps the plain-`br` form intact when a **large** lifted function (`hot_node_count >= 256`) would otherwise rewrite a non-reorder-safe condition. The extracted `Func 1354` replay showed that this large carried-condition family could lower to invalid wasm even though Binaryen kept a valid block-plus-branch shape on the same oracle input.
 
-The pass therefore treats "one-armed if break" and "nested one-armed if break" as the same family, just with a stronger condition guard for the second case.
+The pass therefore treats "one-armed if break" and "nested one-armed if break" as the same family in small, simple cases, but now keeps an explicit large-condition correctness guard on the direct `if br -> br_if` path.
 
 ## Inline Single-Branch Wrapper Blocks
 

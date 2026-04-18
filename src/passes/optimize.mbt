@@ -283,8 +283,8 @@ fn HotPassRegistryCache::new() -> HotPassRegistryCache {
   for entry in entries {
     lookup.set(entry.name, idx)
     match entry.category {
-      HotPassRegistryCategory::HotPass
-      | HotPassRegistryCategory::Preset => help_entries.push(entry)
+      HotPassRegistryCategory::HotPass | HotPassRegistryCategory::Preset =>
+        help_entries.push(entry)
       _ => ()
     }
     idx += 1
@@ -320,7 +320,9 @@ fn pass_registry_clone_descriptor(
 }
 
 ///|
-fn pass_registry_clone_entry(entry : HotPassRegistryEntry) -> HotPassRegistryEntry {
+fn pass_registry_clone_entry(
+  entry : HotPassRegistryEntry,
+) -> HotPassRegistryEntry {
   {
     name: entry.name,
     summary: entry.summary,

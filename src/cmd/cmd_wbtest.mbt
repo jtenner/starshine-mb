@@ -5285,6 +5285,33 @@ fn native_wat_to_wasm_bytes_for_test(source : String) -> Result[Bytes, String] {
 
 ///|
 #cfg(target="native")
+fn native_validate_wasm_bytes_with_wasm_tools(
+  bytes : Bytes,
+) -> Result[Unit, String] {
+  let wasm_path = native_tmp_path("validate-in", ".wasm")
+  let log_path = native_tmp_path("validate-log", ".txt")
+  if !native_write_bytes(wasm_path, bytes) {
+    return Err("failed to stage wasm validation input")
+  }
+  let command = native_c_string(
+    "wasm-tools validate \{wasm_path} > \{log_path} 2>&1",
+  )
+  let code = native_system(command)
+  let result = if code == 0 {
+    Ok(())
+  } else {
+    match native_read_bytes(log_path) {
+      Some(log) => Err(bytes_to_ascii_string(log))
+      None => Err("wasm-tools validate failed")
+    }
+  }
+  native_remove_if_exists(wasm_path)
+  native_remove_if_exists(log_path)
+  result
+}
+
+///|
+#cfg(target="native")
 fn native_set_env(name : String, value : String) -> Bool {
   let c_name = native_c_string(name)
   let c_value = native_c_string(value)
@@ -5845,6 +5872,61 @@ test "run_cmd_with_adapter validates remove-unused-brs on generated O4z slot14 p
   assert_eq(writes.length(), 1)
   assert_eq(writes[0].0, output_path)
   ignore(decode_module_bytes(writes[0].1))
+}
+
+///|
+#cfg(target="native")
+test "run_cmd_with_adapter keeps extracted generated O4z slot14 remove-unused-brs output wasm-tools-valid" {
+  let input_path = ".artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/10-slot13-remove-unused-names/binaryen.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected saved ordered O4z predecessor at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--extract-functions=1354", "--remove-unused-brs", "--out", output_path,
+        input_path,
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected extracted remove-unused-brs ordered O4z predecessor replay success, got \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, [
+    "extract-functions=1354", "remove-unused-brs",
+  ])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected extracted generated O4z slot14 remove-unused-brs output to stay wasm-tools-valid, got \{err}",
+      )
+  }
 }
 
 ///|

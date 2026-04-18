@@ -30,12 +30,7 @@ Suggested tests
 
 ### Ordered-slot corruption blockers
 
-- [ ] [O4Z]001 Early ordered `remove-unused-brs` raw output loses a required `i32` result - (Ref [0094 slot 14 RUB invalid raw output](docs/wiki/raw/research/0094-2026-04-18-generated-o4z-rub-slot14-missing-i32-result.md), [0101 slot 14 native/source divergence](docs/wiki/raw/research/0101-2026-04-18-generated-o4z-rub-slot14-native-source-divergence.md))
-  - Current blocker: the saved predecessor now has two verified surfaces. The in-process source-path wbtests on `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/10-slot13-remove-unused-names/binaryen.wasm` are green, but rebuilt native `cmd.exe` still emits invalid raw wasm: `wasm-tools validate .artifacts/tmp-direct-rub-slot14.raw.wasm` fails at `func 1354` with `type mismatch: expected i32 but nothing on stack`. The current leading hypothesis from the printed invalid/native output is a branch-bearing region being wrapped in a new `block (result i32)` without retargeting an inner relative branch, but the first conservative guard attempt did not change the reproducing native binary output, so the next prerequisite is isolating the exact native-binary mutation site.
-  - Saved predecessor input: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/10-slot13-remove-unused-names/binaryen.wasm`
-  - Reproduce:
-    - `_build/native/release/build/cmd/cmd.exe --remove-unused-brs --out .artifacts/tmp-direct-rub-slot14.raw.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/10-slot13-remove-unused-names/binaryen.wasm`
-    - `wasm-tools validate .artifacts/tmp-direct-rub-slot14.raw.wasm`
+- `2026-04-18`: `[O4Z]001` is retired by [0102 slot 14 `if br` large-condition guard](docs/wiki/raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md). The remaining active blockers start at `[O4Z]002`.
 
 - [ ] [O4Z]002 Early ordered `optimize-instructions` dies in final module validation on `Func 652` - (Ref [0095 slot 16 optimize-instructions underflow](docs/wiki/raw/research/0095-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-stack-underflow.md))
   - Current blocker: Binaryen slot `16`; direct Starshine replay exits nonzero with `error: final module validate: stack underflow` and `Offending function idx=(Func 652)`.

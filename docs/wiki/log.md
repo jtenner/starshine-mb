@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] research | retire `[O4Z]001` slot-14 `remove-unused-brs` corruption
+
+- Added `docs/wiki/raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md` to capture the resolved slot-14 path: the invalid raw output came from `remove_unused_brs_try_rewrite_if_br(...)` rewriting a large non-reorder-safe plain-`br` condition, while oracle Binaryen kept a valid block-plus-branch shape on the extracted `Func 1354` replay.
+- Updated `docs/wiki/binaryen/passes/remove-unused-brs/branch-exit-and-payload-rewrites.md`, `docs/wiki/binaryen/passes/remove-unused-brs/parity.md`, and `docs/wiki/index.md` so the living wiki now records the landed large-condition guard, the retired slot-14 blocker, and the fact that slot `40` is now the remaining ordered RUB corruption.
+- The checked-in cmd regression in `src/cmd/cmd_wbtest.mbt` now validates the extracted slot-14 replay with external `wasm-tools validate`, so the wiki points at a durable external-validity lock instead of the older in-process-only green surface.
+
 ## [2026-04-18] maintain | record newer Precompute GC heap-effect drift
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` and `docs/wiki/binaryen/passes/precompute/index.md` after a fresh non-GitHub upstream check to record the newer Chromium-mirror `2026-03-25` `Precompute` change that stops folding GC `struct` / `array` atomic RMW and `cmpxchg` ops because they read and write heap state, alongside the already-tracked `2025-08-27` child-retention rewrite.

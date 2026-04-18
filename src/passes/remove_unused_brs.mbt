@@ -1965,7 +1965,10 @@ fn remove_unused_brs_try_rewrite_if_br(
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   match node.op {
-    @ir.HotOp::If => ()
+    @ir.HotOp::If =>
+      if @ir.hot_node_result_arity(func, node_id) != 0 {
+        return false
+      }
     _ => return false
   }
   match @ir.hot_region_else_ref(func, node_id) {
@@ -1982,6 +1985,12 @@ fn remove_unused_brs_try_rewrite_if_br(
   let replacement = match then_node.op {
     @ir.HotOp::Br => {
       if then_node.child_count != 0 {
+        return false
+      }
+      if @ir.hot_node_count(func) >= 256 &&
+        !remove_unused_brs_node_is_reorder_safe(
+          ctx, func, condition, reorder_cache,
+        ) {
         return false
       }
       @ir.hot_build_br_if(func, then_node.imm0, condition)
@@ -3389,11 +3398,18 @@ fn remove_unused_brs_try_rewrite_result_block_one_arm_payload_if(
                       result_arity,
                     ) {
                     Some(branch_body) =>
-                      @ir.hot_build_block(
-                        func,
-                        @lib.BlockType::val_type(result_type),
-                        branch_body,
-                      )
+                      if branch_body.length() > 1 &&
+                        remove_unused_brs_roots_have_embedded_control(
+                          func, branch_body,
+                        ) {
+                        return false
+                      } else {
+                        @ir.hot_build_block(
+                          func,
+                          @lib.BlockType::val_type(result_type),
+                          branch_body,
+                        )
+                      }
                     None => return false
                   }
               }
@@ -3450,6 +3466,22 @@ fn remove_unused_brs_region_roots_are_reorder_safe(
     }
   }
   true
+}
+
+///|
+fn remove_unused_brs_roots_have_embedded_control(
+  func : @ir.HotFunc,
+  roots : Array[Int],
+) -> Bool {
+  let control_cache : Array[Int] = []
+  for root_id in roots {
+    if remove_unused_brs_subtree_has_embedded_control(
+        func, root_id, control_cache,
+      ) {
+      return true
+    }
+  }
+  false
 }
 
 ///|
@@ -3575,6 +3607,10 @@ fn remove_unused_brs_build_stack_exit_region_value_expr(
     if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
       payload_roots.push(child_id)
     }
+  }
+  if payload_roots.length() > 1 &&
+    remove_unused_brs_roots_have_embedded_control(func, payload_roots) {
+    return None
   }
   remove_unused_brs_build_region_value_expr(
     ctx, func, payload_roots, result_type, reorder_cache,
