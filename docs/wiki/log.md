@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record newer Precompute multibyte-array no-fold drift
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/precompute/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after a fresh non-GitHub upstream check so the living wiki now records the 2026-03-26 Chromium-mirror `Precompute` follow-up for multibyte array access: current trunk intentionally keeps `array.load` in `NONCONSTANT_FLOW` instead of folding it like an ordinary constant read.
+- Kept the earlier child-retention, GC-write, and GC-atomic drift notes intact and explicit, so the newer multibyte-array behavior is filed as an additional upstream drift item rather than silently replacing the older chronology.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the refresh.
+
 ## [2026-04-18] maintain | tighten Binaryen upstream-catalog boundary and precompute drift notes
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` after a fresh non-GitHub upstream check so the terminology section now records two additional source-of-truth facts: Binaryen `version_126` added the newer upstream-only passes `--remove-relaxed-simd` and `--strip-toolchain-annotations`, and `Precompute` had an extra 2026-03-23 GC-write/effects-model fix before the already-tracked 2026-03-25 GC-atomic no-fold change.
