@@ -44,7 +44,7 @@ related:
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note, current `Heap2Local` terminology sanity check, and the ordered-audit note that H2L is expensive-but-successful rather than currently corrupting the generated artifact.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
 - [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with shapes, strategies, scheduler notes, reduced repro tracking, and parity status.
-- [`precompute/index.md`](precompute/index.md) - Active hot pass; the landing page now records the current upstream child-retention plus March 2026 GC-write, GC-atomic no-fold, and multibyte-array `array.load` no-fold drift notes, alongside the exact slot-19 `func 108` raw-result-loss blocker.
+- [`precompute/index.md`](precompute/index.md) - Active hot pass; the landing page now records the current upstream child-retention plus March 2026 GC-write, GC-atomic no-fold, and multibyte-array `array.load` no-fold drift notes, and also records that the old slot-19 `func 108` raw-result-loss witness is retired by `0105` rather than still being an active blocker.
 - [`simplify-locals/index.md`](simplify-locals/index.md) - Expanded folder with overview, shapes, strategies, implementation map, validation, performance, and parity status.
 
 ## Tail Dispatch Notes

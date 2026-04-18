@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | repair stale precompute blocker wording in pass folder map
+
+- Ran another Binaryen primary-source spot check against the official GitHub release surface plus the current `main` changelog before editing the wiki; this maintenance pass still did not find a documented `version_130` release page or a newer changelog-advertised optimization-pass addition beyond the already tracked horizon through `version_129`.
+- Updated `docs/wiki/binaryen/passes/index.md` so the precompute catalog entry now matches the living `precompute` pass page and late-pipeline summary: slot `19` `func 108` is retired by `0105`, so the folder map no longer incorrectly describes it as an active blocker.
+- Reran a repo-local markdown-link health check over `docs/wiki/**/*.md`; there were `0` broken relative links after the wording repair.
+
 ## [2026-04-18] maintain | correct late-pass blocker-count wording after slot-19 and slot-23 retirements
 
 - Rechecked the current Binaryen public-source hierarchy against the official GitHub `main` changelog and tagged release pages through `version_129`, plus the Chromium mirror commits already cited by the late-pass pages; this maintenance pass did not find a newer documented optimization-pass addition or rename affecting Starshine's current folder map.
