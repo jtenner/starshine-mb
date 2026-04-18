@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record named repro-seed helpers on `gen_invalid`
+
+- Reviewed the already-modified invalid-generation and report-builder files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, `src/fuzz/invalid_binary_wbtest.mbt`, `src/fuzz/invalid_repro.mbt`, and `src/fuzz/invalid_repro_wbtest.mbt` to capture the latest public-API refinement: both the validate and fuzz package surfaces now expose a semantic `repro_seed(...)` constructor in addition to the lower-level `small_coverage_forced_seed(...)` helper.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the AST and binary `gen_invalid` surfaces in terms of six named seed families: natural, coverage-forced, small-natural, small-coverage-forced, repro, and minimal.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record compact default seeds for AST/binary report builders
 
 - Reviewed the already-modified shared repro files `src/fuzz/invalid_repro.mbt` and `src/fuzz/invalid_repro_wbtest.mbt` to capture the next durable behavior refinement after adding the compact random seed helpers: the default AST and binary stable-id report builders now route through `small_coverage_forced_seed(...)` instead of the larger full coverage-forced constructors.

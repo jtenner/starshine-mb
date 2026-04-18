@@ -324,3 +324,13 @@ test "gen_invalid_binary_generate supports small coverage-forced seeds" {
       }
   }
 }
+
+///|
+test "gen_invalid_binary repro_seed matches small coverage-forced seed defaults" {
+  let repro = GenInvalidBinaryParams::repro_seed(TrailingGarbage)
+  let small = GenInvalidBinaryParams::small_coverage_forced_seed(
+    TrailingGarbage,
+  )
+  assert_true(repro.seed_mode == small.seed_mode)
+  assert_true(repro.generator_config == small.generator_config)
+}

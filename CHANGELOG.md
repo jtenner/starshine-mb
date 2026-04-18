@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: add named repro-seed helpers for AST and binary invalid generation
+
+- **add explicit `repro_seed(...)` constructors so callers and report builders can ask for the compact coverage-forced repro profile by name** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), and [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt) so both package surfaces now expose `repro_seed(...)` as a semantic alias for the compact coverage-forced profile, and the shared invalid report builders use that named helper by default. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Fix: default AST/binary invalid report builders to compact coverage seeds
 
 - **make AST and binary stable-id invalid report builders default through the smaller coverage-forced seed helpers** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), and [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt) so shared repro/report helpers now prefer `small_coverage_forced_seed(...)` by default instead of the larger coverage-forced constructor. The new wbtests lock that the default AST and binary builders now emit smaller seed artifacts than the explicit full coverage-forced path while preserving the same rejection-family outcomes. Verification for this slice: `moon test src/fuzz` and `moon fmt src/fuzz`.

@@ -120,6 +120,17 @@ pub fn GenInvalidBinaryParams::small_coverage_forced_seed(
 }
 
 ///|
+pub fn GenInvalidBinaryParams::repro_seed(
+  strategy : ValidateInvalidBinaryStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+) -> GenInvalidBinaryParams {
+  GenInvalidBinaryParams::small_coverage_forced_seed(
+    strategy,
+    generator_config~,
+  )
+}
+
+///|
 pub fn GenInvalidBinaryParams::minimal_seed(
   strategy : ValidateInvalidBinaryStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),

@@ -220,6 +220,7 @@ pub fn GenInvalidAstParams::coverage_forced_seed(ValidateInvalidAstStrategyId, g
 pub fn GenInvalidAstParams::minimal_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidAstParams::natural_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidAstParams::new(ValidateInvalidAstStrategyId, seed_mode? : GenInvalidSeedMode, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
+pub fn GenInvalidAstParams::repro_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidAstParams::small_coverage_forced_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 pub fn GenInvalidAstParams::small_natural_seed(ValidateInvalidAstStrategyId, generator_config? : GenValidConfig, require_strategy_prereqs? : Bool) -> Self
 

@@ -171,3 +171,14 @@ test "gen_invalid_ast small_natural_seed still widens missing-datacount prereqs"
   assert_true(adjusted.features.allow_mems)
   assert_true(adjusted.features.allow_datas)
 }
+
+///|
+test "gen_invalid_ast repro_seed matches small coverage-forced seed defaults" {
+  let repro = GenInvalidAstParams::repro_seed(DuplicateExportName)
+  let small = GenInvalidAstParams::small_coverage_forced_seed(
+    DuplicateExportName,
+  )
+  assert_true(repro.seed_mode == small.seed_mode)
+  assert_true(repro.generator_config == small.generator_config)
+  assert_true(repro.require_strategy_prereqs == small.require_strategy_prereqs)
+}

@@ -79,6 +79,19 @@ pub fn GenInvalidAstParams::small_coverage_forced_seed(
 }
 
 ///|
+pub fn GenInvalidAstParams::repro_seed(
+  strategy : ValidateInvalidAstStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  require_strategy_prereqs? : Bool = true,
+) -> GenInvalidAstParams {
+  GenInvalidAstParams::small_coverage_forced_seed(
+    strategy,
+    generator_config~,
+    require_strategy_prereqs~,
+  )
+}
+
+///|
 pub fn GenInvalidAstParams::minimal_seed(
   strategy : ValidateInvalidAstStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
