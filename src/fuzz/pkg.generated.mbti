@@ -288,6 +288,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidTypeNameSectionIndexModule
   InvalidElemNameSectionIndexModule
   InvalidDataNameSectionIndexModule
+  InvalidExportTableIndexModule
+  InvalidExportGlobalIndexModule
+  InvalidExportTagIndexModule
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {

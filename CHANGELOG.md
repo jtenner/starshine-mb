@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: widen binary export-module invalid coverage again
+
+- **add more deterministic binary invalid strategies for validator-rejected export modules** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), and [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt) so the binary invalid lane now also covers `invalid-export-table-index-module`, `invalid-export-global-index-module`, and `invalid-export-tag-index-module` in addition to the earlier duplicate-export-name and other encoded validator-rejected module families. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Fix: widen AST export invalid breadth again
 
 - **add more deterministic AST invalid strategies for export-section rejection breadth** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), and [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt) so the AST invalid lane now also covers `invalid-export-table-index`, `invalid-export-global-index`, and `invalid-export-tag-index` in addition to the earlier function export and duplicate-name cases. Verification for this slice: `moon test src/validate`, `moon fmt src/validate`, and `moon info`.

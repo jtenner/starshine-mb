@@ -49,7 +49,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "bad-magic-header", "bad-version-header", "codesec-without-funcsec-module", "invalid-table-name-section-index-module",
     "invalid-global-name-section-index-module", "reserved-section-id", "invalid-custom-section-name-utf8",
     "invalid-type-name-section-index-module", "invalid-elem-name-section-index-module",
-    "invalid-data-name-section-index-module",
+    "invalid-data-name-section-index-module", "invalid-export-table-index-module",
+    "invalid-export-global-index-module", "invalid-export-tag-index-module",
   ])
   assert_eq(
     registry.map(fn(spec) {
@@ -59,11 +60,12 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "decode", "decode", "decode", "validate-function", "validate-start",
       "validate-export", "validate-code", "validate-datacount", "validate-name",
       "decode", "decode", "validate-code", "validate-name", "validate-name", "decode",
-      "decode", "validate-name", "validate-name", "validate-name",
+      "decode", "validate-name", "validate-name", "validate-name", "validate-export",
+      "validate-export", "validate-export",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 20)
+  assert_eq(smoke_required.length(), 23)
 }
 
 ///|
@@ -321,6 +323,39 @@ test "invalid data name-section index binary strategy rejects at validate stage"
 }
 
 ///|
+test "invalid export table index binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-export-table-index-module", 0x5f03UL, "export",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid export global index binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-export-global-index-module", 0x5f04UL, "export",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid export tag index binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-export-tag-index-module", 0x5f05UL, "export",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_binary_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
@@ -331,7 +366,7 @@ test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 20)
+  assert_eq(first.attempts, 23)
   let mut saw_decode = false
   let mut saw_validate = false
   for stat in first.strategy_stats {
@@ -468,6 +503,36 @@ test "gen_invalid_binary_generate supports invalid elem-name modules" {
             validation_error_diagnostic(err).issue,
           )
           assert_eq(invalid_binary_test_validation_family_label(family), "name")
+        }
+      }
+  }
+}
+
+///|
+test "gen_invalid_binary_generate supports invalid export-tag modules" {
+  let generated = match
+    gen_invalid_binary_generate(
+      @splitmix.new(seed=0x5eedUL),
+      GenInvalidBinaryParams::repro_seed(InvalidExportTagIndexModule),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match decode_module(generated.mutation.mutated_bytes) {
+    Err(msg) =>
+      fail("expected export-tag invalid bytes to decode first: \{msg}")
+    Ok(decoded) =>
+      match validate_module(decoded) {
+        Ok(_) =>
+          fail("expected decoded export-tag-invalid binary to fail validation")
+        Err(err) => {
+          let family = validation_issue_family(
+            validation_error_diagnostic(err).issue,
+          )
+          assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "export",
+          )
         }
       }
   }

@@ -51,6 +51,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidTypeNameSectionIndexModule
   InvalidElemNameSectionIndexModule
   InvalidDataNameSectionIndexModule
+  InvalidExportTableIndexModule
+  InvalidExportGlobalIndexModule
+  InvalidExportTagIndexModule
 } derive(Eq, Debug)
 
 ///|
@@ -342,6 +345,9 @@ fn validate_invalid_binary_strategy_label(
       "invalid-elem-name-section-index-module"
     InvalidDataNameSectionIndexModule =>
       "invalid-data-name-section-index-module"
+    InvalidExportTableIndexModule => "invalid-export-table-index-module"
+    InvalidExportGlobalIndexModule => "invalid-export-global-index-module"
+    InvalidExportTagIndexModule => "invalid-export-tag-index-module"
   }
 }
 
@@ -507,6 +513,24 @@ pub fn validate_invalid_binary_registry() -> Array[
       "encoded module with out-of-range data name index",
       ValidateRejected("name"),
     ),
+    validate_invalid_binary_strategy_spec(
+      InvalidExportTableIndexModule,
+      "invalid-export-table-index-module",
+      "encoded module with out-of-range table export index",
+      ValidateRejected("export"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidExportGlobalIndexModule,
+      "invalid-export-global-index-module",
+      "encoded module with out-of-range global export index",
+      ValidateRejected("export"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidExportTagIndexModule,
+      "invalid-export-tag-index-module",
+      "encoded module with out-of-range tag export index",
+      ValidateRejected("export"),
+    ),
   ]
 }
 
@@ -547,6 +571,9 @@ fn validate_invalid_binary_strategy_index(
     InvalidTypeNameSectionIndexModule => 17
     InvalidElemNameSectionIndexModule => 18
     InvalidDataNameSectionIndexModule => 19
+    InvalidExportTableIndexModule => 20
+    InvalidExportGlobalIndexModule => 21
+    InvalidExportTagIndexModule => 22
   }
 }
 
@@ -568,9 +595,9 @@ pub fn validate_invalid_binary_run_config(
     profile.trim().to_string(),
   )
   let attempts = match normalized {
-    "smoke" => 20
-    "ci" => 200
-    "stress" => 2000
+    "smoke" => 23
+    "ci" => 230
+    "stress" => 2300
     _ =>
       return Err(
         "unknown validate-invalid-binary fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1344,6 +1371,51 @@ pub fn apply_validate_invalid_binary_strategy(
         InvalidDataNameSectionIndexModule,
         ast_strategy,
         "name",
+        base,
+      )
+    }
+    InvalidExportTableIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-export-table-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidExportTableIndexModule,
+        ast_strategy,
+        "export",
+        base,
+      )
+    }
+    InvalidExportGlobalIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-export-global-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidExportGlobalIndexModule,
+        ast_strategy,
+        "export",
+        base,
+      )
+    }
+    InvalidExportTagIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-export-tag-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidExportTagIndexModule,
+        ast_strategy,
+        "export",
         base,
       )
     }
