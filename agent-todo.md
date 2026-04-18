@@ -7,6 +7,78 @@
 - Keep each slice actionable enough to implement directly without re-deriving the architecture.
 - Move completed work to `CHANGELOG.md`.
 
+## Generated `cmd.wasm` ordered `-O4z` corruption audit (Active Slice)
+
+Goal
+- Close every hard corruption uncovered by the 2026-04-18 ordered self-opt audit on `_build/wasm/debug/build/cmd/cmd.wasm` before treating the modeled generated-artifact `-O4z` path as trustworthy.
+
+Why
+- The saved audit under `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/` found `7` hard corruption slots across `remove-unused-brs`, `optimize-instructions`, `precompute`, and `vacuum`.
+- These are not benign parity drifts: Starshine either emits invalid wasm or aborts in final module validation on Binaryen-produced predecessor states.
+
+Shared evidence
+- [0093 generated ordered `-O4z` audit summary](docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md)
+- Saved machine summary: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json`
+- Saved human summary: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md`
+
+Suggested tests
+- `moon build --target wasm`
+- `moon build --target native --release --package jtenner/starshine/cmd`
+- `wasm-tools validate _build/wasm/debug/build/cmd/cmd.wasm`
+- `bun scripts/self-optimize-compare.ts <saved-input> --starshine-bin _build/native/release/build/cmd/cmd.exe --out-dir <saved-slot-dir> --<pass>`
+- Direct native replay per item below plus `wasm-tools validate` on emitted raw output when the pass exits zero.
+
+### Ordered-slot corruption blockers
+
+- [ ] [O4Z]001 Early ordered `remove-unused-brs` raw output loses a required `i32` result - (Ref [0094 slot 14 RUB invalid raw output](docs/wiki/raw/research/0094-2026-04-18-generated-o4z-rub-slot14-missing-i32-result.md))
+  - Current blocker: Binaryen slot `14`; direct Starshine replay exits `0`, but `wasm-tools validate .artifacts/tmp-direct-rub-slot14.raw.wasm` fails at `func 1354` with `type mismatch: expected i32 but nothing on stack`.
+  - Saved predecessor input: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/10-slot13-remove-unused-names/binaryen.wasm`
+  - Reproduce:
+    - `_build/native/release/build/cmd/cmd.exe --remove-unused-brs --out .artifacts/tmp-direct-rub-slot14.raw.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/10-slot13-remove-unused-names/binaryen.wasm`
+    - `wasm-tools validate .artifacts/tmp-direct-rub-slot14.raw.wasm`
+
+- [ ] [O4Z]002 Early ordered `optimize-instructions` dies in final module validation on `Func 652` - (Ref [0095 slot 16 optimize-instructions underflow](docs/wiki/raw/research/0095-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-stack-underflow.md))
+  - Current blocker: Binaryen slot `16`; direct Starshine replay exits nonzero with `error: final module validate: stack underflow` and `Offending function idx=(Func 652)`.
+  - Saved predecessor input: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/12-slot15-remove-unused-names/binaryen.wasm`
+  - Reproduce:
+    - `_build/native/release/build/cmd/cmd.exe --optimize-instructions --out .artifacts/tmp-direct-optimize-instructions-failure.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/12-slot15-remove-unused-names/binaryen.wasm > .artifacts/tmp-direct-optimize-instructions-failure.log 2>&1`
+    - `grep -E 'final module validate|Offending function idx' .artifacts/tmp-direct-optimize-instructions-failure.log`
+
+- [ ] [O4Z]003 Early ordered `precompute` emits invalid raw wasm with a missing `i32` result - (Ref [0096 slot 19 precompute invalid raw output](docs/wiki/raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md))
+  - Current blocker: Binaryen slot `19`; direct Starshine replay exits `0`, but `wasm-tools validate .artifacts/tmp-direct-precompute-slot19.raw.wasm` fails at `func 108` with `type mismatch: expected i32 but nothing on stack`.
+  - Saved predecessor input: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/15-slot18-pick-load-signs/binaryen.wasm`
+  - Reproduce:
+    - `_build/native/release/build/cmd/cmd.exe --precompute --out .artifacts/tmp-direct-precompute-slot19.raw.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/15-slot18-pick-load-signs/binaryen.wasm`
+    - `wasm-tools validate .artifacts/tmp-direct-precompute-slot19.raw.wasm`
+
+- [ ] [O4Z]004 Ordered `vacuum` after tuple-opt dies in final module validation on `Func 652` - (Ref [0097 slot 23 vacuum underflow after tuple-opt](docs/wiki/raw/research/0097-2026-04-18-generated-o4z-vacuum-slot23-func652-stack-underflow.md))
+  - Current blocker: Binaryen slot `23`; direct Starshine replay exits nonzero with `error: final module validate: stack underflow` and `Offending function idx=(Func 652)`.
+  - Saved predecessor input: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/17-slot21-tuple-optimization/binaryen.wasm`
+  - Reproduce:
+    - `_build/native/release/build/cmd/cmd.exe --vacuum --out .artifacts/tmp-direct-vacuum-slot23.raw.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/17-slot21-tuple-optimization/binaryen.wasm > .artifacts/tmp-direct-vacuum-slot23.log 2>&1`
+    - `grep -E 'final module validate|Offending function idx' .artifacts/tmp-direct-vacuum-slot23.log`
+
+- [ ] [O4Z]005 Ordered `vacuum` after `simplify-locals` dies in final module validation on `Func 1818` - (Ref [0098 slot 33 vacuum underflow after simplify-locals](docs/wiki/raw/research/0098-2026-04-18-generated-o4z-vacuum-slot33-func1818-stack-underflow.md))
+  - Current blocker: Binaryen slot `33`; direct Starshine replay exits nonzero with `error: final module validate: stack underflow` and `Offending function idx=(Func 1818)`.
+  - Saved predecessor input: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/22-slot32-simplify-locals/binaryen.wasm`
+  - Reproduce:
+    - `_build/native/release/build/cmd/cmd.exe --vacuum --out .artifacts/tmp-direct-vacuum-after-sl.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/22-slot32-simplify-locals/binaryen.wasm > .artifacts/tmp-direct-vacuum-after-sl.log 2>&1`
+    - `grep -E 'final module validate|Offending function idx' .artifacts/tmp-direct-vacuum-after-sl.log`
+
+- [ ] [O4Z]006 Later ordered `remove-unused-brs` leaks stack values across a typed block / `if` boundary - (Ref [0099 slot 40 RUB block stack leak](docs/wiki/raw/research/0099-2026-04-18-generated-o4z-rub-slot40-block-stack-leak.md))
+  - Current blocker: Binaryen slot `40`; direct Starshine replay exits `0`, but `wasm-tools validate .artifacts/tmp-direct-rub-slot40.raw.wasm` fails at `func 1979` with `values remaining on stack at end of block`, while Binaryen's validator also reports a true-arm type error in function `1958` during canonicalization.
+  - Saved predecessor input: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/26-slot37-vacuum/binaryen.wasm`
+  - Reproduce:
+    - `_build/native/release/build/cmd/cmd.exe --remove-unused-brs --out .artifacts/tmp-direct-rub-slot40.raw.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/26-slot37-vacuum/binaryen.wasm`
+    - `wasm-tools validate .artifacts/tmp-direct-rub-slot40.raw.wasm`
+
+- [ ] [O4Z]007 Later ordered `optimize-instructions` dies in final module validation on `Func 1818` - (Ref [0100 slot 44 optimize-instructions underflow](docs/wiki/raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md))
+  - Current blocker: Binaryen slot `44`; direct Starshine replay exits nonzero with `error: final module validate: stack underflow` and `Offending function idx=(Func 1818)`.
+  - Saved predecessor input: `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/29-slot43-precompute/binaryen.wasm`
+  - Reproduce:
+    - `_build/native/release/build/cmd/cmd.exe --optimize-instructions --out .artifacts/tmp-direct-optimize-instructions-after-precompute.wasm .artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/29-slot43-precompute/binaryen.wasm > .artifacts/tmp-direct-optimize-instructions-after-precompute.log 2>&1`
+    - `grep -E 'final module validate|Offending function idx' .artifacts/tmp-direct-optimize-instructions-after-precompute.log`
+
 ## CLI Startup Performance Cleanup (Active Slice)
 
 ### Slice out startup-path cleanup work from CLI audit

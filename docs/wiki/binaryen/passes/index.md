@@ -1,12 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-18
 sources:
   - ../../../../src/passes/optimize.mbt
   - ../../../../src/passes/registry_test.mbt
 related:
   - ../no-dwarf-default-optimize-path.md
+  - ./late-pipeline-dispatch.md
 ---
 
 # Binaryen Pass Folder Map
@@ -22,28 +23,32 @@ related:
 
 ## Active Module Passes
 
-- [`duplicate-function-elimination/index.md`](duplicate-function-elimination/index.md) - Expanded folder with overview, shapes, Binaryen strategy, Starshine strategy, metadata and type-compaction notes, and parity status.
-- [`remove-unused-module-elements/index.md`](remove-unused-module-elements/index.md) - Expanded folder with overview, shapes, Binaryen strategy, Starshine strategy, retention and rewrite rules, and parity status.
-- [`memory-packing/index.md`](memory-packing/index.md) - Active module pass in the registry; detailed `wat-shapes.md` / strategy / parity notes are still being authored.
-- [`once-reduction/index.md`](once-reduction/index.md) - Active module pass in the registry; detailed `wat-shapes.md` / strategy / parity notes are still being authored.
-- [`global-refining/index.md`](global-refining/index.md) - Active module pass in the registry; detailed `wat-shapes.md` / strategy / parity notes are still being authored.
+- [`duplicate-function-elimination/index.md`](duplicate-function-elimination/index.md) - Expanded folder with hub page, shapes, strategy pages, metadata notes, and parity status.
+- [`remove-unused-module-elements/index.md`](remove-unused-module-elements/index.md) - Expanded folder with hub page, shapes, strategy pages, retention rules, and parity status.
+- [`memory-packing/index.md`](memory-packing/index.md) - Active module pass; detailed strategy and parity pages are pending.
+- [`once-reduction/index.md`](once-reduction/index.md) - Active module pass; detailed strategy and parity pages are pending.
+- [`global-refining/index.md`](global-refining/index.md) - Active module pass; detailed strategy and parity pages are pending.
 - [`global-struct-inference/index.md`](global-struct-inference/index.md) - Folder now has a landing page plus the existing parity note.
 - [`reorder-locals/index.md`](reorder-locals/index.md) - Folder now has a landing page plus parity and multivalue-call scope notes.
 
 ## Active Hot Passes
 
 - [`ssa-nomerge/index.md`](ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family, fresh green compare evidence, and the remaining `Func 523` / `suspicious-escape-carrier` trace-level raw-lowering skips.
-- [`vacuum/index.md`](vacuum/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy and parity notes are still pending.
-- [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass with registry dispatch and implemented behavior; detailed strategy/parity notes are still pending.
+- [`vacuum/index.md`](vacuum/index.md) - Active hot pass; detailed strategy and parity pages are pending.
+- [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass; detailed strategy and parity pages are pending.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
-- [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with a hub page, exhaustive pattern catalog, Binaryen strategy, Starshine HOT-IR strategy, detailed rewrite-family pages, returned-ladder shape notes, bailout notes, and parity status.
-- [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
-- [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
+- [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, and parity status.
+- [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass; detailed strategy and parity pages are pending.
+- [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass; detailed strategy and parity pages are pending.
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
-- [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with WAT shapes, Binaryen strategy, Starshine HOT-native strategy, scheduler and feature-gate notes, reduced repro tracking, and current parity status.
-- [`precompute/index.md`](precompute/index.md) - Active hot pass with registry dispatch and implemented behavior; strategy/parity notes are still pending.
-- [`simplify-locals/index.md`](simplify-locals/index.md) - Expanded folder with overview, exact WAT families, Binaryen strategy, HOT-IR strategy, implementation map, barrier rules, raw-lane notes, validation guidance, performance/frontier notes, and parity status.
+- [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with shapes, strategies, scheduler notes, reduced repro tracking, and parity status.
+- [`precompute/index.md`](precompute/index.md) - Active hot pass; detailed strategy and parity pages are pending.
+- [`simplify-locals/index.md`](simplify-locals/index.md) - Expanded folder with overview, shapes, strategies, implementation map, validation, performance, and parity status.
+
+## Tail Dispatch Notes
+
+- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note.
 
 ## Current Maintenance Rule
 

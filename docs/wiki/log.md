@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] research | capture generated `cmd.wasm` ordered `-O4z` corruption blockers
+
+- Added `docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md` plus the seven per-slot corruption notes `0094` through `0100` to capture the ordered self-opt audit on `_build/wasm/debug/build/cmd/cmd.wasm`, the saved `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/` replay root, and the exact direct reproduce commands for every hard corruption slot.
+- Updated `agent-todo.md` so the new `[O4Z]001` through `[O4Z]007` blockers sit at the top of the active backlog with saved predecessor inputs, direct replay commands, and raw-doc references for each corruption.
+- Updated `docs/wiki/binaryen/passes/optimize-instructions/index.md`, `docs/wiki/binaryen/passes/precompute/index.md`, `docs/wiki/binaryen/passes/vacuum/index.md`, `docs/wiki/binaryen/passes/remove-unused-brs/parity.md`, and `docs/wiki/index.md` so the living wiki now points at the generated-artifact ordered-prefix corruption follow-up instead of treating those passes as stub-only or purely parity-drift work.
+
 ## [2026-04-16] maintain | align fuzz runner wrapper and truth surfaces
 
 - Updated `scripts/lib/fuzz-task.ts` and `scripts/test/task-family-commands.ts` so `bun fuzz run` now forwards the same discovery commands plus `--emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir>` that `src/fuzz/main.mbt` already exposes, instead of carrying a narrower wrapper-only contract.
@@ -472,3 +478,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Reran the native-binary simplify-locals compare-pass lane at `.tmp/pass-fuzz-sl-current-2026-04-14`; it finished at `10000/10000` compared cases with `10000` normalized matches and `0` mismatches.
 - Reran the native-binary debug-artifact self-opt compare at `.tmp/self-opt-sl-current-2026-04-14`; it is now canonically green on the checked-in artifact (`normalizedWatEqual=true`, `canonicalFuncPrettyEqual=true`, no differing function indices) while still recording a large runtime gap and raw text / wasm inequality versus Binaryen.
 - Updated the simplify-locals parity, validation, and performance-frontier pages so the wiki now treats the old `Func 71` first-diff story as historical context and the current live debt as runtime plus raw artifact canonicalization.
+
+## [2026-04-18] maintain | compact wiki entrypoints and ingest current O4z plus CLI startup audits
+
+- Added `binaryen/passes/late-pipeline-dispatch.md` from archived audits `0080` and `0093` as the compact current note for the `-O4z` / `shrink` tail roster, the module-vs-hot split, and the latest ordered `cmd.wasm` audit summary.
+- Threaded the 2026-04-18 ordered-audit follow-up into `docs/wiki/binaryen/passes/remove-unused-brs/parity.md`, `docs/wiki/binaryen/passes/optimize-instructions/index.md`, `docs/wiki/binaryen/passes/precompute/index.md`, and `docs/wiki/binaryen/passes/vacuum/index.md`, plus the matching active slice in `agent-todo.md`, so the slot-specific corruption notes and cleanup checklist stay surfaced in the living docs.
+- Added `tooling/cli-startup-path.md` from `0092` as the compact startup-path note, explicitly marking the older registry/help/config concerns as superseded while keeping path normalization and bucketed glob scanning as the live follow-up surface.
+- Shortened the root wiki catalog entries in `docs/wiki/index.md` and the Binaryen pass-folder map in `docs/wiki/binaryen/passes/index.md` so the entrypoints point at the detailed pages instead of re-listing their full rosters.

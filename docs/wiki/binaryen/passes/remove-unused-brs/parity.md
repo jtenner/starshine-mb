@@ -1,9 +1,12 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-13
+last_reviewed: 2026-04-18
 sources:
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../../../raw/research/0094-2026-04-18-generated-o4z-rub-slot14-missing-i32-result.md
+  - ../../../raw/research/0099-2026-04-18-generated-o4z-rub-slot40-block-stack-leak.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
   - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
   - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
@@ -210,6 +213,11 @@ related:
 ## Current Open Gap
 
 The active backlog now says the next work should be reduced in this order:
+
+- The generated `_build/wasm/debug/build/cmd/cmd.wasm` ordered `-O4z` audit from `2026-04-18` found two new top-priority hard corruption slots on Binaryen-produced predecessor states:
+  - early slot `14` emits invalid raw wasm; `wasm-tools validate` fails at `func 1354` with `expected i32 but nothing on stack`
+  - later slot `40` emits invalid raw wasm; `wasm-tools validate` fails at `func 1979` with `values remaining on stack at end of block`, while Binaryen's validator also flags an `if-else` true-arm type issue in function `1958`
+- Those generated-artifact ordered-prefix failures are now higher priority than another generic parity-diff hunt because they break ordered replay trust entirely on one generated artifact lane.
 
 - The remaining parity families are not just tail-branch-removal gaps.
 - The real missing area includes Binaryen's later final-shape cleanup, especially the `restructureIf` family that only becomes cheap after earlier simplification.

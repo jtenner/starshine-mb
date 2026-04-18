@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Docs: compact wiki entrypoints and ingest O4z audits
+
+- **wiki entrypoint cleanup and ordered `-O4z` audit ingest** by **@jtenner**. Added [`docs/wiki/binaryen/passes/late-pipeline-dispatch.md`](./docs/wiki/binaryen/passes/late-pipeline-dispatch.md) and [`docs/wiki/tooling/cli-startup-path.md`](./docs/wiki/tooling/cli-startup-path.md) as compact living summaries, shortened the root wiki catalogs in [`docs/wiki/index.md`](./docs/wiki/index.md) and [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), threaded the current generated `cmd.wasm` ordered-audit summary into the relevant pass pages and [`agent-todo.md`](./agent-todo.md), and archived the slot-level raw follow-ups under [`docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](./docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md) through [`0100`](./docs/wiki/raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md).
+
 ## 2026-04-17 Perf: lazy-load CLI env overlays and cache help text
 
 - **startup env-overlay gating and help-text caching** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd.mbt`](./src/cmd/cmd.mbt), and [`src/cmd/cmd_wbtest.mbt`](./src/cmd/cmd_wbtest.mbt) so the cmd runtime now caches the fully rendered help text once, defers `STARSHINE_INPUT` probing until after parsed help/version exits, and only reads `STARSHINE_*` overlay vars whose values can still affect the active execution mode after the config and CLI layers are known. Added focused wbtests for the parsed-help no-env-probe boundary and for skipping irrelevant env overlay probes when CLI flags already fix the startup mode.
