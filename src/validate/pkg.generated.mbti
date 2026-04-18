@@ -438,6 +438,9 @@ pub enum ValidateInvalidAstStrategyId {
   StartFuncOutOfRange
   MissingDataCountDataDrop
   InvalidMemoryNameSectionIndex
+  CodeSecWithoutFuncSec
+  InvalidTableNameSectionIndex
+  InvalidGlobalNameSectionIndex
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidAstStrategySpec {

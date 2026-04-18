@@ -245,6 +245,9 @@ pub enum ValidateInvalidTextStrategyId {
   MalformedTrailingGarbage
   InvalidMutableGlobalConstInit
   UnlinkableUnknownMemoryImport
+  MalformedInvalidConstToken
+  InvalidStartFuncParam
+  UnlinkableUnknownGlobalImport
 } derive(Eq, Debug)
 
 ///|
@@ -345,6 +348,24 @@ pub fn validate_invalid_text_registry() -> Array[
       "valid text module with unknown memory import",
       ValidBeforeLinkStage,
     ),
+    validate_invalid_text_strategy_spec(
+      MalformedInvalidConstToken,
+      "malformed-invalid-const-token",
+      "malformed text with an invalid const token",
+      ParseOrLowerRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      InvalidStartFuncParam,
+      "invalid-start-func-param",
+      "invalid text module with a parameterized start function",
+      ValidateRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      UnlinkableUnknownGlobalImport,
+      "unlinkable-unknown-global-import",
+      "valid text module with unknown global import",
+      ValidBeforeLinkStage,
+    ),
   ]
 }
 
@@ -359,6 +380,9 @@ fn validate_invalid_text_strategy_index(
     MalformedTrailingGarbage => 3
     InvalidMutableGlobalConstInit => 4
     UnlinkableUnknownMemoryImport => 5
+    MalformedInvalidConstToken => 6
+    InvalidStartFuncParam => 7
+    UnlinkableUnknownGlobalImport => 8
   }
 }
 
@@ -444,6 +468,24 @@ fn validate_invalid_text_strategy_source(
       (
         "inline-text-invalid/unlinkable-unknown-memory-import.wast",
         "(assert_unlinkable (module (import \"env\" \"mem\" (memory 1))) \"unknown import\")",
+        UnlinkableTextAssertion,
+      )
+    MalformedInvalidConstToken =>
+      (
+        "inline-text-invalid/malformed-invalid-const-token.wast",
+        "(assert_malformed (module quote \"(func (result f32) (f32.const nan:arithmetic))\") \"unexpected token\")",
+        MalformedTextAssertion,
+      )
+    InvalidStartFuncParam =>
+      (
+        "inline-text-invalid/invalid-start-func-param.wast",
+        "(assert_invalid (module (func (param i32)) (start 0)) \"start\")",
+        InvalidTextAssertion,
+      )
+    UnlinkableUnknownGlobalImport =>
+      (
+        "inline-text-invalid/unlinkable-unknown-global-import.wast",
+        "(assert_unlinkable (module (import \"env\" \"g\" (global i32))) \"unknown import\")",
         UnlinkableTextAssertion,
       )
   }
@@ -665,6 +707,9 @@ pub enum ValidateInvalidSpecSeedId {
   ConstMalformedQuote2
   F32InvalidTypeMismatch2
   ImportsUnlinkableUnknownImport2
+  ConstMalformedQuote3
+  F32InvalidTypeMismatch3
+  ImportsUnlinkableIncompatibleImportType1
 } derive(Eq, Debug)
 
 ///|
@@ -793,6 +838,33 @@ pub fn validate_invalid_spec_seed_registry() -> Array[
       1,
       ValidBeforeLinkStage,
     ),
+    validate_invalid_spec_seed_spec(
+      ConstMalformedQuote3,
+      "const-malformed-quote-3",
+      "tests/spec const.wast third malformed quote assertion",
+      "tests/spec/const.wast",
+      MalformedTextAssertion,
+      2,
+      ParseOrLowerRejectedStage,
+    ),
+    validate_invalid_spec_seed_spec(
+      F32InvalidTypeMismatch3,
+      "f32-invalid-type-mismatch-3",
+      "tests/spec f32.wast third invalid type-mismatch assertion",
+      "tests/spec/f32.wast",
+      InvalidTextAssertion,
+      2,
+      ValidateRejectedStage,
+    ),
+    validate_invalid_spec_seed_spec(
+      ImportsUnlinkableIncompatibleImportType1,
+      "imports-unlinkable-incompatible-import-type-1",
+      "tests/spec imports.wast first unlinkable incompatible-import-type assertion",
+      "tests/spec/imports.wast",
+      UnlinkableTextAssertion,
+      2,
+      ValidBeforeLinkStage,
+    ),
   ]
 }
 
@@ -817,6 +889,9 @@ fn validate_invalid_spec_seed_index(id : ValidateInvalidSpecSeedId) -> Int {
     ConstMalformedQuote2 => 3
     F32InvalidTypeMismatch2 => 4
     ImportsUnlinkableUnknownImport2 => 5
+    ConstMalformedQuote3 => 6
+    F32InvalidTypeMismatch3 => 7
+    ImportsUnlinkableIncompatibleImportType1 => 8
   }
 }
 

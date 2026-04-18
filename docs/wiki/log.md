@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record another AST-binary-text invalid widening pass
+
+- Reviewed the already-modified validator and fuzz invalid sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, `src/fuzz/invalid_binary_wbtest.mbt`, `src/fuzz/invalid_text.mbt`, and `src/fuzz/invalid_text_wbtest.mbt` to capture the next release-hardening step: the AST lane now adds more name/code breadth, the binary lane now adds both header-corruption cases and more encoded invalid-module families, and the text/spec lanes now add another malformed/invalid/unlinkable round instead of stopping at two examples per stage family.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now record the newer `codesec-without-funcsec`, table/global-name, bad-header, start-param, and third spec-seed fixture coverage.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record deeper AST invalid breadth inside covered families
 
 - Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture the next breadth step after family completion: the AST invalid lane now has secondary strategies inside already-covered export, start, function-body, and name families instead of only one representative strategy in each.

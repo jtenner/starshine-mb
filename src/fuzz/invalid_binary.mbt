@@ -41,6 +41,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   FuncSecWithoutCodeSecModule
   DataCountWithoutDataSecModule
   InvalidNameSectionFuncIndexModule
+  BadMagicHeader
+  BadVersionHeader
+  CodeSecWithoutFuncSecModule
+  InvalidTableNameSectionIndexModule
+  InvalidGlobalNameSectionIndexModule
 } derive(Eq, Debug)
 
 ///|
@@ -317,6 +322,13 @@ fn validate_invalid_binary_strategy_label(
     DataCountWithoutDataSecModule => "datacount-without-data-sec-module"
     InvalidNameSectionFuncIndexModule =>
       "invalid-name-section-func-index-module"
+    BadMagicHeader => "bad-magic-header"
+    BadVersionHeader => "bad-version-header"
+    CodeSecWithoutFuncSecModule => "codesec-without-funcsec-module"
+    InvalidTableNameSectionIndexModule =>
+      "invalid-table-name-section-index-module"
+    InvalidGlobalNameSectionIndexModule =>
+      "invalid-global-name-section-index-module"
   }
 }
 
@@ -422,6 +434,36 @@ pub fn validate_invalid_binary_registry() -> Array[
       "encoded module with out-of-range function name index",
       ValidateRejected("name"),
     ),
+    validate_invalid_binary_strategy_spec(
+      BadMagicHeader,
+      "bad-magic-header",
+      "bad wasm magic header",
+      DecodeRejected,
+    ),
+    validate_invalid_binary_strategy_spec(
+      BadVersionHeader,
+      "bad-version-header",
+      "bad wasm version header",
+      DecodeRejected,
+    ),
+    validate_invalid_binary_strategy_spec(
+      CodeSecWithoutFuncSecModule,
+      "codesec-without-funcsec-module",
+      "encoded module with code section but no function section",
+      ValidateRejected("code"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidTableNameSectionIndexModule,
+      "invalid-table-name-section-index-module",
+      "encoded module with out-of-range table name index",
+      ValidateRejected("name"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidGlobalNameSectionIndexModule,
+      "invalid-global-name-section-index-module",
+      "encoded module with out-of-range global name index",
+      ValidateRejected("name"),
+    ),
   ]
 }
 
@@ -452,6 +494,11 @@ fn validate_invalid_binary_strategy_index(
     FuncSecWithoutCodeSecModule => 7
     DataCountWithoutDataSecModule => 8
     InvalidNameSectionFuncIndexModule => 9
+    BadMagicHeader => 10
+    BadVersionHeader => 11
+    CodeSecWithoutFuncSecModule => 12
+    InvalidTableNameSectionIndexModule => 13
+    InvalidGlobalNameSectionIndexModule => 14
   }
 }
 
@@ -833,6 +880,49 @@ fn validate_invalid_binary_mutate_wrong_section_order(
 }
 
 ///|
+fn validate_invalid_binary_mutate_bad_magic_header(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let encoded = match validate_invalid_binary_encode_seed_module(mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let mutated = encoded.to_array()
+  mutated[0] = (0x01).to_byte()
+  Ok(
+    validate_invalid_binary_mutation(
+      BadMagicHeader,
+      DecodeRejected,
+      true,
+      Bytes::from_array(mutated),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_bad_version_header(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let encoded = match validate_invalid_binary_encode_seed_module(mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let mutated = encoded.to_array()
+  mutated[4] = (0x00).to_byte()
+  mutated[5] = (0x00).to_byte()
+  mutated[6] = (0x00).to_byte()
+  mutated[7] = (0x00).to_byte()
+  Ok(
+    validate_invalid_binary_mutation(
+      BadVersionHeader,
+      DecodeRejected,
+      true,
+      Bytes::from_array(mutated),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -980,6 +1070,8 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_wrong_section_order(base)
     InvalidFuncTypeIndex =>
       validate_invalid_binary_mutate_invalid_func_type_index(base)
+    BadMagicHeader => validate_invalid_binary_mutate_bad_magic_header(base)
+    BadVersionHeader => validate_invalid_binary_mutate_bad_version_header(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
@@ -1044,6 +1136,49 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidNameSectionFuncIndexModule,
+        ast_strategy,
+        "name",
+        base,
+      )
+    }
+    CodeSecWithoutFuncSecModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy("codesec-without-funcsec") {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        CodeSecWithoutFuncSecModule,
+        ast_strategy,
+        "code",
+        base,
+      )
+    }
+    InvalidTableNameSectionIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-table-name-section-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidTableNameSectionIndexModule,
+        ast_strategy,
+        "name",
+        base,
+      )
+    }
+    InvalidGlobalNameSectionIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-global-name-section-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidGlobalNameSectionIndexModule,
         ast_strategy,
         "name",
         base,
