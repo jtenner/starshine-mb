@@ -83,3 +83,33 @@ test "gen_invalid_ast_generate supports minimal valid seeds" {
     }
   }
 }
+
+///|
+test "gen_invalid_ast natural_seed uses natural defaults" {
+  let params = GenInvalidAstParams::natural_seed(DuplicateExportName)
+  assert_true(params.seed_mode == RandomValidSeed)
+  assert_true(params.generator_config.mode == Natural)
+  assert_eq(
+    params.generator_config.section_bias,
+    GenValidSectionBias::natural_default(),
+  )
+  assert_eq(
+    params.generator_config.features,
+    GenValidFeatureToggles::natural_default(),
+  )
+}
+
+///|
+test "gen_invalid_ast coverage_forced_seed uses coverage-forced defaults" {
+  let params = GenInvalidAstParams::coverage_forced_seed(DuplicateExportName)
+  assert_true(params.seed_mode == RandomValidSeed)
+  assert_true(params.generator_config.mode == CoverageForced)
+  assert_eq(
+    params.generator_config.section_bias,
+    GenValidSectionBias::coverage_forced_default(),
+  )
+  assert_eq(
+    params.generator_config.features,
+    GenValidFeatureToggles::coverage_forced_default(),
+  )
+}

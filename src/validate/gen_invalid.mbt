@@ -23,6 +23,34 @@ pub fn GenInvalidAstParams::new(
 }
 
 ///|
+pub fn GenInvalidAstParams::natural_seed(
+  strategy : ValidateInvalidAstStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::natural_default(),
+  require_strategy_prereqs? : Bool = true,
+) -> GenInvalidAstParams {
+  {
+    strategy,
+    seed_mode: RandomValidSeed,
+    generator_config,
+    require_strategy_prereqs,
+  }
+}
+
+///|
+pub fn GenInvalidAstParams::coverage_forced_seed(
+  strategy : ValidateInvalidAstStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  require_strategy_prereqs? : Bool = true,
+) -> GenInvalidAstParams {
+  {
+    strategy,
+    seed_mode: RandomValidSeed,
+    generator_config,
+    require_strategy_prereqs,
+  }
+}
+
+///|
 pub fn GenInvalidAstParams::minimal_seed(
   strategy : ValidateInvalidAstStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),

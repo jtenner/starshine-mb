@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record named natural and coverage-forced `gen_invalid` seed helpers
+
+- Reviewed the already-modified invalid-generation files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, `src/fuzz/invalid_binary_wbtest.mbt`, and the generated package signatures `src/validate/pkg.generated.mbti` plus `src/fuzz/pkg.generated.mbti` to capture one more durable public-API refinement: callers now have explicit `natural_seed(...)` and `coverage_forced_seed(...)` helpers in addition to the earlier `minimal_seed(...)` helper, instead of having to pass the matching `GenValidConfig` defaults manually.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the AST and binary `gen_invalid` surfaces in terms of those three named seed families: natural, coverage-forced, and minimal.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record public invalid-fuzz report builders for all source kinds
 
 - Reviewed the already-modified fuzz invalid-repro files `src/fuzz/invalid_repro.mbt`, `src/fuzz/invalid_repro_wbtest.mbt`, and `src/fuzz/pkg.generated.mbti` to capture the durable follow-up after the first `gen_invalid` API pass: the shared repro surface now exports report builders not only for AST and binary invalid cases but also for inline text and spec-seed cases, so downstream callers can construct checked `InvalidFuzzFailureReport` values from stable ids across all four source kinds.

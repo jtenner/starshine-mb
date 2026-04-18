@@ -238,3 +238,19 @@ test "gen_invalid_binary_generate supports minimal valid seeds for decode reject
     Ok(_) => fail("expected trailing-garbage minimal mutation to fail decode")
   }
 }
+
+///|
+test "gen_invalid_binary natural_seed uses natural defaults" {
+  let params = GenInvalidBinaryParams::natural_seed(TrailingGarbage)
+  let expected = GenValidConfig::natural_default()
+  assert_true(params.seed_mode == RandomValidSeed)
+  assert_true(params.generator_config == expected)
+}
+
+///|
+test "gen_invalid_binary coverage_forced_seed uses coverage-forced defaults" {
+  let params = GenInvalidBinaryParams::coverage_forced_seed(TrailingGarbage)
+  let expected = GenValidConfig::coverage_forced_default()
+  assert_true(params.seed_mode == RandomValidSeed)
+  assert_true(params.generator_config == expected)
+}

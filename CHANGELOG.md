@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: add natural and coverage-forced seed helper variants to `gen_invalid`
+
+- **add named natural and coverage-forced seed helpers for AST and binary invalid generation** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt), [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt), and [`src/fuzz/pkg.generated.mbti`](./src/fuzz/pkg.generated.mbti) so callers no longer need to hand-roll `GenValidConfig::natural_default()` or `coverage_forced_default()` when choosing random valid seeds for invalid generation. The new public helpers expose `natural_seed(...)` and `coverage_forced_seed(...)` alongside the existing `minimal_seed(...)`, and the new tests lock that the helpers carry the expected default configs. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Fix: make invalid-repro replay prefer labeled primary artifacts
 
 - **teach shared invalid repro replay to prefer labeled `original` / `reduced` artifacts instead of assuming list order** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), and [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt) so replay stays stable even when AST/binary reports also persist `seed` artifacts beside the main invalid specimen. The new wbtest proves replay still picks the `original` invalid artifact after the artifact list is reordered. Verification for this slice: `moon test src/fuzz` and `moon fmt src/fuzz`.

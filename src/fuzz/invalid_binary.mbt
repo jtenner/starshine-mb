@@ -76,6 +76,22 @@ pub fn GenInvalidBinaryParams::new(
 }
 
 ///|
+pub fn GenInvalidBinaryParams::natural_seed(
+  strategy : ValidateInvalidBinaryStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::natural_default(),
+) -> GenInvalidBinaryParams {
+  { strategy, seed_mode: RandomValidSeed, generator_config }
+}
+
+///|
+pub fn GenInvalidBinaryParams::coverage_forced_seed(
+  strategy : ValidateInvalidBinaryStrategyId,
+  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+) -> GenInvalidBinaryParams {
+  { strategy, seed_mode: RandomValidSeed, generator_config }
+}
+
+///|
 pub fn GenInvalidBinaryParams::minimal_seed(
   strategy : ValidateInvalidBinaryStrategyId,
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
