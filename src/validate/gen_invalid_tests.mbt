@@ -231,6 +231,62 @@ test "gen_invalid_ast repro_seed matches small coverage-forced seed defaults" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports function-section invalid type index strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef2UL),
+      GenInvalidAstParams::repro_seed(InvalidFuncTypeIndex),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected invalid-func-type-index base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-func-type-index mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == FunctionSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports data-section invalid offset strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5ef5UL),
+      GenInvalidAstParams::repro_seed(NonConstantDataOffset),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.base_module) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected non-constant-data-offset base module to validate, got \{validation_error_message(err)}",
+      )
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected non-constant-data-offset mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == DataSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_params_profile_name identifies named and custom profiles" {
   assert_eq(
     gen_invalid_ast_params_profile_name(

@@ -68,6 +68,10 @@ pub enum ValidateInvalidAstStrategyId {
   MissingDataCount
   UndeclaredRefFunc
   InvalidNameSectionFuncIndex
+  InvalidFuncTypeIndex
+  FuncSecWithoutCodeSec
+  MutableGlobalGetInConstInit
+  NonConstantDataOffset
 } derive(Eq, Debug)
 
 ///|
@@ -169,6 +173,30 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "invalid function name index",
       NameSectionFamily,
     ),
+    validate_invalid_ast_strategy_spec(
+      InvalidFuncTypeIndex,
+      "invalid-func-type-index",
+      "invalid function type index",
+      FunctionSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      FuncSecWithoutCodeSec,
+      "funcsec-without-codesec",
+      "function section without code section",
+      CodeSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      MutableGlobalGetInConstInit,
+      "mutable-global-get-in-const-init",
+      "mutable global.get in const global initializer",
+      GlobalSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      NonConstantDataOffset,
+      "non-constant-data-offset",
+      "non-constant active data offset",
+      DataSectionFamily,
+    ),
   ]
 }
 
@@ -194,6 +222,10 @@ fn validate_invalid_ast_strategy_index(
     MissingDataCount => 2
     UndeclaredRefFunc => 3
     InvalidNameSectionFuncIndex => 4
+    InvalidFuncTypeIndex => 5
+    FuncSecWithoutCodeSec => 6
+    MutableGlobalGetInConstInit => 7
+    NonConstantDataOffset => 8
   }
 }
 
@@ -286,6 +318,14 @@ fn validate_invalid_ast_data_entries(mod : Module) -> Array[Data] {
 }
 
 ///|
+fn validate_invalid_ast_global_entries(mod : Module) -> Array[Global] {
+  match mod.global_sec {
+    Some(GlobalSec(entries)) => entries.copy()
+    None => []
+  }
+}
+
+///|
 fn validate_invalid_ast_imported_func_count(mod : Module) -> Int {
   let mut count = 0
   for imp in validate_invalid_ast_import_entries(mod) {
@@ -300,6 +340,18 @@ fn validate_invalid_ast_imported_func_count(mod : Module) -> Int {
 ///|
 fn validate_invalid_ast_defined_func_count(mod : Module) -> Int {
   validate_invalid_ast_func_type_entries(mod).length()
+}
+
+///|
+fn validate_invalid_ast_imported_global_count(mod : Module) -> Int {
+  let mut count = 0
+  for imp in validate_invalid_ast_import_entries(mod) {
+    let Import(_, _, et) = imp
+    if et is GlobalExternType(_) {
+      count += 1
+    }
+  }
+  count
 }
 
 ///|
@@ -388,6 +440,30 @@ fn validate_invalid_ast_without_data_cnt_sec(mod : Module) -> Module {
     elem_sec=mod.elem_sec,
     data_cnt_sec=None,
     code_sec=mod.code_sec,
+    data_sec=mod.data_sec,
+  )
+}
+
+///|
+fn validate_invalid_ast_without_code_sec(mod : Module) -> Module {
+  Module::new(
+    custom_secs=mod.custom_secs,
+    name_sec=mod.name_sec,
+    raw_name_sec_payload=mod.raw_name_sec_payload,
+    type_sec=mod.type_sec,
+    import_sec=mod.import_sec,
+    func_annotation_sec=mod.func_annotation_sec,
+    func_sec=mod.func_sec,
+    table_sec=mod.table_sec,
+    mem_sec=mod.mem_sec,
+    tag_sec=mod.tag_sec,
+    stringrefs_sec=mod.stringrefs_sec,
+    global_sec=mod.global_sec,
+    export_sec=mod.export_sec,
+    start_sec=mod.start_sec,
+    elem_sec=mod.elem_sec,
+    data_cnt_sec=mod.data_cnt_sec,
+    code_sec=None,
     data_sec=mod.data_sec,
   )
 }
@@ -529,6 +605,100 @@ fn validate_invalid_ast_mutate_invalid_name_section_func_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_func_type_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let types = validate_invalid_ast_type_entries(mod)
+  let func_types = validate_invalid_ast_func_type_entries(mod)
+  let code = validate_invalid_ast_code_entries(mod)
+  let bad_type_idx = TypeIdx::new(types.length().reinterpret_as_uint())
+  func_types.push(bad_type_idx)
+  code.push(Func::new(Locals::empty(), Expr::new([])))
+  {
+    strategy: InvalidFuncTypeIndex,
+    applicable: true,
+    expected_family: FunctionSectionFamily,
+    mutated_module: mod
+    .with_func_sec(FuncSec::new(func_types))
+    .with_code_sec(CodeSec::new(code)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_funcsec_without_codesec(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let (with_func, _, _) = validate_invalid_ast_append_defined_func(
+    mod,
+    [],
+    [],
+    Locals::empty(),
+    Expr::new([]),
+  )
+  {
+    strategy: FuncSecWithoutCodeSec,
+    applicable: true,
+    expected_family: CodeSectionFamily,
+    mutated_module: validate_invalid_ast_without_code_sec(with_func),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_mutable_global_get_in_const_init(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let imports = validate_invalid_ast_import_entries(mod)
+  let globals = validate_invalid_ast_global_entries(mod)
+  let imported_global_idx = GlobalIdx::new(
+    validate_invalid_ast_imported_global_count(mod).reinterpret_as_uint(),
+  )
+  imports.push(
+    Import::new(
+      Name::new("env"),
+      Name::new("g"),
+      ExternType::global(GlobalType::new(ValType::i32(), true)),
+    ),
+  )
+  globals.push(
+    Global::new(
+      GlobalType::new(ValType::i32(), false),
+      Expr::new([Instruction::global_get(imported_global_idx)]),
+    ),
+  )
+  {
+    strategy: MutableGlobalGetInConstInit,
+    applicable: true,
+    expected_family: GlobalSectionFamily,
+    mutated_module: mod
+    .with_import_sec(ImportSec::new(imports))
+    .with_global_sec(GlobalSec::new(globals)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_non_constant_data_offset(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let with_memory = validate_invalid_ast_ensure_memory(mod)
+  let datas = validate_invalid_ast_data_entries(with_memory)
+  datas.push(
+    Data::new(
+      DataMode::active(
+        MemIdx::new(0U),
+        Expr::new([Instruction::i32_const(I32(1)), Instruction::drop()]),
+      ),
+      b"x",
+    ),
+  )
+  {
+    strategy: NonConstantDataOffset,
+    applicable: true,
+    expected_family: DataSectionFamily,
+    mutated_module: with_memory.with_data_sec(DataSec::new(datas)),
+  }
+}
+
+///|
 pub fn apply_validate_invalid_ast_strategy(
   strategy : ValidateInvalidAstStrategyId,
   mod : Module,
@@ -550,6 +720,14 @@ pub fn apply_validate_invalid_ast_strategy(
       UndeclaredRefFunc => validate_invalid_ast_mutate_undeclared_ref_func(base)
       InvalidNameSectionFuncIndex =>
         validate_invalid_ast_mutate_invalid_name_section_func_index(base)
+      InvalidFuncTypeIndex =>
+        validate_invalid_ast_mutate_invalid_func_type_index(base)
+      FuncSecWithoutCodeSec =>
+        validate_invalid_ast_mutate_funcsec_without_codesec(base)
+      MutableGlobalGetInConstInit =>
+        validate_invalid_ast_mutate_mutable_global_get_in_const_init(base)
+      NonConstantDataOffset =>
+        validate_invalid_ast_mutate_non_constant_data_offset(base)
     },
   )
 }
@@ -770,10 +948,11 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
   let registry = validate_invalid_ast_registry()
   assert_eq(registry.map(fn(spec) { spec.stable_id }), [
     "duplicate-export-name", "invalid-start-signature", "missing-datacount", "undeclared-ref-func",
-    "invalid-name-section-func-index",
+    "invalid-name-section-func-index", "invalid-func-type-index", "funcsec-without-codesec",
+    "mutable-global-get-in-const-init", "non-constant-data-offset",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 5)
+  assert_eq(smoke_required.length(), 9)
 }
 
 ///|
@@ -880,6 +1059,58 @@ test "invalid name-section func index strategy rejects with NameSection family" 
       InvalidNameSectionFuncIndex,
       0x5ef1UL,
       NameSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid func type index strategy rejects with FunctionSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFuncTypeIndex,
+      0x5ef2UL,
+      FunctionSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "funcsec without codesec strategy rejects with CodeSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      FuncSecWithoutCodeSec,
+      0x5ef3UL,
+      CodeSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "mutable global.get const-init strategy rejects with GlobalSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      MutableGlobalGetInConstInit,
+      0x5ef4UL,
+      GlobalSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "non-constant data offset strategy rejects with DataSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      NonConstantDataOffset,
+      0x5ef5UL,
+      DataSectionFamily,
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)

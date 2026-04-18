@@ -423,6 +423,10 @@ pub enum ValidateInvalidAstStrategyId {
   MissingDataCount
   UndeclaredRefFunc
   InvalidNameSectionFuncIndex
+  InvalidFuncTypeIndex
+  FuncSecWithoutCodeSec
+  MutableGlobalGetInConstInit
+  NonConstantDataOffset
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidAstStrategySpec {

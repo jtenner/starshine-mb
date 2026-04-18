@@ -177,6 +177,10 @@ fn gen_invalid_ast_strategy_label(
     MissingDataCount => "missing-datacount"
     UndeclaredRefFunc => "undeclared-ref-func"
     InvalidNameSectionFuncIndex => "invalid-name-section-func-index"
+    InvalidFuncTypeIndex => "invalid-func-type-index"
+    FuncSecWithoutCodeSec => "funcsec-without-codesec"
+    MutableGlobalGetInConstInit => "mutable-global-get-in-const-init"
+    NonConstantDataOffset => "non-constant-data-offset"
   }
 }
 

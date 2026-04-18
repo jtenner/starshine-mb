@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: widen AST invalid-module coverage across more validator families
+
+- **add new AST invalid mutation strategies for function-section, code-section, global-section, and data-section rejections** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), and [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt) so validator fuzzing now also covers `invalid-func-type-index`, `funcsec-without-codesec`, `mutable-global-get-in-const-init`, and `non-constant-data-offset` in addition to the earlier export/start/body/name families. This broadens invalid-module coverage before release without weakening deterministic repro/report behavior. Verification for this slice: `moon test src/validate`, `moon fmt src/validate`, and `moon info`.
+
 ## 2026-04-18 Fix: add a CLI command to emit persisted invalid repro bundles
 
 - **add `--emit-invalid-repro` to the fuzz CLI so AST, binary, text, and spec-seed repro bundles can be generated directly into a corpus directory** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/imports.mbt`](./src/fuzz/imports.mbt), [`src/fuzz/main.mbt`](./src/fuzz/main.mbt), and [`src/fuzz/main_wbtest.mbt`](./src/fuzz/main_wbtest.mbt) so the CLI now parses `--suite`, `--strategy`, `--seed`, `--attempt`, `--out-dir`, and optional `--profile`, builds the correct repro through the shared suite-dispatched report builder, and persists the resulting meta/artifact bundle with one command. Verification for this slice: `moon test src/fuzz`, `moon fmt src/fuzz`, and `moon info`.
