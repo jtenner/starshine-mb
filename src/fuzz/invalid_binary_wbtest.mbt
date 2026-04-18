@@ -50,7 +50,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-global-name-section-index-module", "reserved-section-id", "invalid-custom-section-name-utf8",
     "invalid-type-name-section-index-module", "invalid-elem-name-section-index-module",
     "invalid-data-name-section-index-module", "invalid-export-table-index-module",
-    "invalid-export-global-index-module", "invalid-export-tag-index-module",
+    "invalid-export-global-index-module", "invalid-export-tag-index-module", "invalid-tag-name-section-index-module",
+    "datacount-mismatch-too-small-module", "datacount-mismatch-too-large-module",
   ])
   assert_eq(
     registry.map(fn(spec) {
@@ -61,11 +62,12 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "validate-export", "validate-code", "validate-datacount", "validate-name",
       "decode", "decode", "validate-code", "validate-name", "validate-name", "decode",
       "decode", "validate-name", "validate-name", "validate-name", "validate-export",
-      "validate-export", "validate-export",
+      "validate-export", "validate-export", "validate-name", "validate-datacount",
+      "validate-datacount",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 23)
+  assert_eq(smoke_required.length(), 26)
 }
 
 ///|
@@ -356,6 +358,39 @@ test "invalid export tag index binary strategy rejects at validate stage" {
 }
 
 ///|
+test "invalid tag name-section index binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-tag-name-section-index-module", 0x5f06UL, "name",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "datacount mismatch too-small binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "datacount-mismatch-too-small-module", 0x5f07UL, "datacount",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "datacount mismatch too-large binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "datacount-mismatch-too-large-module", 0x5f08UL, "datacount",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_binary_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
@@ -366,7 +401,7 @@ test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 23)
+  assert_eq(first.attempts, 26)
   let mut saw_decode = false
   let mut saw_validate = false
   for stat in first.strategy_stats {
@@ -532,6 +567,38 @@ test "gen_invalid_binary_generate supports invalid export-tag modules" {
           assert_eq(
             invalid_binary_test_validation_family_label(family),
             "export",
+          )
+        }
+      }
+  }
+}
+
+///|
+test "gen_invalid_binary_generate supports datacount mismatch too-large modules" {
+  let generated = match
+    gen_invalid_binary_generate(
+      @splitmix.new(seed=0x5eedUL),
+      GenInvalidBinaryParams::repro_seed(DataCountMismatchTooLargeModule),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match decode_module(generated.mutation.mutated_bytes) {
+    Err(msg) =>
+      fail("expected datacount mismatch invalid bytes to decode first: \{msg}")
+    Ok(decoded) =>
+      match validate_module(decoded) {
+        Ok(_) =>
+          fail(
+            "expected decoded datacount-mismatch-invalid binary to fail validation",
+          )
+        Err(err) => {
+          let family = validation_issue_family(
+            validation_error_diagnostic(err).issue,
+          )
+          assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "datacount",
           )
         }
       }

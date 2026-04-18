@@ -54,6 +54,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidExportTableIndexModule
   InvalidExportGlobalIndexModule
   InvalidExportTagIndexModule
+  InvalidTagNameSectionIndexModule
+  DataCountMismatchTooSmallModule
+  DataCountMismatchTooLargeModule
 } derive(Eq, Debug)
 
 ///|
@@ -348,6 +351,9 @@ fn validate_invalid_binary_strategy_label(
     InvalidExportTableIndexModule => "invalid-export-table-index-module"
     InvalidExportGlobalIndexModule => "invalid-export-global-index-module"
     InvalidExportTagIndexModule => "invalid-export-tag-index-module"
+    InvalidTagNameSectionIndexModule => "invalid-tag-name-section-index-module"
+    DataCountMismatchTooSmallModule => "datacount-mismatch-too-small-module"
+    DataCountMismatchTooLargeModule => "datacount-mismatch-too-large-module"
   }
 }
 
@@ -531,6 +537,24 @@ pub fn validate_invalid_binary_registry() -> Array[
       "encoded module with out-of-range tag export index",
       ValidateRejected("export"),
     ),
+    validate_invalid_binary_strategy_spec(
+      InvalidTagNameSectionIndexModule,
+      "invalid-tag-name-section-index-module",
+      "encoded module with out-of-range tag name index",
+      ValidateRejected("name"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      DataCountMismatchTooSmallModule,
+      "datacount-mismatch-too-small-module",
+      "encoded module with datacount smaller than data segment count",
+      ValidateRejected("datacount"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      DataCountMismatchTooLargeModule,
+      "datacount-mismatch-too-large-module",
+      "encoded module with datacount larger than data segment count",
+      ValidateRejected("datacount"),
+    ),
   ]
 }
 
@@ -574,6 +598,9 @@ fn validate_invalid_binary_strategy_index(
     InvalidExportTableIndexModule => 20
     InvalidExportGlobalIndexModule => 21
     InvalidExportTagIndexModule => 22
+    InvalidTagNameSectionIndexModule => 23
+    DataCountMismatchTooSmallModule => 24
+    DataCountMismatchTooLargeModule => 25
   }
 }
 
@@ -595,9 +622,9 @@ pub fn validate_invalid_binary_run_config(
     profile.trim().to_string(),
   )
   let attempts = match normalized {
-    "smoke" => 23
-    "ci" => 230
-    "stress" => 2300
+    "smoke" => 26
+    "ci" => 260
+    "stress" => 2600
     _ =>
       return Err(
         "unknown validate-invalid-binary fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1416,6 +1443,51 @@ pub fn apply_validate_invalid_binary_strategy(
         InvalidExportTagIndexModule,
         ast_strategy,
         "export",
+        base,
+      )
+    }
+    InvalidTagNameSectionIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-tag-name-section-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidTagNameSectionIndexModule,
+        ast_strategy,
+        "name",
+        base,
+      )
+    }
+    DataCountMismatchTooSmallModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "datacount-mismatch-too-small",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        DataCountMismatchTooSmallModule,
+        ast_strategy,
+        "datacount",
+        base,
+      )
+    }
+    DataCountMismatchTooLargeModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "datacount-mismatch-too-large",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        DataCountMismatchTooLargeModule,
+        ast_strategy,
+        "datacount",
         base,
       )
     }

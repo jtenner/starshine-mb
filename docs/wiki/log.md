@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record broader binary tag-name and datacount coverage
+
+- Reviewed the already-modified binary invalid sources `src/fuzz/invalid_binary.mbt` and `src/fuzz/invalid_binary_wbtest.mbt` to capture another binary widening step: the curated lane now includes encoded invalid tag-name modules plus datacount mismatch modules in both too-small and too-large directions.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the binary name/datacount surface as broader than the earlier func/table/global/type/elem/data-name and datacount-without-data-only set.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record broader AST tag-name and datacount breadth
 
 - Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture another AST widening step: the curated lane now includes out-of-range tag-name indices plus datacount mismatches in both too-small and too-large directions.
