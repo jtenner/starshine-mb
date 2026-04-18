@@ -15,6 +15,10 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(String, UInt64, Int, p
 
 pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(String, UInt64, Int, profile? : String, params? : GenInvalidBinaryParams?) -> Result[InvalidFuzzFailureReport, String]
 
+pub fn build_invalid_fuzz_spec_seed_failure_report_by_stable_id(String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
+
+pub fn build_invalid_fuzz_text_failure_report_by_stable_id(String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
+
 pub fn build_validate_invalid_binary_minimal_repro(ValidateInvalidBinaryStrategyId) -> Result[Bytes, String]
 
 pub fn build_validate_invalid_binary_minimal_repro_by_stable_id(String) -> Result[Bytes, String]

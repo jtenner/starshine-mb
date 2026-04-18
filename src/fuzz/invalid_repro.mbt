@@ -642,6 +642,15 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
     Ok(v) => v
     Err(msg) => return Err(msg)
   }
+  let seed_artifact = match
+    invalid_fuzz_encode_module_artifact(
+      "seed",
+      "seed.wasm",
+      generated.base_module,
+    ) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
   let replay = invalid_fuzz_replay_binary_like(artifact.bytes)
   let expected_family = Some(invalid_fuzz_family_label(spec.expected_family))
   if !invalid_fuzz_report_outcome_matches(
@@ -665,7 +674,7 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
       expected_diagnostic_family=expected_family,
       actual_stage=replay.stage,
       actual_diagnostic_family=replay.diagnostic_family,
-      artifacts=[artifact],
+      artifacts=[artifact, seed_artifact],
     ),
   )
 }
@@ -696,6 +705,15 @@ pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
     "original.wasm",
     generated.mutation.mutated_bytes,
   )
+  let seed_artifact = match
+    invalid_fuzz_encode_module_artifact(
+      "seed",
+      "seed.wasm",
+      generated.base_module,
+    ) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
   let replay = invalid_fuzz_replay_binary_like(artifact.bytes)
   let (expected_stage, expected_family) = invalid_fuzz_expected_binary_outcome(
     spec.expected_result,
@@ -721,6 +739,116 @@ pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
       expected_diagnostic_family=expected_family,
       actual_stage=replay.stage,
       actual_diagnostic_family=replay.diagnostic_family,
+      artifacts=[artifact, seed_artifact],
+    ),
+  )
+}
+
+///|
+pub fn build_invalid_fuzz_text_failure_report_by_stable_id(
+  strategy_id : String,
+  seed : UInt64,
+  attempt : Int,
+  profile? : String = "smoke",
+) -> Result[InvalidFuzzFailureReport, String] {
+  ignore(seed)
+  let spec = match validate_invalid_text_strategy_by_stable_id(strategy_id) {
+    Some(v) => v
+    None =>
+      return Err("unknown validate-invalid-text strategy '\{strategy_id}'")
+  }
+  let (path, source, assertion_kind) = match
+    validate_invalid_text_source_by_stable_id(strategy_id) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let artifact = InvalidFuzzArtifact::new(
+    "original",
+    "original.wast",
+    invalid_fuzz_string_bytes(source),
+  )
+  let stage = match
+    evaluate_validate_invalid_text_assertion_source(
+      source, path, assertion_kind,
+    ) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let expected_stage = validate_invalid_text_stage_name(spec.expected_stage)
+  let actual_stage = validate_invalid_text_stage_name(stage)
+  if expected_stage != actual_stage {
+    return Err(
+      "text invalid report outcome mismatch: strategy=\{strategy_id} expected_stage=\{expected_stage} actual_stage=\{actual_stage}",
+    )
+  }
+  Ok(
+    InvalidFuzzFailureReport::new(
+      "validate-invalid-text",
+      profile,
+      seed,
+      attempt,
+      strategy_id,
+      invalid_fuzz_text_source_kind(),
+      expected_stage,
+      actual_stage~,
+      source_path=Some(path),
+      artifacts=[artifact],
+    ),
+  )
+}
+
+///|
+pub fn build_invalid_fuzz_spec_seed_failure_report_by_stable_id(
+  strategy_id : String,
+  seed : UInt64,
+  attempt : Int,
+  profile? : String = "smoke",
+) -> Result[InvalidFuzzFailureReport, String] {
+  ignore(seed)
+  let spec = match validate_invalid_spec_seed_by_stable_id(strategy_id) {
+    Some(v) => v
+    None =>
+      return Err("unknown validate-invalid-spec-seed case '\{strategy_id}'")
+  }
+  let (path, assertion_source, assertion_kind) = match
+    validate_invalid_spec_seed_assertion_source_by_stable_id(strategy_id) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let full_source = match read_file_sync(path) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let artifact = InvalidFuzzArtifact::new(
+    "original",
+    "original.wast",
+    invalid_fuzz_string_bytes(full_source),
+  )
+  let stage = match
+    evaluate_validate_invalid_text_assertion_source(
+      assertion_source, path, assertion_kind,
+    ) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let expected_stage = validate_invalid_text_stage_name(spec.expected_stage)
+  let actual_stage = validate_invalid_text_stage_name(stage)
+  if expected_stage != actual_stage {
+    return Err(
+      "spec-seed invalid report outcome mismatch: strategy=\{strategy_id} expected_stage=\{expected_stage} actual_stage=\{actual_stage}",
+    )
+  }
+  Ok(
+    InvalidFuzzFailureReport::new(
+      "validate-invalid-spec-seed",
+      profile,
+      seed,
+      attempt,
+      strategy_id,
+      invalid_fuzz_spec_seed_source_kind(),
+      expected_stage,
+      actual_stage~,
+      source_path=Some(path),
       artifacts=[artifact],
     ),
   )

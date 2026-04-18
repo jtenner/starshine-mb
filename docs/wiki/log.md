@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record public invalid-fuzz report builders for all source kinds
+
+- Reviewed the already-modified fuzz invalid-repro files `src/fuzz/invalid_repro.mbt`, `src/fuzz/invalid_repro_wbtest.mbt`, and `src/fuzz/pkg.generated.mbti` to capture the durable follow-up after the first `gen_invalid` API pass: the shared repro surface now exports report builders not only for AST and binary invalid cases but also for inline text and spec-seed cases, so downstream callers can construct checked `InvalidFuzzFailureReport` values from stable ids across all four source kinds.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now say explicitly that AST/binary reports preserve both the invalid artifact and the valid seed artifact, while text/spec-seed reports now also have first-class stable-id builders on the same shared repro surface.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record public `gen_invalid` seed/mutation surfaces
 
 - Reviewed the already-modified validator fuzz files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/gen_invalid_wbtest.mbt`, `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, `src/fuzz/invalid_binary_wbtest.mbt`, and the generated public interfaces `src/validate/pkg.generated.mbti` plus `src/fuzz/pkg.generated.mbti` to confirm one durable wiki-worthy change: the AST-invalid and binary-invalid helpers are now supported package surfaces, not only internal fuzz-runner implementation details.

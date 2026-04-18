@@ -46,30 +46,8 @@ fn invalid_repro_test_original_text_report() -> Result[
   InvalidFuzzFailureReport,
   String,
 ] {
-  let (path, source, _) = match
-    validate_invalid_text_source_by_stable_id("invalid-result-stack") {
-    Ok(v) => v
-    Err(msg) => return Err(msg)
-  }
-  Ok(
-    InvalidFuzzFailureReport::new(
-      "validate-invalid-text",
-      "smoke",
-      0x5eedUL,
-      3,
-      "invalid-result-stack",
-      invalid_fuzz_text_source_kind(),
-      "validate-rejected",
-      actual_stage="validate-rejected",
-      source_path=Some(path),
-      artifacts=[
-        InvalidFuzzArtifact::new(
-          "original",
-          "original.wast",
-          invalid_repro_test_string_bytes("\n\n" + source + "\n"),
-        ),
-      ],
-    ),
+  build_invalid_fuzz_text_failure_report_by_stable_id(
+    "invalid-result-stack", 0x5eedUL, 3,
   )
 }
 
@@ -78,36 +56,8 @@ fn invalid_repro_test_original_spec_seed_report() -> Result[
   InvalidFuzzFailureReport,
   String,
 ] {
-  let spec = match
-    validate_invalid_spec_seed_by_stable_id(
-      "imports-unlinkable-unknown-import-1",
-    ) {
-    Some(v) => v
-    None => return Err("missing spec-seed case")
-  }
-  let source = match read_file_sync(spec.path) {
-    Ok(v) => v
-    Err(msg) => return Err(msg)
-  }
-  Ok(
-    InvalidFuzzFailureReport::new(
-      "validate-invalid-spec-seed",
-      "smoke",
-      0x5eedUL,
-      4,
-      spec.stable_id,
-      invalid_fuzz_spec_seed_source_kind(),
-      "valid-before-link",
-      actual_stage="valid-before-link",
-      source_path=Some(spec.path),
-      artifacts=[
-        InvalidFuzzArtifact::new(
-          "original",
-          "original.wast",
-          invalid_repro_test_string_bytes(source),
-        ),
-      ],
-    ),
+  build_invalid_fuzz_spec_seed_failure_report_by_stable_id(
+    "imports-unlinkable-unknown-import-1", 0x5eedUL, 4,
   )
 }
 
@@ -168,6 +118,7 @@ test "persist_invalid_fuzz_failure_report writes deterministic suite strategy la
   )
   assert_eq(artifact_paths, [
     "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2/original.wasm",
+    "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2/seed.wasm",
     "tmp-invalid-corpus/validate-invalid-binary/invalid-func-type-index/seed-24301-attempt-2/reduced.wasm",
   ])
   let mut saw_meta = false
@@ -181,6 +132,7 @@ test "persist_invalid_fuzz_failure_report writes deterministic suite strategy la
       assert_true(text.contains("strategy_id=invalid-func-type-index"))
       assert_true(text.contains("source_kind=binary"))
       assert_true(text.contains("artifact=original|original.wasm"))
+      assert_true(text.contains("artifact=seed|seed.wasm"))
       assert_true(text.contains("reduced=reduced|reduced.wasm"))
     }
   }
@@ -277,7 +229,9 @@ test "build_invalid_fuzz_ast_failure_report_by_stable_id supports minimal valid 
   }
   assert_eq(report.actual_stage, "validate-rejected")
   assert_eq(report.actual_diagnostic_family, Some("start"))
-  assert_eq(report.artifacts.length(), 1)
+  assert_eq(report.artifacts.length(), 2)
+  assert_eq(report.artifacts[0].label, "original")
+  assert_eq(report.artifacts[1].label, "seed")
 }
 
 ///|
@@ -299,6 +253,39 @@ test "build_invalid_fuzz_binary_failure_report_by_stable_id supports minimal val
   }
   assert_eq(report.actual_stage, "decode-rejected")
   assert_eq(report.actual_diagnostic_family, None)
+  assert_eq(report.artifacts.length(), 2)
+  assert_eq(report.artifacts[0].label, "original")
+  assert_eq(report.artifacts[1].label, "seed")
+}
+
+///|
+test "build_invalid_fuzz_text_failure_report_by_stable_id preserves source path and stage" {
+  let report = match
+    build_invalid_fuzz_text_failure_report_by_stable_id(
+      "invalid-result-stack", 0x5eedUL, 11,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(report.actual_stage, "validate-rejected")
+  assert_eq(
+    report.source_path,
+    Some("inline-text-invalid/invalid-result-stack.wast"),
+  )
+  assert_eq(report.artifacts.length(), 1)
+}
+
+///|
+test "build_invalid_fuzz_spec_seed_failure_report_by_stable_id preserves source path and stage" {
+  let report = match
+    build_invalid_fuzz_spec_seed_failure_report_by_stable_id(
+      "imports-unlinkable-unknown-import-1", 0x5eedUL, 12,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(report.actual_stage, "valid-before-link")
+  assert_eq(report.source_path, Some("tests/spec/imports.wast"))
   assert_eq(report.artifacts.length(), 1)
 }
 
