@@ -65,6 +65,8 @@ fn validation_issue_family_label(family : ValidationIssueFamily) -> String {
 pub enum ValidateInvalidAstStrategyId {
   DuplicateExportName
   InvalidStartSignature
+  InvalidImportedStartFuncParam
+  InvalidImportedStartFuncResult
   MissingDataCount
   UndeclaredRefFunc
   InvalidNameSectionFuncIndex
@@ -179,6 +181,20 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       "invalid-start-signature",
       "invalid start signature",
       StartSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidImportedStartFuncParam,
+      "invalid-imported-start-func-param",
+      "invalid imported start function parameter list",
+      StartSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidImportedStartFuncResult,
+      "invalid-imported-start-func-result",
+      "invalid imported start function result list",
+      StartSectionFamily,
+      required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
       MissingDataCount,
@@ -412,38 +428,40 @@ fn validate_invalid_ast_strategy_index(
   match id {
     DuplicateExportName => 0
     InvalidStartSignature => 1
-    MissingDataCount => 2
-    UndeclaredRefFunc => 3
-    InvalidNameSectionFuncIndex => 4
-    InvalidFuncTypeIndex => 5
-    FuncSecWithoutCodeSec => 6
-    MutableGlobalGetInConstInit => 7
-    NonConstantDataOffset => 8
-    InvalidImportedFuncTypeIndex => 9
-    InvalidImportedTagTypeIndex => 10
-    MutableGlobalGetInTableInit => 11
-    NonConstantElemOffset => 12
-    SharedMemoryWithoutMax => 13
-    InvalidTagTypeIndex => 14
-    DescriptorOnFuncType => 15
-    DataCountWithoutDataSec => 16
-    InvalidExportFuncIndex => 17
-    StartFuncOutOfRange => 18
-    MissingDataCountDataDrop => 19
-    InvalidMemoryNameSectionIndex => 20
-    CodeSecWithoutFuncSec => 21
-    InvalidTableNameSectionIndex => 22
-    InvalidGlobalNameSectionIndex => 23
-    InvalidTypeNameSectionIndex => 24
-    InvalidElemNameSectionIndex => 25
-    InvalidDataNameSectionIndex => 26
-    InvalidExportTableIndex => 27
-    InvalidExportGlobalIndex => 28
-    InvalidExportMemoryIndex => 29
-    InvalidExportTagIndex => 30
-    InvalidTagNameSectionIndex => 31
-    DataCountMismatchTooSmall => 32
-    DataCountMismatchTooLarge => 33
+    InvalidImportedStartFuncParam => 2
+    InvalidImportedStartFuncResult => 3
+    MissingDataCount => 4
+    UndeclaredRefFunc => 5
+    InvalidNameSectionFuncIndex => 6
+    InvalidFuncTypeIndex => 7
+    FuncSecWithoutCodeSec => 8
+    MutableGlobalGetInConstInit => 9
+    NonConstantDataOffset => 10
+    InvalidImportedFuncTypeIndex => 11
+    InvalidImportedTagTypeIndex => 12
+    MutableGlobalGetInTableInit => 13
+    NonConstantElemOffset => 14
+    SharedMemoryWithoutMax => 15
+    InvalidTagTypeIndex => 16
+    DescriptorOnFuncType => 17
+    DataCountWithoutDataSec => 18
+    InvalidExportFuncIndex => 19
+    StartFuncOutOfRange => 20
+    MissingDataCountDataDrop => 21
+    InvalidMemoryNameSectionIndex => 22
+    CodeSecWithoutFuncSec => 23
+    InvalidTableNameSectionIndex => 24
+    InvalidGlobalNameSectionIndex => 25
+    InvalidTypeNameSectionIndex => 26
+    InvalidElemNameSectionIndex => 27
+    InvalidDataNameSectionIndex => 28
+    InvalidExportTableIndex => 29
+    InvalidExportGlobalIndex => 30
+    InvalidExportMemoryIndex => 31
+    InvalidExportTagIndex => 32
+    InvalidTagNameSectionIndex => 33
+    DataCountMismatchTooSmall => 34
+    DataCountMismatchTooLarge => 35
   }
 }
 
@@ -463,9 +481,9 @@ pub fn validate_invalid_ast_run_config(
 ) -> Result[ValidateInvalidAstRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 34
-    "ci" => 340
-    "stress" => 3400
+    "smoke" => 36
+    "ci" => 360
+    "stress" => 3600
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1155,6 +1173,64 @@ fn validate_invalid_ast_mutate_invalid_start_signature(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_imported_start_func_param(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let type_idx = TypeIdx::new(0U)
+  let imported = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([ValType::i32()], []))),
+      ]),
+    )
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("start"),
+          ExternType::func(type_idx),
+        ),
+      ]),
+    )
+  {
+    strategy: InvalidImportedStartFuncParam,
+    applicable: true,
+    expected_family: StartSectionFamily,
+    mutated_module: imported.with_start_sec(StartSec::new(FuncIdx::new(0U))),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_imported_start_func_result(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let type_idx = TypeIdx::new(0U)
+  let imported = Module::new()
+    .with_type_sec(
+      TypeSec::new([
+        RecType::new(SubType::comp_type(CompType::func([], [ValType::i32()]))),
+      ]),
+    )
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("start"),
+          ExternType::func(type_idx),
+        ),
+      ]),
+    )
+  {
+    strategy: InvalidImportedStartFuncResult,
+    applicable: true,
+    expected_family: StartSectionFamily,
+    mutated_module: imported.with_start_sec(StartSec::new(FuncIdx::new(0U))),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_start_func_out_of_range(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -1702,6 +1778,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_duplicate_export_name(base)
       InvalidExportFuncIndex =>
         validate_invalid_ast_mutate_invalid_export_func_index(base)
+      InvalidImportedStartFuncParam =>
+        validate_invalid_ast_mutate_invalid_imported_start_func_param(base)
+      InvalidImportedStartFuncResult =>
+        validate_invalid_ast_mutate_invalid_imported_start_func_result(base)
       InvalidExportTableIndex =>
         validate_invalid_ast_mutate_invalid_export_table_index(base)
       InvalidExportGlobalIndex =>
@@ -1983,7 +2063,8 @@ pub fn run_validate_invalid_ast_fuzz(
 test "validate_invalid_ast_registry exposes the curated smoke-required strategies" {
   let registry = validate_invalid_ast_registry()
   assert_eq(registry.map(fn(spec) { spec.stable_id }), [
-    "duplicate-export-name", "invalid-start-signature", "missing-datacount", "undeclared-ref-func",
+    "duplicate-export-name", "invalid-start-signature", "invalid-imported-start-func-param",
+    "invalid-imported-start-func-result", "missing-datacount", "undeclared-ref-func",
     "invalid-name-section-func-index", "invalid-func-type-index", "funcsec-without-codesec",
     "mutable-global-get-in-const-init", "non-constant-data-offset", "invalid-imported-func-type-index",
     "invalid-imported-tag-type-index", "mutable-global-get-in-table-init", "non-constant-elem-offset",
@@ -2063,6 +2144,32 @@ test "invalid start signature strategy rejects with StartSection family" {
     invalid_ast_expect_strategy_rejects_with_family(
       InvalidStartSignature,
       0x5eeeUL,
+      StartSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid imported start func param strategy rejects with StartSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidImportedStartFuncParam,
+      0x5eee1UL,
+      StartSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid imported start func result strategy rejects with StartSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidImportedStartFuncResult,
+      0x5eee2UL,
       StartSectionFamily,
     ) {
     Ok(_) => ()
@@ -2525,7 +2632,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 34)
+  assert_eq(first.attempts, 36)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)

@@ -174,6 +174,8 @@ fn gen_invalid_ast_strategy_label(
   match strategy {
     DuplicateExportName => "duplicate-export-name"
     InvalidExportFuncIndex => "invalid-export-func-index"
+    InvalidImportedStartFuncParam => "invalid-imported-start-func-param"
+    InvalidImportedStartFuncResult => "invalid-imported-start-func-result"
     InvalidStartSignature => "invalid-start-signature"
     StartFuncOutOfRange => "start-func-out-of-range"
     MissingDataCount => "missing-datacount"

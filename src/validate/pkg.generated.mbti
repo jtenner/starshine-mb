@@ -420,6 +420,8 @@ pub struct ValidateInvalidAstRunConfig {
 pub enum ValidateInvalidAstStrategyId {
   DuplicateExportName
   InvalidStartSignature
+  InvalidImportedStartFuncParam
+  InvalidImportedStartFuncResult
   MissingDataCount
   UndeclaredRefFunc
   InvalidNameSectionFuncIndex

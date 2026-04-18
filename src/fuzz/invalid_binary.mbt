@@ -37,6 +37,8 @@ pub enum ValidateInvalidBinaryStrategyId {
   WrongSectionOrder
   InvalidFuncTypeIndex
   InvalidStartSignatureModule
+  InvalidImportedStartFuncParamModule
+  InvalidImportedStartFuncResultModule
   DuplicateExportNameModule
   FuncSecWithoutCodeSecModule
   DataCountWithoutDataSecModule
@@ -330,6 +332,10 @@ fn validate_invalid_binary_strategy_label(
     WrongSectionOrder => "wrong-section-order"
     InvalidFuncTypeIndex => "invalid-func-type-index"
     InvalidStartSignatureModule => "invalid-start-signature-module"
+    InvalidImportedStartFuncParamModule =>
+      "invalid-imported-start-func-param-module"
+    InvalidImportedStartFuncResultModule =>
+      "invalid-imported-start-func-result-module"
     DuplicateExportNameModule => "duplicate-export-name-module"
     FuncSecWithoutCodeSecModule => "funcsec-without-codesec-module"
     DataCountWithoutDataSecModule => "datacount-without-data-sec-module"
@@ -438,6 +444,18 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidStartSignatureModule,
       "invalid-start-signature-module",
       "encoded module with invalid start signature",
+      ValidateRejected("start"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportedStartFuncParamModule,
+      "invalid-imported-start-func-param-module",
+      "encoded module with invalid imported start-function parameter list",
+      ValidateRejected("start"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportedStartFuncResultModule,
+      "invalid-imported-start-func-result-module",
+      "encoded module with invalid imported start-function result list",
       ValidateRejected("start"),
     ),
     validate_invalid_binary_strategy_spec(
@@ -598,28 +616,30 @@ fn validate_invalid_binary_strategy_index(
     WrongSectionOrder => 3
     InvalidFuncTypeIndex => 4
     InvalidStartSignatureModule => 5
-    DuplicateExportNameModule => 6
-    FuncSecWithoutCodeSecModule => 7
-    DataCountWithoutDataSecModule => 8
-    InvalidNameSectionFuncIndexModule => 9
-    BadMagicHeader => 10
-    BadVersionHeader => 11
-    CodeSecWithoutFuncSecModule => 12
-    InvalidTableNameSectionIndexModule => 13
-    InvalidGlobalNameSectionIndexModule => 14
-    ReservedSectionId => 15
-    InvalidCustomSectionNameUtf8 => 16
-    InvalidTypeNameSectionIndexModule => 17
-    InvalidElemNameSectionIndexModule => 18
-    InvalidDataNameSectionIndexModule => 19
-    InvalidExportTableIndexModule => 20
-    InvalidExportGlobalIndexModule => 21
-    InvalidExportMemoryIndexModule => 22
-    InvalidExportTagIndexModule => 23
-    InvalidTagNameSectionIndexModule => 24
-    InvalidImportedTagTypeIndexModule => 25
-    DataCountMismatchTooSmallModule => 26
-    DataCountMismatchTooLargeModule => 27
+    InvalidImportedStartFuncParamModule => 6
+    InvalidImportedStartFuncResultModule => 7
+    DuplicateExportNameModule => 8
+    FuncSecWithoutCodeSecModule => 9
+    DataCountWithoutDataSecModule => 10
+    InvalidNameSectionFuncIndexModule => 11
+    BadMagicHeader => 12
+    BadVersionHeader => 13
+    CodeSecWithoutFuncSecModule => 14
+    InvalidTableNameSectionIndexModule => 15
+    InvalidGlobalNameSectionIndexModule => 16
+    ReservedSectionId => 17
+    InvalidCustomSectionNameUtf8 => 18
+    InvalidTypeNameSectionIndexModule => 19
+    InvalidElemNameSectionIndexModule => 20
+    InvalidDataNameSectionIndexModule => 21
+    InvalidExportTableIndexModule => 22
+    InvalidExportGlobalIndexModule => 23
+    InvalidExportMemoryIndexModule => 24
+    InvalidExportTagIndexModule => 25
+    InvalidTagNameSectionIndexModule => 26
+    InvalidImportedTagTypeIndexModule => 27
+    DataCountMismatchTooSmallModule => 28
+    DataCountMismatchTooLargeModule => 29
   }
 }
 
@@ -641,9 +661,9 @@ pub fn validate_invalid_binary_run_config(
     profile.trim().to_string(),
   )
   let attempts = match normalized {
-    "smoke" => 28
-    "ci" => 280
-    "stress" => 2800
+    "smoke" => 30
+    "ci" => 300
+    "stress" => 3000
     _ =>
       return Err(
         "unknown validate-invalid-binary fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1271,6 +1291,36 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidStartSignatureModule,
+        ast_strategy,
+        "start",
+        base,
+      )
+    }
+    InvalidImportedStartFuncParamModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-imported-start-func-param",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidImportedStartFuncParamModule,
+        ast_strategy,
+        "start",
+        base,
+      )
+    }
+    InvalidImportedStartFuncResultModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-imported-start-func-result",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidImportedStartFuncResultModule,
         ast_strategy,
         "start",
         base,

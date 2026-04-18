@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record imported-start and eighth-stage invalid widening
+
+- Reviewed the already-modified validator and fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_text.mbt` to capture another widening step: AST and binary coverage now include imported-start signature failures in both parameter and result directions, while the text lanes now include one more malformed bad-opcode case, an imported param+result start case, a global mutability unlinkable case, and eighth-stage spec seeds.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe imported-start breadth in AST/binary and eight-wide text/spec stage families.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record another three-front invalid widening pass
 
 - Reviewed the already-modified validator and fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_text.mbt` to capture another widening step: AST and binary coverage now include exported-memory and imported-tag invalid modules, while the text lanes now include malformed `i64` hex-token, imported-result-bearing start, and incompatible tag import cases plus seventh-stage spec seeds.

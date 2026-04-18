@@ -420,6 +420,49 @@ test "gen_invalid_ast_generate supports invalid export func index strategy" {
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid imported start func param strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd1UL),
+      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncParam),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) => fail("expected invalid-imported-start-func-param mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == StartSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports invalid imported start func result strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd2UL),
+      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncResult),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-imported-start-func-result mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == StartSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports missing-datacount data.drop strategy" {
   let generated = match
     gen_invalid_ast_generate(

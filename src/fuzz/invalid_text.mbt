@@ -260,6 +260,9 @@ pub enum ValidateInvalidTextStrategyId {
   MalformedInvalidI64HexToken
   InvalidImportedStartFuncResult
   UnlinkableIncompatibleTagImportType
+  MalformedInvalidI32BadOpcode
+  InvalidImportedStartFuncParamResult
+  UnlinkableIncompatibleGlobalImportMutability
 } derive(Eq, Debug)
 
 ///|
@@ -450,6 +453,24 @@ pub fn validate_invalid_text_registry() -> Array[
       "valid text module with an incompatible tag import type",
       ValidBeforeLinkStage,
     ),
+    validate_invalid_text_strategy_spec(
+      MalformedInvalidI32BadOpcode,
+      "malformed-invalid-i32-bad-opcode",
+      "malformed text with an invalid i32 opcode token",
+      ParseOrLowerRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      InvalidImportedStartFuncParamResult,
+      "invalid-imported-start-func-param-result",
+      "invalid text module with an imported parameterized result-bearing start function",
+      ValidateRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      UnlinkableIncompatibleGlobalImportMutability,
+      "unlinkable-incompatible-global-import-mutability",
+      "valid text module with an incompatible global import mutability",
+      ValidBeforeLinkStage,
+    ),
   ]
 }
 
@@ -479,6 +500,9 @@ fn validate_invalid_text_strategy_index(
     MalformedInvalidI64HexToken => 18
     InvalidImportedStartFuncResult => 19
     UnlinkableIncompatibleTagImportType => 20
+    MalformedInvalidI32BadOpcode => 21
+    InvalidImportedStartFuncParamResult => 22
+    UnlinkableIncompatibleGlobalImportMutability => 23
   }
 }
 
@@ -498,9 +522,9 @@ pub fn validate_invalid_text_run_config(
 ) -> Result[ValidateInvalidTextRunConfig, String] {
   let normalized = validate_invalid_text_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 21
-    "ci" => 210
-    "stress" => 2100
+    "smoke" => 24
+    "ci" => 240
+    "stress" => 2400
     _ =>
       return Err(
         "unknown validate-invalid-text fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -654,6 +678,24 @@ fn validate_invalid_text_strategy_source(
       (
         "inline-text-invalid/unlinkable-incompatible-tag-import-type.wast",
         "(assert_unlinkable (module (tag (import \"test\" \"tag-i32\") (param f32))) \"incompatible import type\")",
+        UnlinkableTextAssertion,
+      )
+    MalformedInvalidI32BadOpcode =>
+      (
+        "inline-text-invalid/malformed-invalid-i32-bad-opcode.wast",
+        "(assert_malformed (module quote \"(func (i32.conzt 0) drop)\") \"unknown operator\")",
+        MalformedTextAssertion,
+      )
+    InvalidImportedStartFuncParamResult =>
+      (
+        "inline-text-invalid/invalid-imported-start-func-param-result.wast",
+        "(assert_invalid (module (import \"m\" \"f\" (func (param i32) (result i32))) (start 0)) \"start\")",
+        InvalidTextAssertion,
+      )
+    UnlinkableIncompatibleGlobalImportMutability =>
+      (
+        "inline-text-invalid/unlinkable-incompatible-global-import-mutability.wast",
+        "(assert_unlinkable (module (import \"test\" \"global-i32\" (global (mut i32)))) \"incompatible import type\")",
         UnlinkableTextAssertion,
       )
   }
@@ -890,6 +932,9 @@ pub enum ValidateInvalidSpecSeedId {
   ConstMalformedQuote7
   F32InvalidTypeMismatch7
   ImportsUnlinkableIncompatibleImportType5
+  ConstMalformedQuote8
+  F32InvalidTypeMismatch8
+  ImportsUnlinkableIncompatibleImportType6
 } derive(Eq, Debug)
 
 ///|
@@ -1153,6 +1198,33 @@ pub fn validate_invalid_spec_seed_registry() -> Array[
       6,
       ValidBeforeLinkStage,
     ),
+    validate_invalid_spec_seed_spec(
+      ConstMalformedQuote8,
+      "const-malformed-quote-8",
+      "tests/spec const.wast eighth malformed quote assertion",
+      "tests/spec/const.wast",
+      MalformedTextAssertion,
+      7,
+      ParseOrLowerRejectedStage,
+    ),
+    validate_invalid_spec_seed_spec(
+      F32InvalidTypeMismatch8,
+      "f32-invalid-type-mismatch-8",
+      "tests/spec f32.wast eighth invalid type-mismatch assertion",
+      "tests/spec/f32.wast",
+      InvalidTextAssertion,
+      7,
+      ValidateRejectedStage,
+    ),
+    validate_invalid_spec_seed_spec(
+      ImportsUnlinkableIncompatibleImportType6,
+      "imports-unlinkable-incompatible-import-type-6",
+      "tests/spec imports.wast sixth unlinkable incompatible-import-type assertion",
+      "tests/spec/imports.wast",
+      UnlinkableTextAssertion,
+      7,
+      ValidBeforeLinkStage,
+    ),
   ]
 }
 
@@ -1192,6 +1264,9 @@ fn validate_invalid_spec_seed_index(id : ValidateInvalidSpecSeedId) -> Int {
     ConstMalformedQuote7 => 18
     F32InvalidTypeMismatch7 => 19
     ImportsUnlinkableIncompatibleImportType5 => 20
+    ConstMalformedQuote8 => 21
+    F32InvalidTypeMismatch8 => 22
+    ImportsUnlinkableIncompatibleImportType6 => 23
   }
 }
 
@@ -1211,9 +1286,9 @@ pub fn validate_invalid_spec_seed_run_config(
 ) -> Result[ValidateInvalidSpecSeedRunConfig, String] {
   let normalized = validate_invalid_text_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 21
-    "ci" => 210
-    "stress" => 2100
+    "smoke" => 24
+    "ci" => 240
+    "stress" => 2400
     _ =>
       return Err(
         "unknown validate-invalid-spec-seed fuzz profile '\{profile}'; expected smoke|ci|stress",

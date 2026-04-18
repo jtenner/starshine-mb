@@ -44,7 +44,8 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
   let registry = validate_invalid_binary_registry()
   assert_eq(registry.map(fn(spec) { spec.stable_id }), [
     "trailing-garbage", "truncated-module", "duplicate-type-section", "wrong-section-order",
-    "invalid-func-type-index", "invalid-start-signature-module", "duplicate-export-name-module",
+    "invalid-func-type-index", "invalid-start-signature-module", "invalid-imported-start-func-param-module",
+    "invalid-imported-start-func-result-module", "duplicate-export-name-module",
     "funcsec-without-codesec-module", "datacount-without-data-sec-module", "invalid-name-section-func-index-module",
     "bad-magic-header", "bad-version-header", "codesec-without-funcsec-module", "invalid-table-name-section-index-module",
     "invalid-global-name-section-index-module", "reserved-section-id", "invalid-custom-section-name-utf8",
@@ -60,15 +61,15 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     }),
     [
       "decode", "decode", "decode", "decode", "validate-function", "validate-start",
-      "validate-export", "validate-code", "validate-datacount", "validate-name",
-      "decode", "decode", "validate-code", "validate-name", "validate-name", "decode",
-      "decode", "validate-name", "validate-name", "validate-name", "validate-export",
+      "validate-start", "validate-start", "validate-export", "validate-code", "validate-datacount",
+      "validate-name", "decode", "decode", "validate-code", "validate-name", "validate-name",
+      "decode", "decode", "validate-name", "validate-name", "validate-name", "validate-export",
       "validate-export", "validate-export", "validate-export", "validate-name", "validate-import",
       "validate-datacount", "validate-datacount",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 28)
+  assert_eq(smoke_required.length(), 30)
 }
 
 ///|
@@ -348,6 +349,28 @@ test "invalid export global index binary strategy rejects at validate stage" {
 }
 
 ///|
+test "invalid imported start func param binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-imported-start-func-param-module", 0x5f041UL, "start",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid imported start func result binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-imported-start-func-result-module", 0x5f042UL, "start",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid export memory index binary strategy rejects at validate stage" {
   match
     invalid_binary_expect_strategy_rejects(
@@ -424,7 +447,7 @@ test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 28)
+  assert_eq(first.attempts, 30)
   let mut saw_decode = false
   let mut saw_validate = false
   for stat in first.strategy_stats {
@@ -561,6 +584,38 @@ test "gen_invalid_binary_generate supports invalid elem-name modules" {
             validation_error_diagnostic(err).issue,
           )
           assert_eq(invalid_binary_test_validation_family_label(family), "name")
+        }
+      }
+  }
+}
+
+///|
+test "gen_invalid_binary_generate supports invalid imported-start-result modules" {
+  let generated = match
+    gen_invalid_binary_generate(
+      @splitmix.new(seed=0x5eedUL),
+      GenInvalidBinaryParams::repro_seed(InvalidImportedStartFuncResultModule),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match decode_module(generated.mutation.mutated_bytes) {
+    Err(msg) =>
+      fail("expected imported-start invalid bytes to decode first: \{msg}")
+    Ok(decoded) =>
+      match validate_module(decoded) {
+        Ok(_) =>
+          fail(
+            "expected decoded imported-start-invalid binary to fail validation",
+          )
+        Err(err) => {
+          let family = validation_issue_family(
+            validation_error_diagnostic(err).issue,
+          )
+          assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "start",
+          )
         }
       }
   }
