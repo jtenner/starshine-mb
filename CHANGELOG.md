@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: make invalid-repro replay prefer labeled primary artifacts
+
+- **teach shared invalid repro replay to prefer labeled `original` / `reduced` artifacts instead of assuming list order** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), and [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt) so replay stays stable even when AST/binary reports also persist `seed` artifacts beside the main invalid specimen. The new wbtest proves replay still picks the `original` invalid artifact after the artifact list is reordered. Verification for this slice: `moon test src/fuzz` and `moon fmt src/fuzz`.
+
 ## 2026-04-18 Fix: add public invalid-fuzz report builders for AST, binary, text, and spec-seed cases
 
 - **extend the shared invalid repro surface so callers can build checked failure reports from stable ids instead of manually assembling artifacts** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt), and [`src/fuzz/pkg.generated.mbti`](./src/fuzz/pkg.generated.mbti) so the fuzz package now exports public report builders for AST, binary, text, and spec-seed invalid cases, AST/binary reports persist both the invalid artifact and the valid seed artifact, and wbtests lock the stable-id, minimal-seed, and replay/shrinker flows through the shared API instead of local ad hoc setup. Verification for this slice: `moon fmt src/fuzz`, `moon test src/fuzz`, `moon test src/validate`, and `moon info`.

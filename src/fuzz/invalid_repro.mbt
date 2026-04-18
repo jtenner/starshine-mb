@@ -1010,6 +1010,22 @@ fn invalid_fuzz_replay_text_like(
 }
 
 ///|
+fn invalid_fuzz_choose_replay_artifact(
+  artifacts : Array[InvalidFuzzArtifact],
+) -> InvalidFuzzArtifact? {
+  for artifact in artifacts {
+    if artifact.label == "reduced" || artifact.label == "original" {
+      return Some(artifact)
+    }
+  }
+  if artifacts.is_empty() {
+    None
+  } else {
+    Some(artifacts[0])
+  }
+}
+
+///|
 pub fn replay_invalid_fuzz_failure_report(
   report : InvalidFuzzFailureReport,
   prefer_reduced? : Bool = true,
@@ -1019,10 +1035,10 @@ pub fn replay_invalid_fuzz_failure_report(
   } else {
     report.artifacts
   }
-  if candidates.is_empty() {
-    return Err("invalid repro report has no artifacts to replay")
+  let artifact = match invalid_fuzz_choose_replay_artifact(candidates) {
+    Some(v) => v
+    None => return Err("invalid repro report has no artifacts to replay")
   }
-  let artifact = candidates[0]
   match report.source_kind {
     AstInvalidSource => Ok(invalid_fuzz_replay_binary_like(artifact.bytes))
     BinaryInvalidSource => Ok(invalid_fuzz_replay_binary_like(artifact.bytes))

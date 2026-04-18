@@ -290,6 +290,36 @@ test "build_invalid_fuzz_spec_seed_failure_report_by_stable_id preserves source 
 }
 
 ///|
+test "replay_invalid_fuzz_failure_report prefers original artifact over later seed artifacts" {
+  let report = match invalid_repro_test_original_binary_report() {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let reordered = InvalidFuzzFailureReport::new(
+    report.suite,
+    report.profile,
+    report.seed,
+    report.attempt,
+    report.strategy_id,
+    report.source_kind,
+    report.expected_stage,
+    expected_diagnostic_family=report.expected_diagnostic_family,
+    actual_stage=report.actual_stage,
+    actual_diagnostic_family=report.actual_diagnostic_family,
+    source_path=report.source_path,
+    artifacts=[report.artifacts[1], report.artifacts[0]],
+    reduced_artifacts=report.reduced_artifacts,
+  )
+  let replay = match
+    replay_invalid_fuzz_failure_report(reordered, prefer_reduced=false) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(replay.stage, "validate-rejected")
+  assert_eq(replay.diagnostic_family, Some("function"))
+}
+
+///|
 test "shrink_invalid_fuzz_failure_report produces replayable AST reduced artifact" {
   let report = match invalid_repro_test_original_ast_report() {
     Ok(v) => v
