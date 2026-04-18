@@ -53,6 +53,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   ReservedSectionId
   InvalidCustomSectionNameUtf8
   InvalidTypeNameSectionIndexModule
+  InvalidFieldNameSectionIndexModule
   InvalidElemNameSectionIndexModule
   InvalidDataNameSectionIndexModule
   InvalidExportTableIndexModule
@@ -358,6 +359,8 @@ fn validate_invalid_binary_strategy_label(
     InvalidCustomSectionNameUtf8 => "invalid-custom-section-name-utf8"
     InvalidTypeNameSectionIndexModule =>
       "invalid-type-name-section-index-module"
+    InvalidFieldNameSectionIndexModule =>
+      "invalid-field-name-section-index-module"
     InvalidElemNameSectionIndexModule =>
       "invalid-elem-name-section-index-module"
     InvalidDataNameSectionIndexModule =>
@@ -549,6 +552,12 @@ pub fn validate_invalid_binary_registry() -> Array[
       ValidateRejected("name"),
     ),
     validate_invalid_binary_strategy_spec(
+      InvalidFieldNameSectionIndexModule,
+      "invalid-field-name-section-index-module",
+      "encoded module with out-of-range field name index",
+      ValidateRejected("name"),
+    ),
+    validate_invalid_binary_strategy_spec(
       InvalidElemNameSectionIndexModule,
       "invalid-elem-name-section-index-module",
       "encoded module with out-of-range elem name index",
@@ -650,16 +659,17 @@ fn validate_invalid_binary_strategy_index(
     ReservedSectionId => 19
     InvalidCustomSectionNameUtf8 => 20
     InvalidTypeNameSectionIndexModule => 21
-    InvalidElemNameSectionIndexModule => 22
-    InvalidDataNameSectionIndexModule => 23
-    InvalidExportTableIndexModule => 24
-    InvalidExportGlobalIndexModule => 25
-    InvalidExportMemoryIndexModule => 26
-    InvalidExportTagIndexModule => 27
-    InvalidTagNameSectionIndexModule => 28
-    InvalidImportedTagTypeIndexModule => 29
-    DataCountMismatchTooSmallModule => 30
-    DataCountMismatchTooLargeModule => 31
+    InvalidFieldNameSectionIndexModule => 22
+    InvalidElemNameSectionIndexModule => 23
+    InvalidDataNameSectionIndexModule => 24
+    InvalidExportTableIndexModule => 25
+    InvalidExportGlobalIndexModule => 26
+    InvalidExportMemoryIndexModule => 27
+    InvalidExportTagIndexModule => 28
+    InvalidTagNameSectionIndexModule => 29
+    InvalidImportedTagTypeIndexModule => 30
+    DataCountMismatchTooSmallModule => 31
+    DataCountMismatchTooLargeModule => 32
   }
 }
 
@@ -681,9 +691,9 @@ pub fn validate_invalid_binary_run_config(
     profile.trim().to_string(),
   )
   let attempts = match normalized {
-    "smoke" => 32
-    "ci" => 320
-    "stress" => 3200
+    "smoke" => 33
+    "ci" => 330
+    "stress" => 3300
     _ =>
       return Err(
         "unknown validate-invalid-binary fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1485,6 +1495,21 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidTypeNameSectionIndexModule,
+        ast_strategy,
+        "name",
+        base,
+      )
+    }
+    InvalidFieldNameSectionIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-field-name-section-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidFieldNameSectionIndexModule,
         ast_strategy,
         "name",
         base,

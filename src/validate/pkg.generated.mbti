@@ -447,6 +447,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidTableNameSectionIndex
   InvalidGlobalNameSectionIndex
   InvalidTypeNameSectionIndex
+  InvalidFieldNameSectionIndex
   InvalidElemNameSectionIndex
   InvalidDataNameSectionIndex
   InvalidExportTableIndex

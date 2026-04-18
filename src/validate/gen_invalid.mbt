@@ -189,6 +189,7 @@ fn gen_invalid_ast_strategy_label(
     InvalidTableNameSectionIndex => "invalid-table-name-section-index"
     InvalidGlobalNameSectionIndex => "invalid-global-name-section-index"
     InvalidTypeNameSectionIndex => "invalid-type-name-section-index"
+    InvalidFieldNameSectionIndex => "invalid-field-name-section-index"
     InvalidElemNameSectionIndex => "invalid-elem-name-section-index"
     InvalidDataNameSectionIndex => "invalid-data-name-section-index"
     InvalidExportTableIndex => "invalid-export-table-index"

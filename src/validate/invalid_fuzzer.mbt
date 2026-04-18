@@ -92,6 +92,7 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidTableNameSectionIndex
   InvalidGlobalNameSectionIndex
   InvalidTypeNameSectionIndex
+  InvalidFieldNameSectionIndex
   InvalidElemNameSectionIndex
   InvalidDataNameSectionIndex
   InvalidExportTableIndex
@@ -360,6 +361,13 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       required_in_smoke=false,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidFieldNameSectionIndex,
+      "invalid-field-name-section-index",
+      "invalid field name index",
+      NameSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidElemNameSectionIndex,
       "invalid-elem-name-section-index",
       "invalid elem name index",
@@ -471,15 +479,16 @@ fn validate_invalid_ast_strategy_index(
     InvalidTableNameSectionIndex => 26
     InvalidGlobalNameSectionIndex => 27
     InvalidTypeNameSectionIndex => 28
-    InvalidElemNameSectionIndex => 29
-    InvalidDataNameSectionIndex => 30
-    InvalidExportTableIndex => 31
-    InvalidExportGlobalIndex => 32
-    InvalidExportMemoryIndex => 33
-    InvalidExportTagIndex => 34
-    InvalidTagNameSectionIndex => 35
-    DataCountMismatchTooSmall => 36
-    DataCountMismatchTooLarge => 37
+    InvalidFieldNameSectionIndex => 29
+    InvalidElemNameSectionIndex => 30
+    InvalidDataNameSectionIndex => 31
+    InvalidExportTableIndex => 32
+    InvalidExportGlobalIndex => 33
+    InvalidExportMemoryIndex => 34
+    InvalidExportTagIndex => 35
+    InvalidTagNameSectionIndex => 36
+    DataCountMismatchTooSmall => 37
+    DataCountMismatchTooLarge => 38
   }
 }
 
@@ -499,9 +508,9 @@ pub fn validate_invalid_ast_run_config(
 ) -> Result[ValidateInvalidAstRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 38
-    "ci" => 380
-    "stress" => 3800
+    "smoke" => 39
+    "ci" => 390
+    "stress" => 3900
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1037,6 +1046,32 @@ fn validate_invalid_ast_with_type_names(
 }
 
 ///|
+fn validate_invalid_ast_with_field_names(
+  mod : Module,
+  field_names : IndirectNameMap,
+) -> Module {
+  let next_name_sec = match mod.name_sec {
+    Some(name_sec) =>
+      NameSec::new(
+        module_name=name_sec.module_name,
+        func_names=name_sec.func_names,
+        local_names=name_sec.local_names,
+        label_names=name_sec.label_names,
+        type_names=name_sec.type_names,
+        table_names=name_sec.table_names,
+        memory_names=name_sec.memory_names,
+        global_names=name_sec.global_names,
+        elem_names=name_sec.elem_names,
+        data_names=name_sec.data_names,
+        field_names=Some(field_names),
+        tag_names=name_sec.tag_names,
+      )
+    None => NameSec::new(field_names=Some(field_names))
+  }
+  mod.with_name_sec(next_name_sec)
+}
+
+///|
 fn validate_invalid_ast_with_elem_names(
   mod : Module,
   elem_names : NameMap,
@@ -1547,6 +1582,33 @@ fn validate_invalid_ast_mutate_invalid_type_name_section_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_field_name_section_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  ignore(mod)
+  let struct_type = RecType::new(
+    SubType::comp_type(
+      CompType::struct_([
+        FieldType::new(StorageType::val_type(ValType::i32()), Const),
+      ]),
+    ),
+  )
+  let base = Module::new().with_type_sec(TypeSec::new([struct_type]))
+  let field_names = IndirectNameMap::new([
+    IndirectNameAssoc::new(
+      0U,
+      NameMap::new([NameAssoc::new(1U, Name::new("field"))]),
+    ),
+  ])
+  {
+    strategy: InvalidFieldNameSectionIndex,
+    applicable: true,
+    expected_family: NameSectionFamily,
+    mutated_module: validate_invalid_ast_with_field_names(base, field_names),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_elem_name_section_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -1956,6 +2018,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_invalid_global_name_section_index(base)
       InvalidTypeNameSectionIndex =>
         validate_invalid_ast_mutate_invalid_type_name_section_index(base)
+      InvalidFieldNameSectionIndex =>
+        validate_invalid_ast_mutate_invalid_field_name_section_index(base)
       InvalidElemNameSectionIndex =>
         validate_invalid_ast_mutate_invalid_elem_name_section_index(base)
       InvalidDataNameSectionIndex =>
@@ -2212,10 +2276,10 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-tag-type-index", "descriptor-on-func-type", "datacount-without-data-sec",
     "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
     "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   assert_eq(smoke_required.length(), 16)
@@ -2644,6 +2708,19 @@ test "invalid type name index strategy rejects with NameSection family" {
 }
 
 ///|
+test "invalid field name index strategy rejects with NameSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidFieldNameSectionIndex,
+      0x5f041UL,
+      NameSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "invalid elem name index strategy rejects with NameSection family" {
   match
     invalid_ast_expect_strategy_rejects_with_family(
@@ -2799,7 +2876,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 38)
+  assert_eq(first.attempts, 39)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)

@@ -12,6 +12,8 @@ test "validate_invalid_text_registry exposes curated stage-aware strategies" {
     "malformed-invalid-i32-bad-opcode", "invalid-imported-start-func-param-result",
     "unlinkable-incompatible-global-import-mutability", "malformed-invalid-f32-bad-opcode",
     "invalid-imported-start-func-multi-param", "unlinkable-incompatible-global-import-i64",
+    "malformed-invalid-i64-bad-opcode", "invalid-imported-start-func-f32-param",
+    "unlinkable-incompatible-global-import-f64",
   ])
   assert_eq(
     registry.map(fn(spec) {
@@ -24,11 +26,12 @@ test "validate_invalid_text_registry exposes curated stage-aware strategies" {
       "parse-or-lower-rejected", "validate-rejected", "valid-before-link", "parse-or-lower-rejected",
       "validate-rejected", "valid-before-link", "parse-or-lower-rejected", "validate-rejected",
       "valid-before-link", "parse-or-lower-rejected", "validate-rejected", "valid-before-link",
-      "parse-or-lower-rejected", "validate-rejected", "valid-before-link",
+      "parse-or-lower-rejected", "validate-rejected", "valid-before-link", "parse-or-lower-rejected",
+      "validate-rejected", "valid-before-link",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 27)
+  assert_eq(smoke_required.length(), 30)
 }
 
 ///|
@@ -44,6 +47,7 @@ test "validate_invalid_spec_seed_registry exposes curated malformed invalid and 
     "const-malformed-quote-7", "f32-invalid-type-mismatch-7", "imports-unlinkable-incompatible-import-type-5",
     "const-malformed-quote-8", "f32-invalid-type-mismatch-8", "imports-unlinkable-incompatible-import-type-6",
     "const-malformed-quote-9", "f32-invalid-type-mismatch-9", "imports-unlinkable-incompatible-import-type-7",
+    "const-malformed-quote-10", "f32-invalid-type-mismatch-10", "imports-unlinkable-incompatible-import-type-8",
   ])
   assert_eq(
     registry.map(fn(spec) {
@@ -56,11 +60,12 @@ test "validate_invalid_spec_seed_registry exposes curated malformed invalid and 
       "parse-or-lower-rejected", "validate-rejected", "valid-before-link", "parse-or-lower-rejected",
       "validate-rejected", "valid-before-link", "parse-or-lower-rejected", "validate-rejected",
       "valid-before-link", "parse-or-lower-rejected", "validate-rejected", "valid-before-link",
-      "parse-or-lower-rejected", "validate-rejected", "valid-before-link",
+      "parse-or-lower-rejected", "validate-rejected", "valid-before-link", "parse-or-lower-rejected",
+      "validate-rejected", "valid-before-link",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 27)
+  assert_eq(smoke_required.length(), 30)
 }
 
 ///|
@@ -337,6 +342,39 @@ test "inline incompatible global import i64 strategy stays valid before link" {
   match
     run_validate_invalid_text_case_by_stable_id(
       "unlinkable-incompatible-global-import-i64",
+    ) {
+    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "inline malformed invalid i64 bad opcode strategy rejects during parse or lower" {
+  match
+    run_validate_invalid_text_case_by_stable_id(
+      "malformed-invalid-i64-bad-opcode",
+    ) {
+    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "inline invalid imported start func f32 param strategy rejects during validation" {
+  match
+    run_validate_invalid_text_case_by_stable_id(
+      "invalid-imported-start-func-f32-param",
+    ) {
+    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "inline incompatible global import f64 strategy stays valid before link" {
+  match
+    run_validate_invalid_text_case_by_stable_id(
+      "unlinkable-incompatible-global-import-f64",
     ) {
     Ok(stage) => assert_eq(stage, "valid-before-link")
     Err(msg) => fail(msg)
@@ -623,6 +661,37 @@ test "seventh incompatible import type spec-seed case stays valid before link" {
 }
 
 ///|
+test "tenth spec-seed malformed case rejects during parse or lower" {
+  match
+    run_validate_invalid_spec_seed_case_by_stable_id("const-malformed-quote-10") {
+    Ok(stage) => assert_eq(stage, "parse-or-lower-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "tenth spec-seed invalid case rejects during validation" {
+  match
+    run_validate_invalid_spec_seed_case_by_stable_id(
+      "f32-invalid-type-mismatch-10",
+    ) {
+    Ok(stage) => assert_eq(stage, "validate-rejected")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "eighth incompatible import type spec-seed case stays valid before link" {
+  match
+    run_validate_invalid_spec_seed_case_by_stable_id(
+      "imports-unlinkable-incompatible-import-type-8",
+    ) {
+    Ok(stage) => assert_eq(stage, "valid-before-link")
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "run_validate_invalid_text_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_text_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
@@ -633,7 +702,7 @@ test "run_validate_invalid_text_fuzz returns deterministic fixed-seed strategy s
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 27)
+  assert_eq(first.attempts, 30)
   let mut saw_parse_or_lower = false
   let mut saw_validate = false
   let mut saw_valid_before_link = false
@@ -667,7 +736,7 @@ test "run_validate_invalid_spec_seed_fuzz returns deterministic fixed-seed seed 
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 27)
+  assert_eq(first.attempts, 30)
   let mut saw_parse_or_lower = false
   let mut saw_validate = false
   let mut saw_valid_before_link = false

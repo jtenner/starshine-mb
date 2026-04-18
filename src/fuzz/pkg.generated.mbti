@@ -290,6 +290,7 @@ pub enum ValidateInvalidBinaryStrategyId {
   ReservedSectionId
   InvalidCustomSectionNameUtf8
   InvalidTypeNameSectionIndexModule
+  InvalidFieldNameSectionIndexModule
   InvalidElemNameSectionIndexModule
   InvalidDataNameSectionIndexModule
   InvalidExportTableIndexModule
