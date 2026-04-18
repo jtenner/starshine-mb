@@ -15,7 +15,10 @@ using @lib {
 
 ///|
 using @validate {
+  type ValidateInvalidAstStrategyId,
   type ValidationIssueFamily,
+  apply_validate_invalid_ast_strategy,
+  validate_invalid_ast_strategy_by_stable_id,
   validation_error_diagnostic,
   validation_issue_family,
 }
@@ -33,6 +36,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   DuplicateTypeSection
   WrongSectionOrder
   InvalidFuncTypeIndex
+  InvalidStartSignatureModule
+  DuplicateExportNameModule
+  FuncSecWithoutCodeSecModule
+  DataCountWithoutDataSecModule
+  InvalidNameSectionFuncIndexModule
 } derive(Eq, Debug)
 
 ///|
@@ -303,6 +311,12 @@ fn validate_invalid_binary_strategy_label(
     DuplicateTypeSection => "duplicate-type-section"
     WrongSectionOrder => "wrong-section-order"
     InvalidFuncTypeIndex => "invalid-func-type-index"
+    InvalidStartSignatureModule => "invalid-start-signature-module"
+    DuplicateExportNameModule => "duplicate-export-name-module"
+    FuncSecWithoutCodeSecModule => "funcsec-without-codesec-module"
+    DataCountWithoutDataSecModule => "datacount-without-data-sec-module"
+    InvalidNameSectionFuncIndexModule =>
+      "invalid-name-section-func-index-module"
   }
 }
 
@@ -316,6 +330,10 @@ pub fn gen_invalid_binary_seed_config(
   let config = params.generator_config
   match params.strategy {
     InvalidFuncTypeIndex =>
+      @validate.gen_invalid_require_defined_func_gen_valid_config(config)
+    InvalidStartSignatureModule =>
+      @validate.gen_invalid_require_defined_func_gen_valid_config(config)
+    FuncSecWithoutCodeSecModule =>
       @validate.gen_invalid_require_defined_func_gen_valid_config(config)
     _ => config
   }
@@ -374,6 +392,36 @@ pub fn validate_invalid_binary_registry() -> Array[
       "function section type index out of range",
       ValidateRejected("function"),
     ),
+    validate_invalid_binary_strategy_spec(
+      InvalidStartSignatureModule,
+      "invalid-start-signature-module",
+      "encoded module with invalid start signature",
+      ValidateRejected("start"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      DuplicateExportNameModule,
+      "duplicate-export-name-module",
+      "encoded module with duplicate export names",
+      ValidateRejected("export"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      FuncSecWithoutCodeSecModule,
+      "funcsec-without-codesec-module",
+      "encoded module with function section but no code section",
+      ValidateRejected("code"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      DataCountWithoutDataSecModule,
+      "datacount-without-data-sec-module",
+      "encoded module with datacount but no data section",
+      ValidateRejected("datacount"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidNameSectionFuncIndexModule,
+      "invalid-name-section-func-index-module",
+      "encoded module with out-of-range function name index",
+      ValidateRejected("name"),
+    ),
   ]
 }
 
@@ -399,6 +447,11 @@ fn validate_invalid_binary_strategy_index(
     DuplicateTypeSection => 2
     WrongSectionOrder => 3
     InvalidFuncTypeIndex => 4
+    InvalidStartSignatureModule => 5
+    DuplicateExportNameModule => 6
+    FuncSecWithoutCodeSecModule => 7
+    DataCountWithoutDataSecModule => 8
+    InvalidNameSectionFuncIndexModule => 9
   }
 }
 
@@ -872,6 +925,41 @@ fn validate_invalid_binary_mutate_invalid_func_type_index(
 }
 
 ///|
+fn validate_invalid_binary_required_ast_strategy(
+  stable_id : String,
+) -> Result[ValidateInvalidAstStrategyId, String] {
+  match validate_invalid_ast_strategy_by_stable_id(stable_id) {
+    Some(spec) => Ok(spec.id)
+    None => Err("missing validate-invalid-ast strategy '\{stable_id}'")
+  }
+}
+
+///|
+fn validate_invalid_binary_mutate_encoded_invalid_ast_module(
+  binary_strategy : ValidateInvalidBinaryStrategyId,
+  ast_strategy : ValidateInvalidAstStrategyId,
+  expected_family : String,
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let mutation = match apply_validate_invalid_ast_strategy(ast_strategy, mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let mutated_bytes = match encode_module(mutation.mutated_module) {
+    Ok(v) => v
+    Err(msg) => return Err("\{msg}")
+  }
+  Ok(
+    validate_invalid_binary_mutation(
+      binary_strategy,
+      ValidateRejected(expected_family),
+      mutation.applicable,
+      mutated_bytes,
+    ),
+  )
+}
+
+///|
 pub fn apply_validate_invalid_binary_strategy(
   strategy : ValidateInvalidBinaryStrategyId,
   mod : Module,
@@ -892,6 +980,75 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_wrong_section_order(base)
     InvalidFuncTypeIndex =>
       validate_invalid_binary_mutate_invalid_func_type_index(base)
+    InvalidStartSignatureModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy("invalid-start-signature") {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidStartSignatureModule,
+        ast_strategy,
+        "start",
+        base,
+      )
+    }
+    DuplicateExportNameModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy("duplicate-export-name") {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        DuplicateExportNameModule,
+        ast_strategy,
+        "export",
+        base,
+      )
+    }
+    FuncSecWithoutCodeSecModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy("funcsec-without-codesec") {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        FuncSecWithoutCodeSecModule,
+        ast_strategy,
+        "code",
+        base,
+      )
+    }
+    DataCountWithoutDataSecModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "datacount-without-data-sec",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        DataCountWithoutDataSecModule,
+        ast_strategy,
+        "datacount",
+        base,
+      )
+    }
+    InvalidNameSectionFuncIndexModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-name-section-func-index",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidNameSectionFuncIndexModule,
+        ast_strategy,
+        "name",
+        base,
+      )
+    }
   }
 }
 

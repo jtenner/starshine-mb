@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record wider text and spec-seed fixture coverage
+
+- Reviewed the already-modified text invalid sources `src/fuzz/invalid_text.mbt` and `src/fuzz/invalid_text_wbtest.mbt` to capture the next fixture-breadth step: the inline text lane now has multiple malformed, invalid, and unlinkable fixtures instead of just one of each, and the spec-seed lane now carries second malformed/invalid/unlinkable assertions from the committed spec corpus.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the deeper malformed/invalid/unlinkable text fixture set rather than treating the text/spec lanes as single-example smoke probes.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
+## [2026-04-18] maintain | record wider binary invalid strategy coverage
+
+- Reviewed the already-modified binary invalid sources `src/fuzz/invalid_binary.mbt` and `src/fuzz/invalid_binary_wbtest.mbt` to capture the next release-hardening step: the binary invalid lane now includes validator-rejected encoded modules for start, export, code, datacount, and name failures in addition to the earlier decode-stage corruptions and function-section type-index corruption.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the binary lane as a mixed strategy set with both raw byte corruptions and encoded invalid-module fixtures, and they narrow the remaining binary gap to additional corruption families and more validator-rejected section families.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record full AST validator-family coverage
 
 - Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture the latest widening step: the AST invalid lane now also reaches element-section, memory-section, tag-section, type-section, and datacount-section failures, and the checked-in registry test now locks that every current `ValidationIssueFamily` has at least one deterministic AST invalid strategy.

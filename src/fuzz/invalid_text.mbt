@@ -242,6 +242,9 @@ pub enum ValidateInvalidTextStrategyId {
   MalformedQuoteMissingParen
   InvalidResultStack
   UnlinkableUnknownImport
+  MalformedTrailingGarbage
+  InvalidMutableGlobalConstInit
+  UnlinkableUnknownMemoryImport
 } derive(Eq, Debug)
 
 ///|
@@ -324,6 +327,24 @@ pub fn validate_invalid_text_registry() -> Array[
       "valid text module that should remain unlinkable",
       ValidBeforeLinkStage,
     ),
+    validate_invalid_text_strategy_spec(
+      MalformedTrailingGarbage,
+      "malformed-trailing-garbage",
+      "malformed text with trailing garbage after a module",
+      ParseOrLowerRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      InvalidMutableGlobalConstInit,
+      "invalid-mutable-global-const-init",
+      "invalid mutable global.get in const initializer",
+      ValidateRejectedStage,
+    ),
+    validate_invalid_text_strategy_spec(
+      UnlinkableUnknownMemoryImport,
+      "unlinkable-unknown-memory-import",
+      "valid text module with unknown memory import",
+      ValidBeforeLinkStage,
+    ),
   ]
 }
 
@@ -335,6 +356,9 @@ fn validate_invalid_text_strategy_index(
     MalformedQuoteMissingParen => 0
     InvalidResultStack => 1
     UnlinkableUnknownImport => 2
+    MalformedTrailingGarbage => 3
+    InvalidMutableGlobalConstInit => 4
+    UnlinkableUnknownMemoryImport => 5
   }
 }
 
@@ -402,6 +426,24 @@ fn validate_invalid_text_strategy_source(
       (
         "inline-text-invalid/unlinkable-unknown-import.wast",
         "(assert_unlinkable (module (import \"env\" \"f\" (func))) \"unknown import\")",
+        UnlinkableTextAssertion,
+      )
+    MalformedTrailingGarbage =>
+      (
+        "inline-text-invalid/malformed-trailing-garbage.wast",
+        "(assert_malformed (module quote \"(module garbage)\") \"unexpected token\")",
+        MalformedTextAssertion,
+      )
+    InvalidMutableGlobalConstInit =>
+      (
+        "inline-text-invalid/invalid-mutable-global-const-init.wast",
+        "(assert_invalid (module (import \"env\" \"g\" (global (mut i32))) (global i32 (global.get 0))) \"constant\")",
+        InvalidTextAssertion,
+      )
+    UnlinkableUnknownMemoryImport =>
+      (
+        "inline-text-invalid/unlinkable-unknown-memory-import.wast",
+        "(assert_unlinkable (module (import \"env\" \"mem\" (memory 1))) \"unknown import\")",
         UnlinkableTextAssertion,
       )
   }
@@ -620,6 +662,9 @@ pub enum ValidateInvalidSpecSeedId {
   ConstMalformedQuote1
   F32InvalidTypeMismatch1
   ImportsUnlinkableUnknownImport1
+  ConstMalformedQuote2
+  F32InvalidTypeMismatch2
+  ImportsUnlinkableUnknownImport2
 } derive(Eq, Debug)
 
 ///|
@@ -721,6 +766,33 @@ pub fn validate_invalid_spec_seed_registry() -> Array[
       0,
       ValidBeforeLinkStage,
     ),
+    validate_invalid_spec_seed_spec(
+      ConstMalformedQuote2,
+      "const-malformed-quote-2",
+      "tests/spec const.wast second malformed quote assertion",
+      "tests/spec/const.wast",
+      MalformedTextAssertion,
+      1,
+      ParseOrLowerRejectedStage,
+    ),
+    validate_invalid_spec_seed_spec(
+      F32InvalidTypeMismatch2,
+      "f32-invalid-type-mismatch-2",
+      "tests/spec f32.wast second invalid type-mismatch assertion",
+      "tests/spec/f32.wast",
+      InvalidTextAssertion,
+      1,
+      ValidateRejectedStage,
+    ),
+    validate_invalid_spec_seed_spec(
+      ImportsUnlinkableUnknownImport2,
+      "imports-unlinkable-unknown-import-2",
+      "tests/spec imports.wast second unlinkable unknown-import assertion",
+      "tests/spec/imports.wast",
+      UnlinkableTextAssertion,
+      1,
+      ValidBeforeLinkStage,
+    ),
   ]
 }
 
@@ -742,6 +814,9 @@ fn validate_invalid_spec_seed_index(id : ValidateInvalidSpecSeedId) -> Int {
     ConstMalformedQuote1 => 0
     F32InvalidTypeMismatch1 => 1
     ImportsUnlinkableUnknownImport1 => 2
+    ConstMalformedQuote2 => 3
+    F32InvalidTypeMismatch2 => 4
+    ImportsUnlinkableUnknownImport2 => 5
   }
 }
 

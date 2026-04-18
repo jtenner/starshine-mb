@@ -44,16 +44,20 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
   let registry = validate_invalid_binary_registry()
   assert_eq(registry.map(fn(spec) { spec.stable_id }), [
     "trailing-garbage", "truncated-module", "duplicate-type-section", "wrong-section-order",
-    "invalid-func-type-index",
+    "invalid-func-type-index", "invalid-start-signature-module", "duplicate-export-name-module",
+    "funcsec-without-codesec-module", "datacount-without-data-sec-module", "invalid-name-section-func-index-module",
   ])
   assert_eq(
     registry.map(fn(spec) {
       invalid_binary_test_expected_label(spec.expected_result)
     }),
-    ["decode", "decode", "decode", "decode", "validate-function"],
+    [
+      "decode", "decode", "decode", "decode", "validate-function", "validate-start",
+      "validate-export", "validate-code", "validate-datacount", "validate-name",
+    ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 5)
+  assert_eq(smoke_required.length(), 10)
 }
 
 ///|
@@ -146,6 +150,61 @@ test "invalid func type index binary strategy rejects at validate stage" {
 }
 
 ///|
+test "invalid start signature binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-start-signature-module", 0x5ef4UL, "start",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "duplicate export binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "duplicate-export-name-module", 0x5ef5UL, "export",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "funcsec without codesec binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "funcsec-without-codesec-module", 0x5ef6UL, "code",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "datacount without data section binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "datacount-without-data-sec-module", 0x5ef7UL, "datacount",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid name-section func index binary strategy rejects at validate stage" {
+  match
+    invalid_binary_expect_strategy_rejects(
+      "invalid-name-section-func-index-module", 0x5ef8UL, "name",
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy stats" {
   let first = match run_validate_invalid_binary_fuzz("smoke", 0x5eedUL) {
     Ok(v) => v
@@ -210,6 +269,35 @@ test "gen_invalid_binary_generate returns valid base and validator-rejected byte
           assert_eq(
             invalid_binary_test_validation_family_label(family),
             "function",
+          )
+        }
+      }
+  }
+}
+
+///|
+test "gen_invalid_binary_generate supports start-section invalid modules" {
+  let generated = match
+    gen_invalid_binary_generate(
+      @splitmix.new(seed=0x5eedUL),
+      GenInvalidBinaryParams::repro_seed(InvalidStartSignatureModule),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match decode_module(generated.mutation.mutated_bytes) {
+    Err(msg) => fail("expected start invalid bytes to decode first: \{msg}")
+    Ok(decoded) =>
+      match validate_module(decoded) {
+        Ok(_) =>
+          fail("expected decoded start-invalid binary to fail validation")
+        Err(err) => {
+          let family = validation_issue_family(
+            validation_error_diagnostic(err).issue,
+          )
+          assert_eq(
+            invalid_binary_test_validation_family_label(family),
+            "start",
           )
         }
       }

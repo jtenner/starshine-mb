@@ -273,6 +273,11 @@ pub enum ValidateInvalidBinaryStrategyId {
   DuplicateTypeSection
   WrongSectionOrder
   InvalidFuncTypeIndex
+  InvalidStartSignatureModule
+  DuplicateExportNameModule
+  FuncSecWithoutCodeSecModule
+  DataCountWithoutDataSecModule
+  InvalidNameSectionFuncIndexModule
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
@@ -309,6 +314,9 @@ pub enum ValidateInvalidSpecSeedId {
   ConstMalformedQuote1
   F32InvalidTypeMismatch1
   ImportsUnlinkableUnknownImport1
+  ConstMalformedQuote2
+  F32InvalidTypeMismatch2
+  ImportsUnlinkableUnknownImport2
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidSpecSeedRunConfig {
@@ -372,6 +380,9 @@ pub enum ValidateInvalidTextStrategyId {
   MalformedQuoteMissingParen
   InvalidResultStack
   UnlinkableUnknownImport
+  MalformedTrailingGarbage
+  InvalidMutableGlobalConstInit
+  UnlinkableUnknownMemoryImport
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidTextStrategySpec {

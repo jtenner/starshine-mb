@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-04-18 Fix: widen inline text and spec-seed invalid fixture coverage
+
+- **add more inline text and spec-seed invalid fixtures across malformed, invalid, and unlinkable stages** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_text.mbt`](./src/fuzz/invalid_text.mbt), and [`src/fuzz/invalid_text_wbtest.mbt`](./src/fuzz/invalid_text_wbtest.mbt) so the text lanes now cover extra malformed trailing-garbage, mutable-global const-init, and unknown-memory-import cases plus second malformed/invalid/unlinkable spec-seed assertions from the committed spec corpus. Verification for this slice: `moon test src/fuzz`.
+
+## 2026-04-18 Fix: widen binary invalid-module coverage with validator-rejected module encodings
+
+- **add new binary invalid strategies that encode deterministic invalid AST mutations into replayable wasm bytes** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), and [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt) so the binary invalid lane now also covers `invalid-start-signature-module`, `duplicate-export-name-module`, `funcsec-without-codesec-module`, `datacount-without-data-sec-module`, and `invalid-name-section-func-index-module` in addition to the older decode-stage corruptions and function-section type-index corruption. Verification for this slice: `moon test src/fuzz`.
+
 ## 2026-04-18 Fix: land full AST validator-family coverage in invalid fuzzing
 
 - **add new AST invalid mutation strategies for element, memory, tag, type, and datacount validator families and lock full family coverage with a registry-level test** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), and [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt) so the AST invalid lane now also covers `non-constant-elem-offset`, `shared-memory-without-max`, `invalid-tag-type-index`, `descriptor-on-func-type`, and `datacount-without-data-sec`. With the earlier widening work, the curated AST invalid registry now reaches every `ValidationIssueFamily` exposed by the validator. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate`, and `moon info`.
