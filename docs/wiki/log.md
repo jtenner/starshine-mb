@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record README typo in Binaryen pass-name evidence ladder
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after another non-GitHub Binaryen source sweep because the bundled Binaryen README overview mirrored through `wasm-opt-sys` currently misspells `RemoveUnusedBrs` as `RemoveUnsedBrs`.
+- Tightened the source-of-truth guidance accordingly: keep using the Debian `wasm-opt` manpage and Chromium-hosted release-note trail as stronger public spelling evidence, and treat the README overview as broad context rather than a canonical pass-name oracle.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the wording refresh.
+
 ## [2026-04-18] maintain | correct docs.rs heap-store terminology caveat
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/heap-store-optimization/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after a fresh non-GitHub source check because the published `wasm_opt::Pass` enum page does **not** currently expose `HeapStoreOptimization`, even though the Debian experimental `wasm-opt` `122` manpage still lists `--heap-store-optimization`.
