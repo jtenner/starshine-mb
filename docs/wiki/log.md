@@ -2,6 +2,19 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record compact default seeds for AST/binary report builders
+
+- Reviewed the already-modified shared repro files `src/fuzz/invalid_repro.mbt` and `src/fuzz/invalid_repro_wbtest.mbt` to capture the next durable behavior refinement after adding the compact random seed helpers: the default AST and binary stable-id report builders now route through `small_coverage_forced_seed(...)` instead of the larger full coverage-forced constructors.
+- Updated `docs/wiki/validate/fuzz-hardening.md` so the living validator-fuzz summary now states that persisted AST/binary seed artifacts are intentionally compact by default, while callers can still request the larger explicit `coverage_forced_seed(...)` path when they want it.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
+## [2026-04-18] maintain | correct Binaryen upstream-only pass chronology from official source files
+
+- Rechecked Binaryen against stronger official primary sources than the older package-surface and release-summary wording this wiki had been leaning on: the official raw `CHANGELOG.md` plus the current `main` `src/passes/pass.cpp` registry on GitHub.
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` to correct several stale chronology claims at once: `--minimize-rec-groups` is already called out by `version_117`; `version_119` adds `--remove-unused-types`, `--string-lowering`, and `TypeRefiningGUFA`; `version_125` adds `ReorderTypes` plus `--strip-target-features`; and `version_126` adds `--remove-relaxed-simd`. The older wiki wording that mentioned `string-lifting` or `--strip-toolchain-annotations`, or dated some of those additions later, has now been retired explicitly instead of being silently overwritten.
+- Filed the current `main` pass-registry check back into the living late-pass docs as a stronger source-of-truth layer for present-day naming: the source-level registry still carries the wiki's late-pass names and the newer upstream-only names `minimize-rec-groups`, `remove-unused-types`, `reorder-types`, `remove-relaxed-simd`, `string-lowering`, `type-refining-gufa`, and `strip-target-features`.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the chronology repair.
+
 ## [2026-04-18] maintain | record compact random `gen_invalid` seed helpers
 
 - Reviewed the already-modified invalid-generation files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_binary_wbtest.mbt` to capture the next durable API refinement after the named natural/coverage-forced/minimal helpers: both the validate and fuzz package surfaces now also expose `small_natural_seed(...)` and `small_coverage_forced_seed(...)` entrypoints for callers that still want random valid seeds but prefer smaller repro-oriented modules.

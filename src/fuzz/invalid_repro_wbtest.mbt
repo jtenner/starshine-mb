@@ -259,6 +259,40 @@ test "build_invalid_fuzz_binary_failure_report_by_stable_id supports minimal val
 }
 
 ///|
+test "default AST invalid report builder uses a compact coverage seed" {
+  let spec = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(
+      "duplicate-export-name",
+    ) {
+    Some(v) => v
+    None => fail("missing AST invalid strategy")
+  }
+  let compact = match
+    build_invalid_fuzz_ast_failure_report_by_stable_id(
+      "duplicate-export-name", 0x5eedUL, 11,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let full = match
+    build_invalid_fuzz_ast_failure_report_by_stable_id(
+      "duplicate-export-name",
+      0x5eedUL,
+      11,
+      params=Some(@validate.GenInvalidAstParams::coverage_forced_seed(spec.id)),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(compact.actual_stage, "validate-rejected")
+  assert_eq(compact.actual_diagnostic_family, Some("export"))
+  assert_eq(compact.artifacts.length(), 2)
+  assert_true(
+    compact.artifacts[1].bytes.length() < full.artifacts[1].bytes.length(),
+  )
+}
+
+///|
 test "build_invalid_fuzz_ast_failure_report_by_stable_id supports natural seeds" {
   let spec = match
     @validate.validate_invalid_ast_strategy_by_stable_id(
@@ -271,7 +305,7 @@ test "build_invalid_fuzz_ast_failure_report_by_stable_id supports natural seeds"
     build_invalid_fuzz_ast_failure_report_by_stable_id(
       "duplicate-export-name",
       0x5eedUL,
-      11,
+      12,
       params=Some(@validate.GenInvalidAstParams::natural_seed(spec.id)),
     ) {
     Ok(v) => v
@@ -280,6 +314,38 @@ test "build_invalid_fuzz_ast_failure_report_by_stable_id supports natural seeds"
   assert_eq(report.actual_stage, "validate-rejected")
   assert_eq(report.actual_diagnostic_family, Some("export"))
   assert_eq(report.artifacts.length(), 2)
+}
+
+///|
+test "default binary invalid report builder uses a compact coverage seed" {
+  let spec = match
+    validate_invalid_binary_strategy_by_stable_id("invalid-func-type-index") {
+    Some(v) => v
+    None => fail("missing binary invalid strategy")
+  }
+  let compact = match
+    build_invalid_fuzz_binary_failure_report_by_stable_id(
+      "invalid-func-type-index", 0x5eedUL, 13,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let full = match
+    build_invalid_fuzz_binary_failure_report_by_stable_id(
+      "invalid-func-type-index",
+      0x5eedUL,
+      13,
+      params=Some(GenInvalidBinaryParams::coverage_forced_seed(spec.id)),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(compact.actual_stage, "validate-rejected")
+  assert_eq(compact.actual_diagnostic_family, Some("function"))
+  assert_eq(compact.artifacts.length(), 2)
+  assert_true(
+    compact.artifacts[1].bytes.length() < full.artifacts[1].bytes.length(),
+  )
 }
 
 ///|
@@ -293,7 +359,7 @@ test "build_invalid_fuzz_binary_failure_report_by_stable_id supports coverage-fo
     build_invalid_fuzz_binary_failure_report_by_stable_id(
       "invalid-func-type-index",
       0x5eedUL,
-      12,
+      14,
       params=Some(GenInvalidBinaryParams::coverage_forced_seed(spec.id)),
     ) {
     Ok(v) => v

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: default AST/binary invalid report builders to compact coverage seeds
+
+- **make AST and binary stable-id invalid report builders default through the smaller coverage-forced seed helpers** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), and [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt) so shared repro/report helpers now prefer `small_coverage_forced_seed(...)` by default instead of the larger coverage-forced constructor. The new wbtests lock that the default AST and binary builders now emit smaller seed artifacts than the explicit full coverage-forced path while preserving the same rejection-family outcomes. Verification for this slice: `moon test src/fuzz` and `moon fmt src/fuzz`.
+
 ## 2026-04-18 Fix: add compact random seed variants to `gen_invalid`
 
 - **add smaller-but-still-random seed helpers for AST and binary invalid generation** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), and [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt) so callers now have `small_natural_seed(...)` and `small_coverage_forced_seed(...)` helpers beside the existing named natural, coverage-forced, and minimal seed builders. The new helpers keep random valid seeding but shrink module/body limits to produce smaller repro-friendly modules, and the new tests lock both the config shrinking behavior and a real small-seed invalid-binary generation path. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate src/fuzz`, and `moon info`.
