@@ -37,12 +37,28 @@ pub fn invalid_fuzz_spec_seed_source_kind() -> InvalidFuzzSourceKind {
 }
 
 ///|
+pub fn invalid_fuzz_suite_name_for_source_kind(
+  kind : InvalidFuzzSourceKind,
+) -> String {
+  match kind {
+    AstInvalidSource => "validate-invalid-ast"
+    BinaryInvalidSource => "validate-invalid-binary"
+    TextInvalidSource => "validate-invalid-text"
+    SpecSeedInvalidSource => "validate-invalid-spec-seed"
+  }
+}
+
+///|
 fn invalid_fuzz_source_kind_from_name(name : String) -> InvalidFuzzSourceKind? {
   match name {
     "ast" => Some(AstInvalidSource)
+    "validate-invalid-ast" => Some(AstInvalidSource)
     "binary" => Some(BinaryInvalidSource)
+    "validate-invalid-binary" => Some(BinaryInvalidSource)
     "text" => Some(TextInvalidSource)
+    "validate-invalid-text" => Some(TextInvalidSource)
     "spec-seed" => Some(SpecSeedInvalidSource)
+    "validate-invalid-spec-seed" => Some(SpecSeedInvalidSource)
     _ => None
   }
 }
@@ -238,6 +254,19 @@ fn invalid_fuzz_join(values : Array[String], sep : String) -> String {
     }
     out.write_string(values[i])
     i += 1
+  }
+  out.to_string()
+}
+
+///|
+fn invalid_fuzz_ascii_lower(input : String) -> String {
+  let out = StringBuilder::new()
+  for c in input {
+    if c >= 'A' && c <= 'Z' {
+      out.write_char((c.to_int() + 32).unsafe_to_char())
+    } else {
+      out.write_char(c)
+    }
   }
   out.to_string()
 }
@@ -677,6 +706,51 @@ fn invalid_fuzz_report_outcome_matches(
     return false
   }
   replay.diagnostic_family == expected_diagnostic_family
+}
+
+///|
+pub fn build_invalid_fuzz_failure_report_by_suite_and_stable_id(
+  suite : String,
+  strategy_id : String,
+  seed : UInt64,
+  attempt : Int,
+  profile? : String = "smoke",
+) -> Result[InvalidFuzzFailureReport, String] {
+  let normalized = invalid_fuzz_ascii_lower(suite.trim().to_string())
+  let source_kind = match invalid_fuzz_source_kind_from_name(normalized) {
+    Some(v) => v
+    None => return Err("unknown invalid fuzz suite '\{suite}'")
+  }
+  match source_kind {
+    AstInvalidSource =>
+      build_invalid_fuzz_ast_failure_report_by_stable_id(
+        strategy_id,
+        seed,
+        attempt,
+        profile~,
+      )
+    BinaryInvalidSource =>
+      build_invalid_fuzz_binary_failure_report_by_stable_id(
+        strategy_id,
+        seed,
+        attempt,
+        profile~,
+      )
+    TextInvalidSource =>
+      build_invalid_fuzz_text_failure_report_by_stable_id(
+        strategy_id,
+        seed,
+        attempt,
+        profile~,
+      )
+    SpecSeedInvalidSource =>
+      build_invalid_fuzz_spec_seed_failure_report_by_stable_id(
+        strategy_id,
+        seed,
+        attempt,
+        profile~,
+      )
+  }
 }
 
 ///|

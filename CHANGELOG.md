@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: add a suite-dispatched invalid repro builder
+
+- **add a generic invalid repro builder that dispatches by suite/source kind aliases** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), and [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt) so callers can now build AST, binary, text, or spec-seed repro reports through one entrypoint, `build_invalid_fuzz_failure_report_by_suite_and_stable_id(...)`, using either full suite names like `validate-invalid-binary` or short aliases like `binary`. Verification for this slice: `moon test src/fuzz`.
+
 ## 2026-04-18 Fix: persist seed-profile metadata in invalid repro reports
 
 - **teach AST and binary invalid-generation params plus persisted repro reports to carry named seed-profile metadata** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), and [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt) so named seed helpers now preserve semantic profile identity (`natural`, `coverage-forced`, `small-natural`, `small-coverage-forced`, `repro`, `minimal`) instead of collapsing everything to bare config equality, and persisted AST/binary repro metadata now records `seed_profile`, `seed_mode`, and `seed_require_strategy_prereqs`. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate src/fuzz`, and `moon info`.

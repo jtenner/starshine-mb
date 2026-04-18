@@ -15,6 +15,8 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(String, UInt64, Int, p
 
 pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(String, UInt64, Int, profile? : String, params? : GenInvalidBinaryParams?) -> Result[InvalidFuzzFailureReport, String]
 
+pub fn build_invalid_fuzz_failure_report_by_suite_and_stable_id(String, String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
+
 pub fn build_invalid_fuzz_spec_seed_failure_report_by_stable_id(String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
 
 pub fn build_invalid_fuzz_text_failure_report_by_stable_id(String, UInt64, Int, profile? : String) -> Result[InvalidFuzzFailureReport, String]
@@ -39,7 +41,11 @@ pub fn fuzz_usage_text() -> String
 
 pub fn gen_invalid_binary_generate(@splitmix.RandomState, GenInvalidBinaryParams) -> Result[GenInvalidBinaryGenerated, String]
 
+pub fn gen_invalid_binary_params_profile_name(GenInvalidBinaryParams) -> String
+
 pub fn gen_invalid_binary_seed_config(GenInvalidBinaryParams) -> @validate.GenValidConfig
+
+pub fn gen_invalid_binary_seed_mode_name(GenInvalidBinarySeedMode) -> String
 
 pub fn gen_invalid_binary_seed_module(@splitmix.RandomState, GenInvalidBinaryParams) -> Result[@lib.Module, String]
 
@@ -50,6 +56,8 @@ pub fn invalid_fuzz_binary_source_kind() -> InvalidFuzzSourceKind
 pub fn invalid_fuzz_source_kind_name(InvalidFuzzSourceKind) -> String
 
 pub fn invalid_fuzz_spec_seed_source_kind() -> InvalidFuzzSourceKind
+
+pub fn invalid_fuzz_suite_name_for_source_kind(InvalidFuzzSourceKind) -> String
 
 pub fn invalid_fuzz_text_source_kind() -> InvalidFuzzSourceKind
 
@@ -154,6 +162,7 @@ pub struct GenInvalidBinaryGenerated {
 pub struct GenInvalidBinaryParams {
   strategy : ValidateInvalidBinaryStrategyId
   seed_mode : GenInvalidBinarySeedMode
+  seed_profile : String?
   generator_config : @validate.GenValidConfig
   require_strategy_prereqs : Bool
 } derive(Eq, @debug.Debug)
@@ -188,11 +197,14 @@ pub struct InvalidFuzzFailureReport {
   expected_diagnostic_family : String?
   actual_stage : String
   actual_diagnostic_family : String?
+  seed_profile : String?
+  seed_mode : String?
+  seed_require_strategy_prereqs : Bool?
   source_path : String?
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
 } derive(Eq, @debug.Debug)
-pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, source_path? : String?, artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact]) -> Self
+pub fn InvalidFuzzFailureReport::new(String, String, UInt64, Int, String, InvalidFuzzSourceKind, String, expected_diagnostic_family? : String?, actual_stage? : String, actual_diagnostic_family? : String?, seed_profile? : String?, seed_mode? : String?, seed_require_strategy_prereqs? : Bool?, source_path? : String?, artifacts? : Array[InvalidFuzzArtifact], reduced_artifacts? : Array[InvalidFuzzArtifact]) -> Self
 
 pub struct InvalidFuzzPersistIO {
   ensure_dir : (String) -> Result[Unit, String]

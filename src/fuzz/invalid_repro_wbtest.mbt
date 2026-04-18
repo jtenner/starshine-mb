@@ -533,6 +533,39 @@ test "build_invalid_fuzz_spec_seed_failure_report_by_stable_id preserves source 
 }
 
 ///|
+test "build_invalid_fuzz_failure_report_by_suite_and_stable_id accepts suite aliases" {
+  let ast = match
+    build_invalid_fuzz_failure_report_by_suite_and_stable_id(
+      "ast", "duplicate-export-name", 0x5eedUL, 41,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(ast.suite, "validate-invalid-ast")
+  assert_true(ast.source_kind == invalid_fuzz_ast_source_kind())
+  let binary = match
+    build_invalid_fuzz_failure_report_by_suite_and_stable_id(
+      "binary", "trailing-garbage", 0x5eedUL, 42,
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(binary.suite, "validate-invalid-binary")
+  assert_true(binary.source_kind == invalid_fuzz_binary_source_kind())
+}
+
+///|
+test "build_invalid_fuzz_failure_report_by_suite_and_stable_id rejects unknown suites" {
+  match
+    build_invalid_fuzz_failure_report_by_suite_and_stable_id(
+      "nope", "duplicate-export-name", 0x5eedUL, 43,
+    ) {
+    Ok(_) => fail("expected unknown suite error")
+    Err(msg) => assert_true(msg.contains("unknown invalid fuzz suite"))
+  }
+}
+
+///|
 test "replay_invalid_fuzz_failure_report prefers original artifact over later seed artifacts" {
   let report = match invalid_repro_test_original_binary_report() {
     Ok(v) => v
