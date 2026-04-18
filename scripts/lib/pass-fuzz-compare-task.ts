@@ -17,6 +17,8 @@ type GeneratorMode = "both" | "wasm-smith" | "gen-valid";
 type GeneratorKind = "wasm-smith" | "gen-valid";
 type CommandFailureClass =
   | "starshine-command-failed"
+  | "starshine-invalid-limits"
+  | "starshine-invalid-range-for-limits"
   | "binaryen-invalid-type-index"
   | "binaryen-invalid-tag-index"
   | "binaryen-rec-group-zero"
@@ -198,6 +200,8 @@ function normalizePassNameToFlag(raw: string): string {
 function normalizeCommandFailureClass(raw: string): CommandFailureClass {
   switch (raw.trim()) {
     case "starshine-command-failed":
+    case "starshine-invalid-limits":
+    case "starshine-invalid-range-for-limits":
     case "binaryen-invalid-type-index":
     case "binaryen-invalid-tag-index":
     case "binaryen-rec-group-zero":
@@ -286,6 +290,12 @@ function runStarshineWithRetry(
 
 function classifyCommandFailure(detail: string): CommandFailureClass {
   if (detail.startsWith("Starshine command failed:")) {
+    if (detail.includes("DecodeAt(InvalidLimits")) {
+      return "starshine-invalid-limits";
+    }
+    if (detail.includes("Invalid range for limits")) {
+      return "starshine-invalid-range-for-limits";
+    }
     return "starshine-command-failed";
   }
   if (detail.includes("invalid type index")) {
