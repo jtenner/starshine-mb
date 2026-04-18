@@ -25,6 +25,7 @@ type CommandFailureClass =
   | "binaryen-invalid-wasm-type-neg64"
   | "binaryen-initializer-expression-not-constant"
   | "binaryen-table-index-out-of-range"
+  | "binaryen-bad-section-size"
   | "binaryen-command-failed";
 
 type PassFuzzCompareOptions = {
@@ -210,6 +211,7 @@ function normalizeCommandFailureClass(raw: string): CommandFailureClass {
     case "binaryen-invalid-wasm-type-neg64":
     case "binaryen-initializer-expression-not-constant":
     case "binaryen-table-index-out-of-range":
+    case "binaryen-bad-section-size":
     case "binaryen-command-failed":
       return raw.trim();
     default:
@@ -319,6 +321,9 @@ function classifyCommandFailure(detail: string): CommandFailureClass {
   }
   if (detail.includes("Table index out of range.")) {
     return "binaryen-table-index-out-of-range";
+  }
+  if (detail.includes("bad section size")) {
+    return "binaryen-bad-section-size";
   }
   return "binaryen-command-failed";
 }
