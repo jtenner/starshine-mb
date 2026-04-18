@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | widen Binaryen upstream-only pass boundary notes
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after another non-GitHub Binaryen release-note pass so the living wiki now records that upstream-only pass additions visible in reachable primary sources start earlier than the previously tracked `version_126` pair: `--minimize-rec-groups` is already present by `version_119`, `--string-lifting` and `TypeRefiningGUFA` are present by `version_124`, and `--remove-relaxed-simd` / `--strip-toolchain-annotations` remain the newer `version_126` additions.
+- Kept the wording conservative and explicit about uncertainty: the repo still tracks Starshine's implemented pass subset, while this non-GitHub source sweep should be treated as a lower-bound public catalog rather than a full Binaryen pass-history audit.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the catalog refresh.
+
 ## [2026-04-18] maintain | record newer Precompute multibyte-array no-fold drift
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/precompute/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` after a fresh non-GitHub upstream check so the living wiki now records the 2026-03-26 Chromium-mirror `Precompute` follow-up for multibyte array access: current trunk intentionally keeps `array.load` in `NONCONSTANT_FLOW` instead of folding it like an ordinary constant read.
