@@ -39,6 +39,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidStartSignatureModule
   InvalidImportedStartFuncParamModule
   InvalidImportedStartFuncResultModule
+  InvalidImportedStartFuncParamResultModule
+  InvalidImportedStartFuncMultiParamModule
+  InvalidImportedStartFuncF32ParamModule
   DuplicateExportNameModule
   FuncSecWithoutCodeSecModule
   DataCountWithoutDataSecModule
@@ -339,6 +342,12 @@ fn validate_invalid_binary_strategy_label(
       "invalid-imported-start-func-param-module"
     InvalidImportedStartFuncResultModule =>
       "invalid-imported-start-func-result-module"
+    InvalidImportedStartFuncParamResultModule =>
+      "invalid-imported-start-func-param-result-module"
+    InvalidImportedStartFuncMultiParamModule =>
+      "invalid-imported-start-func-multi-param-module"
+    InvalidImportedStartFuncF32ParamModule =>
+      "invalid-imported-start-func-f32-param-module"
     DuplicateExportNameModule => "duplicate-export-name-module"
     FuncSecWithoutCodeSecModule => "funcsec-without-codesec-module"
     DataCountWithoutDataSecModule => "datacount-without-data-sec-module"
@@ -465,6 +474,24 @@ pub fn validate_invalid_binary_registry() -> Array[
       InvalidImportedStartFuncResultModule,
       "invalid-imported-start-func-result-module",
       "encoded module with invalid imported start-function result list",
+      ValidateRejected("start"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportedStartFuncParamResultModule,
+      "invalid-imported-start-func-param-result-module",
+      "encoded module with invalid imported start-function parameter and result list",
+      ValidateRejected("start"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportedStartFuncMultiParamModule,
+      "invalid-imported-start-func-multi-param-module",
+      "encoded module with invalid imported multi-parameter start function",
+      ValidateRejected("start"),
+    ),
+    validate_invalid_binary_strategy_spec(
+      InvalidImportedStartFuncF32ParamModule,
+      "invalid-imported-start-func-f32-param-module",
+      "encoded module with invalid imported f32-parameter start function",
       ValidateRejected("start"),
     ),
     validate_invalid_binary_strategy_spec(
@@ -645,31 +672,34 @@ fn validate_invalid_binary_strategy_index(
     InvalidStartSignatureModule => 5
     InvalidImportedStartFuncParamModule => 6
     InvalidImportedStartFuncResultModule => 7
-    DuplicateExportNameModule => 8
-    FuncSecWithoutCodeSecModule => 9
-    DataCountWithoutDataSecModule => 10
-    InvalidNameSectionFuncIndexModule => 11
-    InvalidLocalNameSectionIndexModule => 12
-    InvalidLabelNameSectionIndexModule => 13
-    BadMagicHeader => 14
-    BadVersionHeader => 15
-    CodeSecWithoutFuncSecModule => 16
-    InvalidTableNameSectionIndexModule => 17
-    InvalidGlobalNameSectionIndexModule => 18
-    ReservedSectionId => 19
-    InvalidCustomSectionNameUtf8 => 20
-    InvalidTypeNameSectionIndexModule => 21
-    InvalidFieldNameSectionIndexModule => 22
-    InvalidElemNameSectionIndexModule => 23
-    InvalidDataNameSectionIndexModule => 24
-    InvalidExportTableIndexModule => 25
-    InvalidExportGlobalIndexModule => 26
-    InvalidExportMemoryIndexModule => 27
-    InvalidExportTagIndexModule => 28
-    InvalidTagNameSectionIndexModule => 29
-    InvalidImportedTagTypeIndexModule => 30
-    DataCountMismatchTooSmallModule => 31
-    DataCountMismatchTooLargeModule => 32
+    InvalidImportedStartFuncParamResultModule => 8
+    InvalidImportedStartFuncMultiParamModule => 9
+    InvalidImportedStartFuncF32ParamModule => 10
+    DuplicateExportNameModule => 11
+    FuncSecWithoutCodeSecModule => 12
+    DataCountWithoutDataSecModule => 13
+    InvalidNameSectionFuncIndexModule => 14
+    InvalidLocalNameSectionIndexModule => 15
+    InvalidLabelNameSectionIndexModule => 16
+    BadMagicHeader => 17
+    BadVersionHeader => 18
+    CodeSecWithoutFuncSecModule => 19
+    InvalidTableNameSectionIndexModule => 20
+    InvalidGlobalNameSectionIndexModule => 21
+    ReservedSectionId => 22
+    InvalidCustomSectionNameUtf8 => 23
+    InvalidTypeNameSectionIndexModule => 24
+    InvalidFieldNameSectionIndexModule => 25
+    InvalidElemNameSectionIndexModule => 26
+    InvalidDataNameSectionIndexModule => 27
+    InvalidExportTableIndexModule => 28
+    InvalidExportGlobalIndexModule => 29
+    InvalidExportMemoryIndexModule => 30
+    InvalidExportTagIndexModule => 31
+    InvalidTagNameSectionIndexModule => 32
+    InvalidImportedTagTypeIndexModule => 33
+    DataCountMismatchTooSmallModule => 34
+    DataCountMismatchTooLargeModule => 35
   }
 }
 
@@ -691,9 +721,9 @@ pub fn validate_invalid_binary_run_config(
     profile.trim().to_string(),
   )
   let attempts = match normalized {
-    "smoke" => 33
-    "ci" => 330
-    "stress" => 3300
+    "smoke" => 36
+    "ci" => 360
+    "stress" => 3600
     _ =>
       return Err(
         "unknown validate-invalid-binary fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -1351,6 +1381,51 @@ pub fn apply_validate_invalid_binary_strategy(
       }
       validate_invalid_binary_mutate_encoded_invalid_ast_module(
         InvalidImportedStartFuncResultModule,
+        ast_strategy,
+        "start",
+        base,
+      )
+    }
+    InvalidImportedStartFuncParamResultModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-imported-start-func-param-result",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidImportedStartFuncParamResultModule,
+        ast_strategy,
+        "start",
+        base,
+      )
+    }
+    InvalidImportedStartFuncMultiParamModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-imported-start-func-multi-param",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidImportedStartFuncMultiParamModule,
+        ast_strategy,
+        "start",
+        base,
+      )
+    }
+    InvalidImportedStartFuncF32ParamModule => {
+      let ast_strategy = match
+        validate_invalid_binary_required_ast_strategy(
+          "invalid-imported-start-func-f32-param",
+        ) {
+        Ok(v) => v
+        Err(msg) => return Err(msg)
+      }
+      validate_invalid_binary_mutate_encoded_invalid_ast_module(
+        InvalidImportedStartFuncF32ParamModule,
         ast_strategy,
         "start",
         base,

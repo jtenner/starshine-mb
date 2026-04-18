@@ -276,6 +276,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidStartSignatureModule
   InvalidImportedStartFuncParamModule
   InvalidImportedStartFuncResultModule
+  InvalidImportedStartFuncParamResultModule
+  InvalidImportedStartFuncMultiParamModule
+  InvalidImportedStartFuncF32ParamModule
   DuplicateExportNameModule
   FuncSecWithoutCodeSecModule
   DataCountWithoutDataSecModule
@@ -361,6 +364,12 @@ pub enum ValidateInvalidSpecSeedId {
   ConstMalformedQuote9
   F32InvalidTypeMismatch9
   ImportsUnlinkableIncompatibleImportType7
+  ConstMalformedQuote10
+  F32InvalidTypeMismatch10
+  ImportsUnlinkableIncompatibleImportType8
+  ConstMalformedQuote11
+  F32InvalidTypeMismatch11
+  ImportsUnlinkableIncompatibleImportType9
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidSpecSeedRunConfig {
@@ -448,6 +457,12 @@ pub enum ValidateInvalidTextStrategyId {
   MalformedInvalidF32BadOpcode
   InvalidImportedStartFuncMultiParam
   UnlinkableIncompatibleGlobalImportI64
+  MalformedInvalidI64BadOpcode
+  InvalidImportedStartFuncF32Param
+  UnlinkableIncompatibleGlobalImportF64
+  InvalidStartFuncOutOfRange
+  UnlinkableIncompatibleMemoryImportMin
+  UnlinkableIncompatibleTableImportLimits
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidTextStrategySpec {

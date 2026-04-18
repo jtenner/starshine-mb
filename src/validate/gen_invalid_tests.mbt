@@ -463,6 +463,72 @@ test "gen_invalid_ast_generate supports invalid imported start func result strat
 }
 
 ///|
+test "gen_invalid_ast_generate supports invalid imported start func param-result strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd21UL),
+      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncParamResult),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-imported-start-func-param-result mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == StartSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports invalid imported start func multi-param strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd22UL),
+      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncMultiParam),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-imported-start-func-multi-param mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == StartSectionFamily)
+    }
+  }
+}
+
+///|
+test "gen_invalid_ast_generate supports invalid imported start func f32-param strategy" {
+  let generated = match
+    gen_invalid_ast_generate(
+      @splitmix.new(seed=0x5efd23UL),
+      GenInvalidAstParams::repro_seed(InvalidImportedStartFuncF32Param),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  match validate_module(generated.mutation.mutated_module) {
+    Ok(_) =>
+      fail("expected invalid-imported-start-func-f32-param mutation to fail")
+    Err(err) => {
+      let family = validation_issue_family(
+        validation_error_diagnostic(err).issue,
+      )
+      assert_true(family == StartSectionFamily)
+    }
+  }
+}
+
+///|
 test "gen_invalid_ast_generate supports invalid local name index strategy" {
   let generated = match
     gen_invalid_ast_generate(

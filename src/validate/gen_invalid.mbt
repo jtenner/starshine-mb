@@ -176,6 +176,11 @@ fn gen_invalid_ast_strategy_label(
     InvalidExportFuncIndex => "invalid-export-func-index"
     InvalidImportedStartFuncParam => "invalid-imported-start-func-param"
     InvalidImportedStartFuncResult => "invalid-imported-start-func-result"
+    InvalidImportedStartFuncParamResult =>
+      "invalid-imported-start-func-param-result"
+    InvalidImportedStartFuncMultiParam =>
+      "invalid-imported-start-func-multi-param"
+    InvalidImportedStartFuncF32Param => "invalid-imported-start-func-f32-param"
     InvalidStartSignature => "invalid-start-signature"
     StartFuncOutOfRange => "start-func-out-of-range"
     MissingDataCount => "missing-datacount"
