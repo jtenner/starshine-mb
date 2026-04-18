@@ -8231,6 +8231,17 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
       None => None
     }
   }
+  if descriptor_name == "vacuum" {
+    return match
+      run_hot_pipeline_precompute_writeback_validation_error(
+        validation_mod,
+        code_idx,
+        result.func,
+      ) {
+      Some(msg) => Some("writeback-validate:\{msg}")
+      None => None
+    }
+  }
   if descriptor_name == "ssa-nomerge" {
     if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
         result.func,

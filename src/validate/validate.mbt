@@ -4969,6 +4969,57 @@ test "validate_module reports end-of-body extra values with stack shape" {
 }
 
 ///|
+test "validate_module rejects typed if branch result mismatch hidden behind terminal block after br_if" {
+  let sig = RecType::new(
+    SubType::comp_type(CompType::func([ValType::i32()], [ValType::i64()])),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([sig]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(0U)]))
+    .with_code_sec(
+      CodeSec::new([
+        Func::new(
+          Locals::empty(),
+          Expr::new([
+            Instruction::local_get(LocalIdx::new(0U)),
+            Instruction::if_(
+              BlockType::val_type(ValType::i64()),
+              [
+                Instruction::block(
+                  BlockType::void_(),
+                  Expr::new([
+                    Instruction::loop_(
+                      BlockType::void_(),
+                      Expr::new([
+                        Instruction::i32_const(I32(0)),
+                        Instruction::br_if(LabelIdx::new(1U)),
+                      ]),
+                    ),
+                    Instruction::unreachable_(),
+                  ]),
+                ),
+                Instruction::i32_const(I32(1)),
+              ],
+              Some([Instruction::i64_const(@lib.I64::new(0L))]),
+            ),
+          ]),
+        ),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) =>
+      fail(
+        "expected typed if branch result mismatch after conditional block escape to fail validation",
+      )
+    Err(err) => {
+      assert_eq(validation_error_func_idx(err), Some(FuncIdx::new(0U)))
+      let msg = validation_error_message(err)
+      assert_true(msg.contains("type mismatch"), msg~)
+    }
+  }
+}
+
+///|
 test "validate_module rejects concrete stack junk after return inside block" {
   let sig = RecType::new(SubType::comp_type(CompType::func([], [])))
   let mod = Module::new()

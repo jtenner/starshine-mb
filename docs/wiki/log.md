@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] fix | retire `[O4Z]005` generated slot-33 `vacuum` corruption
+
+- Added `docs/wiki/raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md` to capture the shifted symptom relative to `0098`: the saved slot-33 predecessor no longer died in Starshine's final validator, but it still emitted invalid typed-`if` output that `wasm-tools` rejected until the validator/typechecker escape fix and guarded `vacuum` writeback landed.
+- Updated `docs/wiki/binaryen/passes/vacuum/index.md`, `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the living wiki no longer treats slot `33` as an active `vacuum` blocker; the ordered generated-artifact blocker set is now down to two slots overall (`remove-unused-brs` `40` and `optimize-instructions` `44`), and the durable explanation for the retired `vacuum` slot is the validator/writeback boundary rather than a new pass-local cleanup rule.
+- Updated `agent-todo.md` so `[O4Z]005` is retired by `0107` and the remaining active generated `-O4z` blockers now start at `[O4Z]006`.
+
 ## [2026-04-18] maintain | repair stale precompute blocker wording in pass folder map
 
 - Ran another Binaryen primary-source spot check against the official GitHub release surface plus the current `main` changelog before editing the wiki; this maintenance pass still did not find a documented `version_130` release page or a newer changelog-advertised optimization-pass addition beyond the already tracked horizon through `version_129`.

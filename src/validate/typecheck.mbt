@@ -263,6 +263,111 @@ fn merge_nonfallthrough_if_exits(left : TcEscape, right : TcEscape) -> TcEscape 
 }
 
 ///|
+fn typecheck_instr_may_fallthrough(instr : Instruction) -> Bool {
+  match instr {
+    Br(_)
+    | BrTable(_, _)
+    | Return
+    | ReturnCall(_)
+    | ReturnCallIndirect(_, _)
+    | ReturnCallRef(_)
+    | Throw(_)
+    | ThrowRef
+    | Unreachable => false
+    _ => true
+  }
+}
+
+///|
+fn typecheck_instr_has_reachable_escape_to_label(
+  instr : Instruction,
+  target_depth : Int,
+) -> Bool {
+  match instr {
+    BrIf(li) => {
+      let LabelIdx(raw) = li
+      return raw.reinterpret_as_int() == target_depth
+    }
+    BrTable(labels, fallback) => {
+      let LabelIdx(fallback_raw) = fallback
+      if fallback_raw.reinterpret_as_int() == target_depth {
+        return true
+      }
+      return labels.any(fn(li) {
+        let LabelIdx(raw) = li
+        raw.reinterpret_as_int() == target_depth
+      })
+    }
+    BrOnNull(li) => {
+      let LabelIdx(raw) = li
+      return raw.reinterpret_as_int() == target_depth
+    }
+    BrOnNonNull(li) => {
+      let LabelIdx(raw) = li
+      return raw.reinterpret_as_int() == target_depth
+    }
+    BrOnCast(li, _, _, _) => {
+      let LabelIdx(raw) = li
+      return raw.reinterpret_as_int() == target_depth
+    }
+    BrOnCastFail(li, _, _, _) => {
+      let LabelIdx(raw) = li
+      return raw.reinterpret_as_int() == target_depth
+    }
+    Block(_, Expr(body)) =>
+      return typecheck_body_has_reachable_escape_to_label(
+        body,
+        target_depth + 1,
+      )
+    Loop(_, Expr(body)) =>
+      return typecheck_body_has_reachable_escape_to_label(
+        body,
+        target_depth + 1,
+      )
+    TryTable(_, _, Expr(body)) =>
+      return typecheck_body_has_reachable_escape_to_label(
+        body,
+        target_depth + 1,
+      )
+    If(_, then_instrs, else_instrs_opt) => {
+      if typecheck_body_has_reachable_escape_to_label(
+          then_instrs,
+          target_depth + 1,
+        ) {
+        return true
+      }
+      match else_instrs_opt {
+        Some(else_instrs) =>
+          return typecheck_body_has_reachable_escape_to_label(
+            else_instrs,
+            target_depth + 1,
+          )
+        None => return false
+      }
+    }
+    _ => return false
+  }
+}
+
+///|
+fn typecheck_body_has_reachable_escape_to_label(
+  instrs : Array[Instruction],
+  target_depth : Int,
+) -> Bool {
+  let mut reachable = true
+  for instr in instrs {
+    if !reachable {
+      break
+    }
+    if typecheck_instr_has_reachable_escape_to_label(instr, target_depth) {
+      return true
+    }
+    reachable = typecheck_instr_may_fallthrough(instr)
+  }
+  false
+}
+
+///|
 fn TcState::mem_at_of(st : TcState, mem : MemIdx) -> Result[ValType, String] {
   match st.env.get_memtype(mem) {
     None => Err("invalid memory index")
@@ -563,6 +668,7 @@ fn typecheck_br(st : TcState, l : LabelIdx) -> TcResult {
 
 ///|
 fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
+  let Expr(body_instrs) = body
   let (params, results) = match st.env.expand_blocktype(bt) {
     Err(e) => return Err(e)
     Ok(x) => x
@@ -583,15 +689,17 @@ fn typecheck_block(st : TcState, bt : BlockType, body : Expr) -> TcResult {
     reachable: st1.reachable,
     escape: st1.escape,
   }
-  let st_body = match Typecheck::typecheck(body, st_body0) {
+  let st_body = match Typecheck::typecheck(Expr::new(body_instrs), st_body0) {
     Err(e) => return Err(e)
     Ok(s) => s
   }
-  let (reaches_merge, block_escape) = match
+  let (base_reaches_merge, block_escape) = match
     normalize_untyped_block_exit(st_body, results) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
+  let reaches_merge = base_reaches_merge ||
+    typecheck_body_has_reachable_escape_to_label(body_instrs, 0)
   if reaches_merge {
     let out = TcState::{
       env: st.env,
@@ -658,16 +766,20 @@ fn typecheck_if(
     Ok(s) => s
   }
 
-  let (then_reach, then_escape) = match
+  let (base_then_reach, then_escape) = match
     normalize_untyped_if_branch_exit(st_then, results) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
-  let (else_reach, else_escape) = match
+  let (base_else_reach, else_escape) = match
     normalize_untyped_if_branch_exit(st_else, results) {
     Err(e) => return Err(e)
     Ok(x) => x
   }
+  let then_reach = base_then_reach ||
+    typecheck_body_has_reachable_escape_to_label(then_instrs, 0)
+  let else_reach = base_else_reach ||
+    typecheck_body_has_reachable_escape_to_label(else_instrs, 0)
 
   if then_reach || else_reach {
     let out = TcState::{

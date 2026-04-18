@@ -35,7 +35,7 @@ related:
 ## Active Hot Passes
 
 - [`ssa-nomerge/index.md`](ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family, fresh green compare evidence, and the remaining `Func 523` / `suspicious-escape-carrier` trace-level raw-lowering skips.
-- [`vacuum/index.md`](vacuum/index.md) - Active hot pass; the landing page now records the retired slot-23 replay, the remaining slot-33 ordered-audit blocker, and the upstream `unreachable`-preservation drift note.
+- [`vacuum/index.md`](vacuum/index.md) - Active hot pass; the landing page now records the retired slot-23 and slot-33 replays, the validator/writeback takeaway behind the slot-33 retirement, and the upstream `unreachable`-preservation drift note.
 - [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass; the landing page now records the current `Dce` naming evidence plus the 2026-04-18 ordered-audit fact that DCE is expensive-but-successful rather than a current corruption blocker.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
 - [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, parity status, the retired slot-14 large-condition guard, and the newer upstream branches-to-traps drift note.
@@ -49,7 +49,7 @@ related:
 
 ## Tail Dispatch Notes
 
-- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note, now also recording that Debian/docs.rs/README package surfaces are all incomplete in different ways, that official GitHub release pages through `version_129` plus the Chromium refs listing still anchor the current public release horizon, that the current `main` changelog on both Chromium and official GitHub still lacks a newer documented optimization-pass addition, and that the living ordered-audit summary now names the exact three remaining generated-artifact blockers instead of only the broader failing-pass cluster.
+- [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note, now also recording that Debian/docs.rs/README package surfaces are all incomplete in different ways, that official GitHub release pages through `version_129` plus the Chromium refs listing still anchor the current public release horizon, that the current `main` changelog on both Chromium and official GitHub still lacks a newer documented optimization-pass addition, and that the living ordered-audit summary now names the exact two remaining generated-artifact blockers instead of only the broader failing-pass cluster.
 
 ## Current Maintenance Rule
 
