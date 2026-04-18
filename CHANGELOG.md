@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: expand `gen_invalid` strategy-prereq coverage
+
+- **cover explicit strategy-prereq toggles and shared prerequisite shapers with direct tests** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt) so AST-side `GenInvalidAstParams::new(..., require_strategy_prereqs=false)` is now locked directly and the shared memory/data prerequisite helper is covered independently from the higher-level seed-config path. Verification for this slice: `moon test src/validate`.
+
 ## 2026-04-18 Fix: add reusable strategy-prereq seed shaping helpers
 
 - **add reusable validate-side seed-shaping helpers and make binary `gen_invalid` params strategy-prereq aware** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt), [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt), and [`src/fuzz/pkg.generated.mbti`](./src/fuzz/pkg.generated.mbti) so `gen_invalid` now exposes reusable helpers for requiring a memory/data-capable seed or at least one defined function/type, and binary invalid-generation params now mirror AST params with an explicit `require_strategy_prereqs` toggle across `new(...)`, natural/coverage/small/repro/minimal helpers. `InvalidFuncTypeIndex` seeding now routes through the shared defined-function helper by default. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate src/fuzz`, and `moon info`.

@@ -115,6 +115,41 @@ test "gen_invalid_ast coverage_forced_seed uses coverage-forced defaults" {
 }
 
 ///|
+test "gen_invalid_ast new can disable strategy prereqs" {
+  let params = GenInvalidAstParams::new(
+    MissingDataCount,
+    require_strategy_prereqs=false,
+  )
+  assert_false(params.require_strategy_prereqs)
+}
+
+///|
+test "gen_invalid_require_memory_data_gen_valid_config widens memory and data prerequisites" {
+  let restrictive = GenValidConfig::{
+    ..GenValidConfig::natural_default(),
+    max_mems: 0,
+    max_datas: 0,
+    section_bias: GenValidSectionBias::{
+      ..GenValidSectionBias::natural_default(),
+      mems_percent: 0,
+      datas_percent: 0,
+    },
+    features: GenValidFeatureToggles::{
+      ..GenValidFeatureToggles::natural_default(),
+      allow_mems: false,
+      allow_datas: false,
+    },
+  }
+  let adjusted = gen_invalid_require_memory_data_gen_valid_config(restrictive)
+  assert_eq(adjusted.max_mems, 1)
+  assert_eq(adjusted.max_datas, 1)
+  assert_eq(adjusted.section_bias.mems_percent, 100)
+  assert_eq(adjusted.section_bias.datas_percent, 100)
+  assert_true(adjusted.features.allow_mems)
+  assert_true(adjusted.features.allow_datas)
+}
+
+///|
 test "gen_invalid_require_defined_func_gen_valid_config widens type and func minimums" {
   let restrictive = GenValidConfig::{
     ..GenValidConfig::natural_default(),
