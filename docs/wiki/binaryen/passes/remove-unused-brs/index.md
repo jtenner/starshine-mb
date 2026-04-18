@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-13
+last_reviewed: 2026-04-18
 sources:
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
@@ -19,6 +19,8 @@ sources:
   - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
   - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
   - ../../../raw/research/0088-2026-04-13-remove-unused-brs-localset-heavy-value-if-mesh-hot-skip.md
+  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md
   - ../../../../../src/ir/hot_core.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
@@ -107,6 +109,10 @@ related:
   - visitation now threads root-site and single-arm-`nop` context instead of re-finding those facts with extra whole-function walks
   - detached cleanup is bounded and several hot rewrites now use push-style array assembly
 - A newer upstream trunk note is now recorded too: the Chromium-hosted Binaryen mirror shows a 2026-02-27 `RemoveUnusedBrs` change that rewrites branches-to-traps directly to traps. That is a behavior change newer than this repo's older `version_129` Binaryen oracle, so treat it as tracked upstream drift rather than as already-ported Starshine behavior.
+- The early ordered generated-artifact slot-14 corruption is now retired too:
+  - the invalid raw wasm came from rewriting a large non-reorder-safe plain-`br` condition into `br_if`
+  - Starshine now keeps that direct `if br -> br_if` rewrite disabled when a large lifted function would need to reorder a non-reorder-safe condition
+  - the extracted `Func 1354` replay is now locked by an external `wasm-tools validate` cmd wbtest instead of only the in-tree decode path
 - It is still an in-progress parity pass because the explicit debug-artifact compare remains noisy after those fixes:
   - the saved compare still diverges in normalized WAT
   - the first inspected remaining hunk `func $384` still traces as `changed=false`, so some early noise is not RUB mutation at all

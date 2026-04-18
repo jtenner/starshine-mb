@@ -38,7 +38,7 @@ related:
 - [`vacuum/index.md`](vacuum/index.md) - Active hot pass; the landing page now also records the current non-GitHub `unreachable`-preservation drift note.
 - [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass; see the landing page until strategy pages land.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
-- [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, parity status, and the newer upstream branches-to-traps drift note.
+- [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, parity status, the retired slot-14 large-condition guard, and the newer upstream branches-to-traps drift note.
 - [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass; see the landing page until strategy pages land.
 - [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass; the landing page now also records the direct Debian manpage plus `wasm_opt::Pass` evidence for the current `HeapStoreOptimization` terminology.
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note.

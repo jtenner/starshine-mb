@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | refresh RUB wiki metadata and slot-14 ingest links
+
+- Updated `docs/wiki/binaryen/passes/remove-unused-brs/index.md` so its frontmatter `last_reviewed` stamp and source list now match the already-ingested 2026-04-18 ordered-audit and slot-14 guard evidence, instead of implying the landing page stopped at the 2026-04-13 perf-only state.
+- Updated `docs/wiki/binaryen/passes/remove-unused-brs/branch-exit-and-payload-rewrites.md` so the one-armed `if br` section now has matching 2026-04-18 review metadata plus direct links to the slot-14 guard note and the external-validation cmd wbtest coverage.
+- Refreshed `docs/wiki/binaryen/passes/index.md` and `docs/wiki/index.md` so both human catalogs mention the retired slot-14 large-condition guard on the RUB landing page.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still no broken relative links and no living orphan pages after the metadata refresh.
+
 ## [2026-04-18] research | retire `[O4Z]001` slot-14 `remove-unused-brs` corruption
 
 - Added `docs/wiki/raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md` to capture the resolved slot-14 path: the invalid raw output came from `remove_unused_brs_try_rewrite_if_br(...)` rewriting a large non-reorder-safe plain-`br` condition, while oracle Binaryen kept a valid block-plus-branch shape on the extracted `Func 1354` replay.
