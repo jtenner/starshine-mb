@@ -2,6 +2,17 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | reconcile Binaryen pass terminology and repair wiki links
+
+- Ran a non-GitHub Binaryen terminology check against the Debian experimental `wasm-opt` `122` manpage plus the current `wasm_opt` Rust docs/README mirrors, and recorded in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` that the current upstream-facing names still align with the wiki's late-pass folder map.
+- Updated `docs/wiki/binaryen/passes/precompute/index.md`, `docs/wiki/binaryen/passes/dead-code-elimination/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the living wiki now records the explicit `Dce` and `precompute-propagate` alias boundaries instead of leaving those names implicit.
+- Repaired broken relative links in `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` and the archived RUME follow-up notes `0090` / `0091`, then reran a repo-local markdown-link scan to confirm `docs/wiki/` has no remaining broken relative links.
+
+## [2026-04-18] maintain | tighten late-pass landing pages and cross-links
+
+- Reworded the stub landing pages for `global-refining`, `memory-packing`, `once-reduction`, `heap-store-optimization`, `dead-code-elimination`, `optimize-instructions`, `precompute`, and `vacuum`, and shortened the root wiki catalogs in `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md`, so they point at `late-pipeline-dispatch.md` instead of repeating the generic “being authored” boilerplate.
+- Kept the cross-links self-referential by adding the late-pipeline dispatch note to each page's `related` list.
+
 ## [2026-04-18] research | capture generated `cmd.wasm` ordered `-O4z` corruption blockers
 
 - Added `docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md` plus the seven per-slot corruption notes `0094` through `0100` to capture the ordered self-opt audit on `_build/wasm/debug/build/cmd/cmd.wasm`, the saved `.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/` replay root, and the exact direct reproduce commands for every hard corruption slot.

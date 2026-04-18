@@ -157,7 +157,7 @@ The missing follow-up is a function-import-specific regression.
 
 ## Landed fix summary
 
-The landed fix in [`src/passes/remove_unused_module_elements.mbt`](../../../src/passes/remove_unused_module_elements.mbt) and [`src/passes/remove_unused_module_elements_test.mbt`](../../../src/passes/remove_unused_module_elements_test.mbt) now:
+The landed fix in [`src/passes/remove_unused_module_elements.mbt`](../../../../src/passes/remove_unused_module_elements.mbt) and [`src/passes/remove_unused_module_elements_test.mbt`](../../../../src/passes/remove_unused_module_elements_test.mbt) now:
 
 - drops unused imported functions in the module-pass `RUME` import rebuild path
 - remaps surviving function indices through the real used-function bitset instead of assuming all imported functions stay live

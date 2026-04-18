@@ -140,12 +140,12 @@ The landed Starshine change now mirrors the proved rule by:
 
 ## Landed implementation focus
 
-The landed change in [`src/passes/remove_unused_module_elements.mbt`](../../../src/passes/remove_unused_module_elements.mbt) touches the two expected control points:
+The landed change in [`src/passes/remove_unused_module_elements.mbt`](../../../../src/passes/remove_unused_module_elements.mbt) touches the two expected control points:
 
 - `rume_collect_liveness_with_import_parent_policy(...)` now skips marking the start target live for the exact defined-single-`nop` family.
 - `rume_apply_module_rewrite(...)` now omits `start_sec` for that same exact family and avoids the old early-return fast path when dropping `start` is the only required rewrite.
 
-Focused regressions now live in [`src/passes/remove_unused_module_elements_test.mbt`](../../../src/passes/remove_unused_module_elements_test.mbt) for:
+Focused regressions now live in [`src/passes/remove_unused_module_elements_test.mbt`](../../../../src/passes/remove_unused_module_elements_test.mbt) for:
 
 1. exported/elem-linked single-`nop` start targets
 2. the same family with locals still present

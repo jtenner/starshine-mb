@@ -11,6 +11,7 @@ sources:
   - ../../../raw/research/0098-2026-04-18-generated-o4z-vacuum-slot33-func1818-stack-underflow.md
 related:
   - ../../no-dwarf-default-optimize-path.md
+  - ../late-pipeline-dispatch.md
 ---
 
 # `vacuum`
@@ -18,4 +19,4 @@ related:
 - Active hot pass in the Starshine registry.
 - Current summary: Remove `nop` roots and region entries through hot IR cleanup.
 - Current 2026-04-18 ordered generated-artifact follow-up: the saved `cmd.wasm` audit found two hard corruption slots for this pass, both failing in final module validation (`Func 652` at Binaryen slot `23`, `Func 1818` at slot `33`).
-- This folder is the stable home for active pass docs; detailed `wat-shapes.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, and pass-specific notes are being authored.
+- Use [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md) for the current tail roster until dedicated strategy and parity pages land.

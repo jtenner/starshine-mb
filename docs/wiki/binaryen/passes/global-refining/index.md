@@ -7,10 +7,11 @@ sources:
   - ../../../../../src/passes/global_refining_test.mbt
 related:
   - ../../no-dwarf-default-optimize-path.md
+  - ../late-pipeline-dispatch.md
 ---
 
 # `global-refining`
 
 - Active module pass in the Starshine registry.
 - Current summary: Refine private defined global reference types from their initializer and observed writes.
-- This folder is the stable home for active pass docs; detailed `wat-shapes.md`, `binaryen-strategy.md`, `starshine-hot-ir-strategy.md`, and pass-specific notes are being authored.
+- Use [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md) for the current tail roster until dedicated strategy and parity pages land.

@@ -5,6 +5,7 @@ last_reviewed: 2026-04-18
 sources:
   - ../../../../src/passes/optimize.mbt
   - ../../../../src/passes/registry_test.mbt
+  - ./late-pipeline-dispatch.md
 related:
   - ../no-dwarf-default-optimize-path.md
   - ./late-pipeline-dispatch.md
@@ -25,25 +26,25 @@ related:
 
 - [`duplicate-function-elimination/index.md`](duplicate-function-elimination/index.md) - Expanded folder with hub page, shapes, strategy pages, metadata notes, and parity status.
 - [`remove-unused-module-elements/index.md`](remove-unused-module-elements/index.md) - Expanded folder with hub page, shapes, strategy pages, retention rules, and parity status.
-- [`memory-packing/index.md`](memory-packing/index.md) - Active module pass; detailed strategy and parity pages are pending.
-- [`once-reduction/index.md`](once-reduction/index.md) - Active module pass; detailed strategy and parity pages are pending.
-- [`global-refining/index.md`](global-refining/index.md) - Active module pass; detailed strategy and parity pages are pending.
+- [`memory-packing/index.md`](memory-packing/index.md) - Active module pass; see the landing page until strategy pages land.
+- [`once-reduction/index.md`](once-reduction/index.md) - Active module pass; see the landing page until strategy pages land.
+- [`global-refining/index.md`](global-refining/index.md) - Active module pass; see the landing page until strategy pages land.
 - [`global-struct-inference/index.md`](global-struct-inference/index.md) - Folder now has a landing page plus the existing parity note.
 - [`reorder-locals/index.md`](reorder-locals/index.md) - Folder now has a landing page plus parity and multivalue-call scope notes.
 
 ## Active Hot Passes
 
 - [`ssa-nomerge/index.md`](ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family, fresh green compare evidence, and the remaining `Func 523` / `suspicious-escape-carrier` trace-level raw-lowering skips.
-- [`vacuum/index.md`](vacuum/index.md) - Active hot pass; detailed strategy and parity pages are pending.
-- [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass; detailed strategy and parity pages are pending.
+- [`vacuum/index.md`](vacuum/index.md) - Active hot pass; see the landing page until strategy pages land.
+- [`dead-code-elimination/index.md`](dead-code-elimination/index.md) - Active hot pass; see the landing page until strategy pages land.
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
 - [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, and parity status.
-- [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass; detailed strategy and parity pages are pending.
-- [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass; detailed strategy and parity pages are pending.
+- [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass; see the landing page until strategy pages land.
+- [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass; see the landing page until strategy pages land.
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
 - [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with shapes, strategies, scheduler notes, reduced repro tracking, and parity status.
-- [`precompute/index.md`](precompute/index.md) - Active hot pass; detailed strategy and parity pages are pending.
+- [`precompute/index.md`](precompute/index.md) - Active hot pass; see the landing page until strategy pages land.
 - [`simplify-locals/index.md`](simplify-locals/index.md) - Expanded folder with overview, shapes, strategies, implementation map, validation, performance, and parity status.
 
 ## Tail Dispatch Notes
@@ -54,3 +55,4 @@ related:
 
 - Every implemented pass should now have a stable folder landing page, even when detailed subpages are still missing.
 - Expand folders from scaffold to full multi-entry form in priority order, starting from passes that already have artifact parity work or active backlog slices.
+- The 2026-04-18 non-GitHub terminology check in [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) found the current upstream-facing pass names still aligned with this folder map; keep explicitly noting known alias boundaries such as Binaryen `Dce` versus the wiki's `dead-code-elimination` label and Binaryen `precompute-propagate` versus the repo's `precompute` landing page.

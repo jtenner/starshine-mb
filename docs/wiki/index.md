@@ -13,7 +13,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [`ir2/architecture-rules.md`](ir2/architecture-rules.md) - Single-owned `HotFunc` contract, overlay model, and module-split rule for IR2.
 - [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md) - Canonical phase split, ordered pass path, and nested rerun rules for Binaryen's no-DWARF `-O` / `-Os` optimize pipeline on the MoonBit debug artifact.
-- [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster and dispatch note.
+- [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster, ordered generated-artifact audit summary, and 2026-04-18 non-GitHub Binaryen terminology check.
 - [`binaryen/passes/duplicate-function-elimination/wat-shapes.md`](binaryen/passes/duplicate-function-elimination/wat-shapes.md) - Module and WAT shapes that create DFE merge candidates, rewrites, transitive unlocks, and deliberate non-merges.
 - [`binaryen/passes/duplicate-function-elimination/binaryen-strategy.md`](binaryen/passes/duplicate-function-elimination/binaryen-strategy.md) - Upstream `version_129` DFE strategy: hash buckets, option-dependent iteration budget, and whole-module rewrite behavior.
 - [`binaryen/passes/duplicate-function-elimination/starshine-hot-ir-strategy.md`](binaryen/passes/duplicate-function-elimination/starshine-hot-ir-strategy.md) - Current in-tree Starshine strategy for DFE, including the explicit reason it stays a module pass instead of a HOT-IR pass.
@@ -66,19 +66,19 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/reorder-locals/index.md`](binaryen/passes/reorder-locals/index.md) - Folder now has a landing page plus parity and multivalue-call scope notes.
 - [`binaryen/passes/ssa-nomerge/index.md`](binaryen/passes/ssa-nomerge/index.md) - Folder now has a landing page plus the current parity note for the fixed dead-param family and residual in-tree skip classification.
 - [`binaryen/passes/tuple-optimization/index.md`](binaryen/passes/tuple-optimization/index.md) - Hub page for tuple-opt overview, shapes, strategies, scheduler notes, reduced repros, and parity status.
-- [`binaryen/passes/dead-code-elimination/index.md`](binaryen/passes/dead-code-elimination/index.md) - Active hot-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
-- [`binaryen/passes/global-refining/index.md`](binaryen/passes/global-refining/index.md) - Active module-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/dead-code-elimination/index.md`](binaryen/passes/dead-code-elimination/index.md) - Active hot-pass landing page; notes the current Binaryen `Dce` naming alignment until strategy pages land.
+- [`binaryen/passes/global-refining/index.md`](binaryen/passes/global-refining/index.md) - Active module-pass landing page; see the landing page until strategy pages land.
 - [`binaryen/passes/global-struct-inference/index.md`](binaryen/passes/global-struct-inference/index.md) - Folder now has a landing page plus the existing parity note.
-- [`binaryen/passes/heap-store-optimization/index.md`](binaryen/passes/heap-store-optimization/index.md) - Active hot-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/heap-store-optimization/index.md`](binaryen/passes/heap-store-optimization/index.md) - Active hot-pass landing page; see the landing page until strategy pages land.
 - [`binaryen/passes/heap2local/index.md`](binaryen/passes/heap2local/index.md) - Folder now has a landing page plus the current parity note.
-- [`binaryen/passes/memory-packing/index.md`](binaryen/passes/memory-packing/index.md) - Active module-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
-- [`binaryen/passes/once-reduction/index.md`](binaryen/passes/once-reduction/index.md) - Active module-pass landing page; detailed `wat-shapes.md` / strategy / parity notes remain in progress.
-- [`binaryen/passes/optimize-instructions/index.md`](binaryen/passes/optimize-instructions/index.md) - Active hot-pass landing page; the 2026-04-18 generated `cmd.wasm` ordered audit found two final-validation underflow slots, and detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/memory-packing/index.md`](binaryen/passes/memory-packing/index.md) - Active module-pass landing page; see the landing page until strategy pages land.
+- [`binaryen/passes/once-reduction/index.md`](binaryen/passes/once-reduction/index.md) - Active module-pass landing page; see the landing page until strategy pages land.
+- [`binaryen/passes/optimize-instructions/index.md`](binaryen/passes/optimize-instructions/index.md) - Active hot-pass landing page; see the landing page until strategy pages land.
 - [`binaryen/passes/pick-load-signs/index.md`](binaryen/passes/pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
-- [`binaryen/passes/precompute/index.md`](binaryen/passes/precompute/index.md) - Active hot-pass landing page; the early generated `cmd.wasm` ordered slot still emits invalid raw wasm, and detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/precompute/index.md`](binaryen/passes/precompute/index.md) - Active hot-pass landing page; records the current `precompute` versus `precompute-propagate` alias boundary until strategy pages land.
 - [`binaryen/passes/remove-unused-brs/index.md`](binaryen/passes/remove-unused-brs/index.md) - Hub page for RUB overview, shape catalog, strategies, bailout notes, and parity status.
 - [`binaryen/passes/remove-unused-names/index.md`](binaryen/passes/remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
-- [`binaryen/passes/vacuum/index.md`](binaryen/passes/vacuum/index.md) - Active hot-pass landing page; the 2026-04-18 generated `cmd.wasm` ordered audit found two final-validation underflow slots, and detailed `wat-shapes.md` / strategy / parity notes remain in progress.
+- [`binaryen/passes/vacuum/index.md`](binaryen/passes/vacuum/index.md) - Active hot-pass landing page; see the landing page until strategy pages land.
 
 ## Decisions
 
