@@ -145,7 +145,7 @@ related:
 
 ## Current Maintenance Rule
 
-- When newer non-GitHub upstream evidence changes `RemoveUnusedBrs` behavior without renaming the pass, record that drift here and in [`./parity.md`](./parity.md) instead of silently folding it into the older `version_129`-backed algorithm notes.
+- When newer upstream evidence changes `RemoveUnusedBrs` behavior without renaming the pass, record that drift here and in [`./parity.md`](./parity.md) instead of silently folding it into the older `version_129`-backed algorithm notes.
 - Treat this folder as the canonical home for all future `remove-unused-brs` work.
 - New RUB research should land here instead of being left only in `agent-todo.md`, one-off parity notes, or commit messages.
 - Any new rewrite should update:

@@ -19,7 +19,7 @@ related:
 - Active hot pass in the Starshine registry.
 - Current summary: replace non-escaping struct locals with scalar field locals and fold direct fresh-struct null comparisons.
 - Current durable page: [`./parity.md`](./parity.md).
-- Current Binaryen terminology check: upstream-facing surfaces still expose `--heap2local` / `Heap2Local`; this run found no rename or deprecation signal in the reachable non-GitHub sources.
+- Current Binaryen terminology check: upstream-facing surfaces still expose `--heap2local` / `Heap2Local`; this run found no official-source rename or deprecation signal.
 - Current 2026-04-18 ordered generated-artifact audit: `heap2local` stayed in the expensive-but-successful cluster rather than the hard-corruption cluster, so the durable follow-up here is performance and audit visibility, not a newly observed wrong-code blocker.
 - Expand this folder with dedicated strategy and shape pages as broader H2L research continues.
 

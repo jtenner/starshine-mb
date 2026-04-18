@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | promote official GitHub release pages in Binaryen source-of-truth guidance
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/global-refining/index.md`, `docs/wiki/binaryen/passes/memory-packing/index.md`, `docs/wiki/binaryen/passes/once-reduction/index.md`, `docs/wiki/binaryen/passes/dead-code-elimination/index.md`, `docs/wiki/binaryen/passes/heap2local/index.md`, `docs/wiki/binaryen/passes/remove-unused-brs/index.md`, and `docs/wiki/index.md` after a fresh Binaryen source sweep.
+- Tightened the public-source hierarchy again instead of changing the substantive pass claims: official GitHub release pages for `version_127` (`2026-03-10`), `version_128` (`2026-03-13`), and `version_129` (`2026-04-01`) are now recorded as the primary public release-horizon baseline, while the Chromium refs/release-note mirror remains corroborating evidence and the GitHub `main` changelog remains only a narrow post-tag drift watch.
+- Replaced stale living-page wording that still said `non-GitHub` terminology checks on the stub landing pages and pass catalog, so the wiki now consistently reflects the maintenance lane's current rule: GitHub is allowed as a documentation source of truth for Binaryen pass names, release notes, and trunk drift, even though workflow operations still stay out of scope.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the refresh.
+
 ## [2026-04-18] maintain | switch Binaryen source-of-truth wording from non-GitHub-only to official-source hierarchy
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/heap-store-optimization/index.md`, and `docs/wiki/index.md` after a fresh Binaryen source sweep to remove stale wording that implied this maintenance lane had to avoid GitHub as a documentation source.
