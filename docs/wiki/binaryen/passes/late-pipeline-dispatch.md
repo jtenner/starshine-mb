@@ -44,9 +44,10 @@ related:
 
 - A 2026-04-18 web check against non-GitHub primary-ish sources still shows upstream-facing Binaryen surfaces exposing the same command-line names this wiki uses for `global-refining`, `memory-packing`, `once-reduction`, `optimize-instructions`, `precompute`, and `vacuum`.
 - The Debian experimental `wasm-opt` manpage for Binaryen `122` still lists `--once-reduction`, `--optimize-instructions`, `--precompute`, `--precompute-propagate`, and `--vacuum`, and describes `--global-refining` as a supported pass as well.
-- The current `wasm_opt` Rust bindings remain non-exhaustive and still include `GlobalRefining`, `HeapStoreOptimization`, `MemoryPacking`, `OnceReduction`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, and `Vacuum`; they also describe `Dce` as `Removes unreachable code`, which matches this repo's `dead-code-elimination` terminology at the behavioral level.
-- These non-GitHub discovery surfaces currently lag the repo's GitHub-sourced `version_129` source oracle, so their older package version should be treated as source-availability lag, not as evidence that the pass names were reverted or removed upstream.
-- Because this maintenance run avoids GitHub by policy, this terminology check should be treated as a current naming sanity check rather than a direct source-code audit of Binaryen `main`.
+- The current `wasm_opt` Rust bindings remain non-exhaustive and still include `GlobalRefining`, `HeapStoreOptimization`, `MemoryPacking`, `OnceReduction`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, `RemoveUnusedBrs`, and `Vacuum`; they also describe `Dce` as `Removes unreachable code`, which matches this repo's `dead-code-elimination` terminology at the behavioral level.
+- A second 2026-04-18 check against the Chromium-hosted Binaryen mirror shows current trunk activity without pass renames: `Precompute` had a substantial child-retention rewrite on 2025-08-27, `RemoveUnusedBrs` gained a `branch -> trap => trap` rewrite on 2026-02-27, and `Vacuum` stopped turning explicit `unreachable` into `nop` on 2026-02-27 so unreachability can propagate to callers.
+- Those mirror commits are newer than the repo's older `version_129` Binaryen source oracle, so they should be treated as upstream behavior drift to track explicitly, not as proof that this repo's existing folder names are stale.
+- Because this maintenance run avoids GitHub by policy, this terminology check should be treated as a current naming sanity check plus a lightweight trunk-activity watch, not as a full source audit of every Binaryen pass on `main`.
 
 ## Sources
 
@@ -62,3 +63,6 @@ related:
 - Debian experimental manpage for `wasm-opt` `122`: <https://manpages.debian.org/experimental/binaryen/wasm-opt.1.en.html>
 - Rust `wasm_opt::Pass` docs: <https://docs.rs/wasm-opt/latest/wasm_opt/enum.Pass.html>
 - Bundled Binaryen README excerpt mirrored in `wasm-opt-sys`: <https://docs.rs/crate/wasm-opt-sys/latest/source/binaryen/README.md>
+- Binaryen Chromium mirror commit `9de4aca15b3125d54aabaf2913a0988ff500bdba` (`2025-08-27`): <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9de4aca15b3125d54aabaf2913a0988ff500bdba>
+- Binaryen Chromium mirror commit `9ee4a25ee15ab53e796cb0b3f320cafa2622c407` (`2026-02-27`): <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9ee4a25ee15ab53e796cb0b3f320cafa2622c407%5E%21/>
+- Binaryen Chromium mirror commit `f284d54ef60a5b6e6c33b4c1f4d4b423f7a6b1c3` (`2026-02-27`): <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/f284d54ef60a5b6e6c33b4c1f4d4b423f7a6b1c3%5E%21/>

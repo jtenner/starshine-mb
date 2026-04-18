@@ -106,6 +106,7 @@ related:
   - each fixpoint cycle computes `label_refs`, `branch_payload_children`, and `has_br_table` in one scan
   - visitation now threads root-site and single-arm-`nop` context instead of re-finding those facts with extra whole-function walks
   - detached cleanup is bounded and several hot rewrites now use push-style array assembly
+- A newer upstream trunk note is now recorded too: the Chromium-hosted Binaryen mirror shows a 2026-02-27 `RemoveUnusedBrs` change that rewrites branches-to-traps directly to traps. That is a behavior change newer than this repo's older `version_129` Binaryen oracle, so treat it as tracked upstream drift rather than as already-ported Starshine behavior.
 - It is still an in-progress parity pass because the explicit debug-artifact compare remains noisy after those fixes:
   - the saved compare still diverges in normalized WAT
   - the first inspected remaining hunk `func $384` still traces as `changed=false`, so some early noise is not RUB mutation at all
@@ -138,6 +139,7 @@ related:
 
 ## Current Maintenance Rule
 
+- When newer non-GitHub upstream evidence changes `RemoveUnusedBrs` behavior without renaming the pass, record that drift here and in [`./parity.md`](./parity.md) instead of silently folding it into the older `version_129`-backed algorithm notes.
 - Treat this folder as the canonical home for all future `remove-unused-brs` work.
 - New RUB research should land here instead of being left only in `agent-todo.md`, one-off parity notes, or commit messages.
 - Any new rewrite should update:

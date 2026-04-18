@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record newer Binaryen trunk drift without renaming pass pages
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` so the current non-GitHub Binaryen check now distinguishes stable pass names from newer trunk behavior drift, using Chromium-hosted mirror commits for the 2025-08-27 `Precompute` child-retention rewrite plus the 2026-02-27 `RemoveUnusedBrs` branches-to-traps and `Vacuum` unreachable-preservation changes.
+- Updated the living pass pages for `precompute`, `vacuum`, and `remove-unused-brs` so they now say explicitly that the repo's older `version_129` Binaryen oracle is a tagged source baseline, not a claim that current Binaryen trunk internals are unchanged.
+- Refreshed `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md` so the human catalogs mention the new drift notes instead of implying the older summaries are the latest upstream behavior.
+- Reran a repo-local markdown-link health check over `docs/wiki/**/*.md` and confirmed there are still no broken relative links after the drift-note ingest.
+
 ## [2026-04-18] maintain | refresh late-pass stub terminology checks
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` so the current non-GitHub Binaryen terminology check now explicitly includes `HeapStoreOptimization` alongside the already-tracked `GlobalRefining`, `MemoryPacking`, `OnceReduction`, `OptimizeInstructions`, `Precompute`, `PrecomputePropagate`, and `Vacuum` surfaces.

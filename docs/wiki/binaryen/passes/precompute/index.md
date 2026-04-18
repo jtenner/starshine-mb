@@ -17,5 +17,11 @@ related:
 - Active hot pass in the Starshine registry.
 - Current summary: Fold exact constant integer expressions that are trap-free and stable across the top-level precompute slots.
 - Current Binaryen terminology check: upstream-facing sources still expose both `--precompute` and `--precompute-propagate`; this page keeps the repo's `precompute` umbrella label and records the ordered audit's Binaryen slot names explicitly when they differ.
+- Newer upstream activity is behavioral, not terminological: the Chromium-hosted Binaryen mirror shows a 2025-08-27 `Precompute` rewrite that reworked child-retention logic and removed the older dual-cache split, so treat this repo's older `version_129`-backed `precompute` notes as a tagged oracle rather than a claim about current trunk internals.
 - Current 2026-04-18 ordered generated-artifact follow-up: the early generated `cmd.wasm` slot at Binaryen slot `19` (`precompute-propagate`) emits invalid raw wasm (`func 108` missing its required `i32` result), while the later slot `43` still completes with meaningful equality.
 - Use [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md) for the current tail roster until dedicated strategy and parity pages land.
+
+## Sources
+
+- [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md)
+- Binaryen Chromium mirror commit `9de4aca15b3125d54aabaf2913a0988ff500bdba` (`2025-08-27`): <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9de4aca15b3125d54aabaf2913a0988ff500bdba>

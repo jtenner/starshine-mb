@@ -90,6 +90,7 @@ related:
 - The next hot layer follow-up now has one more lifted no-op retirement too:
   - the later localset-heavy value-if mesh family now reports `skip-hot reason=localset-heavy-value-if-mesh-noop`
   - the traced unchanged artifact cluster `Func 837`, `Func 3021`, `Func 3120`, `Func 3130`, and `Func 3134` is now retired after lift
+- Newer upstream evidence now matters explicitly too: the Chromium-hosted Binaryen mirror shows a 2026-02-27 `RemoveUnusedBrs` change that rewrites branches-to-traps directly to traps. That behavior is newer than this repo's older `version_129` Binaryen oracle, so treat it as trunk drift to reconcile deliberately instead of assuming the current Starshine parity target already includes it.
 - The remaining artifact work is not a generic "RUB still weak on branches" statement.
 - The remaining work is now concentrated in later shape families where:
   - the explicit compare still contains early type-order noise that may not be RUB logic at all
@@ -109,6 +110,8 @@ related:
   [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - CLI and artifact replay coverage:
   [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+- New upstream drift watch:
+  Binaryen Chromium mirror commit `42f1f12ad89d0329f70d5c4ae5ecb7f7889034c0` (`2026-02-27`) rewrites branches-to-traps directly to traps, but this repo has not yet re-baselined the living RUB parity target around that newer behavior.
 
 ## What Is Already In Good Shape
 
