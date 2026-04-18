@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | tighten Binaryen upstream-catalog boundary and precompute drift notes
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` after a fresh non-GitHub upstream check so the terminology section now records two additional source-of-truth facts: Binaryen `version_126` added the newer upstream-only passes `--remove-relaxed-simd` and `--strip-toolchain-annotations`, and `Precompute` had an extra 2026-03-23 GC-write/effects-model fix before the already-tracked 2026-03-25 GC-atomic no-fold change.
+- Updated `docs/wiki/binaryen/passes/precompute/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/index.md` so the living wiki now distinguishes Starshine's implemented Binaryen pass subset from newer upstream-only additions instead of letting the older Debian `122` manpage lag read like an implicit deprecation signal.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the catalog refresh.
+
+
 ## [2026-04-18] maintain | refresh RUB wiki metadata and slot-14 ingest links
 
 - Updated `docs/wiki/binaryen/passes/remove-unused-brs/index.md` so its frontmatter `last_reviewed` stamp and source list now match the already-ingested 2026-04-18 ordered-audit and slot-14 guard evidence, instead of implying the landing page stopped at the 2026-04-13 perf-only state.

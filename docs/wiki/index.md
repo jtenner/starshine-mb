@@ -13,7 +13,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 - [`ir2/architecture-rules.md`](ir2/architecture-rules.md) - Single-owned `HotFunc` contract, overlay model, and module-split rule for IR2.
 - [`binaryen/no-dwarf-default-optimize-path.md`](binaryen/no-dwarf-default-optimize-path.md) - Canonical phase split, ordered pass path, and nested rerun rules for Binaryen's no-DWARF `-O` / `-Os` optimize pipeline on the MoonBit debug artifact.
-- [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster, ordered generated-artifact audit summary, and 2026-04-18 non-GitHub Binaryen terminology plus trunk-drift check, now including direct Debian manpage confirmation for `--heap-store-optimization` and `--remove-unused-brs`.
+- [`binaryen/passes/late-pipeline-dispatch.md`](binaryen/passes/late-pipeline-dispatch.md) - Compact `-O4z` / `shrink` tail roster, ordered generated-artifact audit summary, and 2026-04-18 non-GitHub Binaryen terminology plus trunk-drift check, now including direct Debian manpage confirmation for `--heap-store-optimization` / `--remove-unused-brs`, the March 2026 `Precompute` GC-write drift, and the `version_126` upstream pass additions that are still outside Starshine's implemented subset.
 - [`binaryen/passes/duplicate-function-elimination/wat-shapes.md`](binaryen/passes/duplicate-function-elimination/wat-shapes.md) - Module and WAT shapes that create DFE merge candidates, rewrites, transitive unlocks, and deliberate non-merges.
 - [`binaryen/passes/duplicate-function-elimination/binaryen-strategy.md`](binaryen/passes/duplicate-function-elimination/binaryen-strategy.md) - Upstream `version_129` DFE strategy: hash buckets, option-dependent iteration budget, and whole-module rewrite behavior.
 - [`binaryen/passes/duplicate-function-elimination/starshine-hot-ir-strategy.md`](binaryen/passes/duplicate-function-elimination/starshine-hot-ir-strategy.md) - Current in-tree Starshine strategy for DFE, including the explicit reason it stays a module pass instead of a HOT-IR pass.
@@ -59,7 +59,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 
 ## Entities
 
-- [`binaryen/passes/index.md`](binaryen/passes/index.md) - Namespace catalog for all active implemented Binaryen pass folders and their current documentation status.
+- [`binaryen/passes/index.md`](binaryen/passes/index.md) - Namespace catalog for all active implemented Binaryen pass folders and their current documentation status, with an explicit boundary between Starshine's implemented subset and newer upstream-only Binaryen passes.
 - [`binaryen/passes/duplicate-function-elimination/index.md`](binaryen/passes/duplicate-function-elimination/index.md) - Hub page for DFE overview, shapes, strategy pages, metadata rules, and parity status.
 - [`binaryen/passes/simplify-locals/index.md`](binaryen/passes/simplify-locals/index.md) - Hub page for simplify-locals overview, shapes, strategies, implementation map, validation, performance, and parity.
 - [`binaryen/passes/remove-unused-module-elements/index.md`](binaryen/passes/remove-unused-module-elements/index.md) - Hub page for RUME overview, shapes, strategy pages, retention rules, and parity status.
@@ -75,7 +75,7 @@ This is the human-readable catalog for living wiki pages under `docs/wiki/`. Upd
 - [`binaryen/passes/once-reduction/index.md`](binaryen/passes/once-reduction/index.md) - Active module-pass landing page; now also records the current non-GitHub `--once-reduction` terminology sanity check.
 - [`binaryen/passes/optimize-instructions/index.md`](binaryen/passes/optimize-instructions/index.md) - Active hot-pass landing page; see the landing page until strategy pages land.
 - [`binaryen/passes/pick-load-signs/index.md`](binaryen/passes/pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
-- [`binaryen/passes/precompute/index.md`](binaryen/passes/precompute/index.md) - Active hot-pass landing page; records the current `precompute` versus `precompute-propagate` alias boundary plus the newer upstream child-retention and GC-atomic no-fold drift notes until strategy pages land.
+- [`binaryen/passes/precompute/index.md`](binaryen/passes/precompute/index.md) - Active hot-pass landing page; records the current `precompute` versus `precompute-propagate` alias boundary plus the newer upstream child-retention, March 2026 GC-write handling, and GC-atomic no-fold drift notes until strategy pages land.
 - [`binaryen/passes/remove-unused-brs/index.md`](binaryen/passes/remove-unused-brs/index.md) - Hub page for RUB overview, shape catalog, strategies, bailout notes, the retired slot-14 large-condition guard, and current parity status.
 - [`binaryen/passes/remove-unused-names/index.md`](binaryen/passes/remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
 - [`binaryen/passes/vacuum/index.md`](binaryen/passes/vacuum/index.md) - Active hot-pass landing page; records the paired ordered-slot blockers plus the newer upstream `unreachable`-preservation note until strategy pages land.

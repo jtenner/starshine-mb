@@ -44,7 +44,7 @@ related:
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
 - [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with shapes, strategies, scheduler notes, reduced repro tracking, and parity status.
-- [`precompute/index.md`](precompute/index.md) - Active hot pass; the landing page now also records the current non-GitHub child-retention and GC-atomic no-fold drift notes.
+- [`precompute/index.md`](precompute/index.md) - Active hot pass; the landing page now also records the current non-GitHub child-retention plus March 2026 GC-write / GC-atomic no-fold drift notes.
 - [`simplify-locals/index.md`](simplify-locals/index.md) - Expanded folder with overview, shapes, strategies, implementation map, validation, performance, and parity status.
 
 ## Tail Dispatch Notes
@@ -56,4 +56,5 @@ related:
 - Every implemented pass should now have a stable folder landing page, even when detailed subpages are still missing.
 - Expand folders from scaffold to full multi-entry form in priority order, starting from passes that already have artifact parity work or active backlog slices.
 - The 2026-04-18 non-GitHub terminology check in [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) found the current upstream-facing pass names still aligned with this folder map; the direct Debian manpage evidence now explicitly covers `--heap-store-optimization` and `--remove-unused-brs` in addition to the already tracked aliases such as Binaryen `Dce` versus the wiki's `dead-code-elimination` label and Binaryen `precompute-propagate` versus the repo's `precompute` landing page.
-- When newer Chromium-mirror commits show behavior drift without a rename, record that on the owning pass page instead of silently updating older `version_129`-backed summaries as if they were current-trunk facts.
+- That same check also found newer upstream pass additions in the Chromium-hosted `version_126` notes (`--remove-relaxed-simd` and `--strip-toolchain-annotations`). They are intentionally absent from this catalog because this page tracks Starshine's implemented pass subset, not the full upstream Binaryen catalog.
+- When newer Chromium-mirror commits or release notes show behavior drift or newly added upstream passes without a local implementation, record that here or on the owning pass page instead of silently updating older `version_129`-backed summaries as if they were current-trunk facts.
