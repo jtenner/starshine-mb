@@ -204,8 +204,71 @@ test "parse_invalid_fuzz_failure_report roundtrips persisted artifacts" {
   assert_eq(parsed.suite, "validate-invalid-text")
   assert_eq(parsed.strategy_id, "invalid-result-stack")
   assert_eq(invalid_fuzz_source_kind_name(parsed.source_kind), "text")
+  assert_eq(parsed.seed_profile, None)
+  assert_eq(parsed.seed_mode, None)
+  assert_eq(parsed.seed_require_strategy_prereqs, None)
   assert_eq(parsed.artifacts.length(), 1)
   assert_eq(parsed.reduced_artifacts.length(), 1)
+}
+
+///|
+test "parse_invalid_fuzz_failure_report roundtrips persisted seed metadata" {
+  let writes : Map[String, Bytes] = {}
+  let io = InvalidFuzzPersistIO::new(ensure_dir=fn(_) { Ok(()) }, write_file=fn(
+    path,
+    bytes,
+  ) {
+    writes[path] = bytes
+    Ok(())
+  })
+  let report = match
+    build_invalid_fuzz_binary_failure_report_by_stable_id(
+      "trailing-garbage",
+      0x5eedUL,
+      33,
+      params=Some(
+        GenInvalidBinaryParams::repro_seed(
+          TrailingGarbage,
+          require_strategy_prereqs=false,
+        ),
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let (_, artifact_paths) = match
+    persist_invalid_fuzz_failure_report(report, io) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let meta_text = match
+    writes.get(
+      "fuzz-corpus/invalid/validate-invalid-binary/trailing-garbage/seed-24301-attempt-33/repro.meta.txt",
+    ) {
+    Some(v) => invalid_repro_test_bytes_to_ascii(v)
+    None => fail("missing persisted metadata")
+  }
+  assert_true(meta_text.contains("seed_profile=repro"))
+  assert_true(meta_text.contains("seed_mode=random-valid"))
+  assert_true(meta_text.contains("seed_require_strategy_prereqs=false"))
+  let parsed = match
+    parse_invalid_fuzz_failure_report(meta_text, fn(name) {
+      for path in artifact_paths {
+        if path.contains("/" + name) {
+          match writes.get(path) {
+            Some(v) => return Ok(v)
+            None => ()
+          }
+        }
+      }
+      Err("missing artifact " + name)
+    }) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(parsed.seed_profile, Some("repro"))
+  assert_eq(parsed.seed_mode, Some("random-valid"))
+  assert_eq(parsed.seed_require_strategy_prereqs, Some(false))
 }
 
 ///|
@@ -286,6 +349,9 @@ test "default AST invalid report builder uses a compact coverage seed" {
   }
   assert_eq(compact.actual_stage, "validate-rejected")
   assert_eq(compact.actual_diagnostic_family, Some("export"))
+  assert_eq(compact.seed_profile, Some("repro"))
+  assert_eq(compact.seed_mode, Some("random-valid"))
+  assert_eq(compact.seed_require_strategy_prereqs, Some(true))
   assert_eq(compact.artifacts.length(), 2)
   assert_true(
     compact.artifacts[1].bytes.length() < full.artifacts[1].bytes.length(),
@@ -313,7 +379,39 @@ test "build_invalid_fuzz_ast_failure_report_by_stable_id supports natural seeds"
   }
   assert_eq(report.actual_stage, "validate-rejected")
   assert_eq(report.actual_diagnostic_family, Some("export"))
+  assert_eq(report.seed_profile, Some("natural"))
+  assert_eq(report.seed_mode, Some("random-valid"))
+  assert_eq(report.seed_require_strategy_prereqs, Some(true))
   assert_eq(report.artifacts.length(), 2)
+}
+
+///|
+test "build_invalid_fuzz_ast_failure_report_by_stable_id records prereq opt-out metadata" {
+  let spec = match
+    @validate.validate_invalid_ast_strategy_by_stable_id(
+      "duplicate-export-name",
+    ) {
+    Some(v) => v
+    None => fail("missing AST invalid strategy")
+  }
+  let report = match
+    build_invalid_fuzz_ast_failure_report_by_stable_id(
+      "duplicate-export-name",
+      0x5eedUL,
+      12,
+      params=Some(
+        @validate.GenInvalidAstParams::repro_seed(
+          spec.id,
+          require_strategy_prereqs=false,
+        ),
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(report.seed_profile, Some("repro"))
+  assert_eq(report.seed_mode, Some("random-valid"))
+  assert_eq(report.seed_require_strategy_prereqs, Some(false))
 }
 
 ///|
@@ -342,6 +440,9 @@ test "default binary invalid report builder uses a compact coverage seed" {
   }
   assert_eq(compact.actual_stage, "validate-rejected")
   assert_eq(compact.actual_diagnostic_family, Some("function"))
+  assert_eq(compact.seed_profile, Some("repro"))
+  assert_eq(compact.seed_mode, Some("random-valid"))
+  assert_eq(compact.seed_require_strategy_prereqs, Some(true))
   assert_eq(compact.artifacts.length(), 2)
   assert_true(
     compact.artifacts[1].bytes.length() < full.artifacts[1].bytes.length(),
@@ -367,7 +468,37 @@ test "build_invalid_fuzz_binary_failure_report_by_stable_id supports coverage-fo
   }
   assert_eq(report.actual_stage, "validate-rejected")
   assert_eq(report.actual_diagnostic_family, Some("function"))
+  assert_eq(report.seed_profile, Some("coverage-forced"))
+  assert_eq(report.seed_mode, Some("random-valid"))
+  assert_eq(report.seed_require_strategy_prereqs, Some(true))
   assert_eq(report.artifacts.length(), 2)
+}
+
+///|
+test "build_invalid_fuzz_binary_failure_report_by_stable_id records prereq opt-out metadata" {
+  let spec = match
+    validate_invalid_binary_strategy_by_stable_id("trailing-garbage") {
+    Some(v) => v
+    None => fail("missing binary invalid strategy")
+  }
+  let report = match
+    build_invalid_fuzz_binary_failure_report_by_stable_id(
+      "trailing-garbage",
+      0x5eedUL,
+      14,
+      params=Some(
+        GenInvalidBinaryParams::repro_seed(
+          spec.id,
+          require_strategy_prereqs=false,
+        ),
+      ),
+    ) {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  assert_eq(report.seed_profile, Some("repro"))
+  assert_eq(report.seed_mode, Some("random-valid"))
+  assert_eq(report.seed_require_strategy_prereqs, Some(false))
 }
 
 ///|

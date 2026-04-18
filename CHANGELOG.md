@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: persist seed-profile metadata in invalid repro reports
+
+- **teach AST and binary invalid-generation params plus persisted repro reports to carry named seed-profile metadata** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt), [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt), [`src/fuzz/invalid_repro.mbt`](./src/fuzz/invalid_repro.mbt), and [`src/fuzz/invalid_repro_wbtest.mbt`](./src/fuzz/invalid_repro_wbtest.mbt) so named seed helpers now preserve semantic profile identity (`natural`, `coverage-forced`, `small-natural`, `small-coverage-forced`, `repro`, `minimal`) instead of collapsing everything to bare config equality, and persisted AST/binary repro metadata now records `seed_profile`, `seed_mode`, and `seed_require_strategy_prereqs`. Verification for this slice: `moon test src/validate`, `moon test src/fuzz`, `moon fmt src/validate src/fuzz`, and `moon info`.
+
 ## 2026-04-18 Fix: expand `gen_invalid` strategy-prereq coverage
 
 - **cover explicit strategy-prereq toggles and shared prerequisite shapers with direct tests** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/validate/gen_invalid_tests.mbt`](./src/validate/gen_invalid_tests.mbt) so AST-side `GenInvalidAstParams::new(..., require_strategy_prereqs=false)` is now locked directly and the shared memory/data prerequisite helper is covered independently from the higher-level seed-config path. Verification for this slice: `moon test src/validate`.

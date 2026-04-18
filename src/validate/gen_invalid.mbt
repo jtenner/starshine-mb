@@ -5,9 +5,42 @@ pub enum GenInvalidSeedMode {
 } derive(Eq, Debug)
 
 ///|
+pub enum GenInvalidNamedSeedProfile {
+  NaturalSeedProfile
+  CoverageForcedSeedProfile
+  SmallNaturalSeedProfile
+  SmallCoverageForcedSeedProfile
+  ReproSeedProfile
+  MinimalSeedProfile
+} derive(Eq, Debug)
+
+///|
+pub fn gen_invalid_seed_mode_name(mode : GenInvalidSeedMode) -> String {
+  match mode {
+    RandomValidSeed => "random-valid"
+    MinimalValidSeed => "minimal-valid"
+  }
+}
+
+///|
+pub fn gen_invalid_named_seed_profile_name(
+  profile : GenInvalidNamedSeedProfile,
+) -> String {
+  match profile {
+    NaturalSeedProfile => "natural"
+    CoverageForcedSeedProfile => "coverage-forced"
+    SmallNaturalSeedProfile => "small-natural"
+    SmallCoverageForcedSeedProfile => "small-coverage-forced"
+    ReproSeedProfile => "repro"
+    MinimalSeedProfile => "minimal"
+  }
+}
+
+///|
 pub struct GenInvalidAstParams {
   strategy : ValidateInvalidAstStrategyId
   seed_mode : GenInvalidSeedMode
+  seed_profile : GenInvalidNamedSeedProfile?
   generator_config : GenValidConfig
   require_strategy_prereqs : Bool
 } derive(Eq, Debug)
@@ -19,7 +52,13 @@ pub fn GenInvalidAstParams::new(
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidAstParams {
-  { strategy, seed_mode, generator_config, require_strategy_prereqs }
+  {
+    strategy,
+    seed_mode,
+    seed_profile: None,
+    generator_config,
+    require_strategy_prereqs,
+  }
 }
 
 ///|
@@ -31,6 +70,7 @@ pub fn GenInvalidAstParams::natural_seed(
   {
     strategy,
     seed_mode: RandomValidSeed,
+    seed_profile: Some(NaturalSeedProfile),
     generator_config,
     require_strategy_prereqs,
   }
@@ -45,6 +85,7 @@ pub fn GenInvalidAstParams::coverage_forced_seed(
   {
     strategy,
     seed_mode: RandomValidSeed,
+    seed_profile: Some(CoverageForcedSeedProfile),
     generator_config,
     require_strategy_prereqs,
   }
@@ -59,6 +100,7 @@ pub fn GenInvalidAstParams::small_natural_seed(
   {
     strategy,
     seed_mode: RandomValidSeed,
+    seed_profile: Some(SmallNaturalSeedProfile),
     generator_config: gen_invalid_small_gen_valid_config(generator_config),
     require_strategy_prereqs,
   }
@@ -73,6 +115,7 @@ pub fn GenInvalidAstParams::small_coverage_forced_seed(
   {
     strategy,
     seed_mode: RandomValidSeed,
+    seed_profile: Some(SmallCoverageForcedSeedProfile),
     generator_config: gen_invalid_small_gen_valid_config(generator_config),
     require_strategy_prereqs,
   }
@@ -84,11 +127,13 @@ pub fn GenInvalidAstParams::repro_seed(
   generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidAstParams {
-  GenInvalidAstParams::small_coverage_forced_seed(
+  {
     strategy,
-    generator_config~,
-    require_strategy_prereqs~,
-  )
+    seed_mode: RandomValidSeed,
+    seed_profile: Some(ReproSeedProfile),
+    generator_config: gen_invalid_small_gen_valid_config(generator_config),
+    require_strategy_prereqs,
+  }
 }
 
 ///|
@@ -100,8 +145,19 @@ pub fn GenInvalidAstParams::minimal_seed(
   {
     strategy,
     seed_mode: MinimalValidSeed,
+    seed_profile: Some(MinimalSeedProfile),
     generator_config,
     require_strategy_prereqs,
+  }
+}
+
+///|
+pub fn gen_invalid_ast_params_profile_name(
+  params : GenInvalidAstParams,
+) -> String {
+  match params.seed_profile {
+    Some(profile) => gen_invalid_named_seed_profile_name(profile)
+    None => "custom"
   }
 }
 

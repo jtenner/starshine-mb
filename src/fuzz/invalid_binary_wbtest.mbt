@@ -356,3 +356,52 @@ test "gen_invalid_binary repro_seed matches small coverage-forced seed defaults"
   assert_true(repro.generator_config == small.generator_config)
   assert_true(repro.require_strategy_prereqs == small.require_strategy_prereqs)
 }
+
+///|
+test "gen_invalid_binary_params_profile_name identifies named and custom profiles" {
+  assert_eq(
+    gen_invalid_binary_params_profile_name(
+      GenInvalidBinaryParams::natural_seed(TrailingGarbage),
+    ),
+    "natural",
+  )
+  assert_eq(
+    gen_invalid_binary_params_profile_name(
+      GenInvalidBinaryParams::coverage_forced_seed(TrailingGarbage),
+    ),
+    "coverage-forced",
+  )
+  assert_eq(
+    gen_invalid_binary_params_profile_name(
+      GenInvalidBinaryParams::small_natural_seed(TrailingGarbage),
+    ),
+    "small-natural",
+  )
+  assert_eq(
+    gen_invalid_binary_params_profile_name(
+      GenInvalidBinaryParams::small_coverage_forced_seed(TrailingGarbage),
+    ),
+    "small-coverage-forced",
+  )
+  assert_eq(
+    gen_invalid_binary_params_profile_name(
+      GenInvalidBinaryParams::repro_seed(TrailingGarbage),
+    ),
+    "repro",
+  )
+  assert_eq(
+    gen_invalid_binary_params_profile_name(
+      GenInvalidBinaryParams::minimal_seed(TrailingGarbage),
+    ),
+    "minimal",
+  )
+  assert_eq(
+    gen_invalid_binary_params_profile_name(
+      GenInvalidBinaryParams::new(
+        TrailingGarbage,
+        generator_config=GenValidConfig::natural_default(),
+      ),
+    ),
+    "custom",
+  )
+}

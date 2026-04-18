@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record seed-profile metadata on invalid repro reports
+
+- Reviewed the already-modified invalid-generation and repro files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, `src/fuzz/invalid_binary_wbtest.mbt`, `src/fuzz/invalid_repro.mbt`, and `src/fuzz/invalid_repro_wbtest.mbt` to capture the next hardening step: named AST/binary seed helpers now preserve semantic profile identity instead of collapsing purely to config equality, and persisted repro metadata now records `seed_profile`, `seed_mode`, and `seed_require_strategy_prereqs` for AST/binary cases.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the new profile-introspection helpers and the extra persisted metadata fields, which makes the invalid repro corpus more self-describing when a future reduction or replay result needs to be audited offline.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record shared strategy-prereq shapers for `gen_invalid`
 
 - Reviewed the already-modified invalid-generation files `src/validate/gen_invalid.mbt`, `src/validate/gen_invalid_tests.mbt`, `src/fuzz/invalid_binary.mbt`, and `src/fuzz/invalid_binary_wbtest.mbt` to capture the next public-API refinement after the compact/repro seed work: validate now exports reusable strategy-prereq seed shapers, and binary invalid-generation params now carry an explicit `require_strategy_prereqs` toggle on every constructor.

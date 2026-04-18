@@ -229,3 +229,52 @@ test "gen_invalid_ast repro_seed matches small coverage-forced seed defaults" {
   assert_true(repro.generator_config == small.generator_config)
   assert_true(repro.require_strategy_prereqs == small.require_strategy_prereqs)
 }
+
+///|
+test "gen_invalid_ast_params_profile_name identifies named and custom profiles" {
+  assert_eq(
+    gen_invalid_ast_params_profile_name(
+      GenInvalidAstParams::natural_seed(DuplicateExportName),
+    ),
+    "natural",
+  )
+  assert_eq(
+    gen_invalid_ast_params_profile_name(
+      GenInvalidAstParams::coverage_forced_seed(DuplicateExportName),
+    ),
+    "coverage-forced",
+  )
+  assert_eq(
+    gen_invalid_ast_params_profile_name(
+      GenInvalidAstParams::small_natural_seed(DuplicateExportName),
+    ),
+    "small-natural",
+  )
+  assert_eq(
+    gen_invalid_ast_params_profile_name(
+      GenInvalidAstParams::small_coverage_forced_seed(DuplicateExportName),
+    ),
+    "small-coverage-forced",
+  )
+  assert_eq(
+    gen_invalid_ast_params_profile_name(
+      GenInvalidAstParams::repro_seed(DuplicateExportName),
+    ),
+    "repro",
+  )
+  assert_eq(
+    gen_invalid_ast_params_profile_name(
+      GenInvalidAstParams::minimal_seed(DuplicateExportName),
+    ),
+    "minimal",
+  )
+  assert_eq(
+    gen_invalid_ast_params_profile_name(
+      GenInvalidAstParams::new(DuplicateExportName, generator_config=GenValidConfig::{
+        ..GenValidConfig::natural_default(),
+        max_body_depth: 99,
+      }),
+    ),
+    "custom",
+  )
+}

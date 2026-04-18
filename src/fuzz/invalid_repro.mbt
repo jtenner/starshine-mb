@@ -75,6 +75,9 @@ pub struct InvalidFuzzFailureReport {
   expected_diagnostic_family : String?
   actual_stage : String
   actual_diagnostic_family : String?
+  seed_profile : String?
+  seed_mode : String?
+  seed_require_strategy_prereqs : Bool?
   source_path : String?
   artifacts : Array[InvalidFuzzArtifact]
   reduced_artifacts : Array[InvalidFuzzArtifact]
@@ -92,6 +95,9 @@ pub fn InvalidFuzzFailureReport::new(
   expected_diagnostic_family? : String? = None,
   actual_stage? : String = expected_stage,
   actual_diagnostic_family? : String? = expected_diagnostic_family,
+  seed_profile? : String? = None,
+  seed_mode? : String? = None,
+  seed_require_strategy_prereqs? : Bool? = None,
   source_path? : String? = None,
   artifacts? : Array[InvalidFuzzArtifact] = [],
   reduced_artifacts? : Array[InvalidFuzzArtifact] = [],
@@ -107,6 +113,9 @@ pub fn InvalidFuzzFailureReport::new(
     expected_diagnostic_family,
     actual_stage,
     actual_diagnostic_family,
+    seed_profile,
+    seed_mode,
+    seed_require_strategy_prereqs,
     source_path,
     artifacts,
     reduced_artifacts,
@@ -130,6 +139,9 @@ fn invalid_fuzz_failure_report_copy(
     expected_diagnostic_family=report.expected_diagnostic_family,
     actual_stage=report.actual_stage,
     actual_diagnostic_family=report.actual_diagnostic_family,
+    seed_profile=report.seed_profile,
+    seed_mode=report.seed_mode,
+    seed_require_strategy_prereqs=report.seed_require_strategy_prereqs,
     source_path~,
     artifacts=report.artifacts,
     reduced_artifacts~,
@@ -251,6 +263,20 @@ fn invalid_fuzz_optional_meta_line(label : String, value : String?) -> String? {
 }
 
 ///|
+fn invalid_fuzz_optional_bool_meta_line(
+  label : String,
+  value : Bool?,
+) -> String? {
+  match value {
+    Some(v) => {
+      let text = if v { "true" } else { "false" }
+      Some(label + "=" + text)
+    }
+    None => None
+  }
+}
+
+///|
 fn invalid_fuzz_failure_meta_text(report : InvalidFuzzFailureReport) -> String {
   let lines : Array[String] = [
     "suite=" + report.suite,
@@ -274,6 +300,22 @@ fn invalid_fuzz_failure_meta_text(report : InvalidFuzzFailureReport) -> String {
     invalid_fuzz_optional_meta_line(
       "actual_diagnostic_family",
       report.actual_diagnostic_family,
+    ) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match invalid_fuzz_optional_meta_line("seed_profile", report.seed_profile) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match invalid_fuzz_optional_meta_line("seed_mode", report.seed_mode) {
+    Some(line) => lines.push(line)
+    None => ()
+  }
+  match
+    invalid_fuzz_optional_bool_meta_line(
+      "seed_require_strategy_prereqs",
+      report.seed_require_strategy_prereqs,
     ) {
     Some(line) => lines.push(line)
     None => ()
@@ -435,6 +477,19 @@ fn invalid_fuzz_parse_int(raw : String, field : String) -> Result[Int, String] {
 }
 
 ///|
+fn invalid_fuzz_parse_bool(
+  raw : String,
+  field : String,
+) -> Result[Bool, String] {
+  let text = raw.trim().to_string()
+  match text {
+    "true" => Ok(true)
+    "false" => Ok(false)
+    _ => Err("invalid \{field} '\{raw}'")
+  }
+}
+
+///|
 fn invalid_fuzz_parse_artifact_entry(
   raw : String,
   load_artifact : (String) -> Result[Bytes, String],
@@ -477,6 +532,9 @@ pub fn parse_invalid_fuzz_failure_report(
   let mut expected_diagnostic_family : String? = None
   let mut actual_stage : String? = None
   let mut actual_diagnostic_family : String? = None
+  let mut seed_profile : String? = None
+  let mut seed_mode : String? = None
+  let mut seed_require_strategy_prereqs : Bool? = None
   let mut source_path : String? = None
   let artifacts : Array[InvalidFuzzArtifact] = []
   let reduced_artifacts : Array[InvalidFuzzArtifact] = []
@@ -512,6 +570,13 @@ pub fn parse_invalid_fuzz_failure_report(
       "expected_diagnostic_family" => expected_diagnostic_family = Some(value)
       "actual_stage" => actual_stage = Some(value)
       "actual_diagnostic_family" => actual_diagnostic_family = Some(value)
+      "seed_profile" => seed_profile = Some(value)
+      "seed_mode" => seed_mode = Some(value)
+      "seed_require_strategy_prereqs" =>
+        match invalid_fuzz_parse_bool(value, "seed_require_strategy_prereqs") {
+          Ok(v) => seed_require_strategy_prereqs = Some(v)
+          Err(msg) => return Err(msg)
+        }
       "source_path" => source_path = Some(value)
       "artifact" =>
         match invalid_fuzz_parse_artifact_entry(value, load_artifact) {
@@ -570,6 +635,9 @@ pub fn parse_invalid_fuzz_failure_report(
       expected_diagnostic_family~,
       actual_stage=resolved_actual_stage,
       actual_diagnostic_family~,
+      seed_profile~,
+      seed_mode~,
+      seed_require_strategy_prereqs~,
       source_path~,
       artifacts~,
       reduced_artifacts~,
@@ -674,6 +742,15 @@ pub fn build_invalid_fuzz_ast_failure_report_by_stable_id(
       expected_diagnostic_family=expected_family,
       actual_stage=replay.stage,
       actual_diagnostic_family=replay.diagnostic_family,
+      seed_profile=Some(
+        @validate.gen_invalid_ast_params_profile_name(resolved_params),
+      ),
+      seed_mode=Some(
+        @validate.gen_invalid_seed_mode_name(resolved_params.seed_mode),
+      ),
+      seed_require_strategy_prereqs=Some(
+        resolved_params.require_strategy_prereqs,
+      ),
       artifacts=[artifact, seed_artifact],
     ),
   )
@@ -739,6 +816,13 @@ pub fn build_invalid_fuzz_binary_failure_report_by_stable_id(
       expected_diagnostic_family=expected_family,
       actual_stage=replay.stage,
       actual_diagnostic_family=replay.diagnostic_family,
+      seed_profile=Some(gen_invalid_binary_params_profile_name(resolved_params)),
+      seed_mode=Some(
+        gen_invalid_binary_seed_mode_name(resolved_params.seed_mode),
+      ),
+      seed_require_strategy_prereqs=Some(
+        resolved_params.require_strategy_prereqs,
+      ),
       artifacts=[artifact, seed_artifact],
     ),
   )
