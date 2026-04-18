@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-18 Fix: expose replayable fuzz failure classes at the CLI
+
+- **add a discoverable `--list-failure-classes` surface to `pass-fuzz-compare`** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so the compare harness can print the currently supported replay/filter ids directly instead of requiring callers to infer them from source or docs. The new command test locks that the list includes the newer Starshine and Binaryen family ids such as `starshine-invalid-limits`, `binaryen-initializer-expression-not-constant`, `binaryen-table-index-out-of-range`, and `binaryen-bad-section-size`. Verification for this slice: `bun scripts/test/pass-fuzz-compare-command.ts` and `bun scripts/test/task-family-commands.ts`.
+
 ## 2026-04-18 Fix: classify Binaryen fuzz command failures for bad-section-size parser gaps
 
 - **split `pass-fuzz-compare` Binaryen command failures for the `bad section size` parser family** by **@jtenner**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), and [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts) so the harness no longer flattens that parser failure into generic `binaryen-command-failed`. The compare harness now classifies the family as `binaryen-bad-section-size`, and replay filtering accepts the new id even for legacy saved cases that only carry a detail string. The new command tests lock both the direct classification path and legacy replay filtering. Verification for this slice: `bun scripts/test/pass-fuzz-compare-command.ts` and `bun scripts/test/task-family-commands.ts`.

@@ -216,6 +216,29 @@ export function runPassFuzzCompareListPassesCommandTest(): void {
   assert(!result.stdout.includes("--remove-unused-brs"), `expected canonical names without -- prefix:\n${result.stdout}`);
 }
 
+export function runPassFuzzCompareListFailureClassesCommandTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const result = spawnSync(
+    "bun",
+    [path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"), "--list-failure-classes"],
+    {
+      cwd: repoRoot,
+      encoding: "utf8",
+    },
+  );
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare --list-failure-classes failed:\n${result.stderr}`);
+  }
+  assert(result.stdout.includes("starshine-invalid-limits"), `expected starshine-invalid-limits in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("starshine-invalid-range-for-limits"), `expected starshine-invalid-range-for-limits in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("binaryen-initializer-expression-not-constant"), `expected binaryen-initializer-expression-not-constant in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("binaryen-table-index-out-of-range"), `expected binaryen-table-index-out-of-range in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("binaryen-bad-section-size"), `expected binaryen-bad-section-size in list output:\n${result.stdout}`);
+}
+
 export function runPassFuzzComparePassAliasCommandTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-pass-alias-"));
@@ -2561,6 +2584,7 @@ process.exit(0);
 if (import.meta.main) {
   runPassFuzzCompareCommandTest();
   runPassFuzzCompareListPassesCommandTest();
+  runPassFuzzCompareListFailureClassesCommandTest();
   runPassFuzzComparePassAliasCommandTest();
   runPassFuzzCompareTupleOptimizationPassAliasCommandTest();
   runPassFuzzCompareWasmSmithOnlyCommandTest();

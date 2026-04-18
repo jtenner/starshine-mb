@@ -48,7 +48,8 @@ type PassFuzzCompareOptions = {
 type ParseCommand =
   | { kind: "run"; options: PassFuzzCompareOptions }
   | { kind: "help" }
-  | { kind: "list-passes" };
+  | { kind: "list-passes" }
+  | { kind: "list-failure-classes" };
 
 type StarshineInvocation = {
   command: string;
@@ -151,6 +152,8 @@ const HELP_TEXT = [
   "  --failure-class <id> Restrict replay to one failure family",
   "  --case-index <n>     Restrict replay to one saved case index",
   "  --list-passes         Print supported pass names and exit",
+  "  --list-failure-classes",
+  "                       Print supported replay failure classes and exit",
   "  --help                Print this text and exit",
 ].join("\n");
 
@@ -189,6 +192,22 @@ function supportedPassNames(): string[] {
   return Array.from(SUPPORTED_PASS_FLAGS)
     .map((flag) => flag.replace(/^--/, ""))
     .sort();
+}
+
+function supportedCommandFailureClasses(): CommandFailureClass[] {
+  return [
+    "starshine-command-failed",
+    "starshine-invalid-limits",
+    "starshine-invalid-range-for-limits",
+    "binaryen-invalid-type-index",
+    "binaryen-invalid-tag-index",
+    "binaryen-rec-group-zero",
+    "binaryen-invalid-wasm-type-neg64",
+    "binaryen-initializer-expression-not-constant",
+    "binaryen-table-index-out-of-range",
+    "binaryen-bad-section-size",
+    "binaryen-command-failed",
+  ];
 }
 
 function normalizePassNameToFlag(raw: string): string {
@@ -539,6 +558,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         command = "list-passes";
         i += 1;
         break;
+      case "--list-failure-classes":
+        command = "list-failure-classes";
+        i += 1;
+        break;
       case "--count":
         count = parseNonNegativeInt("count", argv[i + 1] ?? fail("missing value for --count"));
         i += 2;
@@ -630,6 +653,9 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   if (command === "list-passes") {
     return { kind: "list-passes" };
   }
+  if (command === "list-failure-classes") {
+    return { kind: "list-failure-classes" };
+  }
   if (passFlags.length === 0) {
     fail("expected at least one pass flag to compare");
   }
@@ -672,6 +698,10 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
   }
   if (parsed.kind === "list-passes") {
     process.stdout.write(`${supportedPassNames().join("\n")}\n`);
+    return;
+  }
+  if (parsed.kind === "list-failure-classes") {
+    process.stdout.write(`${supportedCommandFailureClasses().join("\n")}\n`);
     return;
   }
   const options = parsed.options;
