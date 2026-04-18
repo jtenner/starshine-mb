@@ -5,7 +5,7 @@
 - Group work by release target.
 - Use explicit slice ids so future agents can execute in dependency order.
 - Keep each slice actionable enough to implement directly without re-deriving the architecture.
-- Move completed work to `CHANGELOG.md`.
+- Move finished work to `CHANGELOG.md`.
 
 ## Generated `cmd.wasm` ordered `-O4z` corruption audit (Active Slice)
 
@@ -106,7 +106,7 @@ Observed unique-pass order
 
 #### RUME - Remove Unused Module Elements
 1. Canonical correctness landed.
-   - [RUME]003 - Oracle-stable fast-path pass completed - Direct pass execution, CLI flag and registry wiring, focused section/index rewrite coverage, explicit memarg-index rewrites, and canonical compare-harness artifact parity are in place; `remove-unused-module-elements` is now canonically correct against the oracle on the debug artifact.
+   - [RUME]003 - Oracle-stable fast-path pass follow-up - Direct pass execution, CLI flag and registry wiring, focused section/index rewrite coverage, explicit memarg-index rewrites, and canonical compare-harness artifact parity are in place; `remove-unused-module-elements` is now canonically correct against the oracle on the debug artifact.
      - Deliverables: replay `remove-unused-module-elements` on `tests/node/dist/starshine-debug-wasi.wasm`; keep canonical compare parity green while tracking pass-time and wall-time trends; continue replaying ordered no-DWARF slots when preset ordering is available.
      - Current blocker: the initial targeted run `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --count 300 --max-failures 5 --out-dir .tmp/pass-fuzz-rume` found two `wasm-smith` parity mismatches before the old harness aborted on a thrown command failure, while the clean `gen-valid` sweep `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 500 --max-failures 5 --out-dir .tmp/pass-fuzz-rume-genvalid` was `500/500` normalized matches with no validation or generator failures. After fixing the harness to accumulate command failures, the rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --count 300 --max-failures 20 --out-dir .tmp/pass-fuzz-rume-rerun` reached the cutoff with `85` compared cases, `79` normalized matches, `6` mismatches, `14` command failures, `0` validation failures, and `0` generator failures.
      - Mismatch classification from `.tmp/pass-fuzz-rume-rerun`: five `wasm-smith` mismatches are unused imported-module-element retention where Binaryen drops imports that Starshine preserves because `import_sec` is still copied through unchanged. The saved repros are `.tmp/pass-fuzz-rume-rerun/failures/case-000001-wasm-smith` (unused imported globals + memory + table), `.tmp/pass-fuzz-rume-rerun/failures/case-000005-wasm-smith` (unused imported memory), `.tmp/pass-fuzz-rume-rerun/failures/case-000019-wasm-smith` (unused imported funcref table), `.tmp/pass-fuzz-rume-rerun/failures/case-000061-wasm-smith` (unused imported arrayref table), and `.tmp/pass-fuzz-rume-rerun/failures/case-000097-wasm-smith` (unused imported eqref table). The sixth mismatch is `.tmp/pass-fuzz-rume-rerun/failures/case-000077-wasm-smith`, where Starshine preserves an empty active data segment that Binaryen removes.
@@ -445,7 +445,7 @@ Observed unique-pass order
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [`docs/wiki/binaryen/passes/simplify-locals/index.md`](/home/jtenner/Projects/starshine-mb-simplify-locals-no-structure/docs/wiki/binaryen/passes/simplify-locals/index.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [SL]004 - Slot Validation and Artifact Replay - Lock the completed pass into the late slot and prove parity against Binaryen on both focused and large-artifact lanes.
+   - [SL]004 - Slot Validation and Artifact Replay - Lock the landed pass into the late slot and prove parity against Binaryen on both focused and large-artifact lanes.
      - Deliverables: add focused regressions for late-slot cleanup plus surrounding `vacuum` / `reorder-locals` behavior; verify scheduler placement; run pass-fuzz parity and `--simplify-locals` artifact compare.
      - Current blocker: the late-slot regression work is still in-tree and the focused Binaryen lanes remain green, and the refreshed `moonbit.malloc` control/value safety slice is now retired as well. `src/passes/registry_test.mbt` still locks `reorder-locals` as a `module_pass`, `src/passes/optimize_test.mbt` still locks the modeled `heap2local -> simplify-locals -> precompute` cleanup slot, and `src/passes/simplify_locals_test.mbt` now covers eight refreshed artifact-backed slices: the loop-carried-initializer guard that keeps pre-loop `local.set` values out of loop headers, the one-armed `if` `then`-arm `nop` sentinel Binaryen preserves when tail writes are lifted into value-`if`s, the live-prefix-root variant where `call` / `store` roots before the tail `local.set` must stay inside the new `then` body, the sibling-argument ordering reducer that keeps a value-writing `if (result i32)` from being sunk past an earlier sibling local read, the pure later-call-argument reducer that lets a single-use pure root `local.set` inline into the next root before a sibling call barrier, the tee-backed copied-local reducer that keeps later branch uses on the tee local instead of collapsing them back to the source local, the exact-writeback copied-tee reducer that prunes dead lowered `local.tee` roots without stripping Binaryen-preserved `nop`s, and the new exact-writeback dead adjacent set/get reducer that drops one-use lowered temps without synthesizing new tees. The reduced `Func 216` self-opt repro remains canonically equal to Binaryen, the fresh compare lane at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-588924` still prints `Func 26` (`moonbit.malloc`) identically in Starshine and Binaryen, the compare lane at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-603141` retires the old `Func 40` pure-constant residue, the 10k pass-fuzz lanes at `.tmp/pass-fuzz-sl-parity-after-func41-tee-guard-fix`, `.tmp/pass-fuzz-sl-parity-after-lowered-tee-cleanup`, `.tmp/pass-fuzz-sl-parity-after-lowered-dead-setget-drop`, and `.tmp/pass-fuzz-sl-parity-after-raw-validator-cleanup-rerun` are all green with `10000/10000` matches, and the latest artifact compare lane at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3006682` shows that the unreduced frontier is still absolute `Func 71`, not the older `Func 29` / `Func 41` families. The rejected broader cleanup attempt is preserved only as evidence in `.tmp/pass-fuzz-sl-parity-after-lowered-cleanup`, where immediate `nop`-stripping mismatches showed that Binaryen intentionally keeps many lowered `nop`s. The newer cleanup follow-ons are also still in-tree: `src/ir/hot_lower_test.mbt` covers dead nested `local.tee` pruning during lower, `src/passes/perf_test.mbt` now also covers skipping huge straight-line tee-heavy builders without hot lift, `src/passes/perf_test.mbt` still covers dropping dead raw adjacent `local.set` / `local.get` pairs without hot lift, `src/passes/pass_manager_wbtest.mbt` records the debug-artifact `Func 1800` raw-skip expectation even though the native wbtest harness still SIGSEGVs, and `src/passes/optimize_instructions_test.mbt` matches the lowered shape after that dead-tee cleanup. The latest sibling compare lane improved from Starshine `5277.708ms` total / `2854.587ms` pass at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3283725` to `4663.826ms` total / `2530.639ms` pass at `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-3006682`, but those follow-ons remain secondary until the remaining non-adjacent nested exact-expression `Func 71` drift and the new branchy internal-helper hotspot cluster are reduced.
      - Reproduce focused oracle lane: `bun scripts/pass-fuzz-compare.ts --pass simplify-locals --generator gen-valid --count 10000 --min-compared 10000 --max-failures 20 --out-dir .tmp/pass-fuzz-sl-genvalid-10000-sl004`
@@ -595,156 +595,6 @@ Observed unique-pass order
 4. Test against binaryen.
    - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
-
-### Validator fuzz stack widening and rejection coverage
-
-Goal
-- Rebuild the validator-side fuzz stack so valid generation covers much more of the wasm surface and explicit invalid/rejection lanes exist for AST, binary, text, and spec-seeded inputs.
-
-Why
-- The current checked-in tree is strong on valid roundtrip and pass-parity fuzzing, but still weak on intentional rejection coverage. Older docs describe invalid-fuzz files and suites that are not present in the current workspace, so future agents need one truthful backlog and one canonical handoff document before implementation resumes.
-
-Deliverables
-- Keep the active handoff document in [0089](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#L1) current as the canonical orientation doc for this work.
-- Reconcile the live Moon/Bun fuzz-suite surface with current code and help text.
-- Split valid generation into `natural` and `coverage-forced` modes with shared config and feature-fact stats.
-- Land explicit invalid/rejection lanes for AST, binary, text, and spec-seeded inputs.
-- Persist replayable invalid-fuzz repro artifacts and shrinkers.
-- Remove misleading or duplicated runner surfaces such as stale valid-fuzz logic splits or generator names that no longer match reality.
-
-Required APIs
-- `src/fuzz/main.mbt`, `src/fuzz/main_wbtest.mbt`, `src/fuzz/imports.mbt`.
-- `src/validate/gen_valid.mbt`, `src/validate/validate.mbt`, and the likely new `src/validate/invalid_fuzzer.mbt`.
-- `src/cmd/fuzz_harness.mbt` for existing persistence/report helpers.
-- `scripts/lib/fuzz-task.ts`, `scripts/test/*`, and `scripts/lib/pass-fuzz-compare-task.ts`.
-- `src/lib/arbitrary.mbt`, `src/wast/arbitrary.mbt`, `src/wast/spec_harness.mbt`, and `tests/spec` seed material.
-
-Invariants
-- Keep heavy randomized work in `src/fuzz`, not `moon test`.
-- Preserve `suite` / `profile` / `seed` reproducibility.
-- Do not silently break `--emit-gen-valid-batch` or the pass-fuzz compare harness that consumes it.
-- Count invalid-fuzz coverage as `attempted`, `applicable`, `mutated`, `rejected`, and `expected-family-matched`, not just “some error occurred”.
-- Prefer validator issue families over brittle message-only matching where the API already exposes them.
-- Keep docs and help text truthful: do not advertise suites or lanes until they are really in-tree.
-
-Dependencies
-- Active handoff doc: [0089](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#L1)
-- Living validator-fuzz summary: [docs/wiki/validate/fuzz-hardening.md](/home/jtenner/Projects/starshine-mb/docs/wiki/validate/fuzz-hardening.md#L1)
-- Archived validator-fuzz research: [0058](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0058-2026-03-23-validate-fuzz-hardening-plan.md#L1)
-
-Exit Criteria
-- The active tree has truthful fuzz-suite entrypoints, broader measurable valid generation, explicit invalid/rejection lanes, and replayable failure artifacts.
-- A fresh agent can resume the work from `agent-todo.md` and [0089](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#L1) without re-deriving the architecture from chat history.
-
-Suggested Tests
-- `moon test src/fuzz`
-- `moon test src/validate`
-- `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`
-- `moon run src/fuzz -- validate-invalid-ast smoke --seed 0x5eed`
-- `moon run src/fuzz -- validate-invalid-binary smoke --seed 0x5eed`
-- `moon run src/fuzz -- validate-invalid-text smoke --seed 0x5eed`
-- `moon run src/fuzz -- validate-invalid-spec-seed smoke --seed 0x5eed`
-- `moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`
-- `bun fuzz run --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke-bun`
-- targeted `bun scripts/pass-fuzz-compare.ts --generator gen-valid ...` smoke after any batch-surface change
-
-Current status
-- `[FUZ]001` is complete. The live fuzz runner now separates active suites from reserved invalid-lane ids, `src/cmd/fuzz_harness.mbt` uses truthful `run_cmd_fuzz_harness*` / `CmdFuzzStats` naming instead of the stale wasm-smith label, and `src/fuzz/main.mbt` delegates the direct `validate-valid` generation loop to `run_validate_valid_fuzz`.
-- `[FUZ]002` is complete. `src/validate/gen_valid.mbt` now exports shared generator config/mode/types (`GenValidMode`, `GenValidConfig`, section bias + feature toggles), `src/validate/validate.mbt` now resolves profile ladders through `validate_valid_run_config`, and `ValidateValidFuzzStats` now carries deterministic aggregated `GenValidFeatureStats` instead of only raw attempt counts.
-- `[FUZ]003` is complete. `gen_valid` now has a real topology-first split between `natural` and `coverage-forced` modes, widened section generation across imports/tables/mems/globals/tags/start/elem/data/datacount, shared type-pool reuse across imports/functions/tags, and a now-explicit `coverage-forced` `--emit-gen-valid-batch` contract for pass fuzzing.
-- `[FUZ]003A` is complete. `remove-unused-module-elements` now drops unused imported functions, compacts dead simple function types after that import removal, and keeps surviving export/elem/name references coherent through the remap. The imported-function rerun that exposed the downstream no-op `start` family has now been fully followed through under `[FUZ]003B`.
-- `[FUZ]003B` is complete. `remove-unused-module-elements` now matches the proved Binaryen no-op `start` rule for defined single-`nop` start targets: it drops the `start` section when the target body is exactly one `nop` (locals do not matter), keeps the otherwise-live exported/elem-linked function body, removes start-only single-`nop` functions entirely once `start` stops rooting them, and preserves the nearby empty-body negative boundary. The focused rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003b-genvalid-smoke` is now `20/20` compared cases with `20` normalized matches and `0` mismatches.
-- `[FUZ]004` is complete. `gen_valid` now builds recursive environment-aware bodies instead of the old flat stub sequence, widens live value/type usage to `v128` plus `funcref` / `externref`, and exercises section-dependent direct calls, `call_indirect`, memory/table ops, and structured `block` / `loop` / `if` / `br` / `br_if` control in both `natural` and `coverage-forced` generation. The `coverage-forced` batch contract now also carries a deterministic widened-surface prelude so every emitted batch module still hits the new body families.
-- `[FUZ]005` is complete. `src/validate/validate.mbt` now owns a machine-readable coverage-floor vocabulary (`ValidateValidFeatureKey`, `ValidateValidFeatureFloor`, `ValidateValidFeatureFloorFailure`) plus per-profile required breadth floors, `ValidateValidRunConfig` resolves those floors beside the generator config, `ValidateValidFuzzStats` carries both observed `GenValidFeatureStats` and the resolved floor set, and `run_validate_valid_fuzz` now fails if the curated `smoke` or broader `ci`/`stress` feature families go dead. `src/fuzz/main_wbtest.mbt` now also pins that `validate-valid` profile errors still route through the validator runner cleanly.
-- `[FUZ]006` is complete. `src/validate/invalid_fuzzer.mbt` now restores a real AST invalid lane with a single checked-in strategy registry, machine-readable expected diagnostic families, fixed-seed deterministic per-strategy accounting (`attempted`, `applicable`, `mutated`, `rejected`, `rejected_expected`), and smoke-required floors that fail the run if any curated strategy never lands its intended rejection family. `src/fuzz/main.mbt` now exposes `validate-invalid-ast` as an active suite instead of a reserved placeholder.
-- `[FUZ]007` is complete. `src/fuzz/invalid_binary.mbt` now adds a real `validate-invalid-binary` corruption lane backed by a checked-in byte-mutation registry, deterministic smoke/ci/stress profile resolution, and stage-aware per-strategy accounting (`attempted`, `applicable`, `mutated`, `decode_rejected`, `validate_rejected`, `rejected_expected`, `accepted`). The initial binary strategy set covers trailing garbage, truncated modules, duplicate type sections, wrong section order, and out-of-range function-section type indices, so the runner now distinguishes decode-malformed cases from decode-success/validate-reject cases instead of treating the suite id as reserved.
-- `[FUZ]008` is complete. `src/fuzz/invalid_text.mbt` now adds real `validate-invalid-text` and `validate-invalid-spec-seed` lanes with deterministic smoke/ci/stress profile resolution, stable inline-text plus corpus-seed registries, and explicit stage accounting for `parse_or_lower_rejected`, `validate_rejected`, `valid_before_link`, and `matched_expected`. `src/wast/spec_harness.mbt` now exports shared static-assertion evaluation helpers so the spec harness and the new fuzz runners reuse one interpretation of `assert_malformed`, `assert_invalid`, and `assert_unlinkable` instead of drifting.
-- `[FUZ]009` is complete. `src/fuzz/invalid_repro.mbt` now provides one shared invalid-fuzz repro surface with deterministic report metadata, stable corpus-path persistence, bounded per-source shrinkers, and direct replay helpers across AST, binary, text, and spec-seed artifacts. The new `src/fuzz/invalid_repro_wbtest.mbt` coverage also proves persisted metadata roundtrips plus one reduced replay path per source kind.
-- `[FUZ]010` is complete. `src/fuzz/main.mbt` now reuses `validate_valid_run_config(...)` for the shared `validate-valid` profile ladder instead of re-deriving it, `scripts/lib/fuzz-task.ts` now forwards `--emit-gen-valid-batch` through `bun fuzz run` beside the existing discovery commands, and the wiki/backlog/handoff docs no longer describe wrapper/docs alignment as unfinished fuzz-stack work.
-- The validator fuzz-stack hardening slices are complete; future work is incremental family widening rather than another active `[FUZ]` backlog slice.
-
-1. Land the shared config/stats foundation.
-   - [FUZ]002 - Shared Fuzz Config And Feature-Fact Plumbing.
-     - Status: completed 2026-04-16.
-     - Delivered: config/mode vocabulary, shared validate-valid profile resolution, deterministic feature-fact aggregation, and batch-surface coverage that the shared default config still drives emitted `gen-valid` artifacts.
-     - Remaining note: `GenValidConfig` still carries future body-shape controls that remain intentionally only plumbed until `[FUZ]004` starts consuming them for deeper call/control/type widening.
-     - Doc: [0089 FUZ002](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz002-shared-fuzz-config-and-feature-fact-plumbing)
-3. Widen valid generation topology first.
-   - [FUZ]003 - Multi-Mode Valid Topology Generator.
-     - Status: completed 2026-04-16.
-     - Delivered: topology-first valid generation with a real `natural` vs `coverage-forced` split, widened imports/tables/mems/globals/tags/start/elem/data/datacount coverage, shared function-type reuse across imports/functions/tags, and an explicitly pinned `coverage-forced` `--emit-gen-valid-batch` contract for pass fuzzing.
-     - Remaining note: the earlier shallow-body limitation from this slice is now superseded by completed follow-up `[FUZ]004`.
-     - Doc: [0089 FUZ003](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz003-multi-mode-valid-topology-generator)
-   - [FUZ]003A - Gen-valid `RUME` imported-function parity follow-up.
-     - Status: completed 2026-04-16.
-     - Delivered: added a focused imported-function regression in `src/passes/remove_unused_module_elements_test.mbt`, taught `remove-unused-module-elements` to drop unused function imports and compact their dead simple function types, and kept surviving function export/elem/name references coherent after the import disappears. The later no-op `start` follow-up from `[FUZ]003B` now intentionally drops `start` on that exact single-`nop` family too.
-     - Validation: `moon test --package jtenner/starshine/passes --file remove_unused_module_elements_test.mbt`; `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003a-genvalid-smoke` => `20/20` compared, `18` normalized matches, `0` validation failures, `0` generator failures, `0` command failures.
-     - Remaining note: the rerun no longer hits the imported-function retention family from `.tmp/pass-fuzz-fuz003-genvalid-smoke/failures/case-000001-gen-valid/`, but it now exposes a distinct no-op start-section pruning mismatch in `.tmp/pass-fuzz-fuz003a-genvalid-smoke/failures/case-000002-gen-valid/` and `case-000020-gen-valid/`, now tracked under `[FUZ]003B`.
-     - Doc: [0089 FUZ003A](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz003a-gen-valid-rume-imported-function-parity-follow-up) and [0090 research](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0090-2026-04-16-gen-valid-rume-imported-function-parity-followup.md#L1)
-   - [FUZ]003B - Gen-valid `RUME` no-op start-section parity follow-up.
-     - Status: completed 2026-04-16.
-     - Delivered: added focused regressions for exported/elem-linked single-`nop` start targets, the same family with locals still present, the nearby empty-body negative boundary, and the start-only single-`nop` case; taught `remove-unused-module-elements` to treat `start` as removable only when it targets a defined function whose body is exactly one `nop`; and made that exact family stop contributing liveness so start-only single-`nop` functions disappear entirely while otherwise-live exported/elem-linked functions remain.
-     - Validation: `moon info`; `moon fmt`; `moon test --package jtenner/starshine/passes --file remove_unused_module_elements_test.mbt`; `moon test src/passes`; `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz003b-genvalid-smoke` => `20/20` compared, `20` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures; `moon test`.
-     - Remaining note: the widened topology baseline is clean again on this focused `RUME` smoke lane, so the next validator-fuzz work returns to broader generation widening under `[FUZ]004` instead of another known downstream parity hole.
-     - Doc: [0089 FUZ003B](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz003b-gen-valid-rume-no-op-start-section-parity-follow-up) and [0091 research](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0091-2026-04-16-gen-valid-rume-start-section-parity-followup.md#L1)
-4. Widen body generation and actual type surface.
-   - [FUZ]004 - Environment-Aware Body Generation And Type Widening.
-     - Status: completed 2026-04-16.
-     - Delivered: recursive environment-aware body generation in `src/validate/gen_valid.mbt`, widened live `v128` / `funcref` / `externref` type usage, section-aware direct calls and `call_indirect`, local/global set traffic, memory/table instructions, and structured `block` / `loop` / `if` / `br` / `br_if` control with bounded body-depth fuel from `GenValidConfig`. `coverage-forced` generation now also prepends a deterministic widened-surface prelude so every emitted batch module exercises the new body families.
-     - Validation: `moon test --package jtenner/starshine/validate --file validate.mbt`; `moon test src/validate`; `moon test src/fuzz`; `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`; `mkdir -p .tmp/gen-valid-smoke && moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`; `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 20 --max-failures 5 --out-dir .tmp/pass-fuzz-fuz004-genvalid-smoke` => `20/20` compared, `20` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, `0` command failures.
-     - Remaining note: this slice intentionally lands the smaller environment-aware widening first; richer GC-like recursive/subtype/struct/array generation is still deferred rather than being claimed live.
-     - Doc: [0089 FUZ004](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz004-environment-aware-body-generation-and-type-widening)
-5. Make breadth measurable and enforceable.
-   - [FUZ]005 - Generator Observability And Coverage Floors.
-     - Status: completed 2026-04-16.
-     - Delivered: public machine-readable coverage-floor surfaces in `src/validate/validate.mbt`, per-profile floor resolution inside `ValidateValidRunConfig`, resolved floor reporting in `ValidateValidFuzzStats`, and hard run-time failure when required `validate-valid` feature families miss their minimum counts. `smoke` now enforces a curated subset while `ci` / `stress` enforce a broader section/export/data/control matrix with stricter counts.
-     - Validation: `moon test --package jtenner/starshine/validate --file validate.mbt`; `moon test --package jtenner/starshine/fuzz --file main_wbtest.mbt`; `moon info`; `moon fmt`; `moon test src/validate`; `moon test src/fuzz`; `moon test`; `moon run src/fuzz -- validate-valid smoke --seed 0x5eed`; `moon run src/fuzz -- validate-valid ci --seed 0x5eed`.
-     - Remaining note: this slice intentionally measures and enforces breadth only for the valid-generator lane. Strategy-aware invalid/rejection coverage accounting is still deferred to `[FUZ]006`-`[FUZ]008`.
-     - Doc: [0089 FUZ005](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz005-generator-observability-and-coverage-floors)
-6. Restore AST-level invalid/rejection fuzz with honest accounting.
-   - [FUZ]006 - AST Invalid Mutator Registry And Diagnostic Accounting.
-     - Status: completed 2026-04-16.
-     - Delivered: added `src/validate/invalid_fuzzer.mbt` with one AST strategy registry, expected `ValidationIssueFamily` metadata, deterministic smoke/ci/stress profile resolution, and per-strategy accounting for `attempted`, `applicable`, `mutated`, `rejected`, and `rejected_expected`. The active curated strategy set now covers duplicate export names, invalid start signatures, missing datacount for `memory.init`, undeclared `ref.func`, and out-of-range function-name indices.
-     - Delivered: `src/fuzz/main.mbt` and `src/fuzz/main_wbtest.mbt` now treat `validate-invalid-ast` as a real active suite, keep the remaining future invalid lanes reserved, and route profile errors through `run_validate_invalid_ast_fuzz(...)` instead of the old reserved-suite message.
-     - Validation: `moon test src/validate`; `moon test src/fuzz`; `moon run src/fuzz -- validate-invalid-ast smoke --seed 0x5eed`.
-     - Remaining note: this slice intentionally restores only the AST lane. Byte-level malformed coverage, text/spec-seed rejection work, and repro persistence remain deferred to `[FUZ]007`-`[FUZ]009`.
-     - Doc: [0089 FUZ006](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz006-ast-invalid-mutator-registry-and-diagnostic-accounting)
-7. Add malformed and decode-boundary byte corruption coverage.
-   - [FUZ]007 - Binary Invalid Corruption Lane.
-     - Status: completed 2026-04-16.
-     - Delivered: added `src/fuzz/invalid_binary.mbt` with a checked-in binary corruption registry, deterministic smoke/ci/stress profile resolution, and honest per-strategy stage accounting for `attempted`, `applicable`, `mutated`, `decode_rejected`, `validate_rejected`, `rejected_expected`, and `accepted`.
-     - Delivered: `src/fuzz/main.mbt` and `src/fuzz/main_wbtest.mbt` now treat `validate-invalid-binary` as a real active suite, leaving only `validate-invalid-text` and `validate-invalid-spec-seed` reserved in the suite inventory/help surface.
-     - Delivered: the initial corruption family set now covers trailing garbage, truncated valid modules, duplicate type sections, wrong section order, and function-section type indices rewritten out of range so the lane proves both decode-malformed and decode-success/validate-reject boundaries on widened `gen-valid` seeds.
-     - Validation: `moon test --package jtenner/starshine/fuzz --file invalid_binary_wbtest.mbt`; `moon test --package jtenner/starshine/fuzz --file main_wbtest.mbt`; `moon test src/fuzz`; `moon test src/validate`; `moon run src/fuzz -- validate-invalid-binary smoke --seed 0x5eed`.
-     - Remaining note: this slice intentionally starts with a curated byte-corruption core. Text/spec-seed coverage and richer binary corruption families such as malformed LEB payload rewrites, UTF-8 corruption, and reusable repro persistence remain deferred to `[FUZ]008`-`[FUZ]009`.
-     - Doc: [0089 FUZ007](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz007-binary-invalid-corruption-lane)
-8. Add parser/lower/validate invalid lanes from text and spec seeds.
-   - [FUZ]008 - Text And Spec-Seed Invalid Lane.
-     - Status: completed 2026-04-16.
-     - Delivered: added `src/fuzz/invalid_text.mbt` with two active lanes, deterministic smoke/ci/stress profile resolution, and stable registries for inline text strategies (`malformed-quote-missing-paren`, `invalid-result-stack`, `unlinkable-unknown-import`) plus selected `tests/spec` seeds (`const-malformed-quote-1`, `f32-invalid-type-mismatch-1`, `imports-unlinkable-unknown-import-1`).
-     - Delivered: both lanes now record explicit per-strategy/per-seed stage facts for `attempted`, `applicable`, `parse_or_lower_rejected`, `validate_rejected`, `valid_before_link`, and `matched_expected`, and smoke runs fail if any curated text/spec case never lands its expected stage.
-     - Delivered: `src/wast/spec_harness.mbt` now exports shared `evaluate_wast_static_assertion(...)` plus public assertion kind/stage/result types, and the spec-seed lane now extracts only the targeted raw assertion S-expression from large `tests/spec` files before evaluating it so the lane reuses spec-harness semantics without depending on unrelated later commands in the same file.
-     - Delivered: `src/fuzz/main.mbt` and `src/fuzz/main_wbtest.mbt` now treat both `validate-invalid-text` and `validate-invalid-spec-seed` as active suites, leaving no reserved validator-rejection suite ids in the runner inventory/help output.
-     - Validation: `moon info`; `moon fmt`; `moon test --package jtenner/starshine/wast --file spec_harness.mbt`; `moon test --package jtenner/starshine/fuzz --file invalid_text_wbtest.mbt`; `moon test --package jtenner/starshine/fuzz --file main_wbtest.mbt`; `moon test src/wast`; `moon test src/fuzz`; `moon test src/validate`; `moon run src/fuzz -- validate-invalid-text smoke --seed 0x5eed`; `moon run src/fuzz -- validate-invalid-spec-seed smoke --seed 0x5eed`; `moon test`.
-     - Remaining note: this slice intentionally stops at deterministic stage-aware text/spec coverage. Persisted repro metadata, saved artifacts, and replay/shrinker helpers remain deferred to `[FUZ]009`.
-     - Doc: [0089 FUZ008](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz008-text-and-spec-seed-invalid-lane)
-9. Persist failures and make them replayable.
-   - [FUZ]009 - Repro Persistence, Shrinkers, And Replay Corpus.
-     - Status: completed 2026-04-16.
-     - Delivered: added `src/fuzz/invalid_repro.mbt` with a shared `InvalidFuzzFailureReport` / `InvalidFuzzArtifact` / `InvalidFuzzReplayResult` persistence surface plus `persist_invalid_fuzz_failure_report(...)`, `parse_invalid_fuzz_failure_report(...)`, `shrink_invalid_fuzz_failure_report(...)`, and `replay_invalid_fuzz_failure_report(...)`.
-     - Delivered: persisted repros now use the stable layout `fuzz-corpus/invalid/<suite>/<strategy>/seed-<seed>-attempt-<attempt>/` with deterministic artifact names and `repro.meta.txt` metadata carrying suite/profile/seed/attempt/source kind/strategy/expected-vs-actual stage and diagnostic-family facts.
-     - Delivered: added bounded reduced replay builders for every current invalid source kind: minimal AST invalid modules in `src/validate/invalid_fuzzer.mbt`, minimal corrupted wasm bytes in `src/fuzz/invalid_binary.mbt`, canonical inline assertion sources in `src/fuzz/invalid_text.mbt`, and exact extracted raw assertion S-expressions for spec-seed cases.
-     - Validation: `moon test --package jtenner/starshine/fuzz --file invalid_repro_wbtest.mbt`; `moon test src/fuzz`; `moon test src/validate`; `moon run src/fuzz -- validate-invalid-ast smoke --seed 0x5eed`; `moon run src/fuzz -- validate-invalid-binary smoke --seed 0x5eed`; `moon run src/fuzz -- validate-invalid-text smoke --seed 0x5eed`; `moon run src/fuzz -- validate-invalid-spec-seed smoke --seed 0x5eed`.
-     - Remaining note: this slice intentionally lands the shared persistence/replay mechanics without adding another wrapper or CLI control surface. The final source-of-truth cleanup for help/output/wrapper drift remains `[FUZ]010`.
-     - Doc: [0089 FUZ009](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz009-repro-persistence-shrinkers-and-replay-corpus)
-10. Finish by removing drift between harnesses, wrappers, and docs.
-   - [FUZ]010 - Harness, Wrapper, And Docs Source-Of-Truth Alignment.
-     - Status: completed 2026-04-16.
-     - Delivered: `src/fuzz/main.mbt` now reuses `validate_valid_run_config(...)` for the shared `validate-valid` profile ladder and only keeps the text-companion thresholds as runner-local policy, so `run_validate_valid_suite` no longer re-derives the direct valid-fuzz profile normalization logic.
-     - Delivered: `scripts/lib/fuzz-task.ts` plus `scripts/test/task-family-commands.ts` now keep the Bun wrapper aligned with the Moon runner for `--emit-gen-valid-batch` as well as `--help`, `--list-suites`, and `--list-profiles`, preserving the pinned `coverage-forced` batch contract through both entry surfaces.
-     - Validation: `moon test --package jtenner/starshine/fuzz --file main_wbtest.mbt`; `bun scripts/test/task-family-commands.ts`; `moon test src/fuzz`; `moon test src/validate`; `moon run src/fuzz -- --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke`; `bun fuzz run --emit-gen-valid-batch --count 4 --seed 0x5eed --out-dir .tmp/gen-valid-smoke-bun`; `bun fuzz run --list-suites`; `bun fuzz run --help`.
-     - Remaining note: the original fuzz-stack hardening backlog is now complete. Future generator or rejection-family widening should start as a new explicitly scoped backlog slice instead of reusing the `[FUZ]001`-`[FUZ]010` handoff chain.
-     - Doc: [0089 FUZ010](/home/jtenner/Projects/starshine-mb/docs/0089-2026-04-15-fuzz-stack-hardening-execution-plan.md#fuz010-harness-wrapper-and-docs-source-of-truth-alignment)
 
 ### MoonBit formal verification rollout (`moon prove`)
 
