@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record docs.rs Binaryen pass-coverage contradiction
+
+- Ran another Binaryen primary-source/source-of-truth sweep against the official GitHub release horizon, the official GitHub `main` changelog, the Chromium mirror refs/changelog trail, and the current docs.rs `wasm_opt` pages before editing the wiki.
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/heap-store-optimization/index.md`, and `docs/wiki/index.md` so the living docs now record one sharper package-surface caution explicitly: as of `2026-04-18`, the docs.rs crate overview says `Pass` represents or exposes all Binaryen optimization passes, but the linked enum page still omits `HeapStoreOptimization`, `MinimizeRecGroups`, and `StringLowering`. The wiki now treats docs.rs as self-contradictory completeness evidence and keeps official GitHub release pages plus the Debian manpage as the stronger terminology/release-horizon sources.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the wording refresh.
+
 ## [2026-04-18] fix | retire `[O4Z]005` generated slot-33 `vacuum` corruption
 
 - Added `docs/wiki/raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md` to capture the shifted symptom relative to `0098`: the saved slot-33 predecessor no longer died in Starshine's final validator, but it still emitted invalid typed-`if` output that `wasm-tools` rejected until the validator/typechecker escape fix and guarded `vacuum` writeback landed.
