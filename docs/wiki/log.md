@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | tighten Binaryen terminology evidence for late-pass stubs
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` so the 2026-04-18 non-GitHub terminology check now explicitly records direct Debian manpage confirmation for `--heap-store-optimization` and `--remove-unused-brs`, instead of implying that only the Rust bindings carried those names.
+- Updated `docs/wiki/binaryen/passes/heap-store-optimization/index.md` so the landing page cites both the Debian experimental `wasm-opt` manpage and the current `wasm_opt::Pass` docs for the still-current `HeapStoreOptimization` name.
+- Refreshed `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md` so the human catalogs describe the stronger direct-source terminology evidence.
+- Reran a repo-local markdown-link and orphan-page health check over `docs/wiki/**/*.md`; there were no broken relative links and no living orphan pages after the refresh.
+
 ## [2026-04-18] maintain | record newer Binaryen trunk drift without renaming pass pages
 
 - Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` so the current non-GitHub Binaryen check now distinguishes stable pass names from newer trunk behavior drift, using Chromium-hosted mirror commits for the 2025-08-27 `Precompute` child-retention rewrite plus the 2026-02-27 `RemoveUnusedBrs` branches-to-traps and `Vacuum` unreachable-preservation changes.

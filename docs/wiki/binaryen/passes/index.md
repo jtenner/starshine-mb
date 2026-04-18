@@ -40,7 +40,7 @@ related:
 - [`remove-unused-names/index.md`](remove-unused-names/index.md) - Folder now has a landing page plus the current parser-gap note.
 - [`remove-unused-brs/index.md`](remove-unused-brs/index.md) - Expanded folder with hub page, shape catalog, strategy pages, bailout notes, parity status, and the newer upstream branches-to-traps drift note.
 - [`optimize-instructions/index.md`](optimize-instructions/index.md) - Active hot pass; see the landing page until strategy pages land.
-- [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass; the landing page now also records the current non-GitHub `HeapStoreOptimization` terminology sanity check.
+- [`heap-store-optimization/index.md`](heap-store-optimization/index.md) - Active hot pass; the landing page now also records the direct Debian manpage plus `wasm_opt::Pass` evidence for the current `HeapStoreOptimization` terminology.
 - [`heap2local/index.md`](heap2local/index.md) - Folder now has a landing page plus the current parity note.
 - [`pick-load-signs/index.md`](pick-load-signs/index.md) - Folder now has a landing page plus the current parity note.
 - [`tuple-optimization/index.md`](tuple-optimization/index.md) - Expanded folder with shapes, strategies, scheduler notes, reduced repro tracking, and parity status.
@@ -55,5 +55,5 @@ related:
 
 - Every implemented pass should now have a stable folder landing page, even when detailed subpages are still missing.
 - Expand folders from scaffold to full multi-entry form in priority order, starting from passes that already have artifact parity work or active backlog slices.
-- The 2026-04-18 non-GitHub terminology check in [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) found the current upstream-facing pass names still aligned with this folder map; keep explicitly noting known alias boundaries such as Binaryen `Dce` versus the wiki's `dead-code-elimination` label and Binaryen `precompute-propagate` versus the repo's `precompute` landing page.
+- The 2026-04-18 non-GitHub terminology check in [`late-pipeline-dispatch.md`](late-pipeline-dispatch.md) found the current upstream-facing pass names still aligned with this folder map; the direct Debian manpage evidence now explicitly covers `--heap-store-optimization` and `--remove-unused-brs` in addition to the already tracked aliases such as Binaryen `Dce` versus the wiki's `dead-code-elimination` label and Binaryen `precompute-propagate` versus the repo's `precompute` landing page.
 - When newer Chromium-mirror commits show behavior drift without a rename, record that on the owning pass page instead of silently updating older `version_129`-backed summaries as if they were current-trunk facts.
