@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record broader AST export invalid coverage
+
+- Reviewed the already-modified validator-fuzz sources `src/validate/invalid_fuzzer.mbt`, `src/validate/gen_invalid.mbt`, and `src/validate/gen_invalid_tests.mbt` to capture another AST widening step: the curated lane now includes out-of-range export table, global, and tag indices in addition to the earlier duplicate-export-name and invalid exported function index cases.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the AST export surface as broader than the earlier func-only out-of-range case.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the ingest.
+
 ## [2026-04-18] maintain | record deeper inline/spec text fixture breadth
 
 - Reviewed the already-modified text invalid sources `src/fuzz/invalid_text.mbt` and `src/fuzz/invalid_text_wbtest.mbt` to capture another fixture-breadth step: the inline text lane now includes extra malformed `f64.const`, duplicate-export-name, and unknown-table-import cases, and the spec-seed lane now carries fourth malformed/invalid assertions plus a second incompatible-import-type unlinkable assertion from the committed corpus.

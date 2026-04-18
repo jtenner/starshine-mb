@@ -89,6 +89,9 @@ pub enum ValidateInvalidAstStrategyId {
   InvalidTypeNameSectionIndex
   InvalidElemNameSectionIndex
   InvalidDataNameSectionIndex
+  InvalidExportTableIndex
+  InvalidExportGlobalIndex
+  InvalidExportTagIndex
 } derive(Eq, Debug)
 
 ///|
@@ -326,6 +329,27 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       NameSectionFamily,
       required_in_smoke=false,
     ),
+    validate_invalid_ast_strategy_spec(
+      InvalidExportTableIndex,
+      "invalid-export-table-index",
+      "export table index out of range",
+      ExportSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidExportGlobalIndex,
+      "invalid-export-global-index",
+      "export global index out of range",
+      ExportSectionFamily,
+      required_in_smoke=false,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidExportTagIndex,
+      "invalid-export-tag-index",
+      "export tag index out of range",
+      ExportSectionFamily,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -372,6 +396,9 @@ fn validate_invalid_ast_strategy_index(
     InvalidTypeNameSectionIndex => 23
     InvalidElemNameSectionIndex => 24
     InvalidDataNameSectionIndex => 25
+    InvalidExportTableIndex => 26
+    InvalidExportGlobalIndex => 27
+    InvalidExportTagIndex => 28
   }
 }
 
@@ -391,9 +418,9 @@ pub fn validate_invalid_ast_run_config(
 ) -> Result[ValidateInvalidAstRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 26
-    "ci" => 260
-    "stress" => 2600
+    "smoke" => 29
+    "ci" => 290
+    "stress" => 2900
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -488,6 +515,14 @@ fn validate_invalid_ast_global_entries(mod : Module) -> Array[Global] {
 }
 
 ///|
+fn validate_invalid_ast_tag_entries(mod : Module) -> Array[TagType] {
+  match mod.tag_sec {
+    Some(TagSec(entries)) => entries.copy()
+    None => []
+  }
+}
+
+///|
 fn validate_invalid_ast_imported_func_count(mod : Module) -> Int {
   let mut count = 0
   for imp in validate_invalid_ast_import_entries(mod) {
@@ -529,6 +564,18 @@ fn validate_invalid_ast_imported_table_count(mod : Module) -> Int {
 }
 
 ///|
+fn validate_invalid_ast_imported_tag_count(mod : Module) -> Int {
+  let mut count = 0
+  for imp in validate_invalid_ast_import_entries(mod) {
+    let Import(_, _, et) = imp
+    if et is TagExternType(_) {
+      count += 1
+    }
+  }
+  count
+}
+
+///|
 fn validate_invalid_ast_total_func_count(mod : Module) -> Int {
   validate_invalid_ast_imported_func_count(mod) +
   validate_invalid_ast_defined_func_count(mod)
@@ -544,6 +591,12 @@ fn validate_invalid_ast_total_table_count(mod : Module) -> Int {
 fn validate_invalid_ast_total_global_count(mod : Module) -> Int {
   validate_invalid_ast_imported_global_count(mod) +
   validate_invalid_ast_global_entries(mod).length()
+}
+
+///|
+fn validate_invalid_ast_total_tag_count(mod : Module) -> Int {
+  validate_invalid_ast_imported_tag_count(mod) +
+  validate_invalid_ast_tag_entries(mod).length()
 }
 
 ///|
@@ -919,6 +972,57 @@ fn validate_invalid_ast_mutate_invalid_export_func_index(
   exports.push(Export::new(Name::new("bad"), ExternIdx::func(bad_idx)))
   {
     strategy: InvalidExportFuncIndex,
+    applicable: true,
+    expected_family: ExportSectionFamily,
+    mutated_module: mod.with_export_sec(ExportSec::new(exports)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_export_table_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = TableIdx::new(
+    validate_invalid_ast_total_table_count(mod).reinterpret_as_uint(),
+  )
+  let exports = validate_invalid_ast_export_entries(mod)
+  exports.push(Export::new(Name::new("bad-table"), ExternIdx::table(bad_idx)))
+  {
+    strategy: InvalidExportTableIndex,
+    applicable: true,
+    expected_family: ExportSectionFamily,
+    mutated_module: mod.with_export_sec(ExportSec::new(exports)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_export_global_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = GlobalIdx::new(
+    validate_invalid_ast_total_global_count(mod).reinterpret_as_uint(),
+  )
+  let exports = validate_invalid_ast_export_entries(mod)
+  exports.push(Export::new(Name::new("bad-global"), ExternIdx::global(bad_idx)))
+  {
+    strategy: InvalidExportGlobalIndex,
+    applicable: true,
+    expected_family: ExportSectionFamily,
+    mutated_module: mod.with_export_sec(ExportSec::new(exports)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_export_tag_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let bad_idx = TagIdx::new(
+    validate_invalid_ast_total_tag_count(mod).reinterpret_as_uint(),
+  )
+  let exports = validate_invalid_ast_export_entries(mod)
+  exports.push(Export::new(Name::new("bad-tag"), ExternIdx::tag(bad_idx)))
+  {
+    strategy: InvalidExportTagIndex,
     applicable: true,
     expected_family: ExportSectionFamily,
     mutated_module: mod.with_export_sec(ExportSec::new(exports)),
@@ -1418,6 +1522,12 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_duplicate_export_name(base)
       InvalidExportFuncIndex =>
         validate_invalid_ast_mutate_invalid_export_func_index(base)
+      InvalidExportTableIndex =>
+        validate_invalid_ast_mutate_invalid_export_table_index(base)
+      InvalidExportGlobalIndex =>
+        validate_invalid_ast_mutate_invalid_export_global_index(base)
+      InvalidExportTagIndex =>
+        validate_invalid_ast_mutate_invalid_export_tag_index(base)
       InvalidStartSignature =>
         validate_invalid_ast_mutate_invalid_start_signature(base)
       StartFuncOutOfRange =>
@@ -1691,7 +1801,8 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
     "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
     "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-tag-index",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
   assert_eq(smoke_required.length(), 16)
@@ -2081,6 +2192,45 @@ test "invalid data name index strategy rejects with NameSection family" {
 }
 
 ///|
+test "invalid export table index strategy rejects with ExportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidExportTableIndex,
+      0x5f07UL,
+      ExportSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid export global index strategy rejects with ExportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidExportGlobalIndex,
+      0x5f08UL,
+      ExportSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid export tag index strategy rejects with ExportSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidExportTagIndex,
+      0x5f09UL,
+      ExportSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "validate_invalid_ast_registry covers every validation issue family" {
   let registry = validate_invalid_ast_registry()
   let expected = [
@@ -2119,7 +2269,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 26)
+  assert_eq(first.attempts, 29)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)
