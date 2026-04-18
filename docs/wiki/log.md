@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | turn late ordered-audit note IDs into direct wiki links
+
+- Updated `docs/wiki/binaryen/passes/late-pipeline-dispatch.md` and `docs/wiki/binaryen/passes/remove-unused-brs/parity.md` so the living wiki now links the active ordered `-O4z` blocker notes (`0099`, `0100`) and same-day retirement notes (`0102` through `0107`) directly instead of mentioning those raw-research IDs only as plain text.
+- This maintenance pass did not change the underlying blocker story; it tightened source-of-truth hygiene by making the exact raw evidence reachable from the living summaries without an extra manual search step.
+- Reran a repo-local markdown-link and living-orphan health check over `docs/wiki/**/*.md`; there were still `0` broken relative links and `0` living orphan pages after the cross-link refresh.
+
 ## [2026-04-18] fix | retry successful-but-no-output `moon run` fuzz launcher churn
 
 - Updated `docs/wiki/binaryen/passes/tuple-optimization/parity.md` and `docs/wiki/binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md` so the historical `2124 / 10000` long-lane stop at `/tmp/pass-fuzz-tuple-gen-valid-10000-emptysummary-2026-04-10` is now documented as an old `pass-fuzz-compare` launcher artifact rather than a standing workflow requirement to prefer `--starshine-bin` for every very long lane.
