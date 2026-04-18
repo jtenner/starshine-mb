@@ -23,6 +23,7 @@ type CommandFailureClass =
   | "binaryen-invalid-tag-index"
   | "binaryen-rec-group-zero"
   | "binaryen-invalid-wasm-type-neg64"
+  | "binaryen-initializer-expression-not-constant"
   | "binaryen-command-failed";
 
 type PassFuzzCompareOptions = {
@@ -206,6 +207,7 @@ function normalizeCommandFailureClass(raw: string): CommandFailureClass {
     case "binaryen-invalid-tag-index":
     case "binaryen-rec-group-zero":
     case "binaryen-invalid-wasm-type-neg64":
+    case "binaryen-initializer-expression-not-constant":
     case "binaryen-command-failed":
       return raw.trim();
     default:
@@ -309,6 +311,9 @@ function classifyCommandFailure(detail: string): CommandFailureClass {
   }
   if (detail.includes("invalid wasm type: -64")) {
     return "binaryen-invalid-wasm-type-neg64";
+  }
+  if (detail.includes("initializer expression is not constant")) {
+    return "binaryen-initializer-expression-not-constant";
   }
   return "binaryen-command-failed";
 }

@@ -1044,6 +1044,250 @@ process.exit(0);
   assert(moonLogs.length === 0, `expected no moon invocations during replay with explicit starshine bin, got ${moonLogs.length}`);
 }
 
+export function runPassFuzzCompareBinaryenInitializerExpressionNotConstantClassificationTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-binaryen-init-expr-constant-"));
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "run" && args.includes("src/fuzz")) {
+  const outDir = args[args.indexOf("--out-dir") + 1];
+  fs.mkdirSync(outDir, { recursive: true });
+  fs.writeFileSync(path.join(outDir, "gen-valid-000001.wasm"), "gen-valid-1");
+}
+process.exit(0);
+`,
+  );
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("--out");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "starshine");
+process.exit(0);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const args = process.argv.slice(2);
+if (args.includes("-S")) {
+  process.stdout.write("");
+  process.exit(0);
+}
+process.stderr.write("error: final module validate: initializer expression is not constant\\n");
+process.exit(1);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(args) + "\\n");
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "1",
+      "--generator",
+      "gen-valid",
+      "--max-failures",
+      "1",
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--pass",
+      "remove-unused-module-elements",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_STARSHINE_LOG: starshineLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+      },
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare Binaryen initializer-expression classification failed:\n${result.stderr}`);
+  }
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    commandFailureCount: number;
+    commandFailureClasses: Record<string, number>;
+  };
+  assert(summary.commandFailureCount === 1, `expected 1 command failure, got ${summary.commandFailureCount}`);
+  assert(summary.commandFailureClasses["binaryen-initializer-expression-not-constant"] === 1, `expected initializer-expression classification, got ${JSON.stringify(summary.commandFailureClasses)}`);
+
+  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").filter(Boolean);
+  assert(cases.length === 1, `expected 1 recorded case, got ${cases.length}`);
+  const entry = JSON.parse(cases[0]) as { status: string; failureClass?: string };
+  assert(entry.status === "command-failure", `expected command-failure status, got ${entry.status}`);
+  assert(entry.failureClass === "binaryen-initializer-expression-not-constant", `expected classified case record, got ${JSON.stringify(entry)}`);
+}
+
+export function runPassFuzzCompareReplayBinaryenInitializerExpressionNotConstantFailureClassTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-replay-init-expr-constant-"));
+  const replayDir = path.join(tmpdir, "saved");
+  const replayFailureDir = path.join(replayDir, "failures", "case-000103-wasm-smith");
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+  const wasmOptLog = path.join(tmpdir, "wasm-opt.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+
+  fs.mkdirSync(replayFailureDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(replayDir, "cases.jsonl"),
+    JSON.stringify({
+      caseIndex: 103,
+      generator: "wasm-smith",
+      status: "command-failure",
+      detail: "Binaryen/canonicalization command failed: error: final module validate: initializer expression is not constant",
+    }) + "\n",
+  );
+  fs.writeFileSync(path.join(replayFailureDir, "input.wasm"), "saved-init-expr-not-constant");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+process.exit(0);
+`,
+  );
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("--out");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "starshine");
+process.exit(0);
+`,
+  );
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_OPT_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("-o");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], args.includes("-S") ? "(module)\\n" : "binaryen");
+process.exit(0);
+`,
+  );
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(args) + "\\n");
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--replay-failures-from",
+      replayDir,
+      "--failure-class",
+      "binaryen-initializer-expression-not-constant",
+      "--pass",
+      "remove-unused-module-elements",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_STARSHINE_LOG: starshineLog,
+        FAKE_WASM_OPT_LOG: wasmOptLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+      },
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare replay initializer-expression failure class failed:\n${result.stderr}`);
+  }
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    requestedCount: number;
+    comparedCount: number;
+    normalizedMatchCount: number;
+    mismatchCount: number;
+  };
+  assert(summary.requestedCount === 1, `expected 1 replayed case, got ${summary.requestedCount}`);
+  assert(summary.comparedCount === 1, `expected 1 compared replay case, got ${summary.comparedCount}`);
+  assert(summary.normalizedMatchCount === 1, `expected replayed match, got ${summary.normalizedMatchCount}`);
+  assert(summary.mismatchCount === 0, `expected 0 replay mismatches, got ${summary.mismatchCount}`);
+
+  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").filter(Boolean);
+  assert(cases.length === 1, `expected 1 replay case record, got ${cases.length}`);
+  const entry = JSON.parse(cases[0]) as { caseIndex: number; status: string };
+  assert(entry.caseIndex === 103, `expected original case index 103, got ${entry.caseIndex}`);
+  assert(entry.status === "match", `expected replayed match status, got ${entry.status}`);
+
+  const moonLogs = readJsonlLog(moonLog);
+  assert(moonLogs.length === 0, `expected no moon invocations during replay with explicit starshine bin, got ${moonLogs.length}`);
+}
+
 export function runPassFuzzCompareBinaryenInvalidTagIndexClassificationTest(): void {
   const repoRoot = path.resolve(import.meta.dir, "..", "..");
   const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-binaryen-tag-index-"));
@@ -1834,6 +2078,8 @@ if (import.meta.main) {
   runPassFuzzCompareWasmSmithOnlyCommandTest();
   runPassFuzzCompareCommandFailureAccumulationTest();
   runPassFuzzCompareBinaryenFailureClassificationTest();
+  runPassFuzzCompareBinaryenInitializerExpressionNotConstantClassificationTest();
+  runPassFuzzCompareReplayBinaryenInitializerExpressionNotConstantFailureClassTest();
   runPassFuzzCompareStarshineInvalidLimitsClassificationTest();
   runPassFuzzCompareStarshineInvalidRangeForLimitsClassificationTest();
   runPassFuzzCompareBinaryenInvalidTagIndexClassificationTest();
