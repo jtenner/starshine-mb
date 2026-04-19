@@ -4783,6 +4783,216 @@ test "gen_valid natural mode reaches exact ref globals locals bulk array ops and
 }
 
 ///|
+test "gen_valid_tfunc returns exact refs through a real natural local flow" {
+  let described_idx = TypeIdx::new(0U)
+  let exact_vt = ValType::ref_type(
+    RefType::new(true, HeapType::new(described_idx), exact=true),
+  )
+  let descriptor_pair = RecType::group([
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(descriptor=Some(TypeIdx::rec(1))),
+    ),
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(describes=Some(TypeIdx::rec(0))),
+    ),
+  ])
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [exact_vt])),
+  )
+  let rnd = @splitmix.new(seed=0x5eed5eedUL)
+  let ctx = GenValidContext::new(rnd, GenValidConfig::natural_default())
+  let func = gen_valid_tfunc(ctx, [], [exact_vt])
+  let Func(locals, Expr(instrs)) = func
+  let mut has_exact_local = false
+  for run in locals.runs() {
+    let { count, vt } = run
+    ignore(count)
+    if vt == exact_vt {
+      has_exact_local = true
+    }
+  }
+  assert_true(has_exact_local)
+  match instrs.last() {
+    Some(LocalGet(_)) => ()
+    _ => fail("expected exact natural return flow to end with local.get")
+  }
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([descriptor_pair, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
+    .with_code_sec(CodeSec::new([func]))
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exact-result natural tfunc module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+      )
+  }
+}
+
+///|
+test "gen_valid_build_func can return exact refs through a natural direct call path" {
+  let described_idx = TypeIdx::new(0U)
+  let exact_rt = RefType::new(true, HeapType::new(described_idx), exact=true)
+  let exact_vt = ValType::ref_type(exact_rt)
+  let descriptor_pair = RecType::group([
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(descriptor=Some(TypeIdx::rec(1))),
+    ),
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(describes=Some(TypeIdx::rec(0))),
+    ),
+  ])
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [exact_vt])),
+  )
+  let helper_sig = {
+    idx: FuncIdx::new(0U),
+    type_idx: TypeIdx::new(2U),
+    params: [],
+    results: [exact_vt],
+  }
+  let rnd = @splitmix.new(seed=0x5eedc411UL)
+  let ctx = GenValidContext::new(rnd, GenValidConfig::natural_default())
+  let func = gen_valid_build_func(
+    ctx,
+    [],
+    [exact_vt],
+    [],
+    [],
+    [],
+    [],
+    [helper_sig],
+    [],
+    [],
+    [],
+    None,
+    gen_valid_gc_type_plan_empty(),
+    None,
+  )
+  let Func(locals, Expr(instrs)) = func
+  for run in locals.runs() {
+    let { count, vt } = run
+    ignore(count)
+    assert_false(vt == exact_vt)
+  }
+  match instrs.last() {
+    Some(Call(idx)) => assert_eq(idx, FuncIdx::new(0U))
+    _ => fail("expected exact natural return flow to end with call")
+  }
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([descriptor_pair, func_type]))
+    .with_import_sec(
+      ImportSec::new([
+        Import::new(
+          Name::new("env"),
+          Name::new("helper"),
+          ExternType::func(TypeIdx::new(2U)),
+        ),
+      ]),
+    )
+    .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
+    .with_code_sec(CodeSec::new([func]))
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exact-result natural direct-call module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+      )
+  }
+}
+
+///|
+test "gen_valid_build_func can return exact refs through a natural call_ref path" {
+  let described_idx = TypeIdx::new(0U)
+  let exact_rt = RefType::new(true, HeapType::new(described_idx), exact=true)
+  let exact_vt = ValType::ref_type(exact_rt)
+  let descriptor_pair = RecType::group([
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(descriptor=Some(TypeIdx::rec(1))),
+    ),
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(describes=Some(TypeIdx::rec(0))),
+    ),
+  ])
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([], [exact_vt])),
+  )
+  let helper_sig = {
+    idx: FuncIdx::new(0U),
+    type_idx: TypeIdx::new(2U),
+    params: [],
+    results: [exact_vt],
+  }
+  let config = GenValidConfig::{
+    ..GenValidConfig::natural_default(),
+    features: GenValidFeatureToggles::{
+      ..GenValidFeatureToggles::natural_default(),
+      allow_calls: false,
+    },
+  }
+  let rnd = @splitmix.new(seed=0x5eedca11UL)
+  let ctx = GenValidContext::new(rnd, config)
+  let caller = gen_valid_build_func(
+    ctx,
+    [],
+    [exact_vt],
+    [],
+    [],
+    [],
+    [],
+    [helper_sig],
+    [],
+    [],
+    [],
+    None,
+    gen_valid_gc_type_plan_empty(),
+    Some(FuncIdx::new(0U)),
+  )
+  let Func(locals, Expr(instrs)) = caller
+  for run in locals.runs() {
+    let { count, vt } = run
+    ignore(count)
+    assert_false(vt == exact_vt)
+  }
+  match instrs.length() {
+    n if n >= 2 => {
+      assert_eq(instrs[n - 2], Instruction::ref_func(FuncIdx::new(0U)))
+      assert_eq(instrs[n - 1], Instruction::call_ref(TypeIdx::new(2U)))
+    }
+    _ =>
+      fail(
+        "expected exact natural call_ref return flow to emit ref.func + call_ref",
+      )
+  }
+  let helper = Func::new(
+    Locals::empty(),
+    Expr::new([Instruction::ref_null_type(exact_rt)]),
+  )
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([descriptor_pair, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(2U), TypeIdx::new(2U)]))
+    .with_code_sec(CodeSec::new([helper, caller]))
+    .with_export_sec(
+      ExportSec::new([
+        Export::new(Name::new("helper"), ExternIdx::func(FuncIdx::new(0U))),
+      ]),
+    )
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exact-result natural call_ref module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+      )
+  }
+}
+
+///|
 test "gen_valid coverage-forced mode emits widened topology and shared type pool" {
   let rnd = @splitmix.new(seed=0x5eedUL)
   let config = GenValidConfig::coverage_forced_default()

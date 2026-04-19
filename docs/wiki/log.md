@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-19] maintain | record natural exact-result callable return follow-up
+
+- Continued the post-`a4be731` natural exact-ref widening in `src/validate/gen_valid.mbt` and `src/validate/validate.mbt`: exact-result functions now only seed a matching exact local when no existing real route is already available, and natural exact returns can now flow through matching direct-call or `ref.func` + `call_ref` chains instead of collapsing back to forced local seeding.
+- Added focused validate-package tests that lock both deterministic natural exact-result callable routes: one imported-helper direct-call return path and one exported-helper `call_ref` return path, while keeping the earlier local-return regression guard intact.
+
+## [2026-04-19] maintain | record natural exact-result local return follow-up
+
+- Re-checked the post-`a4be731` natural exact-ref widening state in `src/validate/gen_valid.mbt`, `src/validate/validate.mbt`, and `docs/wiki/validate/fuzz-hardening.md`.
+- Landed a narrower follow-up for exact descriptor result plumbing: natural `gen_valid` now seeds exact-result functions with matching exact locals and prefers `local.get` / existing exact globals / callable results before falling back, so exact concrete refs can return through a real natural path instead of only direct null synthesis.
+- Added a focused validate-package test that builds a minimal descriptor-bearing module around `gen_valid_tfunc(...)` and locks the exact-result natural local-return route without yet tightening the broader stochastic exact-result assertions.
+
+
 ## [2026-04-19] maintain | record natural `gen-valid` exact/bulk-array/mixed-catch widening
 
 - Reviewed the widened natural valid-generation follow-up in `src/validate/gen_valid.mbt` and `src/validate/validate.mbt` after the rec-group metadata stabilization landed.

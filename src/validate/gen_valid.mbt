@@ -1073,6 +1073,35 @@ fn gen_valid_append_call_result_drops(
 }
 
 ///|
+fn gen_valid_has_callable_with_result(
+  funcs : Array[GenValidFuncSig],
+  vt : ValType,
+) -> Bool {
+  for func in funcs {
+    if func.results == [vt] {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_declared_ref_callable_with_result(
+  funcs : Array[GenValidFuncSig],
+  declared_ref_func_idx : FuncIdx?,
+  vt : ValType,
+) -> GenValidFuncSig? {
+  match declared_ref_func_idx {
+    Some(func_idx) =>
+      match gen_valid_callable_by_idx(funcs, func_idx) {
+        Some(target) if target.results == [vt] => Some(target)
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
 fn gen_valid_pick_callable_with_result(
   ctx : GenValidContext,
   funcs : Array[GenValidFuncSig],
@@ -2553,6 +2582,61 @@ fn gen_valid_append_coverage_prelude(
 }
 
 ///|
+fn gen_valid_append_return_value_instrs(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  vt : ValType,
+  env : GenValidBodyEnv,
+) -> Unit {
+  match vt {
+    RefTypeValType(rt) if ctx.config.mode == Natural && rt.is_exact() => {
+      match gen_matching_local_idx(env.local_types, vt) {
+        Some(idx) => {
+          out.push(Instruction::local_get(idx))
+          return
+        }
+        None => ()
+      }
+      match gen_matching_global_idx(env.globals, vt) {
+        Some(idx) => {
+          out.push(Instruction::global_get(idx))
+          return
+        }
+        None => ()
+      }
+      if ctx.config.features.allow_ref_types {
+        match
+          gen_valid_declared_ref_callable_with_result(
+            env.funcs,
+            env.declared_ref_func_idx,
+            vt,
+          ) {
+          Some(target) if !ctx.config.features.allow_calls || ctx.random_bool() => {
+            gen_valid_append_call_args(out, ctx, env, target.params)
+            out.push(Instruction::ref_func(target.idx))
+            out.push(Instruction::call_ref(target.type_idx))
+            return
+          }
+          _ => ()
+        }
+      }
+      if ctx.config.features.allow_calls {
+        match gen_valid_pick_callable_with_result(ctx, env.funcs, vt) {
+          Some(target) => {
+            gen_valid_append_call_args(out, ctx, env, target.params)
+            out.push(Instruction::call(target.idx))
+            return
+          }
+          None => ()
+        }
+      }
+      append_value_instrs(out, ctx, vt, env)
+    }
+    _ => append_value_instrs(out, ctx, vt, env)
+  }
+}
+
+///|
 fn gen_valid_build_func(
   ctx : GenValidContext,
   accepts : Array[ValType],
@@ -2574,6 +2658,31 @@ fn gen_valid_build_func(
     local_ref_types.push(vt)
   }
   let locals = gen_local_types(ctx, extra_ref_types=local_ref_types)
+  if ctx.config.mode == Natural {
+    for vt in returns {
+      match vt {
+        RefTypeValType(rt) if rt.is_exact() => {
+          let has_existing_exact_route = gen_matching_global_idx(globals, vt)
+            is Some(_) ||
+            (
+              ctx.config.features.allow_calls &&
+              gen_valid_has_callable_with_result(funcs, vt)
+            ) ||
+            (
+              ctx.config.features.allow_ref_types &&
+              gen_valid_declared_ref_callable_with_result(
+                funcs, declared_ref_func_idx, vt,
+              )
+              is Some(_)
+            )
+          if !has_existing_exact_route {
+            locals.push(vt)
+          }
+        }
+        _ => ()
+      }
+    }
+  }
   if ctx.config.mode == CoverageForced {
     for vt in gc_type_plan.concrete_ref_types {
       locals.push(vt)
@@ -2622,7 +2731,7 @@ fn gen_valid_build_func(
     }
   }
   for ret in returns {
-    append_value_instrs(body_instrs, ctx, ret, env)
+    gen_valid_append_return_value_instrs(body_instrs, ctx, ret, env)
   }
   Func::new(Locals::from_types(locals), Expr::new(body_instrs))
 }
@@ -2864,6 +2973,17 @@ fn gen_valid_module_once_with_config(
   let type_defs : Array[RecType] = []
   let type_params : Array[Array[ValType]] = []
   let type_results : Array[Array[ValType]] = []
+  let exact_result_slot = if gc_type_plan.exact_ref_types.is_empty() {
+    None
+  } else if has_start || total_tag_count > 0 {
+    if func_type_count > 1 {
+      Some(func_type_count - 1)
+    } else {
+      None
+    }
+  } else {
+    Some(func_type_count - 1)
+  }
   for i = 0; i < func_type_count; i = i + 1 {
     let params = if i == 0 && (has_start || total_tag_count > 0) {
       []
@@ -2872,15 +2992,7 @@ fn gen_valid_module_once_with_config(
     }
     let results = if i == 0 && (has_start || total_tag_count > 0) {
       []
-    } else if !gc_type_plan.exact_ref_types.is_empty() &&
-      (
-        (ctx.config.mode == CoverageForced && i == func_type_count - 1) ||
-        (
-          ctx.config.mode == Natural &&
-          i == func_type_count - 1 &&
-          ctx.random_int(3) == 0
-        )
-      ) {
+    } else if exact_result_slot == Some(i) {
       [
         gc_type_plan.exact_ref_types[ctx.random_int(
           gc_type_plan.exact_ref_types.length(),
