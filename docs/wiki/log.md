@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] research | audit current Node package surface and validate-port priorities
+
+- Audited the checked-in `node/` package against the active MoonBit package signatures in `src/*/pkg.generated.mbti`, the current Node build notes in `node/README.md`, and the disabled generation / checked-in-artifact rules in `scripts/lib/generate-node-package.mjs` plus `scripts/lib/build-node-package.mjs`.
+- Added the raw note `docs/wiki/raw/research/0110-2026-04-18-node-package-api-audit.md` to capture the current state: the Node package is working for its smoke-tested surface on `Node v25.9.0`, but it is now a hand-maintained/frozen wrapper layer rather than a regenerated mirror, only `7` of the `16` active repo packages are exported to Node, `cmd` currently has real `.d.ts` versus runtime export drift, and `validate` is the largest exported-surface gap.
+- Added the living summary page `docs/wiki/tooling/node-package-surface.md` and updated `docs/wiki/index.md` so the durable wiki now keeps the compact conclusions: the highest-value `validate` APIs to port next are tracing, failure-family classification, targeted defined-function validation, configured valid generation, and stable invalid-repro registry helpers, while low-level `tc_state_*` internals and raw invalid-generator plumbing stay low priority.
+- Verification for this audit: `node --version`, `npm --version`, `moon version`, `cd node && node --test test/smoke.test.mjs`, and `cd node && node --test test/examples.test.mjs`.
+
 ## [2026-04-18] research | retire generated O4z optimize-instructions slot44 replay
 
 - Re-read the slot-44 capture in `docs/wiki/raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md`, the generated-artifact audit summary in `docs/wiki/raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`, the current `optimize-instructions` landing page, and the in-tree native cmd replay tests before checking whether the saved predecessor was still a live blocker.
