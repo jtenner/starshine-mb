@@ -2,12 +2,24 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-18] maintain | record coverage-forced `gen-valid` GC/ref widening
+
+- Reviewed the landed valid-generation and invalid-seed plumbing in `src/validate/gen_valid.mbt`, `src/validate/gen_invalid.mbt`, `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and their wbtests to capture the next widening route after the earlier extern/segment/bulk-op expansion.
+- Recorded that `coverage-forced` `gen-valid` now emits concrete struct/array type defs plus a rec-group shape, wider abstract GC-family refs in natural generation, typed ref-heavy globals/locals/tables, and deterministic GC/ref instruction coverage including `struct.new_default`, `struct.get`, `struct.set`, `array.new_default`, `array.get`, `array.set`, `array.len`, `ref.test`, `ref.cast`, `ref.eq`, `ref.as_non_null`, `call_ref`, and `br_on_null`.
+- Also recorded the compatibility guard that the AST/binary invalid seed presets now use a slightly smaller coverage-forced config so curated invalid-family expectations stay stable instead of being perturbed by the newer concrete GC type graph.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the broadened GC/ref surface and the invalid-seed compatibility carveout.
+
 ## [2026-04-18] research | audit current Node package surface and validate-port priorities
 
 - Audited the checked-in `node/` package against the active MoonBit package signatures in `src/*/pkg.generated.mbti`, the current Node build notes in `node/README.md`, and the disabled generation / checked-in-artifact rules in `scripts/lib/generate-node-package.mjs` plus `scripts/lib/build-node-package.mjs`.
 - Added the raw note `docs/wiki/raw/research/0110-2026-04-18-node-package-api-audit.md` to capture the current state: the Node package is working for its smoke-tested surface on `Node v25.9.0`, but it is now a hand-maintained/frozen wrapper layer rather than a regenerated mirror, only `7` of the `16` active repo packages are exported to Node, `cmd` currently has real `.d.ts` versus runtime export drift, and `validate` is the largest exported-surface gap.
 - Added the living summary page `docs/wiki/tooling/node-package-surface.md` and updated `docs/wiki/index.md` so the durable wiki now keeps the compact conclusions: the highest-value `validate` APIs to port next are tracing, failure-family classification, targeted defined-function validation, configured valid generation, and stable invalid-repro registry helpers, while low-level `tc_state_*` internals and raw invalid-generator plumbing stay low priority.
 - Verification for this audit: `node --version`, `npm --version`, `moon version`, `cd node && node --test test/smoke.test.mjs`, and `cd node && node --test test/examples.test.mjs`.
+
+## [2026-04-18] maintain | record widened `gen-valid` extern, segment, and bulk-op coverage
+
+- Reviewed the already-modified valid-generation sources `src/validate/gen_valid.mbt` and `src/validate/validate.mbt` to capture the next breadth step after the recent `gen_invalid` widening: the `gen-valid` path now mixes non-function imports, broader count ranges, passive data plus passive/declarative element segments, expr-backed element kinds, randomized active offsets/data payloads, and bulk memory/table instruction families in both natural and coverage-forced generation.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the wider `gen-valid` surface instead of only the older function-import/active-segment core.
 
 ## [2026-04-18] research | retire generated O4z optimize-instructions slot44 replay
 

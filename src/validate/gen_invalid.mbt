@@ -46,10 +46,21 @@ pub struct GenInvalidAstParams {
 } derive(Eq, Debug)
 
 ///|
+pub fn gen_invalid_coverage_seed_generator_config() -> GenValidConfig {
+  GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_type_defs: 6,
+    max_tables: 2,
+    max_globals: 3,
+    max_locals: 4,
+  }
+}
+
+///|
 pub fn GenInvalidAstParams::new(
   strategy : ValidateInvalidAstStrategyId,
   seed_mode? : GenInvalidSeedMode = RandomValidSeed,
-  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidAstParams {
   {
@@ -79,7 +90,7 @@ pub fn GenInvalidAstParams::natural_seed(
 ///|
 pub fn GenInvalidAstParams::coverage_forced_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidAstParams {
   {
@@ -109,7 +120,7 @@ pub fn GenInvalidAstParams::small_natural_seed(
 ///|
 pub fn GenInvalidAstParams::small_coverage_forced_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidAstParams {
   {
@@ -124,7 +135,7 @@ pub fn GenInvalidAstParams::small_coverage_forced_seed(
 ///|
 pub fn GenInvalidAstParams::repro_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidAstParams {
   {
@@ -139,7 +150,7 @@ pub fn GenInvalidAstParams::repro_seed(
 ///|
 pub fn GenInvalidAstParams::minimal_seed(
   strategy : ValidateInvalidAstStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  generator_config? : GenValidConfig = gen_invalid_coverage_seed_generator_config(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidAstParams {
   {

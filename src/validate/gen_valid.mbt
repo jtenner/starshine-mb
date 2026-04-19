@@ -213,18 +213,18 @@ pub impl Show for GenValidConfig with output(self, logger) {
 pub fn GenValidConfig::natural_default() -> GenValidConfig {
   {
     mode: Natural,
-    max_type_defs: 4,
-    max_imports: 1,
+    max_type_defs: 8,
+    max_imports: 5,
     max_defined_funcs: 4,
-    max_tables: 1,
-    max_mems: 1,
-    max_globals: 2,
-    max_tags: 1,
-    max_elems: 1,
-    max_datas: 1,
+    max_tables: 3,
+    max_mems: 2,
+    max_globals: 4,
+    max_tags: 2,
+    max_elems: 3,
+    max_datas: 3,
     max_params: 2,
     max_results: 1,
-    max_locals: 3,
+    max_locals: 5,
     max_body_statements: 6,
     max_body_depth: 2,
     section_bias: GenValidSectionBias::natural_default(),
@@ -237,7 +237,15 @@ pub fn GenValidConfig::coverage_forced_default() -> GenValidConfig {
   GenValidConfig::{
     ..GenValidConfig::natural_default(),
     mode: CoverageForced,
-    max_globals: 2,
+    max_type_defs: 9,
+    max_imports: 6,
+    max_tables: 3,
+    max_mems: 2,
+    max_globals: 4,
+    max_tags: 2,
+    max_elems: 3,
+    max_datas: 2,
+    max_locals: 6,
     section_bias: GenValidSectionBias::coverage_forced_default(),
     features: GenValidFeatureToggles::coverage_forced_default(),
   }
@@ -508,20 +516,57 @@ fn GenValidContext::random_bool(self : GenValidContext) -> Bool {
 }
 
 ///|
-pub fn gen_valid_valtype(ctx : GenValidContext) -> ValType {
-  let allow_v128 = ctx.config.features.allow_v128
-  let allow_ref_types = ctx.config.features.allow_ref_types
-  let choice_count = 4 +
-    gen_valid_bool_count(allow_v128) +
-    (if allow_ref_types { 2 } else { 0 })
-  match ctx.random_int(choice_count) {
-    0 => ValType::i32()
-    1 => ValType::i64()
-    2 => ValType::f32()
-    3 => ValType::f64()
-    4 => if allow_v128 { ValType::v128() } else { ValType::funcref() }
-    _ => ValType::externref()
+fn gen_valid_ref_valtype_pool(
+  extra_ref_types : Array[ValType],
+) -> Array[ValType] {
+  let refs : Array[ValType] = [
+    ValType::funcref(),
+    ValType::externref(),
+    ValType::ref_type(RefType::abs(AbsHeapType::any())),
+    ValType::ref_type(RefType::abs(AbsHeapType::eq())),
+    ValType::ref_type(RefType::abs(AbsHeapType::i31())),
+    ValType::ref_type(RefType::abs(AbsHeapType::struct_())),
+    ValType::ref_type(RefType::abs(AbsHeapType::array())),
+  ]
+  for vt in extra_ref_types {
+    refs.push(vt)
   }
+  refs
+}
+
+///|
+pub fn gen_valid_valtype_with_extra_refs(
+  ctx : GenValidContext,
+  extra_ref_types : Array[ValType],
+) -> ValType {
+  let scalar_choice_count = 4 +
+    gen_valid_bool_count(ctx.config.features.allow_v128)
+  let ref_pool = if ctx.config.features.allow_ref_types {
+    gen_valid_ref_valtype_pool(extra_ref_types)
+  } else {
+    []
+  }
+  let choice = ctx.random_int(scalar_choice_count + ref_pool.length())
+  if choice == 0 {
+    ValType::i32()
+  } else if choice == 1 {
+    ValType::i64()
+  } else if choice == 2 {
+    ValType::f32()
+  } else if choice == 3 {
+    ValType::f64()
+  } else if ctx.config.features.allow_v128 && choice == 4 {
+    ValType::v128()
+  } else if ref_pool.is_empty() {
+    ValType::i32()
+  } else {
+    ref_pool[choice - scalar_choice_count]
+  }
+}
+
+///|
+pub fn gen_valid_valtype(ctx : GenValidContext) -> ValType {
+  gen_valid_valtype_with_extra_refs(ctx, [])
 }
 
 ///|
@@ -590,13 +635,16 @@ fn gen_param_types(ctx : GenValidContext) -> Array[ValType] {
 }
 
 ///|
-fn gen_local_types(ctx : GenValidContext) -> Array[ValType] {
+fn gen_local_types(
+  ctx : GenValidContext,
+  extra_ref_types? : Array[ValType] = [],
+) -> Array[ValType] {
   let count = ctx.random_int(
     gen_valid_clamp_non_negative(ctx.config.max_locals) + 1,
   )
   let locals : Array[ValType] = []
   for _ in 0..<count {
-    locals.push(gen_valid_valtype(ctx))
+    locals.push(gen_valid_valtype_with_extra_refs(ctx, extra_ref_types))
   }
   locals
 }
@@ -614,6 +662,104 @@ fn gen_all_local_types(
 }
 
 ///|
+fn gen_valid_gc_type_plan_empty() -> GenValidGcTypePlan {
+  {
+    struct_type_idxs: [],
+    array_type_idxs: [],
+    concrete_ref_types: [],
+    rec_group_count: 0,
+  }
+}
+
+///|
+fn gen_valid_gc_type_field_ref(type_idx : TypeIdx) -> ValType {
+  ValType::ref_type(RefType::new(true, HeapType::new(type_idx)))
+}
+
+///|
+fn gen_valid_gc_type_defs(
+  ctx : GenValidContext,
+  next_type_idx : Int,
+  remaining_type_budget : Int,
+) -> (Array[RecType], GenValidGcTypePlan) {
+  if ctx.config.mode != CoverageForced ||
+    !ctx.config.features.allow_ref_types ||
+    ctx.config.max_tables < 3 ||
+    ctx.config.max_globals < 4 ||
+    remaining_type_budget <= 0 {
+    return ([], gen_valid_gc_type_plan_empty())
+  }
+
+  let defs : Array[RecType] = []
+  let mut plan = gen_valid_gc_type_plan_empty()
+  let mut type_idx_cursor = next_type_idx
+
+  let want_struct = ctx.config.mode == CoverageForced || ctx.random_bool()
+  let want_array = remaining_type_budget - defs.length() > 0 &&
+    (ctx.config.mode == CoverageForced || ctx.random_bool())
+  let want_group = remaining_type_budget - defs.length() > 0 &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+
+  if want_struct && defs.length() < remaining_type_budget {
+    let struct_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    defs.push(
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+            FieldType::new(
+              StorageType::val_type(
+                ValType::ref_type(RefType::abs(AbsHeapType::eq())),
+              ),
+              Const,
+            ),
+          ]),
+        ),
+      ),
+    )
+    plan.struct_type_idxs.push(struct_idx)
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(struct_idx))
+    type_idx_cursor += 1
+  }
+
+  if want_array && defs.length() < remaining_type_budget {
+    let array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    defs.push(
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ),
+        ),
+      ),
+    )
+    plan.array_type_idxs.push(array_idx)
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(array_idx))
+    type_idx_cursor += 1
+  }
+
+  if want_group && defs.length() < remaining_type_budget {
+    defs.push(
+      RecType::group([
+        SubType::comp_type(
+          CompType::struct_([
+            FieldType::new(StorageType::val_type(ValType::i64()), Const),
+          ]),
+        ),
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(StorageType::val_type(ValType::i32()), Var),
+          ),
+        ),
+      ]),
+    )
+    plan = { ..plan, rec_group_count: plan.rec_group_count + 1 }
+  }
+
+  (defs, plan)
+}
+
+///|
 fn gen_matching_local_idx(
   local_types : Array[ValType],
   vt : ValType,
@@ -621,6 +767,32 @@ fn gen_matching_local_idx(
   for i = 0; i < local_types.length(); i = i + 1 {
     if local_types[i] == vt {
       return Some(LocalIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+  None
+}
+
+///|
+fn gen_valid_contains_type_idx(
+  type_idxs : Array[TypeIdx],
+  target : TypeIdx,
+) -> Bool {
+  for type_idx in type_idxs {
+    if type_idx == target {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn gen_valid_callable_by_idx(
+  funcs : Array[GenValidFuncSig],
+  func_idx : FuncIdx,
+) -> GenValidFuncSig? {
+  for func in funcs {
+    if func.idx == func_idx {
+      return Some(func)
     }
   }
   None
@@ -635,12 +807,32 @@ priv struct GenValidFuncSig {
 }
 
 ///|
+priv struct GenValidImportPlan {
+  func_count : Int
+  table_count : Int
+  mem_count : Int
+  global_count : Int
+  tag_count : Int
+}
+
+///|
+priv struct GenValidGcTypePlan {
+  struct_type_idxs : Array[TypeIdx]
+  array_type_idxs : Array[TypeIdx]
+  concrete_ref_types : Array[ValType]
+  rec_group_count : Int
+}
+
+///|
 priv struct GenValidBodyEnv {
   local_types : Array[ValType]
   globals : Array[GlobalType]
   tables : Array[TableType]
   mems : Array[MemType]
   funcs : Array[GenValidFuncSig]
+  data_idxs : Array[DataIdx]
+  elem_idxs : Array[ElemIdx]
+  gc_type_plan : GenValidGcTypePlan
   declared_ref_func_idx : FuncIdx?
   depth_left : Int
   label_depth : Int
@@ -766,6 +958,97 @@ fn gen_valid_append_table_ref_value(
     gen_valid_body_env_child(env),
     prefer_local=false,
   )
+}
+
+///|
+fn gen_valid_pick_func_idx(
+  ctx : GenValidContext,
+  total_func_count : Int,
+  preferred_idx : FuncIdx,
+) -> FuncIdx {
+  if total_func_count <= 0 {
+    preferred_idx
+  } else if ctx.config.mode == CoverageForced || ctx.random_int(3) == 0 {
+    preferred_idx
+  } else {
+    FuncIdx::new(ctx.random_int(total_func_count).reinterpret_as_uint())
+  }
+}
+
+///|
+fn gen_valid_funcref_expr(ctx : GenValidContext, func_idx : FuncIdx) -> Expr {
+  if ctx.config.mode == CoverageForced || ctx.random_int(4) != 0 {
+    Expr::new([Instruction::ref_func(func_idx)])
+  } else {
+    Expr::new([
+      Instruction::ref_null(RefType::abs(AbsHeapType::func()).get_heap_type()),
+    ])
+  }
+}
+
+///|
+fn gen_valid_append_memory_bulk_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Bool {
+  if env.mems.is_empty() {
+    return false
+  }
+  let mem_idx = MemIdx::new(0U)
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::memory_copy(mem_idx, mem_idx))
+
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::i32_const(I32(7)))
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::memory_fill(mem_idx))
+
+  if !env.data_idxs.is_empty() {
+    let data_idx = env.data_idxs[0]
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::memory_init(data_idx, mem_idx))
+    out.push(Instruction::data_drop(data_idx))
+  }
+  ignore(ctx)
+  true
+}
+
+///|
+fn gen_valid_append_table_bulk_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Bool {
+  if env.tables.is_empty() {
+    return false
+  }
+  let table_idx = TableIdx::new(0U)
+  let TableType(rt, _) = env.tables[0]
+
+  out.push(Instruction::i32_const(I32(0)))
+  gen_valid_append_table_ref_value(out, ctx, env, rt)
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::table_fill(table_idx))
+
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::table_copy(table_idx, table_idx))
+
+  if !env.elem_idxs.is_empty() {
+    let elem_idx = env.elem_idxs[0]
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::table_init(elem_idx, table_idx))
+    out.push(Instruction::elem_drop(elem_idx))
+  }
+  true
 }
 
 ///|
@@ -912,6 +1195,28 @@ fn append_value_instrs(
           _ => ()
         }
       }
+      match heap_type {
+        HeapType(type_idx) => {
+          if gen_valid_contains_type_idx(
+              env.gc_type_plan.struct_type_idxs,
+              type_idx,
+            ) &&
+            ctx.random_int(3) == 0 {
+            out.push(Instruction::struct_new_default(type_idx))
+            return
+          }
+          if gen_valid_contains_type_idx(
+              env.gc_type_plan.array_type_idxs,
+              type_idx,
+            ) &&
+            ctx.random_int(3) == 0 {
+            out.push(Instruction::i32_const(I32(1)))
+            out.push(Instruction::array_new_default(type_idx))
+            return
+          }
+        }
+        _ => ()
+      }
       out.push(Instruction::ref_null(heap_type))
     }
     _ => out.push(gen_const_instr(ctx, vt))
@@ -925,7 +1230,7 @@ fn append_void_stmt(
   env : GenValidBodyEnv,
 ) -> Unit {
   let branchy = ctx.config.features.allow_branch_heavy_control
-  match ctx.random_int(if branchy { 12 } else { 8 }) {
+  match ctx.random_int(if branchy { 14 } else { 10 }) {
     0 => out.push(Instruction::nop())
     1 => {
       let vt = gen_valid_valtype(ctx)
@@ -1027,12 +1332,20 @@ fn append_void_stmt(
       } else {
         out.push(Instruction::nop())
       }
-    8 => {
+    8 =>
+      if !gen_valid_append_memory_bulk_ops(out, ctx, env) {
+        out.push(Instruction::nop())
+      }
+    9 =>
+      if !gen_valid_append_table_bulk_ops(out, ctx, env) {
+        out.push(Instruction::nop())
+      }
+    10 => {
       let body : Array[Instruction] = []
       gen_valid_append_nested_void_instrs(body, ctx, env)
       out.push(Instruction::block(BlockType::void_(), Expr::new(body)))
     }
-    9 => {
+    11 => {
       let body : Array[Instruction] = []
       gen_valid_append_nested_void_instrs(body, ctx, env)
       if branchy {
@@ -1043,7 +1356,7 @@ fn append_void_stmt(
       }
       out.push(Instruction::loop_(BlockType::void_(), Expr::new(body)))
     }
-    10 => {
+    12 => {
       let then_body : Array[Instruction] = []
       let else_body : Array[Instruction] = []
       let child = gen_valid_body_env_child(env)
@@ -1074,11 +1387,93 @@ fn append_void_stmt(
 }
 
 ///|
+fn gen_valid_append_gc_prelude(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  ignore(ctx)
+  if !env.gc_type_plan.struct_type_idxs.is_empty() {
+    let struct_idx = env.gc_type_plan.struct_type_idxs[0]
+    out.push(Instruction::struct_new_default(struct_idx))
+    out.push(Instruction::struct_get(struct_idx, U32::new(0U)))
+    out.push(Instruction::drop())
+
+    out.push(Instruction::struct_new_default(struct_idx))
+    out.push(Instruction::i32_const(I32(1)))
+    out.push(Instruction::struct_set(struct_idx, U32::new(0U)))
+
+    out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::any())))
+    out.push(Instruction::ref_test(true, HeapType::abs(AbsHeapType::eq())))
+    out.push(Instruction::drop())
+
+    out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::any())))
+    out.push(Instruction::ref_cast(true, HeapType::abs(AbsHeapType::eq())))
+    out.push(Instruction::drop())
+
+    out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::any())))
+    out.push(Instruction::ref_as_non_null())
+    out.push(Instruction::drop())
+
+    out.push(Instruction::struct_new_default(struct_idx))
+    out.push(Instruction::struct_new_default(struct_idx))
+    out.push(Instruction::ref_eq())
+    out.push(Instruction::drop())
+
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::ref_null(HeapType::new(struct_idx)),
+          Instruction::br_on_null(LabelIdx::new(0U)),
+          Instruction::drop(),
+        ]),
+      ),
+    )
+  }
+
+  if !env.gc_type_plan.array_type_idxs.is_empty() {
+    let array_idx = env.gc_type_plan.array_type_idxs[0]
+    out.push(Instruction::i32_const(I32(2)))
+    out.push(Instruction::array_new_default(array_idx))
+    out.push(Instruction::array_len())
+    out.push(Instruction::drop())
+
+    out.push(Instruction::i32_const(I32(2)))
+    out.push(Instruction::array_new_default(array_idx))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::array_get(array_idx))
+    out.push(Instruction::drop())
+
+    out.push(Instruction::i32_const(I32(2)))
+    out.push(Instruction::array_new_default(array_idx))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(7)))
+    out.push(Instruction::array_set(array_idx))
+  }
+
+  match env.declared_ref_func_idx {
+    Some(func_idx) =>
+      match gen_valid_callable_by_idx(env.funcs, func_idx) {
+        Some(target) => {
+          gen_valid_append_call_args(out, ctx, env, target.params)
+          out.push(Instruction::ref_func(func_idx))
+          out.push(Instruction::call_ref(target.type_idx))
+          gen_valid_append_call_result_drops(out, target.results)
+        }
+        None => ()
+      }
+    None => ()
+  }
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
   env : GenValidBodyEnv,
 ) -> Unit {
+  gen_valid_append_gc_prelude(out, ctx, env)
   if ctx.config.features.allow_v128 {
     out.push(
       Instruction::v128_const(
@@ -1140,6 +1535,7 @@ fn gen_valid_append_coverage_prelude(
     out.push(Instruction::i32_const(I32(0)))
     out.push(Instruction::i32_load(memarg))
     out.push(Instruction::drop())
+    ignore(gen_valid_append_memory_bulk_ops(out, ctx, env))
   }
   if !env.tables.is_empty() {
     let TableType(rt, _) = env.tables[0]
@@ -1155,6 +1551,7 @@ fn gen_valid_append_coverage_prelude(
     out.push(Instruction::i32_const(I32(1)))
     out.push(Instruction::table_grow(TableIdx::new(0U)))
     out.push(Instruction::drop())
+    ignore(gen_valid_append_table_bulk_ops(out, ctx, env))
   }
   if !env.globals.is_empty() {
     out.push(Instruction::global_get(GlobalIdx::new(0U)))
@@ -1215,9 +1612,20 @@ fn gen_valid_build_func(
   tables : Array[TableType],
   mems : Array[MemType],
   funcs : Array[GenValidFuncSig],
+  data_idxs : Array[DataIdx],
+  elem_idxs : Array[ElemIdx],
+  gc_type_plan : GenValidGcTypePlan,
   declared_ref_func_idx : FuncIdx?,
 ) -> Func {
-  let locals = gen_local_types(ctx)
+  let locals = gen_local_types(
+    ctx,
+    extra_ref_types=gc_type_plan.concrete_ref_types,
+  )
+  if ctx.config.mode == CoverageForced {
+    for vt in gc_type_plan.concrete_ref_types {
+      locals.push(vt)
+    }
+  }
   let all_local_types = gen_all_local_types(accepts, locals)
   let env : GenValidBodyEnv = {
     local_types: all_local_types,
@@ -1225,6 +1633,9 @@ fn gen_valid_build_func(
     tables,
     mems,
     funcs,
+    data_idxs,
+    elem_idxs,
+    gc_type_plan,
     declared_ref_func_idx,
     depth_left: gen_valid_clamp_non_negative(ctx.config.max_body_depth),
     label_depth: 0,
@@ -1249,7 +1660,43 @@ pub fn gen_valid_tfunc(
   accepts : Array[ValType],
   returns : Array[ValType],
 ) -> Func {
-  gen_valid_build_func(ctx, accepts, returns, [], [], [], [], None)
+  gen_valid_build_func(
+    ctx,
+    accepts,
+    returns,
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    gen_valid_gc_type_plan_empty(),
+    None,
+  )
+}
+
+///|
+fn gen_valid_choose_optional_count_with_coverage_floor(
+  ctx : GenValidContext,
+  allow : Bool,
+  max_count : Int,
+  percent : Int,
+  coverage_floor : Int,
+) -> Int {
+  let bounded_max = gen_valid_clamp_non_negative(max_count)
+  if !allow || bounded_max <= 0 {
+    0
+  } else if ctx.config.mode == CoverageForced {
+    let floor = gen_valid_min_int(
+      bounded_max,
+      gen_valid_clamp_non_negative(coverage_floor),
+    )
+    floor + ctx.random_int(bounded_max - floor + 1)
+  } else if gen_valid_roll_percent(ctx, percent) {
+    1 + ctx.random_int(bounded_max)
+  } else {
+    0
+  }
 }
 
 ///|
@@ -1259,15 +1706,9 @@ fn gen_valid_choose_optional_count(
   max_count : Int,
   percent : Int,
 ) -> Int {
-  let bounded_max = gen_valid_clamp_non_negative(max_count)
-  if !allow || bounded_max <= 0 {
-    0
-  } else if ctx.config.mode == CoverageForced ||
-    gen_valid_roll_percent(ctx, percent) {
-    1 + ctx.random_int(bounded_max)
-  } else {
-    0
-  }
+  gen_valid_choose_optional_count_with_coverage_floor(
+    ctx, allow, max_count, percent, 1,
+  )
 }
 
 ///|
@@ -1283,8 +1724,8 @@ fn gen_valid_choose_defined_func_count(ctx : GenValidContext) -> Int {
 }
 
 ///|
-fn gen_valid_active_i32_offset() -> Expr {
-  Expr::new([Instruction::i32_const(I32(0))])
+fn gen_valid_active_i32_offset(ctx : GenValidContext) -> Expr {
+  Expr::new([Instruction::i32_const(I32(ctx.random_int(4)))])
 }
 
 ///|
@@ -1298,69 +1739,126 @@ pub fn gen_valid_module_with_config(
   config : GenValidConfig,
 ) -> Module {
   let ctx = GenValidContext::new(rnd, config)
-  let import_func_count = gen_valid_choose_optional_count(
+  let import_budget = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,
     config.features.allow_imports,
     config.max_imports,
     config.section_bias.imports_percent,
+    5,
   )
+  let mut import_plan : GenValidImportPlan = {
+    func_count: 0,
+    table_count: 0,
+    mem_count: 0,
+    global_count: 0,
+    tag_count: 0,
+  }
+  let mut remaining_imports = import_budget
+  if ctx.config.mode == CoverageForced && remaining_imports >= 5 {
+    import_plan = {
+      func_count: 1,
+      table_count: 1,
+      mem_count: 1,
+      global_count: 1,
+      tag_count: 1,
+    }
+    remaining_imports -= 5
+  }
+  while remaining_imports > 0 {
+    match ctx.random_int(5) {
+      0 =>
+        import_plan = { ..import_plan, func_count: import_plan.func_count + 1 }
+      1 =>
+        import_plan = {
+          ..import_plan,
+          table_count: import_plan.table_count + 1,
+        }
+      2 => import_plan = { ..import_plan, mem_count: import_plan.mem_count + 1 }
+      3 =>
+        import_plan = {
+          ..import_plan,
+          global_count: import_plan.global_count + 1,
+        }
+      _ => import_plan = { ..import_plan, tag_count: import_plan.tag_count + 1 }
+    }
+    remaining_imports -= 1
+  }
+
+  let import_func_count = import_plan.func_count
+  let import_table_count = import_plan.table_count
+  let import_mem_count = import_plan.mem_count
+  let import_global_count = import_plan.global_count
+  let import_tag_count = import_plan.tag_count
+
   let defined_func_count = gen_valid_choose_defined_func_count(ctx)
-  let table_count = gen_valid_choose_optional_count(
+  let defined_table_count = gen_valid_choose_optional_count(
     ctx,
     config.features.allow_tables,
     config.max_tables,
     config.section_bias.tables_percent,
   )
-  let mem_count = gen_valid_choose_optional_count(
+  let defined_mem_count = gen_valid_choose_optional_count(
     ctx,
     config.features.allow_mems,
     config.max_mems,
     config.section_bias.mems_percent,
   )
-  let global_count = gen_valid_choose_optional_count(
+  let defined_global_count = gen_valid_choose_optional_count(
     ctx,
     config.features.allow_globals,
     config.max_globals,
     config.section_bias.globals_percent,
   )
-  let tag_count = gen_valid_choose_optional_count(
+  let defined_tag_count = gen_valid_choose_optional_count(
     ctx,
     config.features.allow_tags,
     config.max_tags,
     config.section_bias.tags_percent,
   )
-  let elem_count = if table_count > 0 {
-    gen_valid_choose_optional_count(
+
+  let total_table_count = import_table_count + defined_table_count
+  let total_mem_count = import_mem_count + defined_mem_count
+  let total_global_count = import_global_count + defined_global_count
+  let total_tag_count = import_tag_count + defined_tag_count
+
+  let elem_count = if total_table_count > 0 {
+    gen_valid_choose_optional_count_with_coverage_floor(
       ctx,
       config.features.allow_elems,
       config.max_elems,
       config.section_bias.elems_percent,
+      3,
     )
   } else {
     0
   }
-  let data_count = if mem_count > 0 {
-    gen_valid_choose_optional_count(
+  let data_count = if total_mem_count > 0 {
+    gen_valid_choose_optional_count_with_coverage_floor(
       ctx,
       config.features.allow_datas,
       config.max_datas,
       config.section_bias.datas_percent,
+      2,
     )
   } else {
     0
   }
+
   let has_start = config.features.allow_start &&
     (
       ctx.config.mode == CoverageForced ||
       gen_valid_roll_percent(ctx, config.section_bias.start_percent)
     )
-  let total_type_users = import_func_count + defined_func_count + tag_count
+  let total_type_users = import_func_count +
+    defined_func_count +
+    total_tag_count
   let max_type_defs = if gen_valid_clamp_non_negative(config.max_type_defs) <= 0 {
     1
   } else {
     gen_valid_clamp_non_negative(config.max_type_defs)
   }
-  let type_count = if ctx.config.mode == CoverageForced && total_type_users > 1 {
+  let func_type_count = if ctx.config.mode == CoverageForced &&
+    total_type_users > 1 {
     1 + ctx.random_int(gen_valid_min_int(max_type_defs, total_type_users - 1))
   } else {
     1 + ctx.random_int(max_type_defs)
@@ -1369,9 +1867,9 @@ pub fn gen_valid_module_with_config(
   let type_defs : Array[RecType] = []
   let type_params : Array[Array[ValType]] = []
   let type_results : Array[Array[ValType]] = []
-  for i = 0; i < type_count; i = i + 1 {
+  for i = 0; i < func_type_count; i = i + 1 {
     let params = if i == 0 && has_start { [] } else { gen_param_types(ctx) }
-    let results = if i == 0 && (has_start || tag_count > 0) {
+    let results = if i == 0 && (has_start || total_tag_count > 0) {
       []
     } else {
       gen_result_types(ctx)
@@ -1382,10 +1880,17 @@ pub fn gen_valid_module_with_config(
       RecType::new(SubType::comp_type(CompType::func(params, results))),
     )
   }
+  let remaining_type_budget = max_type_defs - func_type_count
+  let (gc_type_defs, gc_type_plan) = gen_valid_gc_type_defs(
+    ctx, func_type_count, remaining_type_budget,
+  )
+  for rec_type in gc_type_defs {
+    type_defs.push(rec_type)
+  }
 
   let imports : Array[Import] = []
   for i = 0; i < import_func_count; i = i + 1 {
-    let type_idx = gen_valid_pick_type_idx(ctx, type_count)
+    let type_idx = gen_valid_pick_type_idx(ctx, func_type_count)
     imports.push(
       Import::new(
         Name::new("env"),
@@ -1394,19 +1899,97 @@ pub fn gen_valid_module_with_config(
       ),
     )
   }
+  let imported_tables : Array[TableType] = []
+  for i = 0; i < import_table_count; i = i + 1 {
+    let max = (1 + ctx.random_int(4)).reinterpret_as_uint()
+    let table_ref_type = if i == 0 {
+      RefType::new(true, HeapType::abs(AbsHeapType::func()))
+    } else if !gc_type_plan.concrete_ref_types.is_empty() &&
+      ctx.config.mode == CoverageForced {
+      match
+        gc_type_plan.concrete_ref_types[ctx.random_int(
+          gc_type_plan.concrete_ref_types.length(),
+        )] {
+        RefTypeValType(rt) => rt
+        _ => RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+      }
+    } else {
+      RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+    }
+    let table_type = TableType::new(table_ref_type, Limits::i32(1U, Some(max)))
+    imported_tables.push(table_type)
+    imports.push(
+      Import::new(
+        Name::new("env"),
+        Name::new("imported_table_\{i}"),
+        ExternType::table(table_type),
+      ),
+    )
+  }
+  let imported_mems : Array[MemType] = []
+  for i = 0; i < import_mem_count; i = i + 1 {
+    let max = (1 + ctx.random_int(4)).reinterpret_as_uint()
+    let mem_type = MemType::new(Limits::i32(1U, Some(max)))
+    imported_mems.push(mem_type)
+    imports.push(
+      Import::new(
+        Name::new("env"),
+        Name::new("imported_memory_\{i}"),
+        ExternType::mem(mem_type),
+      ),
+    )
+  }
+  let imported_global_types : Array[GlobalType] = []
+  for i = 0; i < import_global_count; i = i + 1 {
+    let global_vt = if i == 0 &&
+      !gc_type_plan.concrete_ref_types.is_empty() &&
+      ctx.config.mode == CoverageForced {
+      gc_type_plan.concrete_ref_types[0]
+    } else {
+      gen_valid_valtype_with_extra_refs(ctx, gc_type_plan.concrete_ref_types)
+    }
+    let global_type = GlobalType::new(
+      global_vt,
+      ctx.config.mode == CoverageForced || ctx.random_bool(),
+    )
+    imported_global_types.push(global_type)
+    imports.push(
+      Import::new(
+        Name::new("env"),
+        Name::new("imported_global_\{i}"),
+        ExternType::global(global_type),
+      ),
+    )
+  }
+  for i = 0; i < import_tag_count; i = i + 1 {
+    imports.push(
+      Import::new(
+        Name::new("env"),
+        Name::new("imported_tag_\{i}"),
+        ExternType::tag(TagType::new(TypeIdx::new(0U))),
+      ),
+    )
+  }
 
   let globals : Array[Global] = []
-  for _ in 0..<global_count {
-    let vt = gen_valid_valtype(ctx)
+  for i = 0; i < defined_global_count; i = i + 1 {
+    let vt = if i == 0 &&
+      !gc_type_plan.concrete_ref_types.is_empty() &&
+      ctx.config.mode == CoverageForced {
+      gc_type_plan.concrete_ref_types[0]
+    } else {
+      gen_valid_valtype_with_extra_refs(ctx, gc_type_plan.concrete_ref_types)
+    }
     let is_mut = ctx.config.mode == CoverageForced || ctx.random_bool()
     globals.push(
       Global::new(GlobalType::new(vt, is_mut), gen_const_expr(ctx, vt)),
     )
   }
-  let global_types = globals.map(fn(g) {
-    let Global(gt, _) = g
-    gt
-  })
+  let global_types = imported_global_types.copy()
+  for global in globals {
+    let Global(gt, _) = global
+    global_types.push(gt)
+  }
 
   let func_type_idxs : Array[TypeIdx] = []
   for i = 0; i < defined_func_count; i = i + 1 {
@@ -1414,35 +1997,52 @@ pub fn gen_valid_module_with_config(
       if i == 0 && has_start {
         TypeIdx::new(0U)
       } else {
-        gen_valid_pick_type_idx(ctx, type_count)
+        gen_valid_pick_type_idx(ctx, func_type_count)
       },
     )
   }
-
   let first_defined_func_idx = FuncIdx::new(
     import_func_count.reinterpret_as_uint(),
   )
 
   let tables : Array[Table] = []
-  for _ in 0..<table_count {
+  for i = 0; i < defined_table_count; i = i + 1 {
+    let max = (1 + ctx.random_int(4)).reinterpret_as_uint()
+    let total_table_idx = import_table_count + i
+    let table_ref_type = if total_table_idx == 0 {
+      RefType::new(true, HeapType::abs(AbsHeapType::func()))
+    } else if !gc_type_plan.concrete_ref_types.is_empty() &&
+      ctx.config.mode == CoverageForced {
+      match
+        gc_type_plan.concrete_ref_types[ctx.random_int(
+          gc_type_plan.concrete_ref_types.length(),
+        )] {
+        RefTypeValType(rt) => rt
+        _ => RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+      }
+    } else {
+      RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+    }
     tables.push(
       Table::new(
-        TableType::new(
-          RefType::new(true, HeapType::abs(AbsHeapType::func())),
-          Limits::i32(1U, Some(4U)),
-        ),
+        TableType::new(table_ref_type, Limits::i32(1U, Some(max))),
         None,
       ),
     )
   }
-  let table_types = tables.map(fn(table) {
+  let table_types = imported_tables.copy()
+  for table in tables {
     let Table(table_type, _) = table
-    table_type
-  })
+    table_types.push(table_type)
+  }
 
-  let mems : Array[MemType] = []
-  for _ in 0..<mem_count {
-    mems.push(MemType::new(Limits::i32(1U, Some(4U))))
+  let mems : Array[MemType] = imported_mems.copy()
+  let defined_mems : Array[MemType] = []
+  for _ in 0..<defined_mem_count {
+    let max = (1 + ctx.random_int(4)).reinterpret_as_uint()
+    let mem_type = MemType::new(Limits::i32(1U, Some(max)))
+    defined_mems.push(mem_type)
+    mems.push(mem_type)
   }
 
   let func_sigs : Array[GenValidFuncSig] = []
@@ -1478,6 +2078,115 @@ pub fn gen_valid_module_with_config(
     })
   }
 
+  let total_func_count = import_func_count + defined_func_count
+  let tags : Array[TagType] = []
+  for _ in 0..<defined_tag_count {
+    tags.push(TagType::new(TypeIdx::new(0U)))
+  }
+
+  let elems : Array[Elem] = []
+  if total_table_count > 0 && total_func_count > 0 {
+    for i = 0; i < elem_count; i = i + 1 {
+      let func_idx = gen_valid_pick_func_idx(
+        ctx, total_func_count, first_defined_func_idx,
+      )
+      let elem = if ctx.config.mode == CoverageForced && i == 0 {
+        Elem::new(
+          ElemMode::active(TableIdx::new(0U), gen_valid_active_i32_offset(ctx)),
+          ElemKind::funcs([func_idx]),
+        )
+      } else if ctx.config.mode == CoverageForced && i == 1 {
+        Elem::new(
+          ElemMode::passive(),
+          ElemKind::typed_exprs(RefType::abs(AbsHeapType::func()), [
+            gen_valid_funcref_expr(ctx, func_idx),
+          ]),
+        )
+      } else if ctx.config.mode == CoverageForced && i == 2 {
+        Elem::new(
+          ElemMode::declarative(),
+          ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
+        )
+      } else {
+        match ctx.random_int(5) {
+          0 =>
+            Elem::new(
+              ElemMode::active(
+                TableIdx::new(0U),
+                gen_valid_active_i32_offset(ctx),
+              ),
+              ElemKind::funcs([func_idx]),
+            )
+          1 => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
+          2 => Elem::new(ElemMode::declarative(), ElemKind::funcs([func_idx]))
+          3 =>
+            Elem::new(
+              ElemMode::passive(),
+              ElemKind::typed_exprs(RefType::abs(AbsHeapType::func()), [
+                gen_valid_funcref_expr(ctx, func_idx),
+              ]),
+            )
+          _ =>
+            Elem::new(
+              ElemMode::active(
+                TableIdx::new(0U),
+                gen_valid_active_i32_offset(ctx),
+              ),
+              ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
+            )
+        }
+      }
+      elems.push(elem)
+    }
+  }
+  let elem_idxs : Array[ElemIdx] = []
+  for i = 0; i < elems.length(); i = i + 1 {
+    let Elem(mode, _) = elems[i]
+    match mode {
+      Active(_, _) => ()
+      Passive | Declarative =>
+        elem_idxs.push(ElemIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+
+  let datas : Array[Data] = []
+  if total_mem_count > 0 {
+    for i = 0; i < data_count; i = i + 1 {
+      let data = if ctx.config.mode == CoverageForced && i == 0 {
+        Data::new(
+          DataMode::active(MemIdx::new(0U), gen_valid_active_i32_offset(ctx)),
+          b"gen-valid-active",
+        )
+      } else if ctx.config.mode == CoverageForced && i == 1 {
+        Data::new(DataMode::passive(), b"gen-valid-passive")
+      } else {
+        let payload = match ctx.random_int(4) {
+          0 => b""
+          1 => b"gen-valid"
+          2 => b"bulk-seed"
+          _ => b"\x00\x01\x02"
+        }
+        if ctx.random_int(3) == 0 {
+          Data::new(DataMode::passive(), payload)
+        } else {
+          Data::new(
+            DataMode::active(MemIdx::new(0U), gen_valid_active_i32_offset(ctx)),
+            payload,
+          )
+        }
+      }
+      datas.push(data)
+    }
+  }
+  let data_idxs : Array[DataIdx] = []
+  for i = 0; i < datas.length(); i = i + 1 {
+    let Data(mode, _) = datas[i]
+    match mode {
+      Active(_, _) => ()
+      Passive => data_idxs.push(DataIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+
   let funcs : Array[Func] = []
   for type_idx in func_type_idxs {
     let type_idx_i = match type_idx {
@@ -1493,61 +2202,33 @@ pub fn gen_valid_module_with_config(
         table_types,
         mems,
         func_sigs,
+        data_idxs,
+        elem_idxs,
+        gc_type_plan,
         Some(first_defined_func_idx),
       ),
     )
   }
 
-  let tags : Array[TagType] = []
-  for _ in 0..<tag_count {
-    tags.push(TagType::new(TypeIdx::new(0U)))
-  }
-
-  let total_func_count = import_func_count + defined_func_count
-
-  let elems : Array[Elem] = []
-  if table_count > 0 && total_func_count > 0 {
-    for _ in 0..<elem_count {
-      elems.push(
-        Elem::new(
-          ElemMode::active(TableIdx::new(0U), gen_valid_active_i32_offset()),
-          ElemKind::funcs([first_defined_func_idx]),
-        ),
-      )
-    }
-  }
-
-  let datas : Array[Data] = []
-  if mem_count > 0 {
-    for _ in 0..<data_count {
-      datas.push(
-        Data::new(
-          DataMode::active(MemIdx::new(0U), gen_valid_active_i32_offset()),
-          b"gen-valid",
-        ),
-      )
-    }
-  }
-
   let exports : Array[Export] = [
     Export::new(Name::new("main"), ExternIdx::func(first_defined_func_idx)),
   ]
-  if table_count > 0 {
+  if total_table_count > 0 {
     exports.push(
       Export::new(Name::new("table0"), ExternIdx::table(TableIdx::new(0U))),
     )
   }
-  if mem_count > 0 {
+  if total_mem_count > 0 {
     exports.push(
       Export::new(Name::new("memory0"), ExternIdx::mem(MemIdx::new(0U))),
     )
   }
-  if global_count > 0 {
+  if total_global_count > 0 {
     exports.push(
       Export::new(Name::new("global0"), ExternIdx::global(GlobalIdx::new(0U))),
     )
   }
-  if tag_count > 0 {
+  if total_tag_count > 0 {
     exports.push(
       Export::new(Name::new("tag0"), ExternIdx::tag(TagIdx::new(0U))),
     )
@@ -1561,8 +2242,8 @@ pub fn gen_valid_module_with_config(
   if !tables.is_empty() {
     mod = mod.with_table_sec(TableSec::new(tables))
   }
-  if !mems.is_empty() {
-    mod = mod.with_mem_sec(MemSec::new(mems))
+  if !defined_mems.is_empty() {
+    mod = mod.with_mem_sec(MemSec::new(defined_mems))
   }
   if !globals.is_empty() {
     mod = mod.with_global_sec(GlobalSec::new(globals))

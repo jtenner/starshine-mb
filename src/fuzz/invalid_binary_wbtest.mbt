@@ -35,7 +35,7 @@ fn invalid_binary_test_expected_label(
 fn invalid_binary_test_base_module(seed : UInt64) -> Module {
   gen_valid_module_with_config(
     @splitmix.new(seed~),
-    GenValidConfig::coverage_forced_default(),
+    gen_invalid_binary_coverage_seed_generator_config(),
   )
 }
 
@@ -995,7 +995,7 @@ test "gen_invalid_binary natural_seed uses natural defaults" {
 ///|
 test "gen_invalid_binary coverage_forced_seed uses coverage-forced defaults" {
   let params = GenInvalidBinaryParams::coverage_forced_seed(TrailingGarbage)
-  let expected = GenValidConfig::coverage_forced_default()
+  let expected = gen_invalid_binary_coverage_seed_generator_config()
   assert_true(params.seed_mode == RandomValidSeed)
   assert_true(params.generator_config == expected)
 }
@@ -1042,7 +1042,7 @@ test "gen_invalid_binary small_coverage_forced_seed uses a smaller coverage conf
   let params = GenInvalidBinaryParams::small_coverage_forced_seed(
     TrailingGarbage,
   )
-  let forced = GenValidConfig::coverage_forced_default()
+  let forced = gen_invalid_binary_coverage_seed_generator_config()
   assert_true(params.seed_mode == RandomValidSeed)
   assert_true(params.generator_config.mode == forced.mode)
   assert_true(params.generator_config.max_type_defs < forced.max_type_defs)

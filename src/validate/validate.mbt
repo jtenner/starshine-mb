@@ -3793,6 +3793,489 @@ fn gen_valid_body_surface_facts_module(
 }
 
 ///|
+priv struct GenValidCoverageSurfaceFacts {
+  import_funcs : Int
+  import_tables : Int
+  import_mems : Int
+  import_globals : Int
+  import_tags : Int
+  passive_elems : Int
+  declarative_elems : Int
+  passive_datas : Int
+  has_memory_init : Bool
+  has_data_drop : Bool
+  has_memory_copy : Bool
+  has_memory_fill : Bool
+  has_table_init : Bool
+  has_elem_drop : Bool
+  has_table_copy : Bool
+  has_table_fill : Bool
+}
+
+///|
+fn gen_valid_coverage_surface_facts_empty() -> GenValidCoverageSurfaceFacts {
+  {
+    import_funcs: 0,
+    import_tables: 0,
+    import_mems: 0,
+    import_globals: 0,
+    import_tags: 0,
+    passive_elems: 0,
+    declarative_elems: 0,
+    passive_datas: 0,
+    has_memory_init: false,
+    has_data_drop: false,
+    has_memory_copy: false,
+    has_memory_fill: false,
+    has_table_init: false,
+    has_elem_drop: false,
+    has_table_copy: false,
+    has_table_fill: false,
+  }
+}
+
+///|
+fn gen_valid_coverage_surface_facts_merge(
+  left : GenValidCoverageSurfaceFacts,
+  right : GenValidCoverageSurfaceFacts,
+) -> GenValidCoverageSurfaceFacts {
+  {
+    import_funcs: left.import_funcs + right.import_funcs,
+    import_tables: left.import_tables + right.import_tables,
+    import_mems: left.import_mems + right.import_mems,
+    import_globals: left.import_globals + right.import_globals,
+    import_tags: left.import_tags + right.import_tags,
+    passive_elems: left.passive_elems + right.passive_elems,
+    declarative_elems: left.declarative_elems + right.declarative_elems,
+    passive_datas: left.passive_datas + right.passive_datas,
+    has_memory_init: left.has_memory_init || right.has_memory_init,
+    has_data_drop: left.has_data_drop || right.has_data_drop,
+    has_memory_copy: left.has_memory_copy || right.has_memory_copy,
+    has_memory_fill: left.has_memory_fill || right.has_memory_fill,
+    has_table_init: left.has_table_init || right.has_table_init,
+    has_elem_drop: left.has_elem_drop || right.has_elem_drop,
+    has_table_copy: left.has_table_copy || right.has_table_copy,
+    has_table_fill: left.has_table_fill || right.has_table_fill,
+  }
+}
+
+///|
+fn gen_valid_coverage_surface_facts_instr(
+  instr : Instruction,
+) -> GenValidCoverageSurfaceFacts {
+  match instr {
+    Block(_, body) | Loop(_, body) =>
+      gen_valid_coverage_surface_facts_expr(body)
+    If(_, then_body, else_body) => {
+      let mut facts = gen_valid_coverage_surface_facts_expr(
+        Expr::new(then_body),
+      )
+      match else_body {
+        Some(branch) =>
+          facts = gen_valid_coverage_surface_facts_merge(
+            facts,
+            gen_valid_coverage_surface_facts_expr(Expr::new(branch)),
+          )
+        None => ()
+      }
+      facts
+    }
+    MemoryInit(_, _) =>
+      { ..gen_valid_coverage_surface_facts_empty(), has_memory_init: true }
+    DataDrop(_) =>
+      { ..gen_valid_coverage_surface_facts_empty(), has_data_drop: true }
+    MemoryCopy(_, _) =>
+      { ..gen_valid_coverage_surface_facts_empty(), has_memory_copy: true }
+    MemoryFill(_) =>
+      { ..gen_valid_coverage_surface_facts_empty(), has_memory_fill: true }
+    TableInit(_, _) =>
+      { ..gen_valid_coverage_surface_facts_empty(), has_table_init: true }
+    ElemDrop(_) =>
+      { ..gen_valid_coverage_surface_facts_empty(), has_elem_drop: true }
+    TableCopy(_, _) =>
+      { ..gen_valid_coverage_surface_facts_empty(), has_table_copy: true }
+    TableFill(_) =>
+      { ..gen_valid_coverage_surface_facts_empty(), has_table_fill: true }
+    _ => gen_valid_coverage_surface_facts_empty()
+  }
+}
+
+///|
+fn gen_valid_coverage_surface_facts_expr(
+  expr : Expr,
+) -> GenValidCoverageSurfaceFacts {
+  let Expr(instrs) = expr
+  let mut facts = gen_valid_coverage_surface_facts_empty()
+  for instr in instrs {
+    facts = gen_valid_coverage_surface_facts_merge(
+      facts,
+      gen_valid_coverage_surface_facts_instr(instr),
+    )
+  }
+  facts
+}
+
+///|
+fn gen_valid_coverage_surface_facts_module(
+  mod : Module,
+) -> GenValidCoverageSurfaceFacts {
+  let mut facts = gen_valid_coverage_surface_facts_empty()
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for imp in imports {
+        let Import(_, _, extern_type) = imp
+        facts = gen_valid_coverage_surface_facts_merge(
+          facts,
+          match extern_type {
+            FuncExternType(_) =>
+              { ..gen_valid_coverage_surface_facts_empty(), import_funcs: 1 }
+            TableExternType(_) =>
+              { ..gen_valid_coverage_surface_facts_empty(), import_tables: 1 }
+            MemExternType(_) =>
+              { ..gen_valid_coverage_surface_facts_empty(), import_mems: 1 }
+            GlobalExternType(_) =>
+              { ..gen_valid_coverage_surface_facts_empty(), import_globals: 1 }
+            TagExternType(_) =>
+              { ..gen_valid_coverage_surface_facts_empty(), import_tags: 1 }
+          },
+        )
+      }
+    None => ()
+  }
+  match mod.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        let Elem(mode, _) = elem
+        facts = gen_valid_coverage_surface_facts_merge(
+          facts,
+          match mode {
+            Passive =>
+              { ..gen_valid_coverage_surface_facts_empty(), passive_elems: 1 }
+            Declarative =>
+              {
+                ..gen_valid_coverage_surface_facts_empty(),
+                declarative_elems: 1,
+              }
+            Active(_, expr) => gen_valid_coverage_surface_facts_expr(expr)
+          },
+        )
+      }
+    None => ()
+  }
+  match mod.data_sec {
+    Some(DataSec(datas)) =>
+      for data in datas {
+        let Data(mode, _) = data
+        facts = gen_valid_coverage_surface_facts_merge(
+          facts,
+          match mode {
+            Passive =>
+              { ..gen_valid_coverage_surface_facts_empty(), passive_datas: 1 }
+            Active(_, expr) => gen_valid_coverage_surface_facts_expr(expr)
+          },
+        )
+      }
+    None => ()
+  }
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, body) = func
+        facts = gen_valid_coverage_surface_facts_merge(
+          facts,
+          gen_valid_coverage_surface_facts_expr(body),
+        )
+      }
+    None => ()
+  }
+  facts
+}
+
+///|
+priv struct GenValidGcSurfaceFacts {
+  struct_types : Int
+  array_types : Int
+  rec_groups : Int
+  typed_ref_globals : Int
+  typed_ref_tables : Int
+  typed_ref_locals : Int
+  has_struct_new : Bool
+  has_struct_get : Bool
+  has_struct_set : Bool
+  has_array_new : Bool
+  has_array_get : Bool
+  has_array_set : Bool
+  has_array_len : Bool
+  has_ref_test : Bool
+  has_ref_cast : Bool
+  has_ref_eq : Bool
+  has_ref_as_non_null : Bool
+  has_call_ref : Bool
+  has_br_on_null : Bool
+}
+
+///|
+fn gen_valid_gc_surface_facts_empty() -> GenValidGcSurfaceFacts {
+  {
+    struct_types: 0,
+    array_types: 0,
+    rec_groups: 0,
+    typed_ref_globals: 0,
+    typed_ref_tables: 0,
+    typed_ref_locals: 0,
+    has_struct_new: false,
+    has_struct_get: false,
+    has_struct_set: false,
+    has_array_new: false,
+    has_array_get: false,
+    has_array_set: false,
+    has_array_len: false,
+    has_ref_test: false,
+    has_ref_cast: false,
+    has_ref_eq: false,
+    has_ref_as_non_null: false,
+    has_call_ref: false,
+    has_br_on_null: false,
+  }
+}
+
+///|
+fn gen_valid_gc_surface_facts_merge(
+  left : GenValidGcSurfaceFacts,
+  right : GenValidGcSurfaceFacts,
+) -> GenValidGcSurfaceFacts {
+  {
+    struct_types: left.struct_types + right.struct_types,
+    array_types: left.array_types + right.array_types,
+    rec_groups: left.rec_groups + right.rec_groups,
+    typed_ref_globals: left.typed_ref_globals + right.typed_ref_globals,
+    typed_ref_tables: left.typed_ref_tables + right.typed_ref_tables,
+    typed_ref_locals: left.typed_ref_locals + right.typed_ref_locals,
+    has_struct_new: left.has_struct_new || right.has_struct_new,
+    has_struct_get: left.has_struct_get || right.has_struct_get,
+    has_struct_set: left.has_struct_set || right.has_struct_set,
+    has_array_new: left.has_array_new || right.has_array_new,
+    has_array_get: left.has_array_get || right.has_array_get,
+    has_array_set: left.has_array_set || right.has_array_set,
+    has_array_len: left.has_array_len || right.has_array_len,
+    has_ref_test: left.has_ref_test || right.has_ref_test,
+    has_ref_cast: left.has_ref_cast || right.has_ref_cast,
+    has_ref_eq: left.has_ref_eq || right.has_ref_eq,
+    has_ref_as_non_null: left.has_ref_as_non_null || right.has_ref_as_non_null,
+    has_call_ref: left.has_call_ref || right.has_call_ref,
+    has_br_on_null: left.has_br_on_null || right.has_br_on_null,
+  }
+}
+
+///|
+fn gen_valid_gc_surface_ref_score(rt : RefType) -> Int {
+  match rt.get_heap_type() {
+    HeapType(_) => 1
+    AbsHeapTypeHeapType(abs) =>
+      if abs == AbsHeapType::any() ||
+        abs == AbsHeapType::eq() ||
+        abs == AbsHeapType::i31() ||
+        abs == AbsHeapType::struct_() ||
+        abs == AbsHeapType::array() {
+        1
+      } else {
+        0
+      }
+    _ => 0
+  }
+}
+
+///|
+fn gen_valid_gc_surface_val_score(vt : ValType) -> Int {
+  match vt {
+    RefTypeValType(rt) => gen_valid_gc_surface_ref_score(rt)
+    _ => 0
+  }
+}
+
+///|
+fn gen_valid_gc_surface_facts_rec_type(
+  rec_type : RecType,
+) -> GenValidGcSurfaceFacts {
+  match rec_type {
+    SingleRecType(subtype) =>
+      match subtype.get_comptype() {
+        StructCompType(_) =>
+          { ..gen_valid_gc_surface_facts_empty(), struct_types: 1 }
+        ArrayCompType(_) =>
+          { ..gen_valid_gc_surface_facts_empty(), array_types: 1 }
+        _ => gen_valid_gc_surface_facts_empty()
+      }
+    GroupRecType(group) => {
+      let mut facts = { ..gen_valid_gc_surface_facts_empty(), rec_groups: 1 }
+      for subtype in group {
+        facts = gen_valid_gc_surface_facts_merge(
+          facts,
+          match subtype.get_comptype() {
+            StructCompType(_) =>
+              { ..gen_valid_gc_surface_facts_empty(), struct_types: 1 }
+            ArrayCompType(_) =>
+              { ..gen_valid_gc_surface_facts_empty(), array_types: 1 }
+            _ => gen_valid_gc_surface_facts_empty()
+          },
+        )
+      }
+      facts
+    }
+  }
+}
+
+///|
+fn gen_valid_gc_surface_facts_instr(
+  instr : Instruction,
+) -> GenValidGcSurfaceFacts {
+  match instr {
+    Block(_, body) | Loop(_, body) => gen_valid_gc_surface_facts_expr(body)
+    If(_, then_body, else_body) => {
+      let mut facts = gen_valid_gc_surface_facts_expr(Expr::new(then_body))
+      match else_body {
+        Some(branch) =>
+          facts = gen_valid_gc_surface_facts_merge(
+            facts,
+            gen_valid_gc_surface_facts_expr(Expr::new(branch)),
+          )
+        None => ()
+      }
+      facts
+    }
+    StructNew(_)
+    | StructNewDefault(_)
+    | StructNewDesc(_)
+    | StructNewDefaultDesc(_) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_struct_new: true }
+    StructGet(_, _) | StructGetS(_, _) | StructGetU(_, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_struct_get: true }
+    StructSet(_, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_struct_set: true }
+    ArrayNew(_)
+    | ArrayNewDefault(_)
+    | ArrayNewFixed(_, _)
+    | ArrayNewData(_, _)
+    | ArrayNewElem(_, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_array_new: true }
+    ArrayGet(_) | ArrayGetS(_) | ArrayGetU(_) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_array_get: true }
+    ArraySet(_)
+    | ArrayFill(_)
+    | ArrayCopy(_, _)
+    | ArrayInitData(_, _)
+    | ArrayInitElem(_, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_array_set: true }
+    ArrayLen => { ..gen_valid_gc_surface_facts_empty(), has_array_len: true }
+    RefTest(_, _) | RefTestDesc(_, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_ref_test: true }
+    RefCast(_, _) | RefCastDescEq(_, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_ref_cast: true }
+    RefEq => { ..gen_valid_gc_surface_facts_empty(), has_ref_eq: true }
+    RefAsNonNull =>
+      { ..gen_valid_gc_surface_facts_empty(), has_ref_as_non_null: true }
+    CallRef(_) | ReturnCallRef(_) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_call_ref: true }
+    BrOnNull(_) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_br_on_null: true }
+    _ => gen_valid_gc_surface_facts_empty()
+  }
+}
+
+///|
+fn gen_valid_gc_surface_facts_expr(expr : Expr) -> GenValidGcSurfaceFacts {
+  let Expr(instrs) = expr
+  let mut facts = gen_valid_gc_surface_facts_empty()
+  for instr in instrs {
+    facts = gen_valid_gc_surface_facts_merge(
+      facts,
+      gen_valid_gc_surface_facts_instr(instr),
+    )
+  }
+  facts
+}
+
+///|
+fn gen_valid_gc_surface_facts_module(mod : Module) -> GenValidGcSurfaceFacts {
+  let mut facts = gen_valid_gc_surface_facts_empty()
+  match mod.type_sec {
+    Some(TypeSec(type_defs)) =>
+      for rec_type in type_defs {
+        facts = gen_valid_gc_surface_facts_merge(
+          facts,
+          gen_valid_gc_surface_facts_rec_type(rec_type),
+        )
+      }
+    None => ()
+  }
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for imp in imports {
+        let Import(_, _, extern_type) = imp
+        facts = gen_valid_gc_surface_facts_merge(
+          facts,
+          match extern_type {
+            TableExternType(TableType(rt, _)) =>
+              {
+                ..gen_valid_gc_surface_facts_empty(),
+                typed_ref_tables: gen_valid_gc_surface_ref_score(rt),
+              }
+            GlobalExternType(GlobalType(vt, _)) =>
+              {
+                ..gen_valid_gc_surface_facts_empty(),
+                typed_ref_globals: gen_valid_gc_surface_val_score(vt),
+              }
+            _ => gen_valid_gc_surface_facts_empty()
+          },
+        )
+      }
+    None => ()
+  }
+  match mod.table_sec {
+    Some(TableSec(tables)) =>
+      for table in tables {
+        let Table(TableType(rt, _), _) = table
+        facts = gen_valid_gc_surface_facts_merge(facts, {
+          ..gen_valid_gc_surface_facts_empty(),
+          typed_ref_tables: gen_valid_gc_surface_ref_score(rt),
+        })
+      }
+    None => ()
+  }
+  match mod.global_sec {
+    Some(GlobalSec(globals)) =>
+      for global in globals {
+        let Global(GlobalType(vt, _), _) = global
+        facts = gen_valid_gc_surface_facts_merge(facts, {
+          ..gen_valid_gc_surface_facts_empty(),
+          typed_ref_globals: gen_valid_gc_surface_val_score(vt),
+        })
+      }
+    None => ()
+  }
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(locals, body) = func
+        for run in locals.runs() {
+          let { count, vt } = run
+          ignore(count)
+          facts = gen_valid_gc_surface_facts_merge(facts, {
+            ..gen_valid_gc_surface_facts_empty(),
+            typed_ref_locals: gen_valid_gc_surface_val_score(vt),
+          })
+        }
+        facts = gen_valid_gc_surface_facts_merge(
+          facts,
+          gen_valid_gc_surface_facts_expr(body),
+        )
+      }
+    None => ()
+  }
+  facts
+}
+
+///|
 test "validate_valid_run_config returns profile attempts and generator config" {
   let smoke = match validate_valid_run_config("smoke") {
     Ok(v) => v
@@ -3936,6 +4419,45 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
   assert_true(body_surface.has_br_if)
   assert_true(body_surface.has_memory_op)
   assert_true(body_surface.has_table_op)
+
+  let coverage_surface = gen_valid_coverage_surface_facts_module(mod)
+  assert_true(coverage_surface.import_funcs > 0)
+  assert_true(coverage_surface.import_tables > 0)
+  assert_true(coverage_surface.import_mems > 0)
+  assert_true(coverage_surface.import_globals > 0)
+  assert_true(coverage_surface.import_tags > 0)
+  assert_true(coverage_surface.passive_elems > 0)
+  assert_true(coverage_surface.declarative_elems > 0)
+  assert_true(coverage_surface.passive_datas > 0)
+  assert_true(coverage_surface.has_memory_init)
+  assert_true(coverage_surface.has_data_drop)
+  assert_true(coverage_surface.has_memory_copy)
+  assert_true(coverage_surface.has_memory_fill)
+  assert_true(coverage_surface.has_table_init)
+  assert_true(coverage_surface.has_elem_drop)
+  assert_true(coverage_surface.has_table_copy)
+  assert_true(coverage_surface.has_table_fill)
+
+  let gc_surface = gen_valid_gc_surface_facts_module(mod)
+  assert_true(gc_surface.struct_types > 0)
+  assert_true(gc_surface.array_types > 0)
+  assert_true(gc_surface.rec_groups > 0)
+  assert_true(gc_surface.typed_ref_globals > 0)
+  assert_true(gc_surface.typed_ref_tables > 0)
+  assert_true(gc_surface.typed_ref_locals > 0)
+  assert_true(gc_surface.has_struct_new)
+  assert_true(gc_surface.has_struct_get)
+  assert_true(gc_surface.has_struct_set)
+  assert_true(gc_surface.has_array_new)
+  assert_true(gc_surface.has_array_get)
+  assert_true(gc_surface.has_array_set)
+  assert_true(gc_surface.has_array_len)
+  assert_true(gc_surface.has_ref_test)
+  assert_true(gc_surface.has_ref_cast)
+  assert_true(gc_surface.has_ref_eq)
+  assert_true(gc_surface.has_ref_as_non_null)
+  assert_true(gc_surface.has_call_ref)
+  assert_true(gc_surface.has_br_on_null)
 
   let import_func_count = match mod.import_sec {
     Some(ImportSec(imports)) => {

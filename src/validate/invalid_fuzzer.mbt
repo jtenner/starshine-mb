@@ -564,7 +564,7 @@ pub fn validate_invalid_ast_run_config(
   Ok({
     profile: normalized,
     attempts,
-    generator_config: GenValidConfig::coverage_forced_default(),
+    generator_config: gen_invalid_coverage_seed_generator_config(),
     required_strategies: validate_invalid_ast_required_strategies(normalized),
   })
 }
@@ -1710,9 +1710,7 @@ fn validate_invalid_ast_mutate_invalid_label_name_section_index(
 fn validate_invalid_ast_mutate_invalid_memory_name_section_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
-  let bad_idx = validate_invalid_ast_mem_entries(mod)
-    .length()
-    .reinterpret_as_uint()
+  let bad_idx = (validate_invalid_ast_mem_entries(mod).length() + 1).reinterpret_as_uint()
   let memory_names = NameMap::new([NameAssoc::new(bad_idx, Name::new("mem"))])
   {
     strategy: InvalidMemoryNameSectionIndex,
@@ -2512,7 +2510,7 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
 fn invalid_ast_test_base_module(seed : UInt64) -> Module {
   gen_valid_module_with_config(
     @splitmix.new(seed~),
-    GenValidConfig::coverage_forced_default(),
+    gen_invalid_coverage_seed_generator_config(),
   )
 }
 

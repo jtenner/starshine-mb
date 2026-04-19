@@ -107,10 +107,15 @@ pub struct GenInvalidBinaryParams {
 } derive(Eq, Debug)
 
 ///|
+pub fn gen_invalid_binary_coverage_seed_generator_config() -> GenValidConfig {
+  @validate.gen_invalid_coverage_seed_generator_config()
+}
+
+///|
 pub fn GenInvalidBinaryParams::new(
   strategy : ValidateInvalidBinaryStrategyId,
   seed_mode? : GenInvalidBinarySeedMode = RandomValidSeed,
-  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
@@ -140,7 +145,7 @@ pub fn GenInvalidBinaryParams::natural_seed(
 ///|
 pub fn GenInvalidBinaryParams::coverage_forced_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
@@ -172,7 +177,7 @@ pub fn GenInvalidBinaryParams::small_natural_seed(
 ///|
 pub fn GenInvalidBinaryParams::small_coverage_forced_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
@@ -189,7 +194,7 @@ pub fn GenInvalidBinaryParams::small_coverage_forced_seed(
 ///|
 pub fn GenInvalidBinaryParams::repro_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
@@ -206,7 +211,7 @@ pub fn GenInvalidBinaryParams::repro_seed(
 ///|
 pub fn GenInvalidBinaryParams::minimal_seed(
   strategy : ValidateInvalidBinaryStrategyId,
-  generator_config? : GenValidConfig = GenValidConfig::coverage_forced_default(),
+  generator_config? : GenValidConfig = gen_invalid_binary_coverage_seed_generator_config(),
   require_strategy_prereqs? : Bool = true,
 ) -> GenInvalidBinaryParams {
   {
@@ -770,7 +775,7 @@ pub fn validate_invalid_binary_run_config(
   Ok({
     profile: normalized,
     attempts,
-    generator_config: GenValidConfig::coverage_forced_default(),
+    generator_config: gen_invalid_binary_coverage_seed_generator_config(),
     required_strategies: validate_invalid_binary_required_strategies(normalized),
   })
 }
