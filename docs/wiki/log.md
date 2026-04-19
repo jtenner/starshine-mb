@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-19] maintain | record natural `gen-valid` exact/bulk-array/mixed-catch widening
+
+- Reviewed the widened natural valid-generation follow-up in `src/validate/gen_valid.mbt` and `src/validate/validate.mbt` after the rec-group metadata stabilization landed.
+- Recorded that natural mode now also synthesizes exact typed-null descriptor probe chains, direct `array.new_data` / `array.new_elem` plus `array.init_data` / `array.init_elem` routes for the GC helper arrays when passive data/elem prerequisites are present, branchier multi-catch `try_table` exception shapes instead of only the earlier single-catch exnref forms, and exact concrete descriptor refs through generated locals/globals using exact-aware null initializers.
+- Updated `docs/wiki/validate/fuzz-hardening.md` so the living docs now describe the newly landed natural-mode breadth and narrow the remaining follow-up gap list again.
+
 ## [2026-04-19] fix | stabilize `gen-valid` recursive metadata and flat invalid type indexing
 
 - Normalized appended `RecType` metadata to absolute type indices before storing subtypes in the long-lived validator environment, which closes the later code-body mismatch on descriptor-bearing rec groups after the type section has already validated.

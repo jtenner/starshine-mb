@@ -605,21 +605,35 @@ fn gen_const_instr(ctx : GenValidContext, vt : ValType) -> Instruction {
         b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
       )
     _ if vt == ValType::stringref() => Instruction::string_const(b"gen-valid")
-    RefTypeValType(rt) => Instruction::ref_null(rt.get_heap_type())
+    RefTypeValType(rt) =>
+      if rt.is_exact() {
+        Instruction::ref_null_type(rt)
+      } else {
+        Instruction::ref_null(rt.get_heap_type())
+      }
     BotValType => Instruction::unreachable_()
   }
 }
 
 ///|
-fn gen_result_types(ctx : GenValidContext) -> Array[ValType] {
+fn gen_result_types(
+  ctx : GenValidContext,
+  extra_ref_types? : Array[ValType] = [],
+) -> Array[ValType] {
   let max_results = gen_valid_clamp_non_negative(ctx.config.max_results)
   if max_results <= 0 || ctx.random_bool() {
     []
   } else {
     let result_count = 1 + ctx.random_int(max_results)
     let results : Array[ValType] = []
-    for _ in 0..<result_count {
-      results.push(gen_valid_valtype(ctx))
+    for i = 0; i < result_count; i = i + 1 {
+      if i == 0 &&
+        !extra_ref_types.is_empty() &&
+        (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
+        results.push(extra_ref_types[ctx.random_int(extra_ref_types.length())])
+      } else {
+        results.push(gen_valid_valtype_with_extra_refs(ctx, extra_ref_types))
+      }
     }
     results
   }
@@ -646,8 +660,12 @@ fn gen_local_types(
     gen_valid_clamp_non_negative(ctx.config.max_locals) + 1,
   )
   let locals : Array[ValType] = []
-  for _ in 0..<count {
-    locals.push(gen_valid_valtype_with_extra_refs(ctx, extra_ref_types))
+  for i = 0; i < count; i = i + 1 {
+    if i == 0 && !extra_ref_types.is_empty() && ctx.random_int(4) == 0 {
+      locals.push(extra_ref_types[ctx.random_int(extra_ref_types.length())])
+    } else {
+      locals.push(gen_valid_valtype_with_extra_refs(ctx, extra_ref_types))
+    }
   }
   locals
 }
@@ -670,6 +688,7 @@ fn gen_valid_gc_type_plan_empty() -> GenValidGcTypePlan {
     struct_type_idxs: [],
     array_type_idxs: [],
     concrete_ref_types: [],
+    exact_ref_types: [],
     bulk_data_array_idx: None,
     bulk_elem_array_idx: None,
     bulk_elem_ref_type: None,
@@ -684,6 +703,11 @@ fn gen_valid_gc_type_plan_empty() -> GenValidGcTypePlan {
 ///|
 fn gen_valid_gc_type_field_ref(type_idx : TypeIdx) -> ValType {
   ValType::ref_type(RefType::new(true, HeapType::new(type_idx)))
+}
+
+///|
+fn gen_valid_gc_type_exact_ref(type_idx : TypeIdx) -> ValType {
+  ValType::ref_type(RefType::new(true, HeapType::new(type_idx), exact=true))
 }
 
 ///|
@@ -715,7 +739,11 @@ fn gen_valid_gc_type_defs(
   let want_string_wtf16_array = remaining_type_budget - defs.length() > 0 &&
     (ctx.config.mode == CoverageForced || ctx.random_bool())
   let want_string_utf8_array = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.config.mode == Natural || ctx.random_bool())
+    (
+      ctx.config.mode == CoverageForced ||
+      ctx.config.mode == Natural ||
+      ctx.random_bool()
+    )
   let want_group = remaining_type_budget - defs.length() > 0 &&
     (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0)
 
@@ -760,7 +788,9 @@ fn gen_valid_gc_type_defs(
 
   if want_descriptor_group && defs.length() < remaining_type_budget {
     let described_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
-    let descriptor_idx = TypeIdx::new((type_idx_cursor + 1).reinterpret_as_uint())
+    let descriptor_idx = TypeIdx::new(
+      (type_idx_cursor + 1).reinterpret_as_uint(),
+    )
     defs.push(
       RecType::group([
         SubType::comp_type(
@@ -781,6 +811,8 @@ fn gen_valid_gc_type_defs(
     }
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(described_idx))
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(descriptor_idx))
+    plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(described_idx))
+    plan.exact_ref_types.push(gen_valid_gc_type_exact_ref(descriptor_idx))
     type_idx_cursor += 2
   }
 
@@ -813,42 +845,44 @@ fn gen_valid_gc_type_defs(
   }
 
   if want_string_wtf16_array && defs.length() < remaining_type_budget {
-    let string_wtf16_array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    let string_wtf16_array_idx = TypeIdx::new(
+      type_idx_cursor.reinterpret_as_uint(),
+    )
     defs.push(
       RecType::new(
         SubType::comp_type(
           CompType::array(
-            FieldType::new(
-              StorageType::pack_type(PackType::i16()),
-              Var,
-            ),
+            FieldType::new(StorageType::pack_type(PackType::i16()), Var),
           ),
         ),
       ),
     )
     plan = { ..plan, string_wtf16_array_idx: Some(string_wtf16_array_idx) }
     plan.array_type_idxs.push(string_wtf16_array_idx)
-    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(string_wtf16_array_idx))
+    plan.concrete_ref_types.push(
+      gen_valid_gc_type_field_ref(string_wtf16_array_idx),
+    )
     type_idx_cursor += 1
   }
 
   if want_string_utf8_array && defs.length() < remaining_type_budget {
-    let string_utf8_array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    let string_utf8_array_idx = TypeIdx::new(
+      type_idx_cursor.reinterpret_as_uint(),
+    )
     defs.push(
       RecType::new(
         SubType::comp_type(
           CompType::array(
-            FieldType::new(
-              StorageType::pack_type(PackType::i8()),
-              Var,
-            ),
+            FieldType::new(StorageType::pack_type(PackType::i8()), Var),
           ),
         ),
       ),
     )
     plan = { ..plan, string_utf8_array_idx: Some(string_utf8_array_idx) }
     plan.array_type_idxs.push(string_utf8_array_idx)
-    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(string_utf8_array_idx))
+    plan.concrete_ref_types.push(
+      gen_valid_gc_type_field_ref(string_utf8_array_idx),
+    )
     type_idx_cursor += 1
   }
 
@@ -934,6 +968,7 @@ priv struct GenValidGcTypePlan {
   struct_type_idxs : Array[TypeIdx]
   array_type_idxs : Array[TypeIdx]
   concrete_ref_types : Array[ValType]
+  exact_ref_types : Array[ValType]
   bulk_data_array_idx : TypeIdx?
   bulk_elem_array_idx : TypeIdx?
   bulk_elem_ref_type : RefType?
@@ -1304,7 +1339,8 @@ fn append_value_instrs(
     _ => ()
   }
   if env.depth_left > 0 &&
-    !(ctx.config.mode == Natural && !env.gc_type_plan.concrete_ref_types.is_empty()) {
+    !(ctx.config.mode == Natural &&
+    !env.gc_type_plan.concrete_ref_types.is_empty()) {
     if ctx.config.features.allow_calls {
       match gen_valid_pick_callable_with_result(ctx, env.funcs, vt) {
         Some(target) if ctx.random_int(4) == 0 => {
@@ -1412,10 +1448,11 @@ fn append_value_instrs(
         }
       }
       if vt == ValType::stringref() {
-        match (
-          env.gc_type_plan.string_wtf16_array_idx,
-          env.gc_type_plan.string_utf8_array_idx,
-        ) {
+        match
+          (
+            env.gc_type_plan.string_wtf16_array_idx,
+            env.gc_type_plan.string_utf8_array_idx,
+          ) {
           (Some(string_wtf16_array_idx), _) if ctx.random_int(3) == 0 => {
             out.push(Instruction::i32_const(I32(4)))
             out.push(Instruction::array_new_default(string_wtf16_array_idx))
@@ -1441,16 +1478,20 @@ fn append_value_instrs(
           _ => ()
         }
       }
-      if vt == ValType::ref_null_exn() && !env.tags.is_empty() && ctx.random_int(3) == 0 {
+      if vt == ValType::ref_null_exn() &&
+        !env.tags.is_empty() &&
+        ctx.random_int(3) == 0 {
         let tag_idx = TagIdx::new(0U)
         out.push(
           Instruction::try_table(
             BlockType::val_type(vt),
-            [if ctx.random_bool() {
-              Catch::ref_(tag_idx, LabelIdx::new(0U))
-            } else {
-              Catch::all_ref(LabelIdx::new(0U))
-            }],
+            [
+              if ctx.random_bool() {
+                Catch::ref_(tag_idx, LabelIdx::new(0U))
+              } else {
+                Catch::all_ref(LabelIdx::new(0U))
+              },
+            ],
             Expr::new([Instruction::throw_(tag_idx)]),
           ),
         )
@@ -1458,17 +1499,20 @@ fn append_value_instrs(
       }
       match heap_type {
         HeapType(type_idx) => {
-          match (
-            env.gc_type_plan.descriptor_struct_idx,
-            env.gc_type_plan.descriptor_type_idx,
-          ) {
-            (Some(described_idx), Some(descriptor_idx)) if type_idx == described_idx &&
+          match
+            (
+              env.gc_type_plan.descriptor_struct_idx,
+              env.gc_type_plan.descriptor_type_idx,
+            ) {
+            (Some(described_idx), Some(descriptor_idx)) if type_idx ==
+              described_idx &&
               ctx.random_int(3) == 0 => {
               out.push(Instruction::struct_new_default(descriptor_idx))
               out.push(Instruction::struct_new_default_desc(described_idx))
               return
             }
-            (Some(_described_idx), Some(descriptor_idx)) if type_idx == descriptor_idx &&
+            (Some(_described_idx), Some(descriptor_idx)) if type_idx ==
+              descriptor_idx &&
               ctx.random_int(3) == 0 => {
               out.push(Instruction::struct_new_default(descriptor_idx))
               return
@@ -1484,12 +1528,14 @@ fn append_value_instrs(
             return
           }
           match env.gc_type_plan.bulk_data_array_idx {
-            Some(array_idx) if type_idx == array_idx && ctx.random_int(4) == 0 &&
+            Some(array_idx) if type_idx == array_idx &&
+              ctx.random_int(4) == 0 &&
               gen_valid_append_array_data_seed_instrs(out, env) => return
             _ => ()
           }
           match env.gc_type_plan.bulk_elem_array_idx {
-            Some(array_idx) if type_idx == array_idx && ctx.random_int(4) == 0 &&
+            Some(array_idx) if type_idx == array_idx &&
+              ctx.random_int(4) == 0 &&
               gen_valid_append_array_elem_seed_instrs(out, env) => return
             _ => ()
           }
@@ -1556,10 +1602,158 @@ fn append_value_instrs(
           return
         }
       }
-      out.push(Instruction::ref_null(heap_type))
+      out.push(
+        if rt.is_exact() {
+          Instruction::ref_null_type(rt)
+        } else {
+          Instruction::ref_null(heap_type)
+        },
+      )
     }
     _ => out.push(gen_const_instr(ctx, vt))
   }
+}
+
+///|
+fn gen_valid_append_natural_exact_descriptor_stmt(
+  out : Array[Instruction],
+  env : GenValidBodyEnv,
+) -> Bool {
+  match
+    (
+      env.gc_type_plan.descriptor_struct_idx,
+      env.gc_type_plan.descriptor_type_idx,
+    ) {
+    (Some(described_idx), Some(_descriptor_idx)) => {
+      let exact_described = RefType::new(
+        true,
+        HeapType::new(described_idx),
+        exact=true,
+      )
+      out.push(Instruction::ref_null_type(exact_described))
+      out.push(Instruction::ref_get_desc(described_idx))
+      out.push(Instruction::drop())
+      out.push(Instruction::ref_null_type(exact_described))
+      out.push(Instruction::ref_test_desc(true, HeapType::new(described_idx)))
+      out.push(Instruction::drop())
+      out.push(Instruction::ref_null_type(exact_described))
+      out.push(
+        Instruction::ref_cast_desc_eq(true, HeapType::new(described_idx)),
+      )
+      out.push(Instruction::drop())
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_append_natural_bulk_array_stmt(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Bool {
+  match ctx.random_int(4) {
+    0 =>
+      if gen_valid_append_array_data_seed_instrs(out, env) {
+        out.push(Instruction::drop())
+        true
+      } else if gen_valid_append_array_data_init_instrs(out, env) {
+        true
+      } else if gen_valid_append_array_elem_seed_instrs(out, env) {
+        out.push(Instruction::drop())
+        true
+      } else if gen_valid_append_array_elem_init_instrs(out, env) {
+        true
+      } else {
+        false
+      }
+    1 =>
+      if gen_valid_append_array_elem_seed_instrs(out, env) {
+        out.push(Instruction::drop())
+        true
+      } else if gen_valid_append_array_elem_init_instrs(out, env) {
+        true
+      } else if gen_valid_append_array_data_seed_instrs(out, env) {
+        out.push(Instruction::drop())
+        true
+      } else if gen_valid_append_array_data_init_instrs(out, env) {
+        true
+      } else {
+        false
+      }
+    2 =>
+      if gen_valid_append_array_data_init_instrs(out, env) {
+        true
+      } else if gen_valid_append_array_data_seed_instrs(out, env) {
+        out.push(Instruction::drop())
+        true
+      } else if gen_valid_append_array_elem_init_instrs(out, env) {
+        true
+      } else if gen_valid_append_array_elem_seed_instrs(out, env) {
+        out.push(Instruction::drop())
+        true
+      } else {
+        false
+      }
+    _ =>
+      if gen_valid_append_array_elem_init_instrs(out, env) {
+        true
+      } else if gen_valid_append_array_elem_seed_instrs(out, env) {
+        out.push(Instruction::drop())
+        true
+      } else if gen_valid_append_array_data_init_instrs(out, env) {
+        true
+      } else if gen_valid_append_array_data_seed_instrs(out, env) {
+        out.push(Instruction::drop())
+        true
+      } else {
+        false
+      }
+  }
+}
+
+///|
+fn gen_valid_append_natural_mixed_catch_stmt(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Bool {
+  if env.tags.is_empty() {
+    return false
+  }
+  let tag_idx = TagIdx::new(0U)
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  out.push(
+    Instruction::block(
+      BlockType::val_type(exnref),
+      Expr::new([
+        Instruction::try_table(
+          BlockType::val_type(exnref),
+          [
+            Catch::ref_(tag_idx, LabelIdx::new(0U)),
+            Catch::all_ref(LabelIdx::new(0U)),
+          ],
+          Expr::new([
+            Instruction::block(
+              BlockType::void_(),
+              Expr::new([
+                Instruction::i32_const(
+                  I32(if ctx.random_bool() { 1 } else { 0 }),
+                ),
+                Instruction::br_if(LabelIdx::new(0U)),
+              ]),
+            ),
+            Instruction::throw_(tag_idx),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  out.push(Instruction::drop())
+  true
 }
 
 ///|
@@ -1571,12 +1765,13 @@ fn gen_valid_append_natural_gc_stmt(
   if ctx.config.mode != Natural || !ctx.config.features.allow_ref_types {
     return false
   }
-  match ctx.random_int(7) {
-    0 => {
-      match (
-        env.gc_type_plan.descriptor_struct_idx,
-        env.gc_type_plan.descriptor_type_idx,
-      ) {
+  match ctx.random_int(10) {
+    0 =>
+      match
+        (
+          env.gc_type_plan.descriptor_struct_idx,
+          env.gc_type_plan.descriptor_type_idx,
+        ) {
         (Some(described_idx), Some(descriptor_idx)) => {
           out.push(Instruction::struct_new_default(descriptor_idx))
           out.push(Instruction::struct_new_default_desc(described_idx))
@@ -1586,20 +1781,25 @@ fn gen_valid_append_natural_gc_stmt(
         }
         _ => false
       }
-    }
-    1 => {
-      match (
-        env.gc_type_plan.descriptor_struct_idx,
-        env.gc_type_plan.descriptor_type_idx,
-      ) {
+    1 => gen_valid_append_natural_exact_descriptor_stmt(out, env)
+    2 =>
+      match
+        (
+          env.gc_type_plan.descriptor_struct_idx,
+          env.gc_type_plan.descriptor_type_idx,
+        ) {
         (Some(described_idx), Some(descriptor_idx)) => {
           out.push(Instruction::struct_new_default(descriptor_idx))
           out.push(Instruction::struct_new_default_desc(described_idx))
-          out.push(Instruction::ref_test_desc(true, HeapType::new(described_idx)))
+          out.push(
+            Instruction::ref_test_desc(true, HeapType::new(described_idx)),
+          )
           out.push(Instruction::drop())
           out.push(Instruction::struct_new_default(descriptor_idx))
           out.push(Instruction::struct_new_default_desc(described_idx))
-          out.push(Instruction::ref_cast_desc_eq(true, HeapType::new(described_idx)))
+          out.push(
+            Instruction::ref_cast_desc_eq(true, HeapType::new(described_idx)),
+          )
           out.push(Instruction::drop())
           out.push(
             Instruction::block(
@@ -1620,8 +1820,7 @@ fn gen_valid_append_natural_gc_stmt(
         }
         _ => false
       }
-    }
-    2 => {
+    3 =>
       match env.gc_type_plan.string_wtf16_array_idx {
         Some(string_wtf16_array_idx) => {
           out.push(Instruction::i32_const(I32(4)))
@@ -1634,8 +1833,7 @@ fn gen_valid_append_natural_gc_stmt(
         }
         None => false
       }
-    }
-    3 => {
+    4 =>
       match env.gc_type_plan.string_utf8_array_idx {
         Some(string_utf8_array_idx) => {
           out.push(Instruction::string_const(b"gen-valid-string"))
@@ -1665,8 +1863,8 @@ fn gen_valid_append_natural_gc_stmt(
         }
         None => false
       }
-    }
-    4 => {
+    5 => gen_valid_append_natural_bulk_array_stmt(out, ctx, env)
+    6 => {
       out.push(
         Instruction::block(
           BlockType::val_type(
@@ -1705,7 +1903,7 @@ fn gen_valid_append_natural_gc_stmt(
       out.push(Instruction::drop())
       true
     }
-    5 => {
+    7 =>
       if !env.tags.is_empty() {
         let tag_idx = TagIdx::new(0U)
         let exnref = ValType::ref_type(
@@ -1753,7 +1951,7 @@ fn gen_valid_append_natural_gc_stmt(
       } else {
         false
       }
-    }
+    8 => gen_valid_append_natural_mixed_catch_stmt(out, ctx, env)
     _ => {
       out.push(
         Instruction::block(
@@ -1992,10 +2190,11 @@ fn gen_valid_append_gc_prelude(
     )
   }
 
-  match (
-    env.gc_type_plan.descriptor_struct_idx,
-    env.gc_type_plan.descriptor_type_idx,
-  ) {
+  match
+    (
+      env.gc_type_plan.descriptor_struct_idx,
+      env.gc_type_plan.descriptor_type_idx,
+    ) {
     (Some(described_idx), Some(descriptor_idx)) => {
       out.push(Instruction::struct_new_default(descriptor_idx))
       out.push(Instruction::struct_new_default_desc(described_idx))
@@ -2009,13 +2208,17 @@ fn gen_valid_append_gc_prelude(
 
       out.push(Instruction::struct_new_default(descriptor_idx))
       out.push(Instruction::struct_new_default_desc(described_idx))
-      out.push(Instruction::ref_cast_desc_eq(true, HeapType::new(described_idx)))
+      out.push(
+        Instruction::ref_cast_desc_eq(true, HeapType::new(described_idx)),
+      )
       out.push(Instruction::drop())
 
       out.push(
         Instruction::block(
           BlockType::val_type(
-            ValType::ref_type(RefType::new(false, HeapType::new(descriptor_idx))),
+            ValType::ref_type(
+              RefType::new(false, HeapType::new(descriptor_idx)),
+            ),
           ),
           Expr::new([
             Instruction::ref_null(HeapType::new(descriptor_idx)),
@@ -2366,10 +2569,11 @@ fn gen_valid_build_func(
   gc_type_plan : GenValidGcTypePlan,
   declared_ref_func_idx : FuncIdx?,
 ) -> Func {
-  let locals = gen_local_types(
-    ctx,
-    extra_ref_types=gc_type_plan.concrete_ref_types,
-  )
+  let local_ref_types = gc_type_plan.concrete_ref_types.copy()
+  for vt in gc_type_plan.exact_ref_types {
+    local_ref_types.push(vt)
+  }
+  let locals = gen_local_types(ctx, extra_ref_types=local_ref_types)
   if ctx.config.mode == CoverageForced {
     for vt in gc_type_plan.concrete_ref_types {
       locals.push(vt)
@@ -2398,7 +2602,8 @@ fn gen_valid_build_func(
   }
   let stmt_count = if ctx.config.mode == CoverageForced {
     0
-  } else if ctx.config.mode == Natural && !gc_type_plan.concrete_ref_types.is_empty() {
+  } else if ctx.config.mode == Natural &&
+    !gc_type_plan.concrete_ref_types.is_empty() {
     0
   } else {
     gen_valid_body_stmt_count(ctx, env.depth_left)
@@ -2407,7 +2612,11 @@ fn gen_valid_build_func(
     append_void_stmt(body_instrs, ctx, env)
   }
   if ctx.config.mode == Natural && ctx.config.features.allow_ref_types {
-    let gc_stmt_count = 1 + ctx.random_int(2)
+    let gc_stmt_count = if gc_type_plan.concrete_ref_types.is_empty() {
+      1 + ctx.random_int(2)
+    } else {
+      2 + ctx.random_int(2)
+    }
     for _ in 0..<gc_stmt_count {
       ignore(gen_valid_append_natural_gc_stmt(body_instrs, ctx, env))
     }
@@ -2594,7 +2803,11 @@ fn gen_valid_module_once_with_config(
       config.features.allow_elems,
       config.max_elems,
       config.section_bias.elems_percent,
-      if ctx.config.mode == CoverageForced { 4 } else { 3 },
+      if ctx.config.mode == CoverageForced {
+        4
+      } else {
+        3
+      },
     )
   } else {
     0
@@ -2643,6 +2856,11 @@ fn gen_valid_module_once_with_config(
     1 + ctx.random_int(func_type_cap)
   }
 
+  let remaining_type_budget = max_type_defs - func_type_count
+  let (gc_type_defs, gc_type_plan) = gen_valid_gc_type_defs(
+    ctx, func_type_count, remaining_type_budget,
+  )
+
   let type_defs : Array[RecType] = []
   let type_params : Array[Array[ValType]] = []
   let type_results : Array[Array[ValType]] = []
@@ -2654,8 +2872,22 @@ fn gen_valid_module_once_with_config(
     }
     let results = if i == 0 && (has_start || total_tag_count > 0) {
       []
+    } else if !gc_type_plan.exact_ref_types.is_empty() &&
+      (
+        (ctx.config.mode == CoverageForced && i == func_type_count - 1) ||
+        (
+          ctx.config.mode == Natural &&
+          i == func_type_count - 1 &&
+          ctx.random_int(3) == 0
+        )
+      ) {
+      [
+        gc_type_plan.exact_ref_types[ctx.random_int(
+          gc_type_plan.exact_ref_types.length(),
+        )],
+      ]
     } else {
-      gen_result_types(ctx)
+      gen_result_types(ctx, extra_ref_types=gc_type_plan.exact_ref_types)
     }
     type_params.push(params)
     type_results.push(results)
@@ -2663,10 +2895,6 @@ fn gen_valid_module_once_with_config(
       RecType::new(SubType::comp_type(CompType::func(params, results))),
     )
   }
-  let remaining_type_budget = max_type_defs - func_type_count
-  let (gc_type_defs, gc_type_plan) = gen_valid_gc_type_defs(
-    ctx, func_type_count, remaining_type_budget,
-  )
   for rec_type in gc_type_defs {
     type_defs.push(rec_type)
   }
@@ -2725,11 +2953,21 @@ fn gen_valid_module_once_with_config(
   let imported_global_types : Array[GlobalType] = []
   for i = 0; i < import_global_count; i = i + 1 {
     let global_vt = if i == 0 &&
+      !gc_type_plan.exact_ref_types.is_empty() &&
+      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
+      gc_type_plan.exact_ref_types[ctx.random_int(
+        gc_type_plan.exact_ref_types.length(),
+      )]
+    } else if i == 0 &&
       !gc_type_plan.concrete_ref_types.is_empty() &&
       (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
       gc_type_plan.concrete_ref_types[0]
     } else {
-      gen_valid_valtype_with_extra_refs(ctx, gc_type_plan.concrete_ref_types)
+      let global_ref_types = gc_type_plan.concrete_ref_types.copy()
+      for vt in gc_type_plan.exact_ref_types {
+        global_ref_types.push(vt)
+      }
+      gen_valid_valtype_with_extra_refs(ctx, global_ref_types)
     }
     let global_type = GlobalType::new(
       global_vt,
@@ -2757,11 +2995,21 @@ fn gen_valid_module_once_with_config(
   let globals : Array[Global] = []
   for i = 0; i < defined_global_count; i = i + 1 {
     let vt = if i == 0 &&
+      !gc_type_plan.exact_ref_types.is_empty() &&
+      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
+      gc_type_plan.exact_ref_types[ctx.random_int(
+        gc_type_plan.exact_ref_types.length(),
+      )]
+    } else if i == 0 &&
       !gc_type_plan.concrete_ref_types.is_empty() &&
       (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
       gc_type_plan.concrete_ref_types[0]
     } else {
-      gen_valid_valtype_with_extra_refs(ctx, gc_type_plan.concrete_ref_types)
+      let global_ref_types = gc_type_plan.concrete_ref_types.copy()
+      for exact_vt in gc_type_plan.exact_ref_types {
+        global_ref_types.push(exact_vt)
+      }
+      gen_valid_valtype_with_extra_refs(ctx, global_ref_types)
     }
     let is_mut = ctx.config.mode == CoverageForced || ctx.random_bool()
     globals.push(
@@ -2916,19 +3164,19 @@ fn gen_valid_module_once_with_config(
             )
           None =>
             match (gc_table_choice, gc_table_ref_type) {
-              (Some(table_idx), Some(rt)) if ValType::ref_type(rt) != ValType::funcref() =>
+              (Some(table_idx), Some(rt)) if ValType::ref_type(rt) !=
+                ValType::funcref() =>
                 Elem::new(
                   ElemMode::active(table_idx, gen_valid_active_i32_offset(ctx)),
                   ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
                 )
-              _ =>
-                Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
+              _ => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
             }
         }
       } else if (match gc_type_plan.bulk_elem_ref_type {
-        Some(_) => ctx.random_int(4) == 0
-        None => false
-      }) {
+          Some(_) => ctx.random_int(4) == 0
+          None => false
+        }) {
         match gc_type_plan.bulk_elem_ref_type {
           Some(rt) =>
             Elem::new(
@@ -2938,9 +3186,11 @@ fn gen_valid_module_once_with_config(
           None => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
         }
       } else if (match gc_table_ref_type {
-        Some(rt) => ValType::ref_type(rt) != ValType::funcref() && ctx.random_int(3) == 0
-        None => false
-      }) {
+          Some(rt) =>
+            ValType::ref_type(rt) != ValType::funcref() &&
+            ctx.random_int(3) == 0
+          None => false
+        }) {
         match (gc_table_choice, gc_table_ref_type) {
           (Some(table_idx), Some(rt)) =>
             Elem::new(
@@ -2978,7 +3228,8 @@ fn gen_valid_module_once_with_config(
             )
           5 =>
             match (gc_table_choice, gc_table_ref_type) {
-              (Some(table_idx), Some(rt)) if ValType::ref_type(rt) != ValType::funcref() =>
+              (Some(table_idx), Some(rt)) if ValType::ref_type(rt) !=
+                ValType::funcref() =>
                 Elem::new(
                   ElemMode::active(table_idx, gen_valid_active_i32_offset(ctx)),
                   ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
@@ -3307,7 +3558,10 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
       }
     Br(_) | BrIf(_) | BrTable(_, _) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), branch_ops: 1 }
-    BrOnNull(_) | BrOnNonNull(_) | BrOnCast(_, _, _, _) | BrOnCastFail(_, _, _, _) =>
+    BrOnNull(_)
+    | BrOnNonNull(_)
+    | BrOnCast(_, _, _, _)
+    | BrOnCastFail(_, _, _, _) =>
       GenValidInstrFacts::{
         ..GenValidInstrFacts::empty(),
         uses_ref_types: true,
@@ -3371,12 +3625,21 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         uses_v128,
       }
     }
-    RefNull(_) | RefFunc(_) | StringConst(_) | ThrowRef | RefGetDesc(_) | RefTest(_, _) | RefCast(_, _) | RefTestDesc(_, _) | RefCastDescEq(_, _) =>
+    RefNull(_)
+    | RefFunc(_)
+    | StringConst(_)
+    | ThrowRef
+    | RefGetDesc(_)
+    | RefTest(_, _)
+    | RefCast(_, _)
+    | RefTestDesc(_, _)
+    | RefCastDescEq(_, _) =>
       GenValidInstrFacts::{
         ..GenValidInstrFacts::empty(),
         uses_ref_types: true,
       }
-    Throw(_) => GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), branch_ops: 1 }
+    Throw(_) =>
+      GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), branch_ops: 1 }
     V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), uses_v128: true }
     _ => GenValidInstrFacts::empty()

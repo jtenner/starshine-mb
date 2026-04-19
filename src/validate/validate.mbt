@@ -1966,11 +1966,12 @@ fn normalize_rectype_typeidx_for_global_env(
   match idx {
     TypeIdx(_) => idx
     RecIdx(rel_u) =>
-      match group_relative_absolute_index(
-        base,
-        group_len,
-        rel_u.reinterpret_as_int(),
-      ) {
+      match
+        group_relative_absolute_index(
+          base,
+          group_len,
+          rel_u.reinterpret_as_int(),
+        ) {
         Some(abs) => TypeIdx::new(abs.reinterpret_as_uint())
         None => idx
       }
@@ -1992,13 +1993,21 @@ fn normalize_subtype_for_global_env(
       normalize_rectype_typeidx_for_global_env(idx, base, group_len)
     }),
   )
-  let normalized_supers = st.super_types().map(fn(idx) {
-    normalize_rectype_typeidx_for_global_env(idx, base, group_len)
-  })
+  let normalized_supers = st
+    .super_types()
+    .map(fn(idx) {
+      normalize_rectype_typeidx_for_global_env(idx, base, group_len)
+    })
   match st {
     SubType(is_final, _, _, comp) =>
-      SubType::new(is_final, normalized_supers, comp, metadata=normalized_metadata)
-    CompTypeSubType(_, comp) => SubType::comp_type(comp, metadata=normalized_metadata)
+      SubType::new(
+        is_final,
+        normalized_supers,
+        comp,
+        metadata=normalized_metadata,
+      )
+    CompTypeSubType(_, comp) =>
+      SubType::comp_type(comp, metadata=normalized_metadata)
   }
 }
 
@@ -2029,7 +2038,10 @@ fn validate_rectype_and_extend(env : Env, rt : RecType) -> Result[Env, String] {
   }
 
   // If ok, append its defined subtypes to env.global_types in normalized absolute form.
-  let normalized = normalize_rectype_for_global_env(rt, env.global_types.length())
+  let normalized = normalize_rectype_for_global_env(
+    rt,
+    env.global_types.length(),
+  )
   Ok(env.append_rectype_types(normalized))
 }
 
@@ -4062,12 +4074,19 @@ priv struct GenValidGcSurfaceFacts {
   typed_ref_globals : Int
   typed_ref_tables : Int
   typed_ref_locals : Int
+  exact_typed_ref_globals : Int
+  exact_typed_ref_locals : Int
+  exact_typed_ref_results : Int
   has_struct_new : Bool
   has_struct_get : Bool
   has_struct_set : Bool
   has_array_new : Bool
+  has_array_new_data : Bool
+  has_array_new_elem : Bool
   has_array_get : Bool
   has_array_set : Bool
+  has_array_init_data : Bool
+  has_array_init_elem : Bool
   has_array_len : Bool
   has_string_const : Bool
   has_string_new : Bool
@@ -4079,11 +4098,14 @@ priv struct GenValidGcSurfaceFacts {
   has_ref_cast_desc_eq : Bool
   has_ref_eq : Bool
   has_ref_as_non_null : Bool
+  has_exact_ref_null : Bool
   has_call_ref : Bool
   has_br_on_null : Bool
   has_br_on_non_null : Bool
   has_br_on_cast : Bool
   has_br_on_cast_fail : Bool
+  has_mixed_catch_try_table : Bool
+  has_branchy_mixed_catch_try_table : Bool
   has_try_table : Bool
   has_throw : Bool
   has_throw_ref : Bool
@@ -4099,12 +4121,19 @@ fn gen_valid_gc_surface_facts_empty() -> GenValidGcSurfaceFacts {
     typed_ref_globals: 0,
     typed_ref_tables: 0,
     typed_ref_locals: 0,
+    exact_typed_ref_globals: 0,
+    exact_typed_ref_locals: 0,
+    exact_typed_ref_results: 0,
     has_struct_new: false,
     has_struct_get: false,
     has_struct_set: false,
     has_array_new: false,
+    has_array_new_data: false,
+    has_array_new_elem: false,
     has_array_get: false,
     has_array_set: false,
+    has_array_init_data: false,
+    has_array_init_elem: false,
     has_array_len: false,
     has_string_const: false,
     has_string_new: false,
@@ -4116,11 +4145,14 @@ fn gen_valid_gc_surface_facts_empty() -> GenValidGcSurfaceFacts {
     has_ref_cast_desc_eq: false,
     has_ref_eq: false,
     has_ref_as_non_null: false,
+    has_exact_ref_null: false,
     has_call_ref: false,
     has_br_on_null: false,
     has_br_on_non_null: false,
     has_br_on_cast: false,
     has_br_on_cast_fail: false,
+    has_mixed_catch_try_table: false,
+    has_branchy_mixed_catch_try_table: false,
     has_try_table: false,
     has_throw: false,
     has_throw_ref: false,
@@ -4140,12 +4172,22 @@ fn gen_valid_gc_surface_facts_merge(
     typed_ref_globals: left.typed_ref_globals + right.typed_ref_globals,
     typed_ref_tables: left.typed_ref_tables + right.typed_ref_tables,
     typed_ref_locals: left.typed_ref_locals + right.typed_ref_locals,
+    exact_typed_ref_globals: left.exact_typed_ref_globals +
+    right.exact_typed_ref_globals,
+    exact_typed_ref_locals: left.exact_typed_ref_locals +
+    right.exact_typed_ref_locals,
+    exact_typed_ref_results: left.exact_typed_ref_results +
+    right.exact_typed_ref_results,
     has_struct_new: left.has_struct_new || right.has_struct_new,
     has_struct_get: left.has_struct_get || right.has_struct_get,
     has_struct_set: left.has_struct_set || right.has_struct_set,
     has_array_new: left.has_array_new || right.has_array_new,
+    has_array_new_data: left.has_array_new_data || right.has_array_new_data,
+    has_array_new_elem: left.has_array_new_elem || right.has_array_new_elem,
     has_array_get: left.has_array_get || right.has_array_get,
     has_array_set: left.has_array_set || right.has_array_set,
+    has_array_init_data: left.has_array_init_data || right.has_array_init_data,
+    has_array_init_elem: left.has_array_init_elem || right.has_array_init_elem,
     has_array_len: left.has_array_len || right.has_array_len,
     has_string_const: left.has_string_const || right.has_string_const,
     has_string_new: left.has_string_new || right.has_string_new,
@@ -4154,14 +4196,20 @@ fn gen_valid_gc_surface_facts_merge(
     has_ref_test: left.has_ref_test || right.has_ref_test,
     has_ref_test_desc: left.has_ref_test_desc || right.has_ref_test_desc,
     has_ref_cast: left.has_ref_cast || right.has_ref_cast,
-    has_ref_cast_desc_eq: left.has_ref_cast_desc_eq || right.has_ref_cast_desc_eq,
+    has_ref_cast_desc_eq: left.has_ref_cast_desc_eq ||
+    right.has_ref_cast_desc_eq,
     has_ref_eq: left.has_ref_eq || right.has_ref_eq,
     has_ref_as_non_null: left.has_ref_as_non_null || right.has_ref_as_non_null,
+    has_exact_ref_null: left.has_exact_ref_null || right.has_exact_ref_null,
     has_call_ref: left.has_call_ref || right.has_call_ref,
     has_br_on_null: left.has_br_on_null || right.has_br_on_null,
     has_br_on_non_null: left.has_br_on_non_null || right.has_br_on_non_null,
     has_br_on_cast: left.has_br_on_cast || right.has_br_on_cast,
     has_br_on_cast_fail: left.has_br_on_cast_fail || right.has_br_on_cast_fail,
+    has_mixed_catch_try_table: left.has_mixed_catch_try_table ||
+    right.has_mixed_catch_try_table,
+    has_branchy_mixed_catch_try_table: left.has_branchy_mixed_catch_try_table ||
+    right.has_branchy_mixed_catch_try_table,
     has_try_table: left.has_try_table || right.has_try_table,
     has_throw: left.has_throw || right.has_throw,
     has_throw_ref: left.has_throw_ref || right.has_throw_ref,
@@ -4197,6 +4245,60 @@ fn gen_valid_gc_surface_val_score(vt : ValType) -> Int {
 }
 
 ///|
+fn gen_valid_gc_surface_exact_val_score(vt : ValType) -> Int {
+  match vt {
+    RefTypeValType(rt) =>
+      if rt.is_exact() {
+        gen_valid_gc_surface_ref_score(rt)
+      } else {
+        0
+      }
+    _ => 0
+  }
+}
+
+///|
+fn gen_valid_gc_surface_has_mixed_catches(catches : Array[Catch]) -> Bool {
+  let mut has_catch = false
+  let mut has_catch_ref = false
+  let mut has_catch_all = false
+  let mut has_catch_all_ref = false
+  for catch_ in catches {
+    match catch_ {
+      Catch(_, _) => has_catch = true
+      CatchRef(_, _) => has_catch_ref = true
+      CatchAll(_) => has_catch_all = true
+      CatchAllRef(_) => has_catch_all_ref = true
+    }
+  }
+  let mut kinds = 0
+  if has_catch {
+    kinds += 1
+  }
+  if has_catch_ref {
+    kinds += 1
+  }
+  if has_catch_all {
+    kinds += 1
+  }
+  if has_catch_all_ref {
+    kinds += 1
+  }
+  catches.length() > 1 && kinds > 1
+}
+
+///|
+fn gen_valid_gc_surface_has_branchy_control(
+  facts : GenValidBodySurfaceFacts,
+) -> Bool {
+  facts.has_block ||
+  facts.has_loop ||
+  facts.has_if ||
+  facts.has_br ||
+  facts.has_br_if
+}
+
+///|
 fn gen_valid_gc_surface_facts_sub_type(
   subtype : SubType,
 ) -> GenValidGcSurfaceFacts {
@@ -4214,12 +4316,8 @@ fn gen_valid_gc_surface_facts_sub_type(
         descriptor_types,
       }
     ArrayCompType(_) =>
-      {
-        ..gen_valid_gc_surface_facts_empty(),
-        array_types: 1,
-        descriptor_types,
-      }
-    _ => { ..gen_valid_gc_surface_facts_empty(), descriptor_types }
+      { ..gen_valid_gc_surface_facts_empty(), array_types: 1, descriptor_types }
+    _ => { ..gen_valid_gc_surface_facts_empty(), descriptor_types, }
   }
 }
 
@@ -4260,11 +4358,19 @@ fn gen_valid_gc_surface_facts_instr(
       }
       facts
     }
-    TryTable(_, _, body) =>
+    TryTable(_, catches, body) => {
+      let body_facts = gen_valid_gc_surface_facts_expr(body)
+      let mixed_catches = gen_valid_gc_surface_has_mixed_catches(catches)
       {
-        ..gen_valid_gc_surface_facts_expr(body),
+        ..body_facts,
+        has_mixed_catch_try_table: mixed_catches,
+        has_branchy_mixed_catch_try_table: mixed_catches &&
+        gen_valid_gc_surface_has_branchy_control(
+          gen_valid_body_surface_facts_expr(body),
+        ),
         has_try_table: true,
       }
+    }
     Throw(_) => { ..gen_valid_gc_surface_facts_empty(), has_throw: true }
     ThrowRef => { ..gen_valid_gc_surface_facts_empty(), has_throw_ref: true }
     StructNew(_)
@@ -4276,12 +4382,21 @@ fn gen_valid_gc_surface_facts_instr(
       { ..gen_valid_gc_surface_facts_empty(), has_struct_get: true }
     StructSet(_, _) =>
       { ..gen_valid_gc_surface_facts_empty(), has_struct_set: true }
-    ArrayNew(_)
-    | ArrayNewDefault(_)
-    | ArrayNewFixed(_, _)
-    | ArrayNewData(_, _)
-    | ArrayNewElem(_, _)
-    | StringNewUtf8Array
+    ArrayNew(_) | ArrayNewDefault(_) | ArrayNewFixed(_, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_array_new: true }
+    ArrayNewData(_, _) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_array_new: true,
+        has_array_new_data: true,
+      }
+    ArrayNewElem(_, _) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_array_new: true,
+        has_array_new_elem: true,
+      }
+    StringNewUtf8Array
     | StringNewWtf16Array
     | StringNewLossyUtf8Array
     | StringNewWtf8Array =>
@@ -4292,12 +4407,21 @@ fn gen_valid_gc_surface_facts_instr(
       }
     ArrayGet(_) | ArrayGetS(_) | ArrayGetU(_) =>
       { ..gen_valid_gc_surface_facts_empty(), has_array_get: true }
-    ArraySet(_)
-    | ArrayFill(_)
-    | ArrayCopy(_, _)
-    | ArrayInitData(_, _)
-    | ArrayInitElem(_, _)
-    | StringEncodeUtf8Array
+    ArraySet(_) | ArrayFill(_) | ArrayCopy(_, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_array_set: true }
+    ArrayInitData(_, _) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_array_set: true,
+        has_array_init_data: true,
+      }
+    ArrayInitElem(_, _) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_array_set: true,
+        has_array_init_elem: true,
+      }
+    StringEncodeUtf8Array
     | StringEncodeWtf16Array
     | StringEncodeLossyUtf8Array
     | StringEncodeWtf8Array =>
@@ -4307,18 +4431,25 @@ fn gen_valid_gc_surface_facts_instr(
         has_string_encode: true,
       }
     ArrayLen => { ..gen_valid_gc_surface_facts_empty(), has_array_len: true }
+    RefNull(rt) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_exact_ref_null: rt.is_exact(),
+      }
     StringConst(_) =>
       { ..gen_valid_gc_surface_facts_empty(), has_string_const: true }
     RefGetDesc(_) =>
       { ..gen_valid_gc_surface_facts_empty(), has_ref_get_desc: true }
-    RefTest(_, _) => { ..gen_valid_gc_surface_facts_empty(), has_ref_test: true }
+    RefTest(_, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_ref_test: true }
     RefTestDesc(_, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
         has_ref_test: true,
         has_ref_test_desc: true,
       }
-    RefCast(_, _) => { ..gen_valid_gc_surface_facts_empty(), has_ref_cast: true }
+    RefCast(_, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_ref_cast: true }
     RefCastDescEq(_, _) =>
       {
         ..gen_valid_gc_surface_facts_empty(),
@@ -4365,6 +4496,36 @@ fn gen_valid_gc_surface_facts_module(mod : Module) -> GenValidGcSurfaceFacts {
           facts,
           gen_valid_gc_surface_facts_rec_type(rec_type),
         )
+        match rec_type {
+          SingleRecType(subtype) =>
+            match subtype.get_comptype() {
+              FuncCompType(_, results) =>
+                for vt in results {
+                  facts = gen_valid_gc_surface_facts_merge(facts, {
+                    ..gen_valid_gc_surface_facts_empty(),
+                    exact_typed_ref_results: gen_valid_gc_surface_exact_val_score(
+                      vt,
+                    ),
+                  })
+                }
+              _ => ()
+            }
+          GroupRecType(group) =>
+            for subtype in group {
+              match subtype.get_comptype() {
+                FuncCompType(_, results) =>
+                  for vt in results {
+                    facts = gen_valid_gc_surface_facts_merge(facts, {
+                      ..gen_valid_gc_surface_facts_empty(),
+                      exact_typed_ref_results: gen_valid_gc_surface_exact_val_score(
+                        vt,
+                      ),
+                    })
+                  }
+                _ => ()
+              }
+            }
+        }
       }
     None => ()
   }
@@ -4384,6 +4545,9 @@ fn gen_valid_gc_surface_facts_module(mod : Module) -> GenValidGcSurfaceFacts {
               {
                 ..gen_valid_gc_surface_facts_empty(),
                 typed_ref_globals: gen_valid_gc_surface_val_score(vt),
+                exact_typed_ref_globals: gen_valid_gc_surface_exact_val_score(
+                  vt,
+                ),
               }
             _ => gen_valid_gc_surface_facts_empty()
           },
@@ -4409,6 +4573,7 @@ fn gen_valid_gc_surface_facts_module(mod : Module) -> GenValidGcSurfaceFacts {
         facts = gen_valid_gc_surface_facts_merge(facts, {
           ..gen_valid_gc_surface_facts_empty(),
           typed_ref_globals: gen_valid_gc_surface_val_score(vt),
+          exact_typed_ref_globals: gen_valid_gc_surface_exact_val_score(vt),
         })
       }
     None => ()
@@ -4423,6 +4588,7 @@ fn gen_valid_gc_surface_facts_module(mod : Module) -> GenValidGcSurfaceFacts {
           facts = gen_valid_gc_surface_facts_merge(facts, {
             ..gen_valid_gc_surface_facts_empty(),
             typed_ref_locals: gen_valid_gc_surface_val_score(vt),
+            exact_typed_ref_locals: gen_valid_gc_surface_exact_val_score(vt),
           })
         }
         facts = gen_valid_gc_surface_facts_merge(
@@ -4569,6 +4735,54 @@ test "gen_valid natural mode organically reaches descriptor/string/exn/cast gc s
 }
 
 ///|
+test "gen_valid natural mode reaches exact ref globals locals bulk array ops and mixed catch try_tables" {
+  let rnd = @splitmix.new(seed=0x51eedUL)
+  let config = GenValidConfig::{
+    ..GenValidConfig::natural_default(),
+    max_type_defs: 10,
+    max_tables: 3,
+    max_mems: 2,
+    max_tags: 2,
+    max_elems: 4,
+    max_datas: 4,
+    max_body_depth: 3,
+    section_bias: GenValidSectionBias::{
+      ..GenValidSectionBias::natural_default(),
+      tables_percent: 100,
+      mems_percent: 100,
+      tags_percent: 100,
+      elems_percent: 100,
+      datas_percent: 100,
+    },
+  }
+  let mut combined = gen_valid_gc_surface_facts_empty()
+  for _ in 0..<384 {
+    let mod = gen_valid_module_with_config(rnd, config)
+    match validate_module(mod) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected widened natural gen-valid module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+        )
+    }
+    combined = gen_valid_gc_surface_facts_merge(
+      combined,
+      gen_valid_gc_surface_facts_module(mod),
+    )
+  }
+  assert_true(combined.has_exact_ref_null)
+  assert_true(combined.exact_typed_ref_globals > 0)
+  assert_true(combined.exact_typed_ref_locals > 0)
+  ignore(combined.exact_typed_ref_results)
+  assert_true(combined.has_array_new_data)
+  assert_true(combined.has_array_new_elem)
+  assert_true(combined.has_array_init_data)
+  assert_true(combined.has_array_init_elem)
+  assert_true(combined.has_mixed_catch_try_table)
+  assert_true(combined.has_branchy_mixed_catch_try_table)
+}
+
+///|
 test "gen_valid coverage-forced mode emits widened topology and shared type pool" {
   let rnd = @splitmix.new(seed=0x5eedUL)
   let config = GenValidConfig::coverage_forced_default()
@@ -4588,7 +4802,9 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
           "expected coverage-forced module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
         )
     }
-    feature_stats = feature_stats.record(gen_valid_feature_facts(mod, CoverageForced))
+    feature_stats = feature_stats.record(
+      gen_valid_feature_facts(mod, CoverageForced),
+    )
     body_surface = gen_valid_body_surface_facts_merge(
       body_surface,
       gen_valid_body_surface_facts_module(mod),
@@ -4656,7 +4872,9 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
       }
       None => 0
     }
-    if import_func_count > 0 && defined_func_count > 0 && tag_count > 0 &&
+    if import_func_count > 0 &&
+      defined_func_count > 0 &&
+      tag_count > 0 &&
       func_type_def_count < import_func_count + defined_func_count + tag_count {
       has_shared_type_pool = true
     }
@@ -4714,6 +4932,9 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
   assert_true(gc_surface.typed_ref_globals > 0)
   assert_true(gc_surface.typed_ref_tables > 0)
   assert_true(gc_surface.typed_ref_locals > 0)
+  assert_true(gc_surface.exact_typed_ref_globals > 0)
+  assert_true(gc_surface.exact_typed_ref_locals > 0)
+  ignore(gc_surface.exact_typed_ref_results)
   assert_true(has_gc_table)
   assert_true(gc_surface.has_struct_new)
   assert_true(gc_surface.has_struct_get)
