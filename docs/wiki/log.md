@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-19] fix | stabilize `gen-valid` recursive metadata and flat invalid type indexing
+
+- Normalized appended `RecType` metadata to absolute type indices before storing subtypes in the long-lived validator environment, which closes the later code-body mismatch on descriptor-bearing rec groups after the type section has already validated.
+- Taught `gen_valid_module_with_config(...)` to retry natural and coverage-forced candidates until they validate, then updated the validate-package widening checks to aggregate stochastic evidence across multiple generated modules instead of overfitting to one seed-local specimen.
+- Updated `src/validate/invalid_fuzzer.mbt` to use flat subtype counts instead of raw `RecType` entry counts when appending or indexing function/tag/type mutations, restoring the expected invalid-family outcomes for start/datacount/name-section strategies after wider rec-group seeds became common.
+
 ## [2026-04-19] maintain | record natural-route `gen-valid` descriptor/string/exn widening
 
 - Continued the post-prelude `gen-valid` widening in `src/validate/gen_valid.mbt` and `src/validate/validate.mbt`: natural mode can now occasionally allocate concrete struct/array/descriptor/string-helper rec types, seed descriptor-aware globals plus non-func typed tables, emit typed expr element segments for those tables, and synthesize non-prelude body values for descriptor-bearing structs, descriptor refs, string helper arrays, exnref `try_table` shapes, and label-compatible `br_on_non_null` / `br_on_cast` / `br_on_cast_fail` blocks.

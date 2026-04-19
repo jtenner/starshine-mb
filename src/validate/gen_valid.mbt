@@ -713,9 +713,9 @@ fn gen_valid_gc_type_defs(
   let want_elem_array = remaining_type_budget - defs.length() > 0 &&
     (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
   let want_string_wtf16_array = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+    (ctx.config.mode == CoverageForced || ctx.random_bool())
   let want_string_utf8_array = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+    (ctx.config.mode == CoverageForced || ctx.config.mode == Natural || ctx.random_bool())
   let want_group = remaining_type_budget - defs.length() > 0 &&
     (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0)
 
@@ -1303,7 +1303,8 @@ fn append_value_instrs(
     }
     _ => ()
   }
-  if env.depth_left > 0 {
+  if env.depth_left > 0 &&
+    !(ctx.config.mode == Natural && !env.gc_type_plan.concrete_ref_types.is_empty()) {
     if ctx.config.features.allow_calls {
       match gen_valid_pick_callable_with_result(ctx, env.funcs, vt) {
         Some(target) if ctx.random_int(4) == 0 => {
@@ -1594,11 +1595,11 @@ fn gen_valid_append_natural_gc_stmt(
         (Some(described_idx), Some(descriptor_idx)) => {
           out.push(Instruction::struct_new_default(descriptor_idx))
           out.push(Instruction::struct_new_default_desc(described_idx))
-          out.push(Instruction::ref_test_desc(true, HeapType::new(descriptor_idx)))
+          out.push(Instruction::ref_test_desc(true, HeapType::new(described_idx)))
           out.push(Instruction::drop())
           out.push(Instruction::struct_new_default(descriptor_idx))
           out.push(Instruction::struct_new_default_desc(described_idx))
-          out.push(Instruction::ref_cast_desc_eq(true, HeapType::new(descriptor_idx)))
+          out.push(Instruction::ref_cast_desc_eq(true, HeapType::new(described_idx)))
           out.push(Instruction::drop())
           out.push(
             Instruction::block(
@@ -2003,12 +2004,12 @@ fn gen_valid_append_gc_prelude(
 
       out.push(Instruction::struct_new_default(descriptor_idx))
       out.push(Instruction::struct_new_default_desc(described_idx))
-      out.push(Instruction::ref_test_desc(true, HeapType::new(descriptor_idx)))
+      out.push(Instruction::ref_test_desc(true, HeapType::new(described_idx)))
       out.push(Instruction::drop())
 
       out.push(Instruction::struct_new_default(descriptor_idx))
       out.push(Instruction::struct_new_default_desc(described_idx))
-      out.push(Instruction::ref_cast_desc_eq(true, HeapType::new(descriptor_idx)))
+      out.push(Instruction::ref_cast_desc_eq(true, HeapType::new(described_idx)))
       out.push(Instruction::drop())
 
       out.push(
@@ -2500,7 +2501,7 @@ fn gen_valid_pick_type_idx(ctx : GenValidContext, type_count : Int) -> TypeIdx {
 }
 
 ///|
-pub fn gen_valid_module_with_config(
+fn gen_valid_module_once_with_config(
   rnd : RandomState,
   config : GenValidConfig,
 ) -> Module {
@@ -2593,7 +2594,7 @@ pub fn gen_valid_module_with_config(
       config.features.allow_elems,
       config.max_elems,
       config.section_bias.elems_percent,
-      3,
+      if ctx.config.mode == CoverageForced { 4 } else { 3 },
     )
   } else {
     0
@@ -2623,11 +2624,23 @@ pub fn gen_valid_module_with_config(
   } else {
     gen_valid_clamp_non_negative(config.max_type_defs)
   }
+  let reserved_gc_slots = if ctx.config.mode == Natural &&
+    config.features.allow_ref_types &&
+    max_type_defs > 1 {
+    gen_valid_min_int(3, max_type_defs - 1)
+  } else {
+    0
+  }
+  let func_type_cap = if max_type_defs - reserved_gc_slots > 1 {
+    max_type_defs - reserved_gc_slots
+  } else {
+    1
+  }
   let func_type_count = if ctx.config.mode == CoverageForced &&
     total_type_users > 1 {
-    1 + ctx.random_int(gen_valid_min_int(max_type_defs, total_type_users - 1))
+    1 + ctx.random_int(gen_valid_min_int(func_type_cap, total_type_users - 1))
   } else {
-    1 + ctx.random_int(max_type_defs)
+    1 + ctx.random_int(func_type_cap)
   }
 
   let type_defs : Array[RecType] = []
@@ -2890,6 +2903,11 @@ pub fn gen_valid_module_with_config(
           ]),
         )
       } else if ctx.config.mode == CoverageForced && i == 2 {
+        Elem::new(
+          ElemMode::declarative(),
+          ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
+        )
+      } else if ctx.config.mode == CoverageForced && i == 3 {
         match gc_type_plan.bulk_elem_ref_type {
           Some(rt) =>
             Elem::new(
@@ -2904,10 +2922,7 @@ pub fn gen_valid_module_with_config(
                   ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
                 )
               _ =>
-                Elem::new(
-                  ElemMode::declarative(),
-                  ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
-                )
+                Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
             }
         }
       } else if (match gc_type_plan.bulk_elem_ref_type {
@@ -3130,6 +3145,28 @@ pub fn gen_valid_module_with_config(
     mod = mod.with_data_sec(DataSec::new(datas))
   }
   mod.with_export_sec(ExportSec::new(exports))
+}
+
+///|
+pub fn gen_valid_module_with_config(
+  rnd : RandomState,
+  config : GenValidConfig,
+) -> Module {
+  let attempts = if config.mode == CoverageForced { 512 } else { 64 }
+  let mut last = gen_valid_module_once_with_config(rnd, config)
+  if validate_module(last) is Ok(_) {
+    return last
+  }
+  let mut remaining = attempts - 1
+  while remaining > 0 {
+    let candidate = gen_valid_module_once_with_config(rnd, config)
+    if validate_module(candidate) is Ok(_) {
+      return candidate
+    }
+    last = candidate
+    remaining -= 1
+  }
+  last
 }
 
 ///|

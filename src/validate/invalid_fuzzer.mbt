@@ -578,6 +578,18 @@ fn validate_invalid_ast_type_entries(mod : Module) -> Array[RecType] {
 }
 
 ///|
+fn validate_invalid_ast_flat_type_count(mod : Module) -> Int {
+  let mut count = 0
+  for entry in validate_invalid_ast_type_entries(mod) {
+    match entry {
+      SingleRecType(_) => count += 1
+      GroupRecType(group) => count += group.length()
+    }
+  }
+  count
+}
+
+///|
 fn validate_invalid_ast_func_type_entries(mod : Module) -> Array[TypeIdx] {
   match mod.func_sec {
     Some(FuncSec(entries)) => entries.copy()
@@ -763,7 +775,9 @@ fn validate_invalid_ast_append_defined_func(
   let types = validate_invalid_ast_type_entries(mod)
   let func_types = validate_invalid_ast_func_type_entries(mod)
   let code = validate_invalid_ast_code_entries(mod)
-  let type_idx = TypeIdx::new(types.length().reinterpret_as_uint())
+  let type_idx = TypeIdx::new(
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
+  )
   let func_idx = FuncIdx::new(
     (validate_invalid_ast_imported_func_count(mod) +
     validate_invalid_ast_defined_func_count(mod)).reinterpret_as_uint(),
@@ -1769,9 +1783,7 @@ fn validate_invalid_ast_mutate_invalid_global_name_section_index(
 fn validate_invalid_ast_mutate_invalid_type_name_section_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
-  let bad_idx = validate_invalid_ast_type_entries(mod)
-    .length()
-    .reinterpret_as_uint()
+  let bad_idx = validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint()
   let type_names = NameMap::new([NameAssoc::new(bad_idx, Name::new("ty"))])
   {
     strategy: InvalidTypeNameSectionIndex,
@@ -1895,10 +1907,11 @@ fn validate_invalid_ast_mutate_datacount_mismatch_too_large(
 fn validate_invalid_ast_mutate_invalid_func_type_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
-  let types = validate_invalid_ast_type_entries(mod)
   let func_types = validate_invalid_ast_func_type_entries(mod)
   let code = validate_invalid_ast_code_entries(mod)
-  let bad_type_idx = TypeIdx::new(types.length().reinterpret_as_uint())
+  let bad_type_idx = TypeIdx::new(
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
+  )
   func_types.push(bad_type_idx)
   code.push(Func::new(Locals::empty(), Expr::new([])))
   {
@@ -1991,7 +2004,7 @@ fn validate_invalid_ast_mutate_invalid_imported_func_type_index(
 ) -> ValidateInvalidAstMutation {
   let imports = validate_invalid_ast_import_entries(mod)
   let bad_type_idx = TypeIdx::new(
-    validate_invalid_ast_type_entries(mod).length().reinterpret_as_uint(),
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
   )
   imports.push(
     Import::new(
@@ -2014,7 +2027,7 @@ fn validate_invalid_ast_mutate_invalid_imported_tag_type_index(
 ) -> ValidateInvalidAstMutation {
   let imports = validate_invalid_ast_import_entries(mod)
   let bad_type_idx = TypeIdx::new(
-    validate_invalid_ast_type_entries(mod).length().reinterpret_as_uint(),
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
   )
   imports.push(
     Import::new(
@@ -2112,7 +2125,7 @@ fn validate_invalid_ast_mutate_invalid_tag_type_index(
 ) -> ValidateInvalidAstMutation {
   let tags : Array[TagType] = []
   let bad_type_idx = TypeIdx::new(
-    validate_invalid_ast_type_entries(mod).length().reinterpret_as_uint(),
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
   )
   tags.push(TagType::new(bad_type_idx))
   {

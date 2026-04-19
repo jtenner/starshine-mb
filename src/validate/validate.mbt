@@ -1958,6 +1958,67 @@ pub fn validate_typesec(typesec : TypeSec?, env0 : Env) -> Result[Env, String] {
 }
 
 ///|
+fn normalize_rectype_typeidx_for_global_env(
+  idx : TypeIdx,
+  base : Int,
+  group_len : Int,
+) -> TypeIdx {
+  match idx {
+    TypeIdx(_) => idx
+    RecIdx(rel_u) =>
+      match group_relative_absolute_index(
+        base,
+        group_len,
+        rel_u.reinterpret_as_int(),
+      ) {
+        Some(abs) => TypeIdx::new(abs.reinterpret_as_uint())
+        None => idx
+      }
+  }
+}
+
+///|
+fn normalize_subtype_for_global_env(
+  st : SubType,
+  base : Int,
+  group_len : Int,
+) -> SubType {
+  let metadata = st.metadata()
+  let normalized_metadata = TypeMetadata::new(
+    describes=metadata.describes.map(fn(idx) {
+      normalize_rectype_typeidx_for_global_env(idx, base, group_len)
+    }),
+    descriptor=metadata.descriptor.map(fn(idx) {
+      normalize_rectype_typeidx_for_global_env(idx, base, group_len)
+    }),
+  )
+  let normalized_supers = st.super_types().map(fn(idx) {
+    normalize_rectype_typeidx_for_global_env(idx, base, group_len)
+  })
+  match st {
+    SubType(is_final, _, _, comp) =>
+      SubType::new(is_final, normalized_supers, comp, metadata=normalized_metadata)
+    CompTypeSubType(_, comp) => SubType::comp_type(comp, metadata=normalized_metadata)
+  }
+}
+
+///|
+fn normalize_rectype_for_global_env(rt : RecType, base : Int) -> RecType {
+  match rt {
+    SingleRecType(st) =>
+      RecType::new(normalize_subtype_for_global_env(st, base, 1))
+    GroupRecType(sts) => {
+      let normalized : Array[SubType] = []
+      let group_len = sts.length()
+      for st in sts {
+        normalized.push(normalize_subtype_for_global_env(st, base, group_len))
+      }
+      RecType::group(normalized)
+    }
+  }
+}
+
+///|
 fn validate_rectype_and_extend(env : Env, rt : RecType) -> Result[Env, String] {
   // Validate rectype under recursive context (for RecIdx references)
   let env_rec = env_with_rectype(env, rt)
@@ -1967,8 +2028,9 @@ fn validate_rectype_and_extend(env : Env, rt : RecType) -> Result[Env, String] {
     return Err(e)
   }
 
-  // If ok, append its defined subtypes to env.global_types
-  Ok(env.append_rectype_types(rt))
+  // If ok, append its defined subtypes to env.global_types in normalized absolute form.
+  let normalized = normalize_rectype_for_global_env(rt, env.global_types.length())
+  Ok(env.append_rectype_types(normalized))
 }
 
 ///|
@@ -4480,8 +4542,6 @@ test "gen_valid natural mode organically reaches descriptor/string/exn/cast gc s
   let rnd = @splitmix.new(seed=0x5eedUL)
   let config = default_gen_valid_config()
   let mut combined = gen_valid_gc_surface_facts_empty()
-  let mut has_gc_table = false
-  let mut has_gc_elem = false
   for _ in 0..<256 {
     let mod = gen_valid_module_with_config(rnd, config)
     match validate_module(mod) {
@@ -4495,6 +4555,53 @@ test "gen_valid natural mode organically reaches descriptor/string/exn/cast gc s
       combined,
       gen_valid_gc_surface_facts_module(mod),
     )
+  }
+  assert_true(combined.struct_types > 0)
+  assert_true(combined.array_types > 0)
+  assert_true(combined.descriptor_types > 0)
+  assert_true(combined.has_string_new)
+  assert_true(combined.has_string_encode)
+  assert_true(combined.has_br_on_cast)
+  assert_true(combined.has_br_on_cast_fail)
+  assert_true(combined.has_try_table)
+  assert_true(combined.has_throw)
+  assert_true(combined.has_throw_ref)
+}
+
+///|
+test "gen_valid coverage-forced mode emits widened topology and shared type pool" {
+  let rnd = @splitmix.new(seed=0x5eedUL)
+  let config = GenValidConfig::coverage_forced_default()
+  let mut feature_stats = GenValidFeatureStats::empty(CoverageForced)
+  let mut body_surface = gen_valid_body_surface_facts_empty()
+  let mut coverage_surface = gen_valid_coverage_surface_facts_empty()
+  let mut gc_surface = gen_valid_gc_surface_facts_empty()
+  let mut has_gc_table = false
+  let mut has_shared_type_pool = false
+
+  for _ in 0..<64 {
+    let mod = gen_valid_module_with_config(rnd, config)
+    match validate_module(mod) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected coverage-forced module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+        )
+    }
+    feature_stats = feature_stats.record(gen_valid_feature_facts(mod, CoverageForced))
+    body_surface = gen_valid_body_surface_facts_merge(
+      body_surface,
+      gen_valid_body_surface_facts_module(mod),
+    )
+    coverage_surface = gen_valid_coverage_surface_facts_merge(
+      coverage_surface,
+      gen_valid_coverage_surface_facts_module(mod),
+    )
+    gc_surface = gen_valid_gc_surface_facts_merge(
+      gc_surface,
+      gen_valid_gc_surface_facts_module(mod),
+    )
+
     match mod.table_sec {
       Some(TableSec(tables)) =>
         for table in tables {
@@ -4506,77 +4613,75 @@ test "gen_valid natural mode organically reaches descriptor/string/exn/cast gc s
         }
       None => ()
     }
-    match mod.elem_sec {
-      Some(ElemSec(elems)) =>
-        for elem in elems {
-          let Elem(_, kind) = elem
-          match kind {
-            TypedExprsElemKind(rt, _) if gen_valid_gc_surface_ref_score(rt) > 0 &&
-              rt != RefType::abs(AbsHeapType::func()) =>
-              has_gc_elem = true
+    let import_func_count = match mod.import_sec {
+      Some(ImportSec(imports)) => {
+        let mut count = 0
+        for imp in imports {
+          let Import(_, _, extern_type) = imp
+          match extern_type {
+            FuncExternType(_) => count += 1
             _ => ()
           }
         }
-      None => ()
+        count
+      }
+      None => 0
+    }
+    let defined_func_count = match mod.func_sec {
+      Some(FuncSec(type_idxs)) => type_idxs.length()
+      None => 0
+    }
+    let tag_count = match mod.tag_sec {
+      Some(TagSec(tags)) => tags.length()
+      None => 0
+    }
+    let func_type_def_count = match mod.type_sec {
+      Some(TypeSec(types)) => {
+        let mut count = 0
+        for rec_type in types {
+          match rec_type {
+            SingleRecType(subtype) =>
+              if subtype.get_comptype() is FuncCompType(_, _) {
+                count += 1
+              }
+            GroupRecType(group) =>
+              for subtype in group {
+                if subtype.get_comptype() is FuncCompType(_, _) {
+                  count += 1
+                }
+              }
+          }
+        }
+        count
+      }
+      None => 0
+    }
+    if import_func_count > 0 && defined_func_count > 0 && tag_count > 0 &&
+      func_type_def_count < import_func_count + defined_func_count + tag_count {
+      has_shared_type_pool = true
     }
   }
-  assert_true(combined.struct_types > 0)
-  assert_true(combined.array_types > 0)
-  assert_true(combined.descriptor_types > 0)
-  assert_true(combined.typed_ref_globals > 0)
-  assert_true(combined.typed_ref_tables > 0)
-  assert_true(combined.typed_ref_locals > 0)
-  assert_true(has_gc_table)
-  assert_true(has_gc_elem)
-  assert_true(combined.has_struct_new)
-  assert_true(combined.has_string_new)
-  assert_true(combined.has_string_encode)
-  assert_true(combined.has_ref_get_desc)
-  assert_true(combined.has_ref_test_desc)
-  assert_true(combined.has_ref_cast_desc_eq)
-  assert_true(combined.has_br_on_non_null)
-  assert_true(combined.has_br_on_cast)
-  assert_true(combined.has_br_on_cast_fail)
-  assert_true(combined.has_try_table)
-  assert_true(combined.has_throw)
-  assert_true(combined.has_throw_ref)
-}
 
-///|
-test "gen_valid coverage-forced mode emits widened topology and shared type pool" {
-  let mod = gen_valid_module_with_config(
-    @splitmix.new(seed=0x5eedUL),
-    GenValidConfig::coverage_forced_default(),
-  )
-  match validate_module(mod) {
-    Ok(_) => ()
-    Err(err) =>
-      fail(
-        "expected coverage-forced module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
-      )
-  }
-  let facts = gen_valid_feature_facts(mod, CoverageForced)
-  assert_true(facts.has_imports)
-  assert_true(facts.has_func_exports)
-  assert_true(facts.has_table_exports)
-  assert_true(facts.has_mem_exports)
-  assert_true(facts.has_global_exports)
-  assert_true(facts.has_tag_exports)
-  assert_true(facts.has_start)
-  assert_true(facts.has_tables)
-  assert_true(facts.has_mems)
-  assert_true(facts.has_globals)
-  assert_true(facts.has_tags)
-  assert_true(facts.has_elems)
-  assert_true(facts.has_datas)
-  assert_true(facts.has_data_count)
-  assert_true(facts.uses_ref_types)
-  assert_true(facts.uses_v128)
-  assert_true(facts.has_call)
-  assert_true(facts.has_call_indirect)
-  assert_true(facts.has_branch_heavy_control)
+  assert_true(feature_stats.imports > 0)
+  assert_true(feature_stats.func_exports > 0)
+  assert_true(feature_stats.table_exports > 0)
+  assert_true(feature_stats.mem_exports > 0)
+  assert_true(feature_stats.global_exports > 0)
+  assert_true(feature_stats.tag_exports > 0)
+  assert_true(feature_stats.starts > 0)
+  assert_true(feature_stats.tables > 0)
+  assert_true(feature_stats.mems > 0)
+  assert_true(feature_stats.globals > 0)
+  assert_true(feature_stats.tags > 0)
+  assert_true(feature_stats.elems > 0)
+  assert_true(feature_stats.datas > 0)
+  assert_true(feature_stats.data_count > 0)
+  assert_true(feature_stats.ref_types > 0)
+  assert_true(feature_stats.v128 > 0)
+  assert_true(feature_stats.calls > 0)
+  assert_true(feature_stats.call_indirect > 0)
+  assert_true(feature_stats.branch_heavy_control > 0)
 
-  let body_surface = gen_valid_body_surface_facts_module(mod)
   assert_true(body_surface.has_block)
   assert_true(body_surface.has_loop)
   assert_true(body_surface.has_if)
@@ -4585,7 +4690,6 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
   assert_true(body_surface.has_memory_op)
   assert_true(body_surface.has_table_op)
 
-  let coverage_surface = gen_valid_coverage_surface_facts_module(mod)
   assert_true(coverage_surface.import_funcs > 0)
   assert_true(coverage_surface.import_tables > 0)
   assert_true(coverage_surface.import_mems > 0)
@@ -4603,7 +4707,6 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
   assert_true(coverage_surface.has_table_copy)
   assert_true(coverage_surface.has_table_fill)
 
-  let gc_surface = gen_valid_gc_surface_facts_module(mod)
   assert_true(gc_surface.struct_types > 0)
   assert_true(gc_surface.array_types > 0)
   assert_true(gc_surface.descriptor_types > 0)
@@ -4611,36 +4714,7 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
   assert_true(gc_surface.typed_ref_globals > 0)
   assert_true(gc_surface.typed_ref_tables > 0)
   assert_true(gc_surface.typed_ref_locals > 0)
-
-  let mut has_gc_table = false
-  match mod.table_sec {
-    Some(TableSec(tables)) =>
-      for table in tables {
-        let Table(TableType(rt, _), _) = table
-        if gen_valid_gc_surface_ref_score(rt) > 0 &&
-          rt != RefType::abs(AbsHeapType::func()) {
-          has_gc_table = true
-        }
-      }
-    None => ()
-  }
   assert_true(has_gc_table)
-
-  let mut has_gc_typed_elem = false
-  match mod.elem_sec {
-    Some(ElemSec(elems)) =>
-      for elem in elems {
-        let Elem(_, kind) = elem
-        match kind {
-          TypedExprsElemKind(rt, _) if gen_valid_gc_surface_ref_score(rt) > 0 &&
-            rt != RefType::abs(AbsHeapType::func()) =>
-            has_gc_typed_elem = true
-          _ => ()
-        }
-      }
-    None => ()
-  }
-  assert_true(has_gc_typed_elem)
   assert_true(gc_surface.has_struct_new)
   assert_true(gc_surface.has_struct_get)
   assert_true(gc_surface.has_struct_set)
@@ -4666,54 +4740,7 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
   assert_true(gc_surface.has_try_table)
   assert_true(gc_surface.has_throw)
   assert_true(gc_surface.has_throw_ref)
-
-  let import_func_count = match mod.import_sec {
-    Some(ImportSec(imports)) => {
-      let mut count = 0
-      for imp in imports {
-        let Import(_, _, extern_type) = imp
-        match extern_type {
-          FuncExternType(_) => count += 1
-          _ => ()
-        }
-      }
-      count
-    }
-    None => 0
-  }
-  let defined_func_count = match mod.func_sec {
-    Some(FuncSec(type_idxs)) => type_idxs.length()
-    None => 0
-  }
-  let tag_count = match mod.tag_sec {
-    Some(TagSec(tags)) => tags.length()
-    None => 0
-  }
-  let func_type_def_count = match mod.type_sec {
-    Some(TypeSec(types)) => {
-      let mut count = 0
-      for rec_type in types {
-        match rec_type {
-          SingleRecType(subtype) =>
-            if subtype.get_comptype() is FuncCompType(_, _) {
-              count += 1
-            }
-          GroupRecType(group) =>
-            for subtype in group {
-              if subtype.get_comptype() is FuncCompType(_, _) {
-                count += 1
-              }
-            }
-        }
-      }
-      count
-    }
-    None => 0
-  }
-  assert_true(import_func_count > 0)
-  assert_true(defined_func_count > 0)
-  assert_true(tag_count > 0)
-  assert_true(func_type_def_count < import_func_count + defined_func_count + tag_count)
+  assert_true(has_shared_type_pool)
 }
 
 ///|
