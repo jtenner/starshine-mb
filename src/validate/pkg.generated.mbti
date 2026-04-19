@@ -32,6 +32,8 @@ pub fn gen_invalid_ast_seed_config(GenInvalidAstParams) -> GenValidConfig
 
 pub fn gen_invalid_ast_seed_module(@splitmix.RandomState, GenInvalidAstParams) -> Result[@lib.Module, String]
 
+pub fn gen_invalid_coverage_seed_generator_config() -> GenValidConfig
+
 pub fn gen_invalid_named_seed_profile_name(GenInvalidNamedSeedProfile) -> String
 
 pub fn gen_invalid_require_defined_func_gen_valid_config(GenValidConfig) -> GenValidConfig
@@ -53,6 +55,8 @@ pub fn gen_valid_numtype(GenValidContext) -> @lib.NumType
 pub fn gen_valid_tfunc(GenValidContext, Array[@lib.ValType], Array[@lib.ValType]) -> @lib.Func
 
 pub fn gen_valid_valtype(GenValidContext) -> @lib.ValType
+
+pub fn gen_valid_valtype_with_extra_refs(GenValidContext, Array[@lib.ValType]) -> @lib.ValType
 
 pub fn make_state(Env, Array[@lib.ValType]) -> TcState
 

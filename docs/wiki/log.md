@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-19] maintain | record natural-route `gen-valid` descriptor/string/exn widening
+
+- Continued the post-prelude `gen-valid` widening in `src/validate/gen_valid.mbt` and `src/validate/validate.mbt`: natural mode can now occasionally allocate concrete struct/array/descriptor/string-helper rec types, seed descriptor-aware globals plus non-func typed tables, emit typed expr element segments for those tables, and synthesize non-prelude body values for descriptor-bearing structs, descriptor refs, string helper arrays, exnref `try_table` shapes, and label-compatible `br_on_non_null` / `br_on_cast` / `br_on_cast_fail` blocks.
+- Added validate-package coverage that natural mode now reaches concrete typed tables and GC-typed element segments, and that coverage-forced mode keeps a real non-funcref typed-table plus typed-elem route instead of only the earlier prelude-heavy function-table surface.
+- Updated `docs/wiki/validate/fuzz-hardening.md` so the living docs now describe the newly landed natural-mode route and narrow the remaining widening gaps.
+
+## [2026-04-19] maintain | record coverage-forced `gen-valid` descriptor/string/exn widening
+
+- Reviewed the widened valid-generation sources `src/validate/gen_valid.mbt` and `src/validate/validate.mbt` to capture the next route after the landed struct/array/ref-heavy rec-group work.
+- Recorded that `coverage-forced` `gen-valid` now also emits descriptor-bearing struct pairs plus string-helper array types, widens natural ref pools into `stringref` and `exnref`, and deliberately covers `struct.new_default_desc`, `ref.get_desc`, `ref.test_desc`, `ref.cast_desc_eq`, `br_on_non_null`, `br_on_cast`, `br_on_cast_fail`, string helper instructions, `throw`, `throw_ref`, and `try_table` catch shapes while keeping modules valid.
+- Updated `docs/wiki/validate/fuzz-hardening.md` and `docs/wiki/index.md` so the living docs now describe the descriptor/string/cast/exception widening route and point future follow-up toward natural-mode synthesis beyond the current coverage-forced prelude.
+
 ## [2026-04-18] maintain | record coverage-forced `gen-valid` GC/ref widening
 
 - Reviewed the landed valid-generation and invalid-seed plumbing in `src/validate/gen_valid.mbt`, `src/validate/gen_invalid.mbt`, `src/validate/invalid_fuzzer.mbt`, `src/fuzz/invalid_binary.mbt`, and their wbtests to capture the next widening route after the earlier extern/segment/bulk-op expansion.

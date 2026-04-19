@@ -39,6 +39,8 @@ pub fn fuzz_suite_inventory_lines() -> Array[String]
 
 pub fn fuzz_usage_text() -> String
 
+pub fn gen_invalid_binary_coverage_seed_generator_config() -> @validate.GenValidConfig
+
 pub fn gen_invalid_binary_generate(@splitmix.RandomState, GenInvalidBinaryParams) -> Result[GenInvalidBinaryGenerated, String]
 
 pub fn gen_invalid_binary_params_profile_name(GenInvalidBinaryParams) -> String

@@ -14,11 +14,16 @@ npm install @jtenner/starshine
 ## API Surface
 - `binary`: decode / encode `.wasm`.
 - `cli`: parse flags and config formats.
-- `cmd`: run packaged CLI.
+- `cmd`: run packaged CLI and expose the public command fuzz harness.
 - `validate`: module validation helpers.
 - `lib`: module constructors.
 - `index`: public re-export surface.
 - `wast` / `wat`: text parsing and printing.
+
+## Node Parity Notes
+- The checked-in `cmd` wrapper now prefers the MoonBit parity names `CmdFuzzStats`, `runCmdFuzzHarness(...)`, and `runCmdFuzzHarnessProfile(...)`.
+- Legacy `WasmSmithFuzzStats`, `runWasmSmithFuzzHarness(...)`, and `runWasmSmithFuzzHarnessProfile(...)` exports remain as documented compatibility aliases for older Node consumers.
+- `CmdIO.printTextModule` and `CmdRunSummary.closedWorld` are now carried in the public Node contract for MoonBit-surface parity. The current checked-in JS command bridge does not yet route pipeline work through `printTextModule`, but `CmdRunSummary.closedWorld` now reflects the cmd wrapper's resolved config/env/CLI state. The separate `node/cli` wrapper still lags the full MoonBit closed-world parser surface.
 
 ## Quick Usage
 

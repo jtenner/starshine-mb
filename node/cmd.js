@@ -53,7 +53,7 @@ const BRAND_DIFFERENTIAL_ADAPTERS = 'cmd.DifferentialAdapters';
 const BRAND_DIFFERENTIAL_VALIDATION_REPORT = 'cmd.DifferentialValidationReport';
 const BRAND_FUZZ_FAILURE_PERSIST_IO = 'cmd.FuzzFailurePersistIO';
 const BRAND_FUZZ_FAILURE_REPORT = 'cmd.FuzzFailureReport';
-const BRAND_WASM_SMITH_FUZZ_STATS = 'cmd.WasmSmithFuzzStats';
+const BRAND_CMD_FUZZ_STATS = 'cmd.CmdFuzzStats';
 
 function ok(value) {
   return { ok: true, value };
@@ -225,6 +225,7 @@ function createParseState() {
     monomorphize_min_benefit: null,
     low_memory_unused: null,
     low_memory_bound: null,
+    closed_world: null,
   };
 }
 
@@ -342,6 +343,30 @@ function parsePassList(raw) {
     .split(',')
     .map((part) => part.trim().toLowerCase())
     .filter((part) => part.length > 0);
+}
+
+function parseCliClosedWorld(args) {
+  let closedWorld = null;
+  let positionalOnly = false;
+
+  for (const arg of args) {
+    if (positionalOnly) {
+      continue;
+    }
+    if (arg === '--') {
+      positionalOnly = true;
+      continue;
+    }
+    if (arg === '--closed-world') {
+      closedWorld = true;
+      continue;
+    }
+    if (arg === '--no-closed-world') {
+      closedWorld = false;
+    }
+  }
+
+  return closedWorld;
 }
 
 // Config parser accepts a permissive JSON shape and mirrors the MoonBit-side parser:
@@ -505,6 +530,11 @@ function parseConfigJson(text) {
     if (lowMemoryBound !== null) {
       out.low_memory_bound = BigInt(lowMemoryBound);
     }
+
+    const closedWorld = parseJsonBool(options.closedWorld ?? options['closed-world']);
+    if (closedWorld !== null) {
+      out.closed_world = closedWorld;
+    }
   }
 
   return ok(out);
@@ -605,6 +635,14 @@ function parseEnvOverlay(io) {
     }
   }
 
+  const closedWorld = io.get_env('STARSHINE_CLOSED_WORLD');
+  if (closedWorld !== null) {
+    const parsedValue = parseBoolString(closedWorld);
+    if (parsedValue !== null) {
+      out.closed_world = parsedValue;
+    }
+  }
+
   return out;
 }
 
@@ -645,6 +683,7 @@ function mergeParseResults(config, env, parsedCli) {
     ?? config.monomorphize_min_benefit;
   out.low_memory_unused = parsedCli.low_memory_unused ?? env.low_memory_unused ?? config.low_memory_unused;
   out.low_memory_bound = parsedCli.low_memory_bound ?? env.low_memory_bound ?? config.low_memory_bound;
+  out.closed_world = parsedCli.closed_world ?? env.closed_world ?? config.closed_world;
   out.help_requested = parsedCli.help_requested;
   out.version_requested = parsedCli.version_requested;
 
@@ -795,6 +834,7 @@ function createCmdRunSummary(
   shrink_level = 0,
   traps_never_happen = false,
   monomorphize_min_benefit = 5,
+  closed_world = false,
   low_memory_unused = false,
   low_memory_bound = 1024n,
 ) {
@@ -806,6 +846,7 @@ function createCmdRunSummary(
     shrinkLevel: shrink_level,
     trapsNeverHappen: traps_never_happen,
     monomorphizeMinBenefit: monomorphize_min_benefit,
+    closedWorld: closed_world,
     lowMemoryUnused: low_memory_unused,
     lowMemoryBound: low_memory_bound,
   });
@@ -855,7 +896,7 @@ function createFuzzFailureReport(
   });
 }
 
-function createWasmSmithFuzzStats(
+function createCmdFuzzStats(
   attempts = 0,
   generated_valid = 0,
   generated_invalid = 0,
@@ -864,7 +905,7 @@ function createWasmSmithFuzzStats(
   roundtripped = 0,
   differential_checked = 0,
 ) {
-  return brand(BRAND_WASM_SMITH_FUZZ_STATS, {
+  return brand(BRAND_CMD_FUZZ_STATS, {
     attempts,
     generatedValid: generated_valid,
     generatedInvalid: generated_invalid,
@@ -881,6 +922,7 @@ function normalizeCmdIO(io) {
     file_exists: io.fileExists ?? io.file_exists,
     read_file: io.readFile ?? io.read_file,
     encode_module: io.encodeModule ?? io.encode_module,
+    print_text_module: io.printTextModule ?? io.print_text_module,
     write_file: io.writeFile ?? io.write_file,
     write_stdout: io.writeStdout ?? io.write_stdout,
     write_stderr: io.writeStderr ?? io.write_stderr,
@@ -927,6 +969,7 @@ function showCmdRunSummary(value) {
       ['shrinkLevel', value.shrinkLevel],
       ['trapsNeverHappen', value.trapsNeverHappen],
       ['monomorphizeMinBenefit', value.monomorphizeMinBenefit],
+      ['closedWorld', value.closedWorld],
       ['lowMemoryUnused', value.lowMemoryUnused],
       ['lowMemoryBound', value.lowMemoryBound],
     ]);
@@ -961,9 +1004,9 @@ function showFuzzFailureReport(value) {
   return generated.FuzzFailureReport.show(value);
 }
 
-function showWasmSmithFuzzStats(value) {
-  if (isBranded(value, BRAND_WASM_SMITH_FUZZ_STATS)) {
-    return showStruct('WasmSmithFuzzStats', [
+function showCmdFuzzStats(value) {
+  if (isBranded(value, BRAND_CMD_FUZZ_STATS)) {
+    return showStruct('CmdFuzzStats', [
       ['attempts', value.attempts],
       ['generatedValid', value.generatedValid],
       ['generatedInvalid', value.generatedInvalid],
@@ -1058,6 +1101,7 @@ function createDefaultCmdIO() {
       }
     },
     defaultEncodeModule,
+    () => err('printTextModule is not wired in the default Node cmd bridge'),
     (filePath, bytes) => {
       try {
         fs.writeFileSync(filePath, bytes);
@@ -1092,6 +1136,7 @@ function createCmdIO(
   file_exists = () => false,
   read_file = () => err('readFile not configured'),
   encode_module = defaultEncodeModule,
+  print_text_module = () => err('printTextModule not configured'),
   write_file = () => err('writeFile not configured'),
   write_stdout = () => ok(undefined),
   write_stderr = () => ok(undefined),
@@ -1103,6 +1148,7 @@ function createCmdIO(
     fileExists: file_exists,
     readFile: read_file,
     encodeModule: encode_module,
+    printTextModule: print_text_module,
     writeFile: write_file,
     writeStdout: write_stdout,
     writeStderr: write_stderr,
@@ -1260,6 +1306,7 @@ function run_cmd_with_adapter(args, io, config_json) {
   }
 
   const cliState = cliParseResultToHost(parsedCli.value);
+  cliState.closed_world = parseCliClosedWorld(args);
   if (cliState.help_requested) {
     const written = invokeResultCallback(io.write_stdout, [stringToBytes(cmdHelpText())], 'write_stdout(help)');
     if (!written.ok) {
@@ -1410,6 +1457,7 @@ function run_cmd_with_adapter(args, io, config_json) {
       shrinkLevel,
       trapsNeverHappen,
       monomorphizeMinBenefit,
+      mergedState.closed_world ?? false,
       lowMemoryUnused,
       lowMemoryBound,
     ),
@@ -1794,7 +1842,7 @@ function run_wasm_smith_fuzz_harness(
   }
 
   return ok(
-    createWasmSmithFuzzStats(
+    createCmdFuzzStats(
       attempts,
       generatedValid,
       generatedInvalid,
@@ -1832,6 +1880,14 @@ export const CmdError = Object.freeze({
   show: showCmdError,
 });
 
+/**
+ * Host-side IO adapter for `runCmdWithAdapter` and related helpers.
+ *
+ * Supply file and environment hooks when you want the packaged CLI pipeline to
+ * run against virtual filesystems, in-memory buffers, or custom encoders. The
+ * `printTextModule` hook is carried for MoonBit API parity even though the
+ * current Node bridge does not call it yet.
+ */
 export const CmdIO = Object.freeze({
   new(...args) {
     const provided = countProvidedArgs(args);
@@ -1847,21 +1903,32 @@ export const CmdIO = Object.freeze({
       case 4:
         return createCmdIO(args[0], args[1], args[2], args[3]);
       case 5:
-        return createCmdIO(args[0], args[1], args[2], args[3], args[4]);
+        return createCmdIO(args[0], args[1], args[2], args[3], undefined, args[4]);
       case 6:
-        return createCmdIO(args[0], args[1], args[2], args[3], args[4], args[5]);
+        return createCmdIO(args[0], args[1], args[2], args[3], undefined, args[4], args[5]);
       case 7:
-        return createCmdIO(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
+        return createCmdIO(args[0], args[1], args[2], args[3], undefined, args[4], args[5], args[6]);
       case 8:
-        return createCmdIO(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
+        return createCmdIO(args[0], args[1], args[2], args[3], undefined, args[4], args[5], args[6], args[7]);
       case 9:
-        return createCmdIO(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
+        return createCmdIO(args[0], args[1], args[2], args[3], undefined, args[4], args[5], args[6], args[7], args[8]);
+      case 10:
+        return createCmdIO(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
       default:
         throw new TypeError('Invalid argument count for cmd.CmdIO::new.');
     }
   },
 });
 
+/**
+ * Summary returned by `runCmd` and `runCmdWithAdapter`.
+ *
+ * The shape mirrors the MoonBit-side summary so JS callers can inspect the
+ * resolved pass list and option state without parsing human-readable CLI text.
+ * `closedWorld` reflects the packaged cmd bridge's resolved config/env/CLI
+ * state. The separate `node/cli` wrapper still lags full MoonBit closed-world
+ * parser parity.
+ */
 export const CmdRunSummary = Object.freeze({
   new(...args) {
     const provided = countProvidedArgs(args);
@@ -1886,6 +1953,8 @@ export const CmdRunSummary = Object.freeze({
         return createCmdRunSummary(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7]);
       case 9:
         return createCmdRunSummary(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8]);
+      case 10:
+        return createCmdRunSummary(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7], args[8], args[9]);
       default:
         throw new TypeError('Invalid argument count for cmd.CmdRunSummary::new.');
     }
@@ -1936,32 +2005,105 @@ export const FuzzFailureReport = Object.freeze({
 
 export const ReadmeApiVerifyBlock = generated.ReadmeApiVerifyBlock;
 
-export const WasmSmithFuzzStats = Object.freeze({
+/**
+ * Fuzz-harness stats that mirror the public MoonBit `CmdFuzzStats` record.
+ *
+ * The branded object exposes concrete counters so JS callers can inspect the
+ * harness result without decoding an opaque wasm-gc handle. The legacy
+ * `WasmSmithFuzzStats` export below is a compatibility alias to this same
+ * constructor and show helper.
+ */
+export const CmdFuzzStats = Object.freeze({
   new(...args) {
     const provided = countProvidedArgs(args);
     switch (provided) {
       case 0:
-        return createWasmSmithFuzzStats();
+        return createCmdFuzzStats();
       case 1:
-        return createWasmSmithFuzzStats(args[0]);
+        return createCmdFuzzStats(args[0]);
       case 2:
-        return createWasmSmithFuzzStats(args[0], args[1]);
+        return createCmdFuzzStats(args[0], args[1]);
       case 3:
-        return createWasmSmithFuzzStats(args[0], args[1], args[2]);
+        return createCmdFuzzStats(args[0], args[1], args[2]);
       case 4:
-        return createWasmSmithFuzzStats(args[0], args[1], args[2], args[3]);
+        return createCmdFuzzStats(args[0], args[1], args[2], args[3]);
       case 5:
-        return createWasmSmithFuzzStats(args[0], args[1], args[2], args[3], args[4]);
+        return createCmdFuzzStats(args[0], args[1], args[2], args[3], args[4]);
       case 6:
-        return createWasmSmithFuzzStats(args[0], args[1], args[2], args[3], args[4], args[5]);
+        return createCmdFuzzStats(args[0], args[1], args[2], args[3], args[4], args[5]);
       case 7:
-        return createWasmSmithFuzzStats(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
+        return createCmdFuzzStats(args[0], args[1], args[2], args[3], args[4], args[5], args[6]);
       default:
-        throw new TypeError('Invalid argument count for cmd.WasmSmithFuzzStats::new.');
+        throw new TypeError('Invalid argument count for cmd.CmdFuzzStats::new.');
     }
   },
-  show: showWasmSmithFuzzStats,
+  show: showCmdFuzzStats,
 });
+
+/**
+ * Backward-compatible alias for older Node consumers that still import the
+ * stale pre-rename `WasmSmithFuzzStats` symbol.
+ */
+export const WasmSmithFuzzStats = CmdFuzzStats;
+
+/**
+ * Run the public command fuzz harness.
+ *
+ * This is the parity name for the MoonBit `run_cmd_fuzz_harness` export.
+ * `optimizePasses` should be an array of pass-name strings; `onFailure` is an
+ * optional JS callback that can persist or inspect the generated report before
+ * the harness returns its final error string.
+ */
+export function runCmdFuzzHarness(
+  validTarget,
+  seed = 0x5eedn,
+  optimizePasses = [],
+  differentialAdapters = null,
+  differentialEvery = 0,
+  onFailure = null,
+) {
+  return run_wasm_smith_fuzz_harness(
+    validTarget,
+    seed,
+    optimizePasses,
+    null,
+    differentialAdapters,
+    differentialEvery,
+    onFailure,
+  );
+}
+
+/**
+ * Run a named command-fuzz profile using the parity export name.
+ *
+ * Supported profiles match the MoonBit implementation today: `smoke`, `ci`,
+ * and `stress`. Unknown profiles return an error result instead of throwing.
+ */
+export function runCmdFuzzHarnessProfile(profile, seed) {
+  const normalized = profile.trim().toLowerCase();
+  switch (normalized) {
+    case 'smoke':
+      return runCmdFuzzHarness(128, seed, []);
+    case 'ci':
+      return runCmdFuzzHarness(4096, seed, []);
+    case 'stress':
+      return runCmdFuzzHarness(100000, seed, []);
+    default:
+      return err(`unknown cmd-harness fuzz profile '${profile}'; expected smoke|ci|stress`);
+  }
+}
+
+/**
+ * Backward-compatible alias for older Node consumers that still import the
+ * stale pre-rename `runWasmSmithFuzzHarness` symbol.
+ */
+export const runWasmSmithFuzzHarness = run_wasm_smith_fuzz_harness;
+
+/**
+ * Backward-compatible alias for older Node consumers that still import the
+ * stale pre-rename `runWasmSmithFuzzHarnessProfile` symbol.
+ */
+export const runWasmSmithFuzzHarnessProfile = runCmdFuzzHarnessProfile;
 
 export {
   differential_validate_wasm as differentialValidateWasm,
@@ -1972,5 +2114,4 @@ export {
   run_cmd_exit_code as runCmdExitCode,
   run_cmd_exit_code_with_adapter as runCmdExitCodeWithAdapter,
   run_cmd_with_adapter as runCmdWithAdapter,
-  run_wasm_smith_fuzz_harness as runWasmSmithFuzzHarness,
 };

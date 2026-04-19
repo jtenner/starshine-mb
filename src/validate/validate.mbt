@@ -3995,6 +3995,7 @@ fn gen_valid_coverage_surface_facts_module(
 priv struct GenValidGcSurfaceFacts {
   struct_types : Int
   array_types : Int
+  descriptor_types : Int
   rec_groups : Int
   typed_ref_globals : Int
   typed_ref_tables : Int
@@ -4006,12 +4007,24 @@ priv struct GenValidGcSurfaceFacts {
   has_array_get : Bool
   has_array_set : Bool
   has_array_len : Bool
+  has_string_const : Bool
+  has_string_new : Bool
+  has_string_encode : Bool
+  has_ref_get_desc : Bool
   has_ref_test : Bool
+  has_ref_test_desc : Bool
   has_ref_cast : Bool
+  has_ref_cast_desc_eq : Bool
   has_ref_eq : Bool
   has_ref_as_non_null : Bool
   has_call_ref : Bool
   has_br_on_null : Bool
+  has_br_on_non_null : Bool
+  has_br_on_cast : Bool
+  has_br_on_cast_fail : Bool
+  has_try_table : Bool
+  has_throw : Bool
+  has_throw_ref : Bool
 }
 
 ///|
@@ -4019,6 +4032,7 @@ fn gen_valid_gc_surface_facts_empty() -> GenValidGcSurfaceFacts {
   {
     struct_types: 0,
     array_types: 0,
+    descriptor_types: 0,
     rec_groups: 0,
     typed_ref_globals: 0,
     typed_ref_tables: 0,
@@ -4030,12 +4044,24 @@ fn gen_valid_gc_surface_facts_empty() -> GenValidGcSurfaceFacts {
     has_array_get: false,
     has_array_set: false,
     has_array_len: false,
+    has_string_const: false,
+    has_string_new: false,
+    has_string_encode: false,
+    has_ref_get_desc: false,
     has_ref_test: false,
+    has_ref_test_desc: false,
     has_ref_cast: false,
+    has_ref_cast_desc_eq: false,
     has_ref_eq: false,
     has_ref_as_non_null: false,
     has_call_ref: false,
     has_br_on_null: false,
+    has_br_on_non_null: false,
+    has_br_on_cast: false,
+    has_br_on_cast_fail: false,
+    has_try_table: false,
+    has_throw: false,
+    has_throw_ref: false,
   }
 }
 
@@ -4047,6 +4073,7 @@ fn gen_valid_gc_surface_facts_merge(
   {
     struct_types: left.struct_types + right.struct_types,
     array_types: left.array_types + right.array_types,
+    descriptor_types: left.descriptor_types + right.descriptor_types,
     rec_groups: left.rec_groups + right.rec_groups,
     typed_ref_globals: left.typed_ref_globals + right.typed_ref_globals,
     typed_ref_tables: left.typed_ref_tables + right.typed_ref_tables,
@@ -4058,12 +4085,24 @@ fn gen_valid_gc_surface_facts_merge(
     has_array_get: left.has_array_get || right.has_array_get,
     has_array_set: left.has_array_set || right.has_array_set,
     has_array_len: left.has_array_len || right.has_array_len,
+    has_string_const: left.has_string_const || right.has_string_const,
+    has_string_new: left.has_string_new || right.has_string_new,
+    has_string_encode: left.has_string_encode || right.has_string_encode,
+    has_ref_get_desc: left.has_ref_get_desc || right.has_ref_get_desc,
     has_ref_test: left.has_ref_test || right.has_ref_test,
+    has_ref_test_desc: left.has_ref_test_desc || right.has_ref_test_desc,
     has_ref_cast: left.has_ref_cast || right.has_ref_cast,
+    has_ref_cast_desc_eq: left.has_ref_cast_desc_eq || right.has_ref_cast_desc_eq,
     has_ref_eq: left.has_ref_eq || right.has_ref_eq,
     has_ref_as_non_null: left.has_ref_as_non_null || right.has_ref_as_non_null,
     has_call_ref: left.has_call_ref || right.has_call_ref,
     has_br_on_null: left.has_br_on_null || right.has_br_on_null,
+    has_br_on_non_null: left.has_br_on_non_null || right.has_br_on_non_null,
+    has_br_on_cast: left.has_br_on_cast || right.has_br_on_cast,
+    has_br_on_cast_fail: left.has_br_on_cast_fail || right.has_br_on_cast_fail,
+    has_try_table: left.has_try_table || right.has_try_table,
+    has_throw: left.has_throw || right.has_throw,
+    has_throw_ref: left.has_throw_ref || right.has_throw_ref,
   }
 }
 
@@ -4076,7 +4115,9 @@ fn gen_valid_gc_surface_ref_score(rt : RefType) -> Int {
         abs == AbsHeapType::eq() ||
         abs == AbsHeapType::i31() ||
         abs == AbsHeapType::struct_() ||
-        abs == AbsHeapType::array() {
+        abs == AbsHeapType::array() ||
+        abs == AbsHeapType::string_() ||
+        abs == AbsHeapType::exn() {
         1
       } else {
         0
@@ -4094,30 +4135,44 @@ fn gen_valid_gc_surface_val_score(vt : ValType) -> Int {
 }
 
 ///|
+fn gen_valid_gc_surface_facts_sub_type(
+  subtype : SubType,
+) -> GenValidGcSurfaceFacts {
+  let descriptor_types = if subtype.descriptor_type() is Some(_) ||
+    subtype.describes_type() is Some(_) {
+    1
+  } else {
+    0
+  }
+  match subtype.get_comptype() {
+    StructCompType(_) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        struct_types: 1,
+        descriptor_types,
+      }
+    ArrayCompType(_) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        array_types: 1,
+        descriptor_types,
+      }
+    _ => { ..gen_valid_gc_surface_facts_empty(), descriptor_types }
+  }
+}
+
+///|
 fn gen_valid_gc_surface_facts_rec_type(
   rec_type : RecType,
 ) -> GenValidGcSurfaceFacts {
   match rec_type {
-    SingleRecType(subtype) =>
-      match subtype.get_comptype() {
-        StructCompType(_) =>
-          { ..gen_valid_gc_surface_facts_empty(), struct_types: 1 }
-        ArrayCompType(_) =>
-          { ..gen_valid_gc_surface_facts_empty(), array_types: 1 }
-        _ => gen_valid_gc_surface_facts_empty()
-      }
+    SingleRecType(subtype) => gen_valid_gc_surface_facts_sub_type(subtype)
     GroupRecType(group) => {
       let mut facts = { ..gen_valid_gc_surface_facts_empty(), rec_groups: 1 }
       for subtype in group {
         facts = gen_valid_gc_surface_facts_merge(
           facts,
-          match subtype.get_comptype() {
-            StructCompType(_) =>
-              { ..gen_valid_gc_surface_facts_empty(), struct_types: 1 }
-            ArrayCompType(_) =>
-              { ..gen_valid_gc_surface_facts_empty(), array_types: 1 }
-            _ => gen_valid_gc_surface_facts_empty()
-          },
+          gen_valid_gc_surface_facts_sub_type(subtype),
         )
       }
       facts
@@ -4143,6 +4198,13 @@ fn gen_valid_gc_surface_facts_instr(
       }
       facts
     }
+    TryTable(_, _, body) =>
+      {
+        ..gen_valid_gc_surface_facts_expr(body),
+        has_try_table: true,
+      }
+    Throw(_) => { ..gen_valid_gc_surface_facts_empty(), has_throw: true }
+    ThrowRef => { ..gen_valid_gc_surface_facts_empty(), has_throw_ref: true }
     StructNew(_)
     | StructNewDefault(_)
     | StructNewDesc(_)
@@ -4156,21 +4218,51 @@ fn gen_valid_gc_surface_facts_instr(
     | ArrayNewDefault(_)
     | ArrayNewFixed(_, _)
     | ArrayNewData(_, _)
-    | ArrayNewElem(_, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_array_new: true }
+    | ArrayNewElem(_, _)
+    | StringNewUtf8Array
+    | StringNewWtf16Array
+    | StringNewLossyUtf8Array
+    | StringNewWtf8Array =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_array_new: true,
+        has_string_new: true,
+      }
     ArrayGet(_) | ArrayGetS(_) | ArrayGetU(_) =>
       { ..gen_valid_gc_surface_facts_empty(), has_array_get: true }
     ArraySet(_)
     | ArrayFill(_)
     | ArrayCopy(_, _)
     | ArrayInitData(_, _)
-    | ArrayInitElem(_, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_array_set: true }
+    | ArrayInitElem(_, _)
+    | StringEncodeUtf8Array
+    | StringEncodeWtf16Array
+    | StringEncodeLossyUtf8Array
+    | StringEncodeWtf8Array =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_array_set: true,
+        has_string_encode: true,
+      }
     ArrayLen => { ..gen_valid_gc_surface_facts_empty(), has_array_len: true }
-    RefTest(_, _) | RefTestDesc(_, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_ref_test: true }
-    RefCast(_, _) | RefCastDescEq(_, _) =>
-      { ..gen_valid_gc_surface_facts_empty(), has_ref_cast: true }
+    StringConst(_) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_string_const: true }
+    RefGetDesc(_) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_ref_get_desc: true }
+    RefTest(_, _) => { ..gen_valid_gc_surface_facts_empty(), has_ref_test: true }
+    RefTestDesc(_, _) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_ref_test: true,
+        has_ref_test_desc: true,
+      }
+    RefCast(_, _) => { ..gen_valid_gc_surface_facts_empty(), has_ref_cast: true }
+    RefCastDescEq(_, _) =>
+      {
+        ..gen_valid_gc_surface_facts_empty(),
+        has_ref_cast: true,
+        has_ref_cast_desc_eq: true,
+      }
     RefEq => { ..gen_valid_gc_surface_facts_empty(), has_ref_eq: true }
     RefAsNonNull =>
       { ..gen_valid_gc_surface_facts_empty(), has_ref_as_non_null: true }
@@ -4178,6 +4270,12 @@ fn gen_valid_gc_surface_facts_instr(
       { ..gen_valid_gc_surface_facts_empty(), has_call_ref: true }
     BrOnNull(_) =>
       { ..gen_valid_gc_surface_facts_empty(), has_br_on_null: true }
+    BrOnNonNull(_) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_br_on_non_null: true }
+    BrOnCast(_, _, _, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_br_on_cast: true }
+    BrOnCastFail(_, _, _, _) =>
+      { ..gen_valid_gc_surface_facts_empty(), has_br_on_cast_fail: true }
     _ => gen_valid_gc_surface_facts_empty()
   }
 }
@@ -4378,6 +4476,73 @@ test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
 }
 
 ///|
+test "gen_valid natural mode organically reaches descriptor/string/exn/cast gc surfaces" {
+  let rnd = @splitmix.new(seed=0x5eedUL)
+  let config = default_gen_valid_config()
+  let mut combined = gen_valid_gc_surface_facts_empty()
+  let mut has_gc_table = false
+  let mut has_gc_elem = false
+  for _ in 0..<256 {
+    let mod = gen_valid_module_with_config(rnd, config)
+    match validate_module(mod) {
+      Ok(_) => ()
+      Err(err) =>
+        fail(
+          "expected natural gen-valid module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+        )
+    }
+    combined = gen_valid_gc_surface_facts_merge(
+      combined,
+      gen_valid_gc_surface_facts_module(mod),
+    )
+    match mod.table_sec {
+      Some(TableSec(tables)) =>
+        for table in tables {
+          let Table(TableType(rt, _), _) = table
+          if gen_valid_gc_surface_ref_score(rt) > 0 &&
+            rt != RefType::abs(AbsHeapType::func()) {
+            has_gc_table = true
+          }
+        }
+      None => ()
+    }
+    match mod.elem_sec {
+      Some(ElemSec(elems)) =>
+        for elem in elems {
+          let Elem(_, kind) = elem
+          match kind {
+            TypedExprsElemKind(rt, _) if gen_valid_gc_surface_ref_score(rt) > 0 &&
+              rt != RefType::abs(AbsHeapType::func()) =>
+              has_gc_elem = true
+            _ => ()
+          }
+        }
+      None => ()
+    }
+  }
+  assert_true(combined.struct_types > 0)
+  assert_true(combined.array_types > 0)
+  assert_true(combined.descriptor_types > 0)
+  assert_true(combined.typed_ref_globals > 0)
+  assert_true(combined.typed_ref_tables > 0)
+  assert_true(combined.typed_ref_locals > 0)
+  assert_true(has_gc_table)
+  assert_true(has_gc_elem)
+  assert_true(combined.has_struct_new)
+  assert_true(combined.has_string_new)
+  assert_true(combined.has_string_encode)
+  assert_true(combined.has_ref_get_desc)
+  assert_true(combined.has_ref_test_desc)
+  assert_true(combined.has_ref_cast_desc_eq)
+  assert_true(combined.has_br_on_non_null)
+  assert_true(combined.has_br_on_cast)
+  assert_true(combined.has_br_on_cast_fail)
+  assert_true(combined.has_try_table)
+  assert_true(combined.has_throw)
+  assert_true(combined.has_throw_ref)
+}
+
+///|
 test "gen_valid coverage-forced mode emits widened topology and shared type pool" {
   let mod = gen_valid_module_with_config(
     @splitmix.new(seed=0x5eedUL),
@@ -4387,7 +4552,7 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
     Ok(_) => ()
     Err(err) =>
       fail(
-        "expected coverage-forced module to validate, got \{validation_error_message(err)}",
+        "expected coverage-forced module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
       )
   }
   let facts = gen_valid_feature_facts(mod, CoverageForced)
@@ -4441,10 +4606,41 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
   let gc_surface = gen_valid_gc_surface_facts_module(mod)
   assert_true(gc_surface.struct_types > 0)
   assert_true(gc_surface.array_types > 0)
+  assert_true(gc_surface.descriptor_types > 0)
   assert_true(gc_surface.rec_groups > 0)
   assert_true(gc_surface.typed_ref_globals > 0)
   assert_true(gc_surface.typed_ref_tables > 0)
   assert_true(gc_surface.typed_ref_locals > 0)
+
+  let mut has_gc_table = false
+  match mod.table_sec {
+    Some(TableSec(tables)) =>
+      for table in tables {
+        let Table(TableType(rt, _), _) = table
+        if gen_valid_gc_surface_ref_score(rt) > 0 &&
+          rt != RefType::abs(AbsHeapType::func()) {
+          has_gc_table = true
+        }
+      }
+    None => ()
+  }
+  assert_true(has_gc_table)
+
+  let mut has_gc_typed_elem = false
+  match mod.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        let Elem(_, kind) = elem
+        match kind {
+          TypedExprsElemKind(rt, _) if gen_valid_gc_surface_ref_score(rt) > 0 &&
+            rt != RefType::abs(AbsHeapType::func()) =>
+            has_gc_typed_elem = true
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  assert_true(has_gc_typed_elem)
   assert_true(gc_surface.has_struct_new)
   assert_true(gc_surface.has_struct_get)
   assert_true(gc_surface.has_struct_set)
@@ -4452,12 +4648,24 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
   assert_true(gc_surface.has_array_get)
   assert_true(gc_surface.has_array_set)
   assert_true(gc_surface.has_array_len)
+  assert_true(gc_surface.has_string_const)
+  assert_true(gc_surface.has_string_new)
+  assert_true(gc_surface.has_string_encode)
+  assert_true(gc_surface.has_ref_get_desc)
   assert_true(gc_surface.has_ref_test)
+  assert_true(gc_surface.has_ref_test_desc)
   assert_true(gc_surface.has_ref_cast)
+  assert_true(gc_surface.has_ref_cast_desc_eq)
   assert_true(gc_surface.has_ref_eq)
   assert_true(gc_surface.has_ref_as_non_null)
   assert_true(gc_surface.has_call_ref)
   assert_true(gc_surface.has_br_on_null)
+  assert_true(gc_surface.has_br_on_non_null)
+  assert_true(gc_surface.has_br_on_cast)
+  assert_true(gc_surface.has_br_on_cast_fail)
+  assert_true(gc_surface.has_try_table)
+  assert_true(gc_surface.has_throw)
+  assert_true(gc_surface.has_throw_ref)
 
   let import_func_count = match mod.import_sec {
     Some(ImportSec(imports)) => {
@@ -4481,14 +4689,31 @@ test "gen_valid coverage-forced mode emits widened topology and shared type pool
     Some(TagSec(tags)) => tags.length()
     None => 0
   }
-  let type_count = match mod.type_sec {
-    Some(TypeSec(types)) => types.length()
+  let func_type_def_count = match mod.type_sec {
+    Some(TypeSec(types)) => {
+      let mut count = 0
+      for rec_type in types {
+        match rec_type {
+          SingleRecType(subtype) =>
+            if subtype.get_comptype() is FuncCompType(_, _) {
+              count += 1
+            }
+          GroupRecType(group) =>
+            for subtype in group {
+              if subtype.get_comptype() is FuncCompType(_, _) {
+                count += 1
+              }
+            }
+        }
+      }
+      count
+    }
     None => 0
   }
   assert_true(import_func_count > 0)
   assert_true(defined_func_count > 0)
   assert_true(tag_count > 0)
-  assert_true(type_count < import_func_count + defined_func_count + tag_count)
+  assert_true(func_type_def_count < import_func_count + defined_func_count + tag_count)
 }
 
 ///|

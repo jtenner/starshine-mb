@@ -237,7 +237,7 @@ pub fn GenValidConfig::coverage_forced_default() -> GenValidConfig {
   GenValidConfig::{
     ..GenValidConfig::natural_default(),
     mode: CoverageForced,
-    max_type_defs: 9,
+    max_type_defs: 14,
     max_imports: 6,
     max_tables: 3,
     max_mems: 2,
@@ -522,6 +522,8 @@ fn gen_valid_ref_valtype_pool(
   let refs : Array[ValType] = [
     ValType::funcref(),
     ValType::externref(),
+    ValType::stringref(),
+    ValType::ref_null_exn(),
     ValType::ref_type(RefType::abs(AbsHeapType::any())),
     ValType::ref_type(RefType::abs(AbsHeapType::eq())),
     ValType::ref_type(RefType::abs(AbsHeapType::i31())),
@@ -602,6 +604,7 @@ fn gen_const_instr(ctx : GenValidContext, vt : ValType) -> Instruction {
         b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
         b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
       )
+    _ if vt == ValType::stringref() => Instruction::string_const(b"gen-valid")
     RefTypeValType(rt) => Instruction::ref_null(rt.get_heap_type())
     BotValType => Instruction::unreachable_()
   }
@@ -667,6 +670,13 @@ fn gen_valid_gc_type_plan_empty() -> GenValidGcTypePlan {
     struct_type_idxs: [],
     array_type_idxs: [],
     concrete_ref_types: [],
+    bulk_data_array_idx: None,
+    bulk_elem_array_idx: None,
+    bulk_elem_ref_type: None,
+    descriptor_struct_idx: None,
+    descriptor_type_idx: None,
+    string_wtf16_array_idx: None,
+    string_utf8_array_idx: None,
     rec_group_count: 0,
   }
 }
@@ -682,23 +692,32 @@ fn gen_valid_gc_type_defs(
   next_type_idx : Int,
   remaining_type_budget : Int,
 ) -> (Array[RecType], GenValidGcTypePlan) {
-  if ctx.config.mode != CoverageForced ||
-    !ctx.config.features.allow_ref_types ||
-    ctx.config.max_tables < 3 ||
-    ctx.config.max_globals < 4 ||
-    remaining_type_budget <= 0 {
+  if !ctx.config.features.allow_ref_types || remaining_type_budget <= 0 {
+    return ([], gen_valid_gc_type_plan_empty())
+  }
+  if ctx.config.mode != CoverageForced && ctx.random_int(3) != 0 {
     return ([], gen_valid_gc_type_plan_empty())
   }
 
   let defs : Array[RecType] = []
   let mut plan = gen_valid_gc_type_plan_empty()
+  plan.concrete_ref_types.push(ValType::stringref())
+  plan.concrete_ref_types.push(ValType::ref_null_exn())
   let mut type_idx_cursor = next_type_idx
 
-  let want_struct = ctx.config.mode == CoverageForced || ctx.random_bool()
+  let want_struct = ctx.config.mode == CoverageForced || ctx.random_int(4) != 0
   let want_array = remaining_type_budget - defs.length() > 0 &&
-    (ctx.config.mode == CoverageForced || ctx.random_bool())
-  let want_group = remaining_type_budget - defs.length() > 0 &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(3) != 0)
+  let want_descriptor_group = remaining_type_budget - defs.length() > 0 &&
     (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+  let want_elem_array = remaining_type_budget - defs.length() > 0 &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+  let want_string_wtf16_array = remaining_type_budget - defs.length() > 0 &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+  let want_string_utf8_array = remaining_type_budget - defs.length() > 0 &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+  let want_group = remaining_type_budget - defs.length() > 0 &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0)
 
   if want_struct && defs.length() < remaining_type_budget {
     let struct_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
@@ -735,6 +754,101 @@ fn gen_valid_gc_type_defs(
     )
     plan.array_type_idxs.push(array_idx)
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(array_idx))
+    plan = { ..plan, bulk_data_array_idx: Some(array_idx) }
+    type_idx_cursor += 1
+  }
+
+  if want_descriptor_group && defs.length() < remaining_type_budget {
+    let described_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    let descriptor_idx = TypeIdx::new((type_idx_cursor + 1).reinterpret_as_uint())
+    defs.push(
+      RecType::group([
+        SubType::comp_type(
+          CompType::struct_([]),
+          metadata=TypeMetadata::new(descriptor=Some(TypeIdx::rec(1))),
+        ),
+        SubType::comp_type(
+          CompType::struct_([]),
+          metadata=TypeMetadata::new(describes=Some(TypeIdx::rec(0))),
+        ),
+      ]),
+    )
+    plan = {
+      ..plan,
+      descriptor_struct_idx: Some(described_idx),
+      descriptor_type_idx: Some(descriptor_idx),
+      rec_group_count: plan.rec_group_count + 1,
+    }
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(described_idx))
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(descriptor_idx))
+    type_idx_cursor += 2
+  }
+
+  if want_elem_array && defs.length() < remaining_type_budget {
+    let elem_array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    let elem_ref_type = match plan.descriptor_type_idx {
+      Some(descriptor_idx) => RefType::new(true, HeapType::new(descriptor_idx))
+      None => RefType::abs(AbsHeapType::eq())
+    }
+    defs.push(
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(
+              StorageType::val_type(ValType::ref_type(elem_ref_type)),
+              Var,
+            ),
+          ),
+        ),
+      ),
+    )
+    plan.array_type_idxs.push(elem_array_idx)
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(elem_array_idx))
+    plan = {
+      ..plan,
+      bulk_elem_array_idx: Some(elem_array_idx),
+      bulk_elem_ref_type: Some(elem_ref_type),
+    }
+    type_idx_cursor += 1
+  }
+
+  if want_string_wtf16_array && defs.length() < remaining_type_budget {
+    let string_wtf16_array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    defs.push(
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(
+              StorageType::pack_type(PackType::i16()),
+              Var,
+            ),
+          ),
+        ),
+      ),
+    )
+    plan = { ..plan, string_wtf16_array_idx: Some(string_wtf16_array_idx) }
+    plan.array_type_idxs.push(string_wtf16_array_idx)
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(string_wtf16_array_idx))
+    type_idx_cursor += 1
+  }
+
+  if want_string_utf8_array && defs.length() < remaining_type_budget {
+    let string_utf8_array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    defs.push(
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(
+              StorageType::pack_type(PackType::i8()),
+              Var,
+            ),
+          ),
+        ),
+      ),
+    )
+    plan = { ..plan, string_utf8_array_idx: Some(string_utf8_array_idx) }
+    plan.array_type_idxs.push(string_utf8_array_idx)
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(string_utf8_array_idx))
     type_idx_cursor += 1
   }
 
@@ -820,6 +934,13 @@ priv struct GenValidGcTypePlan {
   struct_type_idxs : Array[TypeIdx]
   array_type_idxs : Array[TypeIdx]
   concrete_ref_types : Array[ValType]
+  bulk_data_array_idx : TypeIdx?
+  bulk_elem_array_idx : TypeIdx?
+  bulk_elem_ref_type : RefType?
+  descriptor_struct_idx : TypeIdx?
+  descriptor_type_idx : TypeIdx?
+  string_wtf16_array_idx : TypeIdx?
+  string_utf8_array_idx : TypeIdx?
   rec_group_count : Int
 }
 
@@ -829,9 +950,12 @@ priv struct GenValidBodyEnv {
   globals : Array[GlobalType]
   tables : Array[TableType]
   mems : Array[MemType]
+  tags : Array[TagType]
   funcs : Array[GenValidFuncSig]
   data_idxs : Array[DataIdx]
   elem_idxs : Array[ElemIdx]
+  passive_elem_idxs : Array[ElemIdx]
+  bulk_elem_seed_idx : ElemIdx?
   gc_type_plan : GenValidGcTypePlan
   declared_ref_func_idx : FuncIdx?
   depth_left : Int
@@ -987,6 +1111,19 @@ fn gen_valid_funcref_expr(ctx : GenValidContext, func_idx : FuncIdx) -> Expr {
 }
 
 ///|
+fn gen_valid_elem_ref_expr(
+  ctx : GenValidContext,
+  rt : RefType,
+  func_idx? : FuncIdx = FuncIdx::new(0U),
+) -> Expr {
+  if ValType::ref_type(rt) == ValType::funcref() {
+    gen_valid_funcref_expr(ctx, func_idx)
+  } else {
+    Expr::new([Instruction::ref_null(rt.get_heap_type())])
+  }
+}
+
+///|
 fn gen_valid_append_memory_bulk_ops(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -1040,8 +1177,8 @@ fn gen_valid_append_table_bulk_ops(
   out.push(Instruction::i32_const(I32(0)))
   out.push(Instruction::table_copy(table_idx, table_idx))
 
-  if !env.elem_idxs.is_empty() {
-    let elem_idx = env.elem_idxs[0]
+  if !env.passive_elem_idxs.is_empty() {
+    let elem_idx = env.passive_elem_idxs[0]
     out.push(Instruction::i32_const(I32(0)))
     out.push(Instruction::i32_const(I32(0)))
     out.push(Instruction::i32_const(I32(0)))
@@ -1049,6 +1186,84 @@ fn gen_valid_append_table_bulk_ops(
     out.push(Instruction::elem_drop(elem_idx))
   }
   true
+}
+
+///|
+fn gen_valid_append_array_data_seed_instrs(
+  out : Array[Instruction],
+  env : GenValidBodyEnv,
+) -> Bool {
+  if env.data_idxs.is_empty() {
+    return false
+  }
+  match env.gc_type_plan.bulk_data_array_idx {
+    Some(array_idx) => {
+      let data_idx = env.data_idxs[0]
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::array_new_data(array_idx, data_idx))
+      true
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_append_array_elem_seed_instrs(
+  out : Array[Instruction],
+  env : GenValidBodyEnv,
+) -> Bool {
+  match (env.gc_type_plan.bulk_elem_array_idx, env.bulk_elem_seed_idx) {
+    (Some(array_idx), Some(elem_idx)) => {
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::array_new_elem(array_idx, elem_idx))
+      true
+    }
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_append_array_data_init_instrs(
+  out : Array[Instruction],
+  env : GenValidBodyEnv,
+) -> Bool {
+  if env.data_idxs.is_empty() {
+    return false
+  }
+  match env.gc_type_plan.bulk_data_array_idx {
+    Some(array_idx) => {
+      let data_idx = env.data_idxs[0]
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(Instruction::array_new_default(array_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::array_init_data(array_idx, data_idx))
+      true
+    }
+    None => false
+  }
+}
+
+///|
+fn gen_valid_append_array_elem_init_instrs(
+  out : Array[Instruction],
+  env : GenValidBodyEnv,
+) -> Bool {
+  match (env.gc_type_plan.bulk_elem_array_idx, env.bulk_elem_seed_idx) {
+    (Some(array_idx), Some(elem_idx)) => {
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(Instruction::array_new_default(array_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::array_init_elem(array_idx, elem_idx))
+      true
+    }
+    _ => false
+  }
 }
 
 ///|
@@ -1195,8 +1410,70 @@ fn append_value_instrs(
           _ => ()
         }
       }
+      if vt == ValType::stringref() {
+        match (
+          env.gc_type_plan.string_wtf16_array_idx,
+          env.gc_type_plan.string_utf8_array_idx,
+        ) {
+          (Some(string_wtf16_array_idx), _) if ctx.random_int(3) == 0 => {
+            out.push(Instruction::i32_const(I32(4)))
+            out.push(Instruction::array_new_default(string_wtf16_array_idx))
+            out.push(Instruction::i32_const(I32(0)))
+            out.push(Instruction::i32_const(I32(2)))
+            out.push(Instruction::string_new_wtf16_array())
+            return
+          }
+          (_, Some(string_utf8_array_idx)) if ctx.random_int(3) == 0 => {
+            out.push(Instruction::i32_const(I32(16)))
+            out.push(Instruction::array_new_default(string_utf8_array_idx))
+            out.push(Instruction::i32_const(I32(0)))
+            out.push(Instruction::i32_const(I32(4)))
+            out.push(
+              if ctx.random_bool() {
+                Instruction::string_new_lossy_utf8_array()
+              } else {
+                Instruction::string_new_wtf8_array()
+              },
+            )
+            return
+          }
+          _ => ()
+        }
+      }
+      if vt == ValType::ref_null_exn() && !env.tags.is_empty() && ctx.random_int(3) == 0 {
+        let tag_idx = TagIdx::new(0U)
+        out.push(
+          Instruction::try_table(
+            BlockType::val_type(vt),
+            [if ctx.random_bool() {
+              Catch::ref_(tag_idx, LabelIdx::new(0U))
+            } else {
+              Catch::all_ref(LabelIdx::new(0U))
+            }],
+            Expr::new([Instruction::throw_(tag_idx)]),
+          ),
+        )
+        return
+      }
       match heap_type {
         HeapType(type_idx) => {
+          match (
+            env.gc_type_plan.descriptor_struct_idx,
+            env.gc_type_plan.descriptor_type_idx,
+          ) {
+            (Some(described_idx), Some(descriptor_idx)) if type_idx == described_idx &&
+              ctx.random_int(3) == 0 => {
+              out.push(Instruction::struct_new_default(descriptor_idx))
+              out.push(Instruction::struct_new_default_desc(described_idx))
+              return
+            }
+            (Some(_described_idx), Some(descriptor_idx)) if type_idx == descriptor_idx &&
+              ctx.random_int(3) == 0 => {
+              out.push(Instruction::struct_new_default(descriptor_idx))
+              return
+            }
+            _ => ()
+          }
           if gen_valid_contains_type_idx(
               env.gc_type_plan.struct_type_idxs,
               type_idx,
@@ -1204,6 +1481,16 @@ fn append_value_instrs(
             ctx.random_int(3) == 0 {
             out.push(Instruction::struct_new_default(type_idx))
             return
+          }
+          match env.gc_type_plan.bulk_data_array_idx {
+            Some(array_idx) if type_idx == array_idx && ctx.random_int(4) == 0 &&
+              gen_valid_append_array_data_seed_instrs(out, env) => return
+            _ => ()
+          }
+          match env.gc_type_plan.bulk_elem_array_idx {
+            Some(array_idx) if type_idx == array_idx && ctx.random_int(4) == 0 &&
+              gen_valid_append_array_elem_seed_instrs(out, env) => return
+            _ => ()
           }
           if gen_valid_contains_type_idx(
               env.gc_type_plan.array_type_idxs,
@@ -1217,9 +1504,273 @@ fn append_value_instrs(
         }
         _ => ()
       }
+      if env.depth_left > 0 {
+        if !rt.is_nullable() && ctx.random_int(4) == 0 {
+          out.push(
+            Instruction::block(
+              BlockType::val_type(ValType::ref_type(rt)),
+              Expr::new([
+                Instruction::ref_null(heap_type),
+                Instruction::br_on_non_null(LabelIdx::new(0U)),
+                Instruction::ref_as_non_null(),
+              ]),
+            ),
+          )
+          return
+        }
+        if rt == RefType::abs(AbsHeapType::any()) && ctx.random_int(5) == 0 {
+          out.push(
+            Instruction::block(
+              BlockType::val_type(ValType::ref_type(rt)),
+              Expr::new([
+                Instruction::ref_null(heap_type),
+                Instruction::br_on_cast(
+                  LabelIdx::new(0U),
+                  true,
+                  HeapType::abs(AbsHeapType::any()),
+                  true,
+                  HeapType::abs(AbsHeapType::i31()),
+                ),
+              ]),
+            ),
+          )
+          return
+        }
+        if rt == RefType::abs(AbsHeapType::any()) && ctx.random_int(5) == 0 {
+          out.push(
+            Instruction::block(
+              BlockType::val_type(ValType::ref_type(rt)),
+              Expr::new([
+                Instruction::ref_null(heap_type),
+                Instruction::br_on_cast_fail(
+                  LabelIdx::new(0U),
+                  true,
+                  HeapType::abs(AbsHeapType::any()),
+                  true,
+                  HeapType::abs(AbsHeapType::i31()),
+                ),
+              ]),
+            ),
+          )
+          return
+        }
+      }
       out.push(Instruction::ref_null(heap_type))
     }
     _ => out.push(gen_const_instr(ctx, vt))
+  }
+}
+
+///|
+fn gen_valid_append_natural_gc_stmt(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Bool {
+  if ctx.config.mode != Natural || !ctx.config.features.allow_ref_types {
+    return false
+  }
+  match ctx.random_int(7) {
+    0 => {
+      match (
+        env.gc_type_plan.descriptor_struct_idx,
+        env.gc_type_plan.descriptor_type_idx,
+      ) {
+        (Some(described_idx), Some(descriptor_idx)) => {
+          out.push(Instruction::struct_new_default(descriptor_idx))
+          out.push(Instruction::struct_new_default_desc(described_idx))
+          out.push(Instruction::ref_get_desc(described_idx))
+          out.push(Instruction::drop())
+          true
+        }
+        _ => false
+      }
+    }
+    1 => {
+      match (
+        env.gc_type_plan.descriptor_struct_idx,
+        env.gc_type_plan.descriptor_type_idx,
+      ) {
+        (Some(described_idx), Some(descriptor_idx)) => {
+          out.push(Instruction::struct_new_default(descriptor_idx))
+          out.push(Instruction::struct_new_default_desc(described_idx))
+          out.push(Instruction::ref_test_desc(true, HeapType::new(descriptor_idx)))
+          out.push(Instruction::drop())
+          out.push(Instruction::struct_new_default(descriptor_idx))
+          out.push(Instruction::struct_new_default_desc(described_idx))
+          out.push(Instruction::ref_cast_desc_eq(true, HeapType::new(descriptor_idx)))
+          out.push(Instruction::drop())
+          out.push(
+            Instruction::block(
+              BlockType::val_type(
+                ValType::ref_type(
+                  RefType::new(false, HeapType::new(descriptor_idx)),
+                ),
+              ),
+              Expr::new([
+                Instruction::ref_null(HeapType::new(descriptor_idx)),
+                Instruction::br_on_non_null(LabelIdx::new(0U)),
+                Instruction::unreachable_(),
+              ]),
+            ),
+          )
+          out.push(Instruction::drop())
+          true
+        }
+        _ => false
+      }
+    }
+    2 => {
+      match env.gc_type_plan.string_wtf16_array_idx {
+        Some(string_wtf16_array_idx) => {
+          out.push(Instruction::i32_const(I32(4)))
+          out.push(Instruction::array_new_default(string_wtf16_array_idx))
+          out.push(Instruction::i32_const(I32(0)))
+          out.push(Instruction::i32_const(I32(2)))
+          out.push(Instruction::string_new_wtf16_array())
+          out.push(Instruction::drop())
+          true
+        }
+        None => false
+      }
+    }
+    3 => {
+      match env.gc_type_plan.string_utf8_array_idx {
+        Some(string_utf8_array_idx) => {
+          out.push(Instruction::string_const(b"gen-valid-string"))
+          out.push(Instruction::i32_const(I32(16)))
+          out.push(Instruction::array_new_default(string_utf8_array_idx))
+          out.push(Instruction::i32_const(I32(0)))
+          if ctx.random_bool() {
+            out.push(Instruction::string_encode_utf8_array())
+          } else if ctx.random_bool() {
+            out.push(Instruction::string_encode_lossy_utf8_array())
+          } else {
+            out.push(Instruction::string_encode_wtf8_array())
+          }
+          out.push(Instruction::drop())
+
+          out.push(Instruction::i32_const(I32(16)))
+          out.push(Instruction::array_new_default(string_utf8_array_idx))
+          out.push(Instruction::i32_const(I32(0)))
+          out.push(Instruction::i32_const(I32(4)))
+          if ctx.random_bool() {
+            out.push(Instruction::string_new_lossy_utf8_array())
+          } else {
+            out.push(Instruction::string_new_wtf8_array())
+          }
+          out.push(Instruction::drop())
+          true
+        }
+        None => false
+      }
+    }
+    4 => {
+      out.push(
+        Instruction::block(
+          BlockType::val_type(
+            ValType::ref_type(RefType::abs(AbsHeapType::any())),
+          ),
+          Expr::new([
+            Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
+            Instruction::br_on_cast(
+              LabelIdx::new(0U),
+              true,
+              HeapType::abs(AbsHeapType::any()),
+              true,
+              HeapType::abs(AbsHeapType::i31()),
+            ),
+          ]),
+        ),
+      )
+      out.push(Instruction::drop())
+      out.push(
+        Instruction::block(
+          BlockType::val_type(
+            ValType::ref_type(RefType::abs(AbsHeapType::any())),
+          ),
+          Expr::new([
+            Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
+            Instruction::br_on_cast_fail(
+              LabelIdx::new(0U),
+              true,
+              HeapType::abs(AbsHeapType::any()),
+              true,
+              HeapType::abs(AbsHeapType::i31()),
+            ),
+          ]),
+        ),
+      )
+      out.push(Instruction::drop())
+      true
+    }
+    5 => {
+      if !env.tags.is_empty() {
+        let tag_idx = TagIdx::new(0U)
+        let exnref = ValType::ref_type(
+          RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+        )
+        out.push(
+          Instruction::block(
+            BlockType::void_(),
+            Expr::new([
+              Instruction::try_table(
+                BlockType::void_(),
+                [Catch::new(tag_idx, LabelIdx::new(0U))],
+                Expr::new([Instruction::throw_(tag_idx)]),
+              ),
+            ]),
+          ),
+        )
+        out.push(
+          Instruction::block(
+            BlockType::val_type(exnref),
+            Expr::new([
+              Instruction::try_table(
+                BlockType::val_type(exnref),
+                [Catch::ref_(tag_idx, LabelIdx::new(0U))],
+                Expr::new([Instruction::throw_(tag_idx)]),
+              ),
+            ]),
+          ),
+        )
+        out.push(Instruction::drop())
+        out.push(
+          Instruction::block(
+            BlockType::val_type(exnref),
+            Expr::new([
+              Instruction::try_table(
+                BlockType::val_type(exnref),
+                [Catch::all_ref(LabelIdx::new(0U))],
+                Expr::new([Instruction::throw_(tag_idx)]),
+              ),
+            ]),
+          ),
+        )
+        out.push(Instruction::drop())
+        true
+      } else {
+        false
+      }
+    }
+    _ => {
+      out.push(
+        Instruction::block(
+          BlockType::void_(),
+          Expr::new([
+            Instruction::try_table(
+              BlockType::void_(),
+              [Catch::all(LabelIdx::new(0U))],
+              Expr::new([
+                Instruction::ref_null(HeapType::abs(AbsHeapType::exn())),
+                Instruction::throw_ref(),
+              ]),
+            ),
+          ]),
+        ),
+      )
+      true
+    }
   }
 }
 
@@ -1243,13 +1794,17 @@ fn append_void_stmt(
       } else {
         let idx = ctx.random_int(env.local_types.length())
         let vt = env.local_types[idx]
-        append_value_instrs(
-          out,
-          ctx,
-          vt,
-          gen_valid_body_env_child(env),
-          prefer_local=false,
-        )
+        if ctx.config.mode == CoverageForced {
+          out.push(gen_const_instr(ctx, vt))
+        } else {
+          append_value_instrs(
+            out,
+            ctx,
+            vt,
+            gen_valid_body_env_child(env),
+            prefer_local=false,
+          )
+        }
         out.push(
           Instruction::local_set(LocalIdx::new(idx.reinterpret_as_uint())),
         )
@@ -1264,13 +1819,17 @@ fn append_void_stmt(
         Some(idx) => {
           let GlobalIdx(idx_u) = idx
           let GlobalType(vt, _) = env.globals[idx_u.reinterpret_as_int()]
-          append_value_instrs(
-            out,
-            ctx,
-            vt,
-            gen_valid_body_env_child(env),
-            prefer_local=false,
-          )
+          if ctx.config.mode == CoverageForced {
+            out.push(gen_const_instr(ctx, vt))
+          } else {
+            append_value_instrs(
+              out,
+              ctx,
+              vt,
+              gen_valid_body_env_child(env),
+              prefer_local=false,
+            )
+          }
           out.push(Instruction::global_set(idx))
         }
         None => out.push(Instruction::nop())
@@ -1432,6 +1991,43 @@ fn gen_valid_append_gc_prelude(
     )
   }
 
+  match (
+    env.gc_type_plan.descriptor_struct_idx,
+    env.gc_type_plan.descriptor_type_idx,
+  ) {
+    (Some(described_idx), Some(descriptor_idx)) => {
+      out.push(Instruction::struct_new_default(descriptor_idx))
+      out.push(Instruction::struct_new_default_desc(described_idx))
+      out.push(Instruction::ref_get_desc(described_idx))
+      out.push(Instruction::drop())
+
+      out.push(Instruction::struct_new_default(descriptor_idx))
+      out.push(Instruction::struct_new_default_desc(described_idx))
+      out.push(Instruction::ref_test_desc(true, HeapType::new(descriptor_idx)))
+      out.push(Instruction::drop())
+
+      out.push(Instruction::struct_new_default(descriptor_idx))
+      out.push(Instruction::struct_new_default_desc(described_idx))
+      out.push(Instruction::ref_cast_desc_eq(true, HeapType::new(descriptor_idx)))
+      out.push(Instruction::drop())
+
+      out.push(
+        Instruction::block(
+          BlockType::val_type(
+            ValType::ref_type(RefType::new(false, HeapType::new(descriptor_idx))),
+          ),
+          Expr::new([
+            Instruction::ref_null(HeapType::new(descriptor_idx)),
+            Instruction::br_on_non_null(LabelIdx::new(0U)),
+            Instruction::unreachable_(),
+          ]),
+        ),
+      )
+      out.push(Instruction::drop())
+    }
+    _ => ()
+  }
+
   if !env.gc_type_plan.array_type_idxs.is_empty() {
     let array_idx = env.gc_type_plan.array_type_idxs[0]
     out.push(Instruction::i32_const(I32(2)))
@@ -1451,6 +2047,155 @@ fn gen_valid_append_gc_prelude(
     out.push(Instruction::i32_const(I32(7)))
     out.push(Instruction::array_set(array_idx))
   }
+
+  match env.gc_type_plan.string_wtf16_array_idx {
+    Some(string_wtf16_array_idx) => {
+      out.push(Instruction::i32_const(I32(4)))
+      out.push(Instruction::array_new_default(string_wtf16_array_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(2)))
+      out.push(Instruction::string_new_wtf16_array())
+      out.push(Instruction::drop())
+    }
+    None => ()
+  }
+
+  match env.gc_type_plan.string_utf8_array_idx {
+    Some(string_utf8_array_idx) => {
+      out.push(Instruction::string_const(b"gen-valid-string"))
+      out.push(Instruction::i32_const(I32(16)))
+      out.push(Instruction::array_new_default(string_utf8_array_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::string_encode_utf8_array())
+      out.push(Instruction::drop())
+
+      out.push(Instruction::i32_const(I32(16)))
+      out.push(Instruction::array_new_default(string_utf8_array_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(4)))
+      out.push(Instruction::string_new_lossy_utf8_array())
+      out.push(Instruction::drop())
+
+      out.push(Instruction::i32_const(I32(16)))
+      out.push(Instruction::array_new_default(string_utf8_array_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::i32_const(I32(4)))
+      out.push(Instruction::string_new_wtf8_array())
+      out.push(Instruction::drop())
+
+      out.push(Instruction::string_const(b"gen-valid-string"))
+      out.push(Instruction::i32_const(I32(16)))
+      out.push(Instruction::array_new_default(string_utf8_array_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::string_encode_lossy_utf8_array())
+      out.push(Instruction::drop())
+
+      out.push(Instruction::string_const(b"gen-valid-string"))
+      out.push(Instruction::i32_const(I32(16)))
+      out.push(Instruction::array_new_default(string_utf8_array_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::string_encode_wtf8_array())
+      out.push(Instruction::drop())
+    }
+    None => ()
+  }
+
+  out.push(
+    Instruction::block(
+      BlockType::val_type(ValType::ref_type(RefType::abs(AbsHeapType::any()))),
+      Expr::new([
+        Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
+        Instruction::br_on_cast(
+          LabelIdx::new(0U),
+          true,
+          HeapType::abs(AbsHeapType::any()),
+          true,
+          HeapType::abs(AbsHeapType::i31()),
+        ),
+      ]),
+    ),
+  )
+  out.push(Instruction::drop())
+
+  out.push(
+    Instruction::block(
+      BlockType::val_type(ValType::ref_type(RefType::abs(AbsHeapType::any()))),
+      Expr::new([
+        Instruction::ref_null(HeapType::abs(AbsHeapType::any())),
+        Instruction::br_on_cast_fail(
+          LabelIdx::new(0U),
+          true,
+          HeapType::abs(AbsHeapType::any()),
+          true,
+          HeapType::abs(AbsHeapType::i31()),
+        ),
+      ]),
+    ),
+  )
+  out.push(Instruction::drop())
+
+  if !env.tags.is_empty() {
+    let tag_idx = TagIdx::new(0U)
+    let exnref = ValType::ref_type(
+      RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+    )
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::try_table(
+            BlockType::void_(),
+            [Catch::new(tag_idx, LabelIdx::new(0U))],
+            Expr::new([Instruction::throw_(tag_idx)]),
+          ),
+        ]),
+      ),
+    )
+
+    out.push(
+      Instruction::block(
+        BlockType::val_type(exnref),
+        Expr::new([
+          Instruction::try_table(
+            BlockType::val_type(exnref),
+            [Catch::ref_(tag_idx, LabelIdx::new(0U))],
+            Expr::new([Instruction::throw_(tag_idx)]),
+          ),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+
+    out.push(
+      Instruction::block(
+        BlockType::val_type(exnref),
+        Expr::new([
+          Instruction::try_table(
+            BlockType::val_type(exnref),
+            [Catch::all_ref(LabelIdx::new(0U))],
+            Expr::new([Instruction::throw_(tag_idx)]),
+          ),
+        ]),
+      ),
+    )
+    out.push(Instruction::drop())
+  }
+
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::try_table(
+          BlockType::void_(),
+          [Catch::all(LabelIdx::new(0U))],
+          Expr::new([
+            Instruction::ref_null(HeapType::abs(AbsHeapType::exn())),
+            Instruction::throw_ref(),
+          ]),
+        ),
+      ]),
+    ),
+  )
 
   match env.declared_ref_func_idx {
     Some(func_idx) =>
@@ -1611,9 +2356,12 @@ fn gen_valid_build_func(
   globals : Array[GlobalType],
   tables : Array[TableType],
   mems : Array[MemType],
+  tags : Array[TagType],
   funcs : Array[GenValidFuncSig],
   data_idxs : Array[DataIdx],
   elem_idxs : Array[ElemIdx],
+  passive_elem_idxs : Array[ElemIdx],
+  bulk_elem_seed_idx : ElemIdx?,
   gc_type_plan : GenValidGcTypePlan,
   declared_ref_func_idx : FuncIdx?,
 ) -> Func {
@@ -1632,9 +2380,12 @@ fn gen_valid_build_func(
     globals,
     tables,
     mems,
+    tags,
     funcs,
     data_idxs,
     elem_idxs,
+    passive_elem_idxs,
+    bulk_elem_seed_idx,
     gc_type_plan,
     declared_ref_func_idx,
     depth_left: gen_valid_clamp_non_negative(ctx.config.max_body_depth),
@@ -1644,9 +2395,21 @@ fn gen_valid_build_func(
   if ctx.config.mode == CoverageForced {
     gen_valid_append_coverage_prelude(body_instrs, ctx, env)
   }
-  let stmt_count = gen_valid_body_stmt_count(ctx, env.depth_left)
+  let stmt_count = if ctx.config.mode == CoverageForced {
+    0
+  } else if ctx.config.mode == Natural && !gc_type_plan.concrete_ref_types.is_empty() {
+    0
+  } else {
+    gen_valid_body_stmt_count(ctx, env.depth_left)
+  }
   for _ in 0..<stmt_count {
     append_void_stmt(body_instrs, ctx, env)
+  }
+  if ctx.config.mode == Natural && ctx.config.features.allow_ref_types {
+    let gc_stmt_count = 1 + ctx.random_int(2)
+    for _ in 0..<gc_stmt_count {
+      ignore(gen_valid_append_natural_gc_stmt(body_instrs, ctx, env))
+    }
   }
   for ret in returns {
     append_value_instrs(body_instrs, ctx, ret, env)
@@ -1670,6 +2433,9 @@ pub fn gen_valid_tfunc(
     [],
     [],
     [],
+    [],
+    [],
+    None,
     gen_valid_gc_type_plan_empty(),
     None,
   )
@@ -1868,7 +2634,11 @@ pub fn gen_valid_module_with_config(
   let type_params : Array[Array[ValType]] = []
   let type_results : Array[Array[ValType]] = []
   for i = 0; i < func_type_count; i = i + 1 {
-    let params = if i == 0 && has_start { [] } else { gen_param_types(ctx) }
+    let params = if i == 0 && (has_start || total_tag_count > 0) {
+      []
+    } else {
+      gen_param_types(ctx)
+    }
     let results = if i == 0 && (has_start || total_tag_count > 0) {
       []
     } else {
@@ -1905,7 +2675,7 @@ pub fn gen_valid_module_with_config(
     let table_ref_type = if i == 0 {
       RefType::new(true, HeapType::abs(AbsHeapType::func()))
     } else if !gc_type_plan.concrete_ref_types.is_empty() &&
-      ctx.config.mode == CoverageForced {
+      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
       match
         gc_type_plan.concrete_ref_types[ctx.random_int(
           gc_type_plan.concrete_ref_types.length(),
@@ -1943,7 +2713,7 @@ pub fn gen_valid_module_with_config(
   for i = 0; i < import_global_count; i = i + 1 {
     let global_vt = if i == 0 &&
       !gc_type_plan.concrete_ref_types.is_empty() &&
-      ctx.config.mode == CoverageForced {
+      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
       gc_type_plan.concrete_ref_types[0]
     } else {
       gen_valid_valtype_with_extra_refs(ctx, gc_type_plan.concrete_ref_types)
@@ -1975,7 +2745,7 @@ pub fn gen_valid_module_with_config(
   for i = 0; i < defined_global_count; i = i + 1 {
     let vt = if i == 0 &&
       !gc_type_plan.concrete_ref_types.is_empty() &&
-      ctx.config.mode == CoverageForced {
+      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
       gc_type_plan.concrete_ref_types[0]
     } else {
       gen_valid_valtype_with_extra_refs(ctx, gc_type_plan.concrete_ref_types)
@@ -2012,7 +2782,7 @@ pub fn gen_valid_module_with_config(
     let table_ref_type = if total_table_idx == 0 {
       RefType::new(true, HeapType::abs(AbsHeapType::func()))
     } else if !gc_type_plan.concrete_ref_types.is_empty() &&
-      ctx.config.mode == CoverageForced {
+      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
       match
         gc_type_plan.concrete_ref_types[ctx.random_int(
           gc_type_plan.concrete_ref_types.length(),
@@ -2090,6 +2860,23 @@ pub fn gen_valid_module_with_config(
       let func_idx = gen_valid_pick_func_idx(
         ctx, total_func_count, first_defined_func_idx,
       )
+      let gc_table_choice = if table_types.length() > 1 {
+        Some(
+          TableIdx::new(
+            (1 + ctx.random_int(table_types.length() - 1)).reinterpret_as_uint(),
+          ),
+        )
+      } else {
+        None
+      }
+      let gc_table_ref_type = match gc_table_choice {
+        Some(table_idx) => {
+          let TableIdx(table_idx_u) = table_idx
+          let TableType(rt, _) = table_types[table_idx_u.reinterpret_as_int()]
+          Some(rt)
+        }
+        None => None
+      }
       let elem = if ctx.config.mode == CoverageForced && i == 0 {
         Elem::new(
           ElemMode::active(TableIdx::new(0U), gen_valid_active_i32_offset(ctx)),
@@ -2103,12 +2890,52 @@ pub fn gen_valid_module_with_config(
           ]),
         )
       } else if ctx.config.mode == CoverageForced && i == 2 {
-        Elem::new(
-          ElemMode::declarative(),
-          ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
-        )
+        match gc_type_plan.bulk_elem_ref_type {
+          Some(rt) =>
+            Elem::new(
+              ElemMode::passive(),
+              ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+            )
+          None =>
+            match (gc_table_choice, gc_table_ref_type) {
+              (Some(table_idx), Some(rt)) if ValType::ref_type(rt) != ValType::funcref() =>
+                Elem::new(
+                  ElemMode::active(table_idx, gen_valid_active_i32_offset(ctx)),
+                  ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+                )
+              _ =>
+                Elem::new(
+                  ElemMode::declarative(),
+                  ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
+                )
+            }
+        }
+      } else if (match gc_type_plan.bulk_elem_ref_type {
+        Some(_) => ctx.random_int(4) == 0
+        None => false
+      }) {
+        match gc_type_plan.bulk_elem_ref_type {
+          Some(rt) =>
+            Elem::new(
+              ElemMode::passive(),
+              ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+            )
+          None => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
+        }
+      } else if (match gc_table_ref_type {
+        Some(rt) => ValType::ref_type(rt) != ValType::funcref() && ctx.random_int(3) == 0
+        None => false
+      }) {
+        match (gc_table_choice, gc_table_ref_type) {
+          (Some(table_idx), Some(rt)) =>
+            Elem::new(
+              ElemMode::active(table_idx, gen_valid_active_i32_offset(ctx)),
+              ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+            )
+          _ => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
+        }
       } else {
-        match ctx.random_int(5) {
+        match ctx.random_int(7) {
           0 =>
             Elem::new(
               ElemMode::active(
@@ -2126,7 +2953,7 @@ pub fn gen_valid_module_with_config(
                 gen_valid_funcref_expr(ctx, func_idx),
               ]),
             )
-          _ =>
+          4 =>
             Elem::new(
               ElemMode::active(
                 TableIdx::new(0U),
@@ -2134,18 +2961,51 @@ pub fn gen_valid_module_with_config(
               ),
               ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
             )
+          5 =>
+            match (gc_table_choice, gc_table_ref_type) {
+              (Some(table_idx), Some(rt)) if ValType::ref_type(rt) != ValType::funcref() =>
+                Elem::new(
+                  ElemMode::active(table_idx, gen_valid_active_i32_offset(ctx)),
+                  ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+                )
+              _ => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
+            }
+          _ =>
+            match gc_table_ref_type {
+              Some(rt) if ValType::ref_type(rt) != ValType::funcref() =>
+                Elem::new(
+                  ElemMode::passive(),
+                  ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+                )
+              _ =>
+                Elem::new(
+                  ElemMode::declarative(),
+                  ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
+                )
+            }
         }
       }
       elems.push(elem)
     }
   }
   let elem_idxs : Array[ElemIdx] = []
+  let passive_elem_idxs : Array[ElemIdx] = []
+  let mut bulk_elem_seed_idx : ElemIdx? = None
   for i = 0; i < elems.length(); i = i + 1 {
-    let Elem(mode, _) = elems[i]
+    let elem_idx = ElemIdx::new(i.reinterpret_as_uint())
+    let Elem(mode, kind) = elems[i]
     match mode {
       Active(_, _) => ()
-      Passive | Declarative =>
-        elem_idxs.push(ElemIdx::new(i.reinterpret_as_uint()))
+      Passive => {
+        elem_idxs.push(elem_idx)
+        passive_elem_idxs.push(elem_idx)
+        match (bulk_elem_seed_idx, gc_type_plan.bulk_elem_ref_type, kind) {
+          (None, Some(seed_rt), TypedExprsElemKind(rt, _)) if rt == seed_rt =>
+            bulk_elem_seed_idx = Some(elem_idx)
+          _ => ()
+        }
+      }
+      Declarative => elem_idxs.push(elem_idx)
     }
   }
 
@@ -2201,9 +3061,12 @@ pub fn gen_valid_module_with_config(
         global_types,
         table_types,
         mems,
+        tags,
         func_sigs,
         data_idxs,
         elem_idxs,
+        passive_elem_idxs,
+        bulk_elem_seed_idx,
         gc_type_plan,
         Some(first_defined_func_idx),
       ),
@@ -2407,6 +3270,12 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
       }
     Br(_) | BrIf(_) | BrTable(_, _) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), branch_ops: 1 }
+    BrOnNull(_) | BrOnNonNull(_) | BrOnCast(_, _, _, _) | BrOnCastFail(_, _, _, _) =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        uses_ref_types: true,
+        branch_ops: 1,
+      }
     Block(bt, body) | Loop(bt, body) => {
       let (has_ref, has_v128) = gen_valid_scan_block_type(bt)
       let body_facts = gen_valid_scan_expr(body)
@@ -2465,11 +3334,12 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         uses_v128,
       }
     }
-    RefNull(_) | RefFunc(_) =>
+    RefNull(_) | RefFunc(_) | StringConst(_) | ThrowRef | RefGetDesc(_) | RefTest(_, _) | RefCast(_, _) | RefTestDesc(_, _) | RefCastDescEq(_, _) =>
       GenValidInstrFacts::{
         ..GenValidInstrFacts::empty(),
         uses_ref_types: true,
       }
+    Throw(_) => GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), branch_ops: 1 }
     V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), uses_v128: true }
     _ => GenValidInstrFacts::empty()

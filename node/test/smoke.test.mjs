@@ -195,6 +195,44 @@ test('cmd bridge accepts optimization flags as no-ops through JS IO hooks', () =
   assert.equal(decoded.ok, true);
 });
 
+test('cmd bridge reports truthful closedWorld state from config, env, and CLI precedence', () => {
+  const files = new Map();
+  files.set('cfg.json', new TextEncoder().encode(JSON.stringify({
+    inputs: { globs: ['cfg.wasm'] },
+    options: { closedWorld: true },
+  })));
+  files.set('cfg.wasm', new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]));
+  files.set('cli.wasm', new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]));
+  const writes = new Map();
+  const io = cmd.CmdIO.new(
+    (name) => name === 'STARSHINE_CLOSED_WORLD' ? 'true' : null,
+    (targetPath) => files.has(targetPath),
+    (targetPath) => files.has(targetPath)
+      ? { ok: true, value: files.get(targetPath) }
+      : { ok: false, error: `missing file: ${targetPath}` },
+    undefined,
+    undefined,
+    (targetPath, bytes) => {
+      writes.set(targetPath, bytes);
+      return { ok: true, value: undefined };
+    },
+    () => ({ ok: true, value: undefined }),
+    () => ({ ok: true, value: undefined }),
+    () => ['cfg.wasm', 'cli.wasm'],
+    () => ({ ok: false, error: 'use in-process fallback' }),
+  );
+
+  const envResult = cmd.runCmdWithAdapter(['--config', 'cfg.json'], io);
+  assert.equal(envResult.ok, true);
+  assert.equal(envResult.value.closedWorld, true);
+
+  const cliResult = cmd.runCmdWithAdapter(['--config', 'cfg.json', '--no-closed-world', 'cli.wasm'], io);
+  assert.equal(cliResult.ok, true);
+  assert.equal(cliResult.value.closedWorld, false);
+  assert.equal(writes.has('cfg.wasm'), true);
+  assert.equal(writes.has('cli.wasm'), true);
+});
+
 test('cmd bridge runs differential validation with JS adapters', () => {
   const parsed = wast.wastToBinaryModule('(module (func (export "run")))');
   assert.equal(parsed.ok, true);
@@ -213,13 +251,12 @@ test('cmd bridge runs differential validation with JS adapters', () => {
   assert.equal(result.value.binaryenValid, true);
 });
 
-test('cmd bridge reports fuzz harness configuration failures through the callback', () => {
+test('cmd bridge reports fuzz harness configuration failures through the parity callback API', () => {
   const failures = [];
-  const result = cmd.runWasmSmithFuzzHarness(
+  const result = cmd.runCmdFuzzHarness(
     -1,
     0x5eedn,
     [],
-    null,
     null,
     0,
     (report) => {
