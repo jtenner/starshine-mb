@@ -1065,12 +1065,23 @@ fn hot_lower_impl_emit_instruction(
             Some(outer_local) => out.push(Instruction::local_set(outer_local))
             None => ()
           }
-          out.push(
-            Instruction::loop_(
-              lowering.raw_block_type,
-              Expr::new(lowering.rewritten_body),
-            ),
-          )
+          match lowering.raw_block_type {
+            VoidBlockType if !hot_lower_impl_body_targets_removed_label(
+                lowering.rewritten_body,
+                0,
+              ) =>
+              for
+                instr in hot_lower_impl_rebase_body(lowering.rewritten_body, 0) {
+                out.push(instr)
+              }
+            _ =>
+              out.push(
+                Instruction::loop_(
+                  lowering.raw_block_type,
+                  Expr::new(lowering.rewritten_body),
+                ),
+              )
+          }
         }
         None =>
           out.push(

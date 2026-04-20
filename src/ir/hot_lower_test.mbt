@@ -1513,6 +1513,113 @@ test "hot lower spills transparent typed single-param void blocks through a seco
 }
 
 ///|
+test "hot lower drops branch-free typed void loop carriers into direct spills when merge-blocks wants Binaryen-stable output" {
+  let module_ = hot_lower_test_void_block_param_module()
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([@lib.Instruction::drop()]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(),
+    hot_module_context_from_module(module_),
+  )
+  let lowered = hot_lower_func_with_options(
+    hot,
+    HotLowerOptions::new(preserve_typed_loop_const_prefix_spills=true),
+  )
+  let @lib.Func(locals, lowered_body) = lowered
+
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  assert_eq(
+    lowered_body,
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(4)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::drop(),
+    ]),
+  )
+}
+
+///|
+test "hot lower drops branch-free typed void loop if-arm carriers into direct spills when merge-blocks wants Binaryen-stable output" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::i32_const(@lib.I32(4)),
+        @lib.Instruction::loop_(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+          @lib.Expr::new([@lib.Instruction::drop()]),
+        ),
+      ],
+      Some([
+        @lib.Instruction::i32_const(@lib.I32(8)),
+        @lib.Instruction::loop_(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+          @lib.Expr::new([@lib.Instruction::drop()]),
+        ),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(params=[@lib.ValType::i32()]),
+    hot_module_context_from_module(hot_lower_test_void_block_param_module()),
+  )
+  let lowered = hot_lower_func_with_options(
+    hot,
+    HotLowerOptions::new(preserve_typed_loop_const_prefix_spills=true),
+  )
+  let @lib.Func(locals, lowered_body) = lowered
+
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+      @lib.ValType::i32(),
+    ]),
+  )
+  assert_eq(
+    lowered_body,
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::if_(
+        @lib.BlockType::void_(),
+        [
+          @lib.Instruction::i32_const(@lib.I32(4)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+          @lib.Instruction::drop(),
+        ],
+        Some([
+          @lib.Instruction::i32_const(@lib.I32(8)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+          @lib.Instruction::drop(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 test "hot lower preserves typed loop const-prefix carriers when merge-blocks wants Binaryen-stable spills" {
   let module_ = hot_lower_test_block_param_module()
   let body = @lib.Expr::new([
