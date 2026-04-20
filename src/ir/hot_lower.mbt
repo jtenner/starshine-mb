@@ -1306,7 +1306,8 @@ fn hot_lower_impl_emit_transparent_param_block(
     out.push(Instruction::local_get(scratch_locals[idx]))
     body_stack.push(entry_values[idx])
   }
-  if body_stack.length() == 1 && hot_label_branch_arity(func, label_id) > 1 {
+  let branch_arity = hot_label_branch_arity(func, label_id)
+  if body_stack.length() == 1 && branch_arity != 1 {
     let carried = body_stack.pop().unwrap()
     let scratch = hot_lower_impl_alloc_scratch_local(
       func,
@@ -1322,10 +1323,7 @@ fn hot_lower_impl_emit_transparent_param_block(
     body_root_ids.push(root_ids[idx])
   }
   let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
-    func,
-    use_def,
-    body_root_ids,
-    hot_label_branch_arity(func, label_id),
+    func, use_def, body_root_ids, branch_arity,
   )
   let mut root_idx = 0
   for child in body_root_ids {
@@ -1345,9 +1343,7 @@ fn hot_lower_impl_emit_transparent_param_block(
     )
     root_idx += 1
   }
-  if used_carrier_child_prefix &&
-    body_stack.length() == 1 &&
-    hot_label_branch_arity(func, label_id) == 1 {
+  if used_carrier_child_prefix && body_stack.length() == 1 && branch_arity == 1 {
     let carried = body_stack.pop().unwrap()
     let scratch = hot_lower_impl_alloc_scratch_local(
       func,
@@ -1359,11 +1355,7 @@ fn hot_lower_impl_emit_transparent_param_block(
     body_stack.push(carried)
   }
   hot_lower_impl_finalize_region_stack(
-    func,
-    hot_label_branch_arity(func, label_id),
-    body_stack,
-    out,
-    extra_locals,
+    func, branch_arity, body_stack, out, extra_locals,
   )
   hot_lower_impl_push_results(func, id, stack)
 }

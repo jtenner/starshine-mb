@@ -450,6 +450,83 @@ test "merge-blocks preserves outer typed param block lowering for single-result 
 }
 
 ///|
+test "merge-blocks preserves typed single-param void block carriers Binaryen-stable" {
+  let source =
+    #| (module
+    #|   (type $t (func (param i32)))
+    #|   (func
+    #|     i32.const 4
+    #|     (block (type $t)
+    #|       (block (type $t)
+    #|         drop))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected merge-blocks typed single-param void block success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(merge_blocks_test_count_substring(pretty, "drop"), 1, msg=pretty)
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+}
+
+///|
+test "merge-blocks preserves typed single-param void block if-arm carriers Binaryen-stable" {
+  let source =
+    #| (module
+    #|   (type $t (func (param i32)))
+    #|   (func (param i32)
+    #|     (if
+    #|       (local.get 0)
+    #|       (then
+    #|         i32.const 4
+    #|         (block (type $t)
+    #|           (block (type $t)
+    #|             drop)))
+    #|       (else
+    #|         i32.const 8
+    #|         (block (type $t)
+    #|           (block (type $t)
+    #|             drop))))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected merge-blocks typed single-param void block if-arm success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.set"),
+    4,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.get"),
+    5,
+    msg=pretty,
+  )
+  assert_eq(merge_blocks_test_count_substring(pretty, "drop"), 2, msg=pretty)
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+  assert_true(pretty.contains("I32(8)"), msg=pretty)
+}
+
+///|
 test "merge-blocks keeps typed single-result if-arm param block lowering Binaryen-stable" {
   let source =
     #| (module
