@@ -1005,23 +1005,55 @@ fn hot_lower_impl_emit_transparent_param_block(
       root_ids.push(child)
     }
   }
-  let entry_stack : Array[HotLowerStackValue] = []
+  let entry_values : Array[HotLowerStackValue] = []
   let mut entry_root_count = 0
-  while entry_stack.length() < param_types.length() &&
-        entry_root_count < root_ids.length() {
-    let entry_root = root_ids[entry_root_count]
-    hot_lower_impl_emit_root(
-      func, entry_root, use_def, label_frames, label_stack_head, entry_stack, out,
-      extra_locals,
-    )
-    entry_root_count += 1
+  let mut used_carrier_child_prefix = false
+  if stack.length() >= param_types.length() {
+    let start = stack.length() - param_types.length()
+    for idx = start; idx < stack.length(); idx = idx + 1 {
+      entry_values.push(stack[idx])
+    }
+    for _ in 0..<param_types.length() {
+      ignore(stack.pop())
+    }
+  } else {
+    let entry_stack : Array[HotLowerStackValue] = []
+    if root_ids.length() > 0 &&
+      hot_child_count(func, root_ids[0]) >= param_types.length() {
+      used_carrier_child_prefix = true
+      let carrier_root = root_ids[0]
+      for idx = 0; idx < param_types.length(); idx = idx + 1 {
+        hot_lower_impl_emit_root(
+          func,
+          hot_child_get(func, carrier_root, idx),
+          use_def,
+          label_frames,
+          label_stack_head,
+          entry_stack,
+          out,
+          extra_locals,
+        )
+      }
+    } else {
+      while entry_stack.length() < param_types.length() &&
+            entry_root_count < root_ids.length() {
+        let entry_root = root_ids[entry_root_count]
+        hot_lower_impl_emit_root(
+          func, entry_root, use_def, label_frames, label_stack_head, entry_stack,
+          out, extra_locals,
+        )
+        entry_root_count += 1
+      }
+    }
+    if entry_stack.length() != param_types.length() {
+      abort(
+        "transparent param block lowering requires entry roots or stack values for all params",
+      )
+    }
+    for value in entry_stack {
+      entry_values.push(value)
+    }
   }
-  if entry_stack.length() != param_types.length() {
-    abort(
-      "transparent param block lowering requires entry roots for all params",
-    )
-  }
-  let entry_values = entry_stack.copy()
   let scratch_locals : Array[LocalIdx] = []
   for param_type in param_types {
     scratch_locals.push(
@@ -1030,7 +1062,6 @@ fn hot_lower_impl_emit_transparent_param_block(
   }
   for idx = scratch_locals.length() - 1; idx >= 0; idx = idx - 1 {
     out.push(Instruction::local_set(scratch_locals[idx]))
-    ignore(entry_stack.pop())
   }
   let body_stack : Array[HotLowerStackValue] = []
   for idx = 0; idx < scratch_locals.length(); idx = idx + 1 {
@@ -1063,6 +1094,19 @@ fn hot_lower_impl_emit_transparent_param_block(
       out,
     )
     root_idx += 1
+  }
+  if used_carrier_child_prefix &&
+    body_stack.length() == 1 &&
+    hot_label_branch_arity(func, label_id) == 1 {
+    let carried = body_stack.pop().unwrap()
+    let scratch = hot_lower_impl_alloc_scratch_local(
+      func,
+      extra_locals,
+      carried.val_type,
+    )
+    out.push(Instruction::local_set(scratch))
+    out.push(Instruction::local_get(scratch))
+    body_stack.push(carried)
   }
   hot_lower_impl_finalize_region_stack(
     func,
@@ -3121,6 +3165,108 @@ fn hot_lower_impl_fix_split_payload_wrappers_in_body(
 }
 
 ///|
+fn hot_lower_impl_rewrite_binary_const_result_spill_in_instr(
+  instr : Instruction,
+) -> Instruction {
+  match instr {
+    Block(bt, Expr(body)) =>
+      Instruction::block(
+        bt,
+        Expr::new(
+          hot_lower_impl_rewrite_binary_const_result_spills_in_body(body),
+        ),
+      )
+    Loop(bt, Expr(body)) =>
+      Instruction::loop_(
+        bt,
+        Expr::new(
+          hot_lower_impl_rewrite_binary_const_result_spills_in_body(body),
+        ),
+      )
+    If(bt, then_, else_) =>
+      Instruction::if_(
+        bt,
+        hot_lower_impl_rewrite_binary_const_result_spills_in_body(then_),
+        match else_ {
+          Some(else_body) =>
+            Some(
+              hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+                else_body,
+              ),
+            )
+          None => None
+        },
+      )
+    TryTable(bt, catches, Expr(body)) =>
+      Instruction::try_table(
+        bt,
+        catches,
+        Expr::new(
+          hot_lower_impl_rewrite_binary_const_result_spills_in_body(body),
+        ),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  let nested : Array[Instruction] = []
+  for instr in body {
+    nested.push(
+      hot_lower_impl_rewrite_binary_const_result_spill_in_instr(instr),
+    )
+  }
+  let rewritten : Array[Instruction] = []
+  let mut i = 0
+  while i < nested.length() {
+    if i + 4 < nested.length() {
+      let lhs = nested[i]
+      let rhs = nested[i + 1]
+      let op_instr = nested[i + 2]
+      let set_instr = nested[i + 3]
+      let get_instr = nested[i + 4]
+      let rhs_is_const = match rhs {
+        I32Const(_)
+        | I64Const(_)
+        | F32Const(_)
+        | F64Const(_)
+        | RefNull(_)
+        | StringConst(_) => true
+        _ => false
+      }
+      if rhs_is_const && !hot_lower_impl_has_control_transfer(op_instr) {
+        match lhs {
+          LocalGet(source_local) =>
+            match set_instr {
+              LocalSet(target_local) if target_local != source_local =>
+                match get_instr {
+                  LocalGet(found_local) if found_local == target_local => {
+                    rewritten.push(lhs)
+                    rewritten.push(set_instr)
+                    rewritten.push(get_instr)
+                    rewritten.push(rhs)
+                    rewritten.push(op_instr)
+                    i = i + 5
+                    continue
+                  }
+                  _ => ()
+                }
+              _ => ()
+            }
+          _ => ()
+        }
+      }
+    }
+    rewritten.push(nested[i])
+    i = i + 1
+  }
+  rewritten
+}
+
+///|
 fn hot_lower_body_with_extras_with_options(
   func : HotFunc,
   options : HotLowerOptions,
@@ -3171,6 +3317,9 @@ fn hot_lower_body_with_extras_unverified_with_options(
     func, canonical, extra_locals,
   )
   let stackified = hot_lower_impl_fix_split_payload_wrappers_in_body(stackified)
+  let stackified = hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+    stackified,
+  )
   let stackified = hot_lower_impl_prune_dead_local_tees(
     func, stackified, extra_locals, options,
   )

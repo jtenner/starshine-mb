@@ -166,12 +166,12 @@ fn merge_blocks_visit_control_node(
         label_used,
         flattened_roots,
         module_ctx,
-        control_has_params,
+        false,
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           changed = merge_blocks_visit_region(
-              func, else_region, label_used, flattened_roots, module_ctx, control_has_params,
+              func, else_region, label_used, flattened_roots, module_ctx, false,
             ) ||
             changed
         None => ()
