@@ -546,6 +546,47 @@ fn hot_lower_impl_region_body(
 }
 
 ///|
+fn hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
+  func : HotFunc,
+  block_type : BlockType,
+) -> Bool {
+  match block_type {
+    TypeIdxBlockType(type_idx) => {
+      for type_id = 0; type_id < func.types.length(); type_id = type_id + 1 {
+        match hot_type_get(func, type_id) {
+          BlockResultResolved(TypeIdxBlockType(candidate_idx), params, _) =>
+            if candidate_idx == type_idx && params.length() > 0 {
+              return true
+            }
+          _ => ()
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_result_only_block_type_candidate(
+  func : HotFunc,
+  block_type : BlockType,
+  params : Array[ValType],
+  results : Array[ValType],
+  expected_results : Array[ValType],
+) -> BlockType? {
+  if params.length() != 0 || results != expected_results {
+    return None
+  }
+  if hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
+      func, block_type,
+    ) {
+    return None
+  }
+  Some(block_type)
+}
+
+///|
 fn hot_lower_impl_result_only_block_type(
   func : HotFunc,
   results : Array[ValType],
@@ -553,11 +594,18 @@ fn hot_lower_impl_result_only_block_type(
   let body_result_ty = hot_body_result_type(func)
   match hot_type_get(func, body_result_ty) {
     BlockResultResolved(block_type, params, body_results) =>
-      if params.length() == 0 && body_results == results {
-        return Some(block_type)
+      match
+        hot_lower_impl_result_only_block_type_candidate(
+          func, block_type, params, body_results, results,
+        ) {
+        Some(candidate) => return Some(candidate)
+        None => ()
       }
     BlockResult(block_type) =>
-      if hot_type_results(func, body_result_ty) == results {
+      if hot_type_results(func, body_result_ty) == results &&
+        !hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
+          func, block_type,
+        ) {
         return Some(block_type)
       }
     _ => ()
@@ -568,11 +616,18 @@ fn hot_lower_impl_result_only_block_type(
     }
     match hot_type_get(func, type_id) {
       BlockResultResolved(block_type, params, candidate_results) =>
-        if params.length() == 0 && candidate_results == results {
-          return Some(block_type)
+        match
+          hot_lower_impl_result_only_block_type_candidate(
+            func, block_type, params, candidate_results, results,
+          ) {
+          Some(candidate) => return Some(candidate)
+          None => ()
         }
       BlockResult(block_type) =>
-        if hot_type_results(func, type_id) == results {
+        if hot_type_results(func, type_id) == results &&
+          !hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
+            func, block_type,
+          ) {
           return Some(block_type)
         }
       _ => ()
@@ -605,19 +660,80 @@ fn hot_lower_impl_drop_dead_nonfinal_root_results(
 }
 
 ///|
+priv struct HotLowerTypedLoopConstPrefixLowering {
+  outer_local : LocalIdx?
+  raw_block_type : BlockType
+  rewritten_body : Array[Instruction]
+}
+
+///|
+fn hot_lower_impl_typed_loop_const_prefix_head_instr(
+  instr : Instruction,
+) -> Bool {
+  match instr {
+    I32Const(_)
+    | I64Const(_)
+    | F32Const(_)
+    | F64Const(_)
+    | RefNull(_)
+    | StringConst(_)
+    | Drop => true
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_typed_loop_const_prefix_reuses_existing_spill(
+  body : Array[Instruction],
+) -> Bool {
+  if body.length() < 4 {
+    return false
+  }
+  match body[0] {
+    LocalGet(source_local) =>
+      match body[1] {
+        LocalSet(spill_local) if spill_local != source_local =>
+          match body[2] {
+            LocalGet(reload_local) if reload_local == spill_local =>
+              hot_lower_impl_typed_loop_const_prefix_head_instr(body[3])
+            _ => false
+          }
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
 fn hot_lower_impl_typed_loop_const_prefix_lowering(
   func : HotFunc,
   id : NodeId,
   body : Array[Instruction],
   extra_locals : Array[ValType],
   options : HotLowerOptions,
-) -> (LocalIdx, BlockType, Array[Instruction])? {
+) -> HotLowerTypedLoopConstPrefixLowering? {
   if !options.preserve_typed_loop_const_prefix_spills {
     return None
   }
-  let param_types = hot_lower_impl_control_param_types(func, id)
   let label_id = hot_control_node_label(func, id)
-  if param_types.length() != 1 || hot_lower_impl_label_is_used(func, label_id) {
+  if hot_lower_impl_label_is_used(func, label_id) {
+    return None
+  }
+  let results = hot_type_results(func, hot_node_type(func, id))
+  let raw_block_type = match results {
+    [] => BlockType::void_()
+    [result_type] => BlockType::val_type(result_type)
+    _ =>
+      match hot_lower_impl_result_only_block_type(func, results) {
+        Some(block_type) => block_type
+        None => return None
+      }
+  }
+  if hot_lower_impl_typed_loop_const_prefix_reuses_existing_spill(body) {
+    return Some({ outer_local: None, raw_block_type, rewritten_body: body })
+  }
+  let param_types = hot_lower_impl_control_param_types(func, id)
+  if param_types.length() != 1 {
     return None
   }
   match body {
@@ -638,16 +754,6 @@ fn hot_lower_impl_typed_loop_const_prefix_lowering(
         extra_locals,
         param_types[0],
       )
-      let results = hot_type_results(func, hot_node_type(func, id))
-      let raw_block_type = match results {
-        [] => BlockType::void_()
-        [result_type] => BlockType::val_type(result_type)
-        _ =>
-          match hot_lower_impl_result_only_block_type(func, results) {
-            Some(block_type) => block_type
-            None => return None
-          }
-      }
       let rewritten_body : Array[Instruction] = [
         Instruction::local_get(outer_local),
         Instruction::local_set(inner_local),
@@ -656,7 +762,7 @@ fn hot_lower_impl_typed_loop_const_prefix_lowering(
       for instr in body {
         rewritten_body.push(instr)
       }
-      Some((outer_local, raw_block_type, rewritten_body))
+      Some({ outer_local: Some(outer_local), raw_block_type, rewritten_body })
     }
     _ => None
   }
@@ -954,10 +1060,16 @@ fn hot_lower_impl_emit_instruction(
         hot_lower_impl_typed_loop_const_prefix_lowering(
           func, id, loop_body, extra_locals, options,
         ) {
-        Some((outer_local, raw_block_type, rewritten_body)) => {
-          out.push(Instruction::local_set(outer_local))
+        Some(lowering) => {
+          match lowering.outer_local {
+            Some(outer_local) => out.push(Instruction::local_set(outer_local))
+            None => ()
+          }
           out.push(
-            Instruction::loop_(raw_block_type, Expr::new(rewritten_body)),
+            Instruction::loop_(
+              lowering.raw_block_type,
+              Expr::new(lowering.rewritten_body),
+            ),
           )
         }
         None =>
