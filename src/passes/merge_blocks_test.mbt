@@ -51,6 +51,41 @@ test "merge-blocks flattens inner blocks inside loops without dropping continue 
 }
 
 ///|
+test "merge-blocks preserves typed single-param loop carriers Binaryen-stable" {
+  let source =
+    #| (module
+    #|   (type $t (func (param i32) (result i32)))
+    #|   (func (result i32)
+    #|     i32.const 4
+    #|     (loop (type $t)
+    #|       (block (type $t)
+    #|         i32.const 1
+    #|         i32.add))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks typed single-param loop success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(merge_blocks_test_count_substring(pretty, "i32.add"), 1, msg=pretty)
+  assert_true(pretty.contains("(loop I32"), msg=pretty)
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+}
+
+///|
 test "merge-blocks preserves blocks with incoming branch targets" {
   let optimized = match
     pass_test_run_pipeline(

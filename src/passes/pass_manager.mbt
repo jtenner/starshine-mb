@@ -7816,6 +7816,7 @@ fn run_hot_pipeline_lower_options_for_descriptor(
       preserve_dead_local_tee_drops=true,
       preserve_nontrailing_nops=true,
       preserve_trailing_nops=true,
+      preserve_typed_loop_const_prefix_spills=true,
     )
   } else {
     @ir.HotLowerOptions::new()

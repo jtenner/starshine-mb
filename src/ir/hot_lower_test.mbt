@@ -1448,6 +1448,54 @@ test "hot lower canonicalizes typed loop entry values without redundant tees" {
 }
 
 ///|
+test "hot lower preserves typed loop const-prefix carriers when merge-blocks wants Binaryen-stable spills" {
+  let module_ = hot_lower_test_block_param_module()
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i32_add(),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(),
+    hot_module_context_from_module(module_),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+  let lowered = hot_lower_func_with_options(
+    hot,
+    HotLowerOptions::new(preserve_typed_loop_const_prefix_spills=true),
+  )
+  let @lib.Func(locals, lowered_body) = lowered
+
+  assert_eq(
+    locals,
+    @lib.Locals::from_types([@lib.ValType::i32(), @lib.ValType::i32()]),
+  )
+  assert_eq(
+    lowered_body,
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(4)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::loop_(
+        @lib.BlockType::val_type(@lib.ValType::i32()),
+        @lib.Expr::new([
+          @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+          @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+          @lib.Instruction::i32_const(@lib.I32(1)),
+          @lib.Instruction::i32_add(),
+        ]),
+      ),
+    ]),
+  )
+}
+
+///|
 test "hot lower roundtrips multi-result producers consumed across instructions" {
   let module_ = hot_lower_test_multi_result_module()
   let hot = hot_lift_func(module_, @lib.FuncIdx::new(1U))

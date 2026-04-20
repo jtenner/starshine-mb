@@ -17,6 +17,7 @@ pub struct HotLowerOptions {
   preserve_dead_local_tee_drops : Bool
   preserve_nontrailing_nops : Bool
   preserve_trailing_nops : Bool
+  preserve_typed_loop_const_prefix_spills : Bool
 }
 
 ///|
@@ -25,12 +26,14 @@ pub fn HotLowerOptions::new(
   preserve_dead_local_tee_drops? : Bool = false,
   preserve_nontrailing_nops? : Bool = false,
   preserve_trailing_nops? : Bool = false,
+  preserve_typed_loop_const_prefix_spills? : Bool = false,
 ) -> HotLowerOptions {
   {
     preserve_if_arm_single_nops,
     preserve_dead_local_tee_drops,
     preserve_nontrailing_nops,
     preserve_trailing_nops,
+    preserve_typed_loop_const_prefix_spills,
   }
 }
 
@@ -424,6 +427,7 @@ fn hot_lower_impl_body_items(
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   let out : Array[Instruction] = []
   let mut next_stack = label_stack_head
@@ -486,6 +490,7 @@ fn hot_lower_impl_body_items(
     if child != HOT_NONE_NODE {
       hot_lower_impl_emit_root(
         func, child, use_def, label_frames, next_stack, value_stack, out, extra_locals,
+        options,
       )
       let is_final_root = i + 1 == node.child_count
       hot_lower_impl_drop_dead_nonfinal_root_results(
@@ -517,6 +522,7 @@ fn hot_lower_impl_region_body(
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   if id == HOT_NONE_NODE {
     return []
@@ -527,13 +533,14 @@ fn hot_lower_impl_region_body(
     label_id >= 0 &&
     hot_label_kind(func, label_id) == HotLabelKind::RegionLabel {
     return hot_lower_impl_body_items(
-      func, id, use_def, label_frames, label_stack_head, extra_locals,
+      func, id, use_def, label_frames, label_stack_head, extra_locals, options,
     )
   }
   let out : Array[Instruction] = []
   let value_stack : Array[HotLowerStackValue] = []
   hot_lower_impl_emit_root(
     func, id, use_def, label_frames, label_stack_head, value_stack, out, extra_locals,
+    options,
   )
   out
 }
@@ -558,6 +565,59 @@ fn hot_lower_impl_drop_dead_nonfinal_root_results(
   for _ in 0..<result_arity {
     out.push(Instruction::drop())
     ignore(stack.pop())
+  }
+}
+
+///|
+fn hot_lower_impl_typed_loop_const_prefix_lowering(
+  func : HotFunc,
+  id : NodeId,
+  body : Array[Instruction],
+  extra_locals : Array[ValType],
+  options : HotLowerOptions,
+) -> (LocalIdx, BlockType, Array[Instruction])? {
+  if !options.preserve_typed_loop_const_prefix_spills {
+    return None
+  }
+  let param_types = hot_lower_impl_control_param_types(func, id)
+  let label_id = hot_control_node_label(func, id)
+  if param_types.length() != 1 || hot_lower_impl_label_is_used(func, label_id) {
+    return None
+  }
+  match body {
+    [I32Const(_), ..]
+    | [I64Const(_), ..]
+    | [F32Const(_), ..]
+    | [F64Const(_), ..]
+    | [RefNull(_), ..]
+    | [StringConst(_), ..] => {
+      let outer_local = hot_lower_impl_alloc_scratch_local(
+        func,
+        extra_locals,
+        param_types[0],
+      )
+      let inner_local = hot_lower_impl_alloc_scratch_local(
+        func,
+        extra_locals,
+        param_types[0],
+      )
+      let raw_block_type = match
+        hot_type_results(func, hot_node_type(func, id)) {
+        [] => BlockType::void_()
+        [result_type] => BlockType::val_type(result_type)
+        _ => return None
+      }
+      let rewritten_body : Array[Instruction] = [
+        Instruction::local_get(outer_local),
+        Instruction::local_set(inner_local),
+        Instruction::local_get(inner_local),
+      ]
+      for instr in body {
+        rewritten_body.push(instr)
+      }
+      Some((outer_local, raw_block_type, rewritten_body))
+    }
+    _ => None
   }
 }
 
@@ -648,6 +708,7 @@ fn hot_lower_impl_emit_instruction(
   label_stack_head : Int,
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Unit {
   let node = hot_node_get(func, id)
   match node.op {
@@ -839,22 +900,34 @@ fn hot_lower_impl_emit_instruction(
           hot_lower_impl_control_block_type(func, id),
           Expr::new(
             hot_lower_impl_body_items(
-              func, id, use_def, label_frames, label_stack_head, extra_locals,
+              func, id, use_def, label_frames, label_stack_head, extra_locals, options,
             ),
           ),
         ),
       )
-    HotOp::Loop =>
-      out.push(
-        Instruction::loop_(
-          hot_lower_impl_control_block_type(func, id),
-          Expr::new(
-            hot_lower_impl_body_items(
-              func, id, use_def, label_frames, label_stack_head, extra_locals,
-            ),
-          ),
-        ),
+    HotOp::Loop => {
+      let loop_body = hot_lower_impl_body_items(
+        func, id, use_def, label_frames, label_stack_head, extra_locals, options,
       )
+      match
+        hot_lower_impl_typed_loop_const_prefix_lowering(
+          func, id, loop_body, extra_locals, options,
+        ) {
+        Some((outer_local, raw_block_type, rewritten_body)) => {
+          out.push(Instruction::local_set(outer_local))
+          out.push(
+            Instruction::loop_(raw_block_type, Expr::new(rewritten_body)),
+          )
+        }
+        None =>
+          out.push(
+            Instruction::loop_(
+              hot_lower_impl_control_block_type(func, id),
+              Expr::new(loop_body),
+            ),
+          )
+      }
+    }
     HotOp::If => {
       let label_id = hot_control_node_label(func, id)
       let next_stack = if label_id >= 0 {
@@ -869,14 +942,14 @@ fn hot_lower_impl_emit_instruction(
         Instruction::if_(
           hot_lower_impl_control_block_type(func, id),
           hot_lower_impl_region_body(
-            func, then_id, use_def, label_frames, next_stack, extra_locals,
+            func, then_id, use_def, label_frames, next_stack, extra_locals, options,
           ),
           if else_id == HOT_NONE_NODE {
             None
           } else {
             Some(
               hot_lower_impl_region_body(
-                func, else_id, use_def, label_frames, next_stack, extra_locals,
+                func, else_id, use_def, label_frames, next_stack, extra_locals, options,
               ),
             )
           },
@@ -905,6 +978,7 @@ fn hot_lower_impl_emit_instruction(
               label_frames,
               next_stack,
               extra_locals,
+              options,
             ),
           ),
         ),
@@ -927,6 +1001,7 @@ fn hot_lower_impl_emit_value(
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
   force_emit? : Bool = false,
 ) -> Unit {
   hot_lower_impl_emit_root(
@@ -938,6 +1013,7 @@ fn hot_lower_impl_emit_value(
     stack,
     out,
     extra_locals,
+    options,
     allow_stack_top_reuse=!force_emit,
   )
 }
@@ -952,6 +1028,7 @@ fn hot_lower_impl_emit_inputs(
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Unit {
   let matched = hot_lower_impl_matching_input_prefix(stack, inputs)
   let mut idx = matched
@@ -974,6 +1051,7 @@ fn hot_lower_impl_emit_inputs(
         stack,
         out,
         extra_locals,
+        options,
         force_emit=emit_idx > 0,
       )
     }
@@ -991,6 +1069,7 @@ fn hot_lower_impl_emit_transparent_param_block(
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Unit {
   let param_types = hot_lower_impl_control_param_types(func, id)
   if param_types.length() == 0 {
@@ -1037,6 +1116,7 @@ fn hot_lower_impl_emit_transparent_param_block(
           entry_stack,
           out,
           extra_locals,
+          options,
         )
       }
     } else {
@@ -1045,7 +1125,7 @@ fn hot_lower_impl_emit_transparent_param_block(
         let entry_root = root_ids[entry_root_count]
         hot_lower_impl_emit_root(
           func, entry_root, use_def, label_frames, label_stack_head, entry_stack,
-          out, extra_locals,
+          out, extra_locals, options,
         )
         entry_root_count += 1
       }
@@ -1098,6 +1178,7 @@ fn hot_lower_impl_emit_transparent_param_block(
   for child in body_root_ids {
     hot_lower_impl_emit_root(
       func, child, use_def, label_frames, label_stack_head, body_stack, out, extra_locals,
+      options,
     )
     let is_final_root = root_idx + 1 == body_root_ids.length()
     hot_lower_impl_drop_dead_nonfinal_root_results(
@@ -1144,6 +1225,7 @@ fn hot_lower_impl_emit_root(
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
   allow_stack_top_reuse? : Bool = true,
 ) -> Unit {
   if allow_stack_top_reuse && hot_node_result_arity(func, id) > 0 {
@@ -1158,6 +1240,7 @@ fn hot_lower_impl_emit_root(
     !hot_lower_impl_label_is_used(func, label_id) {
     hot_lower_impl_emit_transparent_param_block(
       func, id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
+      options,
     )
     return
   }
@@ -1171,9 +1254,10 @@ fn hot_lower_impl_emit_root(
     stack,
     out,
     extra_locals,
+    options,
   )
   hot_lower_impl_emit_instruction(
-    func, id, use_def, label_frames, label_stack_head, out, extra_locals,
+    func, id, use_def, label_frames, label_stack_head, out, extra_locals, options,
   )
   hot_lower_impl_update_stack(func, id, inputs.pop_count, stack)
 }
@@ -3314,7 +3398,7 @@ fn hot_lower_body_with_extras_unverified_with_options(
   for i = 0; i < hot_root_count(func); i = i + 1 {
     let root_id = root_ids[i]
     hot_lower_impl_emit_root(
-      func, root_id, use_def, label_frames, -1, value_stack, out, extra_locals,
+      func, root_id, use_def, label_frames, -1, value_stack, out, extra_locals, options,
     )
     hot_lower_impl_drop_dead_nonfinal_root_results(
       func,
