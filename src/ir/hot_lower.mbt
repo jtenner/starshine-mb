@@ -546,6 +546,42 @@ fn hot_lower_impl_region_body(
 }
 
 ///|
+fn hot_lower_impl_result_only_block_type(
+  func : HotFunc,
+  results : Array[ValType],
+) -> BlockType? {
+  let body_result_ty = hot_body_result_type(func)
+  match hot_type_get(func, body_result_ty) {
+    BlockResultResolved(block_type, params, body_results) =>
+      if params.length() == 0 && body_results == results {
+        return Some(block_type)
+      }
+    BlockResult(block_type) =>
+      if hot_type_results(func, body_result_ty) == results {
+        return Some(block_type)
+      }
+    _ => ()
+  }
+  for type_id = 0; type_id < func.types.length(); type_id = type_id + 1 {
+    if type_id == body_result_ty {
+      continue
+    }
+    match hot_type_get(func, type_id) {
+      BlockResultResolved(block_type, params, candidate_results) =>
+        if params.length() == 0 && candidate_results == results {
+          return Some(block_type)
+        }
+      BlockResult(block_type) =>
+        if hot_type_results(func, type_id) == results {
+          return Some(block_type)
+        }
+      _ => ()
+    }
+  }
+  None
+}
+
+///|
 fn hot_lower_impl_drop_dead_nonfinal_root_results(
   func : HotFunc,
   id : NodeId,
@@ -590,7 +626,8 @@ fn hot_lower_impl_typed_loop_const_prefix_lowering(
     | [F32Const(_), ..]
     | [F64Const(_), ..]
     | [RefNull(_), ..]
-    | [StringConst(_), ..] => {
+    | [StringConst(_), ..]
+    | [Drop, ..] => {
       let outer_local = hot_lower_impl_alloc_scratch_local(
         func,
         extra_locals,
@@ -601,11 +638,15 @@ fn hot_lower_impl_typed_loop_const_prefix_lowering(
         extra_locals,
         param_types[0],
       )
-      let raw_block_type = match
-        hot_type_results(func, hot_node_type(func, id)) {
+      let results = hot_type_results(func, hot_node_type(func, id))
+      let raw_block_type = match results {
         [] => BlockType::void_()
         [result_type] => BlockType::val_type(result_type)
-        _ => return None
+        _ =>
+          match hot_lower_impl_result_only_block_type(func, results) {
+            Some(block_type) => block_type
+            None => return None
+          }
       }
       let rewritten_body : Array[Instruction] = [
         Instruction::local_get(outer_local),

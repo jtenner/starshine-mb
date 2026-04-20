@@ -1244,6 +1244,26 @@ fn hot_lower_test_multi_result_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lower_test_single_param_multi_result_loop_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32()], [
+          @lib.ValType::i32(),
+          @lib.ValType::i64(),
+        ]),
+      ),
+    ),
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([], [@lib.ValType::i32(), @lib.ValType::i64()]),
+      ),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec)
+}
+
+///|
 fn hot_lower_test_triple_result_module() -> @lib.Module {
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(
@@ -1493,6 +1513,59 @@ test "hot lower preserves typed loop const-prefix carriers when merge-blocks wan
       ),
     ]),
   )
+}
+
+///|
+test "hot lower preserves typed multi-result loop const-prefix carriers when merge-blocks wants Binaryen-stable spills" {
+  let module_ = hot_lower_test_single_param_multi_result_loop_module()
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([
+        @lib.Instruction::drop(),
+        @lib.Instruction::i32_const(@lib.I32(1)),
+        @lib.Instruction::i64_const(@lib.I64(2L)),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(),
+    hot_module_context_from_module(module_),
+    body_result_type=@lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+  )
+  let lowered = hot_lower_func_with_options(
+    hot,
+    HotLowerOptions::new(preserve_typed_loop_const_prefix_spills=true),
+  )
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [
+              @lib.ValType::i32(),
+              @lib.ValType::i64(),
+            ]),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([], [@lib.ValType::i32(), @lib.ValType::i64()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+
+  assert_eq(hot_lower_test_count_substring(pretty, "local.set"), 2, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "local.get"), 2, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 1, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "i32.const"), 2, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "i64.const"), 1, msg=pretty)
 }
 
 ///|
