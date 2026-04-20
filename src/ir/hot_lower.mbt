@@ -1016,6 +1016,11 @@ fn hot_lower_impl_emit_transparent_param_block(
     for _ in 0..<param_types.length() {
       ignore(stack.pop())
     }
+    while entry_root_count < root_ids.length() &&
+          entry_root_count < entry_values.length() &&
+          root_ids[entry_root_count] == entry_values[entry_root_count].node_id {
+      entry_root_count += 1
+    }
   } else {
     let entry_stack : Array[HotLowerStackValue] = []
     if root_ids.length() > 0 &&
@@ -1068,6 +1073,17 @@ fn hot_lower_impl_emit_transparent_param_block(
     out.push(Instruction::local_get(scratch_locals[idx]))
     body_stack.push(entry_values[idx])
   }
+  if body_stack.length() == 1 && hot_label_branch_arity(func, label_id) > 1 {
+    let carried = body_stack.pop().unwrap()
+    let scratch = hot_lower_impl_alloc_scratch_local(
+      func,
+      extra_locals,
+      carried.val_type,
+    )
+    out.push(Instruction::local_set(scratch))
+    out.push(Instruction::local_get(scratch))
+    body_stack.push(carried)
+  }
   let body_root_ids : Array[NodeId] = []
   for idx = entry_root_count; idx < root_ids.length(); idx = idx + 1 {
     body_root_ids.push(root_ids[idx])
@@ -1115,9 +1131,7 @@ fn hot_lower_impl_emit_transparent_param_block(
     out,
     extra_locals,
   )
-  for value in body_stack {
-    stack.push(value)
-  }
+  hot_lower_impl_push_results(func, id, stack)
 }
 
 ///|

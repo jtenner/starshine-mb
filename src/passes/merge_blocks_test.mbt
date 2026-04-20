@@ -227,3 +227,110 @@ test "merge-blocks keeps typed multi-result param block lowering Binaryen-stable
   assert_true(pretty.contains("I32(5)"), msg=pretty)
   assert_true(pretty.contains("I32(9)"), msg=pretty)
 }
+
+///|
+test "merge-blocks keeps typed single-param multi-result block lowering Binaryen-stable" {
+  let source =
+    #| (module
+    #|   (type $t (func (param i32) (result i32 i64)))
+    #|   (func (result i32 i64)
+    #|     i32.const 4
+    #|     (block (type $t)
+    #|       (block (type $t)
+    #|         drop
+    #|         i32.const 1
+    #|         i64.const 2))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected merge-blocks typed single-param multi-result success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(merge_blocks_test_count_substring(pretty, "drop"), 1, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "i32.const"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "i64.const"),
+    1,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I64(2)"), msg=pretty)
+}
+
+///|
+test "merge-blocks keeps typed single-param multi-result if-arm lowering Binaryen-stable" {
+  let source =
+    #| (module
+    #|   (type $t (func (param i32) (result i32 i64)))
+    #|   (func (param i32) (result i32 i64)
+    #|     (if (result i32 i64)
+    #|       (local.get 0)
+    #|       (then
+    #|         i32.const 4
+    #|         (block (type $t)
+    #|           (block (type $t)
+    #|             drop
+    #|             i32.const 1
+    #|             i64.const 2)))
+    #|       (else
+    #|         i32.const 8
+    #|         (block (type $t)
+    #|           (block (type $t)
+    #|             drop
+    #|             i32.const 3
+    #|             i64.const 4))))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected merge-blocks typed single-param multi-result if-arm success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.set"),
+    4,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.get"),
+    5,
+    msg=pretty,
+  )
+  assert_eq(merge_blocks_test_count_substring(pretty, "drop"), 2, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "i32.const"),
+    4,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "i64.const"),
+    2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+  assert_true(pretty.contains("I32(8)"), msg=pretty)
+  assert_true(pretty.contains("I64(2)"), msg=pretty)
+  assert_true(pretty.contains("I64(4)"), msg=pretty)
+}
