@@ -2560,40 +2560,38 @@ fn hot_lower_impl_instr_stops_following_body_instrs(
 fn hot_lower_impl_prune_dead_local_tees_in_instr(
   instr : Instruction,
   counts : Array[Int],
+  options : HotLowerOptions,
 ) -> Instruction? {
   match instr {
-    LocalTee(li) => {
-      let @lib.LocalIdx(raw) = li
-      let idx = raw.reinterpret_as_int()
-      if idx >= 0 && idx < counts.length() && counts[idx] == 0 {
-        None
-      } else {
-        Some(instr)
-      }
-    }
     Block(bt, Expr(body)) =>
       Some(
         Instruction::block(
           bt,
-          Expr::new(hot_lower_impl_prune_dead_local_tees_in_body(body, counts)),
+          Expr::new(
+            hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options),
+          ),
         ),
       )
     Loop(bt, Expr(body)) =>
       Some(
         Instruction::loop_(
           bt,
-          Expr::new(hot_lower_impl_prune_dead_local_tees_in_body(body, counts)),
+          Expr::new(
+            hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options),
+          ),
         ),
       )
     If(bt, then_, else_) =>
       Some(
         Instruction::if_(
           bt,
-          hot_lower_impl_prune_dead_local_tees_in_body(then_, counts),
+          hot_lower_impl_prune_dead_local_tees_in_body(then_, counts, options),
           match else_ {
             Some(else_body) =>
               Some(
-                hot_lower_impl_prune_dead_local_tees_in_body(else_body, counts),
+                hot_lower_impl_prune_dead_local_tees_in_body(
+                  else_body, counts, options,
+                ),
               )
             None => None
           },
@@ -2604,7 +2602,9 @@ fn hot_lower_impl_prune_dead_local_tees_in_instr(
         Instruction::try_table(
           bt,
           catches,
-          Expr::new(hot_lower_impl_prune_dead_local_tees_in_body(body, counts)),
+          Expr::new(
+            hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options),
+          ),
         ),
       )
     _ => Some(instr)
@@ -2615,12 +2615,35 @@ fn hot_lower_impl_prune_dead_local_tees_in_instr(
 fn hot_lower_impl_prune_dead_local_tees_in_body(
   body : Array[Instruction],
   counts : Array[Int],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   let pruned : Array[Instruction] = []
-  for instr in body {
-    match hot_lower_impl_prune_dead_local_tees_in_instr(instr, counts) {
-      Some(rewritten) => pruned.push(rewritten)
-      None => ()
+  for i = 0; i < body.length(); i = i + 1 {
+    match body[i] {
+      LocalTee(li) => {
+        let @lib.LocalIdx(raw) = li
+        let idx = raw.reinterpret_as_int()
+        let dead = idx >= 0 && idx < counts.length() && counts[idx] == 0
+        let mut preserve_dead_drop = false
+        if dead &&
+          options.preserve_dead_local_tee_drops &&
+          i + 1 < body.length() {
+          match body[i + 1] {
+            Drop => preserve_dead_drop = true
+            _ => ()
+          }
+        }
+        if dead && !preserve_dead_drop {
+          continue
+        }
+        pruned.push(body[i])
+      }
+      instr =>
+        match
+          hot_lower_impl_prune_dead_local_tees_in_instr(instr, counts, options) {
+          Some(rewritten) => pruned.push(rewritten)
+          None => ()
+        }
     }
   }
   pruned
@@ -2631,10 +2654,11 @@ fn hot_lower_impl_prune_dead_local_tees(
   func : HotFunc,
   body : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   let counts = Array::make(hot_local_count(func) + extra_locals.length(), 0)
   hot_lower_impl_count_local_gets_in_body(body, counts)
-  hot_lower_impl_prune_dead_local_tees_in_body(body, counts)
+  hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options)
 }
 
 ///|
@@ -2985,7 +3009,7 @@ fn hot_lower_body_with_extras_unverified_with_options(
   )
   let stackified = hot_lower_impl_fix_split_payload_wrappers_in_body(stackified)
   let stackified = hot_lower_impl_prune_dead_local_tees(
-    func, stackified, extra_locals,
+    func, stackified, extra_locals, options,
   )
   {
     body: hot_lower_impl_trim_redundant_unreachable_tail(

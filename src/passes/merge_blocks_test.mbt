@@ -69,3 +69,21 @@ test "merge-blocks preserves blocks with incoming branch targets" {
   )
   assert_true(pretty.contains("br"), msg=pretty)
 }
+
+///|
+test "merge-blocks preserves lowered drop local.tee roots on changed functions" {
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (local i32) (block (drop (local.tee 0 (i32.const 1))))))",
+      ["merge-blocks"],
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected merge-blocks tee-drop success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_true(pretty.contains("drop"), msg=pretty)
+  assert_true(pretty.contains("local.tee"), msg=pretty)
+  assert_false(pretty.contains("local.set"), msg=pretty)
+}
