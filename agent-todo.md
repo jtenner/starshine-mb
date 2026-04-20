@@ -458,11 +458,11 @@ Observed unique-pass order
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
-   - Current status: the repo now has a standalone active hot `merge-blocks` pass that flattens branch-free block roots in any region, plus direct pass tests/CLI coverage and pass-fuzz flag support; remaining work is the exact Binaryen slot wiring, broader typed/result-shape parity, and late-cleanup interaction coverage.
+   - Current status: the repo now has a standalone active hot `merge-blocks` pass that flattens branch-free block roots in any region, preserves lowered `nop` roots on changed functions to match Binaryen's direct `--merge-blocks` behavior, and has direct pass tests/CLI coverage plus pass-fuzz flag support; remaining work is the exact Binaryen slot wiring, broader typed/result-shape parity, late-cleanup interaction coverage, and stronger ordered-artifact sign-off.
 4. Test against binaryen.
    - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
-   - Known follow-up from the first direct oracle smoke: `bun scripts/self-optimize-compare.ts /tmp/starshine-merge-blocks-compare/in.wasm --out-dir /tmp/starshine-merge-blocks-compare/out --merge-blocks` stays semantically valid but currently diverges from Binaryen's normalized text on an infinite-loop fixture because Starshine drops the inner `nop` that Binaryen keeps.
+   - The first reduced direct oracle smoke is now green again: `bun scripts/self-optimize-compare.ts .tmp/merge-blocks-nop-divergence/in.wasm --out-dir .tmp/merge-blocks-nop-divergence/out --merge-blocks` reports canonical wasm and normalized WAT equality after preserving lowered `nop`s. A small wasm-smith-only follow-up sweep at `.tmp/pass-fuzz-compare-merge-blocks-slice-smith` reached `28/28` comparable matches before a Binaryen-only `binaryen-rec-group-zero` parser stop.
 
 #### RSE - Redundant Set Elimination
 1. Research exact functionality in document.

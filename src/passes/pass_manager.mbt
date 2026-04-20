@@ -7810,6 +7810,12 @@ fn run_hot_pipeline_lower_options_for_descriptor(
       preserve_dead_local_tee_drops=true,
       preserve_nontrailing_nops=true,
     )
+  } else if descriptor_name == "merge-blocks" {
+    @ir.HotLowerOptions::new(
+      preserve_if_arm_single_nops=true,
+      preserve_nontrailing_nops=true,
+      preserve_trailing_nops=true,
+    )
   } else {
     @ir.HotLowerOptions::new()
   }

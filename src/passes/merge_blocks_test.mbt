@@ -30,6 +30,7 @@ test "merge-blocks flattens nested block roots in parent regions" {
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(merge_blocks_test_count_substring(pretty, "nop"), 4, msg=pretty)
 }
 
 ///|
@@ -45,6 +46,7 @@ test "merge-blocks flattens inner blocks inside loops without dropping continue 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
   assert_true(pretty.contains("(loop"), msg=pretty)
   assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(merge_blocks_test_count_substring(pretty, "nop"), 1, msg=pretty)
   assert_true(pretty.contains("br"), msg=pretty)
 }
 
