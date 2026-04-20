@@ -8691,6 +8691,7 @@ pub fn hot_pass_run(
     "tuple-optimization" => tuple_optimization_run(ctx, func)
     "precompute" => precompute_run(ctx, func)
     "simplify-locals" => simplify_locals_run(ctx, func)
+    "merge-blocks" => merge_blocks_run(ctx, func)
     _ => return Err("unsupported hot pass \{descriptor.name}")
   }
   perf_stop_timer_opt(ctx.perf, "pass:\{descriptor.name}", pass_timer_start)

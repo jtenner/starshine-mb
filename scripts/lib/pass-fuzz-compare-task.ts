@@ -123,6 +123,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--tuple-optimization",
   "--precompute",
   "--simplify-locals",
+  "--merge-blocks",
   "--memory-packing",
   "--once-reduction",
   "--global-refining",

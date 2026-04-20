@@ -145,10 +145,10 @@ fn pass_registry_removed_names() -> Array[String] {
   [
     "avoid-reinterprets", "coalesce-locals", "code-folding", "code-pushing", "const-hoisting",
     "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
-    "merge-locals", "merge-blocks", "flatten", "re-reloop", "optimize-added-constants",
-    "optimize-added-constants-propagate", "precompute-propagate", "redundant-set-elimination",
-    "optimize-casts", "de-nan", "simplify-locals-no-tee", "simplify-locals-no-structure",
-    "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting", "untee",
+    "merge-locals", "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
+    "precompute-propagate", "redundant-set-elimination", "optimize-casts", "de-nan",
+    "simplify-locals-no-tee", "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure",
+    "simplify-locals-no-nesting", "untee",
   ]
 }
 
@@ -222,6 +222,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "simplify-locals",
       simplify_locals_summary(),
       simplify_locals_descriptor(),
+    ),
+    pass_registry_entry_hot(
+      "merge-blocks",
+      merge_blocks_summary(),
+      merge_blocks_descriptor(),
     ),
     pass_registry_entry_module("duplicate-function-elimination", dfe_summary()),
     pass_registry_entry_module("remove-unused-module-elements", rume_summary()),

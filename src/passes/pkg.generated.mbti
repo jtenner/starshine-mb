@@ -40,6 +40,10 @@ pub fn memory_packing_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn memory_packing_summary() -> String
 
+pub fn merge_blocks_descriptor() -> @ir.HotPassDescriptor
+
+pub fn merge_blocks_summary() -> String
+
 pub fn once_reduction_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn once_reduction_summary() -> String
