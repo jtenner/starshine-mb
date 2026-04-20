@@ -680,7 +680,7 @@ test "merge-blocks keeps typed multi-param multi-result if-arm lowering Binaryen
 }
 
 ///|
-test "merge-blocks keeps typed multi-result param block lowering Binaryen-stable" {
+test "merge-blocks keeps typed multi-param multi-result block lowering Binaryen-stable" {
   let source =
     #| (module
     #|   (type $t (func (param i32 i32) (result i32 i32)))
@@ -698,11 +698,24 @@ test "merge-blocks keeps typed multi-result param block lowering Binaryen-stable
   }
 
   let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
-  assert_true(
-    merge_blocks_test_count_substring(pretty, "(block") >= 2,
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 2, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.set"),
+    0,
     msg=pretty,
   )
-  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.get"),
+    0,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "tuple.make"),
+    0,
+    msg=pretty,
+  )
+  assert_eq(merge_blocks_test_count_substring(pretty, "i32.add"), 1, msg=pretty)
+  assert_true(pretty.contains("Type 0"), msg=pretty)
   assert_true(pretty.contains("I32(4)"), msg=pretty)
   assert_true(pretty.contains("I32(5)"), msg=pretty)
   assert_true(pretty.contains("I32(9)"), msg=pretty)
