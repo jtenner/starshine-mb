@@ -113,6 +113,48 @@ test "merge-blocks preserves outer typed param block lowering for single-result 
 }
 
 ///|
+test "merge-blocks flattens typed multi-result branch-free if-arm blocks into tuple.make results" {
+  let source =
+    #| (module
+    #|   (func (param i32) (result i32 i64)
+    #|     (if (result i32 i64)
+    #|       (local.get 0)
+    #|       (then
+    #|         (block (result i32 i64)
+    #|           (block (result i32 i64)
+    #|             i32.const 1
+    #|             i64.const 2)))
+    #|       (else
+    #|         (block (result i32 i64)
+    #|           (block (result i32 i64)
+    #|             i32.const 3
+    #|             i64.const 4))))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected merge-blocks typed multi-result if-arm success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_true(pretty.contains("(if (Type"), msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "i32.const"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "i64.const"),
+    2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("I32(1)"), msg=pretty)
+  assert_true(pretty.contains("I64(4)"), msg=pretty)
+}
+
+///|
 test "merge-blocks keeps typed multi-result param block lowering Binaryen-stable" {
   let source =
     #| (module
