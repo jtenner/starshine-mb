@@ -335,11 +335,12 @@ fn hot_lift_impl_make_region(
 fn hot_lift_impl_intern_control_result_type(
   func : HotFunc,
   block_type : BlockType,
+  params : Array[ValType],
   results : Array[ValType],
 ) -> TypeId {
   match block_type {
     TypeIdxBlockType(_) =>
-      hot_type_intern_resolved_block_result(func, block_type, results)
+      hot_type_intern_resolved_block_result(func, block_type, params, results)
     _ => hot_type_intern_block_result(func, block_type)
   }
 }
@@ -1434,7 +1435,7 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       let ty = hot_lift_impl_intern_control_result_type(
-        func, block_type, results,
+        func, block_type, params, results,
       )
       let id = hot_build_node(func, HotOp::Block, ty)
       let label_id = hot_label_alloc(
@@ -1503,7 +1504,7 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       let ty = hot_lift_impl_intern_control_result_type(
-        func, block_type, results,
+        func, block_type, params, results,
       )
       let id = hot_build_node(func, HotOp::Loop, ty)
       let label_id = hot_label_alloc(
@@ -1587,7 +1588,7 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       let ty = hot_lift_impl_intern_control_result_type(
-        func, block_type, results,
+        func, block_type, params, results,
       )
       let result_arity = results.length()
       let id = hot_build_node(func, HotOp::If, ty)
@@ -1718,7 +1719,7 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       let ty = hot_lift_impl_intern_control_result_type(
-        func, block_type, results,
+        func, block_type, params, results,
       )
       let result_arity = results.length()
       let id = hot_build_node(func, HotOp::TryTable, ty)
@@ -2321,7 +2322,10 @@ pub fn hot_lift_body_with_context_unverified(
   hot_body_result_type_set(
     func,
     hot_lift_impl_intern_control_result_type(
-      func, body_result_type, return_types,
+      func,
+      body_result_type,
+      [],
+      return_types,
     ),
   )
   let label_frames = hot_lift_impl_new_label_frames()

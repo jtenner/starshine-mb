@@ -2004,7 +2004,7 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
         let payload_block_type = match
           @ir.hot_type_get(func, @ir.hot_node_type(func, payload_block)) {
           @ir.HotTypeInfo::BlockResult(block_type) => block_type
-          @ir.HotTypeInfo::BlockResultResolved(block_type, _) => block_type
+          @ir.HotTypeInfo::BlockResultResolved(block_type, _, _) => block_type
           _ => {
             trace_split("payload-block-type")
             return false

@@ -23,7 +23,7 @@ fn remove_unused_names_control_block_type_for_ty(
 ) -> @lib.BlockType {
   match @ir.hot_type_get(func, ty) {
     @ir.HotTypeInfo::BlockResult(block_type) => block_type
-    @ir.HotTypeInfo::BlockResultResolved(block_type, _) => block_type
+    @ir.HotTypeInfo::BlockResultResolved(block_type, _, _) => block_type
     _ => @lib.BlockType::void_()
   }
 }

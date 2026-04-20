@@ -87,3 +87,56 @@ test "merge-blocks preserves lowered drop local.tee roots on changed functions" 
   assert_true(pretty.contains("local.tee"), msg=pretty)
   assert_false(pretty.contains("local.set"), msg=pretty)
 }
+
+///|
+test "merge-blocks preserves outer typed param block lowering for single-result parity" {
+  let source =
+    #| (module
+    #|   (type $t (func (param i32) (result i32)))
+    #|   (func (result i32)
+    #|     i32.const 4
+    #|     (block (type $t)
+    #|       (block (type $t)
+    #|         i32.const 1
+    #|         i32.add))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks typed single-result success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_true(pretty.contains("local.set"), msg=pretty)
+  assert_true(pretty.contains("local.get"), msg=pretty)
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+}
+
+///|
+test "merge-blocks keeps typed multi-result param block lowering Binaryen-stable" {
+  let source =
+    #| (module
+    #|   (type $t (func (param i32 i32) (result i32 i32)))
+    #|   (func (result i32 i32)
+    #|     i32.const 4
+    #|     i32.const 5
+    #|     (block (type $t)
+    #|       (block (type $t)
+    #|         i32.add
+    #|         i32.const 9))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail("expected merge-blocks typed multi-result success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(
+    merge_blocks_test_count_substring(pretty, "(block") >= 2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("i32.add"), msg=pretty)
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+  assert_true(pretty.contains("I32(5)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+}

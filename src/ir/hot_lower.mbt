@@ -98,9 +98,68 @@ fn hot_lower_impl_label_depth(
 fn hot_lower_impl_control_block_type(func : HotFunc, id : NodeId) -> BlockType {
   match hot_type_get(func, hot_node_get(func, id).ty) {
     BlockResult(block_type) => block_type
-    BlockResultResolved(block_type, _) => block_type
+    BlockResultResolved(block_type, _, _) => block_type
     _ => BlockType::void_()
   }
+}
+
+///|
+fn hot_lower_impl_control_param_types(
+  func : HotFunc,
+  id : NodeId,
+) -> Array[ValType] {
+  match hot_type_get(func, hot_node_get(func, id).ty) {
+    BlockResultResolved(_, params, _) => params.copy()
+    _ => []
+  }
+}
+
+///|
+fn hot_lower_impl_label_is_used(func : HotFunc, label_id : LabelId) -> Bool {
+  if label_id < 0 {
+    return false
+  }
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if !hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    match node.op {
+      HotOp::Br
+      | HotOp::BrIf
+      | HotOp::BrOnNull
+      | HotOp::BrOnNonNull
+      | HotOp::BrOnCast
+      | HotOp::BrOnCastFail
+      | HotOp::Delegate if node.imm0 == label_id => return true
+      HotOp::BrTable => {
+        if hot_branch_table_default_target(func, node.imm0) == label_id {
+          return true
+        }
+        for target in hot_branch_table_targets(func, node.imm0) {
+          if target == label_id {
+            return true
+          }
+        }
+      }
+      HotOp::TryTable => {
+        let info = hot_catch_info_get(func, node.imm1)
+        for catch_ in info.catches {
+          let target = match catch_ {
+            HotCatchArm::CatchArm(_, target)
+            | HotCatchArm::CatchRefArm(_, target)
+            | HotCatchArm::CatchAllArm(target)
+            | HotCatchArm::CatchAllRefArm(target) => target
+          }
+          if target == label_id {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -923,6 +982,101 @@ fn hot_lower_impl_emit_inputs(
 }
 
 ///|
+fn hot_lower_impl_emit_transparent_param_block(
+  func : HotFunc,
+  id : NodeId,
+  use_def : HotUseDef,
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
+  stack : Array[HotLowerStackValue],
+  out : Array[Instruction],
+  extra_locals : Array[ValType],
+) -> Unit {
+  let param_types = hot_lower_impl_control_param_types(func, id)
+  if param_types.length() == 0 {
+    abort("transparent param block lowering requires resolved block params")
+  }
+  let label_id = hot_control_node_label(func, id)
+  let node = hot_node_get(func, id)
+  let root_ids : Array[NodeId] = []
+  for i = 0; i < node.child_count; i = i + 1 {
+    let child = func.children[node.child_base + i]
+    if child != HOT_NONE_NODE {
+      root_ids.push(child)
+    }
+  }
+  let entry_stack : Array[HotLowerStackValue] = []
+  let mut entry_root_count = 0
+  while entry_stack.length() < param_types.length() &&
+        entry_root_count < root_ids.length() {
+    let entry_root = root_ids[entry_root_count]
+    hot_lower_impl_emit_root(
+      func, entry_root, use_def, label_frames, label_stack_head, entry_stack, out,
+      extra_locals,
+    )
+    entry_root_count += 1
+  }
+  if entry_stack.length() != param_types.length() {
+    abort(
+      "transparent param block lowering requires entry roots for all params",
+    )
+  }
+  let entry_values = entry_stack.copy()
+  let scratch_locals : Array[LocalIdx] = []
+  for param_type in param_types {
+    scratch_locals.push(
+      hot_lower_impl_alloc_scratch_local(func, extra_locals, param_type),
+    )
+  }
+  for idx = scratch_locals.length() - 1; idx >= 0; idx = idx - 1 {
+    out.push(Instruction::local_set(scratch_locals[idx]))
+    ignore(entry_stack.pop())
+  }
+  let body_stack : Array[HotLowerStackValue] = []
+  for idx = 0; idx < scratch_locals.length(); idx = idx + 1 {
+    out.push(Instruction::local_get(scratch_locals[idx]))
+    body_stack.push(entry_values[idx])
+  }
+  let body_root_ids : Array[NodeId] = []
+  for idx = entry_root_count; idx < root_ids.length(); idx = idx + 1 {
+    body_root_ids.push(root_ids[idx])
+  }
+  let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
+    func,
+    use_def,
+    body_root_ids,
+    hot_label_branch_arity(func, label_id),
+  )
+  let mut root_idx = 0
+  for child in body_root_ids {
+    hot_lower_impl_emit_root(
+      func, child, use_def, label_frames, label_stack_head, body_stack, out, extra_locals,
+    )
+    let is_final_root = root_idx + 1 == body_root_ids.length()
+    hot_lower_impl_drop_dead_nonfinal_root_results(
+      func,
+      child,
+      use_def,
+      preserve_region_results[root_idx],
+      is_final_root,
+      body_stack,
+      out,
+    )
+    root_idx += 1
+  }
+  hot_lower_impl_finalize_region_stack(
+    func,
+    hot_label_branch_arity(func, label_id),
+    body_stack,
+    out,
+    extra_locals,
+  )
+  for value in body_stack {
+    stack.push(value)
+  }
+}
+
+///|
 fn hot_lower_impl_emit_root(
   func : HotFunc,
   id : NodeId,
@@ -939,6 +1093,15 @@ fn hot_lower_impl_emit_root(
       Some(top) if top.node_id == id => return
       _ => ()
     }
+  }
+  let label_id = hot_control_node_label(func, id)
+  if hot_query_op(func, id) == HotOp::Block &&
+    hot_lower_impl_control_param_types(func, id).length() == 1 &&
+    !hot_lower_impl_label_is_used(func, label_id) {
+    hot_lower_impl_emit_transparent_param_block(
+      func, id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
+    )
+    return
   }
   let inputs = hot_lower_impl_input_info(func, id)
   hot_lower_impl_emit_inputs(

@@ -7,9 +7,11 @@ pub impl Show for HotTypeInfo with output(self, logger) {
       block_type.output(logger)
       logger.write_char(')')
     }
-    HotTypeInfo::BlockResultResolved(block_type, values) => {
+    HotTypeInfo::BlockResultResolved(block_type, params, values) => {
       logger.write_string("BlockResultResolved(")
       block_type.output(logger)
+      logger.write_string(", ")
+      params.output(logger)
       logger.write_string(", ")
       values.output(logger)
       logger.write_char(')')

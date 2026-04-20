@@ -614,7 +614,7 @@ pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
 
 pub fn hot_type_intern_block_result(HotFunc, @lib.BlockType) -> Int
 
-pub fn hot_type_intern_resolved_block_result(HotFunc, @lib.BlockType, Array[@lib.ValType]) -> Int
+pub fn hot_type_intern_resolved_block_result(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType]) -> Int
 
 pub fn hot_type_intern_results(HotFunc, Array[@lib.ValType]) -> Int
 
@@ -1360,7 +1360,7 @@ pub impl Show for HotStringBuiltin
 pub enum HotTypeInfo {
   VoidType
   BlockResult(@lib.BlockType)
-  BlockResultResolved(@lib.BlockType, Array[@lib.ValType])
+  BlockResultResolved(@lib.BlockType, Array[@lib.ValType], Array[@lib.ValType])
   Value(@lib.ValType)
   Results(Array[@lib.ValType])
 } derive(Eq, @debug.Debug)
