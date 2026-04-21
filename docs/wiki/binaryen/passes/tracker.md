@@ -42,6 +42,7 @@ sources:
   - ../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
   - ../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
   - ../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
+  - ../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
   - ../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
   - ../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
   - ../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
@@ -145,7 +146,7 @@ If these ever disagree, update this tracker in the same change.
 | `memory-packing` | implemented module | deep | [`memory-packing/index.md`](memory-packing/index.md) | Full dossier with Binaryen strategy, source-confirmed implementation/test-map, segment-op/trap notes, WAT-shape catalog, current Starshine gap page, and parity notes. |
 | `once-reduction` | implemented module | deep | [`once-reduction/index.md`](once-reduction/index.md) | Full dossier with Binaryen strategy, implementation/test-map, dominance/propagation/cycle-safety notes, WAT-shape catalog, and parity page. |
 | `global-refining` | implemented module | deep | [`global-refining/index.md`](global-refining/index.md) | Full dossier with Binaryen strategy, source-confirmed implementation/test-map page, export/public-type/retagging notes, WAT-shape catalog, and parity page; the refreshed folder now also makes explicit that the entire `version_129` contract lives in a tiny `GlobalRefining.cpp` + `LUBFinder` + `PublicTypeValidator` + `global-refining.wast` surface. |
-| `global-struct-inference` | implemented module | deep | [`global-struct-inference/index.md`](global-struct-inference/index.md) | Full dossier with Binaryen strategy, closed-world/unnesting notes, WAT-shape catalog, and parity page. |
+| `global-struct-inference` | implemented module | deep | [`global-struct-inference/index.md`](global-struct-inference/index.md) | Full dossier with Binaryen strategy, closed-world/unnesting notes, WAT-shape catalog, Starshine strategy/code-map page, and parity page; the refreshed folder now also makes explicit that current Starshine is a closed-world direct-global subset of Binaryen's broader open-world-plus-closed-world origin-analysis pass. |
 | `reorder-locals` | implemented module | deep | [`reorder-locals/index.md`](reorder-locals/index.md) | Full dossier with Binaryen strategy, names/roundtrip/porting notes, WAT-shape catalog, parity page, and multivalue-scope decision. |
 | `ssa-nomerge` | implemented hot | deep | [`ssa-nomerge/index.md`](ssa-nomerge/index.md) | Full dossier with Binaryen strategy, merge-policy/canonical-slot notes, WAT-shape catalog, and parity page. |
 | `vacuum` | implemented hot | deep | [`vacuum/index.md`](vacuum/index.md) | Full dossier with Binaryen strategy, source-confirmed implementation/test-map, effect/TNH, WAT-shape, and current Starshine gap pages; the refreshed folder now also makes explicit that Binaryen `version_129` `vacuum` is concentrated in `Vacuum.cpp` with visible helper ownership in `branch-hints.h` and `drop.h`, plus a broad but mappable `vacuum-*` lit roster. |

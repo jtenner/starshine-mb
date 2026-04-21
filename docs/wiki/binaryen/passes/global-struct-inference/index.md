@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
   - ../../../../../src/passes/global_struct_inference.mbt
   - ../../../../../src/passes/global_struct_inference_test.mbt
@@ -22,6 +23,7 @@ related:
   - ./binaryen-strategy.md
   - ./closed-world-analysis-and-unnesting.md
   - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
   - ./parity.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -128,6 +130,8 @@ What it actually is in `version_129`:
   - Focused guide to the hardest parts to misunderstand: the type-global map, subtype poisoning and upward propagation, the one-vs-two-unique-values rule, un-nesting into fresh globals, and the nearby descriptor-facing helper surface.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering open-world direct-global positives, one-global and two-value closed-world positives, subtype and anyref bailouts, un-nesting, packed and atomic gets, null-refinement, and the main non-goals.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+  - Current Starshine module-pass strategy: the closed-world-only direct-global subset, the exact MoonBit owner-file/code-location map, and the concrete gaps from upstream Binaryen's broader origin-analysis pass.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, the green saved generated-artifact evidence, and the honest remaining gaps between the local MoonBit pass and the full official Binaryen contract.
 
@@ -152,6 +156,7 @@ So the durable rule is:
 
 ## Sources
 
+- [`../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md`](../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md)
 - [`../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md`](../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md)
 - [`../../../../../src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt)
 - [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt)

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-21] research | add Starshine `global-struct-inference` strategy/code-map coverage and align touched-area dossier metadata
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/global-struct-inference/` folder, then chose `global-struct-inference` because it was an active implemented pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.
+- Added `docs/wiki/raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md`, grounding the follow-up in the in-tree MoonBit implementation (`src/passes/global_struct_inference.mbt`, `global_struct_inference_test.mbt`, `pass_manager.mbt`, and `optimize.mbt`) plus official Binaryen primary sources (`GlobalStructInference.cpp`, `pass.cpp`, and `gsi.wast`) and making explicit that current Starshine is a closed-world direct-global fold, not the full upstream origin-analysis pass.
+- Added `docs/wiki/binaryen/passes/global-struct-inference/starshine-hot-ir-strategy.md`, giving the dossier its missing local-strategy page with exact code locations for candidate-global harvesting, packed-field repair, direct `global.get` + `struct.get*` rewriting, null-trap preservation, dispatch, preset placement, and the focused local tests.
+- Refreshed `docs/wiki/binaryen/passes/global-struct-inference/index.md` and `parity.md`, and updated `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/index.md`, so the touched area now consistently advertises the full landing/Binaryen/shapes/Starshine/parity dossier shape instead of leaving `global-struct-inference` as one of the remaining implemented-pass exceptions.
+
 ## [2026-04-21] research | deepen Binaryen `monomorphize` with exact clone / signature / dropped-call rewrite mechanics
 
 - Re-read `docs/README.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`, `agent-todo.md`, and the existing `docs/wiki/binaryen/passes/monomorphize/` plus sibling `monomorphize-always/`, `inlining/`, and `inline-main/` folders, then chose `monomorphize` as an explicitly justified major-gap follow-up because the tracker had no obvious remaining `none` targets while this already-good dossier still lacked one compact source-confirmed page for the exact clone-construction bridge future ports are most likely to misremember.

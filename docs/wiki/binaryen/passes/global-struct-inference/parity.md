@@ -1,11 +1,13 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0068-2026-03-25-global-struct-inference.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
+  - ../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
 related:
+  - ./starshine-hot-ir-strategy.md
   - ../../../../../src/passes/global_struct_inference.mbt
   - ../../../../../src/passes/global_struct_inference_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -32,6 +34,7 @@ related:
 ## Current in-tree status
 
 - The implementation lives in [`../../../../../src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt).
+- The dedicated local strategy/code-map page now lives at [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
 - The focused suite lives in [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt).
 - Registry and preset coverage live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), with module-pass dispatch in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - The pass is active in-tree and is scheduled in the early module cluster after `global-refining`.
