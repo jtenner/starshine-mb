@@ -1,9 +1,10 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
+  - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
   - ../../../raw/research/0069-2026-03-26-pick-load-signs.md
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/pick_load_signs.mbt
@@ -17,6 +18,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
 ---
@@ -26,6 +28,7 @@ related:
 ## Durable conclusions
 
 - `pick-load-signs` is an early function-phase Binaryen pass on the no-DWARF path for optimize level `>= 2` or shrink level `>= 2`.
+- The living dossier now also has a dedicated implementation/test-map page, so the tiny owner split across `PickLoadSigns.cpp`, `properties.h`, `pass.cpp`, `opt-utils.h`, and the dedicated-vs-neighboring lit tests no longer has to be reconstructed from the strategy page alone.
 - The official Binaryen `version_129` pass is smaller than the old local port note made it sound:
   - exact non-tee `local.set(load ...)` producers only
   - exact recognized sign/zero-extension use shapes only

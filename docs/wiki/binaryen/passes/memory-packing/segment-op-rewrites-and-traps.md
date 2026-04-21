@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
+  - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -36,6 +37,8 @@ A lot of beginner confusion comes from mixing those stories together.
 ## Why active `memory.init` and active `data.drop` get simplified first
 
 Before the main split logic, upstream runs `optimizeSegmentOps(...)`.
+
+The new implementation/test-map page makes that phase split explicit, which helps avoid teaching these rewrites as an incidental prepass instead of a real owned part of `MemoryPacking.cpp`.
 
 That helper pass rewrites some cases immediately:
 

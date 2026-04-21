@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
+  - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -27,6 +28,8 @@ Binaryen `memory-packing` is trying to prove:
 - and any startup or runtime traps are still preserved.
 
 If that proof fails, the pass keeps the original segment intact.
+
+For the exact owner-phase map behind these shapes, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Quick glossary
 

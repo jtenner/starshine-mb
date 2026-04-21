@@ -1,32 +1,36 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
+  - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./identity-and-rewrite-surface.md
 ---
 
 # `duplicate-import-elimination` WAT and module shape guide
 
-This page is the beginner-friendly shape catalog for Binaryen `duplicate-import-elimination`.
+This page is the beginner-friendly shape catalog for the real Binaryen `version_129` `duplicate-import-elimination` pass.
 
 The main question to keep asking is:
 
-- “are these two imported declarations really the same boundary request, and if so, did Binaryen rewrite every later internal user to the first import name?”
+- “are these two imported **functions** really the same host function request, and if so, did Binaryen rewrite every later function-name use to the first import name?”
+
+That emphasis on **functions** is the main source-confirmed correction.
 
 ## Quick orientation
 
-The pass has three broad shape zones:
+The real pass has three broad shape zones:
 
 | Zone | Typical shape | Main safety idea |
 | --- | --- | --- |
-| Duplicate detection | two imports with same kind + module + field + helper-defined type metadata | they are alias declarations for the same boundary object |
-| User retargeting | instructions/exports/start/module-code expressions mention the later alias name | later users can point at the first canonical import instead |
-| Removal | later duplicate import declaration deleted | one declaration is enough once all users point at it |
+| Duplicate detection | two imported functions with same module/base and same function type | they are alias declarations for the same imported function |
+| User retargeting | direct `call`, `ref.func`, start, export, or module-level function reference uses the later alias name | later users can point at the first canonical import instead |
+| Removal | later duplicate imported function declaration deleted | one declaration is enough once all function-name users point at it |
 
 ## Positive shapes Binaryen really rewrites
 
@@ -53,18 +57,17 @@ After conceptually:
 
 Why it works:
 
-- same import kind
 - same module/base
-- same function type metadata
-- Binaryen keeps the first import name `$foo`
+- same function type
+- Binaryen keeps the first imported function name `$foo`
 
 ## 2. Duplicate imported function used by `ref.func`
 
 Before:
 
 ```wat
-(import "mod" "foo" (func $foo (result i32)))
-(import "mod" "foo" (func $bar (result i32)))
+(import "mod" "foo" (func $foo))
+(import "mod" "foo" (func $bar))
 (func
   (drop (ref.func $bar))
 )
@@ -73,7 +76,7 @@ Before:
 After conceptually:
 
 ```wat
-(import "mod" "foo" (func $foo (result i32)))
+(import "mod" "foo" (func $foo))
 (func
   (drop (ref.func $foo))
 )
@@ -81,7 +84,7 @@ After conceptually:
 
 Why it matters:
 
-- this pass rewrites function references too, not just direct calls
+- the pass rewrites function references too, not just direct calls
 
 ## 3. Duplicate imported function used as the start function
 
@@ -109,252 +112,122 @@ Why it matters:
 Before:
 
 ```wat
-(import "mod" "foo" (func $foo (result i32)))
-(import "mod" "foo" (func $bar (result i32)))
-(export "ex1" (func $bar))
+(import "mod" "foo" (func $foo))
+(import "mod" "foo" (func $bar))
+(export "entry" (func $bar))
 ```
 
 After conceptually:
 
 ```wat
-(import "mod" "foo" (func $foo (result i32)))
-(export "ex1" (func $foo))
+(import "mod" "foo" (func $foo))
+(export "entry" (func $foo))
 ```
 
 Why it matters:
 
 - export names stay the same
-- internal targets collapse
+- internal function targets collapse
 
-## 5. Duplicate imported global used by `global.get` / `global.set`
+## 5. Duplicate imported function in element contents through `ref.func`
+
+Source-backed shipped-test shape:
 
 Before:
 
 ```wat
-(import "mod" "bar" (global $x (mut i32)))
-(import "mod" "bar" (global $y (mut i32)))
-(func
-  (drop (global.get $y))
-  (global.set $y (i32.const 0))
+(module
+  (import "env" "waka" (func $foo))
+  (import "env" "waka" (func $bar))
+  (table 2 2 funcref)
+  (elem (i32.const 0) $foo $bar)
 )
 ```
 
 After conceptually:
 
 ```wat
-(import "mod" "bar" (global $x (mut i32)))
-(func
-  (drop (global.get $x))
-  (global.set $x (i32.const 0))
-)
-```
-
-Why it works:
-
-- same global type and mutability
-- same module/base
-- later alias `$y` is redirected to `$x`
-
-## 6. Duplicate imported global behind an export alias
-
-Before:
-
-```wat
-(import "mod" "bar" (global $x i32))
-(import "mod" "bar" (global $y i32))
-(export "ex2" (global $y))
-```
-
-After conceptually:
-
-```wat
-(import "mod" "bar" (global $x i32))
-(export "ex2" (global $x))
-```
-
-## 7. Duplicate imported table used by ordinary and bulk table ops
-
-Before:
-
-```wat
-(import "mod" "baz" (table $p 1 1 funcref))
-(import "mod" "baz" (table $q 1 1 funcref))
-(func
-  (drop (table.size $q))
-  (table.set $q (i32.const 0) (ref.null func))
-  (table.copy $q $q (i32.const 0) (i32.const 0) (i32.const 1))
-  (table.fill $q (i32.const 0) (ref.null func) (i32.const 1))
-  (table.init $q $e (i32.const 0) (i32.const 0) (i32.const 1))
-)
-```
-
-After conceptually:
-
-```wat
-(import "mod" "baz" (table $p 1 1 funcref))
-(func
-  (drop (table.size $p))
-  (table.set $p (i32.const 0) (ref.null func))
-  (table.copy $p $p (i32.const 0) (i32.const 0) (i32.const 1))
-  (table.fill $p (i32.const 0) (ref.null func) (i32.const 1))
-  (table.init $p $e (i32.const 0) (i32.const 0) (i32.const 1))
+(module
+  (import "env" "waka" (func $foo))
+  (table 2 2 funcref)
+  (elem (i32.const 0) $foo $foo)
 )
 ```
 
 Why it matters:
 
-- Binaryen rewrites a broad table user surface, not just one instruction family
-
-## 8. Duplicate imported table behind an export alias
-
-Before:
-
-```wat
-(import "mod" "baz" (table $p 1 1 funcref))
-(import "mod" "baz" (table $q 1 1 funcref))
-(export "ex3" (table $q))
-```
-
-After conceptually:
-
-```wat
-(import "mod" "baz" (table $p 1 1 funcref))
-(export "ex3" (table $p))
-```
-
-## 9. Duplicate imported memory used by ordinary and bulk memory ops
-
-Before:
-
-```wat
-(import "mod" "qux" (memory $m 1 2 shared))
-(import "mod" "qux" (memory $n 1 2 shared))
-(func
-  (drop (memory.size $n))
-  (drop (memory.grow $n (i32.const 1)))
-  (memory.fill $n (i32.const 0) (i32.const 0) (i32.const 1))
-  (memory.copy $n $n (i32.const 0) (i32.const 0) (i32.const 1))
-  (memory.init $n $d (i32.const 0) (i32.const 0) (i32.const 1))
-)
-```
-
-After conceptually:
-
-```wat
-(import "mod" "qux" (memory $m 1 2 shared))
-(func
-  (drop (memory.size $m))
-  (drop (memory.grow $m (i32.const 1)))
-  (memory.fill $m (i32.const 0) (i32.const 0) (i32.const 1))
-  (memory.copy $m $m (i32.const 0) (i32.const 0) (i32.const 1))
-  (memory.init $m $d (i32.const 0) (i32.const 0) (i32.const 1))
-)
-```
-
-Why it matters:
-
-- Binaryen rewrites many memory instruction families, not only section metadata
-
-## 10. Duplicate imported memory behind an export alias
-
-Before:
-
-```wat
-(import "mod" "qux" (memory $m 1 2 shared))
-(import "mod" "qux" (memory $n 1 2 shared))
-(export "ex4" (memory $n))
-```
-
-After conceptually:
-
-```wat
-(import "mod" "qux" (memory $m 1 2 shared))
-(export "ex4" (memory $m))
-```
+- module-code function references are part of the real contract
+- this is the clearest shipped non-body rewrite family
 
 ## Negative or preserved shapes Binaryen deliberately keeps
 
 ## 1. Same module/base but different function signature
 
-Before:
+Shipped-test shape:
 
 ```wat
-(import "mod" "foo" (func $foo (result i32)))
-(import "mod" "foo" (func $quux))
+(import "env" "waka" (func $foo))
+(import "env" "waka" (func $wrong (param i32)))
 ```
 
 Preserved because:
 
-- function import type metadata differs
+- function types differ
 
-## 2. Same module/base but different global type
+This is the one explicit negative family the shipped test proves.
 
-Before:
-
-```wat
-(import "mod" "bar" (global $x i32))
-(import "mod" "bar" (global $z i64))
-```
-
-Preserved because:
-
-- global type metadata differs
-
-## 3. Same module/base but different table metadata
-
-Before:
-
-```wat
-(import "mod" "baz" (table $p 1 1 funcref))
-(import "mod" "baz" (table $r 1 1 externref))
-```
-
-Preserved because:
-
-- Binaryen’s table identity helper sees different table metadata
-
-## 4. Same module/base but different memory metadata
-
-Before:
-
-```wat
-(import "mod" "qux" (memory $m 1 2 shared))
-(import "mod" "qux" (memory $o 3 4 shared))
-```
-
-Preserved because:
-
-- memory import metadata differs
-
-## 5. Different module or different field/base name
-
-Before:
+## 2. Different module string
 
 ```wat
 (import "modA" "foo" (func $a))
 (import "modB" "foo" (func $b))
-;; or
+```
+
+Preserved because:
+
+- the `(module, base)` bucket differs
+
+## 3. Different base/field string
+
+```wat
 (import "mod" "foo" (func $a))
 (import "mod" "bar" (func $b))
 ```
 
 Preserved because:
 
-- Binaryen requires exact module/base string equality too
+- the `(module, base)` bucket differs
 
-## 6. Imported tags are currently untouched
+## 4. Imported globals, tables, memories, and tags are not current positive shapes
 
-Conceptual shape:
+The older dossier treated these as current merge families with caveats.
+The source-confirmed `version_129` story is simpler:
+
+- they are outside the current implemented scope of this pass.
+
+So do **not** teach shapes like these as current positives:
 
 ```wat
-(import "mod" "tag" (tag $t1 (param i32)))
-(import "mod" "tag" (tag $t2 (param i32)))
+(import "mod" "g" (global $x i32))
+(import "mod" "g" (global $y i32))
 ```
 
-Current `version_129` takeaway:
+```wat
+(import "mod" "t" (table $a 1 1 funcref))
+(import "mod" "t" (table $b 1 1 funcref))
+```
 
-- the pass source does not scan imported tags
-- so do not assume these merge today
+```wat
+(import "mod" "m" (memory $a 1))
+(import "mod" "m" (memory $b 1))
+```
+
+```wat
+(import "mod" "tag" (tag $a (param i32)))
+(import "mod" "tag" (tag $b (param i32)))
+```
+
+Those are possible future-expansion stories, not current `version_129` `duplicate-import-elimination` behavior.
 
 ## Interaction shapes worth remembering
 
@@ -381,29 +254,25 @@ Why it matters:
 
 - the pass removes duplicate internal declarations, not duplicate export names
 
-## 2. Module-code expressions are part of the contract
+## 2. Module-level function references are part of the contract
 
 Beginner shorthand:
 
-- if the duplicate imported name appears in a global initializer, segment offset, or element payload expression, Binaryen intends to retarget that too through `runOnModuleCode(...)`
+- if the later duplicate function name appears in element payloads or other module-level `ref.func` positions, Binaryen intends to retarget that too
 
-## 3. But non-expression active segment target-name handling is an open reading caveat
+## 3. This is not a generic import-cleanup pass
 
-I did not verify an explicit rewrite in this pass’s traced helper path for:
-
-- `ElementSegment.table`
-- `DataSegment.memory`
-
-So treat those as a source-reading caution, not as a settled claim.
+A useful anti-shape is anything that would require rewriting non-function import users.
+Current `version_129` does not do that here.
 
 ## Easy mental checklist for future Starshine work
 
 When deciding whether a shape should rewrite, ask:
 
-1. Are the two imports the same handled kind?
-2. Do module string and field/base string match exactly?
-3. Does the kind-specific import metadata match exactly enough for this helper?
-4. Is the use one of the real rewritten surfaces, not just the most obvious one?
-5. After retargeting, can the later declaration be removed entirely?
+1. Are these both imported **functions**?
+2. Do module string and base string match exactly?
+3. Do the imported function types match exactly?
+4. Is the use one of the real rewritten function-name surfaces?
+5. After retargeting, can the later imported function declaration be removed entirely?
 
-That checklist matches the real `version_129` source much better than “unused duplicate imports disappear.”
+That checklist matches the real `version_129` source much better than “duplicate imports disappear.”

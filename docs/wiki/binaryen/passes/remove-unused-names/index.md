@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
+  - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
   - ../../../../../src/passes/remove_unused_names.mbt
   - ../../../../../src/passes/remove_unused_names_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -22,6 +23,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/remove-unused-names.txt
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./control-names-implicit-blocks-and-delegates.md
   - ./wat-shapes.md
   - ./invalid-tag-index-parser-gap.md
@@ -77,12 +79,14 @@ That makes this pass relevant to both the canonical scheduler docs and the artif
 - A nameless block cannot be a branch target and may be emitted as an implicit block, so clearing a label can remove visible structure later.
 - The pass is intentionally cheap.
   - It does **not** use CFG, liveness, dominance, effects, or refinalization helpers.
+- The source-confirmed owner surface is tiny.
+  - Almost all visible behavior lives in `RemoveUnusedNames.cpp`, with `branch-utils.h` owning the generic scope-name-use / retarget helpers and `shared-constants.h` owning the caller-delegate sentinel name.
 - The key explicit rewrite is a same-type one-child named-block merge.
   - Branches targeting the parent are retargeted to the child before the parent wrapper disappears.
 - Loop demotion is narrower than it sounds.
   - It only happens when the loop label is dead **and** the body type matches the loop type.
 - `try` / delegate handling has a special caller-target cleanup rule.
-- A narrow 2026-04-20 freshness check found no current-main drift in the core pass file or the dedicated base test pair relative to `version_129`.
+- A narrow 2026-04-21 freshness check found no current-main drift in the core pass file or the dedicated base test pair relative to `version_129`.
 
 ## Biggest beginner correction
 
@@ -112,6 +116,8 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the actual `RemoveUnusedNames.cpp` structure, the `branchesSeen` map, block and loop rewrites, delegate handling, and scheduler placement.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Compact source-confirmed owner/test-map page for the pass: `RemoveUnusedNames.cpp`, `branch-utils.h`, `shared-constants.h`, the three no-DWARF scheduler slots in `pass.cpp`, the dedicated base `remove-unused-names` pair, the neighboring combo files, and the explicit note that delegate behavior is source-confirmed more from code ownership than from a dedicated standalone lit file.
 - [`./control-names-implicit-blocks-and-delegates.md`](./control-names-implicit-blocks-and-delegates.md)
   - Focused guide to the hardest beginner topic here: Binaryen control labels, implicit blocks, same-type wrapper collapse, the caller-delegate sentinel, and why this is not name-section cleanup.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -121,7 +127,7 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A narrow 2026-04-20 direct source comparison found **no semantic post-`version_129` drift** in the core official surfaces used for this dossier.
+A narrow 2026-04-21 direct source comparison found **no semantic post-`version_129` drift** in the core official surfaces used for this dossier.
 
 - `src/passes/RemoveUnusedNames.cpp` is identical on current `main`
 - `test/passes/remove-unused-names.wast` is identical on current `main`

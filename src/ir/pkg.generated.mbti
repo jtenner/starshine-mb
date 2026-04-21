@@ -50,6 +50,8 @@ pub const HOT_FLAG_THROWS : UInt = 512
 
 pub const HOT_FLAG_VALUE : UInt = 8
 
+pub const HOT_IMPLICIT_FUNCTION_LABEL : Int = -2
+
 pub fn bitset_clear(Bitset, Int) -> Bool
 
 pub fn bitset_contains(Bitset, Int) -> Bool

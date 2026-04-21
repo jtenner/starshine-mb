@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
+  - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -13,6 +14,7 @@ sources:
   - ../../../../../.artifacts/o4z-wasm-opt-debug.log
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./effect-pruning-and-traps-never-happen.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
@@ -40,8 +42,8 @@ That includes more than `nop` removal, but less than full dead-code elimination.
 
 ## Why this pass matters
 
-- The tracker's earlier saved-audit `none` queue is now clear, so implemented landing pages are the highest-value wiki gaps.
-- When this thread started, `docs/wiki/binaryen/passes/tracker.md` explicitly named `vacuum` as the strongest next deepening target.
+- The tracker's earlier saved-audit `none` queue is now clear, so implemented folders still missing compact owner/test-map pages remain good follow-up targets.
+- This folder now has that compact owner/test-map page too, so future threads should not come back to `vacuum` for the same reason.
 - The canonical no-DWARF `-O` / `-Os` scheduler uses `vacuum` **four times** in the default function pipeline.
 - The saved generated-artifact `-O4z` audit also saw `vacuum` at four real top-level Binaryen slots:
   - slot `23`
@@ -91,6 +93,8 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the actual Binaryen `version_129` implementation, helper dependencies, scheduler placement, visitor phases, and the corrected freshness story.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Compact source-confirmed owner/test-map page for `Vacuum.cpp`, the direct helper dependencies, public pass registration, nested rerun context, and the shipped `vacuum-*` lit family.
 - [`./effect-pruning-and-traps-never-happen.md`](./effect-pruning-and-traps-never-happen.md)
   - Focused guide to the easiest part of the pass to misunderstand: unused-result pruning, `removableIfUnused`, dummy-zero replacement values, TNH cleanup, and explicit-`unreachable` preservation.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -101,6 +105,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `vacuum` parity and scheduler research.
+- Treat the new implementation/test-map page as the compact answer for file ownership and shipped proof coverage; future edits should keep it aligned with the broader strategy and WAT-shape pages.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
@@ -109,6 +114,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 ## Sources
 
 - [`../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md`](../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md)
+- [`../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md`](../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)

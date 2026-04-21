@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
+  - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./exports-public-types-and-retagging.md
   - ./wat-shapes.md
   - ./parity.md
@@ -37,6 +39,10 @@ Most important helper dependencies visible in the implementation:
 The shipped lit surface is also part of the contract:
 
 - `test/lit/passes/global-refining.wast`
+
+For the compact owner/test map, see:
+
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 
 ## High-level intent
 
@@ -307,7 +313,7 @@ That is broader than the current local MoonBit test file.
 
 ## Current freshness note
 
-A narrow 2026-04-20 check found no semantic drift here:
+A narrow 2026-04-21 check found no semantic drift here:
 
 - current `main` `GlobalRefining.cpp` is identical to `version_129`
 - current `main` `global-refining.wast` is also identical to `version_129`

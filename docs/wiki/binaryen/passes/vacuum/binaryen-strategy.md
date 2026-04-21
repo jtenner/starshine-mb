@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
+  - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./effect-pruning-and-traps-never-happen.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
@@ -27,6 +29,8 @@ Primary files:
 - `src/ir/branch-hints.h`
 - `src/ir/drop.h`
 - the shipped `vacuum-*` lit tests
+
+For the compact owner/test map of those files, use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 I also did a narrow 2026-04-20 freshness check against:
 

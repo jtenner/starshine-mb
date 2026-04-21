@@ -1,11 +1,20 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
+  - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_all-features.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_vacuum_remove-unused-names.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh-legacy.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-stack-switching.wast
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./typed-control-voidification-and-eh.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
@@ -14,25 +23,29 @@ related:
 
 # Binaryen `dead-code-elimination` strategy
 
+## Major correction
+
+A direct `version_129` source reread shows that Binaryen `dce` is much narrower than the older local dossier claimed.
+
+It is **not** a broad effect-driven dead-result optimizer with helper block-target walkers, dedicated `visitDrop(...)` logic, flattening, and refinalization.
+
+It is a small function-parallel postwalk that:
+
+- trims dead suffixes after the first unreachable child,
+- preserves earlier still-executing children by turning them into `drop`s when needed,
+- changes some control-flow node types to `unreachable` when their concrete result type is no longer justified,
+- and runs a narrow EH nested-pop fixup only when it introduced blocks into a function that contains `pop`.
+
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass.
+Use Binaryen `version_129` as the source oracle for this pass.
 
 Primary files:
 
 - `src/passes/DeadCodeElimination.cpp`
 - `src/passes/pass.cpp`
-- `src/passes/opt-utils.h`
 
-Most important helper dependencies:
-
-- `src/ir/effects.h`
-- `src/ir/type-updating.h`
-- `src/ir/eh-utils.h`
-- `src/ir/properties.h`
-- `src/ir/flatten.h`
-
-The shipped dedicated test surface is part of the contract too:
+Primary dedicated tests:
 
 - `test/lit/passes/dce_all-features.wast`
 - `test/lit/passes/dce_vacuum_remove-unused-names.wast`
@@ -40,253 +53,188 @@ The shipped dedicated test surface is part of the contract too:
 - `test/lit/passes/dce-eh-legacy.wast`
 - `test/lit/passes/dce-stack-switching.wast`
 
-## High-level intent
+A direct diff check found no textual drift between `version_129` and current `main` in `src/passes/DeadCodeElimination.cpp`.
 
-Binaryen uses `dead-code-elimination` for two tightly related jobs:
-
-1. remove code that is provably unreachable after non-fallthrough points
-2. remove or simplify expressions whose **result** is dead while preserving side effects and valid structure
-
-That second point is the one people miss.
-DCE is not just about dead tails.
-It is also about dead typed wrappers and dead dropped values.
-
-## Where the pass runs
+## Public pass identity and placement
 
 `pass.cpp` registers:
 
 - `dce`
   - description: `removes unreachable code`
 
-In the default no-DWARF function pipeline, Binaryen inserts `dce` once, immediately after `ssa-nomerge`:
+That short description is plain, but accurate.
+The file really is centered on unreachable-shape cleanup.
 
-- `ssa-nomerge -> dce -> remove-unused-names -> remove-unused-brs -> optimize-instructions -> ...`
+In the canonical no-DWARF default function pipeline, Binaryen places it here:
 
-That placement is meaningful.
-The pass is expected to expose further cleanup for the next passes rather than finishing the whole early cleanup story by itself.
+- `ssa-nomerge -> dce -> remove-unused-names -> remove-unused-brs -> ...`
 
-The saved generated-artifact `-O4z` audit observed the analogous top-level slot at `12`, while the saved full debug log shows `18` total `dce` executions because nested reruns also include the pass.
+That scheduler position matters because DCE is an early cleanup pass, not a final simplifier.
+The dedicated combo lit file with `vacuum` and `remove-unused-names` reinforces that point.
 
-## The biggest beginner correction
+## Pass shell
 
-Despite the name and short description, Binaryen DCE is **not** a generic whole-function dataflow deadness engine.
+Binaryen implements `dce` as one:
 
-The strongest evidence is its actual structure:
+- `WalkerPass<PostWalker<...>>`
 
-- no full local-liveness framework here
-- no store/load deadness analysis
-- no whole-module reachability reasoning
-- heavy emphasis on `EffectAnalyzer`, structure kind checks, and block-target awareness
+Key pass-level properties:
 
-So a safer summary is:
+- `isFunctionParallel() = true`
+- `requiresNonNullableLocalFixups() = false`
 
-- **effect-aware unused-result simplification plus unreachable-suffix cleanup**
+That second point is another correction to the older dossier.
+The file does **not** ask the pass runner for later non-nullable-local fixups here.
 
-## Phase 1: helper walkers classify blocks before simplification
+## The real helper stack
 
-The file begins with two small walkers.
+### `TypeUpdater`
 
-### `BranchSeeker`
+This is the main stateful helper in the pass.
+It is used to:
 
-This walker answers whether a nested branch targets a particular block.
-That matters because a branch-targeted block cannot be treated like a plain sequence wrapper.
+- initialize rewrite bookkeeping before walking a function body,
+- note replacements when expressions are swapped,
+- note recursive removals when dead subtrees are trimmed away,
+- check whether a block still has incoming `break`s,
+- and change expression types to `unreachable` when that is now justified.
 
-### `UnneededBlockSeeker`
+If you remember only one helper for this pass, remember `TypeUpdater`.
 
-This helper uses `BranchSeeker` to find blocks that really are unneeded.
-That gives DCE a way to simplify blocks aggressively **only** when their label is not part of the live control-flow contract.
+### `EHUtils::handleBlockNestedPops(...)`
 
-This is one of the most important safety gates in the whole pass.
+This is the only explicit end-of-function repair in the file.
+Binaryen runs it only if both are true:
 
-## Phase 2: `canRemove(...)` asks an effect question, not a syntax question
+- the function contains `pop`, and
+- DCE created at least one new block while simplifying
 
-`canRemove(...)` wraps `EffectAnalyzer`.
-The crucial rule is:
+That means EH repair is real, but narrowly scoped.
 
-- if an expression is removable when unused, DCE may erase it
-- otherwise, DCE must preserve its side effects somehow
+## The actual algorithm
 
-That is why these two shapes behave differently:
+## 1. Seed `TypeUpdater`, then do a child-first walk
 
-```wat
-(drop (i32.add (i32.const 1) (i32.const 2)))
-```
+`doWalkFunction(...)` first lets `TypeUpdater` walk the body, then runs the postwalk over the same body.
+So the pass is designed around local rewrite bookkeeping from the start.
 
-can disappear entirely, while:
+## 2. Non-control expressions: keep what executes, drop what becomes dead
 
-```wat
-(drop (call $impure))
-```
+If the current node is **not** a control-flow structure and has type `unreachable`, DCE checks whether one child is already unreachable.
 
-cannot.
+If so:
 
-The pass does not care whether the node *looks* small.
-It cares whether dropping the result also drops observable behavior.
+- children before the first unreachable child are preserved as `drop child`
+- the first unreachable child is kept as-is
+- later children are recursively marked removed
+- if multiple preserved pieces remain, DCE wraps them in a fresh block
 
-## Phase 3: `optimizeExpression(...)` is child-first and kills unreachable suffixes early
+This is the main source-backed meaning of the pass name.
+It does not ask whether those earlier children are effect-free.
+It simply preserves the parts that still execute before control becomes unreachable.
 
-This helper recursively optimizes children before the parent.
-Then it scans the children in order.
-When it finds a child that cannot fall through, it clears the remaining siblings because they are now dead.
+## 3. `block`: trim the suffix, maybe collapse type to `unreachable`
 
-That gives DCE an immediate local rule for shapes like:
+For `block`, DCE scans the child list for the first unreachable child.
+If one exists:
 
-- `return ... ; dead`
-- `throw ... ; dead`
-- `delegate ... ; dead`
-- child subexpressions that become `unreachable`
+- everything after it is recursively removed
+- the block list is truncated at that point
+- a one-item block containing only literal `unreachable` is replaced by that child directly
 
-The important beginner lesson is:
+Then DCE applies one more rule:
 
-- DCE does not wait for a later global sweep to notice these tails
-- it removes them while recursively simplifying the tree
+- if the block still has a concrete type,
+- its last surviving child is unreachable,
+- and `TypeUpdater` sees no `break`s targeting it,
+- change the block type to `unreachable`
 
-## Phase 4: impossible dead-result expressions can collapse to simpler forms
+This is not generic block elimination.
+It is suffix trimming plus type correction.
 
-After child optimization, `optimizeExpression(...)` also handles some dead-result “this cannot actually produce a useful value anymore” families.
+## 4. `if`: unreachable condition or both-unreachable arms
 
-The exact source branches are subtle, but the durable story is straightforward:
+For `if`, DCE has only two special cases.
 
-- if a dead-result expression can be replaced by its remaining side effects plus a simpler surviving branch or default arm, DCE does that
-- if a child rewrite proves a parent can only lead to `unreachable`, DCE can turn the parent into side effects plus `unreachable`
+### Unreachable condition
 
-This is still effect-preserving cleanup.
-It is not speculative control-flow rewriting for its own sake.
+If the condition itself is unreachable:
 
-## Phase 5: `visitDrop(...)` is where the real dead-result story lives
+- recursively mark both arms removed
+- replace the entire `if` with the condition
 
-`visitDrop(...)` is the heart of the pass.
+### Both arms unreachable
 
-Its real job is:
+If the `if` has an `else`, is not already unreachable, and both arms are unreachable:
 
-- decide what to do when a value is computed only to be dropped
+- change the `if` type to `unreachable`
 
-That splits into several cases.
+That is narrower than “dead branch simplification.”
+It is about expressing the now-proven control result type honestly.
 
-### Case A: the child is fully removable
+## 5. `loop`: only the fully-dead-body case
 
-Then DCE removes the whole `drop`.
+Loops can legitimately have an unreachable-typed body for ordinary control-flow reasons, such as looping back to the top.
+So Binaryen only handles the simplest case here:
 
-### Case B: the child still has side effects, but its result is dead
+- if the body is literal `unreachable`, replace the loop with the body
 
-Then DCE tries to simplify the child to just the still-needed contents.
-This preserves effect order while deleting dead pure pieces.
+## 6. `try` and `try_table`: narrow EH reachability rules
 
-### Case C: the child is a control-flow structure with a dead result
+### `try`
 
-This is the hard case.
-Binaryen often cannot simply delete the structure.
-Instead it:
+If the try body is unreachable and **all** catch bodies are unreachable, DCE changes the node type to `unreachable`.
 
-- keeps the control shell
-- changes its type from “produces a value” to “void”
-- and lets later repair helpers fix up the resulting type/EH/block details
+### `try_table`
 
-This is the biggest reason DCE is more than a plain dead-tail pass.
+If the body is unreachable, `try_table` cannot finish normally either, so DCE changes its type to `unreachable`.
 
-## Phase 6: `visitBlock(...)` simplifies blocks conservatively
+The dedicated EH lit files are what make these rules easy to trust and easy to teach.
 
-`visitBlock(...)` uses the helper walkers to ask whether a block is genuinely unneeded.
-The practical rule is:
+## 7. End-of-function EH repair is conservative and conditional
 
-- if the label is live, keep the block
-- if the block is only sequencing effects before a dead final value, simplify to those contents
-- if internal nonfinal roots still matter, keep them in order
-- if only the final value is pointless, do not pretend the rest of the block was pointless too
+`visitFunction(...)` does exactly one repair:
 
-So DCE can reduce blocks a lot, but only after proving they are not still part of the control-flow contract.
+- if the function had `pop` and the pass added a block, run `EHUtils::handleBlockNestedPops(...)`
 
-## Phase 7: function-end repair is mandatory, not optional polish
+The legacy EH lit file shows why this matters: adding blocks can move `pop` into invalid nested positions, so DCE cleans up only that exact hazard.
 
-After the structural rewrites, `visitFunction(...)` still runs a real repair tail:
+## What the real source does **not** support
 
-- `TypeUpdater::handleNonDefaultableLocals(...)`
-- `EHUtils::handleBlockNestedPops(...)`
-- `Flatten::flatten(...)`
-- `ReFinalize()`
+These older local claims are not part of the actual `version_129` pass:
 
-That means the pass contract is really:
+- no `BranchSeeker`
+- no `UnneededBlockSeeker`
+- no `EffectAnalyzer`
+- no `canRemove(...)`
+- no dedicated `visitDrop(...)`
+- no general typed-control voidification engine
+- no `Flatten::flatten(...)`
+- no `ReFinalize`
+- no `handleNonDefaultableLocals(...)`
 
-- simplify first,
-- then repair types / EH / block shape,
-- then refinalize.
+Those ideas may be relevant to neighboring passes, but they are not Binaryen `dce` as shipped in `version_129`.
 
-If a future port only copies the deletion logic and forgets the repair tail, it will be semantically incomplete.
+## Beginner-safe summary
 
-## The helper stack matters
+A safer beginner summary is:
 
-## `EffectAnalyzer`
+- Binaryen `dce` is an early unreachable-shape cleanup pass.
+- It preserves still-executing earlier children with `drop`s when a later child makes an expression unreachable.
+- It trims dead suffixes in blocks.
+- It updates the type of some control nodes to `unreachable` when their concrete result is no longer real.
+- It performs only one narrow EH repair at function end.
 
-This is the main semantic oracle.
-It is why DCE can safely distinguish:
+That is smaller, and more accurate, than the older story.
 
-- dead pure values to erase
-- effectful values whose side effects must survive
-- non-fallthrough children that make later siblings unreachable
+## Porting invariants
 
-## `Properties::isControlFlowStructure(...)`
+A future Starshine port should preserve these exact source-backed rules:
 
-This helper draws the line between:
-
-- expressions that can simplify directly to contents
-- and typed control structures that must be voidified instead
-
-## `TypeUpdater::handleNonDefaultableLocals(...)`
-
-When result traffic disappears, some locals may no longer be justified at their old precise/nondefaultable type.
-Binaryen repairs that explicitly.
-
-## `EHUtils::handleBlockNestedPops(...)`
-
-Exception handling is not an afterthought here.
-DCE's structural rewrites can expose nested-pop problems, and Binaryen fixes them directly before finishing the pass.
-
-## `Flatten::flatten(...)`
-
-Some DCE rewrites simplify meaning but still leave nested block shape behind.
-Flatten is part of the pass's practical cleanup tail.
-
-## `ReFinalize`
-
-Once types and nesting changed, Binaryen recomputes final expression types.
-This is part of the real pass boundary, not just a convenience.
-
-## Pass interactions that are easy to miss
-
-## `vacuum` and `remove-unused-names` are part of the documented story
-
-The dedicated `dce_vacuum_remove-unused-names.wast` file is a strong signal from upstream.
-It explicitly tests the combined cleanup lane.
-
-So the durable rule is:
-
-- DCE is expected to leave some cleanup work for `vacuum` and `remove-unused-names`
-- those passes are not accidental neighbors
-
-## `remove-unused-brs` follows immediately for a reason
-
-After DCE has simplified dead-result structure, stale or simplified branch structure is often more obvious.
-That is why Binaryen places `remove-unused-brs` right after the name cleanup.
-
-## Nested reruns matter for real-world behavior
-
-The `optimizeAfterInlining` helper in `opt-utils.h` includes `dce` in the rerun sequence on changed functions.
-So DCE is not only a top-level early slot.
-It is also part of the nested cleanup contract used by optimizing boundary passes.
-
-## What a future port must preserve
-
-A future Starshine port or refactor must keep these Binaryen-backed invariants honest:
-
-- DCE is not generic local/global dead-store elimination
-- effect-order preservation is the central safety rule
-- branch-targeted blocks cannot be simplified like plain sequencing blocks
-- dead typed control usually needs **voidification**, not blind erasure
-- explicit `unreachable` tails can still be required after simplification
-- local-type repair and EH nested-pop repair are part of the pass, not optional cleanup
-- later passes (`vacuum`, `remove-unused-names`, `remove-unused-brs`) are expected to finish parts of the cleanup story
-
-## Current freshness note
-
-A narrow 2026-04-20 `main` check did not reveal an obvious post-`version_129` drift story.
-The same pass shell and dedicated test-file set are still present there, so `version_129` remains a strong practical oracle for this dossier.
+- walk children first
+- treat non-control and control structures differently
+- preserve earlier still-executing children as `drop`s before the first unreachable child
+- remove later siblings after the first unreachable child
+- use break-target knowledge before changing a block type to `unreachable`
+- keep the `if`, `loop`, `try`, and `try_table` special cases distinct
+- run EH nested-pop repair only when `hasPop && addedBlock`

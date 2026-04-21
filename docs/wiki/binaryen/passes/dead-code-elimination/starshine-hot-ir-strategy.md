@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
+  - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
   - ../../../../../src/passes/dead_code_elimination.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
   - ../../../../../src/passes/dead_code_elimination_live_repro_test.mbt
@@ -23,23 +24,17 @@ This page is the local “what is actually implemented today?” companion to th
 
 ## Short version
 
-Current Starshine `src/passes/dead_code_elimination.mbt` follows the same **core idea** as Binaryen `version_129`:
+The 2026-04-21 source-confirmation follow-up changed the upstream comparison point.
+Current Starshine `src/passes/dead_code_elimination.mbt` no longer looks like a HOT-native port of Binaryen `version_129` `DeadCodeElimination.cpp`.
+Instead, Starshine currently implements a **broader DCE-like cleanup family** than the real upstream pass.
 
-- remove unreachable tails,
-- prune dead pure values,
-- preserve side effects when only the value dies,
-- and voidify dead-result structured control while keeping lowering-valid output.
+Binaryen `version_129` uses a much smaller pass:
 
-But the implementation shape is not a literal source port.
-
-Binaryen uses:
-
-- a post-walk AST pass
-- small helper walkers for block-target detection
-- `EffectAnalyzer`
-- `TypeUpdater`
-- `EHUtils`
-- a small flatten-and-refinalize tail
+- one post-walk AST pass
+- `TypeUpdater` as the central helper
+- dead-suffix trimming after the first unreachable child
+- a few narrow control-type-to-`unreachable` rules
+- and one conditional `EHUtils::handleBlockNestedPops(...)` repair
 
 Current Starshine uses:
 
@@ -53,28 +48,28 @@ Current Starshine uses:
 
 So the local pass is best understood as:
 
-- a HOT-IR implementation of the same broad DCE goal,
+- a larger Starshine-local cleanup pass that overlaps some of Binaryen `dce`'s reachability goals,
 
 not:
 
-- a direct line-by-line port of Binaryen `DeadCodeElimination.cpp`.
+- a direct line-by-line port of Binaryen `DeadCodeElimination.cpp`,
+- and not even a close one-to-one semantic match for every subfamily named in older local docs.
 
 ## What Starshine already models well
 
-## 1. The same big semantic split
+## 1. Overlap with the upstream pass is concentrated in unreachable-shape handling
 
-The local pass still revolves around the same main semantic families:
+The local pass still overlaps most clearly with Binaryen on:
 
 - unreachable-tail pruning
-- dead dropped-value cleanup
-- dead typed-control voidification
 - explicit tail repair for non-fallthrough final control
+- branch-sensitive control cleanup
 
-That is the real heart of Binaryen DCE, and current Starshine clearly targets it.
+But unlike real upstream `version_129` `dce`, Starshine also owns broader dead dropped-value and dead typed-control cleanup families locally.
 
 ## 2. Branch-target and fallthrough awareness
 
-Binaryen's early helper walkers become a larger cache story locally.
+Binaryen's small `TypeUpdater`-plus-structure checks become a larger cache story locally.
 Starshine builds and caches:
 
 - whether any branches exist at all

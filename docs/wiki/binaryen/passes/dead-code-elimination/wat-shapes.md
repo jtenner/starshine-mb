@@ -1,313 +1,278 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
-  - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
+  - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_all-features.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce_vacuum_remove-unused-names.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh-legacy.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-stack-switching.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./typed-control-voidification-and-eh.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
 # `dead-code-elimination` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `dead-code-elimination` pass.
+This page now follows the source-confirmed `version_129` implementation.
+The older local shape catalog over-attributed broad dead-result simplification to DCE.
+The real pass is mainly about **unreachable shapes**.
 
 ## Read this page with one mental model
 
-Binaryen DCE is usually trying to do one of two things:
+Binaryen `dce` is mostly trying to answer:
 
-- remove work that is unreachable after a non-fallthrough point
-- remove a value that is dead while keeping any still-visible side effects and structure valid
-
-Everything else on this page is about why that sometimes means deletion, sometimes means simplification, and sometimes means “keep the wrapper but make it void.”
+- where does execution first become unreachable?
+- what earlier pieces still execute before that point?
+- which control nodes can no longer finish normally?
 
 ## Quick glossary
 
-- **dead result**: the program computes a value, but nobody needs that value anymore
-- **non-fallthrough**: control does not continue to the next expression on that path (`return`, `throw`, `unreachable`, and similar families)
-- **voidify**: keep a control structure but remove its result type
-- **live label**: a block/loop label that branches still target
+- **first unreachable child**: the first child expression whose type is `unreachable`
+- **dead suffix**: siblings after that first unreachable child
+- **control structure**: `block`, `if`, `loop`, `try`, `try_table`
+- **type collapse to unreachable**: keeping the node, but changing its type because it cannot finish normally anymore
 
-## Shape family 1: dead pure `drop` disappears entirely
+## Shape family 1: non-control expression with an unreachable child
 
-Before:
-
-```wat
-(drop
-  (i32.add
-    (i32.const 1)
-    (i32.const 2)))
-```
-
-After:
+Before, conceptually:
 
 ```wat
-;; nothing remains
-```
-
-Why this works:
-
-- the child is pure
-- its result is dead
-- erasing it does not erase observable behavior
-
-## Shape family 2: dead impure `drop` keeps the side effect
-
-Before:
-
-```wat
-(drop
-  (call $log_and_return_i32))
+(i32.add
+  EFFECT-OR-VALUE-A
+  (unreachable))
 ```
 
 After, conceptually:
 
 ```wat
-(call $log_and_return_i32)
+(block
+  (drop EFFECT-OR-VALUE-A)
+  (unreachable))
 ```
 
-Why this works:
+Important rule:
 
-- the value is dead
-- but the call itself is still observable
-- DCE removes only the dead-result wrapper, not the effectful work
+- DCE preserves earlier children by turning them into `drop`s
+- it keeps the first unreachable child
+- it removes children after that point
 
-## Shape family 3: unreachable suffix after `return` is removed
+This is the most important ordinary-expression rule in the real source.
+
+## Shape family 2: `drop (unreachable)` becomes `unreachable`
 
 Before:
 
 ```wat
-(i32.const 5)
-(return)
-(i32.const 9)
-(drop)
+(drop
+  (unreachable))
 ```
 
 After:
 
 ```wat
-(i32.const 5)
-(return)
+(unreachable)
 ```
 
-This is the easy DCE case.
-It is real, but it is not the whole pass.
+Why:
 
-## Shape family 4: dead pure tail inside a block disappears
+- `drop` is a non-control expression
+- its child is already unreachable
+- there are no earlier children to preserve
+
+## Shape family 3: block dead suffix after `br`, `return`, or `unreachable`
 
 Before:
 
 ```wat
 (block
   (call $side)
-  (drop (i32.const 1)))
+  (return)
+  (call $dead))
+```
+
+After, conceptually:
+
+```wat
+(block
+  (call $side)
+  (return))
+```
+
+Anything after the first unreachable child is recursively removed.
+
+## Shape family 4: block collapses to lone `unreachable`
+
+Before:
+
+```wat
+(block
+  (unreachable)
+  DEAD)
 ```
 
 After:
 
 ```wat
-(block
-  (call $side))
+(unreachable)
 ```
 
-Important lesson:
+This is the direct one-child collapse Binaryen performs after trimming the suffix.
 
-- DCE keeps the side-effectful prefix in order
-- and only removes the dead pure tail
+## Shape family 5: block type changes to `unreachable`
 
-## Shape family 5: dead typed block may simplify to contents
-
-Before:
+Before, conceptually:
 
 ```wat
-(drop
-  (block (result i32)
-    (call $side)
-    (i32.const 1)))
+(block (result i32)
+  ...
+  (unreachable))
 ```
 
 After, conceptually:
 
 ```wat
-(call $side)
+(block (result unreachable-ish)
+  ...
+  (unreachable))
 ```
 
-or:
+In Binaryen IR terms, DCE changes the block type to `unreachable` when:
 
-```wat
-(block
-  (call $side))
-```
+- the block had a concrete type,
+- the last surviving child is unreachable,
+- and no `break`s still target the block.
 
-Which exact form you see depends on whether the wrapper is still needed structurally.
+This is a type-collapse rule, not generic block deletion.
 
-## Shape family 6: dead typed `if` may become a void `if`
+## Shape family 6: `if` with unreachable condition
 
 Before:
-
-```wat
-(drop
-  (if (result i32)
-    (local.get $cond)
-    (then
-      (call $a)
-      (i32.const 1))
-    (else
-      (call $b)
-      (i32.const 2))))
-```
-
-After, conceptually:
 
 ```wat
 (if
-  (local.get $cond)
-  (then
-    (call $a))
-  (else
-    (call $b)))
-```
-
-Important lesson:
-
-- DCE often keeps the control shell
-- it removes the dead result, not necessarily the whole node
-
-## Shape family 7: explicit `unreachable` may need to remain or be inserted
-
-Before:
-
-```wat
-(drop
-  (block (result i32)
-    (return (i32.const 7))))
-```
-
-After, conceptually:
-
-```wat
-(block
-  (return (i32.const 7)))
-unreachable
-```
-
-This looks strange until you remember the real goal:
-
-- keep the simplified function structurally well-typed after a non-fallthrough final control rewrite
-
-## Shape family 8: live labels block aggressive block removal
-
-Before:
-
-```wat
-(block $out (result i32)
-  (br $out (i32.const 1))
-  (i32.const 2))
+  (unreachable)
+  (then THEN)
+  (else ELSE))
 ```
 
 After:
 
 ```wat
-;; wrapper is not freely removable
+(unreachable)
 ```
 
-Why this matters:
+More exactly, DCE replaces the `if` with the condition expression and recursively marks the arms removed.
 
-- a block with a live incoming branch is not just dead syntax around a value
-- its label is still part of the function's control-flow contract
+## Shape family 7: `if` with both arms unreachable
 
-## Shape family 9: DCE keeps effect order even when values die
-
-Before:
+Before, conceptually:
 
 ```wat
-(drop
-  (block (result i32)
-    (call $a)
-    (call $b)
-    (i32.const 1)))
+(if (result i32)
+  COND
+  (then (unreachable))
+  (else (unreachable)))
 ```
 
 After, conceptually:
 
 ```wat
-(call $a)
-(call $b)
+(if (result unreachable-ish)
+  COND
+  (then (unreachable))
+  (else (unreachable)))
 ```
 
-Important lesson:
+The real source action is:
 
-- DCE is not trying to be clever about reordering effects
-- it keeps still-visible work in program order
+- change the `if` type to `unreachable`
 
-## Shape family 10: EH wrappers can simplify, but not by magic
+It does **not** erase the `if` or broadly rewrite it to a void shell.
+
+## Shape family 8: loop with fully unreachable body
 
 Before:
 
 ```wat
-(drop
-  (try (result i32)
-    ...
-    (catch ...)))
+(loop
+  (unreachable))
 ```
 
-After, conceptually:
+After:
 
 ```wat
-(try
-  ...
-  (catch ...))
+(unreachable)
 ```
 
-with later EH repair as needed.
+This is the only loop-specific rule in the source.
 
-Important lesson:
+## Shape family 9: `try` or `try_table` that cannot finish normally
 
-- DCE can remove the dead result
-- but EH shape still needs explicit repair afterward
+### `try`
 
-## Shape family 11: stack-switching families are part of the real surface
+If the try body is unreachable and all catches are unreachable, DCE changes the try type to `unreachable`.
 
-The dedicated `dce-stack-switching.wast` file exists for a reason.
-DCE's effect and structure rules are not only for MVP-era blocks, `if`, and calls.
-The pass still has to behave correctly when newer control/effect surfaces are present.
+### `try_table`
 
-Beginner lesson:
+If the body is unreachable, DCE changes the `try_table` type to `unreachable`.
 
-- do not assume “simple dead code cleanup” means “MVP-only syntax.”
+The modern EH lit file proves these exact distinctions.
 
-## Shape family 12: pass interactions are part of the shape story
+## Shape family 10: EH block repair after block creation
 
-The dedicated `dce_vacuum_remove-unused-names.wast` file shows that some shapes are intentionally left in a partially cleaned state until later passes run.
+Legacy EH tests show DCE can create a new `block` while preserving an executing prefix before an unreachable child.
+If the function also contains `pop`, DCE then runs nested-pop repair at function end.
 
-That means a shape can be:
+So a practical shape family is:
 
-- already meaningfully simplified by DCE,
-- but still not in the final prettiest form until `vacuum` and `remove-unused-names` finish the neighborhood cleanup.
+- expression cleanup introduces a new block
+- the function contains `pop`
+- `EHUtils::handleBlockNestedPops(...)` must run
+
+## Shape family 11: stack-switching handler label stays live under `drop`
+
+The stack-switching tests prove a negative case.
+A shape like:
+
+```wat
+(drop
+  (block $handle_effect (result ...)
+    (resume ... (on $tag $handle_effect) ...)
+    (br $exit)))
+```
+
+must keep the typed handler block because the handler can branch to it.
+
+So:
+
+- surrounding `drop` does **not** mean the block result contract is dead.
 
 ## Negative families and non-goals
 
-These are outside the real `version_129` DCE contract:
+These are not the real `version_129` `dce` contract:
 
-- dead-store elimination for memory stores
-- dead-store elimination for `global.set`
-- full local-liveness cleanup of arbitrary local traffic
-- branch retargeting or branch-value normalization as a main goal
-- whole-module reachability cleanup
-- final `nop` / empty-wrapper janitor work as a complete fixpoint by itself
+- effect-analyzer-based pure-vs-impure dead-result pruning
+- a dedicated `drop` simplifier that keeps only side effects
+- generic typed-control voidification
+- flattening nested blocks as part of DCE
+- refinalization at the end of the pass
+- generic local-type repair
 
-Those jobs belong to other passes or pass combinations.
+Those older claims were the big reason this follow-up was needed.
 
 ## Scheduler interaction to remember
 
-DCE runs early because it is supposed to make later cleanup passes easier.
-A shape that looks “not fully cleaned” after DCE alone may still be perfectly normal in the full pipeline if:
+The combo lit file with `vacuum` and `remove-unused-names` is a hint about intended division of labor.
+A shape that still looks ugly after DCE alone is not automatically a DCE bug.
+Sometimes DCE's real job is just:
 
-- `remove-unused-names`
-- `remove-unused-brs`
-- `vacuum`
-
-are expected to finish the job.
+- make the unreachable fact explicit,
+- trim the dead suffix,
+- leave later cleanup to neighbors.

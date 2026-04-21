@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
+  - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -19,6 +20,7 @@ sources:
   - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/86f0d65bcf87c2491698b7cfd526f2f0614a75dd%5E%21/
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./propagation-partial-precompute-and-gc-identity.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
@@ -133,12 +135,16 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the actual Binaryen `version_129` implementation, helper dependencies, scheduler placement, main phases, and the difference between the pass's small public name and its larger real scope.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Compact source-confirmed owner/test map for plain `precompute`, including the shared `Precompute.cpp` core, the public/scheduler split in `pass.cpp` and `opt-utils.h`, the helper ownership in `wasm-interpreter.h` / `properties.h` / `local-graph.h`, and the broad lit roster that proves the plain-pass contract instead of only the sibling `precompute-propagate` one.
 - [`./propagation-partial-precompute-and-gc-identity.md`](./propagation-partial-precompute-and-gc-identity.md)
   - Focused guide to the easiest part of the pass to underestimate: the split between plain `precompute` and `precompute-propagate`, the upward partial-select algorithm, the `LazyLocalGraph` worklist, and the GC identity / emitability boundaries.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering scalar, control, `select`, tuple, string, GC, atomic, and bailout families.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine strategy and the major Binaryen behaviors the repo still does not model.
+- [`../precompute-propagate/index.md`](../precompute-propagate/index.md)
+  - Dedicated dossier for the upstream aggressive / nested-rerun sibling, focused on the separate public pass name, the extra `LazyLocalGraph` propagation phase, and the `optimizeAfterInlining(...)` scheduler role.
 
 ## Newer-than-`version_129` drift already recorded on this page
 
@@ -155,7 +161,9 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `precompute` / `precompute-propagate` parity and scheduler research.
+- Treat this folder as the canonical home for future plain `precompute` parity work and family-level context.
+- Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
+- Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
 - Use Binaryen `version_129` as the current source oracle for new conclusions.
 - Keep the landing page honest about the mode split:
   - no-DWARF `-O` / `-Os` top-level slots use plain `precompute`
@@ -168,6 +176,7 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
 ## Sources
 
 - [`../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md`](../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md)
+- [`../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md`](../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md)
 - [`../../../../../src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt)
 - [`../../../../../src/passes/precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
+  - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./reuse-naming-and-ordering.md
   - ./wat-shapes.md
   - ../simplify-globals-optimizing/index.md
@@ -38,6 +40,8 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-traversal.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-gathering.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/propagate-globals-globally.wast>
+
+For the compact owner-file and shipped-test map that goes with this strategy page, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## High-level intent
 
@@ -342,6 +346,7 @@ A future Starshine port should preserve all of these:
 ## Sources
 
 - [`../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md`](../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md)
+- [`../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md`](../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
