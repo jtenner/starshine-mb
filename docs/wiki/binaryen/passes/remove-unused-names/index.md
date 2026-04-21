@@ -5,6 +5,7 @@ last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
   - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
+  - ../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md
   - ../../../../../src/passes/remove_unused_names.mbt
   - ../../../../../src/passes/remove_unused_names_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -26,6 +27,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./control-names-implicit-blocks-and-delegates.md
   - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
   - ./invalid-tag-index-parser-gap.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -122,6 +124,8 @@ What it actually is in `version_129`:
   - Focused guide to the hardest beginner topic here: Binaryen control labels, implicit blocks, same-type wrapper collapse, the caller-delegate sentinel, and why this is not name-section cleanup.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering unused-label stripping, same-type block merges, loop demotion, typed bailout families, and nearby pass interactions.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+  - Current in-tree Starshine HOT-IR strategy with exact code locations for the label-use bitset, same-typed block-chain peel, loop demotion, raw fast-skip path, preset placement, and the major ways the local subset is still narrower than upstream Binaryen's generic control-label cleanup pass.
 - [`./invalid-tag-index-parser-gap.md`](./invalid-tag-index-parser-gap.md)
   - Existing parser-gap note for `invalid tag index` compare failures; keep treating that family as Binaryen parser noise unless Binaryen can parse the saved case and a semantic diff still remains.
 
@@ -143,12 +147,14 @@ It does not claim that every nearby combo test is unchanged, only that the core 
   - upstream `remove-unused-names` edits control labels rather than the wasm name section.
 - Keep the distinction explicit between:
   - direct same-type block / loop rewrites in the pass
-  - and later implicit-block disappearance or neighboring cleanup enabled by name removal.
+  - later implicit-block disappearance or neighboring cleanup enabled by name removal on the upstream Binaryen side
+  - and the narrower current Starshine subset described in `starshine-hot-ir-strategy.md`.
 - Keep the parser-gap note separate from semantic mismatch notes.
 
 ## Sources
 
 - [`../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md`](../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md)
+- [`../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md`](../../../raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md)
 - [`../../../../../src/passes/remove_unused_names.mbt`](../../../../../src/passes/remove_unused_names.mbt)
 - [`../../../../../src/passes/remove_unused_names_test.mbt`](../../../../../src/passes/remove_unused_names_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-21] research | add Starshine `remove-unused-names` strategy/code-map coverage and align touched-area dossier metadata
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/remove-unused-names/` folder, then chose `remove-unused-names` because it was an active implemented hot-pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.
+- Added `docs/wiki/raw/research/0235-2026-04-21-remove-unused-names-starshine-strategy-followup.md`, grounding the follow-up in the in-tree MoonBit implementation (`src/passes/remove_unused_names.mbt`, `remove_unused_names_test.mbt`, `pass_manager.mbt`, and `optimize.mbt`) plus official Binaryen primary sources (`RemoveUnusedNames.cpp`, `pass.cpp`, and `remove-unused-names.wast`) and making explicit that current Starshine is a narrower same-typed-block-peel plus dead-label-loop-demotion subset of Binaryen's fuller generic control-label cleanup pass.
+- Added `docs/wiki/binaryen/passes/remove-unused-names/starshine-hot-ir-strategy.md`, giving the dossier its missing local-strategy page with exact code locations for label-use collection, same-typed block peeling, loop demotion, raw fast-skip gating, dispatch, preset placement, and the focused local tests.
+- Refreshed `docs/wiki/binaryen/passes/remove-unused-names/index.md`, and updated `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/index.md`, so the touched area now consistently advertises the full landing/Binaryen/shapes/Starshine dossier shape instead of leaving `remove-unused-names` as an implemented-pass exception.
+
 ## [2026-04-21] research | add Starshine `global-struct-inference` strategy/code-map coverage and align touched-area dossier metadata
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/global-struct-inference/` folder, then chose `global-struct-inference` because it was an active implemented pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.
