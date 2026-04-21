@@ -1,8 +1,11 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md
+  - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
+  - ../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md
   - ../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
@@ -11,6 +14,7 @@ related:
   - ./index.md
   - ./wat-shapes.md
   - ./binaryen-strategy.md
+  - ./structure-result-lifting-and-carrier-cleanup.md
   - ./implementation-map.md
   - ./effect-ordering-and-barriers.md
   - ./raw-lane-and-writeback.md
@@ -106,6 +110,15 @@ related:
   - region bodies under `if` / `try` / `try_table` must contribute local read/write information or sibling-argument moves become wrong
 
 ### 4. Rewrite Structure By Region Surgery, Not AST Pointer Tricks
+
+- The most important beginner-facing bridge here is the structure-result carrier family:
+  - block-result carriers
+  - `if` / `else` result carriers
+  - one-armed `if` defaultable-local lifting
+  - narrow loop-tail carriers
+  - local wrapper-forwarder cleanup around real artifact shapes
+- Keep the compact cross-map for that family in [`./structure-result-lifting-and-carrier-cleanup.md`](./structure-result-lifting-and-carrier-cleanup.md).
+  This page keeps the larger HOT/raw/writeback story; the bridge page is where future threads should start when the question is shape-to-helper ownership.
 
 - Binaryen sometimes stages structure rewrites with trailing `nop` growth because its walker stores `Expression**` pointers.
 - HOT IR does not need that exact trick because Starshine can operate on region references and node ids directly.
@@ -209,6 +222,8 @@ related:
 
 ## Sources
 
+- Raw primary-source manifest: [`../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md`](../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md)
+- Follow-up note: [`../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md`](../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md)
 - Archived research note: [`../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md`](../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
 - Implementation: [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt)
 - Focused tests: [`../../../../../src/passes/simplify_locals_test.mbt`](../../../../../src/passes/simplify_locals_test.mbt)

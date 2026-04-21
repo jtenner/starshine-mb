@@ -3,7 +3,9 @@ kind: entity
 status: supported
 last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md
   - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
+  - ../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md
   - ../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
@@ -25,6 +27,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./variant-matrix-and-scheduler.md
   - ./wat-shapes.md
+  - ./structure-result-lifting-and-carrier-cleanup.md
   - ./starshine-hot-ir-strategy.md
   - ./implementation-map.md
   - ./effect-ordering-and-barriers.md
@@ -70,7 +73,9 @@ So this pass is **not** just dead-local removal and **not** just adjacent set/ge
   - the `none` queue was already clear
   - the implemented-landing queue was already clear
   - the older tuple / RUME / RUB / DFE fallback gaps were already closed
-- The old folder was already deep, but it was still missing a newer-style `version_129` implementation/test map and explicit public-variant page.
+- The old folder was already deep, but it was still missing two newer-style pieces that make the dossier easier to use in practice:
+  - an immutable primary-source manifest for the exact official release/source/test surfaces reviewed
+  - one compact bridge page for block/if/loop result lifting, one-armed `if` defaultability, and the local wrapper-forwarder carrier cleanup family
 
 ## Most important durable takeaways
 
@@ -89,7 +94,7 @@ So this pass is **not** just dead-local removal and **not** just adjacent set/ge
   - structure creation
   - whether new nesting is allowed at all
 - Current `main` shows only a tiny checked drift beyond `version_129` here:
-  - `map/set` -> `unordered_map/unordered_set` container cleanup in `SimplifyLocals.cpp`
+  - `std::map` / `std::set` -> `std::unordered_map` / `std::unordered_set` bookkeeping cleanup in `SimplifyLocals.cpp`
   - the major dedicated lit files checked for this dossier are unchanged
 
 ## Biggest beginner correction
@@ -124,6 +129,8 @@ That difference explains why:
   - Explicit public variant matrix for `simplify-locals`, `-notee`, `-nostructure`, `-notee-nostructure`, and `-nonesting`, plus the exact top-level and nested scheduler placements that give each variant its job.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly upstream WAT-shape catalog covering positive sink / tee / structure families, important bailout families, and nearby-pass interaction shapes.
+- [`./structure-result-lifting-and-carrier-cleanup.md`](./structure-result-lifting-and-carrier-cleanup.md)
+  - Compact bridge page for block / if / loop result lifting, one-armed `if` defaultability, and the way those upstream shape families map onto current Starshine helpers and tests.
 
 ### Starshine-local port and maintenance surface
 
@@ -159,7 +166,8 @@ What I directly re-confirmed:
 
 So the current durable rule is:
 
-- treat Binaryen `version_129` as the semantic oracle for this dossier
+- treat Binaryen `version_129` as the released semantic oracle for this dossier
+- use the raw primary-source manifest when a future thread needs the exact release/source/test provenance again
 - mention current-main drift only when it is more than container cleanup
 
 ## Current maintenance rule
@@ -172,7 +180,9 @@ So the current durable rule is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md`](../../../raw/binaryen/2026-04-21-simplify-locals-primary-sources.md)
 - [`../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md`](../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md)
+- [`../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md`](../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md)
 - [`../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md`](../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md)
 - [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt)
 - [`../../../../../src/passes/simplify_locals_test.mbt`](../../../../../src/passes/simplify_locals_test.mbt)

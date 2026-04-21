@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-14
+last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/research/0241-2026-04-21-simplify-locals-primary-sources-and-structure-followup.md
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals_test.mbt
@@ -12,6 +13,7 @@ sources:
 related:
   - ./index.md
   - ./starshine-hot-ir-strategy.md
+  - ./structure-result-lifting-and-carrier-cleanup.md
   - ./effect-ordering-and-barriers.md
   - ./raw-lane-and-writeback.md
   - ./validation-and-signoff.md
@@ -29,6 +31,7 @@ related:
 
 ## Top-Level Ownership Split
 
+- If the problem is specifically about block / if / loop result carriers or wrapper-forwarder cleanup, start with [`./structure-result-lifting-and-carrier-cleanup.md`](./structure-result-lifting-and-carrier-cleanup.md) before drilling into the helper lists below.
 - The implementation is split across three files with three different responsibilities:
   - [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt) owns the lifted HOT-IR pass
   - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) owns the raw exact-instruction fast path, raw skip heuristics, and lowered exact cleanup glue
