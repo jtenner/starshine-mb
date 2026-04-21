@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-19 Fix: widen natural exact-result `gen-valid` param/local return routes
+
+- **teach natural exact-ref `gen-valid` returns to reuse existing exact params/locals before fallback local seeding, and lock the deterministic param-return route with a focused validator test** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/validate/fuzz-hardening.md`](./docs/wiki/validate/fuzz-hardening.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), and [`src/validate/validate.mbt`](./src/validate/validate.mbt) so exact-result functions now treat a pre-existing exact param/local the same way they already treat matching globals and callable routes, avoiding redundant exact local injection while keeping the natural exact-result path validator-safe. Verification for this slice: `moon test src/validate --target native`.
+
 ## 2026-04-19 Fix: widen natural exact-result `gen-valid` callable return routes
 
 - **teach natural exact-ref `gen-valid` returns to prefer real callable paths before fallback local seeding, and lock the direct-call plus `call_ref` routes with focused validator tests** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/validate/fuzz-hardening.md`](./docs/wiki/validate/fuzz-hardening.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), and [`src/validate/validate.mbt`](./src/validate/validate.mbt) so natural exact-result functions now only inject matching exact locals when no pre-existing exact route exists, and exact concrete refs can return through matching globals, direct `call`, or `ref.func` + `call_ref` chains while the validate-package deterministic tests lock those stable paths. Verification for this slice: `moon fmt` and `moon test src/validate --target native`.

@@ -4832,6 +4832,66 @@ test "gen_valid_tfunc returns exact refs through a real natural local flow" {
 }
 
 ///|
+test "gen_valid_build_func reuses an exact param for natural exact-result returns" {
+  let described_idx = TypeIdx::new(0U)
+  let exact_rt = RefType::new(true, HeapType::new(described_idx), exact=true)
+  let exact_vt = ValType::ref_type(exact_rt)
+  let descriptor_pair = RecType::group([
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(descriptor=Some(TypeIdx::rec(1))),
+    ),
+    SubType::comp_type(
+      CompType::struct_([]),
+      metadata=TypeMetadata::new(describes=Some(TypeIdx::rec(0))),
+    ),
+  ])
+  let func_type = RecType::new(
+    SubType::comp_type(CompType::func([exact_vt], [exact_vt])),
+  )
+  let rnd = @splitmix.new(seed=0x5eedca5aUL)
+  let ctx = GenValidContext::new(rnd, GenValidConfig::natural_default())
+  let func = gen_valid_build_func(
+    ctx,
+    [exact_vt],
+    [exact_vt],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    [],
+    None,
+    gen_valid_gc_type_plan_empty(),
+    None,
+  )
+  let Func(locals, Expr(instrs)) = func
+  for run in locals.runs() {
+    let { count, vt } = run
+    ignore(count)
+    assert_false(vt == exact_vt)
+  }
+  match instrs.last() {
+    Some(LocalGet(idx)) => assert_eq(idx, LocalIdx::new(0U))
+    _ =>
+      fail("expected exact natural param return flow to end with local.get 0")
+  }
+  let mod = Module::new()
+    .with_type_sec(TypeSec::new([descriptor_pair, func_type]))
+    .with_func_sec(FuncSec::new([TypeIdx::new(2U)]))
+    .with_code_sec(CodeSec::new([func]))
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected exact-result natural param module to validate, got \{validation_error_message(err)} func=\{validation_error_func_idx(err)} mod=\{mod}",
+      )
+  }
+}
+
+///|
 test "gen_valid_build_func can return exact refs through a natural direct call path" {
   let described_idx = TypeIdx::new(0U)
   let exact_rt = RefType::new(true, HeapType::new(described_idx), exact=true)

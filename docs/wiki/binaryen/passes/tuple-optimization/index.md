@@ -1,17 +1,29 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-10
+status: supported
+last_reviewed: 2026-04-20
 sources:
+  - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
+  - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
   - ../../../../../src/passes/tuple_optimization.mbt
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/cmd/cmd_native_wbtest.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeInstructions.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm-validator.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/tuple-optimization.wast
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TupleOptimization.cpp
+  - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/tuple-optimization.wast
 related:
-  - ./wat-shapes.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
+  - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
   - ./scheduler-and-gates.md
   - ./reduced-repros-and-evidence.md
@@ -23,33 +35,122 @@ related:
 
 ## Role
 
-- `tuple-optimization` is an active hot pass on Starshine's explicit pass surface.
-- Its Binaryen-facing job is narrow and specific: lower tuple-like traffic early enough that later local-cleanup passes can delete dead lanes, dead copies, and redundant tuple scratch state.
-- Its Starshine implementation is intentionally not a literal tuple-AST clone of Binaryen's pass. HOT lift already expresses most real candidates as multi-result producers plus scalar local bridges, so Starshine rewrites those HOT-native bridge shapes directly.
+- `tuple-optimization` is an active implemented **hot pass** on Starshine's explicit pass surface.
+- In upstream Binaryen `version_129`, it is a narrow tuple-local cleanup pass that splits safe tuple scratch locals into scalar locals before later local-cleanup passes run.
+- The pass is easy to overstate.
+  - It is **not** a general multivalue optimizer.
+  - It is **not** a broad CFG-driven tuple dataflow pass.
+  - It is **not** the pass that folds direct `tuple.extract(tuple.make(...))`; Binaryen does that earlier in `optimize-instructions`.
 
-## Current Summary
+## Why this dossier still needed a refresh
 
-- The pass is registered and can be invoked directly through the pass manager and CLI.
-- The public `optimize` and `shrink` presets still intentionally omit it because the exact Binaryen slot requires `code-pushing` before it and `simplify-locals-nostructure` after it, and that full slot is not representable in-tree yet.
-- Current direct native Binaryen-compare coverage is green on the committed reduced families, but exact-shape white-box coverage and one black-box typed-carrier expectation are still red.
-- Full artifact parity is still not signed off. The current standing backlog still treats the debug-artifact compare and tuple-only runtime budget as open work.
+The tracker no longer had any pass with wiki status `none`, so this thread had to justify an already-`deep` fallback.
+`tuple-optimization` was the best major-gap fallback because:
 
-## Page Map
+- it still matters on the canonical no-DWARF function path:
+  - `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`
+- it also still appears repeatedly in the saved generated-artifact optimize log, including later nested `precompute-propagate -> code-pushing -> tuple-optimization` reruns
+- the existing folder grew out of an older port-plan note and Starshine implementation work, but it did not yet have a dedicated living page focused on the upstream source-file map, implementation structure, helper dependencies, validation neighbors, and official lit lessons
+- the old landing-page summary had stale wording about red exact-shape expectations that no longer matched the newer parity page
 
-- [`./wat-shapes.md`](./wat-shapes.md) - The concrete raw-WAT and reduced test shapes that are supposed to rewrite, the ones that are deliberately rejected, and why each family matters.
-- [`./binaryen-strategy.md`](./binaryen-strategy.md) - The confirmed upstream Binaryen strategy from `version_129`: use counting, valid-use filtering, copy-graph badness propagation, and the final tuple-local-to-scalar-local rewrite.
-- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md) - The current in-tree HOT-native algorithm: candidate discovery, copy-group linking, rewrite suppression, carrier construction, and post-rewrite cleanup.
-- [`./scheduler-and-gates.md`](./scheduler-and-gates.md) - The precise Binaryen slot, multivalue gate, and the current reason Starshine keeps tuple-opt off presets even though the explicit pass exists.
-- [`./reduced-repros-and-evidence.md`](./reduced-repros-and-evidence.md) - The reduced repro families that have driven the implementation, including retired bug families, still-open exact-shape families, and where each one is locked in tests.
-- [`./parity.md`](./parity.md) - The current signoff state: what is green today, what still fails on this branch, and which evidence is current versus historical.
+So this refresh is not a tracker-status promotion.
+It is a source-backed clarification pass over a real existing dossier.
 
-## Practical Rule
+## Most important durable takeaways
 
-- Treat this folder as the canonical living documentation home for tuple optimization.
-- Keep the archived `0076` note as provenance and historical implementation context, but file ongoing conclusions here.
-- When a new tuple bug appears, document it first as one of:
-  - a new transformable WAT/HOT family
-  - a new bailout or safety invariant
-  - a new parity or lowering drift family
-  - a new scheduler or feature-gate constraint
+- Upstream Binaryen is optimizing **tuple locals**, not multivalue syntax in general.
+- The pass approves only a narrow writer/reader surface:
+  - writers from `tuple.make` or tuple-local copies
+  - readers through `tuple.extract` or tuple-local copies
+- Copy-connected tuple locals succeed or fail together.
+  - If one member escapes, Binaryen poisons the whole component.
+- Tee preservation is part of the core contract, not a corner case.
+- The pass is deliberately lightweight.
+  - It does **not** depend on CFG, effects, liveness, dominance, or refinalization helpers.
+- The real payoff comes later.
+  - `tuple-optimization` exposes scalar locals so later local passes can remove dead lanes and dead copies.
+- A narrow 2026-04-20 freshness check found no current-main drift in the core upstream pass file, the dedicated lit suite, or the tuple-specific scheduler / peephole sections relevant to this dossier.
 
+## Current status summary
+
+- The explicit Starshine pass exists and is wired into the pass manager and CLI.
+- The public `optimize` and `shrink` presets still intentionally omit it because the exact Binaryen slot requires real neighbors on both sides:
+  - `code-pushing`
+  - `tuple-optimization`
+  - `simplify-locals-nostructure`
+- Current reduced native-compare coverage is green.
+- Current full-artifact comparison is canonically green on the per-function fallback surface, but exact preset-slot parity and runtime budget are still open.
+- Raw normalized WAT text is still too strict to use as the only tuple-opt parity oracle.
+
+## Biggest beginner correction
+
+The safe mental model is:
+
+- Binaryen uses this pass to split **safe tuple scratch storage** into scalar locals early enough that later local-cleanup passes can do better work.
+
+The unsafe mental model is:
+
+- “tuple-optimization” is where Binaryen lowers all tuple or multivalue constructs.
+
+That broader reading is not what the source file or test suite implement today.
+
+## Page map
+
+- [`./binaryen-strategy.md`](./binaryen-strategy.md)
+  - Exact upstream `version_129` algorithm: early gates, `uses` / `validUses`, symmetric copy graph, badness propagation, contiguous scalar-local allocation, `MapApplier`, and tee-preserving rewrites.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - The upstream file map, helper dependencies, validation/finalize neighbors, official lit families, and the narrow current-main freshness note.
+- [`./wat-shapes.md`](./wat-shapes.md)
+  - Beginner-friendly catalog of the official positive and negative tuple-local shapes Binaryen rewrites or deliberately leaves alone, plus the HOT-native equivalents Starshine sees after lift.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+  - The current in-tree HOT-native Starshine algorithm: seed discovery, copy-group linking, rewrite suppression, carrier construction, and cleanup.
+- [`./scheduler-and-gates.md`](./scheduler-and-gates.md)
+  - Exact Binaryen slot, multivalue gate, and why the public Starshine presets still keep tuple-opt off even though the explicit pass exists.
+- [`./reduced-repros-and-evidence.md`](./reduced-repros-and-evidence.md)
+  - The reduced repro families that drove the Starshine implementation and the current evidence map for those families.
+- [`./parity.md`](./parity.md)
+  - The current signoff state: strong direct isolated parity, canonical full-artifact compare status, open preset-slot proof, and remaining runtime debt.
+
+## Freshness note
+
+A narrow 2026-04-20 comparison against current GitHub `main` found:
+
+- `src/passes/TupleOptimization.cpp` unchanged from `version_129`
+- the relevant `pass.cpp` scheduler / registration lines unchanged
+- the tuple-specific `OptimizeInstructions.cpp` peephole section unchanged, even though the file has unrelated drift elsewhere
+- `test/lit/passes/tuple-optimization.wast` unchanged
+
+That means the tuple-opt dossier does **not** currently need a current-main drift warning on its core upstream surfaces.
+
+## Current maintenance rule
+
+- Treat this folder as the canonical home for Binaryen tuple-opt behavior, scheduler meaning, Starshine HOT-native strategy, and parity notes.
+- Keep the main beginner correction explicit:
+  - upstream `tuple-optimization` is a tuple-local scratch-storage splitter, not a generic multivalue optimizer.
+- Keep the division of labor explicit between:
+  - `optimize-instructions` handling direct `tuple.extract(tuple.make(...))`
+  - `tuple-optimization` splitting safe tuple locals
+  - later local-cleanup passes realizing the scalarization payoff
+- If new work only changes raw normalized WAT while canonical per-function compare stays green, classify that as compare-surface or materialization noise first, not immediately as a tuple-opt semantic regression.
+
+## Sources
+
+- [`../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)
+- [`../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md`](../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md)
+- [`../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md`](../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md)
+- [`../../../../../src/passes/tuple_optimization.mbt`](../../../../../src/passes/tuple_optimization.mbt)
+- [`../../../../../src/passes/tuple_optimization_wbtest.mbt`](../../../../../src/passes/tuple_optimization_wbtest.mbt)
+- [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+- [`../../../../../src/cmd/cmd_native_wbtest.mbt`](../../../../../src/cmd/cmd_native_wbtest.mbt)
+- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
+- Binaryen `version_129` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeInstructions.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm-validator.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/tuple-optimization.wast>
+- Narrow freshness-check surface:
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TupleOptimization.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/tuple-optimization.wast>

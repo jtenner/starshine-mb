@@ -1,82 +1,83 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-10
+status: supported
+last_reviewed: 2026-04-21
 sources:
-  - ../../../raw/research/0076-2026-04-01-simplify-locals-binaryen-research-plan.md
-  - ../../../../../src/passes/simplify_locals.mbt
-  - ../../../../../src/passes/simplify_locals_test.mbt
-  - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/passes/perf_test.mbt
+  - ../../../raw/research/0148-2026-04-21-simplify-locals-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./variant-matrix-and-scheduler.md
   - ./starshine-hot-ir-strategy.md
-  - ./effect-ordering-and-barriers.md
-  - ./raw-lane-and-writeback.md
-  - ./parity.md
+  - ../../no-dwarf-default-optimize-path.md
 ---
 
-# `simplify-locals` WAT Shapes
+# Binaryen `simplify-locals` WAT shapes
 
 ## Scope
 
-- This page records the exact WAT-shaped families the repo wants `simplify-locals` to transform, preserve, or explicitly decline.
-- It is not a transcript of every historical reducer.
-- The rule for this page is:
-  - keep exact pattern families that explain why the pass exists
-  - keep the negative cases that explain why the pass must stay conservative
-  - keep the raw-lane-recognized no-op families when they are durable enough to matter to maintenance
+This page records the important **upstream Binaryen `version_129`** shape families for the `simplify-locals` pass family.
 
-## Reading Rule
+It focuses on four things:
 
-- Each family below has four parts:
-  - the input shape
-  - the intended output shape
-  - why the transform is correct
-  - the repo-specific caveat that prevents over-generalization
+- positive rewrite shapes
+- negative / bailout shapes
+- what differs by variant
+- what beginners are most likely to overgeneralize
 
-## 1. Single-Use Linear Sink
+For Starshine-local raw-lane and artifact notes, keep using the other pages in this folder.
+This page is the upstream-facing shape catalog.
 
-### Input
+## Reading rule
 
-```wat
-(local.set $tmp
-  (i32.const 7)
-)
-...
-(local.get $tmp)
-```
+Each family below answers four questions:
 
-### Intended Output
+1. what shape Binaryen sees
+2. what Binaryen tries to rewrite it into
+3. which variant gates matter
+4. what safety rule keeps the rewrite honest
 
-```wat
-...
-(i32.const 7)
-```
-
-### Why
-
-- The local exists only to shuttle one value into one later use.
-- If no intervening code reads or writes `$tmp` or invalidates the producer, the local is not semantically meaningful.
-
-### Caveat
-
-- This is the basic family, but the repo does not treat every later `local.get` as consumable.
-- The sink still depends on:
-  - use count
-  - effect ordering
-  - local conflicts
-  - control barriers
-  - whether the consuming position evaluates in the same order Binaryen expects
-
-## 2. Multi-Use Sink Through `local.tee`
+## 1. Single-use linear sink
 
 ### Input
 
 ```wat
 (local.set $tmp
-  (call $produce)
+  value
+)
+...
+(local.get $tmp)
+```
+
+### Typical output
+
+```wat
+...
+value
+```
+
+### Variants
+
+- allowed in every variant, including `-nonesting`, if the sink does not create forbidden nesting there
+
+### Why it works
+
+- the local has one remaining use
+- the intervening code does not invalidate the value by effect ordering
+- the consumer can read the value directly instead of round-tripping through the local
+
+### Easy misunderstanding
+
+This is not just adjacency.
+Binaryen may sink across later code when the effect model still says the order is legal.
+
+## 2. Multi-use sink through `local.tee`
+
+### Input
+
+```wat
+(local.set $tmp
+  value
 )
 ...
 (local.get $tmp)
@@ -84,29 +85,34 @@ related:
 (local.get $tmp)
 ```
 
-### Intended Output
+### Typical output
 
 ```wat
 ...
 (local.tee $tmp
-  (call $produce)
+  value
 )
 ...
 (local.get $tmp)
 ```
 
-### Why
+### Variants
 
-- The first read can consume the producer directly.
-- Later reads still need a local carrier.
-- `local.tee` is the correct "consume now, keep later" shape.
+- allowed only when `allowTee = true`
+- therefore not allowed in `-notee`, `-notee-nostructure`, or `-nonesting`
 
-### Caveat
+### Why it works
 
-- The repo keeps a hard guard against synthesizing `local.tee` for multivalue producers.
-- That negative case is explicitly covered because Binaryen-like tee synthesis on multivalue locals led to bad lowered debris in Starshine.
+- the first use can consume the value directly
+- later uses still need the local
+- tee preserves both meanings at once
 
-## 3. Overwritten Pending Set Becomes `drop`
+### Easy misunderstanding
+
+Binaryen does **not** do this on the first cycle.
+The first cycle deliberately prefers only the single-use wins.
+
+## 3. Overwritten pending set becomes side-effect-only cleanup
 
 ### Input
 
@@ -119,7 +125,7 @@ related:
 )
 ```
 
-### Intended Output
+### Typical output
 
 ```wat
 (drop
@@ -130,18 +136,22 @@ related:
 )
 ```
 
-### Why
+### Variants
 
-- The first write never becomes observable through `$tmp`.
-- Its side effects still matter.
-- Rewriting it to `drop(value)` preserves side effects without pretending the local write still matters.
+- all variants
 
-### Caveat
+### Why it works
 
-- Pure dead writes may collapse further to `nop`.
-- Effectful ones must keep evaluation.
+- the earlier write can no longer be observed through `$tmp`
+- its side effects still matter
+- so Binaryen keeps the value evaluation but erases the now-dead store meaning
 
-## 4. `drop(local.tee(...))` Collapses Back To `local.set(...)`
+### Easy misunderstanding
+
+This is not the final dead-set phase yet.
+This overwrite cleanup happens during the main walk itself.
+
+## 4. Dead tee cleanup under `drop`
 
 ### Input
 
@@ -153,7 +163,7 @@ related:
 )
 ```
 
-### Intended Output
+### Typical output
 
 ```wat
 (local.set $tmp
@@ -161,541 +171,447 @@ related:
 )
 ```
 
-### Why
+### Variants
 
-- The tee exists only because an earlier rewrite created a consume-now/keep-later form.
-- If the consuming side is immediately dropped, the tee has become gratuitous.
+- any variant that could have produced or encountered the tee
 
-### Caveat
+### Why it works
 
-- This is a cleanup family, not a reason to synthesize tees more broadly.
+- the tee's produced value is immediately discarded
+- only the write matters now
 
-## 5. Pure Later Call-Argument Inline
-
-### Input
-
-```wat
-(i32.const 9)
-(local.set $tmp)
-(call $lhs
-  ...
-)
-(local.get $tmp)
-(call $rhs)
-```
-
-### Intended Output
-
-```wat
-(call $lhs
-  ...
-)
-(i32.const 9)
-(call $rhs)
-```
-
-### Why
-
-- The producer is pure.
-- An earlier sibling argument being a call does not matter if the later argument is still evaluated after it and the pure value can be moved to that position safely.
-
-### Caveat
-
-- This family is intentionally narrower than "any local can move into any later call argument."
-- The negative sibling-ordering family below is the reason.
-
-## 6. Sibling-Argument Ordering Must Block Effectful Moves
+## 5. Block return formation from shared local exits
 
 ### Input
 
 ```wat
-(local.set $flag
-  (if (result i32)
+(block $out
+  ...
+  (local.set $x a)
+  (br $out)
+  ...
+  (local.set $x b)
+)
+(local.get $x)
+```
+
+### Typical output shape
+
+```wat
+(local.set $x
+  (block $out (result T)
     ...
-  )
-)
-(call $f
-  (local.get $x)
-  (local.get $flag)
-)
-```
-
-### Rejected Output
-
-```wat
-(call $f
-  (local.get $x)
-  (local.tee $flag
-    (if (result i32)
-      ...
-    )
+    a-or-b-through-block-exits
   )
 )
 ```
 
-### Why It Is Rejected
+### Variants
 
-- The `if` may write a local or otherwise affect an earlier sibling argument's meaning.
-- In the reduced `moonbit.malloc` family, this reorder was real wrong code, not merely a shape disagreement.
+- only structured variants (`allowStructure = true`)
 
-### Maintenance Rule
+### Why it works
 
-- If the replacement is effectful, Starshine only inlines it when the consuming `local.get` lies on the next root's *leading* evaluation path.
+- every relevant exit sets the same local
+- Binaryen can reinterpret that local traffic as a real block result instead
 
-## 7. Sink Across Unrelated Local Traffic
+### Important guard
+
+Unsupported branch-target users such as `Switch` / `BrOn` poison this optimization for the named block.
+
+## 6. `br_if` condition hazard blocks some block-return rewrites
 
 ### Input
 
 ```wat
-(local.set $a
-  (call $side)
+(br_if $out
+  condition-using-(local.set $x ...)
 )
+```
+
+### Required outcome
+
+- sometimes keep the original local/set structure
+- do **not** blindly move that set into the branch payload position
+
+### Why it is blocked
+
+If the set is moved from the condition into the payload position, the value write may happen earlier than the condition expected.
+The source performs an explicit `orderedBefore` hazard check for this case.
+
+### Beginner lesson
+
+Block return synthesis is not just pattern matching on labels.
+The branch condition's evaluation order still matters.
+
+## 7. If/else shared-local result formation
+
+### Input
+
+```wat
+(if
+  cond
+  (then
+    (local.set $x a)
+  )
+  (else
+    (local.set $x b)
+  )
+)
+(local.get $x)
+```
+
+### Typical output shape
+
+```wat
+(local.set $x
+  (if (result T)
+    cond
+    (then a)
+    (else b)
+  )
+)
+```
+
+### Variants
+
+- only structured variants
+
+### Why it works
+
+- both arms are really computing one later value of `$x`
+- Binaryen can expose that as an actual `if` result instead of a hidden local carrier
+
+## 8. One-armed `if` speculative result formation
+
+### Input
+
+```wat
+(if
+  cond
+  (then
+    (local.set $x value)
+  )
+)
+(local.get $x)
+```
+
+### Typical output shape
+
+```wat
+(local.set $x
+  (if (result T)
+    cond
+    (then value)
+    (else (local.get $x))
+  )
+)
+```
+
+### Variants
+
+- only structured variants
+
+### Why it works
+
+- Binaryen speculates that exposing the value flow directly may help later passes
+
+### Important guard
+
+- the local type must be defaultable
+
+### Easy misunderstanding
+
+This is not always a clear size or speed win.
+The source explicitly calls it a speculative optimization.
+
+## 9. Nondefaultable locals block the one-armed `if` rewrite
+
+### Input
+
+```wat
+(local $x (ref func))
+(if
+  cond
+  (then
+    (local.set $x (ref.func $f))
+  )
+)
+(local.get $x)
+```
+
+### Required outcome
+
+- keep the original non-result `if`
+- do not synthesize a new else-arm `local.get`
+
+### Why it is blocked
+
+The new else-arm get might not be structurally dominated by a set.
+Later fixups would repair validation with `ref.as_non_null`, which can introduce a real trap.
+So Binaryen skips this rewrite instead.
+
+## 10. Loop return formation in the narrow trailing-`nop` case
+
+### Input
+
+```wat
+(loop
+  ...
+  (local.set $x value)
+)
+(local.get $x)
+```
+
+### Typical output shape
+
+```wat
+(local.set $x
+  (loop (result T)
+    ...
+    value
+  )
+)
+```
+
+### Variants
+
+- only structured variants
+
+### Important guard
+
+- the loop must currently be void
+- the body must be or become a block with a trailing `nop` slot
+
+### Beginner lesson
+
+Binaryen's loop-return rewrite is real, but narrow.
+It is not a generic loop value optimizer.
+
+## 11. May-throw values do not sink into `try` / `try_table`
+
+### Input
+
+```wat
+(local.set $x
+  (call $might_throw)
+)
+(try
+  (do
+    (drop (local.get $x))
+  )
+  ...
+)
+```
+
+### Required outcome
+
+- keep the set outside the `try`
+
+### Why it is blocked
+
+Moving the call inside could change whether a thrown exception is caught.
+The source explicitly invalidates sinkables that may throw at `try` / `try_table` entry.
+
+## 12. Non-throwing values may sink into `try` / `try_table`
+
+### Input
+
+```wat
+(local.set $x
+  (i32.const 3)
+)
+(try_table ...
+  (drop (local.get $x))
+)
+```
+
+### Typical output
+
+```wat
+(nop)
+(try_table ...
+  (drop (i32.const 3))
+)
+```
+
+### Variants
+
+- all variants that otherwise allow the sink
+
+### Why it works
+
+- the value cannot throw
+- moving it into the try region does not change catch semantics
+
+## 13. Immutable global reads may move; mutable ones may not
+
+### Positive input
+
+```wat
+(local.set $x
+  (global.get $imm)
+)
+(call $helper)
+(local.get $x)
+```
+
+### Positive output
+
+```wat
+(call $helper)
+(global.get $imm)
+```
+
+### Negative input
+
+```wat
+(local.set $x
+  (global.get $mut)
+)
+(call $helper)
+(local.get $x)
+```
+
+### Negative outcome
+
+- keep the local traffic
+
+### Why the split exists
+
+- immutable globals cannot be changed by the call
+- mutable globals might be
+
+`global-effects_simplify-locals.wast` extends this further by showing that generated global-effect summaries can distinguish read-only calls from writing calls.
+
+## 14. Heap, table, and string ordering still matters
+
+### Heap read vs heap write
+
+A `struct.get` or array load cannot move past a conflicting heap write.
+An immutable heap read may move past an unrelated write if the effect model says that write cannot change the read's meaning.
+
+### Table read vs table write
+
+`table.get` may move past inert code like `nop`, but not past `table.init`.
+
+### String read/write-like ops
+
+The official string tests show that Binaryen treats:
+
+- `string.new_*_array` like a heap-array read family for ordering
+- `string.encode_*_array` like a heap-array write family for ordering
+
+Beginner lesson:
+
+- string instructions are not magically outside the effect model
+
+## 15. Shared/unshared and acquire/release atomic shapes matter
+
+The atomic-effects lit file demonstrates that `simplify-locals` is sensitive to:
+
+- whether memory is shared
+- whether GC heaps are shared
+- acquire vs ordinary read ordering
+- acquire vs ordinary store ordering
+
+So the pass is not just “same local, same value.”
+Its motion model includes real synchronization boundaries.
+
+## 16. `trapsNeverHappen` opens some motion, but not everything
+
+### Positive TNH family
+
+A trapping read may move past some later side effect when TNH says the trap is unreachable in practice.
+
+### Negative TNH family
+
+The pass still stays within its straight-line-trace model.
+The TNH test file shows that Binaryen does **not** suddenly become a generic cross-control-flow mover.
+
+## 17. Equivalent-copy late canonicalization
+
+### Input
+
+```wat
+(local.set $b
+  (local.get $a)
+)
+...
 (local.get $b)
-(drop)
+```
+
+### Typical late output
+
+```wat
+...
 (local.get $a)
 ```
 
-### Intended Output
+or, if `$b` is the better representative:
 
 ```wat
+...
 (local.get $b)
-(drop)
-(call $side)
 ```
 
-### Why
+### Why the outcome varies
 
-- Unrelated local traffic should not automatically kill a pending value.
-- The repo had to learn this explicitly because clearing sinkables on all local-only traffic was too conservative.
+The late phase chooses the best equivalent local by:
 
-### Caveat
+1. more refined type
+2. otherwise more remaining gets
 
-- The unrelated local must really be unrelated.
-- Any read or write of the producer local or a producer-source local still blocks the move.
+So the point is not simply “always collapse to the oldest local.”
 
-## 8. Trap-Commuting Read-Only Tee
+## 18. Preserve the tee that later `rse` and fallthrough still need
 
-### Input
+The dedicated `simplify-locals_rse_fallthrough.wast` file exists to stop an easy overreach.
 
-```wat
-(local.set $tmp
-  (i32.load ...)
-)
-...
-(i32.load ...)
-...
-(local.get $tmp)
-```
+A tee that looks redundant in isolation may still be necessary once:
 
-### Intended Output
-
-```wat
-...
-(local.tee $tmp
-  (i32.load ...)
-)
-```
+- branch payload timing
+- fallthrough value meaning
+- and later `rse` cleanup
 
-### Why
+are considered together.
 
-- A read-only trapping producer can commute past later read-only traps in the narrow case where the pass's effect ordering says neither side changes the other's meaning.
+Beginner lesson:
 
-### Caveat
+- not every duplicate-looking tee is dead just because one local currently mirrors another
 
-- This is one of the easiest families to overgeneralize.
-- The repo keeps the corresponding memory-write barrier as a separate negative case because a later write must still kill the move.
+## 19. `BrOn` / `Switch` and related target users are explicit bailouts
 
-## 9. Do Not Sink Trapping Reads Across Memory Writes
+The source marks named blocks unoptimizable for structure-return purposes when it encounters unsupported target users.
 
-### Input
+So if a block looks like a good block-result candidate except for a `br_on_*` or `switch` family, the correct upstream answer today is usually:
 
-```wat
-(local.set $tmp
-  (i32.load ...)
-)
-(i32.store ...)
-(local.get $tmp)
-```
-
-### Required Outcome
+- keep the local carrier
+- do not half-port the block-result rewrite
 
-- Keep the local traffic.
-- Do not sink the load through the store.
+## 20. `-nonesting` is stricter than the other reduced variants
 
-### Why
+### Input family
 
-- The store changes observable memory state.
-- The earlier load and later store cannot be freely reordered.
-
-## 10. Loop-Carried Initializer Must Stay Outside The Loop
-
-### Input
-
-```wat
-(i32.const 0)
-(local.set $i)
-(loop
-  ...
-  (local.get $i)
-  ...
-  (local.set $i
-    (i32.add
-      (local.get $i)
-      (i32.const 1)
-    )
-  )
-  ...
-)
-```
+A sink is otherwise legal, but would create a new nested expression position.
 
-### Rejected Output
+### Outcome in `-nonesting`
 
-```wat
-(loop
-  ...
-  (local.tee $i
-    (i32.const 0)
-  )
-  ...
-)
-```
-
-### Why It Is Rejected
-
-- The producer was a pre-loop initializer, not a per-iteration value.
-- Moving it into the loop header rewrites one-time setup into repeated reinitialization.
-- The reduced `StringView.make_init_no_rc` artifact bug proved this is a real correctness boundary.
-
-## 11. Block Return Lifting
-
-### Input
-
-```wat
-(block
-  ...
-  (local.set $tmp value)
-  ...
-  (br $label
-    (local.get $tmp)
-  )
-)
-(local.get $tmp)
-```
-
-### Intended Output
-
-```wat
-(block (result i32)
-  ...
-  value
-)
-```
-
-### Why
-
-- The local is only serving as a synthetic block result carrier.
-- Binaryen prefers the control node to return the value directly.
-
-### Caveat
-
-- The repo explicitly tracks:
-  - branch exit ownership
-  - typed-branch payload hazards
-  - whether later live roots touch the local
-
-## 12. One-Armed `if` Lift For Defaultable Locals
-
-### Input
+- reject the sink
 
-```wat
-(if
-  cond
-  (then
-    ...
-    (local.set $tmp value)
-  )
-)
-(local.get $tmp)
-```
-
-### Intended Output
-
-```wat
-(if (result i32)
-  cond
-  (then
-    ...
-    nop
-    value
-  )
-  (else
-    (local.get $tmp)
-  )
-)
-```
-
-### Why
+### Outcome in ordinary variants
 
-- The then-arm is really producing the value of the surrounding expression.
-- Binaryen preserves a `nop` sentinel where the old tail set lived in several reduced families.
+- the sink may still be allowed
 
-### Caveats
-
-- The local type must be defaultable.
-- Live prefix roots in the then-arm must stay in place.
-- The repo explicitly rejects a broad "erase everything but the value" version of this rewrite.
-
-## 13. Nested One-Armed `if` Inside A Consumed Result
-
-### Input
-
-```wat
-(if (result i32)
-  cond0
-  (then
-    ...
-    (if
-      cond1
-      (then
-        (local.set $tmp value)
-      )
-    )
-    (local.get $tmp)
-  )
-  (else ...)
-)
-```
+### Why this matters
 
-### Intended Output
+The flatten/souper combo tests exist because this stronger flatness promise is part of a real aggressive scheduler surface, not dead option clutter.
 
-- Lift the inner one-armed `if` too, not only root-level `if`s.
+## Maintenance rule
 
-### Why
+When updating this page, prefer the official Binaryen-backed question:
 
-- Binaryen does not limit the idea to top-level control roots when the consumed-result structure still makes the dataflow obvious.
+- what shapes does `version_129` actually rewrite or intentionally preserve?
 
-## 14. Loop Fallthrough Tail Lifting
-
-### Input
-
-```wat
-(loop
-  ...
-  (local.set $tmp value)
-)
-(local.get $tmp)
-```
-
-### Intended Output
-
-```wat
-(loop (result i32)
-  ...
-  value
-)
-```
-
-### Why
-
-- The loop fallthrough is being used as a synthetic return path through a local.
-
-### Caveat
-
-- Only the fallthrough value is lifted.
-- Backedge behavior and carried locals still need to stay valid.
-
-## 15. Tee-Backed Copied Local Must Survive Later Branch Or Call Use
-
-### Input
-
-```wat
-(local.set $copy
-  (local.get $src)
-)
-...
-(if
-  ...
-  (then
-    ...
-    (call $use
-      (local.get $copy)
-    )
-  )
-)
-```
-
-### Intended Output
-
-- Keep the tee-backed copied local alive when the later direct call or branch use still needs that carrier.
-
-### Why
-
-- Binaryen sometimes wants the copied local, not the source local, to remain the representative at the later direct-use site.
-
-## 16. Same-Arm Alias Should Collapse Back To Source Local
-
-### Input
-
-```wat
-(local.set $copy
-  (local.get $src)
-)
-...
-(i32.load
-  (local.get $copy)
-)
-```
-
-### Intended Output
-
-```wat
-(i32.load
-  (local.get $src)
-)
-```
-
-### Why
-
-- Same-arm non-call aliases do not need the copied local once the equivalence is known.
-
-### Caveat
-
-- This is exactly the family that forced the repo to narrow tee-defined-local protection to direct call children instead of every later use.
-
-## 17. Exact Writeback: Dead Copied `local.tee`
-
-### Input
-
-```wat
-(local.tee $tmp
-  (local.get $src)
-)
-(drop)
-```
-
-### Intended Output
-
-- Remove the dead copied tee when no surviving exact `local.get` still reads `$tmp`.
-
-### Why
-
-- Lower can leave copied tees that are no longer semantically needed.
-- Binaryen parity tolerated this cleanup when kept narrow.
-
-### Caveat
-
-- This is *not* permission to strip surrounding lowered `nop`s.
-
-## 18. Exact Writeback: Dead Adjacent `local.set` / `local.get`
-
-### Input
-
-```wat
-(local.set $tmp value)
-(local.get $tmp)
-```
-
-### Intended Output
-
-```wat
-value
-```
-
-### Why
-
-- After lower, some one-use temps survive only as an adjacent set/get shuttle.
-- The repo now removes those without introducing new tees.
-
-### Caveat
-
-- The local must have no later exact reads.
-- Multivalue-lowered families are explicitly kept out of this cleanup.
-
-## 19. Explicitly Rejected: Broad Lowered-`nop` Stripping
-
-### Rejected Idea
-
-- Strip lowered `nop` roots after exact writeback to make the output "cleaner."
-
-### Why Rejected
-
-- The `gen-valid` differential lane diverged almost immediately.
-- Binaryen preserves many lowered `nop`s intentionally or at least stably enough that removing them changes parity.
-
-### Rule
-
-- Never revive broad lowered-`nop` cleanup without a reduced, oracle-backed proof for the exact family.
-
-## 20. Raw-Lane Rewrite Family: Structured Pure Copy Tail
-
-### Input Family
-
-- Large exact instruction bodies where a single-use temp survives only because a pure prefix sits between producer and use.
-
-### Intended Outcome
-
-- Remove the temp directly on the raw lane without hot lift.
-
-### Why
-
-- The family is common in validator-heavy and builder-heavy artifact helpers.
-- A narrow exact-instruction proof was cheaper than lifting the whole function.
-
-## 21. Raw-Lane Rewrite Family: Validator Skip Copy And Loop Temps
-
-### Input Families
-
-- `local.get -> local.set -> nested statement group -> local.get`
-- `call -> local.set -> local.get/local.set barrier -> local.get -> i32.lt_s`
-- copied locals across one cleanup `if`
-- `call -> local.set -> structured value body whose leading condition path starts with a pure prefix and then local.get`
-
-### Intended Outcome
-
-- Apply the narrow temp cleanup even when the function still takes `skip-raw reason=validator-structured-call-heavy`.
-
-### Why
-
-- Several artifact frontiers reduced only after the repo accepted that some parity-safe temp cleanup must run even on validator raw-skip results.
-- The latest retired family is the old `Func 71` condition-temp drift, where Binaryen sinks a call-indirect temp into the structured condition even though the validator helper still stays on the raw-skip lane.
-- The next unreduced `Func 71` family is narrower:
-  - reduced validator regressions already cover the simple `local.set -> local.get -> if` tee shape with later if-body reads
-  - the old `$928 -> $549` store shuttle is now retired too
-  - the reduced validator-heavy returning call-tail constant-copy subgroup is now retired too: a nested returning `if` arm with `i32.const -> local.set` shuttles feeding a later `call` now collapses to direct constants even on `skip-raw reason=validator-structured-call-heavy`
-  - a second reduced validator-heavy returning fanout subgroup is now retired in-memory too: an effectful prefix followed by a returning `if (result i32)` arm whose escaping `call` is fed by a dense const-copy web now collapses once the helper can see the full escaping tail
-  - a newer reduced Binaryen probe now also covers the denser fanout shape itself: `i32.const/local.get -> local.set` repeated across several locals and then consumed by one final `call`
-  - Binaryen's reduced output for that family is explicit: delete the whole fanout, keep only `nop` sentinels, and feed the final `call` with direct constants or direct source `local.get`
-  - a later reduced follow-up now also covers the tighter terminal-value family inside that same artifact bucket: `i32.const/local.get -> local.set -> safe middle -> local.get`, where the copied local is the final escaping value instead of the input to another zero-stack statement
-  - Binaryen's reduced output there is slightly more specific than the repo first assumed: keep the safe middle statements, turn the removed `local.set` into a `nop` sentinel, preserve any existing middle `nop`s, and end the tail with the original constant or source `local.get`
-  - a later reduced branch-terminated follow-up now also covers `nop, local.get -> local.set, middle local.set, copied local.get -> local.set, br`; Binaryen keeps the leading `nop`, emits one extra sentinel `nop` for the removed copied-local set, preserves the middle set, rewrites the final set to read the original source local directly, and keeps the trailing `br`
-  - Starshine now matches those reduced families in-tree and the direct traced native `Func 71` dump shows the direct constant/source form in `body_raw`
-  - but the latest clean artifact replay still shows the real `$930/$931/$932/$933/$934` subgroup after the large validator-skip body is replayed, and the first remaining mismatch is now the exact `$62 -> $930 -> $38` branch carrier
-  - so the current first open artifact drift is no longer "we need a fanout reducer"; it is "the real validator-skip statement shape in `Func 71` still keeps this one branch carrier alive"
-  - a blind post-pass adjacent-tee sweep was tested against the real artifact and rejected because it removed the explicit carrier without matching Binaryen's shape
-
-## 22. Raw No-Op Families
-
-### Shapes
-
-- huge straight-line call builders
-- dense structured call-heavy helpers
-- stringview trim loops
-- decode-shaped helpers
-- branchy decode fanout
-- validator-heavy call walkers
-
-### Intended Outcome
-
-- Do not hot-lift them when tracing shows they are already Binaryen-equal no-ops.
-
-### Why
-
-- These families are mostly performance decisions, not core semantic transforms.
-- They matter because artifact parity work was otherwise drowned by no-op hot-lift cost.
-
-## Maintenance Rule
-
-- Add a new shape here only if at least one of these is true:
-  - the family has a focused regression in `src/passes/simplify_locals_test.mbt`
-  - the family has a synthetic perf or wbtest guard
-  - the family was a real artifact frontier or hotspot and the conclusion is durable
+Do not silently replace that with a Starshine-local raw-lane story.
+Keep the upstream positive, negative, and bailout families explicit, especially when a future port is tempted to overgeneralize one of the structure or tee rewrites.

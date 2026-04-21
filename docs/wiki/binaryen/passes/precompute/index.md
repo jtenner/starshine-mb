@@ -1,32 +1,200 @@
 ---
 kind: entity
-status: stub
-last_reviewed: 2026-04-18
+status: supported
+last_reviewed: 2026-04-20
 sources:
+  - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_test.mbt
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../../../../../src/passes/optimize.mbt
+  - ../tracker.md
+  - ../../no-dwarf-default-optimize-path.md
+  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json
+  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
   - ../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md
   - ../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
+  - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9de4aca15b3125d54aabaf2913a0988ff500bdba
+  - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/8f85446ee05b32726979a38284a48b1c3719208a
+  - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/10c876d4d246a2e697a166879bcb6df0d7b7bbca%5E%21/
+  - https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/86f0d65bcf87c2491698b7cfd526f2f0614a75dd%5E%21/
 related:
+  - ./binaryen-strategy.md
+  - ./propagation-partial-precompute-and-gc-identity.md
+  - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
+  - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
-  - ../late-pipeline-dispatch.md
+  - ../optimize-instructions/index.md
+  - ../heap-store-optimization/index.md
+  - ../vacuum/index.md
 ---
 
 # `precompute`
 
-- Active hot pass in the Starshine registry.
-- Current summary: Fold exact constant integer expressions that are trap-free and stable across the top-level precompute slots.
-- Current Binaryen terminology check: upstream-facing sources still expose both `--precompute` and `--precompute-propagate`; this page keeps the repo's `precompute` umbrella label and records the ordered audit's Binaryen slot names explicitly when they differ.
-- Newer upstream activity is behavioral, not terminological: the Chromium-hosted Binaryen mirror shows a 2025-08-27 `Precompute` rewrite that reworked child-retention logic and removed the older dual-cache split, a 2026-03-23 fix that keeps GC writes like `ArrayStore` in the effects model instead of precomputing through them, a 2026-03-25 fix that stopped folding GC `struct` / `array` atomic RMW and `cmpxchg` ops because those instructions both read and write heap state, and a 2026-03-26 multibyte-array-access follow-up that deliberately treats `array.load` as `NONCONSTANT_FLOW` for now instead of folding it like an ordinary constant read. Treat this repo's older `version_129`-backed `precompute` notes as a tagged oracle rather than a claim about current trunk internals.
-- Current 2026-04-18 ordered generated-artifact follow-up: the early generated `cmd.wasm` slot at Binaryen slot `19` (`precompute-propagate`) is now retired by [0105](../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md). The same saved predecessor from [0096](../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md) now exits `0`, stays `wasm-tools validate` clean, and matches Binaryen at normalized-WAT / canonical-function granularity.
-- The durable lesson from that retirement is narrower than "precompute is fully signed off": keep the slot-19 predecessor as a cmd-level regression because the failure used to be silent invalid raw output in `func 108`, but move the living precompute frontier back to parity/runtime work instead of treating slot `19` as an active corruption blocker.
-- Use [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md) for the broader late-pass roster until dedicated strategy and parity pages land.
+## Role
+
+- `precompute` is an active implemented **hot pass** in Starshine.
+- In upstream Binaryen `version_129`, the real pass family has **two public names**:
+  - `precompute`
+  - `precompute-propagate`
+- The public summary in `pass.cpp` is small:
+  - `precompute`: computes compile-time evaluatable expressions
+  - `precompute-propagate`: computes compile-time evaluatable expressions and propagates them through locals
+
+That summary is accurate, but too small.
+
+A better beginner summary is:
+
+- Binaryen tries to **execute** some expressions at compile time,
+- keeps the result only when it can safely re-emit it as valid IR,
+- preserves important local/global writes when needed,
+- optionally propagates constant knowledge through locals,
+- and at higher optimize levels can partially push parent computations into `select` arms.
+
+So this pass is not just “integer constant folding.”
+
+## Why this pass matters
+
+- When this thread started, `docs/wiki/binaryen/passes/tracker.md` named `precompute` as the strongest remaining implemented-landing target after the `optimize-instructions` dossier landed.
+- The canonical no-DWARF `-O` / `-Os` scheduler uses the precompute family **twice** in the default function pipeline:
+  - once early
+  - once late
+- In Binaryen `version_129`, those top-level no-DWARF `-O` / `-Os` slots use **plain `precompute`**, not `precompute-propagate`, because that preset is only `optimizeLevel=2`, `shrinkLevel=1`.
+- The saved generated-artifact `-O4z` audit saw the more aggressive variant instead:
+  - slot `19`: `precompute-propagate`
+  - slot `43`: `precompute-propagate`
+- The saved Binaryen debug log contains `53` `running pass: precompute-propagate` lines in total, so nested optimizing reruns matter a lot more than the two visible top-level `-O4z` slots suggest.
+- The local backlog already has dedicated `PC` slices, so a deeper dossier here directly helps future implementation work:
+  - `[PC]001 - Constant Folding Surface`
+  - `[PC]002 - Early/Late Slot Regression and Artifact Parity`
+
+## Most important durable takeaways
+
+- Binaryen `precompute` is **not** just `1 + 2 -> 3`.
+- Binaryen `precompute` is **not** just a peephole pass.
+- Binaryen `precompute` is built around five linked ideas:
+  1. use a bounded compile-time interpreter to see what an expression really does
+  2. only replace the expression if the result is concrete **and** safely re-emittable
+  3. preserve required local/global writes when speculative evaluation walked through them
+  4. optionally push parent computation into `select` arms when that reduces the whole shape
+  5. in the propagate variant, use `LazyLocalGraph` to move constant knowledge through locals and then rerun the main walk once
+- The pass depends heavily on helper utilities such as:
+  - `ConstantExpressionRunner`
+  - `Flow`
+  - `Literals`
+  - `Properties`
+  - `LazyLocalGraph`
+  - `EffectAnalyzer`
+  - `ExpressionStackWalker`
+  - `ExpressionManipulator::nop`
+  - `ReFinalize`
+- GC identity is part of the real contract.
+  - The pass keeps a heap-value cache so `ref.eq`, immutable field reads, and nested immutable-object reasoning do not accidentally confuse “same contents” with “same allocation.”
+- Emitability is also part of the contract.
+  - Binaryen may know a result value precisely, but still refuse to replace the expression if it cannot emit that value as a valid constant expression.
+- Current Starshine models only a small scalar/control subset of the upstream behavior.
+- The earlier generated-artifact slot-19 hard failure is retired.
+  - The durable explanation is that the saved failure was fixed by HOT-lowering / writeback guards and full-module validation, not by discovering that Binaryen `precompute` itself is a still-open structural rewrite hazard.
+
+## Beginner warning: what the name hides
+
+The easy wrong mental model is:
+
+- `precompute` just folds exact constant arithmetic
+
+The safer mental model is:
+
+- Binaryen uses a small interpreter plus local-flow reasoning to compute what an expression would do,
+- then only replaces it when both semantics and re-emission stay honest,
+- and the propagate variant extends that by using local get/set flow information rather than just the syntax under one node.
+
+That difference matters a lot for future parity work.
+
+## What the pass sounds like versus what it actually does
+
+What it sounds like:
+
+- a small constant-folder
+
+What it actually is in `version_129`:
+
+- a function-parallel post-walk pass with:
+  - bounded compile-time execution
+  - result / break / return flow tracking
+  - child-retention logic for local/global writes
+  - a block-specific quadratic-work bailout
+  - partial select-arm precompute at higher optimize levels
+  - optional `LazyLocalGraph` constant propagation
+  - GC identity caching
+  - constant-emission restrictions for refs and strings
+  - final refinalization
+
+## Page map
+
+- [`./binaryen-strategy.md`](./binaryen-strategy.md)
+  - Deep dive into the actual Binaryen `version_129` implementation, helper dependencies, scheduler placement, main phases, and the difference between the pass's small public name and its larger real scope.
+- [`./propagation-partial-precompute-and-gc-identity.md`](./propagation-partial-precompute-and-gc-identity.md)
+  - Focused guide to the easiest part of the pass to underestimate: the split between plain `precompute` and `precompute-propagate`, the upward partial-select algorithm, the `LazyLocalGraph` worklist, and the GC identity / emitability boundaries.
+- [`./wat-shapes.md`](./wat-shapes.md)
+  - Beginner-friendly shape catalog covering scalar, control, `select`, tuple, string, GC, atomic, and bailout families.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+  - Current in-tree Starshine strategy and the major Binaryen behaviors the repo still does not model.
+
+## Newer-than-`version_129` drift already recorded on this page
+
+The current dossier uses Binaryen `version_129` as the main source oracle, but this folder should not silently forget the newer upstream drift that the earlier landing page had already recorded.
+
+Those newer facts remain useful, provided they stay labeled as newer than the tagged oracle:
+
+- `2025-08-27`: a Chromium mirror `Precompute` rewrite reworked child-retention logic and removed the older dual-cache split
+- `2026-03-23`: upstream fixed GC writes such as `ArrayStore` being treated too optimistically during precompute
+- `2026-03-25`: upstream stopped folding GC `struct` / `array` atomic RMW and `cmpxchg` because those operations both read and write heap state
+- `2026-03-26`: upstream kept multibyte `array.load` as `NONCONSTANT_FLOW` for now instead of folding it like a normal immutable read
+
+Treat those as newer-trunk drift notes, not as silent edits to the `version_129` contract described in the strategy page.
+
+## Current maintenance rule
+
+- Treat this folder as the canonical home for future `precompute` / `precompute-propagate` parity and scheduler research.
+- Use Binaryen `version_129` as the current source oracle for new conclusions.
+- Keep the landing page honest about the mode split:
+  - no-DWARF `-O` / `-Os` top-level slots use plain `precompute`
+  - aggressive `-O4z`-style and nested optimizing reruns use `precompute-propagate`
+- Keep the landing page honest about the artifact story:
+  - the saved slot-19 `func 108` invalid-output witness is retired
+  - the remaining work is documentation depth, parity breadth, and runtime honesty, not an open hard-corruption blocker
+- Keep newer upstream drift notes labeled as newer-than-`version_129` facts instead of silently rewriting the `version_129` contract.
 
 ## Sources
 
-- [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md)
-- Binaryen Chromium mirror commit `9de4aca15b3125d54aabaf2913a0988ff500bdba` (`2025-08-27`): <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9de4aca15b3125d54aabaf2913a0988ff500bdba>
-- Binaryen Chromium mirror commit `8f85446ee05b32726979a38284a48b1c3719208a` (`2026-03-23`): <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/8f85446ee05b32726979a38284a48b1c3719208a>
-- Binaryen Chromium mirror commit `10c876d4d246a2e697a166879bcb6df0d7b7bbca` (`2026-03-25`): <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/10c876d4d246a2e697a166879bcb6df0d7b7bbca%5E%21/>
-- Binaryen Chromium mirror commit `86f0d65bcf87c2491698b7cfd526f2f0614a75dd` (`2026-03-26`): <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/86f0d65bcf87c2491698b7cfd526f2f0614a75dd%5E%21/>
+- [`../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md`](../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md)
+- [`../../../../../src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt)
+- [`../../../../../src/passes/precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt)
+- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../tracker.md`](../tracker.md)
+- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
+- [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json)
+- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
+- [`../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md`](../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md)
+- [`../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md`](../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md)
+- Newer upstream drift notes already recorded on the old landing page:
+  - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9de4aca15b3125d54aabaf2913a0988ff500bdba>
+  - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/8f85446ee05b32726979a38284a48b1c3719208a>
+  - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/10c876d4d246a2e697a166879bcb6df0d7b7bbca%5E%21/>
+  - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/86f0d65bcf87c2491698b7cfd526f2f0614a75dd%5E%21/>
+- Binaryen `version_129` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Precompute.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-interpreter.h>
+- Representative Binaryen `version_129` tests:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-effects.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-partial.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-gc.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-gc-immutable.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-gc-atomics.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-strings.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-ref-func.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-relaxed.wast>

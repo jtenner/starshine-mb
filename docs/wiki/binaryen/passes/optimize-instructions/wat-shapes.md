@@ -1,0 +1,760 @@
+---
+kind: concept
+status: supported
+last_reviewed: 2026-04-20
+sources:
+  - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
+related:
+  - ./index.md
+  - ./binaryen-strategy.md
+  - ./gc-casts-call_ref-and-trap-sensitive-rewrites.md
+  - ../../no-dwarf-default-optimize-path.md
+---
+
+# `optimize-instructions` WAT shapes
+
+This page is the beginner-friendly shape catalog for Binaryen's `optimize-instructions` pass.
+
+## Read this page with one mental model
+
+Binaryen is usually trying to do one of four things:
+
+1. rewrite an instruction into a more canonical spelling
+2. remove work that is provably redundant
+3. expose a simpler instruction family for later passes
+4. preserve the same effects and type facts while changing the surface shape
+
+The last point matters most.
+
+This pass is full of local rewrites that are only legal because Binaryen checked:
+
+- effect order
+- trap behavior
+- bit-width facts
+- type compatibility
+- feature availability
+
+## Quick glossary
+
+- **canonical form**: the spelling Binaryen prefers before doing more matching
+- **fallthrough value**: the expression value that actually emerges after wrappers like tees or blocks
+- **bit-width fact**: `Bits::getMaxBits(...)` or related proof about how many bits a value can really use
+- **TNH / IIT**: `trapsNeverHappen` / `ignoreImplicitTraps`
+- **dropped-children append**: rebuild side-effectful children, then append a new result
+
+## Shape family 1: compare-to-zero canonicalization
+
+Before:
+
+```wat
+(i32.eq
+  (local.get $x)
+  (i32.const 0))
+```
+
+After:
+
+```wat
+(i32.eqz
+  (local.get $x))
+```
+
+Related families:
+
+- signed compare to `-1` or `1` becomes a compare to `0`
+- unsigned compare to `1` may become `eq` / `ne` against `0`
+- some compare-to-near-min or near-max cases become exact compare-to-min/max
+
+Why Binaryen likes this:
+
+- the zero form is simpler
+- later boolean and ternary helpers understand `eqz` very well
+
+## Shape family 2: negative-add and subtraction spelling
+
+Before:
+
+```wat
+(i32.add
+  (local.get $x)
+  (i32.const -5))
+```
+
+Canonical after:
+
+```wat
+(i32.sub
+  (local.get $x)
+  (i32.const 5))
+```
+
+But there is an important counter-shape.
+
+For some signed-LEB-friendly powers of two, Binaryen may prefer the negative spelling instead of the positive one because the encoded constant is smaller.
+
+So the real rule is:
+
+- canonicalization is partly algebraic
+- and partly encoding-aware
+
+## Shape family 3: eliminate `0 - x` wrappers inside adds
+
+Before:
+
+```wat
+(i32.add
+  (i32.sub
+    (i32.const 0)
+    (local.get $x))
+  (local.get $y))
+```
+
+After when reordering is safe:
+
+```wat
+(i32.sub
+  (local.get $y)
+  (local.get $x))
+```
+
+What to remember:
+
+- this is only allowed when reordering the two value computations is safe
+- effect ordering is part of the rewrite contract
+
+## Shape family 4: shift-mask cleanup
+
+Before:
+
+```wat
+(i32.shl
+  (local.get $x)
+  (i32.and
+    (local.get $y)
+    (i32.const 31)))
+```
+
+After:
+
+```wat
+(i32.shl
+  (local.get $x)
+  (local.get $y))
+```
+
+And if the mask proves the effective shift is always zero:
+
+```wat
+(i32.shl
+  (local.get $x)
+  (i32.and
+    (local.get $y)
+    (i32.const 32)))
+```
+
+may simplify to just:
+
+```wat
+(local.get $x)
+```
+
+but only if removing the right side would not erase needed side effects.
+
+## Shape family 5: power-of-two multiply / divide / remainder
+
+Before:
+
+```wat
+(i32.mul
+  (local.get $x)
+  (i32.const 8))
+```
+
+After:
+
+```wat
+(i32.shl
+  (local.get $x)
+  (i32.const 3))
+```
+
+Other related families:
+
+- `u32(x) % 8 -> x & 7`
+- `u32(x) / 8 -> x >> 3`
+- power-of-two float divide may become multiply by the inverse power-of-two
+
+These are classic peepholes, but here they live inside a much broader pass.
+
+## Shape family 6: sign-extension idioms
+
+Before:
+
+```wat
+(i32.shr_s
+  (i32.shl
+    (local.get $x)
+    (i32.const 24))
+  (i32.const 24))
+```
+
+After when the sign-extension opcode is available:
+
+```wat
+(i32.extend8_s
+  (local.get $x))
+```
+
+And if the child is already known to be sign-extended enough, Binaryen may remove a later sign-extension wrapper entirely.
+
+This family is one of the best examples of why the local pre-scan matters.
+
+Sometimes the proof does not come from the syntax at the read site.
+
+It comes from what earlier `local.set`s taught the pass about that local.
+
+## Shape family 7: boolean-context cleanup
+
+Before:
+
+```wat
+(if
+  (i32.eqz
+    (i32.eqz
+      (local.get $x)))
+  (then ...)
+)
+```
+
+After:
+
+```wat
+(if
+  (local.get $x)
+  (then ...)
+)
+```
+
+Other families in boolean context:
+
+- `x != 0` may become `x`
+- invertible comparisons may flip under `eqz`
+- `% power-of-two` tests may become masked tests
+- sign-extended boolean producers may become cheaper zero-extended forms
+
+## Shape family 8: `if` condition inversion by removing `eqz`
+
+Before:
+
+```wat
+(if
+  (i32.eqz (local.get $cond))
+  (then A)
+  (else B)
+)
+```
+
+After:
+
+```wat
+(if
+  (local.get $cond)
+  (then B)
+  (else A)
+)
+```
+
+Important hidden rule:
+
+- Binaryen also flips branch-hint metadata here via `BranchHints::flip(...)`
+
+So this is not just a structural swap.
+
+It is also a metadata repair step.
+
+## Shape family 9: identical-arm `if` folding
+
+Before:
+
+```wat
+(if (result i32)
+  (local.get $cond)
+  (then
+    (i32.add (local.get $x) (i32.const 1)))
+  (else
+    (i32.add (local.get $x) (i32.const 1)))
+)
+```
+
+Possible after:
+
+```wat
+(i32.add (local.get $x) (i32.const 1))
+```
+
+or, if the condition still has side effects:
+
+```wat
+(block (result i32)
+  (drop (local.get $cond))
+  (i32.add (local.get $x) (i32.const 1))
+)
+```
+
+Important negative shape:
+
+- Binaryen avoids folding into an expression that would incorrectly change a concrete expression into an unreachable one without the right wrapper typing.
+
+## Shape family 10: `select` between boolean-shaped values
+
+Before:
+
+```wat
+(select (result i32)
+  (i32.const 1)
+  (local.get $y)
+  (local.get $x))
+```
+
+Possible after:
+
+```wat
+(i32.or
+  (local.get $y)
+  (local.get $x))
+```
+
+And similarly:
+
+- `x ? y : 0 -> x & y`
+- `cond ? 1 : 0 -> booleanized cond`
+- some `x ? x : 0` families collapse to `x`
+
+This is one of the clearest signs that the pass is not just arithmetic cleanup.
+
+## Shape family 11: hoist duplicated one-child wrappers out of `if` / `select`
+
+Before, conceptually:
+
+```wat
+(select
+  (i32.eqz X)
+  (i32.eqz Y)
+  Z)
+```
+
+After:
+
+```wat
+(i32.eqz
+  (select
+    X
+    Y
+    Z))
+```
+
+But only if the pass can prove all of these are safe:
+
+- the shell is shallow-equal on both arms
+- the shell has one child
+- child types remain compatible
+- for `select`, side effects do not make the hoist invalid
+- select-arm emission remains valid after the change
+
+This is a common misunderstanding boundary.
+
+The pass is *willing* to hoist duplicated shells, but it is much pickier than “same outer opcode, therefore hoist.”
+
+## Shape family 12: offset folding on loads and stores
+
+Before:
+
+```wat
+(i64.load offset=4
+  (i64.const 6))
+```
+
+After when the address space and overflow rules allow it:
+
+```wat
+(i64.load
+  (i64.const 10))
+```
+
+Important caveat:
+
+- Binaryen does this only when folding the offset into the pointer cannot overflow the effective address representation.
+- memory32 and memory64 have different safe ranges here.
+
+## Shape family 13: narrow-store cleanup
+
+Before:
+
+```wat
+(i32.store8
+  (local.get $p)
+  (i32.and
+    (local.get $x)
+    (i32.const 255)))
+```
+
+After:
+
+```wat
+(i32.store8
+  (local.get $p)
+  (local.get $x))
+```
+
+Why it folds:
+
+- the narrow store already keeps only the low byte
+- the explicit mask is redundant
+
+Related store families:
+
+- truncate stored constants to the store width
+- remove sign-extension work that the store width discards
+- rewrite reinterpret-store pairs into stores of the original representation type when possible
+
+## Shape family 14: tiny `memory.copy` and `memory.fill`
+
+Before:
+
+```wat
+(memory.copy
+  (local.get $dst)
+  (local.get $src)
+  (i32.const 4))
+```
+
+Possible after:
+
+```wat
+(i32.store
+  (local.get $dst)
+  (i32.load (local.get $src)))
+```
+
+And under IIT / TNH:
+
+```wat
+(memory.copy
+  X
+  X
+  size)
+```
+
+may become a block of drops.
+
+Likewise:
+
+```wat
+(memory.fill
+  (local.get $dst)
+  (i32.const 0)
+  (i32.const 4))
+```
+
+may become a single `store` of a repeated-byte constant pattern.
+
+Important negative shape:
+
+- zero-size or same-src/dst cases are not blindly dropped in default mode; trap assumptions matter.
+
+## Shape family 15: `call_ref` with known target
+
+Before:
+
+```wat
+(call_ref $sig
+  (local.get $x)
+  (ref.func $f))
+```
+
+After:
+
+```wat
+(call $f
+  (local.get $x))
+```
+
+Other positive families:
+
+- `call_ref(table.get ...) -> call_indirect`
+- if the target's fallthrough is a `ref.func`, directize while preserving target-side effects and operand order
+- select-of-known-direct-targets can become an `if` over direct calls or return-calls
+
+Important negative shapes:
+
+- if the target type would no longer match the call's expected heap type, Binaryen must not directize
+- if the target or operand ordering would be wrong, Binaryen uses locals / block wrappers instead of a naive replacement
+
+## Shape family 16: null-trapping GC operations remove earlier non-null checks
+
+Before:
+
+```wat
+(struct.get $S 0
+  (ref.as_non_null
+    (local.get $r)))
+```
+
+Possible after:
+
+```wat
+(struct.get $S 0
+  (local.get $r))
+```
+
+But only if moving or deleting the earlier null trap does not cross invalidating side effects.
+
+So the real positive shape is not:
+
+- “struct.get always deletes ref.as_non_null”
+
+It is:
+
+- “struct.get may absorb an earlier non-null check when trap ordering stays honest.”
+
+## Shape family 17: cast and test outcomes known statically
+
+Before:
+
+```wat
+(ref.test (ref $Child)
+  (local.get $child))
+```
+
+Possible after:
+
+```wat
+(block (result i32)
+  (drop (local.get $child))
+  (i32.const 1))
+```
+
+Or, for impossible cases:
+
+```wat
+(block (result i32)
+  (drop ...)
+  (i32.const 0))
+```
+
+Or for impossible-success casts:
+
+```wat
+(unreachable)
+```
+
+This whole family is driven by compile-time cast-result classification, not by generic constant folding.
+
+## Shape family 18: `ref.eq` canonicalization and simplification
+
+Before:
+
+```wat
+(ref.eq
+  (local.get $x)
+  (ref.null eq))
+```
+
+After:
+
+```wat
+(ref.is_null
+  (local.get $x))
+```
+
+And if the two heap types do not overlap and at least one side cannot be null, Binaryen can replace the equality with `0`.
+
+This is a good example of type-structure reasoning inside the pass.
+
+## Shape family 19: default-value GC constructors
+
+Before:
+
+```wat
+(struct.new $S
+  (i32.const 0)
+  (ref.null any))
+```
+
+After when those are the default values:
+
+```wat
+(struct.new_default $S)
+```
+
+Similarly for arrays:
+
+- repeated default values can become `array.new_default`
+- repeated equal non-default values can become `array.new` with one value and a size
+
+## Shape family 20: unshared GC RMW / cmpxchg lowering
+
+Before, conceptually:
+
+```wat
+(struct.rmw.add $S 0
+  ref
+  value)
+```
+
+Possible after on unshared heaps:
+
+```wat
+(block (result i32)
+  (local.set $ref ...)
+  (local.set $val ...)
+  (local.set $old
+    (struct.get $S 0 (local.get $ref)))
+  (struct.set $S 0
+    (local.get $ref)
+    (i32.add (local.get $old) (local.get $val)))
+  (local.get $old))
+```
+
+This is an important surprise family.
+
+The pass is not just removing instructions here.
+
+It is also lowering some higher-level GC atomic ops into more basic forms when the memory-sharing rules make that safe.
+
+Important negative shape:
+
+- shared `seqcst` GC RMW / cmpxchg is deliberately *not* lowered this way.
+
+## Shape family 21: `tuple.extract(tuple.make(...))`
+
+Before:
+
+```wat
+(tuple.extract 0
+  (tuple.make
+    A
+    B))
+```
+
+After, conceptually:
+
+```wat
+(block (result t0)
+  ;; preserve side effects of the whole tuple creation
+  ;; tee the chosen lane
+  chosen-lane)
+```
+
+The actual implementation uses a temp local and dropped-children rebuilding so the selected lane survives while the rest of the tuple side effects remain honest.
+
+## Negative / bailout families
+
+These are just as important as the positive shapes.
+
+## Unreachable expressions are often left alone
+
+The pass often checks for `type == unreachable` and bails.
+
+Why:
+
+- the pass relies on later refinalization
+- many unreachable cleanup stories are better handled by DCE or vacuum-like cleanup
+
+So upstream `optimize-instructions` is not trying to be the generic unreachable normalizer.
+
+## No generic constant-if folding here
+
+This deserves repeating.
+
+Upstream `visitIf()` does not simply pick the taken arm when the condition is constant.
+
+That is a useful distinction from both `precompute` and the current Starshine HOT implementation.
+
+## No blind code motion
+
+If a rewrite would require reordering effectful children, Binaryen checks that explicitly.
+
+Many tempting algebraic rewrites are only legal when:
+
+- `EffectAnalyzer::canReorder(...)` or equivalent reasoning says so
+
+## Branch hints can block folding and reordering
+
+The pass supports a special argument:
+
+- `optimize-instructions-never-fold-or-reorder`
+
+This exists so branch-hint fuzzing does not become invalid when:
+
+- code with different hints would fold together, or
+- a branch hint would move earlier than a trap and start executing in a new place
+
+That is a very specific but very real bailout family.
+
+## Cast removal is deliberately conservative
+
+Even in TNH mode, Binaryen does not erase casts blindly.
+
+Important preserved families include cases where removing the cast would:
+
+- lose exactness
+- lose descriptor information
+- lose useful subtype facts for later optimization
+
+## `select` hoisting is limited
+
+The pass refuses some duplicated-shell hoists when:
+
+- the shell is a control-flow structure
+- child types do not match tightly enough
+- select-arm emission would stop being valid
+- moving the shell would alter effect behavior
+
+## Shared seqcst GC atomics are protected
+
+This is a strong preserved boundary.
+
+The pass intentionally avoids “obvious” rewrites that would be wrong once synchronization semantics matter.
+
+## How this pass interacts with nearby passes
+
+Early neighborhood:
+
+- comes after `remove-unused-brs`
+- before `heap-store-optimization`
+- before `pick-load-signs`
+- before `precompute` / `precompute-propagate`
+- before `code-pushing` and tuple/local cleanup
+
+Late neighborhood:
+
+- after `merge-blocks`, `remove-unused-brs`, and late propagation
+- before late `heap-store-optimization`
+- before `rse`
+- before final `vacuum`
+
+That placement means the pass often sees:
+
+- cleaner boolean/control shapes than earlier phases did
+- and then produces cleaner tiny instruction spellings for even later cleanup passes
+
+## Bottom line
+
+Binaryen `optimize-instructions` rewrites many more shapes than its name suggests.
+
+The most important pattern families to remember are:
+
+- compare / zero / boolean canonicalization
+- add/sub / shift / power-of-two cleanup
+- sign-extension and bit-width reasoning
+- `if` / `select` ternary shell simplification
+- memory and bulk-memory lowering
+- `call_ref` directization
+- GC null-check, cast, and constructor cleanup
+- unshared GC RMW / cmpxchg lowering
+- tuple extraction simplification
+
+And the most important negative rule is:
+
+- none of those are “free” rewrites unless effect order, trap behavior, and type validity still work.

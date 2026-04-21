@@ -1,151 +1,233 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-10
+last_reviewed: 2026-04-20
 sources:
-  - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
+  - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeInstructions.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm-validator.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/tuple-optimization.wast
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/TupleOptimization.cpp
+  - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/tuple-optimization.wast
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./scheduler-and-gates.md
   - ./parity.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
-# Binaryen `tuple-optimization` Strategy
+# Binaryen `tuple-optimization` strategy
 
-## Upstream Source Rule
+## Upstream source rule
 
-- The living upstream oracle is Binaryen `version_129`.
-- The core implementation is `src/passes/TupleOptimization.cpp`.
-- The scheduler slot is confirmed in `src/passes/pass.cpp`.
-- The earlier tuple peephole that folds `tuple.extract(tuple.make(...))` lives in `src/passes/OptimizeInstructions.cpp`, not in `TupleOptimization.cpp`.
+Use Binaryen `version_129` as the primary source oracle for this pass.
 
-## High-Level Intent
+Core upstream files:
 
-- Binaryen is not trying to "optimize multivalue in general."
-- It is targeting a very specific bottleneck in Binaryen's own internal IR: tuple locals obscure per-lane local optimizations.
-- The pass therefore lowers only those tuple locals that are clearly scratch storage and clearly do not escape.
+- `src/passes/TupleOptimization.cpp`
+- `src/passes/pass.cpp`
+- `src/passes/OptimizeInstructions.cpp`
+- `src/wasm/wasm.cpp`
+- `src/wasm/wasm-validator.cpp`
+- `test/lit/passes/tuple-optimization.wast`
 
-The exact mental model is:
+A narrow 2026-04-20 freshness check found no drift in the core tuple-opt pass file or dedicated lit file on current `main`, and no relevant drift in the tuple-specific scheduler / peephole sections that frame this pass.
 
-1. find tuple locals that only ever come from `tuple.make` or from copying another equally-safe tuple local
-2. prove they are only ever consumed by `tuple.extract` or by copying into another equally-safe tuple local
-3. split the tuple local into one scalar local per lane
-4. leave the real dead-lane elimination and local simplification to later passes
+## High-level intent
 
-## Phase 1: Gather Raw Use Counts
+Binaryen is not trying to optimize “tuples everywhere.”
+It is trying to remove a very specific obstacle to later local optimization:
 
-Binaryen tracks three per-local structures:
+- tuple locals can hide the fact that only one or two tuple lanes are still useful
+- local-cleanup passes work much better on ordinary scalar locals than on one bundled tuple local
+
+So upstream tuple-opt does this instead:
+
+1. identify tuple locals that behave like scratch storage
+2. reject any copy-connected component that escapes that role
+3. split the remaining tuple locals into scalar locals
+4. let later local passes finish the cleanup
+
+That design is why the pass is both:
+
+- tiny in code size
+- important in scheduler placement
+
+## The pass in one sentence
+
+`tuple-optimization` is a conservative tuple-local scalarization pass whose real job is to expose dead lanes and dead copies to later local-cleanup passes.
+
+## What the pass is not
+
+It is important to say explicitly what upstream does **not** do here.
+
+Binaryen tuple-opt does **not**:
+
+- optimize arbitrary multivalue control-flow structure
+- lower every tuple-producing expression in the function
+- analyze CFG, dominance, effects, or liveness
+- refinalize types globally after the rewrite
+- fold direct `tuple.extract(tuple.make(...))`
+- claim that every block / if / loop tuple shape is profitable to lower
+
+That last point is directly supported by the source comment: Binaryen deliberately avoids broad lowering of blocks and similar constructs because multivalue can sometimes be better for code size.
+
+## Phase 1: `doWalkFunction` cheap gates
+
+The pass starts with two early exits:
+
+- multivalue must be enabled
+- the function must actually contain at least one tuple local
+
+Those gates are easy to under-document, but they matter for both correctness and performance.
+
+### Correctness meaning
+
+If multivalue is disabled, tuple IR is simply out of scope.
+
+### Performance meaning
+
+Binaryen does not pay any body-walk or rewrite cost unless a tuple local is present.
+So the pass is intentionally cheap on scalar-only functions.
+
+## Phase 2: collect `uses`, `validUses`, and `copiedIndexes`
+
+During the post-walk, Binaryen fills three per-local structures:
 
 - `uses`
-  Counts tuple-local uses conservatively.
-  `local.get` counts as one use.
-  `local.set` counts as one use.
-  `local.tee` counts as two uses because it both writes and reads.
 - `validUses`
-  Counts only those uses that fit the tuple-scratch contract.
 - `copiedIndexes`
-  Records the undirected graph of tuple-local copies.
 
-This design matters because the pass is not trying to prove full semantic equivalence from scratch. It is using a much cheaper rule:
+This is the entire analysis core.
+There is no hidden heavy dataflow stage after it.
 
-- if every observed use is one of the approved tuple patterns, the local is safe
-- if any use is outside the approved set, the local is poisoned
+## `uses`: what Binaryen counts as tuple-local traffic
 
-## Phase 2: Recognize Approved Writers
+For tuple locals:
 
-Binaryen approves tuple-local writes only when the tuple local is assigned from:
+- `local.get` counts as one use
+- `local.set` counts as one use
+- `local.tee` counts as two uses
+
+The tee rule matters because Binaryen wants to prove both halves are safe:
+
+- the write into the tuple local
+- the yielded tuple value read by the surrounding expression
+
+If only one half were counted, the pass could accidentally treat an escaping tee as safe.
+
+## `validUses`: the narrow approved writer and reader surface
+
+A tuple-local use is considered valid only in a small set of cases.
+
+### Approved writers
+
+Binaryen accepts tuple-local writes only when the value is:
 
 - `tuple.make`
 - `local.get` of another tuple local
-- `local.tee` of another tuple local, but only when the tee is reachable
+- reachable `local.tee` of another tuple local
 
-Important detail:
+### Approved readers
 
-- An unreachable inner tee is ignored rather than optimized through.
-- That is not just a cleanup detail. In unreachable code, the apparent tuple type can be untrustworthy, so Binaryen refuses to count that as a valid tuple copy.
+Binaryen accepts tuple-local reads only when `tuple.extract` reads from:
 
-What Binaryen records for approved copies:
+- `local.get` of a tuple local
+- `local.tee` of a tuple local
 
-- increments `validUses` for both source and destination locals
-- inserts each local into the other's `copiedIndexes` set
+This is the part beginners most often overgeneralize.
+Upstream is **not** saying “this tuple is okay because its uses look mostly nice.”
+It is saying “this tuple local is okay only if every observed use belongs to a known approved writer or reader family.”
 
-Why the copy graph is symmetric:
+## Why unreachable tees are treated specially
 
-- If local `x` copies from local `y`, then a future invalid use of either one proves the whole connected component is unsafe.
-- Binaryen therefore models copy-connected tuple locals as one safety component, not as isolated nodes.
+The source comment in `visitLocalSet` calls out an important corner case:
 
-## Phase 3: Recognize Approved Readers
+- if the inner tee is `unreachable`, Binaryen refuses to count that as a valid tuple-local copy
 
-Binaryen approves tuple-local reads only when they feed `tuple.extract` through:
+Why?
 
-- `local.get`
-- reachable `local.tee`
+Because unreachable code can make the apparent tuple type unreliable.
+In that state, the inner tee and outer tee may not even have the same tuple type, or the inner one may not be a real tuple in any useful semantic sense.
 
-That is the only consumer family the pass is willing to scalarize directly.
+So the pass leaves that cleanup to earlier / neighboring cleanup passes instead of trying to be clever inside unreachable code.
 
-What Binaryen is explicitly not doing here:
+## `copiedIndexes`: symmetric copy-connected components
 
-- It is not optimizing arbitrary users of tuple values.
-- It is not trying to forward tuple values through calls, returns, branches, or other general multivalue constructs.
-- It is not rewriting blocks and returns just because they happen to carry multiple results.
+When one tuple local copies another, Binaryen records the relation in both directions.
+That is what `copiedIndexes` stores.
 
-## Phase 4: Mark Bad Components
+This means the pass reasons in terms of connected components, not isolated locals.
 
-Once raw and valid counts are collected:
+If local `x` copies local `y` and either side later escapes the approved surface, both are poisoned.
+That conservative rule is the pass's central safety invariant.
 
-- a tuple local with `uses > validUses` is immediately seeded as bad
-- badness then propagates through the symmetric `copiedIndexes` graph
+## Phase 3: mark bad tuple components
 
-Why this propagation rule is the core safety invariant:
+After the walk, `optimize` seeds a work queue with every tuple local where:
 
-- A tuple local that looks safe on its own may still be copying from a tuple local that escapes elsewhere.
-- Binaryen wants all tuple locals in the same copy-connected component to succeed or fail together.
+- `uses > 0`
+- `validUses < uses`
 
-This is the pass's defining conservative move.
+Those locals are immediately bad.
+Binaryen then propagates badness across the symmetric copy graph using `UniqueDeferredQueue<Index>`.
 
-## Phase 5: Select Good Locals
+This is a very small implementation detail with a big conceptual consequence:
 
-A tuple local is considered good when:
+- a tuple local that looks safe in isolation still fails if it is copy-connected to an escaping tuple local
+
+## Phase 4: choose good tuple locals
+
+A tuple local is good only if:
 
 - it has at least one use
-- it is not marked bad after propagation
+- it was not marked bad after propagation
 
-Two consequences:
+Unused tuple locals are not interesting here.
+The pass is trying to expose meaningful later cleanup opportunities, not to perform generic tuple-local bookkeeping for its own sake.
 
-- unused tuple locals are not interesting here
-- safety is component-wide, but rewriting is still local-based once the component is known good
+## Phase 5: allocate contiguous scalar locals
 
-## Phase 6: Allocate Fresh Scalar Locals
+For every good tuple local, Binaryen allocates:
 
-For every good tuple local:
+- one fresh scalar local per tuple lane
+- contiguously
 
-- Binaryen allocates one fresh scalar local per lane
-- those new locals are contiguous
-- the pass stores a base index for the tuple local, from which the lane locals can be computed
+The mapping stored by the pass is:
 
-The contiguous-local detail is not incidental.
+- tuple-local index -> base scalar-local index
 
-- It keeps the rewrite simple.
-- It lets later local passes treat the new scalar locals as an ordinary adjacent cluster.
-- The pass asserts this contiguity while allocating.
+Everything else is computed by offset from that base.
 
-## Phase 7: Rewrite Tuple Writers
+That contiguous-local contract is part of the real implementation structure.
+It keeps the rewrite simple and ensures later local passes see an ordinary cluster of scalar locals.
 
-Binaryen then walks the function again with a mapping applier.
+## Phase 6: `MapApplier` rewrites tuple writers
 
-When it sees a rewritten tuple `local.set` or `local.tee`:
+The rewrite phase is another post-walk over the function.
 
-- if the value is `tuple.make`, it emits one scalar `local.set` per tuple lane
-- if the value is another tuple local, it emits one scalar `local.get` plus `local.set` per lane
+When a good tuple local is written from `tuple.make`:
 
-Important detail for tuple-local copies:
+- the pass emits one scalar `local.set` per lane
 
-- Binaryen uses the source tuple lane types, not blindly the target tuple type
-- that preserves legal subtype relationships across the copied tuple as long as arity matches
+When a good tuple local is written from another tuple local:
 
-## Phase 8: Rewrite Tuple Reads
+- the pass emits one scalar `local.get` plus `local.set` per lane
+
+### Important subtype detail
+
+When rewriting a tuple-local copy, Binaryen uses the **source tuple's lane types** when building the scalar gets.
+It does not blindly assume the destination lane types are identical.
+
+That matters because tuple-local copies can be valid under subtyping.
+The lit suite's `tuple.element.subtyping` test is the clearest example.
+
+## Phase 7: `MapApplier` rewrites tuple readers
 
 When Binaryen sees:
 
@@ -154,60 +236,135 @@ When Binaryen sees:
   (local.get $tuple))
 ```
 
-or the tee equivalent, it replaces that with:
+and `$tuple` is good, it becomes:
 
-- a direct scalar `local.get` of the split lane local, or
-- a `sequence(extra-tee-replacement, local.get lane)` when the source expression was a rewritten tee
+- a direct scalar `local.get` of the split lane local
 
-This is how Binaryen preserves tee semantics without keeping the tuple local alive.
+That is the simplest visible payoff from the pass.
+Later local passes can now see one lane at a time.
 
-## The `replacedTees` Mechanism
+## The `replacedTees` contract
 
-The most specific implementation detail worth preserving in Starshine thinking is Binaryen's `replacedTees` map.
+The most important internal detail to preserve conceptually is `replacedTees`.
 
 Why it exists:
 
-- A rewritten tee no longer exists as one tuple-valued expression.
-- But outer users may still conceptually read from that tee.
-- Binaryen therefore remembers which replacement expression came from which original tee so it can append the correct scalar `local.get` later.
+- a tuple `local.tee` is both a write and an expression result
+- after scalarization, that original tuple-valued expression no longer exists as one node
+- outer users still need the correct yielded lane value, in the correct order
 
-What this proves about upstream intent:
+So Binaryen records which replacement expressions came from tuple tees and later lowers tee users as:
 
-- tee handling is not a small corner case
-- preserving the scalar value identity of the tee is part of the main transform contract
+- the scalarized side-effect work
+- followed by a `local.get` of the selected lane
 
-## What Binaryen Deliberately Leaves To Other Passes
+This is how upstream preserves tee semantics without keeping the tuple local itself alive.
 
-This pass does not:
+## Why `OptimizeInstructions` is a separate neighbor
 
-- delete dead scalar locals after splitting
-- delete dead scalar sets created by the split
-- fold `tuple.extract(tuple.make(...))`
-- restructure arbitrary multivalue control flow
-- optimize all tuple-typed expressions everywhere
+The tuple-specific `visitTupleExtract` peephole in `OptimizeInstructions.cpp` handles:
 
-That division of labor is intentional:
+- direct `tuple.extract(tuple.make(...))`
 
-- `optimize-instructions` handles the direct `tuple.extract(tuple.make(...))` peephole first
-- later local passes such as local simplification and cleanup realize the payoff from the scalar split
+That happens earlier than tuple-opt by design.
 
-## The Most Important Porting Lesson
+So the division of labor is:
 
-The upstream algorithm is simple because Binaryen starts from explicit tuple locals.
+- `optimize-instructions`: direct tuple peepholes on expression structure
+- `tuple-optimization`: tuple-local scalarization
+- later local passes: dead-lane / dead-copy cleanup after scalarization
 
-The actual transferable invariants are:
+A future port that merges those responsibilities into one pass may still be correct, but it would be departing from the way Binaryen currently structures the optimization story.
 
-- do not optimize escaping tuple components
-- treat copy-connected tuple traffic as one safety component
-- preserve tee value ordering exactly
-- expose scalar locals early enough that later local passes can finish the cleanup
+## Scheduler meaning
 
-Those invariants are the part Starshine must mimic exactly, even when its HOT-native implementation discovers the same family through different lifted shapes.
+`pass.cpp` places tuple-opt:
+
+- after `code-pushing`
+- before `simplify-locals-nostructure`
+- behind a multivalue feature gate
+
+The comment in `pass.cpp` also makes two motivations explicit:
+
+- run before local opts because splitting tuples helps them
+- but not too early, because `optimize-instructions` can already remove tuple-related things first
+
+That means the pass's meaning is partly defined by its neighborhood.
+It is not just a bag-of-rewrites entry.
+
+## The practical no-DWARF neighborhood
+
+In the canonical no-DWARF function path, the relevant slice is:
+
+- `precompute`
+- `code-pushing`
+- `tuple-optimization`
+- `simplify-locals-nostructure`
+- `vacuum`
+
+The saved generated-artifact optimize log also shows repeated later nested reruns of the same core neighborhood, using `precompute-propagate` in place of the top-level `precompute`.
+
+So tuple-opt matters in both:
+
+- top-level preset reconstruction
+- nested optimize-after-other-pass reasoning
+
+## Shipped-test reading guide
+
+The dedicated lit file teaches a few especially durable lessons.
+
+### Positive lessons
+
+- write-only tuple locals still split (`just-set`)
+- tuple-local copies are transitive (`tee`, `set-after-set`, `chain-3`)
+- tuple tees preserve yielded scalar values (`just-tee`, `tee-chain`)
+- subtyping across tuple-local copies must stay valid (`tuple.element.subtyping`)
+
+### Negative lessons
+
+- whole-tuple escapes poison the whole copy component (`just-get-bad`, `corruption-*`, `chain-3-corruption`)
+- calls returning tuples are not handled here (`set-call`)
+- tuple ops with no tuple local are left alone (`make-extract-no-local*`)
+- `block`-produced tuple values are not currently lowered here (`set-of-block`)
+- unreachable tuple-like traffic should not crash or over-optimize (`unreachability`, `unreachable.tuple.extract`)
+
+## Most important beginner correction
+
+A safe beginner summary is:
+
+- Binaryen tuple-opt is a conservative tuple-local splitter whose main customer is later local-cleanup passes.
+
+An unsafe beginner summary is:
+
+- Binaryen tuple-opt lowers tuple or multivalue structure generally.
+
+The second reading is not what the code or tests show today.
+
+## Porting contract
+
+A future implementation should preserve these invariants even if the host IR is very different:
+
+1. multivalue gate
+2. tuple-local existence gate
+3. `uses` versus `validUses` safety model
+4. copy-connected component poisoning
+5. reachable-tee conservatism in unreachable code
+6. per-lane scalar replacement
+7. tee result identity and ordering
+8. source-lane type preservation across copied tuple locals
+9. division of labor with earlier tuple peepholes
+10. scheduler placement before local-cleanup passes
 
 ## Sources
 
-- Archived project research note: [`../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md`](../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md)
-- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp>
-- Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- Binaryen `version_129` earlier tuple peephole in `optimize-instructions`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeInstructions.cpp>
-
+- [`../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)
+- Binaryen `version_129` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeInstructions.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm-validator.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/tuple-optimization.wast>
+- Narrow freshness-check surface:
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TupleOptimization.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/tuple-optimization.wast>

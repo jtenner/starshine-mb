@@ -1,53 +1,76 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-20
 sources:
+  - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
 related:
   - ./index.md
-  - ./parity.md
   - ./type-compaction-and-metadata.md
+  - ./parity.md
 ---
 
-# Starshine "Hot IR" Strategy For `duplicate-function-elimination`
+# Starshine “Hot IR” strategy for `duplicate-function-elimination`
 
-## Current Rule
+## Current rule
 
 - Despite the filename requested by the folder schema, this pass does not currently have a HOT-IR implementation.
 - Starshine intentionally keeps `duplicate-function-elimination` as a module pass because the work crosses:
-  - function-index ownership
-  - section rewrites
-  - type compaction
-  - name and annotation metadata
+  - function identity
+  - module-wide function-reference rewriting
+  - optional type compaction
+  - serialized metadata and section cleanup
 
-## Current In-Tree Strategy
+## Why it stays outside HOT IR
+
+Even the **official** Binaryen pass is module-wide.
+It hashes and compares whole functions, then rewrites function references across the module.
+
+The current local pass goes even further by also doing:
+
+- duplicate simple-type compaction
+- wide type-index rewriting
+- element-kind canonicalization
+- name-section stripping
+- function-annotation-section bookkeeping
+
+So there is no honest way to model the whole local behavior as a pure per-function HOT pass.
+
+## Current in-tree strategy
 
 - The pass is registered as an active module pass in `src/passes/optimize.mbt`.
 - The dispatcher runs it through `run_hot_pipeline_apply_module_pass(...)` in `src/passes/pass_manager.mbt`.
 - The current implementation does:
-  - one `dfe_iteration(...)` over the module
-  - element-kind canonicalization
-  - duplicate simple-type compaction when a merge happened
-- If no merge happens, Starshine still canonicalizes compactable element segments and strips the `name` section.
+  - one local duplicate-detection iteration
+  - local element-kind canonicalization
+  - post-merge duplicate simple-type compaction when a merge happened
+  - name stripping and annotation-map cleanup
 
-## Current Strengths
+## Current strengths
 
-- Annotation-aware equality and non-merge behavior.
-- Whole-module `FuncIdx` rewrite coverage.
-- Post-merge simple-type compaction across surviving type users.
-- Explicit performance timer hooks through `dfe_run_module_pass_with_perf(...)`.
+- Annotation-aware duplicate detection.
+- Whole-module function-reference rewrite coverage.
+- Local extra cleanup for duplicate simple types and related type users.
+- Explicit performance timer hooks.
 
-## Current Boundaries
+## Current boundaries
 
-- The implementation is one explicit module iteration today.
-- That matches the direct explicit pass surface at default Binaryen options, but it does not yet model Binaryen's larger option-dependent iteration budget used inside `-O` / `-Os`.
-- Any future HOT-IR-adjacent work here should still end in a module-level reconciliation phase; duplicate elimination cannot become a pure per-function pass honestly.
+- The implementation is one explicit local module iteration today.
+- That matches the low/default visible upstream DFE behavior, but it does not yet model Binaryen's larger option-dependent iteration budget used in stronger optimize contexts.
+- The implementation is also **broader** than official Binaryen DFE because it performs local extra cleanup that the official DFE pass file does not.
 
-## Practical Rule
+So there are really two scheduler/parity questions here:
+
+1. how to model upstream DFE's multi-round option-dependent behavior
+2. which local extra cleanup should remain bundled with DFE versus being split or documented separately
+
+## Practical rule
 
 - Keep DFE design and testing module-centric.
 - Do not force this pass into HOT IR just for namespace symmetry.
-- If future optimize-preset parity needs multi-round DFE behavior, extend the module-pass scheduler or pass options rather than inventing a lifted approximation.
+- When discussing parity, separate:
+  - upstream DFE proper
+  - from the broader local DFE-plus-extra-cleanup bundle

@@ -1,0 +1,544 @@
+---
+kind: concept
+status: supported
+last_reviewed: 2026-04-20
+sources:
+  - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
+related:
+  - ./index.md
+  - ./binaryen-strategy.md
+  - ./basic-block-windows-and-barriers.md
+  - ../coalesce-locals/index.md
+  - ../simplify-locals/index.md
+---
+
+# `local-cse` WAT Shapes
+
+This page is the beginner-friendly shape catalog for Binaryen’s `local-cse` pass.
+
+## Read this page with one mental model
+
+Binaryen is not asking:
+
+- “are these expressions vaguely similar?”
+
+It is asking:
+
+- “is this **entire** tree repeated in the current reuse window, and is it still safe and profitable to replace the later copy with a `local.get`?”
+
+## Important note about the examples
+
+The `after` snippets below are often **conceptual**.
+
+In real Binaryen output, the temp-local index numbers may vary because:
+
+- new locals are appended to the function’s locals list
+- the pass may reuse one original for multiple later copies
+- some roots are skipped entirely by profitability rules even if they look reusable
+
+So read the shapes as “what family rewrites or stays put,” not “the exact printed temp local number in every run.”
+
+## Quick glossary
+
+- **original**: the first repeated tree that Binaryen keeps and stores with `local.tee`
+- **repeat**: a later equal tree that Binaryen wants to replace with `local.get`
+- **window**: the current linear execution region where reuse is allowed to connect
+- **barrier**: something that makes an original unsafe or unprofitable to reuse later
+
+## Shape 1: same-block arithmetic repeats are the core positive
+
+Before:
+
+```wat
+(drop
+  (i32.add (i32.const 1) (i32.const 2))
+)
+(drop
+  (i32.add (i32.const 1) (i32.const 2))
+)
+```
+
+After, conceptually:
+
+```wat
+(drop
+  (local.tee $tmp
+    (i32.add (i32.const 1) (i32.const 2))
+  )
+)
+(drop
+  (local.get $tmp)
+)
+```
+
+Why it rewrites:
+
+- the entire tree repeats
+- both copies are in the same reuse window
+- the root is big enough to be worth a temp local
+- nothing in between invalidates it
+
+This is the basic `local-cse` story.
+
+## Shape 2: three repeats still use one original
+
+Before:
+
+```wat
+(drop (i32.add (local.get $x) (local.get $y)))
+(drop (i32.add (local.get $x) (local.get $y)))
+(drop (i32.add (local.get $x) (local.get $y)))
+```
+
+After, conceptually:
+
+```wat
+(drop
+  (local.tee $tmp
+    (i32.add (local.get $x) (local.get $y))
+  )
+)
+(drop (local.get $tmp))
+(drop (local.get $tmp))
+```
+
+Why it rewrites:
+
+- both later copies point back to the first original
+- the pass does not chain second -> third; it reuses the first for both
+
+## Shape 3: a larger parent repeat wins over a repeated child
+
+Before:
+
+```wat
+(drop
+  (i32.eqz
+    (i32.add (local.get $x) (local.get $y))
+  )
+)
+(drop
+  (i32.eqz
+    (i32.add (local.get $x) (local.get $y))
+  )
+)
+```
+
+Typical after, conceptually:
+
+```wat
+(drop
+  (local.tee $tmp
+    (i32.eqz
+      (i32.add (local.get $x) (local.get $y))
+    )
+  )
+)
+(drop (local.get $tmp))
+```
+
+Why this shape matters:
+
+- once the whole parent repeats, Binaryen cancels child-level requests inside it
+- the goal becomes “reuse the bigger whole tree,” not “introduce temp locals for every repeated child too”
+
+This is one of the least obvious rules in the pass.
+
+## Shape 4: a repeated child can still optimize if the parent does not subsume it
+
+Before, conceptually:
+
+```wat
+(drop
+  (i32.add
+    (i32.const 1)
+    (i32.add (i32.const 2) (i32.const 3))
+  )
+)
+(drop
+  (i32.add (i32.const 2) (i32.const 3))
+)
+```
+
+After, conceptually:
+
+```wat
+(drop
+  (i32.add
+    (i32.const 1)
+    (local.tee $tmp
+      (i32.add (i32.const 2) (i32.const 3))
+    )
+  )
+)
+(drop (local.get $tmp))
+```
+
+Why it rewrites:
+
+- the smaller child tree repeats
+- the bigger parent did not repeat in the right way to cancel that request
+
+This is the lesson from the `recursive*` and `self` families.
+
+## Shape 5: after an `if`, the old window is gone
+
+Before:
+
+```wat
+(drop (i32.add (i32.const 1) (i32.const 2)))
+(if (i32.const 0) (then (nop)))
+(drop (i32.add (i32.const 1) (i32.const 2)))
+```
+
+After stays the same in the important part:
+
+```wat
+(drop (i32.add (i32.const 1) (i32.const 2)))
+(if (i32.const 0) (then (nop)))
+(drop (i32.add (i32.const 1) (i32.const 2)))
+```
+
+Why Binaryen keeps both:
+
+- code after the `if` is not in the same reuse window as code before the `if`
+
+This is the simplest “the pass is local, not whole-region” negative case.
+
+## Shape 6: before-`if` into the `then` arm is a real positive
+
+Before:
+
+```wat
+(drop (i32.add (i32.const 2) (i32.const 3)))
+(if
+  (i32.const 0)
+  (then
+    (drop (i32.add (i32.const 2) (i32.const 3)))
+  )
+  (else
+    (drop (i32.add (i32.const 2) (i32.const 3)))
+  )
+)
+```
+
+After, conceptually:
+
+```wat
+(drop
+  (local.tee $tmp
+    (i32.add (i32.const 2) (i32.const 3))
+  )
+)
+(if
+  (i32.const 0)
+  (then
+    (drop (local.get $tmp))
+  )
+  (else
+    (drop (i32.add (i32.const 2) (i32.const 3)))
+  )
+)
+```
+
+Why this split happens:
+
+- the `then` arm is in the cheap adjacent dominated window
+- the `else` arm is not
+
+So `local-cse` is not just “same AST block only,” but it is also not arbitrary dominance-based CSE.
+
+## Shape 7: repeated loads are allowed
+
+Before:
+
+```wat
+(drop (i32.load (i32.const 10)))
+(drop (i32.load (i32.const 10)))
+```
+
+After, conceptually:
+
+```wat
+(drop
+  (local.tee $tmp
+    (i32.load (i32.const 10))
+  )
+)
+(drop (local.get $tmp))
+```
+
+Why it rewrites:
+
+- the root is large enough to matter
+- loads are not rejected just because they may trap
+- Binaryen keeps the first trapping behavior and replaces only later copies
+
+This is a source-backed and test-backed rule.
+
+## Shape 8: a store between two loads is a barrier
+
+Before, conceptual source-derived example:
+
+```wat
+(drop (i32.load (i32.const 10)))
+(i32.store (i32.const 10) (i32.const 99))
+(drop (i32.load (i32.const 10)))
+```
+
+After stays the same in the important part.
+
+Why Binaryen keeps both loads:
+
+- the in-between store can change what the later load reads
+- the checker invalidates the earlier original before the repeat arrives
+
+Important honesty note:
+
+- this exact family is directly source-derived from the `LocalCSE.cpp` comments and the effect checker logic
+- I did not see a dedicated standalone `local-cse.wast` fixture for this exact store-between-loads case in this thread
+
+## Shape 9: repeated ordinary call roots do not fold
+
+Before and after stay the same:
+
+```wat
+(drop (call $f (i32.const 10)))
+(drop (call $f (i32.const 10)))
+```
+
+Why Binaryen keeps both:
+
+- ordinary calls are not safe repeated roots here
+- they may have non-trap side effects
+- they may also be generative or nondeterministic
+
+The shipped `calls` test exists to make this obvious.
+
+## Shape 10: repeated arguments inside calls can still fold
+
+Before:
+
+```wat
+(drop
+  (call $f
+    (i32.add (i32.const 10) (i32.const 20))
+  )
+)
+(drop
+  (call $f
+    (i32.add (i32.const 10) (i32.const 20))
+  )
+)
+```
+
+After, conceptually:
+
+```wat
+(drop
+  (call $f
+    (local.tee $tmp
+      (i32.add (i32.const 10) (i32.const 20))
+    )
+  )
+)
+(drop
+  (call $f
+    (local.get $tmp)
+  )
+)
+```
+
+Why it rewrites:
+
+- the call roots themselves are not candidates
+- but the repeated arithmetic child is a valid candidate
+
+So the pass is selective, not totally hostile to calls.
+
+## Shape 11: a parent with nested effectful children does not fold
+
+Before and after stay the same in the important part:
+
+```wat
+(drop
+  (i32.add
+    (call $f)
+    (call $f)
+  )
+)
+(drop
+  (i32.add
+    (call $f)
+    (call $f)
+  )
+)
+```
+
+Why Binaryen keeps both:
+
+- the parent root contains nested effectful / generative children
+- the scanner rejects that root early as impossible
+
+This is the `nested-calls` lesson.
+
+## Shape 12: changing a depended-on local kills reuse
+
+Before:
+
+```wat
+(drop (i32.add (local.get $x) (local.get $y)))
+(local.set $x (i32.const 100))
+(drop (i32.add (local.get $x) (local.get $y)))
+```
+
+After stays the same in the important part.
+
+Why Binaryen keeps both adds:
+
+- the second add no longer means the same value as the first
+- the in-between `local.set $x` invalidates the old original
+
+The shipped `basics` test covers this family directly.
+
+## Shape 13: repeated `global.get` stays unfused mainly for profitability
+
+Before and after stay the same:
+
+```wat
+(drop (global.get $glob))
+(drop (global.get $glob))
+```
+
+Why Binaryen keeps both:
+
+- `global.get` is tiny
+- size-1 roots are intentionally skipped
+- this is mostly a “not worth it” rule, not a “never safe” rule
+
+That is an easy distinction to lose if you summarize the pass too quickly.
+
+## Shape 14: repeated idempotent direct calls are a narrow positive exception
+
+Before, conceptual source-derived example:
+
+```wat
+(drop (call $idempotent_f (i32.const 10)))
+(drop (call $idempotent_f (i32.const 10)))
+```
+
+After, conceptually:
+
+```wat
+(drop
+  (local.tee $tmp
+    (call $idempotent_f (i32.const 10))
+  )
+)
+(drop (local.get $tmp))
+```
+
+Why Binaryen can allow it:
+
+- `LocalCSE.cpp` explicitly checks callee annotations for `idempotent`
+- idempotent direct calls are treated as possible roots
+- a later shallowly-equal idempotent call also does not invalidate the earlier one
+
+Important honesty note:
+
+- this claim is direct source reading, not a separate current lit fixture I saw in this thread
+
+## Shape 15: fresh GC allocation roots do not fold
+
+Before and after stay the same, conceptually:
+
+```wat
+(drop (struct.new $T ...))
+(drop (struct.new $T ...))
+```
+
+Why Binaryen keeps both:
+
+- repeated fresh allocations are generative
+- `properties.cpp` marks roots like `struct.new` and `array.new*` as generative
+- reusing the first fresh result would be wrong
+
+This is another source-derived rule that matters for a future port even though the shipped lit test I read does not isolate it separately.
+
+## Shape 16: repeated switch / `br_table` children can fold
+
+Before, conceptually:
+
+```wat
+(br_table $a $a
+  (i32.and (local.get $x) (i32.const 3))
+  (i32.and (local.get $x) (i32.const 3))
+)
+```
+
+After, conceptually:
+
+```wat
+(br_table $a $a
+  (local.tee $tmp
+    (i32.and (local.get $x) (i32.const 3))
+  )
+  (local.get $tmp)
+)
+```
+
+Why this matters:
+
+- the pass must preserve the correct child ordering for `switch` / `br_table`
+- the shipped `switch-children` test exists because Binaryen previously got this wrong
+
+## Shape 17: flatten can turn a near-miss into a positive
+
+Before, conceptual near-miss:
+
+```wat
+(drop
+  (foo
+    (bar (baz (qux)))
+  )
+)
+(drop
+  (foo
+    (bar (baz (other)))
+  )
+)
+```
+
+Current `local-cse` alone does not extract the shared subtree.
+
+Why scheduler placement matters:
+
+- the pass only handles repeated whole trees
+- after `flatten`, some near-miss families become repeated whole-tree local-fed shapes instead
+- that is why aggressive `-O4` mode inserts `flatten -> simplify-locals-notee-nostructure -> local-cse`
+
+## Important interaction families
+
+## Interaction 1: `coalesce-locals` can expose clearer repeated trees
+
+When several local names collapse or copy traffic shrinks, repeated local-fed roots can become more obviously identical.
+
+That is why the ordinary no-DWARF slot places `local-cse` after `coalesce-locals`.
+
+## Interaction 2: `simplify-locals` can clean up the new temp-local traffic
+
+After `local-cse` introduces new `local.tee` / `local.get` traffic, later local cleanup passes may simplify some of that structure further.
+
+That is why full `simplify-locals` comes immediately afterward.
+
+## Interaction 3: optimizing reruns make this pass recur often
+
+Because `dae-optimizing` and `inlining-optimizing` rerun the default function optimization pipeline on changed functions, `local-cse` is also a recurring nested cleanup tool, not just a one-shot top-level stage.
+
+## One good rule of thumb
+
+A good beginner summary is:
+
+> `local-cse` keeps one repeated whole tree, stores it in a temp local, and reuses it later—but only within one small execution window and only when effects, determinism, and profitability all agree.
+
+That is the real shape story Binaryen `version_129` implements.

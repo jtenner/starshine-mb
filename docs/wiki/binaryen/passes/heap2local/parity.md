@@ -1,11 +1,17 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-20
 sources:
   - ../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md
   - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
+  - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
 related:
+  - ./index.md
+  - ./binaryen-strategy.md
+  - ./validation-fixups-and-special-cases.md
+  - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
   - ../../../../../src/passes/heap2local.mbt
   - ../../../../../src/passes/heap2local_test.mbt
   - ../../../../../src/passes/heap2local_primary_test.mbt

@@ -2662,8 +2662,12 @@ fn gen_valid_build_func(
     for vt in returns {
       match vt {
         RefTypeValType(rt) if rt.is_exact() => {
-          let has_existing_exact_route = gen_matching_global_idx(globals, vt)
+          let has_existing_exact_route = gen_matching_local_idx(
+              gen_all_local_types(accepts, locals),
+              vt,
+            )
             is Some(_) ||
+            gen_matching_global_idx(globals, vt) is Some(_) ||
             (
               ctx.config.features.allow_calls &&
               gen_valid_has_callable_with_result(funcs, vt)

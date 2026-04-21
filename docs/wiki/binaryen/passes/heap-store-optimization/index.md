@@ -1,31 +1,173 @@
 ---
 kind: entity
-status: stub
-last_reviewed: 2026-04-18
+status: supported
+last_reviewed: 2026-04-20
 sources:
+  - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../../../../src/passes/heap_store_optimization.mbt
   - ../../../../../src/passes/heap_store_optimization_test.mbt
+  - ../../../../../src/passes/perf_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/passes/optimize.mbt
+  - ../tracker.md
+  - ../../no-dwarf-default-optimize-path.md
+  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json
+  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/HeapStoreOptimization.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/heap-store-optimization.wast
+  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/HeapStoreOptimization.cpp
+  - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/heap-store-optimization.wast
+  - https://raw.githubusercontent.com/WebAssembly/binaryen/refs/heads/main/CHANGELOG.md
   - ../late-pipeline-dispatch.md
   - https://manpages.debian.org/experimental/binaryen/wasm-opt.1.en.html
   - https://docs.rs/wasm-opt/latest/wasm_opt/enum.Pass.html
-  - https://docs.rs/wasm-opt/latest/wasm_opt/
 related:
+  - ./binaryen-strategy.md
+  - ./swap-safety-and-control-flow.md
+  - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
+  - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
+  - ../optimize-instructions/index.md
+  - ../precompute/index.md
+  - ../heap2local/index.md
   - ../late-pipeline-dispatch.md
 ---
 
 # `heap-store-optimization`
 
-- Active hot pass in the Starshine registry.
-- Current summary: Fold exact struct.set writes into nearby struct.new allocations when local and effect ordering stays safe.
-- Current Binaryen terminology check: the Debian experimental `wasm-opt` manpage for Binaryen `122` still lists `--heap-store-optimization`, so this maintenance run found no rename or deprecation signal in the available official-source and package-surface checks. The published `wasm_opt::Pass` enum page is still not a useful positive source for this pass name, because the 2026-04-18 check did not find `HeapStoreOptimization` there even though that same page explicitly says its exposed variants use the command-line pass names with Rust capitalization conventions and the Debian manpage still carries the CLI flag. A same-day docs.rs crate-overview check makes the caution sharper: the crate root now says `Pass` represents or exposes all Binaryen optimization passes, but the linked enum page still omits `HeapStoreOptimization`, so the Debian manpage remains the stronger package-surface naming source here.
-- Use [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md) for the current tail roster and the refreshed 2026-04-18 official-source terminology guidance until dedicated strategy and parity pages land.
+## Role
+
+- `heap-store-optimization` is an active implemented **hot pass** in Starshine.
+- In upstream Binaryen `version_129`, the public `pass.cpp` description is simply:
+  - `optimize heap (GC) stores`
+
+That summary is technically true, but it is too broad.
+
+A better beginner summary is:
+
+- Binaryen looks for a `struct.set` that writes into a **freshly created struct**,
+- checks whether the stored value can be moved earlier safely,
+- folds that value back into the matching `struct.new` field,
+- and deletes or nops the now-redundant `struct.set`.
+
+So this is **not** a general heap dead-store elimination pass.
+It is a narrow GC constructor/store cleanup pass.
+
+## Why this pass matters
+
+- When this thread started, `docs/wiki/binaryen/passes/tracker.md` named `heap-store-optimization` as the strongest remaining implemented landing-page target.
+- The canonical no-DWARF `-O` / `-Os` scheduler uses it **twice** in the default function pipeline:
+  - once early after `optimize-instructions`
+  - once late after the late `optimize-instructions`
+- The saved generated-artifact `-O4z` audit observed the same top-level Binaryen slots:
+  - slot `17`
+  - slot `45`
+- The saved Binaryen debug log contains `36` `running pass: heap-store-optimization` lines in total, so nested reruns matter here too.
+- The local docs needed one especially important correction:
+  - explain that upstream Binaryen `heap-store-optimization` is mostly about folding `struct.set` into nearby `struct.new` forms, not about generic GC store elimination or load forwarding.
+
+## Most important durable takeaways
+
+- Binaryen `heap-store-optimization` currently handles **`struct.set`**, not all heap stores.
+- The source file itself still says:
+  - `TODO: Add dead store elimination / load forwarding here.`
+- The pass is built around a small number of ingredients:
+  1. a CFG walk that records only `struct.set` and `block` action sites
+  2. a direct tee-wrapped fold for `(struct.set (local.tee ... (struct.new ...)) VALUE)`
+  3. a block-local chain scan for `(local.set X (struct.new ...))` followed by later matching `struct.set`s
+  4. effect-order checks that prove the moved value can cross later constructor operands and the constructor wrapper itself
+  5. a `LazyLocalGraph` query for the hardest case: control flow inside the moved value that might skip the `local.set`
+  6. side-effect preservation when replacing an old field value that still matters
+- `struct.new_default` can be expanded into explicit default operands so the later store can still be absorbed.
+- Function-external exits are mostly safe for this pass's current goal, but in-function exits and catches can block the rewrite.
+- Current upstream `main` is unusually stable here.
+  - A 2026-04-20 narrow freshness check found `main` `HeapStoreOptimization.cpp` and the dedicated `heap-store-optimization.wast` test file identical to `version_129`.
+
+## Beginner warning: what the name hides
+
+The easy wrong mental model is:
+
+- `heap-store-optimization` is a broad heap optimizer for GC code
+
+The safer mental model is:
+
+- Binaryen is mostly trying to **fold a later `struct.set` back into the constructor that made the same struct**,
+- and the real work is proving that moving the stored value earlier does not reorder effects or skip the local assignment that keeps the new ref visible.
+
+That difference matters a lot.
+
+## What the pass sounds like versus what it actually does
+
+What it sounds like:
+
+- general GC heap store cleanup
+
+What it actually is in `version_129`:
+
+- a function-parallel CFG-based pass that only records `struct.set` and `block` action points,
+- folds immediate tee or subsequent local-set patterns into `struct.new`,
+- can swap a fresh `local.set(struct.new ...)` downward across safe blockers,
+- materializes defaults for `with_default` constructors,
+- preserves old field side effects when needed,
+- and uses `LazyLocalGraph` only when control flow in the moved value might skip the moved `local.set`.
+
+## Page map
+
+- [`./binaryen-strategy.md`](./binaryen-strategy.md)
+  - Deep dive into the actual Binaryen `version_129` implementation structure, helper dependencies, scheduler placement, and the exact safety checks that make the pass much narrower than its name suggests.
+- [`./swap-safety-and-control-flow.md`](./swap-safety-and-control-flow.md)
+  - Focused guide to the easiest part of the pass to misunderstand: swap legality, field/descriptor reordering, target-local hazards, and the `LazyLocalGraph` rule that distinguishes safe exits from dangerous in-function skips.
+- [`./wat-shapes.md`](./wat-shapes.md)
+  - Beginner-friendly shape catalog covering tee folds, subsequent local-set chains, default-materialization positives, safe and unsafe control-flow families, and the main bailout shapes.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+  - Current in-tree Starshine strategy and the major ways the HOT-region implementation differs from upstream Binaryen's CFG-based source while still pursuing the same core optimization.
+
+## Freshness and naming note
+
+The earlier landing page mostly existed to track naming evidence, so the richer dossier should keep those durable facts visible without letting them dominate the page.
+
+Current durable answer:
+
+- Binaryen `pass.cpp` still registers `heap-store-optimization` in `version_129`.
+- The current upstream changelog still records `Add a new --heap-store-optimization pass. (#6882)` under `v119`.
+- A 2026-04-20 direct source comparison found `main` `HeapStoreOptimization.cpp` and `test/lit/passes/heap-store-optimization.wast` identical to `version_129`.
+- The Debian experimental `wasm-opt` manpage still lists `--heap-store-optimization`.
+- The published docs.rs `wasm_opt::Pass` enum still omits `HeapStoreOptimization`, so that surface is still wrapper lag, not rename pressure.
+
+## Current maintenance rule
+
+- Treat this folder as the canonical home for future `heap-store-optimization` parity and scheduler research.
+- Use Binaryen `version_129` as the current source oracle.
+- Keep the narrow-scope correction explicit:
+  - this pass is mainly about folding `struct.set` into nearby `struct.new` families
+  - it is not yet generic GC heap dead-store elimination or load forwarding
+- Keep the current no-drift note explicit unless a future source sweep finds a real post-`version_129` change.
 
 ## Sources
 
-- [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md)
-- Debian experimental `wasm-opt` manpage for Binaryen `122`: <https://manpages.debian.org/experimental/binaryen/wasm-opt.1.en.html>
-- Rust `wasm_opt::Pass` docs: <https://docs.rs/wasm-opt/latest/wasm_opt/enum.Pass.html>
-  - Negative evidence only for this pass during the 2026-04-18 maintenance check: the published enum page says its exposed variants mirror command-line pass names with Rust capitalization conventions, but it still did not expose `HeapStoreOptimization`, so the Debian manpage remains the stronger package-surface naming source here.
-- Rust `wasm_opt` crate overview: <https://docs.rs/wasm-opt/latest/wasm_opt/>
-  - Current direct check for this maintenance pass: the crate root now says `Pass` represents or exposes all Binaryen optimization passes, but the linked enum page still omits `HeapStoreOptimization`, so treat the overview as self-contradictory completeness guidance rather than a naming oracle.
+- [`../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md`](../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md)
+- [`../../../../../src/passes/heap_store_optimization.mbt`](../../../../../src/passes/heap_store_optimization.mbt)
+- [`../../../../../src/passes/heap_store_optimization_test.mbt`](../../../../../src/passes/heap_store_optimization_test.mbt)
+- [`../../../../../src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
+- [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../tracker.md`](../tracker.md)
+- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
+- [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json)
+- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
+- Binaryen `version_129` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/HeapStoreOptimization.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/cfg/cfg-traversal.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>
+- Binaryen `version_129` dedicated lit test:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/heap-store-optimization.wast>
+- Narrow freshness and naming sources:
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/HeapStoreOptimization.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/heap-store-optimization.wast>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/refs/heads/main/CHANGELOG.md>
+  - <https://manpages.debian.org/experimental/binaryen/wasm-opt.1.en.html>
+  - <https://docs.rs/wasm-opt/latest/wasm_opt/enum.Pass.html>

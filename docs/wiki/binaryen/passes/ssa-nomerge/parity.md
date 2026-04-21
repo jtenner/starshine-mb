@@ -1,10 +1,15 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-20
 sources:
+  - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
   - ../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md
 related:
+  - ./index.md
+  - ./binaryen-strategy.md
+  - ./merge-shapes-and-canonical-slots.md
+  - ./wat-shapes.md
   - ../../../../../src/ir/hot_lift.mbt
   - ../../../../../src/ir/hot_lift_test.mbt
   - ../../../../../src/passes/ssa_nomerge.mbt
@@ -15,6 +20,9 @@ related:
 ---
 
 # `ssa-nomerge` Binaryen Parity
+
+This page is the current local signoff tracker.
+Use the strategy and shape pages in this folder for the upstream Binaryen algorithm itself; this page is about the repo's current evidence and remaining gaps.
 
 ## Durable Conclusions
 

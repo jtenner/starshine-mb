@@ -1,38 +1,32 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-18
+status: supported
+last_reviewed: 2026-04-20
 sources:
+  - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
-  - ../../../raw/research/0076-2026-04-10-remove-unused-brs-br-table-carried-wrapper-parity.md
-  - ../../../raw/research/0077-2026-04-10-remove-unused-brs-large-result-br-table-noop-skip.md
-  - ../../../raw/research/0078-2026-04-10-remove-unused-brs-false-prefix-guard-raw-skip.md
-  - ../../../raw/research/0079-2026-04-10-remove-unused-brs-mid-unique-tee-floor.md
-  - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
-  - ../../../raw/research/0080-2026-04-10-remove-unused-brs-large-brtable-hot-skip.md
-  - ../../../raw/research/0081-2026-04-10-remove-unused-brs-large-value-if-branch-raw-skip.md
-  - ../../../raw/research/0082-2026-04-10-remove-unused-brs-large-tagged-result-prefix-hot-skip.md
-  - ../../../raw/research/0083-2026-04-10-remove-unused-brs-large-typed-brtable-encoder-raw-skip.md
-  - ../../../raw/research/0084-2026-04-10-remove-unused-brs-brtable-one-arm-payload-parity.md
-  - ../../../raw/research/0085-2026-04-10-remove-unused-brs-drop-heavy-local-set-floor.md
-  - ../../../raw/research/0086-2026-04-13-remove-unused-brs-medium-branchy-hot-skip.md
-  - ../../../raw/research/0087-2026-04-13-remove-unused-brs-call-heavy-mixed-if-mesh-hot-skip.md
-  - ../../../raw/research/0088-2026-04-13-remove-unused-brs-localset-heavy-value-if-mesh-hot-skip.md
   - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
-  - ../../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md
-  - ../../../../../src/ir/hot_core.mbt
-  - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
   - ../../../../../src/passes/remove_unused_brs_test.mbt
-  - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedBrs.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-gc.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_branch-hints-unconditionalize.wast
 related:
-  - ./pattern-catalog.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
+  - ./wat-shapes.md
+  - ./pattern-catalog.md
   - ./starshine-hot-ir-strategy.md
   - ./tail-and-return-cleanups.md
   - ./select-and-condition-rewrites.md
@@ -48,108 +42,164 @@ related:
 
 ## Role
 
-- `remove-unused-brs` is an active HOT pass in Starshine's Binaryen namespace.
-- It is the main branch-structure cleanup pass for:
-  - removing terminal `br` / `return` traffic that already flows to the surrounding continuation
-  - rewriting branch-shaped `if` structures into `br_if`, `select`, `br_table`, or simpler payload forms
-  - collapsing carried-wrapper shapes that only exist to shuttle branch payload values through result blocks
-  - preserving Binaryen-compatible shapes where an earlier-looking cleanup would actually move Starshine away from the oracle
+- `remove-unused-brs` is an active implemented **hot pass** in Starshine.
+- In upstream Binaryen `version_129`, it is a function-parallel structured-control cleanup pass.
+- The short public description in `pass.cpp` says it removes breaks that are not needed.
+- That description is true, but incomplete.
 
-## Current Summary
+A better beginner summary is:
 
-- The pass runs in three modeled top-level slots inside both `optimize` and `shrink`.
-- It has two execution layers:
-  - a raw pre-lift fast path in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-  - the HOT fixpoint in [`../../../../../src/passes/remove_unused_brs.mbt`](../../../../../src/passes/remove_unused_brs.mbt)
-- The implementation is already much broader than "trailing branch stripping", and the old early `br_table` continuation-wrapper artifact gap is now fixed in-source.
-- The raw layer now also skips the large one-result `br_table` dispatch ladders that were dominating no-op artifact cost after the continuation-wrapper slice.
-- The raw layer now also skips the later large typed `br_table` encoder family that was still lifting as `Func 1482` even though RUB left it unchanged.
-- The raw layer now also skips the later tiny-local value-`if` / branch ladder family that was still lifting as `Func 828` even though RUB left it unchanged.
-- The raw layer now also skips the later large-local drop-heavy branch ladder family that was still lifting as `Func 145` even though RUB left it unchanged.
-- The raw structured-return skip now ignores reduced false prefix-guard families that the real HOT result-prefix matcher cannot rewrite anyway.
-- The raw layer now also has two more Binaryen-shaped cost filters:
-  - very large void-`if` / return families can now bail before lift on cheap raw shape counts instead of always waiting for the lifted `large-void-if-return-ladder-noop` door
-  - medium-size unchanged control ladders with heavy local traffic can now bail before lift once the raw counts show RUB is unlikely to find a profitable rewrite
-- The unique loop/select raw skip now also covers the measured sixteen-tee mid-band ladder family, but that slice only reclassifies `Func 1171`.
-- The direct one-arm payload branch rewrite now also has a negative parity guard in `br_table` functions:
-  - the reduced `Func 3771` family proves Binaryen keeps that `if` conservative
-  - the landed guard piggybacks on the existing branch-payload scan instead of paying a second whole-function walk
-- The hot layer now also skips the large lifted `br_table` / return family that was still paying full traversal after lift:
-  - `Func 1058` / `parse__opcode__instruction`
-  - `Func 1150` / `wt__lower__module`
-- The hot layer now also skips the later tagged result-prefix family that only triggered repeated `rub-result-prefix reject=inner-op` discovery before exiting unchanged:
-  - `Func 356` / `dfe__try__rewrite__instruction__type__idxs`
-- The hot layer now also skips the later medium branchy block-ladder family that still paid lift plus a full HOT walk before exiting unchanged:
-  - `Func 144` / `parse__env__overlay`
-  - `Func 301` / `dfe__iteration.inner`
-  - `Func 353` / `dfe__rewrite__module__type__idxs.inner`
-  - `Func 1512` / `Elem.Encode.encode`
-  - `Func 1547` / `NameSec.Encode.encode`
-  - `Func 1859` / `validate__ref__func__declarations__in__module.inner`
-  - `Func 1867` / `validate__name__sec`
-- The hot layer now also skips the later call-heavy mixed-if mesh family that still paid lift plus a full HOT walk before exiting unchanged:
-  - `Func 408` / `run__hot__pipeline__func`
-  - `Func 413` / `run__hot__pipeline__raw__rewrite__instrs`
-  - `Func 739` / `hot__lower__impl__emit__instruction`
-  - `Func 832` / `hot__lift__impl__build__exact__node`
-  - `Func 902` / `cfg__builder__process__block`
-  - `Func 1022` / `spec__check__command`
-  - `Func 1448` / `SubType.Decode.decode`
-  - `Func 1815` / `validate__typecheck__if`
-- The hot layer now also skips the later localset-heavy value-if mesh family that still paid lift plus a full HOT walk before exiting unchanged:
-  - `Func 837` / `hot__lift__impl__build__direct__node`
-  - `Func 3021` / `encoding::utf8::decode.inner`
-  - `Func 3120` / `parse__number`
-  - `Func 3130` / `parse__decimal__from__view`
-  - `Func 3134` / `parse__int64.inner`
-- A later `2026-04-13` perf audit also removes several pass-internal costs without widening semantics:
-  - HOT liveness now uses a hybrid `deleted_nodes` fast path for large free lists
-  - the six lifted ladder-skip classifiers share one precomputed summary
-  - each fixpoint cycle computes `label_refs`, `branch_payload_children`, and `has_br_table` in one scan
-  - visitation now threads root-site and single-arm-`nop` context instead of re-finding those facts with extra whole-function walks
-  - detached cleanup is bounded and several hot rewrites now use push-style array assembly
-- A newer upstream trunk note is now recorded too: the Chromium-hosted Binaryen mirror shows a 2026-02-27 `RemoveUnusedBrs` change that rewrites branches-to-traps directly to traps. That is a behavior change newer than this repo's older `version_129` Binaryen oracle, so treat it as tracked upstream drift rather than as already-ported Starshine behavior.
-- The early ordered generated-artifact slot-14 corruption is now retired too:
-  - the invalid raw wasm came from rewriting a large non-reorder-safe plain-`br` condition into `br_if`
-  - Starshine now keeps that direct `if br -> br_if` rewrite disabled when a large lifted function would need to reorder a non-reorder-safe condition
-  - the extracted `Func 1354` replay is now locked by an external `wasm-tools validate` cmd wbtest instead of only the in-tree decode path
-- It is still an in-progress parity pass because the explicit debug-artifact compare remains noisy after those fixes:
-  - the saved compare still diverges in normalized WAT
-  - the first inspected remaining hunk `func $384` still traces as `changed=false`, so some early noise is not RUB mutation at all
-  - the later interleaved three-pair self-opt replay improves the RUB lane again from `431.7387 ms` baseline to `402.0653 ms` current for the localset-heavy value-if mesh hot-skip slice alone
-  - the current trace now retires a further five unchanged canonical functions under `skip-hot reason=localset-heavy-value-if-mesh-noop`
-  - the next runtime work should keep shrinking the still-open unchanged-walk families led by `Func 497` / `Func 1168` / `Func 229` / `Func 990` / `Func 883` / `Func 1213`
+- Binaryen repeatedly cleans up branches and returns that already flow to the surrounding continuation,
+- reshapes loops and named blocks so more exits become obviously removable,
+- simplifies `switch`, `if`, `local.set(if ...)`, and GC `br_on_*` forms,
+- threads some trivial jumps afterward,
+- and then runs a late optimizer block for `br_if`, `br_table`, `select`, and local-set arm cleanups.
 
-## Page Map
+So this is **not** just a trailing-branch stripper.
 
-- [`./pattern-catalog.md`](./pattern-catalog.md)
-  Exhaustive inventory of every rewrite family, cleanup helper, and skip surface currently modeled by the pass.
+## Why this pass matters
+
+- Binaryen runs `remove-unused-brs` **three times** in the canonical no-DWARF `-O` / `-Os` function pipeline.
+- The `pass.cpp` comments make the rerun logic explicit:
+  - early `remove-unused-names` and later `merge-blocks` help RUB
+  - later `coalesce-locals` opens more RUB opportunities
+  - late `remove-unused-names` and another `merge-blocks` clean up after RUB again
+- The pass still has an active backlog slice in `agent-todo.md` under `RUB`.
+- The saved generated-artifact work also touched RUB heavily, especially the retired slot-14 and slot-40 corruption witnesses that now live in the parity history.
+
+This makes RUB relevant to:
+
+- scheduler fidelity
+- artifact parity
+- runtime work
+- and future HOT/IR2 cleanup planning
+
+## Most important durable takeaways
+
+- The pass is staged.
+  - main flow cleanup fixpoint
+  - loop cleanup
+  - block sinking
+  - GC-specific BrOn cleanup
+  - jump-threading
+  - late final optimizer
+- The pass is shape-driven.
+  - many important rewrites only fire on very specific block / `if` / `br_if` / `local.set` / `switch` families
+- The pass uses effects and cost reasoning, not just structural matching.
+- The pass also owns some EH and GC cleanup surface:
+  - caught `throw` can become `br`
+  - `br_on_null`, `br_on_non_null`, and `br_on_cast*` can simplify using fallthrough-type knowledge
+- Branch hints are part of the contract.
+- `never-unconditionalize` is part of the contract.
+- `version_129` is still the release oracle, but a narrow 2026-04-20 source check found at least one small current-main semantic drift in jump-threading.
+
+## Biggest beginner correction
+
+The easy wrong mental model is:
+
+- “RUB removes dead branches.”
+
+The safer mental model is:
+
+- “RUB is Binaryen's structured branch-and-fallthrough cleanup pass, and some of its most important rewrites are profitable control reshapes, not just dead-exit deletion.”
+
+Examples include:
+
+- `if` to `br_if`
+- adjacent `br_if` to `br_table`
+- pure-arm `if` to `select`
+- `local.set(if ...)` arm extraction
+- caught `throw` to `br`
+- BrOn simplification from type knowledge
+
+## What the pass sounds like versus what it actually does
+
+What it sounds like:
+
+- delete useless `br`
+
+What it actually is in `version_129`:
+
+- a custom flow-tracking postwalk
+- a loop/body reshaper
+- a block-sinking helper
+- a GC branch simplifier
+- a jump-threader
+- a late optimizer for `br_if`, `br_table`, `select`, and local-set arm cleanup
+- plus branch-hint-aware conditional-vs-unconditional execution policy
+
+## Page map
+
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Upstream `RemoveUnusedBrs` phase structure, why Binaryen defers late shape work, and which parts of that strategy still matter for Starshine.
+  - Direct `version_129` source-backed walkthrough of the real pass stages, helper dependencies, scheduler placement, and main bailout logic.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Exact upstream file map, helper dependency story, official lit-family roster, and the narrow current-main freshness note.
+- [`./wat-shapes.md`](./wat-shapes.md)
+  - Beginner-friendly WAT and IR shape catalog covering positive rewrites, bailout families, EH/GC shapes, and nearby pass interactions.
+- [`./pattern-catalog.md`](./pattern-catalog.md)
+  - Exhaustive inventory of the current in-tree Starshine rewrite and skip surface.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  The current in-tree Starshine architecture: raw pre-lift shortcutting, HOT traversal, fixpoint cycles, caches, and structural guards.
+  - Current local HOT architecture: raw pre-lift shortcuts, lifted fixpoint behavior, caches, and structural guards.
 - [`./tail-and-return-cleanups.md`](./tail-and-return-cleanups.md)
-  Detailed notes for terminal `br` / `return` stripping, return-context cleanup, tail-exit stripping, tail-return voidification, and trailing `nop` trimming.
+  - Local detailed notes for tail exits, return-context cleanup, and exit-only value-`if` families.
 - [`./select-and-condition-rewrites.md`](./select-and-condition-rewrites.md)
-  Detailed notes for value-`if` to `select`, nested condition folding, `br_table` ladder formation, and one-sided stack-tail selection.
+  - Local detailed notes for value-`if`, `select`, condition folding, and `br_table` ladders.
 - [`./branch-exit-and-payload-rewrites.md`](./branch-exit-and-payload-rewrites.md)
-  Detailed notes for block-local `br_if` formation, local-set arm rewrites, branch-exit `if` cleanup, payload-branch rewrites, and block-if flattening.
+  - Local detailed notes for block-local `br_if`, payload-branch rewrites, and local-set arm cleanup.
 - [`./carried-guards-and-result-blocks.md`](./carried-guards-and-result-blocks.md)
-  Detailed notes for the carried-guard/result-block families that dominate the current artifact parity work.
+  - Local detailed notes for carried-guard and result-block families.
 - [`./returned-ladder-hot-shapes.md`](./returned-ladder-hot-shapes.md)
-  HOT-lift shape guide for returned ladders, holder blocks, explicit `Return` nodes, and the reason printed WAT is not enough here.
+  - HOT-lift guide for returned-ladder artifact shapes.
 - [`./visit-order-and-bailouts.md`](./visit-order-and-bailouts.md)
-  The pass's execution model, seen-mask logic, raw/hot skip rules, mutation bounds, and performance-control heuristics.
+  - Local raw/hot skip rules, mutation limits, and performance heuristics.
 - [`./parity.md`](./parity.md)
-  Current signoff status, coverage surface, known remaining artifact gaps, and the next reductions that actually matter.
+  - Current artifact signoff state, retired blockers, remaining gaps, and traced hotspot history.
 
-## Current Maintenance Rule
+## Freshness note
 
-- When newer upstream evidence changes `RemoveUnusedBrs` behavior without renaming the pass, record that drift here and in [`./parity.md`](./parity.md) instead of silently folding it into the older `version_129`-backed algorithm notes.
-- Treat this folder as the canonical home for all future `remove-unused-brs` work.
-- New RUB research should land here instead of being left only in `agent-todo.md`, one-off parity notes, or commit messages.
-- Any new rewrite should update:
+This refreshed landing page is anchored on Binaryen `version_129`.
+
+A narrow 2026-04-20 direct source check found:
+
+- the `remove-unused-brs*` lit roster is unchanged on current `main`
+- the pass is still recognizably the same staged algorithm
+- but current `main` no longer keeps one small `version_129` guard in `JumpThreader`:
+  - `version_129` only redirects a named parent block to a named child block when their types match
+  - current `main` removed that type-equality check
+
+That is a small but real drift, so keep treating `version_129` as the explicit release oracle in this folder.
+
+## Current maintenance rule
+
+- Treat this folder as the canonical home for future RUB scheduler, shape, parity, and performance notes.
+- Keep the central beginner correction explicit:
+  - upstream `remove-unused-brs` is broader than dead-tail stripping but narrower than a generic CFG optimizer.
+- Keep `version_129` and current-main facts separated explicitly when they differ.
+- When new local work changes artifact parity or skip behavior, update:
   - [`./pattern-catalog.md`](./pattern-catalog.md)
-  - the detailed family page that owns the pattern
-  - [`./parity.md`](./parity.md) if the current artifact state or active blocker changes
-- Any new performance guard should also update [`./visit-order-and-bailouts.md`](./visit-order-and-bailouts.md) if it changes where the pass now fails fast.
+  - the owning detailed family page
+  - [`./visit-order-and-bailouts.md`](./visit-order-and-bailouts.md) for cost/ordering changes
+  - [`./parity.md`](./parity.md) for signoff or blocker changes
+
+## Sources
+
+- [`../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md`](../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md)
+- [`../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md`](../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md)
+- [`../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md`](../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md)
+- [`../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md`](../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md)
+- [`../../../../../src/passes/remove_unused_brs.mbt`](../../../../../src/passes/remove_unused_brs.mbt)
+- [`../../../../../src/passes/remove_unused_brs_test.mbt`](../../../../../src/passes/remove_unused_brs_test.mbt)
+- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
+- [`../../../../../src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
+- [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+- Binaryen `version_129` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedBrs.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-gc.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs-eh.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-unused-brs_branch-hints-unconditionalize.wast>

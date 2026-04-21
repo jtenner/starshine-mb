@@ -1,42 +1,135 @@
 ---
 kind: entity
-status: stub
-last_reviewed: 2026-04-18
+status: supported
+last_reviewed: 2026-04-20
 sources:
+  - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
-  - ../../../../../src/passes/trace_golden_test.mbt
-  - ../../../../../src/validate/typecheck.mbt
-  - ../../../../../src/validate/validate.mbt
-  - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
-  - ../../../raw/research/0097-2026-04-18-generated-o4z-vacuum-slot23-func652-stack-underflow.md
-  - ../../../raw/research/0098-2026-04-18-generated-o4z-vacuum-slot33-func1818-stack-underflow.md
-  - ../../../raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md
-  - ../../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md
-  - ../../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md
-related:
+  - ../../../../../src/passes/optimize_test.mbt
+  - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
-  - ../late-pipeline-dispatch.md
+  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json
+  - ../../../../../.artifacts/o4z-wasm-opt-debug.log
+related:
+  - ./binaryen-strategy.md
+  - ./effect-pruning-and-traps-never-happen.md
+  - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
+  - ../tracker.md
+  - ../../no-dwarf-default-optimize-path.md
+  - ../remove-unused-brs/index.md
+  - ../simplify-locals/index.md
 ---
 
 # `vacuum`
 
-- Active hot pass in the Starshine registry.
-- Current summary: Remove `nop` roots and region entries through hot IR cleanup.
-- Newer upstream activity is behavioral, not terminological: the Chromium-hosted Binaryen mirror shows a 2026-02-27 `Vacuum` change that stopped rewriting explicit `unreachable` to `nop`, with the stated goal of letting unreachability propagate outward. Treat this repo's older `version_129`-backed vacuum notes as a tagged oracle rather than a claim about current trunk internals.
-- Current 2026-04-18 ordered generated-artifact follow-up: no hard corruption slots remain active for this pass.
-- Slot `23` is retired by [0106](../../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md): the saved tuple-opt predecessor now replays cleanly, the extracted `Func 652` replay also validates, and the Binaryen compare reports `Normalized WAT equal: yes` plus `Canonical function compare equal: yes`.
-- Durable ordered-audit takeaway after [0106](../../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md): slot `23` only looked like a `vacuum` corruption because `vacuum` was the replay boundary when final lowering happened. The retired `Func 652` failure is better understood as fallout from the earlier HOT-lower carrier-wrapper bug fixed in [0103](../../../raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md), not as a pass-local `vacuum` rewrite bug.
-- Slot `33` is now also retired by [0107](../../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md): the saved simplify-locals predecessor now replays to a `wasm-tools`-valid module, the extracted `Func 4142` witness is green in-tree, and the Binaryen compare reports `Normalized WAT equal: yes` plus `Canonical function compare equal: yes`.
-- Durable ordered-audit takeaway after [0107](../../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md): the slot-33 corruption was exposed by `vacuum`, but the fix was not a new pass-local cleanup rewrite. The lasting repair was a validator/typechecker escape-normalization correction plus a guarded `vacuum` writeback boundary that now keeps invalid rewrites from escaping into the final module.
-- Use [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md) for the current tail roster until dedicated strategy and parity pages land.
+## Role
+
+- `vacuum` is an active implemented **hot pass** in Starshine.
+- In upstream Binaryen `version_129`, `vacuum` is a function-parallel cleanup pass whose public summary is `removes obviously unneeded code`.
+- The real job is broader than the current in-tree Starshine implementation and narrower than a full DCE pass.
+
+A good beginner summary is:
+
+- if some code computes a value nobody will use,
+- and removing the wrapper does not lose observable effects or break types,
+- Binaryen tries to throw away the wrapper and keep only the parts that still matter.
+
+That includes more than `nop` removal, but less than full dead-code elimination.
+
+## Why this pass matters
+
+- The tracker's earlier saved-audit `none` queue is now clear, so implemented landing pages are the highest-value wiki gaps.
+- When this thread started, `docs/wiki/binaryen/passes/tracker.md` explicitly named `vacuum` as the strongest next deepening target.
+- The canonical no-DWARF `-O` / `-Os` scheduler uses `vacuum` **four times** in the default function pipeline.
+- The saved generated-artifact `-O4z` audit also saw `vacuum` at four real top-level Binaryen slots:
+  - slot `23`
+  - slot `33`
+  - slot `37`
+  - slot `47`
+- The saved Binaryen debug log contains `72` `running pass: vacuum` lines in total, so nested reruns make it far more common than the four visible top-level slots suggest.
+- The local backlog already has dedicated `VQ` work items in `agent-todo.md`, so richer docs directly help future parity work.
+
+## Most important durable takeaways
+
+- Binaryen `vacuum` is **not** just a `nop` sweeper.
+- Binaryen `vacuum` is **not** a CFG or liveness pass.
+- The pass is built around one generic unused-result optimization helper plus special visitors for:
+  - `block`
+  - `if`
+  - `loop`
+  - `drop`
+  - `try`
+  - `try_table`
+  - the function body itself
+- The pass depends heavily on effect analysis, helper-based dropped-child rebuilding, and post-rewrite refinalization.
+- The canonical no-DWARF scheduler uses it as repeated cleanup glue between other local and late cleanup passes, not as a one-shot finalizer.
+- Current Starshine only implements the smallest slice of the upstream behavior:
+  - recursive `nop` region-entry trimming
+- A fresh 2026-04-20 source check corrected an earlier repo-local note:
+  - the 2026-02-27 explicit-`unreachable` preservation change belongs to Chromium commit `f284d54...`, not `9ee4a25...`
+  - that change is already present in Binaryen `version_129`
+  - current GitHub `main` still matches `version_129` `Vacuum.cpp` in substance
+
+So explicit `unreachable` preservation is part of the tagged `version_129` oracle here, not a newer trunk-only drift note.
+
+## Beginner warning: what the name hides
+
+The easy wrong mental model is:
+
+- `vacuum` just cleans stray junk after other passes
+
+The safer mental model is:
+
+- `vacuum` is Binaryen's effect-aware cleanup crew for unused results and trivial residue,
+- with special logic for block fallthroughs, `if` simplification, drop-of-tee cleanup, EH no-throw shapes, TNH trap-path cleanup, and function-level no-oping.
+
+That difference matters a lot if Starshine ever wants real Binaryen parity.
+
+## Page map
+
+- [`./binaryen-strategy.md`](./binaryen-strategy.md)
+  - Deep dive into the actual Binaryen `version_129` implementation, helper dependencies, scheduler placement, visitor phases, and the corrected freshness story.
+- [`./effect-pruning-and-traps-never-happen.md`](./effect-pruning-and-traps-never-happen.md)
+  - Focused guide to the easiest part of the pass to misunderstand: unused-result pruning, `removableIfUnused`, dummy-zero replacement values, TNH cleanup, and explicit-`unreachable` preservation.
+- [`./wat-shapes.md`](./wat-shapes.md)
+  - Beginner-friendly shape catalog covering positive, negative, bailout, EH, GC, string, and TNH-specific rewrite families.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+  - Current in-tree Starshine strategy and the major Binaryen behaviors the repo still does not model.
+
+## Current maintenance rule
+
+- Treat this folder as the canonical home for future `vacuum` parity and scheduler research.
+- Treat the corrected 2026-04-20 freshness note as the current durable answer:
+  - `version_129` already contains the explicit-`unreachable` preservation safeguard
+  - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
+- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond recursive `nop` trimming.
 
 ## Sources
 
-- [`../late-pipeline-dispatch.md`](../late-pipeline-dispatch.md)
-- [`../../../raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md`](../../../raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md)
-- [`../../../raw/research/0104-2026-04-18-generated-o4z-optimize-instructions-slot16-func1818-parent-exit-payload-guard.md`](../../../raw/research/0104-2026-04-18-generated-o4z-optimize-instructions-slot16-func1818-parent-exit-payload-guard.md)
-- [`../../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md`](../../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md)
-- [`../../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md`](../../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md)
-- Binaryen `Vacuum.cpp` (`version_129`): <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Vacuum.cpp>
-- Binaryen Chromium mirror commit `9ee4a25ee15ab53e796cb0b3f320cafa2622c407` (`2026-02-27`): <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9ee4a25ee15ab53e796cb0b3f320cafa2622c407%5E%21/>
+- [`../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md`](../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md)
+- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
+- [`../tracker.md`](../tracker.md)
+- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
+- [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.json)
+- [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
+- Binaryen `version_129` sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Vacuum.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-hints.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/drop.h>
+- Representative Binaryen `version_129` tests:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-func.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-gc.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-eh.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-strings.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-tnh.wast>
+- Freshness / correction sources:
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Vacuum.cpp>
+  - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/f284d54ef60a5b6e6c33b4c1f4d4b423f7a6b1c3%5E%21/>
+  - <https://chromium.googlesource.com/external/github.com/WebAssembly/binaryen/+/9ee4a25ee15ab53e796cb0b3f320cafa2622c407%5E%21/>

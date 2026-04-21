@@ -1,50 +1,196 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-20
 sources:
   - ../../../raw/research/0068-2026-03-25-global-struct-inference.md
+  - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
 related:
   - ../../../../../src/passes/global_struct_inference.mbt
   - ../../../../../src/passes/global_struct_inference_test.mbt
+  - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md
 ---
 
-# `global-struct-inference` Binaryen Parity
+# `global-struct-inference` Binaryen parity
 
-## Durable Conclusions
+## Durable conclusions
 
-- Binaryen's `GlobalStructInference` is a closed-world GC rewrite, not a broad struct-fact analysis.
-- The useful oracle surface is immutable globals initialized with top-level `struct.new*` expressions and later consumed by eligible `struct.get*` users.
+- Binaryen's `global-struct-inference` is broader than the older local wiki summary implied.
+  - it is **not** just a closed-world pass
+  - it still has an open-world direct immutable-global optimization layer
+- The full official contract is much broader than the current local MoonBit implementation.
+  - Binaryen handles open-world direct-global reads, closed-world candidate-global reasoning over locals and params, subtype propagation, one-vs-two-unique-value selection, non-constant un-nesting, packed fields, atomic gets, `ref.get_desc`, and the sibling `gsi-desc-cast` surface
+- The current local Starshine implementation is a deliberately small subset:
+  - closed-world only
+  - direct `global.get -> struct.get*` pairs only
+  - top-level immutable `struct.new*` globals only
+  - no subtype map, no multi-origin local/param rewrites, no un-nesting, no atomic/descriptor/cast surface
+- The saved generated-artifact `-O4z` slot is still exactly green, which strongly suggests the artifact does not exercise the missing official surfaces.
 
-The first safe Starshine slice is intentionally narrower than full Binaryen parity:
-
-- thread closed-world mode through the pass
-- target direct `global.get -> struct.get*` chains first
-- preserve null traps with `ref.as_non_null`
-- avoid broader type-wide inference until compare evidence says it is needed
-
-## Current In-Tree Status
+## Current in-tree status
 
 - The implementation lives in [`../../../../../src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt).
 - The focused suite lives in [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt).
-- The active landed slice rewrites only direct `global.get -> struct.get*` chains backed by immutable top-level `struct.new*` globals.
-- The optimize pipeline and registry surfaces include the pass as the early module-level GC precision step after `global-refining`.
+- Registry and preset coverage live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), with module-pass dispatch in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
+- The pass is active in-tree and is scheduled in the early module cluster after `global-refining`.
 
-## Validation Outcome
+## Saved generated-artifact evidence
 
-- Default-mode `--global-struct-inference` compare runs kept canonical wasm and normalized WAT parity; the pass is effectively gated off without closed-world mode.
-- Closed-world `--global-struct-inference` runs also kept canonical and normalized parity, with isolated pass time staying cheap.
-- The remaining ordered-prefix wall-time gap is upstream of `global-struct-inference`, not a reason to widen the current slice.
+The saved generated-artifact `-O4z` audit shows slot `7` (`gsi` / `global-struct-inference`) as:
 
-## Practical Rule
+- exact wasm equal: `yes`
+- normalized WAT equal: `yes`
+- Starshine wall/runtime: `410.401 ms`
+- Binaryen wall/runtime: `197.827 ms`
+- Starshine in-pass time: `0.002 ms`
+- Binaryen in-pass time: `2.008 ms`
+- both outputs valid: `yes`
 
-- Keep the current direct-global closed-world slice.
-- Do not widen to broader type-wide inference until the neighboring module-pass and pipeline costs are better understood.
-- Treat remaining performance pressure as earlier-pass or pipeline-overhead work unless new compare evidence points directly at `GSI`.
+That is strong evidence that the current local pass behaves compatibly on the saved artifact.
+It is **not** proof that the current pass covers all important Binaryen shapes.
+
+## Earlier compare-harness evidence still worth keeping
+
+The older `0068` note recorded:
+
+- default-mode `--global-struct-inference` compare parity stayed green
+- closed-world `--global-struct-inference` compare parity also stayed green
+- ordered-prefix parity stayed green too
+- the remaining wall-time gap was upstream of `gsi`
+
+Those results still matter, but the interpretation needs refinement now that the official source has been re-audited more carefully:
+
+- green default-mode parity does **not** mean upstream `gsi` is a no-op in open world
+- it more likely means the tested artifact did not contain the open-world direct-global shapes that upstream `gsi` can optimize
+
+That is an inference from the official source plus the green runs, not a direct quoted Binaryen statement.
+
+## Current local coverage
+
+The focused local tests currently cover only two basic families:
+
+- closed-world direct `global.get -> struct.get` constant folding on immutable globals
+- preserving ordinary non-global ref producers unchanged
+
+That is a good local floor for the current subset.
+It is far smaller than the official Binaryen lit surface.
+
+## Main remaining divergences from official Binaryen
+
+## 1. The local pass is closed-world-only
+
+Current local behavior:
+
+- `global_struct_inference_run_module_pass` returns unchanged when `closed_world` is false
+
+Official Binaryen `version_129` behavior:
+
+- closed world enables the broader `typeGlobals` analysis
+- but `optimize(module)` still runs afterwards in **all** modes
+- direct immutable-global reads can still optimize in open world
+
+This is the biggest conceptual local-vs-upstream gap.
+
+## 2. The local pass only matches immediate instruction pairs
+
+Current local behavior:
+
+- look for immediate `GlobalGet` followed by immediate `StructGet` / `StructGetS` / `StructGetU`
+
+Official Binaryen behavior:
+
+- optimize direct immutable-global reads
+- but also, in closed world, reason about arbitrary read operands such as params, locals, and supertypes using the type-to-global map
+
+So the local pass misses Binaryen shapes like:
+
+- `struct.get` of a parameter known to be one of two immutable globals
+- parent-typed reads whose only trusted origins are child globals
+
+## 3. No local subtype poisoning or upward candidate propagation
+
+Official Binaryen uses `SubTypes` to:
+
+- poison supertypes when child allocations happen in functions or nested global positions
+- propagate candidate child globals upward to parent reads
+
+Current local pass has no equivalent mechanism.
+
+## 4. No local one-vs-two-unique-values grouping
+
+Official Binaryen can:
+
+- collapse many globals into one constant value
+- or emit a `select(ref.eq(...))` when there are two unique values and one singleton-tested group
+
+Current local pass does neither.
+It only folds a field value from the exact global being read directly.
+
+## 5. No local un-nesting of non-constant operands
+
+Official Binaryen can split a nested non-constant field operand into a fresh immutable global and continue the optimization.
+
+Current local pass:
+
+- has no fresh-global emission path
+- has no nested `reorder-globals-always` cleanup path
+
+## 6. No local `PossibleConstantValues` equivalent
+
+Official Binaryen treats immutable `global.get`s as constant materializable values.
+That matters for official positive shapes where field values are not literals but are still stable immutable globals.
+
+Current local pass has a smaller local materialization surface.
+
+## 7. No local atomic-get or descriptor-facing coverage
+
+Official Binaryen source and lit tests cover:
+
+- packed fields
+- atomic gets on immutable fields
+- `ref.get_desc`
+- sibling `gsi-desc-cast`
+
+Current local pass handles only ordinary `struct.get*` forms.
+
+## 8. Representation-specific type repair differs locally
+
+Official Binaryen explicitly refinalizes changed functions.
+Current local boundary IR pass does not mirror that exact mechanism because it works in a different representation.
+
+That is likely fine for the current subset, but it is still a real architectural divergence from the source oracle.
+
+## Why the saved audit can still be exactly green
+
+The most plausible explanation is:
+
+- the saved artifact does not hit the missing open-world direct-global shapes
+- and it also does not rely on the richer closed-world candidate-global, subtype, atomic, or un-nesting surfaces
+- the local subset is therefore enough for that particular slot
+
+Again, that is an inference from the green audit plus the visible local-vs-upstream source differences.
+
+## Practical rule for future work
+
+- Keep the current local subset described honestly as a subset.
+- Do **not** describe it as “what Binaryen `gsi` does.”
+- If future parity work targets the full Binaryen contract, the next missing surfaces to implement are, in value order:
+  1. open-world direct immutable-global optimization
+  2. closed-world candidate-global reasoning for local/param reads
+  3. subtype poisoning and upward candidate propagation
+  4. one-vs-two-unique-values select synthesis
+  5. un-nesting of non-constant operands
+  6. atomic / descriptor-facing coverage
+- If local code remains intentionally narrower, keep the green artifact evidence explicit so readers do not confuse “narrow but enough for this artifact” with “full upstream parity.”
 
 ## Sources
 
-- Archived research doc: [`../../../raw/research/0068-2026-03-25-global-struct-inference.md`](../../../raw/research/0068-2026-03-25-global-struct-inference.md)
+- Archived earlier note: [`../../../raw/research/0068-2026-03-25-global-struct-inference.md`](../../../raw/research/0068-2026-03-25-global-struct-inference.md)
+- Updated research note: [`../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md`](../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md)
 - Implementation: [`../../../../../src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt)
 - Focused tests: [`../../../../../src/passes/global_struct_inference_test.mbt`](../../../../../src/passes/global_struct_inference_test.mbt)
+- Dispatch/options surface: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- Registry/preset surface: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- Saved artifact audit: [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md)
