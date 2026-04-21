@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
   - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
   - ../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md
 related:
@@ -32,7 +33,8 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 - Current mixed-generator compare coverage is mismatch-free on comparable cases and only hits the standing Binaryen `binaryen-rec-group-zero` parser-family gap.
 - Fresh post-merge reruns on seed `0x51a` stayed clean in both the mixed-generator and `gen-valid` lanes.
 - The reduced unreachable compare-carrier slice behind the traced `Func 523` family is now covered in-tree in both lift and pass tests.
-- Exact raw-byte parity is still not claimed because current trace replay still shows fail-closed `writeback-validate:*` skips inside Starshine's raw lowering path.
+- The old traced `Func 523` `writeback-validate:type mismatch` skip is now retired by the focused extracted-function CLI replay test.
+- Exact raw-byte parity is still not claimed because Starshine's raw lowering path can still fail closed on artifact-only writeback families, and this follow-up did not rerun a fresh full-artifact traced skip census.
 
 ## Current In-Tree Status
 
@@ -41,7 +43,7 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 - That rule is an in-tree inference from Binaryen `src/passes/SSAify.cpp` `createNewIndexes()` plus direct `wasm-opt --ssa-nomerge` micro-replays on reduced param-write cases.
 - The same pass-manager path still rejects per-function writebacks that fail module-aware validation, in addition to the existing `invalid-escape-carrier` and `suspicious-escape-carrier` families.
 - The `cmd` package contains a native debug-artifact replay test in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt), and a focused `moon test src/cmd --target native --filter 'run_cmd_with_adapter validates ssa-nomerge on debug artifact'` run is currently green.
-- The reduced `Func 523` follow-up now also lives in [`../../../../../src/ir/hot_lift.mbt`](../../../../../src/ir/hot_lift.mbt), [`../../../../../src/ir/hot_lift_test.mbt`](../../../../../src/ir/hot_lift_test.mbt), and [`../../../../../src/passes/ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt).
+- The reduced `Func 523` follow-up now also lives in [`../../../../../src/ir/hot_lift.mbt`](../../../../../src/ir/hot_lift.mbt), [`../../../../../src/ir/hot_lift_test.mbt`](../../../../../src/ir/hot_lift_test.mbt), [`../../../../../src/passes/ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt), and the focused extracted-function CLI replay in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
 
 ## Current Signoff State
 
@@ -58,17 +60,16 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Remaining Gap
 
-- The fresh `2026-04-11` traced replay at `/tmp/ssa-nomerge-func523-followup.log` still records one remaining validation-backed skip: `skip-invalid-lower func=(Func 523) reason=writeback-validate:type mismatch`.
-- The same replay still records `228` `suspicious-escape-carrier` skips.
-- The new reduced unreachable compare-carrier follow-up was therefore necessary but not sufficient: it narrowed the family into executable lift and pass regressions without yet removing the artifact-only skip.
-- The same input succeeds under Binaryen with `wasm-opt tests/node/dist/starshine-debug-wasi.wasm --all-features --ssa-nomerge`.
-- So the current output-facing blocker is fixed, but raw-lowering coverage is still incomplete and direct artifact replay remains mandatory.
+- The focused extracted-function CLI replay now proves that the old `Func 523` `writeback-validate:type mismatch` skip is retired.
+- However, this follow-up did **not** rerun a fresh full-artifact traced skip census, so the older `2026-04-11` count of `228` `suspicious-escape-carrier` skips remains only historical context, not a fresh exact current count.
+- The same input still succeeds under Binaryen with `wasm-opt tests/node/dist/starshine-debug-wasi.wasm --all-features --ssa-nomerge`.
+- So the current output-facing blocker for the reduced `Func 523` family is fixed, but broader raw-lowering coverage is still incomplete and direct artifact replay remains mandatory.
 
 ## Practical Rule
 
 - Keep direct debug-artifact replay in the `ssa-nomerge` signoff loop.
 - Treat the seeded `binaryen-rec-group-zero` wasm-smith failure as an oracle parser gap, not an SSA semantic mismatch.
-- Treat current-source output parity as green for the fixed dead-param family and the new reduced unreachable compare-carrier follow-up, but do not claim exact artifact parity until direct Starshine replay on `tests/node/dist/starshine-debug-wasi.wasm` stops relying on `writeback-validate:*` fail-closed skips for Binaryen-successful functions.
+- Treat current-source output parity as green for the fixed dead-param family and the reduced unreachable compare-carrier follow-up, but do not claim exact artifact parity until a fresh traced full-artifact replay shows that the remaining fail-closed raw-lowering skip families are gone or intentionally accepted.
 - Keep the direct artifact replay and the `10000 / 10000` `gen-valid` compare lane together as the minimum signoff pair.
 
 ## Sources

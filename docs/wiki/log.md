@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-21] lint | fix stale `ssa-nomerge` parity wording after the new strategy page landed
+
+- During the touched-area health check, re-scanned the refreshed `docs/wiki/binaryen/passes/ssa-nomerge/` folder and found that `parity.md` plus the matching top-level `docs/wiki/index.md` parity blurb still repeated the older `2026-04-11` wording as if the traced `Func 523` `writeback-validate:type mismatch` skip were still current.
+- Reworded the affected parity notes so the touched docs now say the focused extracted-function CLI replay retired that specific skip, while still keeping the broader raw-lowering signoff gap explicit and avoiding an unsupported fresh full-artifact traced-count claim.
+
 ## [2026-04-21] research | add Starshine `ssa-nomerge` strategy/code-map coverage and ingest a primary-source capture
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/ssa-nomerge/` folder, then chose `ssa-nomerge` because it was an active implemented hot-pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.

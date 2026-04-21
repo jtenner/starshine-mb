@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-21 Docs: fix stale `ssa-nomerge` parity wording after the strategy follow-up
+
+- **clean up the touched `ssa-nomerge` parity wording so the docs now say the focused extracted-function CLI replay retired the old `Func 523` type-mismatch skip, while still keeping the broader raw-lowering signoff gap explicit instead of repeating the stale 2026-04-11 full-artifact wording as if it were current** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/binaryen/passes/ssa-nomerge/parity.md`](./docs/wiki/binaryen/passes/ssa-nomerge/parity.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
+
 ## 2026-04-21 Docs: complete `ssa-nomerge` dossier with Starshine strategy mapping
 
 - **add the missing Starshine strategy/code-map page for `ssa-nomerge`, ingest a primary-source capture plus the follow-up research note, and align the touched pass-folder / tracker / wiki-index metadata around the now-complete Binaryen-plus-Starshine dossier shape** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/raw/binaryen/2026-04-21-ssa-nomerge-primary-sources.md`](./docs/wiki/raw/binaryen/2026-04-21-ssa-nomerge-primary-sources.md), [`docs/wiki/raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md`](./docs/wiki/raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md), [`docs/wiki/binaryen/passes/ssa-nomerge/index.md`](./docs/wiki/binaryen/passes/ssa-nomerge/index.md), [`docs/wiki/binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
