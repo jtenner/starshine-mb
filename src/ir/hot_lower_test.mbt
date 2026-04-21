@@ -1525,6 +1525,61 @@ test "hot lower spills transparent typed single-param void blocks through a seco
 }
 
 ///|
+test "hot lower preserves typed multi-param void blocks when merge-blocks leaves them nested for Binaryen parity" {
+  let module_ = hot_lower_test_multi_param_void_block_param_module()
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::block(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([@lib.Instruction::drop(), @lib.Instruction::drop()]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(),
+    hot_module_context_from_module(module_),
+  )
+
+  assert_eq(hot_lower_body(hot), body)
+}
+
+///|
+test "hot lower preserves typed multi-param void block if-arm carriers when merge-blocks leaves them nested for Binaryen parity" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::i32_const(@lib.I32(4)),
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::block(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+          @lib.Expr::new([@lib.Instruction::drop(), @lib.Instruction::drop()]),
+        ),
+      ],
+      Some([
+        @lib.Instruction::i32_const(@lib.I32(8)),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::block(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+          @lib.Expr::new([@lib.Instruction::drop(), @lib.Instruction::drop()]),
+        ),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(params=[@lib.ValType::i32()]),
+    hot_module_context_from_module(
+      hot_lower_test_multi_param_void_block_param_module(),
+    ),
+  )
+
+  assert_eq(hot_lower_body(hot), body)
+}
+
+///|
 test "hot lower drops branch-free typed void loop carriers into direct spills when merge-blocks wants Binaryen-stable output" {
   let module_ = hot_lower_test_void_block_param_module()
   let body = @lib.Expr::new([
