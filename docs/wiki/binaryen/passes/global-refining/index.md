@@ -59,7 +59,7 @@ It is a small whole-module **global declaration tightening** pass.
 
 ## Why this pass matters
 
-- The existing dossier was already useful, but this follow-up matters because `global-refining` still lacked one compact source-confirmed owner/test-map page, which made it too easy to re-explain the pass from broad prose instead of the tiny actual Binaryen file/test surface.
+- The existing dossier was already useful, but this follow-up matters because `global-refining` still lacked a dedicated Starshine strategy/code-map page, which made it too easy to describe the current local subset only indirectly from the parity notes instead of from exact MoonBit owner files and pass wiring.
 - In the canonical no-DWARF `-O` / `-Os` scheduler it sits in the early module GC cluster:
   - `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> gsi`
 - That placement is meaningful:

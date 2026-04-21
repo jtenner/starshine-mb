@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-21 Docs: fix stale `global-refining` landing-page wording after the strategy-page follow-up
+
+- **clean up the touched `global-refining` landing page so its follow-up rationale now matches the newly added Starshine strategy/code-map page instead of incorrectly repeating the already-closed implementation/test-map gap** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/binaryen/passes/global-refining/index.md`](./docs/wiki/binaryen/passes/global-refining/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
+
 ## 2026-04-21 Docs: complete `global-refining` dossier with Starshine strategy mapping
 
 - **add the missing Starshine strategy/code-map page for `global-refining`, ingest the follow-up research note, and align the touched pass-folder / tracker / wiki-index metadata around the now-complete Binaryen-plus-Starshine dossier shape** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md`](./docs/wiki/raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md), [`docs/wiki/binaryen/passes/global-refining/index.md`](./docs/wiki/binaryen/passes/global-refining/index.md), [`docs/wiki/binaryen/passes/global-refining/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/global-refining/starshine-hot-ir-strategy.md), [`docs/wiki/binaryen/passes/global-refining/parity.md`](./docs/wiki/binaryen/passes/global-refining/parity.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).

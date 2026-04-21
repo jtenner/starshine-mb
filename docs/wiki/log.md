@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-21] lint | fix stale `global-refining` landing-page follow-up wording after the new Starshine strategy page landed
+
+- During the post-commit health check, re-scanned the touched `docs/wiki/binaryen/passes/global-refining/` folder for stale references and found that `index.md` still described the latest follow-up as if it were about the earlier implementation/test-map gap rather than the newly completed Starshine strategy/code-map gap.
+- Reworded the affected landing-page bullet so the folder now consistently says this run closed the missing Starshine strategy/code-map page, not the already-closed owner/test-map gap from the earlier `0208-2026-04-21-global-refining-source-confirmation-followup.md` change.
+
 ## [2026-04-21] research | add Starshine `global-refining` strategy/code-map coverage and align touched-area dossier metadata
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/global-refining/` folder, then chose `global-refining` because it was an active implemented module-pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.
