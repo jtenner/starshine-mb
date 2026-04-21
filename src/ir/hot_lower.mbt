@@ -488,6 +488,11 @@ fn hot_lower_impl_body_items(
   for i = body_base; i < node.child_count; i = i + 1 {
     let child = func.children[node.child_base + i]
     if child != HOT_NONE_NODE {
+      if hot_query_op(func, child) == HotOp::Unreachable {
+        hot_lower_impl_drop_dead_stack_before_unreachable(
+          child, value_stack, out,
+        )
+      }
       hot_lower_impl_emit_root(
         func, child, use_def, label_frames, next_stack, value_stack, out, extra_locals,
         options,
@@ -660,6 +665,19 @@ fn hot_lower_impl_drop_dead_nonfinal_root_results(
     return
   }
   for _ in 0..<result_arity {
+    out.push(Instruction::drop())
+    ignore(stack.pop())
+  }
+}
+
+///|
+fn hot_lower_impl_drop_dead_stack_before_unreachable(
+  id : NodeId,
+  stack : Array[HotLowerStackValue],
+  out : Array[Instruction],
+) -> Unit {
+  ignore(id)
+  while stack.length() > 0 {
     out.push(Instruction::drop())
     ignore(stack.pop())
   }
@@ -853,10 +871,14 @@ fn hot_lower_impl_preserve_region_result_roots(
   let preserve = @bitset.BitSet::new(root_ids.length())
   let mut remaining = region_result_arity
   for i = root_ids.length() - 1; i >= 0; i = i - 1 {
+    let root_id = root_ids[i]
+    if hot_lower_impl_clear_stack_after_emit(hot_query_op(func, root_id)) {
+      remaining = 0
+      continue
+    }
     if remaining <= 0 {
       break
     }
-    let root_id = root_ids[i]
     if node_use_count(use_def, root_id) != 1 {
       continue
     }
@@ -1409,6 +1431,11 @@ fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
   )
   let mut root_idx = 0
   for child in body_root_ids {
+    if hot_query_op(func, child) == HotOp::Unreachable {
+      hot_lower_impl_drop_dead_stack_before_unreachable(
+        child, body_stack, block_out,
+      )
+    }
     hot_lower_impl_emit_root(
       func, child, use_def, label_frames, label_stack_head, body_stack, block_out,
       extra_locals, options,
@@ -3031,6 +3058,88 @@ fn hot_lower_impl_can_inline_value_wrapper(
 }
 
 ///|
+fn hot_lower_impl_instr_is_const_like_dead_value_before_unreachable(
+  instr : Instruction,
+) -> Bool {
+  match instr {
+    I32Const(_)
+    | I64Const(_)
+    | F32Const(_)
+    | F64Const(_)
+    | V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | RefNull(_)
+    | StringConst(_) => true
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_hoist_dropped_values_before_leading_unreachable(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  match body {
+    [Unreachable, ..] => ()
+    _ => return body
+  }
+  let moved : Array[Instruction] = []
+  let mut idx = 1
+  while idx + 1 < body.length() {
+    match body[idx + 1] {
+      Drop if !hot_lower_impl_has_control_transfer(body[idx]) => {
+        moved.push(body[idx])
+        moved.push(body[idx + 1])
+        idx = idx + 2
+      }
+      _ => break
+    }
+  }
+  if moved.length() == 0 {
+    return body
+  }
+  let rewritten : Array[Instruction] = []
+  for instr in moved {
+    rewritten.push(instr)
+  }
+  rewritten.push(Instruction::unreachable_())
+  for tail_idx = idx; tail_idx < body.length(); tail_idx = tail_idx + 1 {
+    rewritten.push(body[tail_idx])
+  }
+  rewritten
+}
+
+///|
+fn hot_lower_impl_materialize_dead_const_prefix_before_unreachable(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  if body.length() < 2 {
+    return body
+  }
+  match body[body.length() - 1] {
+    Unreachable => ()
+    _ => return body
+  }
+  let mut suffix_start = body.length() - 1
+  while suffix_start > 0 &&
+        hot_lower_impl_instr_is_const_like_dead_value_before_unreachable(
+          body[suffix_start - 1],
+        ) {
+    suffix_start -= 1
+  }
+  if suffix_start == body.length() - 1 {
+    return body
+  }
+  let rewritten : Array[Instruction] = []
+  for i = 0; i < body.length() - 1; i = i + 1 {
+    rewritten.push(body[i])
+    if i >= suffix_start {
+      rewritten.push(Instruction::drop())
+    }
+  }
+  rewritten.push(Instruction::unreachable_())
+  rewritten
+}
+
+///|
 fn hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
   body : Array[Instruction],
   options : HotLowerOptions,
@@ -3166,6 +3275,12 @@ fn hot_lower_impl_canonicalize_body(
       canonical_instr => canonical.push(canonical_instr)
     }
   }
+  let canonical = hot_lower_impl_hoist_dropped_values_before_leading_unreachable(
+    canonical,
+  )
+  let canonical = hot_lower_impl_materialize_dead_const_prefix_before_unreachable(
+    canonical,
+  )
   let canonical = hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
     canonical, options,
   )

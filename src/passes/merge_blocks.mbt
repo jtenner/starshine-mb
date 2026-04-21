@@ -138,12 +138,59 @@ fn merge_blocks_block_has_params(
 }
 
 ///|
+fn merge_blocks_rewrite_dead_unreachable_suffix_roots(
+  func : @ir.HotFunc,
+  use_def : @ir.HotUseDef,
+  roots : Array[Int],
+) -> Bool {
+  ignore(use_def)
+  if roots.length() == 0 {
+    return true
+  }
+  let rewrite_dead_values_before = fn(unreachable_idx : Int) -> Bool {
+    if unreachable_idx < 0 || unreachable_idx >= roots.length() {
+      return true
+    }
+    let rewritten : Array[Int] = []
+    for idx = 0; idx < unreachable_idx; idx = idx + 1 {
+      rewritten.push(roots[idx])
+    }
+    for idx = unreachable_idx + 1; idx < roots.length(); idx = idx + 1 {
+      let root_id = roots[idx]
+      if @ir.hot_node_result_arity(func, root_id) != 1 {
+        return false
+      }
+      rewritten.push(@ir.hot_build_drop(func, root_id))
+    }
+    rewritten.push(roots[unreachable_idx])
+    roots.clear()
+    for root_id in rewritten {
+      roots.push(root_id)
+    }
+    true
+  }
+  match @ir.hot_node_get(func, roots[roots.length() - 1]).op {
+    @ir.HotOp::Unreachable =>
+      return rewrite_dead_values_before(roots.length() - 1)
+    _ => ()
+  }
+  for idx = 0; idx < roots.length(); idx = idx + 1 {
+    match @ir.hot_node_get(func, roots[idx]).op {
+      @ir.HotOp::Unreachable => return rewrite_dead_values_before(idx)
+      _ => ()
+    }
+  }
+  true
+}
+
+///|
 fn merge_blocks_visit_control_node(
   func : @ir.HotFunc,
   node_id : Int,
   label_used : @bitset.BitSet,
   flattened_roots : Array[Int],
   module_ctx : @ir.HotModuleContext?,
+  use_def : @ir.HotUseDef,
 ) -> Bool {
   let node = @ir.hot_node_get(func, node_id)
   let control_has_params = merge_blocks_block_has_params(
@@ -163,6 +210,7 @@ fn merge_blocks_visit_control_node(
         module_ctx,
         control_has_params,
         control_is_loop,
+        use_def,
       )
     @ir.HotOp::If => {
       let mut changed = merge_blocks_visit_region(
@@ -173,12 +221,13 @@ fn merge_blocks_visit_control_node(
         module_ctx,
         false,
         false,
+        use_def,
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           changed = merge_blocks_visit_region(
               func, else_region, label_used, flattened_roots, module_ctx, false,
-              false,
+              false, use_def,
             ) ||
             changed
         None => ()
@@ -194,12 +243,13 @@ fn merge_blocks_visit_control_node(
         module_ctx,
         control_has_params,
         false,
+        use_def,
       )
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
           changed = merge_blocks_visit_region(
               func, catch_region, label_used, flattened_roots, module_ctx, control_has_params,
-              false,
+              false, use_def,
             ) ||
             changed
         None => ()
@@ -215,6 +265,7 @@ fn merge_blocks_visit_control_node(
         module_ctx,
         control_has_params,
         false,
+        use_def,
       )
       merge_blocks_visit_region(
         func,
@@ -224,6 +275,7 @@ fn merge_blocks_visit_control_node(
         module_ctx,
         control_has_params,
         false,
+        use_def,
       ) ||
       changed
     }
@@ -241,6 +293,7 @@ fn merge_blocks_flatten_region_root_block(
   module_ctx : @ir.HotModuleContext?,
   enclosing_control_has_params : Bool,
   enclosing_control_is_loop : Bool,
+  use_def : @ir.HotUseDef,
 ) -> Bool {
   let block_id = @ir.hot_region_get(func, region_ref, idx)
   if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
@@ -269,6 +322,11 @@ fn merge_blocks_flatten_region_root_block(
   }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   merge_blocks_collect_region_roots(func, body_ref, flattened_roots)
+  if !merge_blocks_rewrite_dead_unreachable_suffix_roots(
+      func, use_def, flattened_roots,
+    ) {
+    return false
+  }
   ignore(@ir.hot_region_splice(func, region_ref, idx, 1, flattened_roots))
   @ir.hot_region_replace_body(func, body_ref, [])
   true
@@ -283,6 +341,7 @@ fn merge_blocks_visit_region(
   module_ctx : @ir.HotModuleContext?,
   enclosing_control_has_params : Bool,
   enclosing_control_is_loop : Bool,
+  use_def : @ir.HotUseDef,
 ) -> Bool {
   let mut changed = false
   let mut idx = 0
@@ -290,13 +349,13 @@ fn merge_blocks_visit_region(
     let node_id = @ir.hot_region_get(func, region_ref, idx)
     if node_id >= 0 && @ir.hot_node_is_live(func, node_id) {
       changed = merge_blocks_visit_control_node(
-          func, node_id, label_used, flattened_roots, module_ctx,
+          func, node_id, label_used, flattened_roots, module_ctx, use_def,
         ) ||
         changed
     }
     if merge_blocks_flatten_region_root_block(
         func, region_ref, idx, label_used, flattened_roots, module_ctx, enclosing_control_has_params,
-        enclosing_control_is_loop,
+        enclosing_control_is_loop, use_def,
       ) {
       changed = true
     } else {
@@ -312,6 +371,7 @@ fn merge_blocks_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
     return HotPassResult::unchanged()
   }
   let label_used = merge_blocks_compute_label_used(func)
+  let use_def = @ir.use_def_build_node_uses(func)
   let flattened_roots : Array[Int] = []
   if !merge_blocks_visit_region(
       func,
@@ -321,6 +381,7 @@ fn merge_blocks_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
       ctx.module_ctx,
       false,
       false,
+      use_def,
     ) {
     return HotPassResult::unchanged()
   }

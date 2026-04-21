@@ -2294,6 +2294,98 @@ test "hot lower rewrites typed funcref multi-result loop if-arm carriers to resu
 }
 
 ///|
+test "hot lower rewrites typed externref multi-result loop roots to result-only loop types when merge-blocks wants Binaryen-stable spills" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::extern_())),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([
+        @lib.Instruction::drop(),
+        @lib.Instruction::ref_null(
+          @lib.HeapType::abs(@lib.AbsHeapType::extern_()),
+        ),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(),
+    hot_module_context_from_module(
+      hot_lower_test_externref_multi_result_loop_module(),
+    ),
+    body_result_type=@lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+  )
+  let lowered = hot_lower_func_with_options(
+    hot,
+    HotLowerOptions::new(preserve_typed_loop_const_prefix_spills=true),
+  )
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      hot_lower_test_externref_multi_result_loop_module().type_sec.unwrap(),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+
+  assert_eq(hot_lower_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "(loop"), 1, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "local.set"), 2, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "local.get"), 2, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 1, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "ref.null"), 2, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "i32.const"), 1, msg=pretty)
+  assert_true(pretty.contains("Type 1"), msg=pretty)
+  assert_false(pretty.contains("Type 0"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
+test "hot lower rewrites typed funcref multi-result loop roots to result-only loop types when merge-blocks wants Binaryen-stable spills" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([
+        @lib.Instruction::drop(),
+        @lib.Instruction::ref_null(@lib.HeapType::abs(@lib.AbsHeapType::func())),
+        @lib.Instruction::i32_const(@lib.I32(7)),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(),
+    hot_module_context_from_module(
+      hot_lower_test_funcref_multi_result_loop_module(),
+    ),
+    body_result_type=@lib.BlockType::type_idx(@lib.TypeIdx::new(1U)),
+  )
+  let lowered = hot_lower_func_with_options(
+    hot,
+    HotLowerOptions::new(preserve_typed_loop_const_prefix_spills=true),
+  )
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      hot_lower_test_funcref_multi_result_loop_module().type_sec.unwrap(),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+
+  assert_eq(hot_lower_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "(loop"), 1, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "local.set"), 2, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "local.get"), 2, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 1, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "ref.null"), 2, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "i32.const"), 1, msg=pretty)
+  assert_true(pretty.contains("Type 1"), msg=pretty)
+  assert_false(pretty.contains("Type 0"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+}
+
+///|
 test "hot lower roundtrips multi-result producers consumed across instructions" {
   let module_ = hot_lower_test_multi_result_module()
   let hot = hot_lift_func(module_, @lib.FuncIdx::new(1U))
