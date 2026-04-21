@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-21] research | add Starshine `tuple-optimization` code-map coverage and align touched-folder metadata
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/tuple-optimization/` folder, then chose `tuple-optimization` because the dossier was already strong on the upstream side but still lacked a dedicated Starshine implementation-map page and an exact code-location-oriented local strategy page.
+- Added `docs/wiki/raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md`, grounding the follow-up in the in-tree MoonBit implementation (`src/passes/tuple_optimization.mbt`, `tuple_optimization_wbtest.mbt`, `pass_manager.mbt`, `optimize.mbt`, `registry_test.mbt`, `cmd_wbtest.mbt`, and `cmd_native_wbtest.mbt`) plus official Binaryen primary sources (`TupleOptimization.cpp`, `pass.cpp`, and `tuple-optimization.wast`) and making explicit that the main missing teaching gap was local code ownership, not upstream algorithm coverage.
+- Added `docs/wiki/binaryen/passes/tuple-optimization/implementation-map.md`, and refreshed `starshine-hot-ir-strategy.md` so the folder now points readers directly to exact MoonBit code locations for the registry/dispatch/preset surface, seed-group and copy-group analysis, forwarded-use classification, rewrite-mask policy, root-slot placement, tuple-carrier builders, cleanup cluster, and the focused wbtest / CLI / native-oracle lanes.
+- Refreshed `docs/wiki/binaryen/passes/tuple-optimization/index.md`, and updated `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/index.md`, so the touched area now advertises the stronger Binaryen-plus-Starshine dossier shape instead of leaving `tuple-optimization` with a comparatively thin local code-map surface.
+
 ## [2026-04-21] research | add Starshine `once-reduction` strategy/code-map coverage and align touched-area dossier metadata
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/once-reduction/` folder, then chose `once-reduction` because it was an active implemented module-pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.

@@ -1,359 +1,305 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-10
+status: supported
+last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
+  - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - ../../../../../src/passes/tuple_optimization.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/cmd/cmd_native_wbtest.mbt
-  - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
 related:
   - ./index.md
-  - ./wat-shapes.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
+  - ./implementation-map.md
+  - ./wat-shapes.md
   - ./scheduler-and-gates.md
   - ./reduced-repros-and-evidence.md
   - ./parity.md
 ---
 
-# Starshine HOT-IR Strategy For `tuple-optimization`
+# Starshine HOT-IR strategy for `tuple-optimization`
 
-## First Principle
+## First principle
 
 - Starshine does not start from Binaryen's explicit tuple-local AST shape.
 - HOT lift usually turns the same semantic situation into:
   - one multi-result producer
-  - a set of scalar spill locals
+  - a spill ladder of scalar locals
   - optional copy groups rebuilt from those locals
   - optional host `local.tee` traffic
-- The Starshine pass therefore works backwards from local traffic, not from explicit tuple nodes.
+- So the local pass works backwards from scalar traffic to reconstruct the same safe-bundle idea that Binaryen expresses with tuple locals.
 
-## Pass Entry And Cheap No-Op Screen
+That is the central local teaching rule:
 
-The pass descriptor in `src/passes/tuple_optimization.mbt`:
+- upstream Binaryen is a tuple-local scalarizer
+- Starshine is a HOT-native bundle recognizer and scalarizer
 
-- requires `use_def`
-- invalidates CFG, dominance, liveness, use-def, effects, loop-info, and SSA
+## Exact code-location map
 
-The initial fast screen is `tuple_optimization_may_have_candidates(...)`.
+For the full owner map, use [`./implementation-map.md`](./implementation-map.md).
+The most important exact locations are:
 
-What it checks:
+### Public surface and wiring
 
-- some live node has `result_arity > 1`
-- some live node writes locals through `LocalSet` or `LocalTee`
+- [`src/passes/tuple_optimization.mbt:97`](../../../../../src/passes/tuple_optimization.mbt)
+  - `tuple_optimization_descriptor()`
+- [`src/passes/tuple_optimization.mbt:114`](../../../../../src/passes/tuple_optimization.mbt)
+  - `tuple_optimization_summary()`
+- [`src/passes/pass_manager.mbt:8699`](../../../../../src/passes/pass_manager.mbt)
+  - active hot-pass dispatch
+- [`src/passes/optimize.mbt:212`](../../../../../src/passes/optimize.mbt)
+  - registry entry
+- [`src/passes/optimize.mbt:374-392`](../../../../../src/passes/optimize.mbt)
+  - exact-slot prerequisite check plus current preset exclusion
+- [`src/passes/registry_test.mbt:172-185`](../../../../../src/passes/registry_test.mbt)
+  - active-hot-pass acceptance test
 
-Why this screen exists:
+### Analysis and grouping
 
-- tuple-opt belongs in an early local-cleanup slot
-- it must skip scalar-only functions quickly
-- the pass should not pay analysis cost on functions with no plausible multivalue bridge traffic
+- [`src/passes/tuple_optimization.mbt:134`](../../../../../src/passes/tuple_optimization.mbt)
+  - seed spill-group matcher
+- [`src/passes/tuple_optimization.mbt:245-360`](../../../../../src/passes/tuple_optimization.mbt)
+  - payload-source recovery helpers
+- [`src/passes/tuple_optimization.mbt:515`](../../../../../src/passes/tuple_optimization.mbt)
+  - result-block copy-group matcher
+- [`src/passes/tuple_optimization.mbt:894`](../../../../../src/passes/tuple_optimization.mbt)
+  - scalar-forward copy-group matcher
+- [`src/passes/tuple_optimization.mbt:1118`](../../../../../src/passes/tuple_optimization.mbt)
+  - query-summary builder
+- [`src/passes/tuple_optimization.mbt:1264-1680`](../../../../../src/passes/tuple_optimization.mbt)
+  - direct-use and forwarded-use predicates
+- [`src/passes/tuple_optimization.mbt:1702`](../../../../../src/passes/tuple_optimization.mbt)
+  - host-lane finalization
+- [`src/passes/tuple_optimization.mbt:1864`](../../../../../src/passes/tuple_optimization.mbt)
+  - badness propagation
+- [`src/passes/tuple_optimization.mbt:1901-1935`](../../../../../src/passes/tuple_optimization.mbt)
+  - analysis entry points
 
-## Phase 1: Seed Group Discovery
+### Rewrite planning and execution
 
-The first concrete object is `HotTupleOptimizationGroup`.
+- [`src/passes/tuple_optimization.mbt:1955-2132`](../../../../../src/passes/tuple_optimization.mbt)
+  - rewrite-eligibility and suppression rules
+- [`src/passes/tuple_optimization.mbt:2282`](../../../../../src/passes/tuple_optimization.mbt)
+  - rewrite-mask builder
+- [`src/passes/tuple_optimization.mbt:2322-2676`](../../../../../src/passes/tuple_optimization.mbt)
+  - split-local allocation and reuse policy
+- [`src/passes/tuple_optimization.mbt:2684-2902`](../../../../../src/passes/tuple_optimization.mbt)
+  - root-slot and passthrough-chain placement
+- [`src/passes/tuple_optimization.mbt:2941-3564`](../../../../../src/passes/tuple_optimization.mbt)
+  - source-host, host-result, and tuple-carrier builders
+- [`src/passes/tuple_optimization.mbt:3628-4242`](../../../../../src/passes/tuple_optimization.mbt)
+  - concrete rewrite entry points
+- [`src/passes/tuple_optimization.mbt:4750`](../../../../../src/passes/tuple_optimization.mbt)
+  - good-component rewrite driver
+- [`src/passes/tuple_optimization.mbt:4866-5256`](../../../../../src/passes/tuple_optimization.mbt)
+  - cleanup cluster
+- [`src/passes/tuple_optimization.mbt:5268`](../../../../../src/passes/tuple_optimization.mbt)
+  - top-level pass runner
 
-Each group tracks:
+### Test and oracle coverage
 
-- `producer`
-- `lane_locals`
-- `defining_nodes`
-- optional `host_lane`
-- optional `copy_source`
-- optional `copy_payload_locals`
-- `uses`
-- `valid_uses`
-- `neighbors`
-- `bad`
+- [`src/passes/tuple_optimization_wbtest.mbt:120-1109`](../../../../../src/passes/tuple_optimization_wbtest.mbt)
+  - focused pass analysis / rewrite coverage
+- [`src/cmd/cmd_wbtest.mbt:1998-2369`](../../../../../src/cmd/cmd_wbtest.mbt)
+  - CLI and lowered-module validity lane
+- [`src/cmd/cmd_native_wbtest.mbt:404-1281`](../../../../../src/cmd/cmd_native_wbtest.mbt)
+  - direct Binaryen-oracle lane
 
-Seed groups come from `tuple_optimization_collect_seed_group(...)`.
+## Strategy phases
 
-That function requires:
+### 1. Cheap candidate screening
 
-- a producer with `result_arity > 1`
-- exactly one child use per result lane
-- every use to be a `LocalSet` or `LocalTee`
-- all lane locals to be distinct
+The pass is still meant to be cheap on scalar-only functions.
+The early screen is the seed-group scan, not a whole extra CFG or effects analysis.
 
-Why this matches the Binaryen spirit:
+Local rule:
 
-- it identifies the initial multi-result spill bridge
-- it already refuses ambiguous or duplicated lane ownership
-- it derives the first host lane from the first defining `LocalTee`
+- if no multivalue spill bridge is visible, do nothing quickly
 
-## Phase 2: Local-To-Group Ownership
+Relevant code:
 
-`tuple_optimization_build_local_group_ids(...)` maps each lane local to its group id.
+- `tuple_optimization_collect_seed_group(...)`
+- `tuple_optimization_collect_seed_groups(...)`
 
-Why this matters:
+### 2. Reconstruct tuple-like groups from scalar traffic
 
-- later analysis needs to recognize when a scalar local read is really reading one lane of an already-known tuple-like component
-- copy groups and forwarded-lane groups are discovered from those local relationships
+The first real Starshine job is to recognize that some scalar locals still represent one tuple-like bundle.
 
-## Phase 3: Copy-Payload Resolution
+It starts with direct spill bridges:
 
-The pass has a dedicated set of helpers for lane-source recovery:
+- one multi-result producer
+- one defining `local.set` / `local.tee` per lane
+- distinct lane locals
 
-- `tuple_optimization_try_payload_source_read(...)`
-- `tuple_optimization_resolve_copy_payload_local(...)`
-- `tuple_optimization_collect_copy_payload_lane_nodes(...)`
-- `tuple_optimization_pick_copy_lane_source_node(...)`
+Then it widens to copy-connected groups through:
 
-What these do:
+- result-block rebuilds
+- scalar-forward bridges
+- exact-copy payload recovery
 
-- follow trivial `local.get` and tee-backed reads
-- recover which source lane local is feeding each copied lane
-- tolerate one-hop alias and forwarding cases that are still semantically just tuple-lane transport
+This is the local equivalent of Binaryen's tuple-local copy-component reasoning.
 
-Why this exists at all:
+Relevant code:
 
-- real HOT input does not always rebuild a copy group as a neat `block (result ...)`
-- some debug-artifact families forward one or more lanes directly through scalar locals before reconstructing another group
-- without payload resolution, those families fall out of analysis before rewrite
-
-## Phase 4: Discover Additional Copy Groups
-
-Starshine extends beyond the simple seed groups through two major collectors:
-
+- `tuple_optimization_collect_seed_group(...)`
 - `tuple_optimization_collect_result_block_copy_group(...)`
 - `tuple_optimization_collect_scalar_forward_copy_group(...)`
+- payload-source helpers at `:245-360`
 
-The first handles:
+### 3. Classify safe versus unsafe forwarded use
 
-- explicit result-block rebuilds of a copied lane bundle
-- exact-copy carriers that still look tuple-like in HOT
+The local pass spends much more code here than upstream Binaryen because HOT input is less explicit.
+The key question is not “is this still a tuple local?” but:
 
-The second handles:
+- “does this scalar traffic still behave like one safe nonescaping bundle?”
 
-- one-hop scalar-forward copies
-- mixed direct-and-forwarded bridges
-- chained scalar-forward families that still preserve one coherent lane bundle
+So the local implementation builds a query summary and then asks narrow questions about:
 
-The corresponding graph-linking helpers are:
+- direct non-scalar use
+- direct non-drop use
+- forwarded non-scalar use
+- forwarded host-tee use
+- invalid scalar copy-through shapes
 
-- `tuple_optimization_link_result_block_copy_groups(...)`
-- `tuple_optimization_link_scalar_forward_copy_groups(...)`
-- `tuple_optimization_add_neighbor(...)`
+Relevant code:
 
-Practical effect:
+- `tuple_optimization_build_query_summary(...)`
+- forwarded-use predicates at `:1264-1680`
 
-- Starshine reconstructs the same connected-component idea Binaryen uses, but from lifted scalar traffic instead of explicit tuple locals
+### 4. Preserve host-lane semantics explicitly
 
-## Phase 5: Validate Uses Conservatively
+The hardest local problem is usually not bundle discovery.
+It is preserving the one scalar value that still has to flow through the surrounding expression after the tuple bundle is split.
 
-The pass contains many local-traffic predicates because the safety question in HOT is not "is this a tuple local?" but "is this scalar local traffic still representing one unescaped lane bundle?"
-
-Important validators include:
-
-- `tuple_optimization_node_has_direct_non_scalar_use(...)`
-- `tuple_optimization_node_has_direct_non_drop_use(...)`
-- `tuple_optimization_local_has_forwarded_non_scalar_use(...)`
-- `tuple_optimization_local_has_forwarded_non_drop_use(...)`
-- `tuple_optimization_local_has_forwarded_drop_use(...)`
-- `tuple_optimization_local_has_forwarded_any_use(...)`
-- `tuple_optimization_local_has_forwarded_host_tee_use(...)`
-- `tuple_optimization_read_is_invalid_scalar_copy_through(...)`
-
-These are the HOT-native equivalents of Binaryen's `uses` versus `validUses` distinction.
-
-What they guard against:
-
-- a lane escaping to unsupported consumers
-- a copied lane being mixed with unrelated scalar traffic
-- mistaking a scalar convenience alias for a safe tuple-copy lane when it actually changes semantics
-
-## Phase 6: Finalize Host-Lane And Traffic Facts
-
-Additional analysis helpers determine how much of a component still behaves like a tuple bundle:
+That is why the host-lane helpers are central:
 
 - `tuple_optimization_finalize_host_lanes(...)`
-- `tuple_optimization_find_overlap_lane_between_groups(...)`
 - `tuple_optimization_count_lane_traffic(...)`
+- rewrite-mask and host-consumer predicates
 
-Why host-lane tracking is central:
+This is the main local difference from the beginner-friendly upstream story.
+Binaryen can talk in terms of tuple locals and `tuple.extract`; Starshine has to preserve a scalar host result across HOT root placement and later lowering.
 
-- many of the hard repros are not about whether the bundle is safe
-- they are about whether the one live host lane must remain yielded as a scalar tee result while the other lanes are dropped or copied
+### 5. Poison copy-connected components conservatively
 
-Why overlap tracking is central:
+Like Binaryen, Starshine keeps the conservative rule:
 
-- overlapping exact-copy groups can write back into a source lane
-- that is still valid sometimes, but only if the rewrite preserves read-before-write semantics
+- copy-connected components succeed or fail together
 
-## Phase 7: Propagate Badness
+The local explicit badness step is:
 
-`tuple_optimization_propagate_badness(...)` is the explicit Binaryen-style component poison step.
+- `tuple_optimization_propagate_badness(...)`
 
-What becomes bad:
+That keeps the port honest.
+The pass does not try to rescue half-safe groups once some copy-connected part escapes the approved surface.
 
-- any group with invalid traffic
-- any group connected by copy edges to such a group
+### 6. Separate “safe” from “worth rewriting”
 
-What this preserves from Binaryen exactly:
+Starshine adds a practical layer that is much more visible than in upstream docs:
 
-- connected components succeed or fail together
-- the pass stays conservative instead of trying to patch through half-safe copy chains
+- some groups are safe
+- but not all safe groups are worth rewriting
 
-## Phase 8: Decide What Actually Rewrites
+The rewrite-mask policy is the local answer to several artifact families where forcing a tuple carrier back into already-scalar traffic made things worse or harder to lower cleanly.
 
-Not every good analysis group is rewritten.
-
-Key rewrite-decision helpers:
+Relevant code:
 
 - `tuple_optimization_group_should_rewrite(...)`
 - `tuple_optimization_group_should_rewrite_in_func(...)`
-- `tuple_optimization_copy_group_has_mixed_direct_and_forwarded_lanes(...)`
-- `tuple_optimization_copy_group_redundant_with_source_host_chain(...)`
-- `tuple_optimization_group_has_nested_rootslot_host_copy_wrapper(...)`
-- `tuple_optimization_has_nested_rootslot_host_copy_wrapper_group(...)`
-- `tuple_optimization_source_group_has_host_copy_consumer(...)`
-- `tuple_optimization_source_group_has_rewritten_host_copy_consumer(...)`
-- `tuple_optimization_source_group_has_rewritten_copy_consumer(...)`
-- `tuple_optimization_source_group_host_copy_consumer_needs_preserved_lanes(...)`
-
-Why Starshine needs this extra suppression layer:
-
-- Binaryen's literal tuple-local rewrite is simpler because the tuple local is the carrier.
-- In HOT, some groups are already "scalar enough" or become worse if we force them back through an unnecessary carrier.
-- The pass therefore distinguishes:
-  - safe group
-  - safe and worth rewriting
-  - safe but better left scalarized
-
-Important conservative suppressions surfaced by the current branch:
-
-- nested rootslot host-copy wrapper guard
-- copy groups that are redundant with a rewritten upstream host chain
-- terminal families where only one lane survives and the rest only feed drops
-
-## Phase 9: Plan Rewrite Order And Local Allocation
-
-Once the rewrite mask exists, the pass plans execution order and fresh locals with:
-
 - `tuple_optimization_build_group_rewrite_mask(...)`
-- `tuple_optimization_collect_rewrite_order_visit(...)`
-- `tuple_optimization_collect_rewrite_order(...)`
-- `tuple_optimization_ensure_split_locals(...)`
-- `tuple_optimization_require_local_type(...)`
 
-Two important Starshine-specific choices happen here:
+### 7. Place rewritten carriers at legal root slots
 
-- Some groups reuse existing lane locals instead of allocating fresh split locals.
-- Some groups allocate dedicated split locals or typed carriers because reusing the existing scalar lanes would perturb ordering or alias semantics.
+The pass is often not replacing one expression with another.
+It is staging a sequence of scalar writes while still preserving one visible result.
+So root-slot and anchor placement are part of correctness, not just code style.
 
-That decision is mediated by helpers such as:
-
-- `tuple_optimization_group_needs_dedicated_split_locals(...)`
-- `tuple_optimization_split_reuses_group_lanes(...)`
-- `tuple_optimization_lane_locals_are_strictly_increasing(...)`
-- `tuple_optimization_copy_group_has_local_overlap(...)`
-- `tuple_optimization_no_host_copy_group_can_scalarize_directly(...)`
-
-## Phase 10: Find The Correct Root Or Anchor Slot
-
-The pass then has to place rewritten code in a legal HOT region slot.
-
-Key helpers:
+Relevant code:
 
 - `tuple_optimization_find_root_slot_in_region(...)`
 - `tuple_optimization_find_root_slot(...)`
 - `tuple_optimization_pick_root_anchor_slot(...)`
-- `tuple_optimization_find_passthrough_root_chain_step(...)`
-- `tuple_optimization_find_passthrough_root_chain(...)`
-- `tuple_optimization_wrap_passthrough_root_chain(...)`
+- passthrough-root helpers at `:2830-2902`
 
-Why this placement problem is hard:
+### 8. Choose scalar lanes or tuple carriers based on shape
 
-- the pass is not just replacing one expression with another
-- it often needs to emit a sequence of scalar sets and still preserve one scalar host result
-- the result may belong to a function root, a block result, or a branch exit
+The local builders intentionally keep both options alive:
 
-## Phase 11: Build Replacements
+- stay on scalar locals when possible
+- build a typed tuple carrier when root or copyback placement requires one
 
-The rewrite builders divide roughly into source-group rewrites and copy-group rewrites.
+That split is one reason the local pass has more surface area than Binaryen's tuple-local AST rewrite.
 
-Important source-group builders:
-
-- `tuple_optimization_build_source_host_replacement(...)`
-- `tuple_optimization_build_source_passthrough_init_root(...)`
-- `tuple_optimization_build_source_root_anchor_replacement(...)`
-- `tuple_optimization_build_source_root_carrier_replacement(...)`
-- `tuple_optimization_build_source_nested_root_tuple_carrier_replacement(...)`
-- `tuple_optimization_build_root_carrier_replacement_from_producer(...)`
-
-Important copy-group builders:
-
-- `tuple_optimization_build_copy_host_replacement(...)`
-- `tuple_optimization_build_copy_root_anchor_replacement(...)`
-- `tuple_optimization_build_copy_root_anchor_tuple_carrier_replacement(...)`
-- `tuple_optimization_build_copy_root_carrier_replacement(...)`
-- `tuple_optimization_build_host_carrier_replacement_from_locals(...)`
-- `tuple_optimization_build_host_carrier_replacement_from_producer(...)`
-
-Shared carrier helpers:
+Relevant code:
 
 - `tuple_optimization_build_tuple_make_from_locals(...)`
-- `tuple_optimization_lane_copy_needs_tuple_carrier(...)`
-- `tuple_optimization_copy_rewrite_needs_tuple_carrier(...)`
+- host-carrier builders at `:3155-3250`
+- copy-carrier builders at `:3297-3564`
 
-What these builders are trying to preserve:
+### 9. Clean up only the pass-owned debris
 
-- Binaryen-equivalent scalarization when the group can stay scalar
-- a typed multivalue carrier when root or copyback placement needs one
-- original host-tee semantics when a lane is simultaneously a tuple carrier and a scalar result value
+The cleanup rule is intentionally conservative.
+The pass should erase the scaffolding it introduced, but it should not opportunistically reorder unrelated local layout just because it happens to be nearby.
 
-## Phase 12: Apply Root Rewrites
-
-The concrete root rewrite entry points include:
-
-- `tuple_optimization_try_rewrite_root_host_copy_group_defs(...)`
-- `tuple_optimization_try_rewrite_root_no_host_copy_group_defs(...)`
-- `tuple_optimization_try_rewrite_root_no_host_source_group_defs(...)`
-- `tuple_optimization_try_rewrite_anchor_host_copy_group_defs(...)`
-- `tuple_optimization_try_rewrite_direct_scalar_copy_group_defs(...)`
-- `tuple_optimization_rewrite_group_defs(...)`
-- `tuple_optimization_rewrite_good_components(...)`
-
-These are where the recent bug-fix history has concentrated:
-
-- non-canonical root carriers
-- overlap-aware exact-copy copyback
-- nested branch-exit source roots
-- terminal host-drop tails
-- chained host-copy `tail-live0`
-
-## Phase 13: Cleanup After Rewrite
-
-The rewrite intentionally leaves cleanup to a smaller local pass stage inside the implementation:
+Relevant code:
 
 - `tuple_optimization_cleanup_drop_local_tees(...)`
 - `tuple_optimization_cleanup_scalarized_tuple_locals(...)`
 - `tuple_optimization_cleanup_unused_body_locals(...)`
-- `tuple_optimization_prune_nops_in_region(...)`
 - `tuple_optimization_cleanup_post_rewrite(...)`
 
-Important current rule:
+## Main local differences from upstream Binaryen
 
-- cleanup preserves unused original body locals
-- cleanup only prunes unused locals appended by tuple-opt itself
+Cross-check this section with [`./binaryen-strategy.md`](./binaryen-strategy.md).
 
-Why that rule exists:
+### Same high-level goal
 
-- earlier cleanup was too aggressive and changed unrelated body-local layout
-- that broke direct native parity checks even when the tuple rewrite itself was otherwise correct
+Both implementations try to:
 
-## Current Durable Design Conclusions
+- identify tuple-like scratch storage
+- reject escaping copy components
+- expose scalar locals so later cleanup can do more work
 
-- The Starshine port is a HOT-native component-analysis pass, not an AST translation of Binaryen's tuple local pass.
-- The most important Binaryen contract being preserved is conservative component safety, not explicit tuple syntax.
-- Host-lane preservation and root-slot placement are the hardest parts of the Starshine implementation.
-- Several exact-shape failures now live past the tuple rewrite itself and into later lowering or final emitted local-order shape, which means future work must separate "analysis bug," "rewrite bug," and "post-rewrite/lowering drift" much more carefully.
+### Different representation and therefore different proof surface
 
-## Practical Rule For Future Work
+Binaryen works from:
 
-- If a bug shows the HOT graph was already correct before lowering, treat it as a lowering or final-shape bug, not a tuple-analysis bug.
-- If a bug disappears when a group is left scalarized, check rewrite-mask suppression before inventing a new carrier.
-- If a bug only appears when one host lane survives and all other lanes become drops, inspect host-lane staging and anchor-root placement first.
+- tuple locals
+- `tuple.make`
+- `tuple.extract`
 
+Starshine works from:
+
+- multi-result producers
+- scalar spill ladders
+- scalar-forward bridges
+- root-slot placement
+- later lowering / writeback concerns
+
+### Important local non-goals
+
+The local pass should still not be described as:
+
+- a generic multivalue lowering pass
+- a general CFG tuple optimizer
+- a proof that every safe group should always get a tuple carrier
+
+## Where to go next
+
+- Use [`./wat-shapes.md`](./wat-shapes.md) for concrete before/after families.
+- Use [`./binaryen-strategy.md`](./binaryen-strategy.md) for the upstream tuple-local oracle.
+- Use [`./implementation-map.md`](./implementation-map.md) when you need the exact MoonBit owner file or test lane.
+- Use [`./scheduler-and-gates.md`](./scheduler-and-gates.md) for why the explicit pass exists but the public presets still keep it off.
+- Use [`./reduced-repros-and-evidence.md`](./reduced-repros-and-evidence.md) and [`./parity.md`](./parity.md) for current local proof state.
+
+## Maintenance rule
+
+- Keep this page focused on the local strategy and the most important exact code locations.
+- Put deeper owner-file inventories and test-lane maps in [`./implementation-map.md`](./implementation-map.md).
+- If a new parity fix changes the owning helper cluster, update this page, the implementation map, and either [`./reduced-repros-and-evidence.md`](./reduced-repros-and-evidence.md) or [`./parity.md`](./parity.md) in the same change.

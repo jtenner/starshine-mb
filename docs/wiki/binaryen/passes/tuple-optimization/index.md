@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
   - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
@@ -23,6 +24,7 @@ sources:
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./implementation-map.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
   - ./scheduler-and-gates.md
@@ -50,7 +52,8 @@ The tracker no longer had any pass with wiki status `none`, so this thread had t
 - it still matters on the canonical no-DWARF function path:
   - `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`
 - it also still appears repeatedly in the saved generated-artifact optimize log, including later nested `precompute-propagate -> code-pushing -> tuple-optimization` reruns
-- the existing folder grew out of an older port-plan note and Starshine implementation work, but it did not yet have a dedicated living page focused on the upstream source-file map, implementation structure, helper dependencies, validation neighbors, and official lit lessons
+- the existing folder grew out of an older port-plan note and Starshine implementation work, but it did not yet have a dedicated living page focused on the exact Starshine code map, registry/dispatch/preset wiring, and local test-lane ownership
+- the existing Starshine strategy page still explained the algorithm mostly as a design narrative instead of as a maintained exact code-location guide
 - the old landing-page summary had stale wording about red exact-shape expectations that no longer matched the newer parity page
 
 So this refresh is not a tracker-status promotion.
@@ -103,7 +106,9 @@ That broader reading is not what the source file or test suite implement today.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly catalog of the official positive and negative tuple-local shapes Binaryen rewrites or deliberately leaves alone, plus the HOT-native equivalents Starshine sees after lift.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - The current in-tree HOT-native Starshine algorithm: seed discovery, copy-group linking, rewrite suppression, carrier construction, and cleanup.
+  - The current in-tree HOT-native Starshine algorithm, now refreshed with the exact owner-file and line-location map for the main analysis, rewrite, wiring, and test surfaces.
+- [`./implementation-map.md`](./implementation-map.md)
+  - Exact MoonBit owner-file map for registry wiring, analysis clusters, rewrite clusters, cleanup clusters, and the focused wbtest / CLI / native-oracle lanes.
 - [`./scheduler-and-gates.md`](./scheduler-and-gates.md)
   - Exact Binaryen slot, multivalue gate, and why the public Starshine presets still keep tuple-opt off even though the explicit pass exists.
 - [`./reduced-repros-and-evidence.md`](./reduced-repros-and-evidence.md)
@@ -124,7 +129,7 @@ That means the tuple-opt dossier does **not** currently need a current-main drif
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for Binaryen tuple-opt behavior, scheduler meaning, Starshine HOT-native strategy, and parity notes.
+- Treat this folder as the canonical home for Binaryen tuple-opt behavior, scheduler meaning, Starshine HOT-native strategy, exact local code ownership, and parity notes.
 - Keep the main beginner correction explicit:
   - upstream `tuple-optimization` is a tuple-local scratch-storage splitter, not a generic multivalue optimizer.
 - Keep the division of labor explicit between:
@@ -132,9 +137,11 @@ That means the tuple-opt dossier does **not** currently need a current-main drif
   - `tuple-optimization` splitting safe tuple locals
   - later local-cleanup passes realizing the scalarization payoff
 - If new work only changes raw normalized WAT while canonical per-function compare stays green, classify that as compare-surface or materialization noise first, not immediately as a tuple-opt semantic regression.
+- Keep [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md) and [`./implementation-map.md`](./implementation-map.md) in sync whenever a fix moves the owning helper cluster or the owning local test lane.
 
 ## Sources
 
+- [`../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md`](../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md)
 - [`../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)
 - [`../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md`](../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md)
 - [`../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md`](../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md)
