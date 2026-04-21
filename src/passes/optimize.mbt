@@ -145,10 +145,10 @@ fn pass_registry_removed_names() -> Array[String] {
   [
     "avoid-reinterprets", "coalesce-locals", "code-folding", "code-pushing", "const-hoisting",
     "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
-    "merge-locals", "merge-blocks", "flatten", "re-reloop", "optimize-added-constants",
-    "optimize-added-constants-propagate", "precompute-propagate", "redundant-set-elimination",
-    "optimize-casts", "de-nan", "simplify-locals-no-tee", "simplify-locals-no-structure",
-    "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting", "untee",
+    "merge-locals", "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
+    "precompute-propagate", "redundant-set-elimination", "optimize-casts", "de-nan",
+    "simplify-locals-no-tee", "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure",
+    "simplify-locals-no-nesting", "untee",
   ]
 }
 
@@ -223,6 +223,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       simplify_locals_summary(),
       simplify_locals_descriptor(),
     ),
+    pass_registry_entry_hot(
+      "merge-blocks",
+      merge_blocks_summary(),
+      merge_blocks_descriptor(),
+    ),
     pass_registry_entry_module("duplicate-function-elimination", dfe_summary()),
     pass_registry_entry_module("remove-unused-module-elements", rume_summary()),
     pass_registry_entry_module("memory-packing", memory_packing_summary()),
@@ -241,7 +246,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
         "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
         "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
-        "heap2local", "simplify-locals", "precompute", "remove-unused-names",
+        "heap2local", "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+        "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
       ],
     ),
     pass_registry_entry_preset(
@@ -252,7 +258,8 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
         "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
         "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
         "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
-        "heap2local", "simplify-locals", "precompute", "remove-unused-names",
+        "heap2local", "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+        "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
       ],
     ),
   ]
@@ -378,7 +385,8 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
     "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
-    "heap2local", "simplify-locals", "precompute", "remove-unused-names",
+    "heap2local", "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+    "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
   ]
 }
 
@@ -390,7 +398,8 @@ pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
     "remove-unused-names", "vacuum", "remove-unused-brs", "optimize-instructions",
     "heap-store-optimization", "pick-load-signs", "precompute", "remove-unused-brs",
-    "heap2local", "simplify-locals", "precompute", "remove-unused-names",
+    "heap2local", "simplify-locals", "merge-blocks", "remove-unused-brs", "remove-unused-names",
+    "merge-blocks", "precompute", "optimize-instructions", "heap-store-optimization",
   ]
 }
 

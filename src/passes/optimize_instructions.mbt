@@ -173,7 +173,7 @@ fn optimize_instructions_node_block_type(
     @ir.HotTypeInfo::VoidType => Some(@lib.BlockType::void_())
     @ir.HotTypeInfo::Value(val_type) => Some(@lib.BlockType::val_type(val_type))
     @ir.HotTypeInfo::BlockResult(block_type)
-    | @ir.HotTypeInfo::BlockResultResolved(block_type, _) => Some(block_type)
+    | @ir.HotTypeInfo::BlockResultResolved(block_type, _, _) => Some(block_type)
     @ir.HotTypeInfo::Results(values) =>
       if values.is_empty() {
         Some(@lib.BlockType::void_())

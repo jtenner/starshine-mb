@@ -34,9 +34,13 @@ pub fn hot_type_intern_block_result(
 pub fn hot_type_intern_resolved_block_result(
   func : HotFunc,
   block_type : BlockType,
+  params : Array[ValType],
   results : Array[ValType],
 ) -> TypeId {
-  hot_intern_type(func, HotTypeInfo::BlockResultResolved(block_type, results))
+  hot_intern_type(
+    func,
+    HotTypeInfo::BlockResultResolved(block_type, params, results),
+  )
 }
 
 ///|
@@ -87,7 +91,7 @@ pub fn hot_type_results(func : HotFunc, type_id : TypeId) -> Array[ValType] {
   match hot_type_get(func, type_id) {
     VoidType => []
     BlockResult(block_type) => hot_type_block_result_values(block_type)
-    BlockResultResolved(_, values) => values.copy()
+    BlockResultResolved(_, _, values) => values.copy()
     Value(val_type) => [val_type]
     Results(values) => values.copy()
   }

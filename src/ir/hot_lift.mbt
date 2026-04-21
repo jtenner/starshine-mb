@@ -20,6 +20,14 @@ fn hot_lift_impl_new_label_frames() -> HotLiftLabelFrames {
 }
 
 ///|
+fn hot_lift_impl_seed_function_label(
+  frames : HotLiftLabelFrames,
+) -> Int {
+  frames.active.push(HOT_IMPLICIT_FUNCTION_LABEL)
+  frames.active.length() - 1
+}
+
+///|
 fn hot_lift_impl_push_label(
   frames : HotLiftLabelFrames,
   label_stack_head : Int,
@@ -105,6 +113,7 @@ fn hot_lift_impl_env_from_context(
     .with_datas(ctx.datas)
     .with_tags(ctx.tags)
     .with_locals(hot_lift_impl_all_locals(locals))
+    .with_label(return_types)
     .with_return_type(Some(return_types))
   env
 }
@@ -116,6 +125,7 @@ fn hot_lift_impl_env_without_context(
 ) -> Env {
   empty_env()
   .with_locals(hot_lift_impl_all_locals(locals))
+  .with_label(return_types)
   .with_return_type(Some(return_types))
 }
 
@@ -279,29 +289,73 @@ fn hot_lift_impl_resolve_label(
 }
 
 ///|
+fn hot_lift_impl_resolve_catch_label(
+  frames : HotLiftLabelFrames,
+  label_stack_head : Int,
+  label_idx : LabelIdx,
+  return_type : Array[ValType]?,
+) -> Result[LabelId, HotLiftError] {
+  ignore(label_stack_head)
+  let LabelIdx(raw) = label_idx
+  let depth = raw.reinterpret_as_int()
+  let idx = frames.active.length() - 1 - depth
+  if idx >= 0 && idx < frames.active.length() {
+    return Ok(frames.active[idx])
+  }
+  if depth == frames.active.length() {
+    match return_type {
+      Some(_) => return Ok(HOT_IMPLICIT_FUNCTION_LABEL)
+      None => ()
+    }
+  }
+  Err(HotLiftError::InvalidLabelDepth(raw.reinterpret_as_int()))
+}
+
+///|
 fn hot_lift_impl_try_catch_arm(
   frames : HotLiftLabelFrames,
   label_stack_head : Int,
   catch_ : Catch,
+  return_type : Array[ValType]?,
 ) -> Result[HotCatchArm, HotLiftError] {
   match catch_ {
     Catch::Catch(tag_idx, label_idx) =>
-      match hot_lift_impl_resolve_label(frames, label_stack_head, label_idx) {
+      match hot_lift_impl_resolve_catch_label(
+        frames,
+        label_stack_head,
+        label_idx,
+        return_type,
+      ) {
         Ok(label_id) => Ok(HotCatchArm::catch_(tag_idx, label_id))
         Err(err) => Err(err)
       }
     Catch::CatchRef(tag_idx, label_idx) =>
-      match hot_lift_impl_resolve_label(frames, label_stack_head, label_idx) {
+      match hot_lift_impl_resolve_catch_label(
+        frames,
+        label_stack_head,
+        label_idx,
+        return_type,
+      ) {
         Ok(label_id) => Ok(HotCatchArm::catch_ref(tag_idx, label_id))
         Err(err) => Err(err)
       }
     Catch::CatchAll(label_idx) =>
-      match hot_lift_impl_resolve_label(frames, label_stack_head, label_idx) {
+      match hot_lift_impl_resolve_catch_label(
+        frames,
+        label_stack_head,
+        label_idx,
+        return_type,
+      ) {
         Ok(label_id) => Ok(HotCatchArm::all(label_id))
         Err(err) => Err(err)
       }
     Catch::CatchAllRef(label_idx) =>
-      match hot_lift_impl_resolve_label(frames, label_stack_head, label_idx) {
+      match hot_lift_impl_resolve_catch_label(
+        frames,
+        label_stack_head,
+        label_idx,
+        return_type,
+      ) {
         Ok(label_id) => Ok(HotCatchArm::all_ref(label_id))
         Err(err) => Err(err)
       }
@@ -335,11 +389,12 @@ fn hot_lift_impl_make_region(
 fn hot_lift_impl_intern_control_result_type(
   func : HotFunc,
   block_type : BlockType,
+  params : Array[ValType],
   results : Array[ValType],
 ) -> TypeId {
   match block_type {
     TypeIdxBlockType(_) =>
-      hot_type_intern_resolved_block_result(func, block_type, results)
+      hot_type_intern_resolved_block_result(func, block_type, params, results)
     _ => hot_type_intern_block_result(func, block_type)
   }
 }
@@ -990,6 +1045,166 @@ fn hot_lift_impl_exact_family(instr : Instruction) -> HotOp? {
     | Instruction::F64x2Gt
     | Instruction::F64x2Le
     | Instruction::F64x2Ge
+    | Instruction::I8x16Abs
+    | Instruction::I8x16Neg
+    | Instruction::I8x16Popcnt
+    | Instruction::I8x16AllTrue
+    | Instruction::I8x16Bitmask
+    | Instruction::I8x16NarrowI16x8S
+    | Instruction::I8x16NarrowI16x8U
+    | Instruction::F32x4Ceil
+    | Instruction::F32x4Floor
+    | Instruction::F32x4Trunc
+    | Instruction::F32x4Nearest
+    | Instruction::I8x16Shl
+    | Instruction::I8x16ShrS
+    | Instruction::I8x16ShrU
+    | Instruction::I8x16Add
+    | Instruction::I8x16AddSatS
+    | Instruction::I8x16AddSatU
+    | Instruction::I8x16Sub
+    | Instruction::I8x16SubSatS
+    | Instruction::I8x16SubSatU
+    | Instruction::F64x2Ceil
+    | Instruction::F64x2Floor
+    | Instruction::I8x16MinS
+    | Instruction::I8x16MinU
+    | Instruction::I8x16MaxS
+    | Instruction::I8x16MaxU
+    | Instruction::F64x2Trunc
+    | Instruction::I8x16AvgrU
+    | Instruction::I16x8ExtaddPairwiseI8x16S
+    | Instruction::I16x8ExtaddPairwiseI8x16U
+    | Instruction::I32x4ExtaddPairwiseI16x8S
+    | Instruction::I32x4ExtaddPairwiseI16x8U
+    | Instruction::I16x8Abs
+    | Instruction::I16x8Neg
+    | Instruction::I16x8Q15mulrSatS
+    | Instruction::I16x8AllTrue
+    | Instruction::I16x8Bitmask
+    | Instruction::I16x8NarrowI32x4S
+    | Instruction::I16x8NarrowI32x4U
+    | Instruction::I16x8ExtendLowI8x16S
+    | Instruction::I16x8ExtendHighI8x16S
+    | Instruction::I16x8ExtendLowI8x16U
+    | Instruction::I16x8ExtendHighI8x16U
+    | Instruction::I16x8Shl
+    | Instruction::I16x8ShrS
+    | Instruction::I16x8ShrU
+    | Instruction::I16x8Add
+    | Instruction::I16x8AddSatS
+    | Instruction::I16x8AddSatU
+    | Instruction::I16x8Sub
+    | Instruction::I16x8SubSatS
+    | Instruction::I16x8SubSatU
+    | Instruction::F64x2Nearest
+    | Instruction::I16x8Mul
+    | Instruction::I16x8MinS
+    | Instruction::I16x8MinU
+    | Instruction::I16x8MaxS
+    | Instruction::I16x8MaxU
+    | Instruction::I16x8AvgrU
+    | Instruction::I16x8ExtmulLowI8x16S
+    | Instruction::I16x8ExtmulHighI8x16S
+    | Instruction::I16x8ExtmulLowI8x16U
+    | Instruction::I16x8ExtmulHighI8x16U
+    | Instruction::I32x4Abs
+    | Instruction::I32x4Neg
+    | Instruction::I32x4AllTrue
+    | Instruction::I32x4Bitmask
+    | Instruction::I32x4ExtendLowI16x8S
+    | Instruction::I32x4ExtendHighI16x8S
+    | Instruction::I32x4ExtendLowI16x8U
+    | Instruction::I32x4ExtendHighI16x8U
+    | Instruction::I32x4Shl
+    | Instruction::I32x4ShrS
+    | Instruction::I32x4ShrU
+    | Instruction::I32x4Add
+    | Instruction::I32x4Sub
+    | Instruction::I32x4Mul
+    | Instruction::I32x4MinS
+    | Instruction::I32x4MinU
+    | Instruction::I32x4MaxS
+    | Instruction::I32x4MaxU
+    | Instruction::I32x4DotI16x8S
+    | Instruction::I32x4ExtmulLowI16x8S
+    | Instruction::I32x4ExtmulHighI16x8S
+    | Instruction::I32x4ExtmulLowI16x8U
+    | Instruction::I32x4ExtmulHighI16x8U
+    | Instruction::I64x2Abs
+    | Instruction::I64x2Neg
+    | Instruction::I64x2AllTrue
+    | Instruction::I64x2Bitmask
+    | Instruction::I64x2ExtendLowI32x4S
+    | Instruction::I64x2ExtendHighI32x4S
+    | Instruction::I64x2ExtendLowI32x4U
+    | Instruction::I64x2ExtendHighI32x4U
+    | Instruction::I64x2Shl
+    | Instruction::I64x2ShrS
+    | Instruction::I64x2ShrU
+    | Instruction::I64x2Add
+    | Instruction::I64x2Sub
+    | Instruction::I64x2Mul
+    | Instruction::I64x2Eq
+    | Instruction::I64x2Ne
+    | Instruction::I64x2LtS
+    | Instruction::I64x2GtS
+    | Instruction::I64x2LeS
+    | Instruction::I64x2GeS
+    | Instruction::I64x2ExtmulLowI32x4S
+    | Instruction::I64x2ExtmulHighI32x4S
+    | Instruction::I64x2ExtmulLowI32x4U
+    | Instruction::I64x2ExtmulHighI32x4U
+    | Instruction::F32x4Abs
+    | Instruction::F32x4Neg
+    | Instruction::F32x4Sqrt
+    | Instruction::F32x4Add
+    | Instruction::F32x4Sub
+    | Instruction::F32x4Mul
+    | Instruction::F32x4Div
+    | Instruction::F32x4Min
+    | Instruction::F32x4Max
+    | Instruction::F32x4Pmin
+    | Instruction::F32x4Pmax
+    | Instruction::F64x2Abs
+    | Instruction::F64x2Neg
+    | Instruction::F64x2Sqrt
+    | Instruction::F64x2Add
+    | Instruction::F64x2Sub
+    | Instruction::F64x2Mul
+    | Instruction::F64x2Div
+    | Instruction::F64x2Min
+    | Instruction::F64x2Max
+    | Instruction::F64x2Pmin
+    | Instruction::F64x2Pmax
+    | Instruction::I32x4TruncSatF32x4S
+    | Instruction::I32x4TruncSatF32x4U
+    | Instruction::F32x4ConvertI32x4S
+    | Instruction::F32x4ConvertI32x4U
+    | Instruction::I32x4TruncSatF64x2SZero
+    | Instruction::I32x4TruncSatF64x2UZero
+    | Instruction::F64x2ConvertLowI32x4S
+    | Instruction::F64x2ConvertLowI32x4U
+    | Instruction::I8x16RelaxedSwizzle
+    | Instruction::I32x4RelaxedTruncF32x4S
+    | Instruction::I32x4RelaxedTruncF32x4U
+    | Instruction::I32x4RelaxedTruncZeroF64x2S
+    | Instruction::I32x4RelaxedTruncZeroF64x2U
+    | Instruction::F32x4RelaxedMadd
+    | Instruction::F32x4RelaxedNmadd
+    | Instruction::F64x2RelaxedMadd
+    | Instruction::F64x2RelaxedNmadd
+    | Instruction::I8x16RelaxedLaneselect
+    | Instruction::I16x8RelaxedLaneselect
+    | Instruction::I32x4RelaxedLaneselect
+    | Instruction::I64x2RelaxedLaneselect
+    | Instruction::F32x4RelaxedMin
+    | Instruction::F32x4RelaxedMax
+    | Instruction::F64x2RelaxedMin
+    | Instruction::F64x2RelaxedMax
+    | Instruction::I16x8RelaxedQ15mulrS
+    | Instruction::I16x8RelaxedDotI8x16I7x16S
+    | Instruction::I32x4RelaxedDotI8x16I7x16AddS
     | Instruction::V128Not
     | Instruction::V128And
     | Instruction::V128Andnot
@@ -1434,7 +1649,7 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       let ty = hot_lift_impl_intern_control_result_type(
-        func, block_type, results,
+        func, block_type, params, results,
       )
       let id = hot_build_node(func, HotOp::Block, ty)
       let label_id = hot_label_alloc(
@@ -1503,7 +1718,7 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       let ty = hot_lift_impl_intern_control_result_type(
-        func, block_type, results,
+        func, block_type, params, results,
       )
       let id = hot_build_node(func, HotOp::Loop, ty)
       let label_id = hot_label_alloc(
@@ -1587,7 +1802,7 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       let ty = hot_lift_impl_intern_control_result_type(
-        func, block_type, results,
+        func, block_type, params, results,
       )
       let result_arity = results.length()
       let id = hot_build_node(func, HotOp::If, ty)
@@ -1718,7 +1933,7 @@ fn hot_lift_impl_lift_control(
         Err(err) => return Err(err)
       }
       let ty = hot_lift_impl_intern_control_result_type(
-        func, block_type, results,
+        func, block_type, params, results,
       )
       let result_arity = results.length()
       let id = hot_build_node(func, HotOp::TryTable, ty)
@@ -1763,7 +1978,12 @@ fn hot_lift_impl_lift_control(
       let catch_arms : Array[HotCatchArm] = []
       for catch_ in catches {
         match
-          hot_lift_impl_try_catch_arm(label_frames, label_stack_head, catch_) {
+          hot_lift_impl_try_catch_arm(
+            label_frames,
+            label_stack_head,
+            catch_,
+            tc_state.env.return_type,
+          ) {
           Ok(arm) => catch_arms.push(arm)
           Err(err) => return Err(err)
         }
@@ -2280,7 +2500,15 @@ pub fn hot_lift_body_result(
   )
   let state = make_state(env, [])
   let label_frames = hot_lift_impl_new_label_frames()
-  match hot_lift_impl_lift_region(func, body, state, label_frames, -1) {
+  let label_stack_head = hot_lift_impl_seed_function_label(label_frames)
+  match
+    hot_lift_impl_lift_region(
+      func,
+      body,
+      state,
+      label_frames,
+      label_stack_head,
+    ) {
     Ok((roots, _, _)) => Ok(hot_lift_impl_finish(func, roots))
     Err(err) => Err(err)
   }
@@ -2321,12 +2549,22 @@ pub fn hot_lift_body_with_context_unverified(
   hot_body_result_type_set(
     func,
     hot_lift_impl_intern_control_result_type(
-      func, body_result_type, return_types,
+      func,
+      body_result_type,
+      [],
+      return_types,
     ),
   )
   let label_frames = hot_lift_impl_new_label_frames()
+  let label_stack_head = hot_lift_impl_seed_function_label(label_frames)
   match
-    hot_lift_impl_lift_region(func, body, make_state(env, []), label_frames, -1) {
+    hot_lift_impl_lift_region(
+      func,
+      body,
+      make_state(env, []),
+      label_frames,
+      label_stack_head,
+    ) {
     Ok((roots, _, _)) => hot_lift_impl_finish(func, roots, verify=false)
     Err(err) => abort(err.to_string())
   }
@@ -2390,7 +2628,8 @@ pub fn hot_lift_func_with_context_unverified(
     params~,
     locals=hot_lift_impl_declared_locals(body_locals),
   )
-  let body_result_type = match hot_module_resolve_func_type_idx(ctx, func_idx) {
+  let func_type_idx = hot_module_resolve_func_type_idx(ctx, func_idx)
+  let body_result_type = match func_type_idx {
     Some(type_idx) => BlockType::type_idx(type_idx)
     None =>
       match results {
@@ -2399,7 +2638,14 @@ pub fn hot_lift_func_with_context_unverified(
         _ => abort(HotLiftError::MissingFunctionType(func_idx).to_string())
       }
   }
-  hot_lift_body_with_context_unverified(body, locals, ctx, body_result_type~)
+  let hot = hot_lift_body_with_context_unverified(
+    body,
+    locals,
+    ctx,
+    body_result_type~,
+  )
+  hot.func_type_idx = func_type_idx
+  hot
 }
 
 ///|

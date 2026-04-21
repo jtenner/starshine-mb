@@ -183,7 +183,7 @@ pub fn HotLocals::new(
 pub enum HotTypeInfo {
   VoidType
   BlockResult(BlockType)
-  BlockResultResolved(BlockType, Array[ValType])
+  BlockResultResolved(BlockType, Array[ValType], Array[ValType])
   Value(ValType)
   Results(Array[ValType])
 } derive(Eq, Debug)
@@ -322,6 +322,7 @@ pub struct HotFunc {
   call_sigs : Array[HotCallSig]
   instr_payloads : Array[HotInstrPayload]
   mut body_result_type : TypeId
+  mut func_type_idx : TypeIdx?
   free_nodes : Array[NodeId]
   deleted_nodes : Array[Bool]
   mut revision : Int
@@ -329,6 +330,9 @@ pub struct HotFunc {
 
 ///|
 const HOT_NONE_NODE : NodeId = -1
+
+///|
+pub const HOT_IMPLICIT_FUNCTION_LABEL : LabelId = -2
 
 ///|
 pub fn HotFunc::new(
@@ -352,6 +356,7 @@ pub fn HotFunc::new(
     call_sigs: [],
     instr_payloads: [],
     body_result_type,
+    func_type_idx: None,
     free_nodes: [],
     deleted_nodes: [],
     revision: 0,

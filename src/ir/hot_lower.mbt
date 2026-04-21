@@ -17,6 +17,7 @@ pub struct HotLowerOptions {
   preserve_dead_local_tee_drops : Bool
   preserve_nontrailing_nops : Bool
   preserve_trailing_nops : Bool
+  preserve_typed_loop_const_prefix_spills : Bool
 }
 
 ///|
@@ -25,12 +26,14 @@ pub fn HotLowerOptions::new(
   preserve_dead_local_tee_drops? : Bool = false,
   preserve_nontrailing_nops? : Bool = false,
   preserve_trailing_nops? : Bool = false,
+  preserve_typed_loop_const_prefix_spills? : Bool = false,
 ) -> HotLowerOptions {
   {
     preserve_if_arm_single_nops,
     preserve_dead_local_tee_drops,
     preserve_nontrailing_nops,
     preserve_trailing_nops,
+    preserve_typed_loop_const_prefix_spills,
   }
 }
 
@@ -80,6 +83,9 @@ fn hot_lower_impl_label_depth(
   label_id : LabelId,
 ) -> LabelIdx {
   ignore(label_stack_head)
+  if label_id == HOT_IMPLICIT_FUNCTION_LABEL {
+    return LabelIdx::new(frames.active.length().reinterpret_as_uint())
+  }
   if label_id >= 0 && label_id < frames.depths.length() {
     let absolute_depth = frames.depths[label_id]
     if absolute_depth >= 0 &&
@@ -98,9 +104,68 @@ fn hot_lower_impl_label_depth(
 fn hot_lower_impl_control_block_type(func : HotFunc, id : NodeId) -> BlockType {
   match hot_type_get(func, hot_node_get(func, id).ty) {
     BlockResult(block_type) => block_type
-    BlockResultResolved(block_type, _) => block_type
+    BlockResultResolved(block_type, _, _) => block_type
     _ => BlockType::void_()
   }
+}
+
+///|
+fn hot_lower_impl_control_param_types(
+  func : HotFunc,
+  id : NodeId,
+) -> Array[ValType] {
+  match hot_type_get(func, hot_node_get(func, id).ty) {
+    BlockResultResolved(_, params, _) => params.copy()
+    _ => []
+  }
+}
+
+///|
+fn hot_lower_impl_label_is_used(func : HotFunc, label_id : LabelId) -> Bool {
+  if label_id < 0 {
+    return false
+  }
+  for node_id = 0; node_id < hot_node_count(func); node_id = node_id + 1 {
+    if !hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = hot_node_get(func, node_id)
+    match node.op {
+      HotOp::Br
+      | HotOp::BrIf
+      | HotOp::BrOnNull
+      | HotOp::BrOnNonNull
+      | HotOp::BrOnCast
+      | HotOp::BrOnCastFail
+      | HotOp::Delegate if node.imm0 == label_id => return true
+      HotOp::BrTable => {
+        if hot_branch_table_default_target(func, node.imm0) == label_id {
+          return true
+        }
+        for target in hot_branch_table_targets(func, node.imm0) {
+          if target == label_id {
+            return true
+          }
+        }
+      }
+      HotOp::TryTable => {
+        let info = hot_catch_info_get(func, node.imm1)
+        for catch_ in info.catches {
+          let target = match catch_ {
+            HotCatchArm::CatchArm(_, target)
+            | HotCatchArm::CatchRefArm(_, target)
+            | HotCatchArm::CatchAllArm(target)
+            | HotCatchArm::CatchAllRefArm(target) => target
+          }
+          if target == label_id {
+            return true
+          }
+        }
+      }
+      _ => ()
+    }
+  }
+  false
 }
 
 ///|
@@ -365,6 +430,7 @@ fn hot_lower_impl_body_items(
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   let out : Array[Instruction] = []
   let mut next_stack = label_stack_head
@@ -425,8 +491,14 @@ fn hot_lower_impl_body_items(
   for i = body_base; i < node.child_count; i = i + 1 {
     let child = func.children[node.child_base + i]
     if child != HOT_NONE_NODE {
+      if hot_query_op(func, child) == HotOp::Unreachable {
+        hot_lower_impl_drop_dead_stack_before_unreachable(
+          child, value_stack, out,
+        )
+      }
       hot_lower_impl_emit_root(
         func, child, use_def, label_frames, next_stack, value_stack, out, extra_locals,
+        options,
       )
       let is_final_root = i + 1 == node.child_count
       hot_lower_impl_drop_dead_nonfinal_root_results(
@@ -458,6 +530,7 @@ fn hot_lower_impl_region_body(
   label_frames : HotLowerLabelFrames,
   label_stack_head : Int,
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   if id == HOT_NONE_NODE {
     return []
@@ -468,15 +541,113 @@ fn hot_lower_impl_region_body(
     label_id >= 0 &&
     hot_label_kind(func, label_id) == HotLabelKind::RegionLabel {
     return hot_lower_impl_body_items(
-      func, id, use_def, label_frames, label_stack_head, extra_locals,
+      func, id, use_def, label_frames, label_stack_head, extra_locals, options,
     )
   }
   let out : Array[Instruction] = []
   let value_stack : Array[HotLowerStackValue] = []
   hot_lower_impl_emit_root(
     func, id, use_def, label_frames, label_stack_head, value_stack, out, extra_locals,
+    options,
   )
   out
+}
+
+///|
+fn hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
+  func : HotFunc,
+  block_type : BlockType,
+) -> Bool {
+  match block_type {
+    TypeIdxBlockType(type_idx) => {
+      for type_id = 0; type_id < func.types.length(); type_id = type_id + 1 {
+        match hot_type_get(func, type_id) {
+          BlockResultResolved(TypeIdxBlockType(candidate_idx), params, _) =>
+            if candidate_idx == type_idx && params.length() > 0 {
+              return true
+            }
+          _ => ()
+        }
+      }
+      if hot_param_count(func) > 0 {
+        match func.func_type_idx {
+          Some(func_type_idx) if func_type_idx == type_idx => return true
+          _ => ()
+        }
+      }
+      false
+    }
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_result_only_block_type_candidate(
+  func : HotFunc,
+  block_type : BlockType,
+  params : Array[ValType],
+  results : Array[ValType],
+  expected_results : Array[ValType],
+) -> BlockType? {
+  if params.length() != 0 || results != expected_results {
+    return None
+  }
+  if hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
+      func, block_type,
+    ) {
+    return None
+  }
+  Some(block_type)
+}
+
+///|
+fn hot_lower_impl_result_only_block_type(
+  func : HotFunc,
+  results : Array[ValType],
+) -> BlockType? {
+  let body_result_ty = hot_body_result_type(func)
+  match hot_type_get(func, body_result_ty) {
+    BlockResultResolved(block_type, params, body_results) =>
+      match
+        hot_lower_impl_result_only_block_type_candidate(
+          func, block_type, params, body_results, results,
+        ) {
+        Some(candidate) => return Some(candidate)
+        None => ()
+      }
+    BlockResult(block_type) =>
+      if hot_type_results(func, body_result_ty) == results &&
+        !hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
+          func, block_type,
+        ) {
+        return Some(block_type)
+      }
+    _ => ()
+  }
+  for type_id = 0; type_id < func.types.length(); type_id = type_id + 1 {
+    if type_id == body_result_ty {
+      continue
+    }
+    match hot_type_get(func, type_id) {
+      BlockResultResolved(block_type, params, candidate_results) =>
+        match
+          hot_lower_impl_result_only_block_type_candidate(
+            func, block_type, params, candidate_results, results,
+          ) {
+          Some(candidate) => return Some(candidate)
+          None => ()
+        }
+      BlockResult(block_type) =>
+        if hot_type_results(func, type_id) == results &&
+          !hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
+            func, block_type,
+          ) {
+          return Some(block_type)
+        }
+      _ => ()
+    }
+  }
+  None
 }
 
 ///|
@@ -499,6 +670,150 @@ fn hot_lower_impl_drop_dead_nonfinal_root_results(
   for _ in 0..<result_arity {
     out.push(Instruction::drop())
     ignore(stack.pop())
+  }
+}
+
+///|
+fn hot_lower_impl_drop_dead_stack_before_unreachable(
+  id : NodeId,
+  stack : Array[HotLowerStackValue],
+  out : Array[Instruction],
+) -> Unit {
+  ignore(id)
+  while stack.length() > 0 {
+    out.push(Instruction::drop())
+    ignore(stack.pop())
+  }
+}
+
+///|
+priv struct HotLowerTypedLoopConstPrefixLowering {
+  outer_locals : Array[LocalIdx]
+  raw_block_type : BlockType
+  rewritten_body : Array[Instruction]
+  lower_to_block : Bool
+}
+
+///|
+fn hot_lower_impl_typed_loop_const_prefix_head_instr(
+  instr : Instruction,
+) -> Bool {
+  match instr {
+    I32Const(_)
+    | I64Const(_)
+    | F32Const(_)
+    | F64Const(_)
+    | RefNull(_)
+    | StringConst(_)
+    | Drop => true
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_typed_loop_const_prefix_reuses_existing_spill(
+  body : Array[Instruction],
+) -> Bool {
+  if body.length() < 4 {
+    return false
+  }
+  match body[0] {
+    LocalGet(source_local) =>
+      match body[1] {
+        LocalSet(spill_local) if spill_local != source_local =>
+          match body[2] {
+            LocalGet(reload_local) if reload_local == spill_local =>
+              hot_lower_impl_typed_loop_const_prefix_head_instr(body[3])
+            _ => false
+          }
+        _ => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_typed_loop_const_prefix_lowering(
+  func : HotFunc,
+  id : NodeId,
+  body : Array[Instruction],
+  extra_locals : Array[ValType],
+  options : HotLowerOptions,
+) -> HotLowerTypedLoopConstPrefixLowering? {
+  if !options.preserve_typed_loop_const_prefix_spills {
+    return None
+  }
+  let label_id = hot_control_node_label(func, id)
+  if hot_lower_impl_label_is_used(func, label_id) {
+    return None
+  }
+  let results = hot_type_results(func, hot_node_type(func, id))
+  let raw_block_type = match results {
+    [] => BlockType::void_()
+    [result_type] => BlockType::val_type(result_type)
+    _ =>
+      match hot_lower_impl_result_only_block_type(func, results) {
+        Some(block_type) => block_type
+        None => return None
+      }
+  }
+  if hot_lower_impl_typed_loop_const_prefix_reuses_existing_spill(body) {
+    return Some({
+      outer_locals: [],
+      raw_block_type,
+      rewritten_body: body,
+      lower_to_block: false,
+    })
+  }
+  let param_types = hot_lower_impl_control_param_types(func, id)
+  if results.length() == 0 &&
+    param_types.length() > 1 &&
+    !hot_lower_impl_body_targets_removed_label(body, 0) {
+    let block_type = hot_lower_impl_control_block_type(func, id)
+    return Some({
+      outer_locals: [],
+      raw_block_type,
+      rewritten_body: [Instruction::block(block_type, Expr::new(body))],
+      lower_to_block: true,
+    })
+  }
+  if param_types.length() != 1 {
+    return None
+  }
+  match body {
+    [I32Const(_), ..]
+    | [I64Const(_), ..]
+    | [F32Const(_), ..]
+    | [F64Const(_), ..]
+    | [RefNull(_), ..]
+    | [StringConst(_), ..]
+    | [Drop, ..] => {
+      let outer_local = hot_lower_impl_alloc_scratch_local(
+        func,
+        extra_locals,
+        param_types[0],
+      )
+      let inner_local = hot_lower_impl_alloc_scratch_local(
+        func,
+        extra_locals,
+        param_types[0],
+      )
+      let rewritten_body : Array[Instruction] = [
+        Instruction::local_get(outer_local),
+        Instruction::local_set(inner_local),
+        Instruction::local_get(inner_local),
+      ]
+      for instr in body {
+        rewritten_body.push(instr)
+      }
+      Some({
+        outer_locals: [outer_local],
+        raw_block_type,
+        rewritten_body,
+        lower_to_block: false,
+      })
+    }
+    _ => None
   }
 }
 
@@ -559,10 +874,14 @@ fn hot_lower_impl_preserve_region_result_roots(
   let preserve = @bitset.BitSet::new(root_ids.length())
   let mut remaining = region_result_arity
   for i = root_ids.length() - 1; i >= 0; i = i - 1 {
+    let root_id = root_ids[i]
+    if hot_lower_impl_clear_stack_after_emit(hot_query_op(func, root_id)) {
+      remaining = 0
+      continue
+    }
     if remaining <= 0 {
       break
     }
-    let root_id = root_ids[i]
     if node_use_count(use_def, root_id) != 1 {
       continue
     }
@@ -589,6 +908,7 @@ fn hot_lower_impl_emit_instruction(
   label_stack_head : Int,
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Unit {
   let node = hot_node_get(func, id)
   match node.op {
@@ -780,22 +1100,65 @@ fn hot_lower_impl_emit_instruction(
           hot_lower_impl_control_block_type(func, id),
           Expr::new(
             hot_lower_impl_body_items(
-              func, id, use_def, label_frames, label_stack_head, extra_locals,
+              func, id, use_def, label_frames, label_stack_head, extra_locals, options,
             ),
           ),
         ),
       )
-    HotOp::Loop =>
-      out.push(
-        Instruction::loop_(
-          hot_lower_impl_control_block_type(func, id),
-          Expr::new(
-            hot_lower_impl_body_items(
-              func, id, use_def, label_frames, label_stack_head, extra_locals,
-            ),
-          ),
-        ),
+    HotOp::Loop => {
+      let loop_body = hot_lower_impl_body_items(
+        func, id, use_def, label_frames, label_stack_head, extra_locals, options,
       )
+      match
+        hot_lower_impl_typed_loop_const_prefix_lowering(
+          func, id, loop_body, extra_locals, options,
+        ) {
+        Some(lowering) => {
+          for idx = lowering.outer_locals.length() - 1; idx >= 0; idx = idx - 1 {
+            out.push(Instruction::local_set(lowering.outer_locals[idx]))
+          }
+          if lowering.lower_to_block {
+            for outer_local in lowering.outer_locals {
+              out.push(Instruction::local_get(outer_local))
+            }
+            out.push(
+              Instruction::block(
+                hot_lower_impl_control_block_type(func, id),
+                Expr::new(lowering.rewritten_body),
+              ),
+            )
+          } else {
+            match lowering.raw_block_type {
+              VoidBlockType if !hot_lower_impl_body_targets_removed_label(
+                  lowering.rewritten_body,
+                  0,
+                ) =>
+                for
+                  instr in hot_lower_impl_rebase_body(
+                    lowering.rewritten_body,
+                    0,
+                  ) {
+                  out.push(instr)
+                }
+              _ =>
+                out.push(
+                  Instruction::loop_(
+                    lowering.raw_block_type,
+                    Expr::new(lowering.rewritten_body),
+                  ),
+                )
+            }
+          }
+        }
+        None =>
+          out.push(
+            Instruction::loop_(
+              hot_lower_impl_control_block_type(func, id),
+              Expr::new(loop_body),
+            ),
+          )
+      }
+    }
     HotOp::If => {
       let label_id = hot_control_node_label(func, id)
       let next_stack = if label_id >= 0 {
@@ -810,14 +1173,14 @@ fn hot_lower_impl_emit_instruction(
         Instruction::if_(
           hot_lower_impl_control_block_type(func, id),
           hot_lower_impl_region_body(
-            func, then_id, use_def, label_frames, next_stack, extra_locals,
+            func, then_id, use_def, label_frames, next_stack, extra_locals, options,
           ),
           if else_id == HOT_NONE_NODE {
             None
           } else {
             Some(
               hot_lower_impl_region_body(
-                func, else_id, use_def, label_frames, next_stack, extra_locals,
+                func, else_id, use_def, label_frames, next_stack, extra_locals, options,
               ),
             )
           },
@@ -846,6 +1209,7 @@ fn hot_lower_impl_emit_instruction(
               label_frames,
               next_stack,
               extra_locals,
+              options,
             ),
           ),
         ),
@@ -868,6 +1232,7 @@ fn hot_lower_impl_emit_value(
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
   force_emit? : Bool = false,
 ) -> Unit {
   hot_lower_impl_emit_root(
@@ -879,6 +1244,7 @@ fn hot_lower_impl_emit_value(
     stack,
     out,
     extra_locals,
+    options,
     allow_stack_top_reuse=!force_emit,
   )
 }
@@ -893,6 +1259,7 @@ fn hot_lower_impl_emit_inputs(
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Unit {
   let matched = hot_lower_impl_matching_input_prefix(stack, inputs)
   let mut idx = matched
@@ -915,11 +1282,338 @@ fn hot_lower_impl_emit_inputs(
         stack,
         out,
         extra_locals,
+        options,
         force_emit=emit_idx > 0,
       )
     }
     idx += run_len
   }
+}
+
+///|
+fn hot_lower_impl_emit_typed_param_block_with_entry_prefix(
+  func : HotFunc,
+  id : NodeId,
+  use_def : HotUseDef,
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
+  stack : Array[HotLowerStackValue],
+  out : Array[Instruction],
+  extra_locals : Array[ValType],
+  options : HotLowerOptions,
+) -> Unit {
+  let param_types = hot_lower_impl_control_param_types(func, id)
+  if param_types.length() == 0 {
+    abort("typed param block lowering requires resolved block params")
+  }
+  let node = hot_node_get(func, id)
+  let root_ids : Array[NodeId] = []
+  for i = 0; i < node.child_count; i = i + 1 {
+    let child = func.children[node.child_base + i]
+    if child != HOT_NONE_NODE {
+      root_ids.push(child)
+    }
+  }
+  let entry_values : Array[HotLowerStackValue] = []
+  let mut entry_root_count = 0
+  let mut prefix_drop_root_count = 0
+  let mut used_carrier_child_prefix = false
+  if stack.length() >= param_types.length() {
+    let start = stack.length() - param_types.length()
+    for idx = start; idx < stack.length(); idx = idx + 1 {
+      entry_values.push(stack[idx])
+    }
+    for _ in 0..<param_types.length() {
+      ignore(stack.pop())
+    }
+    while entry_root_count < root_ids.length() &&
+          entry_root_count < entry_values.length() &&
+          root_ids[entry_root_count] == entry_values[entry_root_count].node_id {
+      entry_root_count += 1
+    }
+  } else {
+    let entry_stack : Array[HotLowerStackValue] = []
+    if root_ids.length() > 0 &&
+      hot_child_count(func, root_ids[0]) >= param_types.length() {
+      used_carrier_child_prefix = true
+      let carrier_root = root_ids[0]
+      for idx = 0; idx < param_types.length(); idx = idx + 1 {
+        hot_lower_impl_emit_root(
+          func,
+          hot_child_get(func, carrier_root, idx),
+          use_def,
+          label_frames,
+          label_stack_head,
+          entry_stack,
+          out,
+          extra_locals,
+          options,
+        )
+      }
+    } else if root_ids.length() >= param_types.length() {
+      let prefix_inputs : Array[NodeId] = []
+      let mut prefix_ok = true
+      for idx = 0; idx < param_types.length(); idx = idx + 1 {
+        let root_id = root_ids[idx]
+        if hot_query_op(func, root_id) != HotOp::Drop ||
+          hot_child_count(func, root_id) != 1 {
+          prefix_ok = false
+          break
+        }
+        prefix_inputs.push(hot_child_get(func, root_id, 0))
+      }
+      if prefix_ok {
+        for idx = prefix_inputs.length() - 1; idx >= 0; idx = idx - 1 {
+          hot_lower_impl_emit_root(
+            func,
+            prefix_inputs[idx],
+            use_def,
+            label_frames,
+            label_stack_head,
+            entry_stack,
+            out,
+            extra_locals,
+            options,
+          )
+        }
+        if entry_stack.length() == param_types.length() {
+          prefix_drop_root_count = param_types.length()
+        }
+      } else {
+        while entry_stack.length() < param_types.length() &&
+              entry_root_count < root_ids.length() {
+          let entry_root = root_ids[entry_root_count]
+          hot_lower_impl_emit_root(
+            func, entry_root, use_def, label_frames, label_stack_head, entry_stack,
+            out, extra_locals, options,
+          )
+          entry_root_count += 1
+        }
+      }
+    } else {
+      while entry_stack.length() < param_types.length() &&
+            entry_root_count < root_ids.length() {
+        let entry_root = root_ids[entry_root_count]
+        hot_lower_impl_emit_root(
+          func, entry_root, use_def, label_frames, label_stack_head, entry_stack,
+          out, extra_locals, options,
+        )
+        entry_root_count += 1
+      }
+    }
+    if entry_stack.length() != param_types.length() {
+      abort(
+        "typed param block lowering requires entry roots or stack values for all params",
+      )
+    }
+    for value in entry_stack {
+      entry_values.push(value)
+    }
+  }
+  let body_root_ids : Array[NodeId] = []
+  let body_root_start = if prefix_drop_root_count > 0 {
+    prefix_drop_root_count
+  } else {
+    entry_root_count
+  }
+  for idx = body_root_start; idx < root_ids.length(); idx = idx + 1 {
+    body_root_ids.push(root_ids[idx])
+  }
+  let block_out : Array[Instruction] = []
+  let body_stack = entry_values.copy()
+  for _ in 0..<prefix_drop_root_count {
+    block_out.push(Instruction::drop())
+    ignore(body_stack.pop())
+  }
+  let branch_arity = hot_label_branch_arity(
+    func,
+    hot_control_node_label(func, id),
+  )
+  let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
+    func, use_def, body_root_ids, branch_arity,
+  )
+  let mut root_idx = 0
+  for child in body_root_ids {
+    if hot_query_op(func, child) == HotOp::Unreachable {
+      hot_lower_impl_drop_dead_stack_before_unreachable(
+        child, body_stack, block_out,
+      )
+    }
+    hot_lower_impl_emit_root(
+      func, child, use_def, label_frames, label_stack_head, body_stack, block_out,
+      extra_locals, options,
+    )
+    let is_final_root = root_idx + 1 == body_root_ids.length()
+    hot_lower_impl_drop_dead_nonfinal_root_results(
+      func,
+      child,
+      use_def,
+      preserve_region_results[root_idx],
+      is_final_root,
+      body_stack,
+      block_out,
+    )
+    root_idx += 1
+  }
+  if used_carrier_child_prefix && body_stack.length() == 1 && branch_arity == 1 {
+    let carried = body_stack.pop().unwrap()
+    let scratch = hot_lower_impl_alloc_scratch_local(
+      func,
+      extra_locals,
+      carried.val_type,
+    )
+    block_out.push(Instruction::local_set(scratch))
+    block_out.push(Instruction::local_get(scratch))
+    body_stack.push(carried)
+  }
+  hot_lower_impl_finalize_region_stack(
+    func, branch_arity, body_stack, block_out, extra_locals,
+  )
+  out.push(
+    Instruction::block(
+      hot_lower_impl_control_block_type(func, id),
+      Expr::new(block_out),
+    ),
+  )
+  hot_lower_impl_push_results(func, id, stack)
+}
+
+///|
+fn hot_lower_impl_emit_transparent_param_block(
+  func : HotFunc,
+  id : NodeId,
+  use_def : HotUseDef,
+  label_frames : HotLowerLabelFrames,
+  label_stack_head : Int,
+  stack : Array[HotLowerStackValue],
+  out : Array[Instruction],
+  extra_locals : Array[ValType],
+  options : HotLowerOptions,
+) -> Unit {
+  let param_types = hot_lower_impl_control_param_types(func, id)
+  if param_types.length() == 0 {
+    abort("transparent param block lowering requires resolved block params")
+  }
+  let label_id = hot_control_node_label(func, id)
+  let node = hot_node_get(func, id)
+  let root_ids : Array[NodeId] = []
+  for i = 0; i < node.child_count; i = i + 1 {
+    let child = func.children[node.child_base + i]
+    if child != HOT_NONE_NODE {
+      root_ids.push(child)
+    }
+  }
+  let entry_values : Array[HotLowerStackValue] = []
+  let mut entry_root_count = 0
+  let mut used_carrier_child_prefix = false
+  if stack.length() >= param_types.length() {
+    let start = stack.length() - param_types.length()
+    for idx = start; idx < stack.length(); idx = idx + 1 {
+      entry_values.push(stack[idx])
+    }
+    for _ in 0..<param_types.length() {
+      ignore(stack.pop())
+    }
+    while entry_root_count < root_ids.length() &&
+          entry_root_count < entry_values.length() &&
+          root_ids[entry_root_count] == entry_values[entry_root_count].node_id {
+      entry_root_count += 1
+    }
+  } else {
+    let entry_stack : Array[HotLowerStackValue] = []
+    if root_ids.length() > 0 &&
+      hot_child_count(func, root_ids[0]) >= param_types.length() {
+      used_carrier_child_prefix = true
+      let carrier_root = root_ids[0]
+      for idx = 0; idx < param_types.length(); idx = idx + 1 {
+        hot_lower_impl_emit_root(
+          func,
+          hot_child_get(func, carrier_root, idx),
+          use_def,
+          label_frames,
+          label_stack_head,
+          entry_stack,
+          out,
+          extra_locals,
+          options,
+        )
+      }
+    } else {
+      while entry_stack.length() < param_types.length() &&
+            entry_root_count < root_ids.length() {
+        let entry_root = root_ids[entry_root_count]
+        hot_lower_impl_emit_root(
+          func, entry_root, use_def, label_frames, label_stack_head, entry_stack,
+          out, extra_locals, options,
+        )
+        entry_root_count += 1
+      }
+    }
+    if entry_stack.length() != param_types.length() {
+      abort(
+        "transparent param block lowering requires entry roots or stack values for all params",
+      )
+    }
+    for value in entry_stack {
+      entry_values.push(value)
+    }
+  }
+  let scratch_locals : Array[LocalIdx] = []
+  for param_type in param_types {
+    scratch_locals.push(
+      hot_lower_impl_alloc_scratch_local(func, extra_locals, param_type),
+    )
+  }
+  for idx = scratch_locals.length() - 1; idx >= 0; idx = idx - 1 {
+    out.push(Instruction::local_set(scratch_locals[idx]))
+  }
+  let body_stack : Array[HotLowerStackValue] = []
+  for idx = 0; idx < scratch_locals.length(); idx = idx + 1 {
+    out.push(Instruction::local_get(scratch_locals[idx]))
+    body_stack.push(entry_values[idx])
+  }
+  let branch_arity = hot_label_branch_arity(func, label_id)
+  if body_stack.length() == 1 &&
+    (branch_arity != 1 || used_carrier_child_prefix) {
+    let carried = body_stack.pop().unwrap()
+    let scratch = hot_lower_impl_alloc_scratch_local(
+      func,
+      extra_locals,
+      carried.val_type,
+    )
+    out.push(Instruction::local_set(scratch))
+    out.push(Instruction::local_get(scratch))
+    body_stack.push(carried)
+  }
+  let body_root_ids : Array[NodeId] = []
+  for idx = entry_root_count; idx < root_ids.length(); idx = idx + 1 {
+    body_root_ids.push(root_ids[idx])
+  }
+  let preserve_region_results = hot_lower_impl_preserve_region_result_roots(
+    func, use_def, body_root_ids, branch_arity,
+  )
+  let mut root_idx = 0
+  for child in body_root_ids {
+    hot_lower_impl_emit_root(
+      func, child, use_def, label_frames, label_stack_head, body_stack, out, extra_locals,
+      options,
+    )
+    let is_final_root = root_idx + 1 == body_root_ids.length()
+    hot_lower_impl_drop_dead_nonfinal_root_results(
+      func,
+      child,
+      use_def,
+      preserve_region_results[root_idx],
+      is_final_root,
+      body_stack,
+      out,
+    )
+    root_idx += 1
+  }
+  hot_lower_impl_finalize_region_stack(
+    func, branch_arity, body_stack, out, extra_locals,
+  )
+  hot_lower_impl_push_results(func, id, stack)
 }
 
 ///|
@@ -932,12 +1626,32 @@ fn hot_lower_impl_emit_root(
   stack : Array[HotLowerStackValue],
   out : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
   allow_stack_top_reuse? : Bool = true,
 ) -> Unit {
   if allow_stack_top_reuse && hot_node_result_arity(func, id) > 0 {
     match stack.last() {
       Some(top) if top.node_id == id => return
       _ => ()
+    }
+  }
+  let label_id = hot_control_node_label(func, id)
+  let param_types = hot_lower_impl_control_param_types(func, id)
+  if hot_query_op(func, id) == HotOp::Block &&
+    !hot_lower_impl_label_is_used(func, label_id) {
+    if param_types.length() == 1 {
+      hot_lower_impl_emit_transparent_param_block(
+        func, id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
+        options,
+      )
+      return
+    }
+    if param_types.length() > 1 && hot_node_result_arity(func, id) == 0 {
+      hot_lower_impl_emit_typed_param_block_with_entry_prefix(
+        func, id, use_def, label_frames, label_stack_head, stack, out, extra_locals,
+        options,
+      )
+      return
     }
   }
   let inputs = hot_lower_impl_input_info(func, id)
@@ -950,9 +1664,10 @@ fn hot_lower_impl_emit_root(
     stack,
     out,
     extra_locals,
+    options,
   )
   hot_lower_impl_emit_instruction(
-    func, id, use_def, label_frames, label_stack_head, out, extra_locals,
+    func, id, use_def, label_frames, label_stack_head, out, extra_locals, options,
   )
   hot_lower_impl_update_stack(func, id, inputs.pop_count, stack)
 }
@@ -2346,6 +3061,88 @@ fn hot_lower_impl_can_inline_value_wrapper(
 }
 
 ///|
+fn hot_lower_impl_instr_is_const_like_dead_value_before_unreachable(
+  instr : Instruction,
+) -> Bool {
+  match instr {
+    I32Const(_)
+    | I64Const(_)
+    | F32Const(_)
+    | F64Const(_)
+    | V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | RefNull(_)
+    | StringConst(_) => true
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_hoist_dropped_values_before_leading_unreachable(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  match body {
+    [Unreachable, ..] => ()
+    _ => return body
+  }
+  let moved : Array[Instruction] = []
+  let mut idx = 1
+  while idx + 1 < body.length() {
+    match body[idx + 1] {
+      Drop if !hot_lower_impl_has_control_transfer(body[idx]) => {
+        moved.push(body[idx])
+        moved.push(body[idx + 1])
+        idx = idx + 2
+      }
+      _ => break
+    }
+  }
+  if moved.length() == 0 {
+    return body
+  }
+  let rewritten : Array[Instruction] = []
+  for instr in moved {
+    rewritten.push(instr)
+  }
+  rewritten.push(Instruction::unreachable_())
+  for tail_idx = idx; tail_idx < body.length(); tail_idx = tail_idx + 1 {
+    rewritten.push(body[tail_idx])
+  }
+  rewritten
+}
+
+///|
+fn hot_lower_impl_materialize_dead_const_prefix_before_unreachable(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  if body.length() < 2 {
+    return body
+  }
+  match body[body.length() - 1] {
+    Unreachable => ()
+    _ => return body
+  }
+  let mut suffix_start = body.length() - 1
+  while suffix_start > 0 &&
+        hot_lower_impl_instr_is_const_like_dead_value_before_unreachable(
+          body[suffix_start - 1],
+        ) {
+    suffix_start -= 1
+  }
+  if suffix_start == body.length() - 1 {
+    return body
+  }
+  let rewritten : Array[Instruction] = []
+  for i = 0; i < body.length() - 1; i = i + 1 {
+    rewritten.push(body[i])
+    if i >= suffix_start {
+      rewritten.push(Instruction::drop())
+    }
+  }
+  rewritten.push(Instruction::unreachable_())
+  rewritten
+}
+
+///|
 fn hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
   body : Array[Instruction],
   options : HotLowerOptions,
@@ -2481,6 +3278,12 @@ fn hot_lower_impl_canonicalize_body(
       canonical_instr => canonical.push(canonical_instr)
     }
   }
+  let canonical = hot_lower_impl_hoist_dropped_values_before_leading_unreachable(
+    canonical,
+  )
+  let canonical = hot_lower_impl_materialize_dead_const_prefix_before_unreachable(
+    canonical,
+  )
   let canonical = hot_lower_impl_strip_redundant_nops_and_dead_local_tee_drops(
     canonical, options,
   )
@@ -2560,40 +3363,38 @@ fn hot_lower_impl_instr_stops_following_body_instrs(
 fn hot_lower_impl_prune_dead_local_tees_in_instr(
   instr : Instruction,
   counts : Array[Int],
+  options : HotLowerOptions,
 ) -> Instruction? {
   match instr {
-    LocalTee(li) => {
-      let @lib.LocalIdx(raw) = li
-      let idx = raw.reinterpret_as_int()
-      if idx >= 0 && idx < counts.length() && counts[idx] == 0 {
-        None
-      } else {
-        Some(instr)
-      }
-    }
     Block(bt, Expr(body)) =>
       Some(
         Instruction::block(
           bt,
-          Expr::new(hot_lower_impl_prune_dead_local_tees_in_body(body, counts)),
+          Expr::new(
+            hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options),
+          ),
         ),
       )
     Loop(bt, Expr(body)) =>
       Some(
         Instruction::loop_(
           bt,
-          Expr::new(hot_lower_impl_prune_dead_local_tees_in_body(body, counts)),
+          Expr::new(
+            hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options),
+          ),
         ),
       )
     If(bt, then_, else_) =>
       Some(
         Instruction::if_(
           bt,
-          hot_lower_impl_prune_dead_local_tees_in_body(then_, counts),
+          hot_lower_impl_prune_dead_local_tees_in_body(then_, counts, options),
           match else_ {
             Some(else_body) =>
               Some(
-                hot_lower_impl_prune_dead_local_tees_in_body(else_body, counts),
+                hot_lower_impl_prune_dead_local_tees_in_body(
+                  else_body, counts, options,
+                ),
               )
             None => None
           },
@@ -2604,7 +3405,9 @@ fn hot_lower_impl_prune_dead_local_tees_in_instr(
         Instruction::try_table(
           bt,
           catches,
-          Expr::new(hot_lower_impl_prune_dead_local_tees_in_body(body, counts)),
+          Expr::new(
+            hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options),
+          ),
         ),
       )
     _ => Some(instr)
@@ -2615,12 +3418,35 @@ fn hot_lower_impl_prune_dead_local_tees_in_instr(
 fn hot_lower_impl_prune_dead_local_tees_in_body(
   body : Array[Instruction],
   counts : Array[Int],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   let pruned : Array[Instruction] = []
-  for instr in body {
-    match hot_lower_impl_prune_dead_local_tees_in_instr(instr, counts) {
-      Some(rewritten) => pruned.push(rewritten)
-      None => ()
+  for i = 0; i < body.length(); i = i + 1 {
+    match body[i] {
+      LocalTee(li) => {
+        let @lib.LocalIdx(raw) = li
+        let idx = raw.reinterpret_as_int()
+        let dead = idx >= 0 && idx < counts.length() && counts[idx] == 0
+        let mut preserve_dead_drop = false
+        if dead &&
+          options.preserve_dead_local_tee_drops &&
+          i + 1 < body.length() {
+          match body[i + 1] {
+            Drop => preserve_dead_drop = true
+            _ => ()
+          }
+        }
+        if dead && !preserve_dead_drop {
+          continue
+        }
+        pruned.push(body[i])
+      }
+      instr =>
+        match
+          hot_lower_impl_prune_dead_local_tees_in_instr(instr, counts, options) {
+          Some(rewritten) => pruned.push(rewritten)
+          None => ()
+        }
     }
   }
   pruned
@@ -2631,10 +3457,11 @@ fn hot_lower_impl_prune_dead_local_tees(
   func : HotFunc,
   body : Array[Instruction],
   extra_locals : Array[ValType],
+  options : HotLowerOptions,
 ) -> Array[Instruction] {
   let counts = Array::make(hot_local_count(func) + extra_locals.length(), 0)
   hot_lower_impl_count_local_gets_in_body(body, counts)
-  hot_lower_impl_prune_dead_local_tees_in_body(body, counts)
+  hot_lower_impl_prune_dead_local_tees_in_body(body, counts, options)
 }
 
 ///|
@@ -2934,6 +3761,108 @@ fn hot_lower_impl_fix_split_payload_wrappers_in_body(
 }
 
 ///|
+fn hot_lower_impl_rewrite_binary_const_result_spill_in_instr(
+  instr : Instruction,
+) -> Instruction {
+  match instr {
+    Block(bt, Expr(body)) =>
+      Instruction::block(
+        bt,
+        Expr::new(
+          hot_lower_impl_rewrite_binary_const_result_spills_in_body(body),
+        ),
+      )
+    Loop(bt, Expr(body)) =>
+      Instruction::loop_(
+        bt,
+        Expr::new(
+          hot_lower_impl_rewrite_binary_const_result_spills_in_body(body),
+        ),
+      )
+    If(bt, then_, else_) =>
+      Instruction::if_(
+        bt,
+        hot_lower_impl_rewrite_binary_const_result_spills_in_body(then_),
+        match else_ {
+          Some(else_body) =>
+            Some(
+              hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+                else_body,
+              ),
+            )
+          None => None
+        },
+      )
+    TryTable(bt, catches, Expr(body)) =>
+      Instruction::try_table(
+        bt,
+        catches,
+        Expr::new(
+          hot_lower_impl_rewrite_binary_const_result_spills_in_body(body),
+        ),
+      )
+    _ => instr
+  }
+}
+
+///|
+fn hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+  body : Array[Instruction],
+) -> Array[Instruction] {
+  let nested : Array[Instruction] = []
+  for instr in body {
+    nested.push(
+      hot_lower_impl_rewrite_binary_const_result_spill_in_instr(instr),
+    )
+  }
+  let rewritten : Array[Instruction] = []
+  let mut i = 0
+  while i < nested.length() {
+    if i + 4 < nested.length() {
+      let lhs = nested[i]
+      let rhs = nested[i + 1]
+      let op_instr = nested[i + 2]
+      let set_instr = nested[i + 3]
+      let get_instr = nested[i + 4]
+      let rhs_is_const = match rhs {
+        I32Const(_)
+        | I64Const(_)
+        | F32Const(_)
+        | F64Const(_)
+        | RefNull(_)
+        | StringConst(_) => true
+        _ => false
+      }
+      if rhs_is_const && !hot_lower_impl_has_control_transfer(op_instr) {
+        match lhs {
+          LocalGet(source_local) =>
+            match set_instr {
+              LocalSet(target_local) if target_local != source_local =>
+                match get_instr {
+                  LocalGet(found_local) if found_local == target_local => {
+                    rewritten.push(lhs)
+                    rewritten.push(set_instr)
+                    rewritten.push(get_instr)
+                    rewritten.push(rhs)
+                    rewritten.push(op_instr)
+                    i = i + 5
+                    continue
+                  }
+                  _ => ()
+                }
+              _ => ()
+            }
+          _ => ()
+        }
+      }
+    }
+    rewritten.push(nested[i])
+    i = i + 1
+  }
+  rewritten
+}
+
+///|
 fn hot_lower_body_with_extras_with_options(
   func : HotFunc,
   options : HotLowerOptions,
@@ -2967,7 +3896,7 @@ fn hot_lower_body_with_extras_unverified_with_options(
   for i = 0; i < hot_root_count(func); i = i + 1 {
     let root_id = root_ids[i]
     hot_lower_impl_emit_root(
-      func, root_id, use_def, label_frames, -1, value_stack, out, extra_locals,
+      func, root_id, use_def, label_frames, -1, value_stack, out, extra_locals, options,
     )
     hot_lower_impl_drop_dead_nonfinal_root_results(
       func,
@@ -2984,8 +3913,11 @@ fn hot_lower_body_with_extras_unverified_with_options(
     func, canonical, extra_locals,
   )
   let stackified = hot_lower_impl_fix_split_payload_wrappers_in_body(stackified)
+  let stackified = hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+    stackified,
+  )
   let stackified = hot_lower_impl_prune_dead_local_tees(
-    func, stackified, extra_locals,
+    func, stackified, extra_locals, options,
   )
   {
     body: hot_lower_impl_trim_redundant_unreachable_tail(

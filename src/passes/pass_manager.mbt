@@ -7810,6 +7810,14 @@ fn run_hot_pipeline_lower_options_for_descriptor(
       preserve_dead_local_tee_drops=true,
       preserve_nontrailing_nops=true,
     )
+  } else if descriptor_name == "merge-blocks" {
+    @ir.HotLowerOptions::new(
+      preserve_if_arm_single_nops=true,
+      preserve_dead_local_tee_drops=true,
+      preserve_nontrailing_nops=true,
+      preserve_trailing_nops=true,
+      preserve_typed_loop_const_prefix_spills=true,
+    )
   } else {
     @ir.HotLowerOptions::new()
   }
@@ -8691,6 +8699,7 @@ pub fn hot_pass_run(
     "tuple-optimization" => tuple_optimization_run(ctx, func)
     "precompute" => precompute_run(ctx, func)
     "simplify-locals" => simplify_locals_run(ctx, func)
+    "merge-blocks" => merge_blocks_run(ctx, func)
     _ => return Err("unsupported hot pass \{descriptor.name}")
   }
   perf_stop_timer_opt(ctx.perf, "pass:\{descriptor.name}", pass_timer_start)

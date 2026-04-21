@@ -701,7 +701,7 @@ fn precompute_try_fold_constant_if(
   let block_type = match
     @ir.hot_type_get(func, @ir.hot_node_type(func, node_id)) {
     @ir.HotTypeInfo::BlockResult(block_type)
-    | @ir.HotTypeInfo::BlockResultResolved(block_type, _) => Some(block_type)
+    | @ir.HotTypeInfo::BlockResultResolved(block_type, _, _) => Some(block_type)
     _ => None
   }
   let block_type = match block_type {

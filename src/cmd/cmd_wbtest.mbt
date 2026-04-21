@@ -1956,6 +1956,45 @@ test "run_cmd_with_adapter applies ssa-nomerge to wasm inputs" {
 }
 
 ///|
+test "run_cmd_with_adapter accepts merge-blocks" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (block (nop) (block (nop)))))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["merge-blocks.wasm"] },
+    file_exists=fn(path) { path == "merge-blocks.wasm" },
+    read_file=fn(path) {
+      if path == "merge-blocks.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--merge-blocks", "--out", "out.wasm", "merge-blocks.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected merge-blocks run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["merge-blocks"])
+  assert_eq(writes.length(), 1)
+  match @validate.validate_module(decode_module_bytes(writes[0].1)) {
+    Ok(_) => ()
+    Err(err) => fail("expected merge-blocks output to validate, got \{err}")
+  }
+}
+
+///|
 test "run_cmd_with_adapter accepts tuple-optimization" {
   let wasm = encode_module_bytes(
     @passes.pass_test_module_from_wat(

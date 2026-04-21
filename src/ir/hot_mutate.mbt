@@ -600,7 +600,7 @@ pub fn hot_tuple_make_promote_to_block(
   }
   let ty = match block_type {
     TypeIdxBlockType(_) =>
-      hot_type_intern_resolved_block_result(func, block_type, results)
+      hot_type_intern_resolved_block_result(func, block_type, [], results)
     _ => hot_type_intern_block_result(func, block_type)
   }
   let label_id = hot_label_alloc(

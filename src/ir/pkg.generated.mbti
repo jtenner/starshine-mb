@@ -614,7 +614,7 @@ pub fn hot_type_get(HotFunc, Int) -> HotTypeInfo
 
 pub fn hot_type_intern_block_result(HotFunc, @lib.BlockType) -> Int
 
-pub fn hot_type_intern_resolved_block_result(HotFunc, @lib.BlockType, Array[@lib.ValType]) -> Int
+pub fn hot_type_intern_resolved_block_result(HotFunc, @lib.BlockType, Array[@lib.ValType], Array[@lib.ValType]) -> Int
 
 pub fn hot_type_intern_results(HotFunc, Array[@lib.ValType]) -> Int
 
@@ -1023,6 +1023,7 @@ pub struct HotFunc {
   call_sigs : Array[HotCallSig]
   instr_payloads : Array[HotInstrPayload]
   mut body_result_type : Int
+  mut func_type_idx : @lib.TypeIdx?
   free_nodes : Array[Int]
   deleted_nodes : Array[Bool]
   mut revision : Int
@@ -1123,8 +1124,9 @@ pub struct HotLowerOptions {
   preserve_dead_local_tee_drops : Bool
   preserve_nontrailing_nops : Bool
   preserve_trailing_nops : Bool
+  preserve_typed_loop_const_prefix_spills : Bool
 }
-pub fn HotLowerOptions::new(preserve_if_arm_single_nops? : Bool, preserve_dead_local_tee_drops? : Bool, preserve_nontrailing_nops? : Bool, preserve_trailing_nops? : Bool) -> Self
+pub fn HotLowerOptions::new(preserve_if_arm_single_nops? : Bool, preserve_dead_local_tee_drops? : Bool, preserve_nontrailing_nops? : Bool, preserve_trailing_nops? : Bool, preserve_typed_loop_const_prefix_spills? : Bool) -> Self
 
 pub struct HotMemArg {
   memarg : @lib.MemArg
@@ -1360,7 +1362,7 @@ pub impl Show for HotStringBuiltin
 pub enum HotTypeInfo {
   VoidType
   BlockResult(@lib.BlockType)
-  BlockResultResolved(@lib.BlockType, Array[@lib.ValType])
+  BlockResultResolved(@lib.BlockType, Array[@lib.ValType], Array[@lib.ValType])
   Value(@lib.ValType)
   Results(Array[@lib.ValType])
 } derive(Eq, @debug.Debug)

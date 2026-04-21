@@ -258,7 +258,7 @@ test "optimize preset replays remove-unused-brs in all RUB slots" {
   let rub_starts = trace.filter(fn(line) {
     line.contains("pass[remove-unused-brs]:start")
   })
-  assert_eq(rub_starts.length(), 3)
+  assert_eq(rub_starts.length(), 4)
 }
 
 ///|
@@ -283,7 +283,7 @@ test "shrink preset replays remove-unused-brs in all RUB slots" {
   let rub_starts = trace.filter(fn(line) {
     line.contains("pass[remove-unused-brs]:start")
   })
-  assert_eq(rub_starts.length(), 3)
+  assert_eq(rub_starts.length(), 4)
 }
 
 ///|
@@ -337,6 +337,56 @@ test "shrink preset replays precompute in both PC slots" {
 }
 
 ///|
+test "optimize preset replays merge-blocks in both late MB slots" {
+  let trace : Array[String] = []
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) (block (result i32) (block (result i32) i32.const 7))))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["optimize"],
+    ) {
+    Ok(mod) => mod
+    Err(err) => fail("expected optimize pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected optimized module to validate, got \{err}")
+  }
+  let mb_starts = trace.filter(fn(line) {
+    line.contains("pass[merge-blocks]:start")
+  })
+  assert_eq(mb_starts.length(), 2)
+}
+
+///|
+test "shrink preset replays merge-blocks in both late MB slots" {
+  let trace : Array[String] = []
+  let input = pass_test_module_from_wat(
+    "(module (func (result i32) (block (result i32) (block (result i32) i32.const 7))))",
+  )
+  let optimized = match
+    run_hot_pipeline(
+      input,
+      HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+      ["shrink"],
+    ) {
+    Ok(mod) => mod
+    Err(err) => fail("expected shrink pipeline success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected shrink module to validate, got \{err}")
+  }
+  let mb_starts = trace.filter(fn(line) {
+    line.contains("pass[merge-blocks]:start")
+  })
+  assert_eq(mb_starts.length(), 2)
+}
+
+///|
 test "optimize and shrink presets do not schedule reorder-locals before its neighboring local passes land" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   let shrink = shrink_preset_passes(HotPipelineOptions::new())
@@ -353,7 +403,7 @@ test "optimize preset schedules heap2local in the mid-function GC slot" {
 }
 
 ///|
-test "optimize preset keeps simplify-locals in the heap2local cleanup slot" {
+test "optimize preset hands simplify-locals output to the late merge-blocks cleanup cluster" {
   let trace : Array[String] = []
   let input = pass_test_module_from_wat(
     "(module (func (param i32) (result i32) (local i32) local.get 0 if i32.const 1 local.set 1 else i32.const 2 local.set 1 end local.get 1))",
@@ -394,7 +444,7 @@ test "optimize preset keeps simplify-locals in the heap2local cleanup slot" {
   )
   assert_true(
     sl_idx + 1 < starts.length() &&
-    starts[sl_idx + 1].contains("pass[precompute]:start"),
+    starts[sl_idx + 1].contains("pass[merge-blocks]:start"),
     msg=starts.to_string(),
   )
 }
@@ -422,6 +472,55 @@ test "vacuum cleans simplify-locals structured return residue in the late cleanu
   assert_false(pretty.contains("local.get (Local 1)"), msg=pretty)
   assert_false(pretty.contains("nop"), msg=pretty)
   assert_true(pretty.contains("block I32"), msg=pretty)
+}
+
+///|
+test "vacuum roundtrips dead simd prefixes before unreachable" {
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(
+        "(module (func (export \"f\") v128.const i32x4 1 2 3 4 i64x2.extend_low_i32x4_s i8x16.popcnt i64x2.extend_high_i32x4_u unreachable))",
+      ),
+      HotPipelineOptions::new(),
+      ["vacuum"],
+    ) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected vacuum simd/unreachable roundtrip success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected simd/unreachable module to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64x2.extend_low_i32x4s"), msg=pretty)
+  assert_true(pretty.contains("i8x16.popcnt"), msg=pretty)
+  assert_true(pretty.contains("i64x2.extend_high_i32x4u"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "vacuum roundtrips top-level try_table catches that target the implicit function label" {
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(
+        "(module (func (export \"f\") try_table (catch_all 0) end))",
+      ),
+      HotPipelineOptions::new(),
+      ["vacuum"],
+    ) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected top-level try_table roundtrip success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected top-level try_table module to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("catch_all (Label 0)"), msg=pretty)
 }
 
 ///|
