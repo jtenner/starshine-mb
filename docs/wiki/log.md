@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-21] research | add Starshine `reorder-locals` strategy/code-map coverage and align touched-area dossier metadata
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/reorder-locals/` folder, then chose `reorder-locals` because it was an active implemented module-pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.
+- Added `docs/wiki/raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md`, grounding the follow-up in the in-tree MoonBit implementation (`src/passes/reorder_locals.mbt`, `reorder_locals_test.mbt`, `pass_manager.mbt`, `optimize.mbt`, `optimize_test.mbt`, `registry_test.mbt`, and `cmd_wbtest.mbt`) plus official Binaryen primary sources (`ReorderLocals.cpp`, `pass.cpp`, and the dedicated `reorder-locals*` tests) and making explicit that current Starshine matches the core Binaryen ordering rule but keeps the pass module-scoped because parameter lookup and name/raw-payload repair cross module metadata boundaries in this repo.
+- Added `docs/wiki/binaryen/passes/reorder-locals/starshine-hot-ir-strategy.md`, giving the dossier its missing local-strategy page with exact code locations for access scanning, used-body-local sorting, parameter caching, grouped-local-run rebuilding, local-name rewriting, module rebuild/name-section invalidation, dispatch, registry placement, preset exclusion, and CLI coverage.
+- Refreshed `docs/wiki/binaryen/passes/reorder-locals/index.md` and `parity.md`, and updated `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/index.md`, so the touched area now consistently advertises the full landing/Binaryen/shapes/Starshine/parity dossier shape instead of leaving `reorder-locals` as one of the remaining implemented-pass exceptions.
+
 ## [2026-04-21] lint | fix stale `global-refining` landing-page follow-up wording after the new Starshine strategy page landed
 
 - During the post-commit health check, re-scanned the touched `docs/wiki/binaryen/passes/global-refining/` folder for stale references and found that `index.md` still described the latest follow-up as if it were about the earlier implementation/test-map gap rather than the newly completed Starshine strategy/code-map gap.

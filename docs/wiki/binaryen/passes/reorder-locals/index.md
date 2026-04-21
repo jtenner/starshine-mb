@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
   - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
   - ../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md
@@ -31,6 +32,7 @@ related:
   - ./binaryen-strategy.md
   - ./names-roundtrip-and-porting.md
   - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
   - ./parity.md
   - ./multivalue-call-scope.md
   - ../tracker.md
@@ -125,6 +127,8 @@ What it actually is in `version_129`:
   - Focused guide to the most practical half of the contract: function-local names, printed declaration order, why Starshine implements this as a module pass, and why the multivalue-call divergence is a boundary issue rather than a sorter bug.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering hot locals moving forward, first-use ties, dead tail drops, write-only and tee-only locals, nested local-user rewrites, and the main non-goals.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+  - Current in-tree Starshine module-pass strategy: why the pass stays module-scoped, the exact MoonBit code map, the grouped-local-run rebuild and name-section-rewrite mechanics, and the main representation differences from upstream Binaryen.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, explicit module-pass status, stable-boundary signoff rule, and the honest remaining compare caveats.
 - [`./multivalue-call-scope.md`](./multivalue-call-scope.md)
@@ -147,7 +151,7 @@ So the durable rule is:
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `reorder-locals` parity, scheduler, and writeback-boundary notes.
+- Treat this folder as the canonical home for future `reorder-locals` parity, scheduler, Starshine strategy/code-map, and writeback-boundary notes.
 - Keep the main beginner correction explicit:
   - upstream `reorder-locals` is a stable frequency sorter plus unused-body-local trimmer, not `coalesce-locals` or dead-store elimination.
 - Keep the writer-roundtrip rule explicit whenever future docs or code changes touch this pass.

@@ -1,11 +1,13 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
   - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
   - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
 related:
+  - ./starshine-hot-ir-strategy.md
   - ./multivalue-call-scope.md
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -28,6 +30,7 @@ related:
 ## Current In-Tree Status
 
 - The implementation lives in [`../../../../../src/passes/reorder_locals.mbt`](../../../../../src/passes/reorder_locals.mbt).
+- The current local strategy and exact code map now live in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
 - The pass is wired through the module-pass dispatcher in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - Registry and preset policy live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt).
 - CLI coverage for explicit pass execution lives in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
