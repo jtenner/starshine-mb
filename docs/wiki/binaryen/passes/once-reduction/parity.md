@@ -1,9 +1,10 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
+  - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md
   - ../../../../../.artifacts/o4z-wasm-opt-debug.log
   - ../../../../../src/passes/once_reduction.mbt
@@ -18,6 +19,7 @@ related:
   - ./binaryen-strategy.md
   - ./dominance-propagation-and-cycle-safety.md
   - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
 ---
 
 # `once-reduction` Binaryen parity

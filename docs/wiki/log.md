@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-21] research | add Starshine `once-reduction` strategy/code-map coverage and align touched-area dossier metadata
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/once-reduction/` folder, then chose `once-reduction` because it was an active implemented module-pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.
+- Added `docs/wiki/raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md`, grounding the follow-up in the in-tree MoonBit implementation (`src/passes/once_reduction.mbt`, `once_reduction_test.mbt`, `pass_manager.mbt`, `optimize.mbt`, `registry_test.mbt`, and `cmd_wbtest.mbt`) plus official Binaryen primary sources (`OnceReduction.cpp`, `pass.cpp`, `intrinsics.h`, and `once-reduction.wast`) and making explicit that current Starshine is a narrower recursive boundary-array once-bit subset rather than the full upstream CFG/dominator plus idempotent-annotation engine.
+- Added `docs/wiki/binaryen/passes/once-reduction/starshine-hot-ir-strategy.md`, giving the dossier its missing local-strategy page with exact code locations for once-wrapper matching, candidate-global scanning, recursive summary propagation, recursive rewrite, once-body cleanup, dispatch, preset placement, registry coverage, and CLI coverage.
+- Refreshed `docs/wiki/binaryen/passes/once-reduction/index.md` and `parity.md`, and updated `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/index.md`, so the touched area now consistently advertises the full landing/Binaryen/shapes/Starshine/parity dossier shape instead of leaving `once-reduction` as an implemented-pass exception.
+
 ## [2026-04-21] research | add Starshine `reorder-locals` strategy/code-map coverage and align touched-area dossier metadata
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/reorder-locals/` folder, then chose `reorder-locals` because it was an active implemented module-pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.

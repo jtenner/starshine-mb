@@ -5,6 +5,7 @@ last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
+  - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -23,6 +24,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./dominance-propagation-and-cycle-safety.md
   - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
   - ./parity.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -129,6 +131,8 @@ What it actually is in `version_129`:
   - Focused guide to the hardest part to misunderstand: what once facts really propagate, why after-merge cases stay conservative, what the triple-loop lit family is guarding, and how wrapper cleanup avoids infinite cycles.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering classic positive once patterns, call-chain propagation, wrapper positives, nonzero-init / nonzero-write nuances, and the main bailout families.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+  - Current in-tree Starshine module-pass strategy: exact MoonBit code map, recursive once-bit analysis/rewrite flow, and the main ways the local implementation is narrower than upstream Binaryen's CFG/dominator engine.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, saved generated-artifact evidence, and the honest remaining gap between the local implementation and the full official `OnceReduction.cpp` surface.
 
