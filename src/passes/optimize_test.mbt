@@ -475,6 +475,55 @@ test "vacuum cleans simplify-locals structured return residue in the late cleanu
 }
 
 ///|
+test "vacuum roundtrips dead simd prefixes before unreachable" {
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(
+        "(module (func (export \"f\") v128.const i32x4 1 2 3 4 i64x2.extend_low_i32x4_s i8x16.popcnt i64x2.extend_high_i32x4_u unreachable))",
+      ),
+      HotPipelineOptions::new(),
+      ["vacuum"],
+    ) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected vacuum simd/unreachable roundtrip success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected simd/unreachable module to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("i64x2.extend_low_i32x4s"), msg=pretty)
+  assert_true(pretty.contains("i8x16.popcnt"), msg=pretty)
+  assert_true(pretty.contains("i64x2.extend_high_i32x4u"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+}
+
+///|
+test "vacuum roundtrips top-level try_table catches that target the implicit function label" {
+  let optimized = match
+    run_hot_pipeline(
+      pass_test_module_from_wat(
+        "(module (func (export \"f\") try_table (catch_all 0) end))",
+      ),
+      HotPipelineOptions::new(),
+      ["vacuum"],
+    ) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected top-level try_table roundtrip success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected top-level try_table module to validate, got \{err}")
+  }
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("try_table"), msg=pretty)
+  assert_true(pretty.contains("catch_all (Label 0)"), msg=pretty)
+}
+
+///|
 test "remove-unused-names can clean up stale labels exposed by remove-unused-brs" {
   let optimized = match
     run_hot_pipeline(

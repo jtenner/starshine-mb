@@ -391,7 +391,8 @@ pub fn hot_verify_control(func : HotFunc) -> Result[Unit, HotVerifyError] {
             | HotCatchArm::CatchAllArm(label_id)
             | HotCatchArm::CatchAllRefArm(label_id) => label_id
           }
-          if !hot_verify_label_id_is_valid(func, target) {
+          if target != HOT_IMPLICIT_FUNCTION_LABEL &&
+            !hot_verify_label_id_is_valid(func, target) {
             return Err(HotVerifyError::InvalidBranchTarget(node_id, target))
           }
         }

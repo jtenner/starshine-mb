@@ -83,6 +83,9 @@ fn hot_lower_impl_label_depth(
   label_id : LabelId,
 ) -> LabelIdx {
   ignore(label_stack_head)
+  if label_id == HOT_IMPLICIT_FUNCTION_LABEL {
+    return LabelIdx::new(frames.active.length().reinterpret_as_uint())
+  }
   if label_id >= 0 && label_id < frames.depths.length() {
     let absolute_depth = frames.depths[label_id]
     if absolute_depth >= 0 &&

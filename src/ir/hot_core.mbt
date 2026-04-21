@@ -332,6 +332,9 @@ pub struct HotFunc {
 const HOT_NONE_NODE : NodeId = -1
 
 ///|
+pub const HOT_IMPLICIT_FUNCTION_LABEL : LabelId = -2
+
+///|
 pub fn HotFunc::new(
   locals? : HotLocals = HotLocals::new(),
   body_result_type? : TypeId = 0,
