@@ -2394,7 +2394,8 @@ pub fn hot_lift_func_with_context_unverified(
     params~,
     locals=hot_lift_impl_declared_locals(body_locals),
   )
-  let body_result_type = match hot_module_resolve_func_type_idx(ctx, func_idx) {
+  let func_type_idx = hot_module_resolve_func_type_idx(ctx, func_idx)
+  let body_result_type = match func_type_idx {
     Some(type_idx) => BlockType::type_idx(type_idx)
     None =>
       match results {
@@ -2403,7 +2404,14 @@ pub fn hot_lift_func_with_context_unverified(
         _ => abort(HotLiftError::MissingFunctionType(func_idx).to_string())
       }
   }
-  hot_lift_body_with_context_unverified(body, locals, ctx, body_result_type~)
+  let hot = hot_lift_body_with_context_unverified(
+    body,
+    locals,
+    ctx,
+    body_result_type~,
+  )
+  hot.func_type_idx = func_type_idx
+  hot
 }
 
 ///|

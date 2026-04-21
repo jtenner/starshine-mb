@@ -1023,6 +1023,7 @@ pub struct HotFunc {
   call_sigs : Array[HotCallSig]
   instr_payloads : Array[HotInstrPayload]
   mut body_result_type : Int
+  mut func_type_idx : @lib.TypeIdx?
   free_nodes : Array[Int]
   deleted_nodes : Array[Bool]
   mut revision : Int

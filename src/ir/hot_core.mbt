@@ -322,6 +322,7 @@ pub struct HotFunc {
   call_sigs : Array[HotCallSig]
   instr_payloads : Array[HotInstrPayload]
   mut body_result_type : TypeId
+  mut func_type_idx : TypeIdx?
   free_nodes : Array[NodeId]
   deleted_nodes : Array[Bool]
   mut revision : Int
@@ -352,6 +353,7 @@ pub fn HotFunc::new(
     call_sigs: [],
     instr_payloads: [],
     body_result_type,
+    func_type_idx: None,
     free_nodes: [],
     deleted_nodes: [],
     revision: 0,

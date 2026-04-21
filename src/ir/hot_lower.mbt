@@ -561,6 +561,12 @@ fn hot_lower_impl_result_only_block_type_conflicts_with_param_arity(
           _ => ()
         }
       }
+      if hot_param_count(func) > 0 {
+        match func.func_type_idx {
+          Some(func_type_idx) if func_type_idx == type_idx => return true
+          _ => ()
+        }
+      }
       false
     }
     _ => false

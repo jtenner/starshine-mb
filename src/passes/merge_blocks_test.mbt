@@ -1010,6 +1010,220 @@ test "merge-blocks preserves typed single-param externref single-result if-arm l
 }
 
 ///|
+test "merge-blocks preserves typed single-param funcref single-result block lowering Binaryen-stable" {
+  let source =
+    #| (module
+    #|   (type $t (func (param funcref) (result funcref)))
+    #|   (func (result funcref)
+    #|     ref.null func
+    #|     (block (type $t)
+    #|       (block (type $t)
+    #|         drop
+    #|         ref.null func))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected merge-blocks typed single-param funcref single-result success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.set"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.get"),
+    2,
+    msg=pretty,
+  )
+  assert_eq(merge_blocks_test_count_substring(pretty, "drop"), 1, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "ref.null"),
+    2,
+    msg=pretty,
+  )
+}
+
+///|
+test "merge-blocks preserves typed single-param funcref multi-result if-arm lowering Binaryen-stable" {
+  let source =
+    #| (module
+    #|   (type $t (func (param funcref) (result funcref i32)))
+    #|   (func (param i32) (result funcref i32)
+    #|     (if (result funcref i32)
+    #|       (local.get 0)
+    #|       (then
+    #|         ref.null func
+    #|         (block (type $t)
+    #|           (block (type $t)
+    #|             drop
+    #|             ref.null func
+    #|             i32.const 7)))
+    #|       (else
+    #|         ref.null func
+    #|         (block (type $t)
+    #|           (block (type $t)
+    #|             drop
+    #|             ref.null func
+    #|             i32.const 9))))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected merge-blocks typed single-param funcref multi-result if-arm success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.set"),
+    4,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.get"),
+    5,
+    msg=pretty,
+  )
+  assert_eq(merge_blocks_test_count_substring(pretty, "drop"), 2, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "ref.null"),
+    4,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "i32.const"),
+    2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "merge-blocks rewrites typed single-param externref multi-result loop if-arm carriers to Binaryen-stable result-only loops" {
+  let source =
+    #| (module
+    #|   (type $t (func (param externref) (result externref i32)))
+    #|   (func (param i32) (result externref i32)
+    #|     (if (result externref i32)
+    #|       (local.get 0)
+    #|       (then
+    #|         ref.null extern
+    #|         (loop (type $t)
+    #|           (block (type $t)
+    #|             drop
+    #|             ref.null extern
+    #|             i32.const 7)))
+    #|       (else
+    #|         ref.null extern
+    #|         (loop (type $t)
+    #|           (block (type $t)
+    #|             drop
+    #|             ref.null extern
+    #|             i32.const 9))))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected merge-blocks typed single-param externref multi-result loop if-arm success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(merge_blocks_test_count_substring(pretty, "(loop"), 2, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.set"),
+    4,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.get"),
+    5,
+    msg=pretty,
+  )
+  assert_eq(merge_blocks_test_count_substring(pretty, "drop"), 2, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "ref.null"),
+    4,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "i32.const"),
+    2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("Type 2"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
+test "merge-blocks rewrites typed single-param funcref multi-result loop if-arm carriers to Binaryen-stable result-only loops" {
+  let source =
+    #| (module
+    #|   (type $t (func (param funcref) (result funcref i32)))
+    #|   (func (param i32) (result funcref i32)
+    #|     (if (result funcref i32)
+    #|       (local.get 0)
+    #|       (then
+    #|         ref.null func
+    #|         (loop (type $t)
+    #|           (block (type $t)
+    #|             drop
+    #|             ref.null func
+    #|             i32.const 7)))
+    #|       (else
+    #|         ref.null func
+    #|         (loop (type $t)
+    #|           (block (type $t)
+    #|             drop
+    #|             ref.null func
+    #|             i32.const 9))))))
+  let optimized = match pass_test_run_pipeline(source, ["merge-blocks"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected merge-blocks typed single-param funcref multi-result loop if-arm success, got \{err}",
+      )
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_eq(merge_blocks_test_count_substring(pretty, "(block"), 0, msg=pretty)
+  assert_eq(merge_blocks_test_count_substring(pretty, "(loop"), 2, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.set"),
+    4,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "local.get"),
+    5,
+    msg=pretty,
+  )
+  assert_eq(merge_blocks_test_count_substring(pretty, "drop"), 2, msg=pretty)
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "ref.null"),
+    4,
+    msg=pretty,
+  )
+  assert_eq(
+    merge_blocks_test_count_substring(pretty, "i32.const"),
+    2,
+    msg=pretty,
+  )
+  assert_true(pretty.contains("Type 2"), msg=pretty)
+  assert_true(pretty.contains("I32(7)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
+}
+
+///|
 test "merge-blocks keeps typed multi-param single-result block lowering Binaryen-stable" {
   let source =
     #| (module
