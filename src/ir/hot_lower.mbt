@@ -661,9 +661,10 @@ fn hot_lower_impl_drop_dead_nonfinal_root_results(
 
 ///|
 priv struct HotLowerTypedLoopConstPrefixLowering {
-  outer_local : LocalIdx?
+  outer_locals : Array[LocalIdx]
   raw_block_type : BlockType
   rewritten_body : Array[Instruction]
+  lower_to_block : Bool
 }
 
 ///|
@@ -730,9 +731,25 @@ fn hot_lower_impl_typed_loop_const_prefix_lowering(
       }
   }
   if hot_lower_impl_typed_loop_const_prefix_reuses_existing_spill(body) {
-    return Some({ outer_local: None, raw_block_type, rewritten_body: body })
+    return Some({
+      outer_locals: [],
+      raw_block_type,
+      rewritten_body: body,
+      lower_to_block: false,
+    })
   }
   let param_types = hot_lower_impl_control_param_types(func, id)
+  if results.length() == 0 &&
+    param_types.length() > 1 &&
+    !hot_lower_impl_body_targets_removed_label(body, 0) {
+    let block_type = hot_lower_impl_control_block_type(func, id)
+    return Some({
+      outer_locals: [],
+      raw_block_type,
+      rewritten_body: [Instruction::block(block_type, Expr::new(body))],
+      lower_to_block: true,
+    })
+  }
   if param_types.length() != 1 {
     return None
   }
@@ -762,7 +779,12 @@ fn hot_lower_impl_typed_loop_const_prefix_lowering(
       for instr in body {
         rewritten_body.push(instr)
       }
-      Some({ outer_local: Some(outer_local), raw_block_type, rewritten_body })
+      Some({
+        outer_locals: [outer_local],
+        raw_block_type,
+        rewritten_body,
+        lower_to_block: false,
+      })
     }
     _ => None
   }
@@ -1061,26 +1083,40 @@ fn hot_lower_impl_emit_instruction(
           func, id, loop_body, extra_locals, options,
         ) {
         Some(lowering) => {
-          match lowering.outer_local {
-            Some(outer_local) => out.push(Instruction::local_set(outer_local))
-            None => ()
+          for idx = lowering.outer_locals.length() - 1; idx >= 0; idx = idx - 1 {
+            out.push(Instruction::local_set(lowering.outer_locals[idx]))
           }
-          match lowering.raw_block_type {
-            VoidBlockType if !hot_lower_impl_body_targets_removed_label(
-                lowering.rewritten_body,
-                0,
-              ) =>
-              for
-                instr in hot_lower_impl_rebase_body(lowering.rewritten_body, 0) {
-                out.push(instr)
-              }
-            _ =>
-              out.push(
-                Instruction::loop_(
-                  lowering.raw_block_type,
-                  Expr::new(lowering.rewritten_body),
-                ),
-              )
+          if lowering.lower_to_block {
+            for outer_local in lowering.outer_locals {
+              out.push(Instruction::local_get(outer_local))
+            }
+            out.push(
+              Instruction::block(
+                hot_lower_impl_control_block_type(func, id),
+                Expr::new(lowering.rewritten_body),
+              ),
+            )
+          } else {
+            match lowering.raw_block_type {
+              VoidBlockType if !hot_lower_impl_body_targets_removed_label(
+                  lowering.rewritten_body,
+                  0,
+                ) =>
+                for
+                  instr in hot_lower_impl_rebase_body(
+                    lowering.rewritten_body,
+                    0,
+                  ) {
+                  out.push(instr)
+                }
+              _ =>
+                out.push(
+                  Instruction::loop_(
+                    lowering.raw_block_type,
+                    Expr::new(lowering.rewritten_body),
+                  ),
+                )
+            }
           }
         }
         None =>

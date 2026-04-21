@@ -1213,6 +1213,18 @@ fn hot_lower_test_void_block_param_module() -> @lib.Module {
 }
 
 ///|
+fn hot_lower_test_multi_param_void_block_param_module() -> @lib.Module {
+  let type_sec = @lib.TypeSec::new([
+    @lib.RecType::new(
+      @lib.SubType::comp_type(
+        @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+      ),
+    ),
+  ])
+  @lib.Module::new().with_type_sec(type_sec)
+}
+
+///|
 fn hot_lower_test_multi_result_module() -> @lib.Module {
   let type_sec = @lib.TypeSec::new([
     @lib.RecType::new(
@@ -1617,6 +1629,109 @@ test "hot lower drops branch-free typed void loop if-arm carriers into direct sp
       ),
     ]),
   )
+}
+
+///|
+test "hot lower drops branch-free typed multi-param void loop carriers into direct spills when merge-blocks wants Binaryen-stable output" {
+  let module_ = hot_lower_test_multi_param_void_block_param_module()
+  let body = @lib.Expr::new([
+    @lib.Instruction::i32_const(@lib.I32(4)),
+    @lib.Instruction::i32_const(@lib.I32(5)),
+    @lib.Instruction::loop_(
+      @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+      @lib.Expr::new([@lib.Instruction::drop(), @lib.Instruction::drop()]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(),
+    hot_module_context_from_module(module_),
+  )
+  let lowered = hot_lower_func_with_options(
+    hot,
+    HotLowerOptions::new(preserve_typed_loop_const_prefix_spills=true),
+  )
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(@lib.SubType::comp_type(@lib.CompType::func([], []))),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+
+  assert_eq(hot_lower_test_count_substring(pretty, "(loop"), 0, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 2, msg=pretty)
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+  assert_true(pretty.contains("I32(5)"), msg=pretty)
+}
+
+///|
+test "hot lower drops branch-free typed multi-param void loop if-arm carriers into direct spills when merge-blocks wants Binaryen-stable output" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+    @lib.Instruction::if_(
+      @lib.BlockType::void_(),
+      [
+        @lib.Instruction::i32_const(@lib.I32(4)),
+        @lib.Instruction::i32_const(@lib.I32(5)),
+        @lib.Instruction::loop_(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+          @lib.Expr::new([@lib.Instruction::drop(), @lib.Instruction::drop()]),
+        ),
+      ],
+      Some([
+        @lib.Instruction::i32_const(@lib.I32(8)),
+        @lib.Instruction::i32_const(@lib.I32(9)),
+        @lib.Instruction::loop_(
+          @lib.BlockType::type_idx(@lib.TypeIdx::new(0U)),
+          @lib.Expr::new([@lib.Instruction::drop(), @lib.Instruction::drop()]),
+        ),
+      ]),
+    ),
+  ])
+  let hot = hot_lift_body_with_context(
+    body,
+    HotLocals::new(params=[@lib.ValType::i32()]),
+    hot_module_context_from_module(
+      hot_lower_test_multi_param_void_block_param_module(),
+    ),
+  )
+  let lowered = hot_lower_func_with_options(
+    hot,
+    HotLowerOptions::new(preserve_typed_loop_const_prefix_spills=true),
+  )
+  let pretty = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], []),
+          ),
+        ),
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], []),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(1U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+    .pretty_print_func(@lib.FuncIdx::new(0U))
+
+  assert_eq(hot_lower_test_count_substring(pretty, "(loop"), 0, msg=pretty)
+  assert_eq(hot_lower_test_count_substring(pretty, "drop"), 4, msg=pretty)
+  assert_true(pretty.contains("I32(4)"), msg=pretty)
+  assert_true(pretty.contains("I32(5)"), msg=pretty)
+  assert_true(pretty.contains("I32(8)"), msg=pretty)
+  assert_true(pretty.contains("I32(9)"), msg=pretty)
 }
 
 ///|

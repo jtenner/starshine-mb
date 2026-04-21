@@ -149,6 +149,10 @@ fn merge_blocks_visit_control_node(
   let control_has_params = merge_blocks_block_has_params(
     func, node_id, module_ctx,
   )
+  let control_is_loop = match node.op {
+    @ir.HotOp::Loop => true
+    _ => false
+  }
   match node.op {
     @ir.HotOp::Block | @ir.HotOp::Loop =>
       merge_blocks_visit_region(
@@ -158,6 +162,7 @@ fn merge_blocks_visit_control_node(
         flattened_roots,
         module_ctx,
         control_has_params,
+        control_is_loop,
       )
     @ir.HotOp::If => {
       let mut changed = merge_blocks_visit_region(
@@ -167,11 +172,13 @@ fn merge_blocks_visit_control_node(
         flattened_roots,
         module_ctx,
         false,
+        false,
       )
       match @ir.hot_region_else_ref(func, node_id) {
         Some(else_region) =>
           changed = merge_blocks_visit_region(
               func, else_region, label_used, flattened_roots, module_ctx, false,
+              false,
             ) ||
             changed
         None => ()
@@ -186,11 +193,13 @@ fn merge_blocks_visit_control_node(
         flattened_roots,
         module_ctx,
         control_has_params,
+        false,
       )
       match @ir.hot_region_catch_ref(func, node_id) {
         Some(catch_region) =>
           changed = merge_blocks_visit_region(
               func, catch_region, label_used, flattened_roots, module_ctx, control_has_params,
+              false,
             ) ||
             changed
         None => ()
@@ -205,6 +214,7 @@ fn merge_blocks_visit_control_node(
         flattened_roots,
         module_ctx,
         control_has_params,
+        false,
       )
       merge_blocks_visit_region(
         func,
@@ -213,6 +223,7 @@ fn merge_blocks_visit_control_node(
         flattened_roots,
         module_ctx,
         control_has_params,
+        false,
       ) ||
       changed
     }
@@ -229,6 +240,7 @@ fn merge_blocks_flatten_region_root_block(
   flattened_roots : Array[Int],
   module_ctx : @ir.HotModuleContext?,
   enclosing_control_has_params : Bool,
+  enclosing_control_is_loop : Bool,
 ) -> Bool {
   let block_id = @ir.hot_region_get(func, region_ref, idx)
   if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
@@ -244,7 +256,15 @@ fn merge_blocks_flatten_region_root_block(
     return false
   }
   let param_count = merge_blocks_block_param_count(func, block_id, module_ctx)
-  if param_count > 0 && (!enclosing_control_has_params || param_count != 1) {
+  let result_count = @ir.hot_type_results(
+    func,
+    @ir.hot_node_type(func, block_id),
+  ).length()
+  if param_count > 0 &&
+    (
+      !enclosing_control_has_params ||
+      (param_count != 1 && !(enclosing_control_is_loop && result_count == 0))
+    ) {
     return false
   }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
@@ -262,6 +282,7 @@ fn merge_blocks_visit_region(
   flattened_roots : Array[Int],
   module_ctx : @ir.HotModuleContext?,
   enclosing_control_has_params : Bool,
+  enclosing_control_is_loop : Bool,
 ) -> Bool {
   let mut changed = false
   let mut idx = 0
@@ -275,6 +296,7 @@ fn merge_blocks_visit_region(
     }
     if merge_blocks_flatten_region_root_block(
         func, region_ref, idx, label_used, flattened_roots, module_ctx, enclosing_control_has_params,
+        enclosing_control_is_loop,
       ) {
       changed = true
     } else {
@@ -297,6 +319,7 @@ fn merge_blocks_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
       label_used,
       flattened_roots,
       ctx.module_ctx,
+      false,
       false,
     ) {
     return HotPassResult::unchanged()
