@@ -1,10 +1,12 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
+  - ../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md
 related:
+  - ./starshine-hot-ir-strategy.md
   - ../../../../../src/passes/global_refining.mbt
   - ../../../../../src/passes/global_refining_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -104,6 +106,7 @@ Current local pass:
 - HOT lifting only for functions that set candidate globals
 - validator-environment subtype matching and join helpers
 - declaration rewrite only at the boundary IR level
+- no Binaryen-style `GetUpdater` / `runOnModuleCode(...)` repair phase because the local representation does not need the same cached expression-type retagging on this path today
 
 That difference is not automatically wrong, but it is a real architectural divergence.
 
@@ -140,7 +143,10 @@ That is an inference from the green audit plus the visible local-vs-upstream sou
 
 ## Sources
 
-- Archived research doc: [`../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md`](../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md)
+- Archived research docs:
+  - [`../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md`](../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md)
+  - [`../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md`](../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md)
+- Local strategy page: [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
 - Implementation: [`../../../../../src/passes/global_refining.mbt`](../../../../../src/passes/global_refining.mbt)
 - Focused tests: [`../../../../../src/passes/global_refining_test.mbt`](../../../../../src/passes/global_refining_test.mbt)
 - Dispatch/options surface: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

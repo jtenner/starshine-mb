@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-21] research | add Starshine `global-refining` strategy/code-map coverage and align touched-area dossier metadata
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/global-refining/` folder, then chose `global-refining` because it was an active implemented module-pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.
+- Added `docs/wiki/raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md`, grounding the follow-up in the in-tree MoonBit implementation (`src/passes/global_refining.mbt`, `global_refining_test.mbt`, `pass_manager.mbt`, and `optimize.mbt`) plus official Binaryen primary sources (`GlobalRefining.cpp`, `pass.cpp`, and `global-refining.wast`) and making explicit that current Starshine is a narrower private-global declaration-tightening subset rather than the full upstream exported-boundary plus `global.get`-retagging contract.
+- Added `docs/wiki/binaryen/passes/global-refining/starshine-hot-ir-strategy.md`, giving the dossier its missing local-strategy page with exact code locations for initializer typing, local ref-type joining, cheap candidate-set scanning, HOT-assisted `global.set` collection, declaration rewriting, dispatch, preset placement, and the focused local tests.
+- Refreshed `docs/wiki/binaryen/passes/global-refining/index.md` and `parity.md`, and updated `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/index.md`, so the touched area now consistently advertises the full landing/Binaryen/shapes/Starshine/parity dossier shape instead of leaving `global-refining` as an implemented-pass exception.
+
 ## [2026-04-21] research | add Starshine `remove-unused-names` strategy/code-map coverage and align touched-area dossier metadata
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/remove-unused-names/` folder, then chose `remove-unused-names` because it was an active implemented hot-pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.

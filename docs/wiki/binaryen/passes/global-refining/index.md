@@ -5,6 +5,7 @@ last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
   - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
+  - ../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md
   - ../../../../../src/passes/global_refining.mbt
   - ../../../../../src/passes/global_refining_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -26,6 +27,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./exports-public-types-and-retagging.md
   - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
   - ./parity.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -85,10 +87,14 @@ It is a small whole-module **global declaration tightening** pass.
   - open-world exported mutable globals are not refined
   - open-world exported immutable globals may still refine, but only to a valid public type
   - current official `version_129` closed-world behavior still skips **all** exported globals here
-- The actual rewrite surface is tiny:
+- The actual upstream Binaryen rewrite surface is tiny:
   - change the declared global type
   - update `global.get` result types
   - refinalize changed code
+- The current local Starshine pass is narrower:
+  - it refines only non-exported defined reference globals
+  - it collects writes through HOT lifting only for functions that mention candidate globals
+  - and it rewrites declarations without Binaryen-style post-pass `global.get` retagging because the local representation does not use the same cached expression-type model here
 - The pass does **not** remove `global.set`s, replace `global.get`s with constants, or run `gsi`-style field-value inference.
 - A narrow 2026-04-21 source comparison found **no semantic post-`version_129` drift** in the owning pass file or the dedicated lit file.
 
@@ -130,7 +136,9 @@ What it actually is in `version_129`:
 - [`./exports-public-types-and-retagging.md`](./exports-public-types-and-retagging.md)
   - Focused guide to the easiest part to misunderstand: imported vs exported globals, open-world vs closed-world rules, public-type validity, and why Binaryen must retag `global.get` users after a declaration change.
 - [`./wat-shapes.md`](./wat-shapes.md)
-  - Beginner-friendly shape catalog covering null-only and `ref.func` init positives, exactness and nullability outcomes, heterogeneous `eqref` joins, exported/imported bailouts, and the main non-goals.
+  - Beginner-friendly shape catalog covering init-only null and `ref.func` positives, exactness/nullability outcomes, heterogeneous `anyref`-to-`eqref` joins, exported/imported bailouts, and the main non-goals.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+  - Current in-tree Starshine strategy: private-global-only candidate selection, HOT-assisted `global.set` collection, local ref-type joining, declaration-only rewrite, and the main differences from upstream Binaryen's export/public-type/retagging contract.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, the green saved generated-artifact evidence, and the honest remaining gaps between the local MoonBit pass and the full official Binaryen boundary matrix.
 
@@ -152,12 +160,13 @@ So the durable rule is:
 - Treat `implementation-structure-and-tests.md` as the compact owner/test-map page for future follow-ups so the file/test surface stays source-confirmed instead of getting re-inferred from broad prose.
 - Keep the main beginner correction explicit:
   - upstream `global-refining` is a declaration-tightening plus retagging pass, not a broad control-flow-sensitive global optimizer
-- Keep the exported immutable open-world case, the closed-world exported-global conservatism, the `PublicTypeValidator` rule, and the `global.get` retagging contract explicit whenever future docs or code changes touch this pass.
+- Keep the exported immutable open-world case, the closed-world exported-global conservatism, the `PublicTypeValidator` rule, the Starshine-local private-global subset page, and the `global.get` retagging contract explicit whenever future docs or code changes touch this pass.
 
 ## Sources
 
 - [`../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md`](../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md)
 - [`../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md`](../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md)
+- [`../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md`](../../../raw/research/0236-2026-04-21-global-refining-starshine-strategy-followup.md)
 - [`../../../../../src/passes/global_refining.mbt`](../../../../../src/passes/global_refining.mbt)
 - [`../../../../../src/passes/global_refining_test.mbt`](../../../../../src/passes/global_refining_test.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
