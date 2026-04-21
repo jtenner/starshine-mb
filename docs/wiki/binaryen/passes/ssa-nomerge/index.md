@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
+  - ../../../raw/binaryen/2026-04-21-ssa-nomerge-primary-sources.md
   - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
   - ../../../../../src/passes/ssa_nomerge.mbt
   - ../../../../../src/passes/ssa_nomerge_test.mbt
@@ -28,6 +30,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/ssa-nomerge_enable-simd.txt
 related:
   - ./binaryen-strategy.md
+  - ./starshine-hot-ir-strategy.md
   - ./merge-shapes-and-canonical-slots.md
   - ./wat-shapes.md
   - ./parity.md
@@ -58,7 +61,7 @@ So this is **not** full SSA construction, but it is also **not** just straight-l
 
 ## Why this pass matters
 
-- When this thread started, `docs/wiki/binaryen/passes/tracker.md` named `ssa-nomerge` as the strongest remaining implemented landing-page target.
+- Earlier pass-wiki work had already made `ssa-nomerge` a strong upstream-facing dossier, but this run still needed to close the missing **Starshine strategy/code-map** gap so the folder matched the surrounding implemented-pass schema.
 - In the canonical no-DWARF `-O` / `-Os` scheduler it is the first function pass:
   - `... -> global-struct-inference -> ssa-nomerge -> dead-code-elimination -> remove-unused-names -> ...`
 - That placement is meaningful.
@@ -124,10 +127,12 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the actual `SSAify.cpp` structure, helper dependencies, scheduler placement, LocalGraph flow model, and the shared-`ssa` versus no-merge split.
+- [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+  - Exact MoonBit code map for the current local pass, covering the HOT-SSA roundtrip, predecessor-copy destruction path, raw structured and straight-line fallbacks, preset placement, and the main ways current Starshine differs from upstream Binaryen's true no-merge strategy.
 - [`./merge-shapes-and-canonical-slots.md`](./merge-shapes-and-canonical-slots.md)
-  - Focused guide to the hardest part to misunderstand: why the no-merge policy is per set, how default/param values count as merge inputs, and why some writes to one original local still get fresh locals while others stay canonical.
+  - Focused guide to the hardest part to misunderstand on the upstream side: why the no-merge policy is per set, how default/param values count as merge inputs, and why some writes to one original local still get fresh locals while others stay canonical.
 - [`./wat-shapes.md`](./wat-shapes.md)
-  - Beginner-friendly shape catalog covering straight-line positives, dead-param and default-zero rewrites, merge bailouts, shared-helper ref/tuple defaults, and the full-`ssa` families that `ssa-nomerge` intentionally declines.
+  - Beginner-friendly shape catalog covering straight-line positives, dead-param and default-zero rewrites, merge bailouts, shared-helper ref/tuple defaults, and the full-`ssa` families that upstream `ssa-nomerge` intentionally declines.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, the fixed dead-param family, the green WAT/canonical compare evidence, and the honest remaining artifact-level writeback-skip story.
 
@@ -143,15 +148,16 @@ A narrow 2026-04-20 direct source comparison found **no semantic post-`version_1
 
 So the durable rule is:
 
-- treat Binaryen `version_129` as the released oracle for this dossier
+- treat Binaryen `version_129` as the reviewed tagged oracle for this dossier's upstream file/test surfaces
 - keep the current-main note explicit only to say there is no visible source or dedicated-test semantic drift right now
+- do **not** silently upgrade that narrower claim into “latest global Binaryen release,” because the official releases index visible to this run showed a newer-by-date `version_125` page as well; keep that numbering uncertainty explicit instead
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `ssa-nomerge` parity and scheduler research.
 - Keep the main beginner correction explicit:
   - upstream `ssa-nomerge` is LocalGraph-based single-source untangling with merges deliberately left canonical, not full phi SSA and not just straight-line renaming
-- Keep the per-set no-merge rule, the default-value materialization behavior, the shared `ssa` helper boundary, and the current artifact-level fail-closed writeback caveat explicit whenever future docs or code changes touch this pass.
+- Keep the per-set no-merge rule, the default-value materialization behavior, the shared `ssa` helper boundary, the new local HOT-SSA-destruction strategy page, and the current artifact-level fail-closed writeback caveat explicit whenever future docs or code changes touch this pass.
 
 ## Sources
 

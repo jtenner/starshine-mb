@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-21] research | add Starshine `ssa-nomerge` strategy/code-map coverage and ingest a primary-source capture
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/ssa-nomerge/` folder, then chose `ssa-nomerge` because it was an active implemented hot-pass dossier that still lacked the dedicated Starshine strategy/code-map page the surrounding implemented-pass schema already expected.
+- Added `docs/wiki/raw/binaryen/2026-04-21-ssa-nomerge-primary-sources.md`, capturing the exact official Binaryen release/source/test URLs reviewed in this run and preserving the release-numbering uncertainty explicitly: the official GitHub releases index visible on 2026-04-21 showed both `version_129` and a newer-by-date `version_125` page, so the touched dossier now treats `version_129` only as the reviewed tagged oracle for the exact `ssa-nomerge` surfaces, not as an asserted latest global Binaryen release.
+- Added `docs/wiki/raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md`, grounding the follow-up in the in-tree MoonBit implementation (`src/passes/ssa_nomerge.mbt`, `src/passes/pass_manager.mbt`, `src/ir/ssa_destroy.mbt`, `src/passes/ssa_nomerge_test.mbt`, `src/cmd/cmd_wbtest.mbt`, and `src/passes/optimize.mbt`) plus the official Binaryen release / source / test surfaces captured in the new raw-source manifest, and making explicit that current Starshine is a HOT-SSA roundtrip plus raw-fallback family rather than a direct no-merge LocalGraph port.
+- Added `docs/wiki/binaryen/passes/ssa-nomerge/starshine-hot-ir-strategy.md`, refreshed `docs/wiki/binaryen/passes/ssa-nomerge/index.md`, and updated `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/index.md`, so the touched area now consistently advertises the full landing/Binaryen/Starshine/shapes/parity dossier shape instead of leaving `ssa-nomerge` as the remaining implemented hot-pass exception.
+
 ## [2026-04-21] research | add Starshine `tuple-optimization` code-map coverage and align touched-folder metadata
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/tuple-optimization/` folder, then chose `tuple-optimization` because the dossier was already strong on the upstream side but still lacked a dedicated Starshine implementation-map page and an exact code-location-oriented local strategy page.
