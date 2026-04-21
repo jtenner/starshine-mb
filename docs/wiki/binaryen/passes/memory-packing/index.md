@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
+  - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
   - ../../../../../src/passes/memory_packing.mbt
   - ../../../../../src/passes/memory_packing_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -70,6 +71,7 @@ It is a whole-module segment-layout plus segment-op rewrite pass.
 ## Most important durable takeaways
 
 - Upstream `memory-packing` is not just “split active data segments around zeroes.”
+- The folder now also has a source-confirmed implementation/test-map page, so the exact owner-phase split no longer has to be reconstructed from the strategy prose alone.
 - The real safety story starts with a whole-module legality gate:
   - exactly one memory only
   - imported memory only when `zeroFilledMemory` is enabled
@@ -120,6 +122,8 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the real `MemoryPacking.cpp` structure, helper utilities, scheduler placement, and the whole module-level algorithm.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Source-confirmed owner-file and lit-test map for `memory-packing`, including the real phase split between legality gating, early segment-op cleanup, referrer discovery, dead passive-segment cleanup, range analysis, split emission, and passive replacement planning.
 - [`./segment-op-rewrites-and-traps.md`](./segment-op-rewrites-and-traps.md)
   - Focused guide to the hardest half of the pass: active-versus-passive differences, `memory.init` / `data.drop` rewrites, trap preservation, zero-filled imported memory, and memory64/high-bit corner cases.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -147,6 +151,7 @@ So the durable rule is:
 - Keep the main beginner correction explicit:
   - upstream `memory-packing` is a segment-plus-segment-op rewrite pass, not just an active-segment splitter
 - Keep the active/passive split, trap-preservation story, imported-memory gate, GC conservative boundary, and memory64/high-bit unsigned handling explicit whenever future docs or code changes touch this pass.
+- Treat the implementation/test-map page as the compact owner map for future follow-ups instead of re-deriving the phase split from chat history.
 
 ## Sources
 
@@ -162,5 +167,10 @@ So the durable rule is:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MemoryPacking.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory-packing_all-features.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory-packing_traps.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory-packing_zero-filled-memory.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory-packing_zero-filled-memory64.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory-packing_memory64-high-addr.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory-packing-gc.wast>
 - Narrow freshness-check surface:
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MemoryPacking.cpp>

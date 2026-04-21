@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
+  - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./dominance-propagation-and-cycle-safety.md
   - ./wat-shapes.md
   - ./parity.md
@@ -35,6 +37,10 @@ Most important helper dependencies visible in the implementation:
 The shipped lit surface is also part of the contract:
 
 - `test/lit/passes/once-reduction.wast`
+
+For a compact file/test ownership map, see:
+
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 
 ## High-level intent
 
@@ -74,9 +80,26 @@ The saved local Binaryen debug log shows one top-level `running pass: once-reduc
 That second line is easy to misread.
 Here it reflects the implementation launching nested helper passes (`Scanner` and then `Optimizer` repeatedly), not a later pass-runner rerun contract like `optimizeAfterInlining(...)`.
 
+## Concrete ownership summary
+
+The exact `version_129` source is easiest to keep straight if you assign each phase to the file-local owner that actually implements it:
+
+- `Scanner`
+  - rejects bad reads and writes and recognizes the exact wrapper shape
+- `OnceReduction::run(...)`
+  - seeds candidates, invalidates exported globals, adds fake-global idempotent support, and runs the fixed-point loop
+- `Optimizer`
+  - performs the CFG/dominator walk and writes the next iteration of function summaries
+- `optimizeOnceBodies(...)`
+  - does the tiny final empty-wrapper and single-call-wrapper cleanup with deterministic cycle protection
+
+That ownership split is important because a future port can easily get the semantics subtly wrong by collapsing those responsibilities into one vaguer “once analysis” step.
+
 ## Phase 0: top-level shared state in `OptInfo`
 
 The pass centers everything around `OptInfo`.
+
+The 2026-04-21 follow-up confirms that this is not incidental implementation detail; it is the real contract between scanning, optimization, and wrapper cleanup.
 
 It stores four related maps:
 

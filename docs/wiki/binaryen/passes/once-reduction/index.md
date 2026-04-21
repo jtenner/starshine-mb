@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
+  - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -19,6 +20,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/once-reduction.wast
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./dominance-propagation-and-cycle-safety.md
   - ./wat-shapes.md
   - ./parity.md
@@ -45,6 +47,10 @@ A better beginner summary is:
 - then propagates “this once-bit is definitely already set here” facts through dominated control-flow and direct-call summaries,
 - nops redundant direct calls and redundant writes,
 - and finally strips a tiny family of trivial once-function wrappers and empty once bodies.
+
+The 2026-04-21 follow-up makes one additional source-confirmed point explicit:
+
+- the real `version_129` implementation has four distinct owners that a future port must keep separate: `Scanner`, `OnceReduction::run(...)`, `Optimizer`, and `optimizeOnceBodies(...)`
 
 So this is **not** generic repeated-call elimination.
 It is a narrow whole-module once-bit plus direct-call optimization pass.
@@ -117,6 +123,8 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the real `OnceReduction.cpp` structure, helper dependencies, scheduler placement, fixed-point iteration, and the actual algorithm.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Compact file/test map for the exact `version_129` pass ownership split: what `Scanner`, `Optimizer`, `OnceReduction::run(...)`, `optimizeOnceBodies(...)`, `pass.cpp`, `intrinsics.h`, and the shipped lit file each prove.
 - [`./dominance-propagation-and-cycle-safety.md`](./dominance-propagation-and-cycle-safety.md)
   - Focused guide to the hardest part to misunderstand: what once facts really propagate, why after-merge cases stay conservative, what the triple-loop lit family is guarding, and how wrapper cleanup avoids infinite cycles.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -146,6 +154,7 @@ So the durable rule is:
 ## Sources
 
 - [`../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
+- [`../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md`](../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md)
 - [`../../../../../src/passes/once_reduction.mbt`](../../../../../src/passes/once_reduction.mbt)
 - [`../../../../../src/passes/once_reduction_test.mbt`](../../../../../src/passes/once_reduction_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

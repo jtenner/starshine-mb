@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md
+  - ../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md
   - ../../../../../src/passes/global_refining.mbt
   - ../../../../../src/passes/global_refining_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -22,6 +23,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/global-refining.wast
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./exports-public-types-and-retagging.md
   - ./wat-shapes.md
   - ./parity.md
@@ -55,7 +57,7 @@ It is a small whole-module **global declaration tightening** pass.
 
 ## Why this pass matters
 
-- When this thread started, `docs/wiki/binaryen/passes/tracker.md` named `global-refining` as the strongest remaining implemented landing-page target.
+- The existing dossier was already useful, but this follow-up matters because `global-refining` still lacked one compact source-confirmed owner/test-map page, which made it too easy to re-explain the pass from broad prose instead of the tiny actual Binaryen file/test surface.
 - In the canonical no-DWARF `-O` / `-Os` scheduler it sits in the early module GC cluster:
   - `duplicate-function-elimination -> remove-unused-module-elements -> memory-packing -> once-reduction -> global-refining -> remove-unused-module-elements -> gsi`
 - That placement is meaningful:
@@ -88,7 +90,7 @@ It is a small whole-module **global declaration tightening** pass.
   - update `global.get` result types
   - refinalize changed code
 - The pass does **not** remove `global.set`s, replace `global.get`s with constants, or run `gsi`-style field-value inference.
-- A narrow 2026-04-20 source comparison found **no semantic post-`version_129` drift** in the owning pass file or the dedicated lit file.
+- A narrow 2026-04-21 source comparison found **no semantic post-`version_129` drift** in the owning pass file or the dedicated lit file.
 
 ## Biggest beginner correction
 
@@ -123,6 +125,8 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the real `GlobalRefining.cpp` structure, helper dependencies, scheduler placement, and the exact algorithm.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Compact source-confirmed owner-file and lit-test map for `global-refining`, including the tiny `GlobalRefining.cpp` / `lubs.h` / `public-type-validator.h` ownership split and what the dedicated `global-refining.wast` file directly proves.
 - [`./exports-public-types-and-retagging.md`](./exports-public-types-and-retagging.md)
   - Focused guide to the easiest part to misunderstand: imported vs exported globals, open-world vs closed-world rules, public-type validity, and why Binaryen must retag `global.get` users after a declaration change.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -132,7 +136,7 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A narrow 2026-04-20 direct source comparison found **no semantic post-`version_129` drift** in the owning official surfaces used for this dossier.
+A narrow 2026-04-21 direct source comparison found **no semantic post-`version_129` drift** in the owning official surfaces used for this dossier.
 
 - `src/passes/GlobalRefining.cpp` is identical on current `main` and `version_129`
 - `test/lit/passes/global-refining.wast` is also identical on current `main` and `version_129`
@@ -145,6 +149,7 @@ So the durable rule is:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `global-refining` parity and scheduler research.
+- Treat `implementation-structure-and-tests.md` as the compact owner/test-map page for future follow-ups so the file/test surface stays source-confirmed instead of getting re-inferred from broad prose.
 - Keep the main beginner correction explicit:
   - upstream `global-refining` is a declaration-tightening plus retagging pass, not a broad control-flow-sensitive global optimizer
 - Keep the exported immutable open-world case, the closed-world exported-global conservatism, the `PublicTypeValidator` rule, and the `global.get` retagging contract explicit whenever future docs or code changes touch this pass.
@@ -152,6 +157,7 @@ So the durable rule is:
 ## Sources
 
 - [`../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md`](../../../raw/research/0139-2026-04-20-global-refining-binaryen-research.md)
+- [`../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md`](../../../raw/research/0208-2026-04-21-global-refining-source-confirmation-followup.md)
 - [`../../../../../src/passes/global_refining.mbt`](../../../../../src/passes/global_refining.mbt)
 - [`../../../../../src/passes/global_refining_test.mbt`](../../../../../src/passes/global_refining_test.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

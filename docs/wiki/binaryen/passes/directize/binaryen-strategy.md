@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
+  - ../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./table-info-and-immutability.md
   - ./wat-shapes.md
   - ../reorder-globals/index.md
@@ -13,6 +15,9 @@ related:
 ---
 
 # Binaryen `directize` strategy
+
+This page is the strategy view of the dossier.
+For the compact owner/test map, use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Upstream source rule
 
@@ -423,6 +428,7 @@ A future Starshine port should preserve all of these:
 ## Sources
 
 - [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
+- [`../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md`](../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Directize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>

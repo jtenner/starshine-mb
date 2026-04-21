@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
+  - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./propagation-partial-precompute-and-gc-identity.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
@@ -33,6 +35,8 @@ Most important helper dependencies:
 - `src/ir/manipulation.h`
 - `src/ir/literal-utils.h`
 - `src/ir/utils.h`
+
+For the compact owner/test attribution map, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 The shipped lit tests are also part of the contract here, especially:
 

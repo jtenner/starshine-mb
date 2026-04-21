@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
+  - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
   - ../../../raw/research/0069-2026-03-26-pick-load-signs.md
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/pick_load_signs.mbt
@@ -25,6 +26,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/pick-load-signs_sign-ext.wast
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
@@ -39,6 +41,7 @@ related:
 ## Role
 
 - `pick-load-signs` is an active implemented **hot pass** in Starshine.
+- This folder is already a deep dossier, but this 2026-04-21 follow-up closes one real remaining documentation gap: a compact source-confirmed implementation/test map for the tiny owner graph around `PickLoadSigns.cpp`, `properties.h`, and the split dedicated-vs-neighboring lit proof surface.
 - In upstream Binaryen `version_129`, the public `pass.cpp` description is only:
   - `pick load signs based on their uses`
 
@@ -114,6 +117,8 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the real `PickLoadSigns.cpp` structure, helper utilities, scheduler placement, and the exact i32-only recognition logic visible through `properties.h`.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Compact upstream file/test map covering the real owner split across `PickLoadSigns.cpp`, `properties.h`, `pass.cpp`, `opt-utils.h`, the tiny dedicated lit file, and the neighboring `optimize-instructions` sign-extension proof surface that this pass should not silently absorb.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering direct sign-ext positives, mask and shift-pair positives, branch/tee/atomic bailouts, and the important non-goals.
 - [`./parity.md`](./parity.md)
@@ -151,6 +156,7 @@ Keep that difference explicit instead of silently smoothing it away.
 ## Sources
 
 - [`../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md`](../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md)
+- [`../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md`](../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md)
 - [`../../../raw/research/0069-2026-03-26-pick-load-signs.md`](../../../raw/research/0069-2026-03-26-pick-load-signs.md)
 - [`../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md`](../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md)
 - [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt)

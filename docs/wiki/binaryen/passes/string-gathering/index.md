@@ -1,9 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-20
+status: supported
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
+  - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
@@ -14,6 +15,7 @@ sources:
   - ../tracker.md
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./reuse-naming-and-ordering.md
   - ./wat-shapes.md
   - ../simplify-globals-optimizing/index.md
@@ -30,6 +32,17 @@ related:
 - It is currently **unimplemented** in Starshine.
 - In Binaryen `version_129`, it runs only when strings are enabled and the optimize level is high enough.
 - Its job is very specific: hoist or reuse canonical immutable globals for `string.const` values, then replace ordinary `string.const` uses with `global.get` of those globals.
+
+## Why this dossier needed a follow-up
+
+The earlier folder already had a good working explanation of the pass, but it still lacked one compact source-confirmed page for:
+
+- the real owner-file map,
+- the exact implementation phases,
+- the narrow line between test-proven and source-derived module-code coverage,
+- and the dedicated lit surface that proves the current `version_129` contract.
+
+This follow-up closes that gap without overturning the basic earlier picture.
 
 ## Why it matters
 
@@ -66,6 +79,8 @@ That is much closer to the real pass than either:
 - `string-gathering` is a **module-wide structural rewrite**, not a function-local peephole.
 - In `version_129`, the implementation lives inside `src/passes/StringLowering.cpp` as a standalone `StringGathering` pass struct.
 - `StringLowering` subclasses `StringGathering` and runs it first, so this pass is also the shared first phase of full string lowering.
+- The function-body scan is parallel, but module-level expression code is scanned separately through `walkModuleCode(...)`.
+- The dedicated lit file directly proves the global-initializer / reuse / reorder families, while some broader module-code coverage remains source-derived from the walker surface.
 - The pass only rewrites `StringConst` nodes; it does not rewrite preexisting `global.get` users.
 - Reusable existing globals are much narrower than many first guesses:
   - defined, not imported
@@ -90,6 +105,8 @@ That last sentence is an inference from the scheduler docs, backlog slice, and s
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: scheduler placement, phase breakdown, helper dependencies, module-code scan surface, and the real “what this is not” facts.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  Compact owner-file and shipped-test map showing that the real pass lives in `StringLowering.cpp`, shares structure with `StringLowering`, uses exact-slot `StringConst` scanning plus separate `walkModuleCode(...)` coverage, and is directly proven by `test/lit/passes/string-gathering.wast`.
 - [`./reuse-naming-and-ordering.md`](./reuse-naming-and-ordering.md)
   Focused guide to reusable-global detection, first-match canonicalization, generated global names, stability across repeated runs, and the validity-first reorder before `reorder-globals`.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -106,6 +123,7 @@ That last sentence is an inference from the scheduler docs, backlog slice, and s
 ## Sources
 
 - [`../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md`](../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md)
+- [`../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md`](../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

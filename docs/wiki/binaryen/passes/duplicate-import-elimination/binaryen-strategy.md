@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
+  - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./identity-and-rewrite-surface.md
   - ./wat-shapes.md
   - ../simplify-globals-optimizing/index.md
@@ -19,47 +21,56 @@ related:
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The core implementation is `src/passes/DuplicateImportElimination.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
-- The import-identity key comes from:
-  - `src/ir/import-utils.h`
-  - `src/ir/import-utils.cpp`
-- The exact per-kind user-remap surface comes from:
-  - `src/passes/opt-utils.h`
-- The relevant IR field layout also appears in:
-  - `src/wasm.h`
+- The actual rewrite surface used by this pass comes from `src/passes/opt-utils.h`, specifically `OptUtils::replaceFunctions(...)`.
+- `src/ir/import-utils.h` matters only because it supplies `ImportInfo.importedFunctions`.
 - The shipped behavior examples come from:
-  - `test/lit/passes/duplicate-import-elimination.wast`
+  - `test/passes/duplicate-import-elimination.wast`
+  - `test/passes/duplicate-import-elimination.txt`
 
 Primary source URLs:
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateImportElimination.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/import-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/import-utils.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/duplicate-import-elimination.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/import-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.txt>
+
+## Main correction
+
+The most important source-confirmed fact is simple:
+
+- Binaryen `version_129` `duplicate-import-elimination` is a **function-import-only** pass.
+
+The implementation file says:
+
+- `// TODO: non-function imports too`
+
+and the pass body iterates only:
+
+- `imports.importedFunctions`
+
+So do **not** teach the current pass as deduplicating imported globals, tables, memories, or tags.
 
 ## High-level intent
 
-Binaryen uses `duplicate-import-elimination` to collapse multiple internal import aliases that request the same external object.
+Binaryen uses `duplicate-import-elimination` to collapse multiple internal aliases of the same imported **function**.
 
-That sentence is true but incomplete.
-
-The actual implementation is a very small late **module planner plus name-rewrite pass** with three key stages:
+The actual implementation is a very small late module planner with three stages:
 
 | Stage | What Binaryen does | Why it exists |
 | --- | --- | --- |
-| Scan imports | Build structural identity keys for imported functions, globals, tables, and memories | Detect which imported declarations are duplicate aliases |
-| Retarget users | Rewrite later duplicate users to the first-seen canonical import name | Preserve behavior while collapsing aliases |
-| Remove duplicates | Delete the redundant imported declarations by name | Leave the late module pipeline with one canonical import per identity class |
+| Scan imported functions | Group imported functions by `(module, base)` and compare their function types | Detect which later imported functions are really duplicate aliases |
+| Retarget users | Rewrite later direct function-name users to the first canonical import | Preserve behavior while collapsing aliases |
+| Remove duplicates | Delete the redundant imported function declarations | Leave the late pipeline with one canonical imported function per matching alias class |
 
 That means the pass is not:
 
 - dead-import elimination
 - unused-import elimination
-- function-only import merging
-- callgraph optimization
-- a cleanup rerun wrapper
+- all-import deduplication
+- effect analysis
+- a nested cleanup wrapper
 
 ## Pass family and scheduler placement
 
@@ -67,23 +78,20 @@ That means the pass is not:
 
 - `duplicate-import-elimination`
 
-The default global optimization post-pass cluster uses it when:
-
-- `optimizeLevel >= 2`, or
-- `shrinkLevel >= 2`
+The default global optimization post-pass cluster uses it after the second `duplicate-function-elimination`.
 
 In the canonical no-DWARF `-O` / `-Os` path documented in this repo, the pass appears:
 
-- after the second `duplicate-function-elimination`
+- after `duplicate-function-elimination`
 - before `simplify-globals-optimizing`
 - before `remove-unused-module-elements`
 - before `string-gathering`
 - before `reorder-globals`
 - before `directize`
 
-A future Starshine port should preserve that placement because later late module passes should see the already-canonicalized import surface, not duplicate alias declarations.
+A practical scheduler inference is:
 
-That “why” sentence is an inference from source order plus pass behavior, but it is the practical scheduler consequence.
+- later late-module passes see fewer imported-function aliases and fewer function names referring to the same host binding.
 
 ## Saved `-O4z` local evidence
 
@@ -94,197 +102,87 @@ The saved generated-artifact audit and debug log add two useful local facts:
 - the pass is tiny in the captured Binaryen run:
   - `2.133e-05` seconds
 
-So the expected implementation difficulty is mostly in getting the exact user-remap surface right, not in reproducing some expensive analysis.
+So the implementation challenge is exactness, not scale.
 
-## Stage 1: imported-item scanning and identity keys
+## Real algorithm
 
-## Imported kinds actually handled by the pass
+## 1. Gather imported functions
 
-`DuplicateImportElimination.cpp` scans these imported declaration families only:
+The pass constructs:
 
-- functions
-- globals
-- tables
-- memories
+- `ImportInfo imports(*module);`
 
-It does **not** scan imported tags.
+but then only iterates:
 
-That is one of the most important scope facts in the entire dossier. The pass name sounds generic, but the current source is not “all imports.”
+- `imports.importedFunctions`
 
-## `ImportInfo` is the real duplicate key
+This is the first place the older broad dossier went wrong: the helper knows about many import kinds, but the pass chooses only imported functions.
 
-The source relies on `ImportInfo`, which stores:
+## 2. Bucket by `(module, base)`
 
-- `kind`
-- `module`
-- `base`
-- `type`
+The pass keeps:
 
-So two imports only count as duplicates if all of those match according to the helper.
+- `std::map<std::pair<Name, Name>, Name> seen;`
 
-The mental model should be:
+where the key is:
 
-- same host module string
-- same host field/base string
-- same handled import kind
-- same helper-defined import type metadata
+- the import module string,
+- the import base/field string.
 
-not just “same visible import name.”
+So the first step of duplicate detection is not a rich cross-kind type object. It is just a string pair.
 
-## Kind-specific identity details
+## 3. Check exact function-type equality
 
-### Functions
+When a later imported function hits an existing `(module, base)` bucket, the pass fetches the first-seen function for that bucket and checks:
 
-Functions use the stored `Function::type` as the key.
+- `previousFunc->type == func->type`
 
-Practical beginner takeaway:
+That is the merge gate.
 
-- same module/base + same signature-like type => merge
-- same module/base + different signature => preserve both
+Beginner translation:
 
-### Globals
+- same host module + same host field + same function type => merge
+- same host module + same host field + different function type => keep both
 
-Globals use `Type(curr.type, curr.mutable_)`.
+## 4. Keep the first import seen
 
-Practical beginner takeaway:
+If the function matches, Binaryen records:
 
-- value type must match
-- mutability must match
+- replacement from later function name to first function name
+- later function name in `toRemove`
 
-### Memories
+So the canonical representative is just the first imported function seen for the bucket.
 
-Memories use a dedicated helper struct containing:
+This is deterministic and worth preserving in any future port.
 
-- initial limit
-- max limit
-- shared flag
-- address type
-- page size
+## 5. Rewrite function-name users via `replaceFunctions(...)`
 
-So memory equality is stricter than only comparing min/max limits.
+If any duplicates were found, the pass does:
 
-### Tables
+- `module->updateMaps()`
+- `OptUtils::replaceFunctions(...)`
 
-Tables use a helper struct containing:
+That helper rewrites only the function-name surface:
 
-- initial limit
-- max limit
-- address type
-- heap type
-
-Source caveat:
-
-- this helper stores `HeapType`, not the full table element `Type`
-- so the helper surface we traced does not visibly carry table nullability or exactness here
-
-That does not by itself prove a user-visible bug, but it is a source-level nuance a future implementer should know.
-
-## First-import-wins canonicalization
-
-The pass keeps a map from `ImportInfo` to the first import name seen for that key.
-
-For each later duplicate import:
-
-- remember a replacement from the duplicate name to the first name
-- add the duplicate declaration name to `importsToRemove`
-
-So the canonical representative is:
-
-- not a fresh synthetic import
-- not an arbitrary lexicographic choice
-- simply the first imported declaration encountered in module order for that identity class
-
-A future Starshine port should preserve that deterministic choice.
-
-## Stage 2: user retargeting via `OptUtils`
-
-This is the real “porting danger zone.”
-
-The detection logic is short.
-The correctness risk lives in all the places that still mention the duplicate imported name.
-
-## `replaceFunctions(...)`
-
-Binaryen retargets:
-
-- `Call.target`
-- `RefFunc.func`
-- function exports
-- module start name
-- module-code expression trees
-
-So future Starshine work must not forget:
-
+- `call`
 - `ref.func`
-- start
-- exported aliases
-- module-level expression users like element payload expressions
+- module-code `call` / `ref.func`
+- `start`
+- function exports
 
-## `replaceGlobals(...)`
+This is the second main place the older dossier over-attributed behavior from nearby helpers.
+Current `version_129` does **not** use sibling replace helpers for globals, tables, or memories here.
 
-Binaryen retargets:
+## 6. Remove duplicate imported functions immediately
 
-- `GlobalGet.name`
-- `GlobalSet.name`
-- global exports
-- module-code expression trees
+After rewrites, the pass removes the later imported function declarations directly with:
 
-So global initializer and segment-offset code paths matter too, not just ordinary function bodies.
+- `module->removeFunction(name)`
 
-## `replaceTables(...)`
+So alias collapse is completed inside the pass itself.
+It is not deferred to `remove-unused-module-elements`.
 
-Binaryen retargets:
-
-- `TableGet.table`
-- `TableSet.table`
-- `TableSize.table`
-- `TableGrow.table`
-- `TableFill.table`
-- `TableCopy.destTable`
-- `TableCopy.sourceTable`
-- `TableInit.table`
-- table exports
-- module-code expression trees
-
-The practical lesson is:
-
-- table import alias cleanup is a bulk-table rewrite problem too, not just a `table.get` rewrite problem
-
-## `replaceMemories(...)`
-
-Binaryen retargets:
-
-- load/store families
-- atomics
-- SIMD memory ops
-- `memory.size` / `memory.grow`
-- `memory.init` / `memory.copy` / `memory.fill`
-- array-data helpers that reference memories
-- memory exports
-- module-code expression trees
-
-The practical lesson is:
-
-- memory import alias cleanup is much wider than a simple section rename or `memory.size` rewrite
-
-## `runOnModuleCode(...)` is intentionally narrower than “all module fields”
-
-`runOnModuleCode(...)` explicitly walks expression trees in:
-
-- globals
-- element segments
-- data segments
-
-That is an important positive fact because it means Binaryen does not forget module-level init expressions.
-
-But it is also an important limit:
-
-- it is about expression trees
-- not obviously about all non-expression name fields on module objects
-
-That leads directly to the main uncertainty recorded on the identity/rewrite page.
-
-## What the pass does **not** use
+## What the pass does not use
 
 This pass is notable for what it avoids.
 
@@ -293,89 +191,71 @@ It does **not** use:
 - `EffectAnalyzer`
 - CFG or dominance reasoning
 - liveness
-- branch utilities
 - refinalization
-- nested rerun helpers
-- fixpoint loops
+- fixpoint iteration
+- broad import-type variant equality
+- non-function replacement helpers
+- nested reruns
 
-That means a faithful port should stay simple and structural.
+A faithful port should stay correspondingly small.
 
-If a Starshine implementation starts accreting heavy dataflow machinery here, it is probably drifting away from the `version_129` source contract.
+## Shipped test contract
 
-## Stage 3: import removal
+The dedicated test pair proves exactly the function-only surface.
 
-After building replacement maps and applying them, the pass removes the redundant imported declarations named in `importsToRemove`.
+The input test covers:
 
-The important practical consequence is:
+- duplicate imported functions `$foo` and `$bar`
+- same module/base but different-signature imported function `$wrong`
+- element contents using both duplicate names
+- `start $bar`
+- direct calls to `$foo`, `$bar`, and `$wrong`
 
-- the pass completes the alias collapse immediately
-- it does not leave redundant declarations around waiting for `remove-unused-module-elements`
+The checked output proves:
 
-That makes the pass a true canonicalization step for the handled import kinds.
+- `$bar` is removed
+- `$wrong` is preserved
+- element contents become `$foo $foo`
+- `start` becomes `$foo`
+- direct calls to `$bar` become calls to `$foo`
 
-## Shipped test coverage worth remembering
-
-`duplicate-import-elimination.wast` is small but high-value. It demonstrates:
-
-- positive function import merging
-- direct-call rewrite
-- `ref.func` rewrite
-- start rewrite
-- export rewrite
-- positive global import merging with `global.get` / `global.set`
-- positive table import merging across ordinary and bulk ops
-- positive memory import merging across ordinary and bulk ops
-- negative function case with different signature
-- negative global case with different type
-- negative table case with different type/metadata
-- negative memory case with different limits/metadata
-
-It is the cleanest source for the beginner-friendly WAT shape catalog.
+There are no dedicated positive tests here for imported globals, tables, or memories because the current pass does not implement those families.
 
 ## Easy-to-misunderstand points
 
-## 1. “Duplicate” means duplicate import request, not duplicate runtime behavior proof
+## 1. Nearby helper breadth is not pass breadth
 
-Binaryen is not proving semantic equivalence of two arbitrary host objects.
-It is canonicalizing two imported declarations that request the same external binding according to the helper key.
+`ImportInfo` knows about imported globals, tables, memories, and tags.
+That does **not** mean `DuplicateImportElimination.cpp` uses all of them.
 
-## 2. The pass does not care whether a duplicate is unused
+## 2. The duplicate key is not the older dossier's broad `ImportInfo(kind,module,base,type)` story
 
-A duplicate imported alias can be very live and still be merged safely, as long as every use is retargeted.
+The real pass uses:
 
-## 3. The hardest bugs would be forgotten user edges
+- `(module, base)` bucket key
+- exact function-type equality only when the bucket collides
 
-Examples of easy-to-forget edges:
+## 3. The rewrite surface is only function names
 
-- `ref.func`
-- start
-- exports
-- `table.copy`
-- `memory.copy`
-- module-level init expressions
+Because the pass uses only `replaceFunctions(...)`, the real rewrite surface is far narrower than the older folder claimed.
 
-## 4. The tag omission is real current scope
+## 4. The public name is broader than the current implementation
 
-Do not describe the current `version_129` pass as deduplicating all import kinds.
-It does not.
-
-## 5. The table-key caveat deserves an asterisk
-
-For tables, the helper source is slightly more nuanced than “full type equality.”
-That should stay documented so future work does not silently overstate the current upstream rule.
+`duplicate-import-elimination` sounds like it handles every import kind.
+The source-confirmed reality in `version_129` is smaller.
 
 ## Future Starshine port checklist
 
 - Keep this a late module pass.
-- Preserve the first-import-wins canonical choice.
-- Preserve kind/module/base/type-key equality, not just module/base strings.
-- Preserve the four handled kinds exactly unless deliberately expanding beyond upstream:
-  - functions
-  - globals
-  - tables
-  - memories
-- Preserve the current tag omission unless deliberately documenting a divergence.
-- Preserve the broad user-remap surface in `OptUtils`.
-- Preserve the immediate removal of redundant imports.
-- Record any explicit decision about active-segment target-name handling instead of silently assuming it is covered.
-- Keep the scheduler slot before late global/string/layout cleanup.
+- Implement only duplicate imported-function elimination for Binaryen `version_129` parity.
+- Bucket candidates by `(module, base)`.
+- Require exact function-type equality before merging.
+- Preserve first-import-wins canonicalization.
+- Rewrite only the function-name surface Binaryen actually rewrites:
+  - `call`
+  - `ref.func`
+  - module-code `call` / `ref.func`
+  - start
+  - function exports
+- Remove duplicate imported functions immediately.
+- If Starshine later widens the pass to globals/tables/memories, document that as a deliberate divergence or future-upstream drift, not as current `version_129` behavior.

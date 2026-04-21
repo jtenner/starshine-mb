@@ -1,256 +1,148 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
-  - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
+  - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-eh-legacy.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dce-stack-switching.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
-# `dead-code-elimination`: typed-control voidification, type repair, and EH cleanup
+# `dead-code-elimination`: control-type changes and EH repair
 
-This page exists because the easiest wrong summary of DCE is:
+This page replaces an older wrong summary.
+The earlier dossier talked about broad typed-control **voidification**.
+The source-confirmed `version_129` pass does something narrower:
 
-- “it deletes dead code”
+- it sometimes changes a control-flow node's type to `unreachable`, and
+- it sometimes replaces an entire node with an already-unreachable child,
+- then it may run one narrow EH nested-pop fixup.
 
-The real non-obvious behavior is often:
+That is not the same thing as a general result-to-void rewrite engine.
 
-- “it keeps the control structure, removes the dead **result**, and then repairs the function”
+## The safe mental model
 
-## Why DCE does not just delete typed control
+For Binaryen `dce`, the right question is usually **not**:
 
-Consider a value-typed control wrapper whose result is immediately dropped:
+- “can I erase this typed wrapper because its value is dead?”
 
-```wat
-(drop
-  (block (result i32)
-    (call $side)
-    (i32.const 1)))
-```
+The right question is:
 
-If that block still matters structurally, DCE cannot always erase it outright.
-It may need to keep the sequencing and control shape but remove the now-pointless result type.
+- “has this control structure become unable to finish normally?”
 
-That is the core idea behind **voidification**.
+If the answer is yes, DCE often changes the node's type to `unreachable`.
 
-## The basic voidification mental model
+## `block`: concrete type can collapse to `unreachable`
 
-Before:
+After trimming dead suffixes, DCE checks a block with three conditions:
 
-```wat
-(drop
-  (if (result i32)
-    COND
-    (then THEN-VALUE)
-    (else ELSE-VALUE)))
-```
+- the block still has a concrete type,
+- its last surviving child is unreachable,
+- and `TypeUpdater` sees no `break`s targeting the block.
 
-After, conceptually:
+Only then does DCE change the block type to `unreachable`.
 
-```wat
-(if
-  COND
-  (then THEN-EFFECTS-ONLY)
-  (else ELSE-EFFECTS-ONLY))
-```
+So the real source-backed rule is:
 
-or:
+- the pass does **not** generally voidify blocks,
+- it narrows concrete block type to `unreachable` when the block no longer has a normal way to produce its value.
 
-```wat
-(block
-  SIDE-EFFECTS-ONLY)
-```
+The incoming-break check is the key safety gate.
 
-The exact rewritten shape depends on the original structure.
-But the key point is the same:
+## `if`: two narrow cases
 
-- the result disappears
-- the still-observable control/effect behavior stays
+### Unreachable condition
 
-## Which control structures this affects
+If the condition itself is unreachable, DCE removes the arms and replaces the `if` with the condition expression.
 
-Binaryen's DCE source and test surface make this relevant for:
+### Both arms unreachable
 
-- `block`
-- `if`
-- `loop`
-- `try`
-- `try_table`
+If the `if` has an `else`, is not already unreachable, and both arms are unreachable, DCE changes the `if` type to `unreachable`.
 
-That does **not** mean every one of those nodes is always freely voidifiable.
-The pass only does it when the surrounding branch and effect conditions allow it.
+Again, this is not a generic dead-result-to-void rewrite.
+It is a reachability/type fact.
 
-## Why incoming branches matter so much
+## `loop`: only replace when the body is literally unreachable
 
-A result-typed block is harder to simplify if branches still target it expecting a value or depending on the label as structured control.
+The source comment is explicit here: loops can have unreachable body type for ordinary reasons like branching back to the loop top.
+So DCE only handles the strongest case:
 
-That is why DCE starts with helper walkers that check whether blocks are really unneeded.
-If the label is still live, the block may need to stay much closer to its original form.
+- the body expression itself is `unreachable`
 
-Beginner rule:
+Then the loop is replaced by the body.
 
-- **dead final value** does not automatically mean **dead block**
+## `try` and `try_table`: EH reachability, not generic EH simplification
 
-## Why explicit `unreachable` can still be necessary
+### `try`
 
-Sometimes DCE removes or voidifies the final result-producing wrapper around a control shape that no longer falls through.
-When that happens, the function may still need an explicit trailing `unreachable` to remain structurally well-typed.
+If the try body is unreachable and every catch body is unreachable, DCE changes the try node type to `unreachable`.
 
-This is a big source of confusion.
-The optimizer is making code *smaller* and *simpler*, but it may still need to insert an explicit `unreachable` node because the type/control contract after simplification still demands it.
+### `try_table`
 
-So a good beginner mental model is:
+If the `try_table` body is unreachable, then the whole `try_table` cannot finish normally, so DCE changes its type to `unreachable`.
 
-- DCE often deletes dead `unreachable` suffixes
-- but sometimes it must also **materialize** an explicit `unreachable` after voidifying non-fallthrough final control
+The modern EH test file exists largely to lock in these exact reachability distinctions.
 
-Those are not contradictory.
-They happen in different structural situations.
+## Why the old "voidification" story was misleading
 
-## Why local type repair is part of DCE
+The earlier pages implied a pass that broadly kept control wrappers but erased their result type.
+That is not what `version_129` `DeadCodeElimination.cpp` actually implements.
 
-When a value-producing wrapper stops producing a value, some locals may no longer need or justify their previous precise type assumptions.
-Binaryen handles that with:
+What the source actually does is much smaller:
 
-- `TypeUpdater::handleNonDefaultableLocals(...)`
+- replace some nodes with an unreachable child,
+- trim dead suffixes,
+- or mark a node itself as unreachable.
 
-That means the pass is not done when it finishes structural simplification.
-Removing dead result traffic can force later local-type cleanup.
+That is a control/reachability normalization story, not a generic "dead result wrapper" story.
 
-A future port that copies only the “delete dead nodes” half and forgets this repair half will be incomplete.
+## EH repair is one exact end-of-function hook
 
-## Why EH repair is part of DCE
+The pass tracks two booleans while walking a function:
 
-Exception handling makes the same point even more strongly.
-After DCE simplifies dead typed wrappers, Binaryen still calls:
+- `hasPop`
+- `addedBlock`
 
-- `EHUtils::handleBlockNestedPops(...)`
+At function end it runs:
 
-The dedicated `dce-eh*` test files exist because dead-result cleanup can expose or invalidate nested-pop structure.
-So DCE's real contract includes:
+- `EHUtils::handleBlockNestedPops(curr, *getModule())`
 
-- simplify dead EH result structure
-- then repair EH details before the function is considered done
+only if both booleans are true.
 
-## Why flattening follows immediately
+So the real EH rule is:
 
-DCE can leave behind simpler semantics but still slightly awkward nesting.
-That is why it also runs:
+- DCE does not run a broad EH repair pipeline,
+- it only repairs the nested-`pop` hazard introduced when DCE-created blocks interact with `pop`.
 
-- `Flatten::flatten(...)`
+## Why `dce-eh-legacy.wast` matters
 
-This is not the aggressive standalone `flatten` pass from the `-O4z` prelude.
-It is the small IR helper that cleans up extra block nesting created or exposed by DCE's own rewrites.
+The legacy EH file includes cases where DCE creates new blocks around surviving effects while a `pop` remains part of the reachable path.
+That file is the strongest direct evidence for the `hasPop && addedBlock` rule.
 
-## Practical shape families to keep straight
+Without that repair, DCE could leave `pop` in an invalid nested position after simplifying a larger expression.
 
-## Positive family: dead result wrapper becomes void
+## Why `dce-stack-switching.wast` matters
 
-Before:
+The stack-switching file guards against a tempting mistake: assuming a surrounding `drop` means a result type is dead.
 
-```wat
-(drop
-  (block (result i32)
-    (call $side)
-    (i32.const 1)))
-```
+In the `resume` / `resume_throw` tests, the result type of a handler block must remain because the handler can branch to that block and still depend on its typed label contract.
 
-After, conceptually:
+So a future port must preserve this lesson:
 
-```wat
-(call $side)
-```
+- result-dead-looking surface syntax does not override handler-target liveness.
 
-or:
+## Porting rules to preserve
 
-```wat
-(block
-  (call $side))
-```
-
-depending on what structural wrapper still needs to remain.
-
-## Positive family: dead typed `if` keeps control but loses value type
-
-Before:
-
-```wat
-(drop
-  (if (result i32)
-    COND
-    (then (call $a) (i32.const 1))
-    (else (call $b) (i32.const 2))))
-```
-
-After, conceptually:
-
-```wat
-(if
-  COND
-  (then (call $a))
-  (else (call $b)))
-```
-
-## Positive family: non-fallthrough final wrapper may need explicit `unreachable`
-
-Before:
-
-```wat
-(drop
-  (block (result i32)
-    (return (i32.const 7))))
-```
-
-After, conceptually:
-
-```wat
-(block
-  (return (i32.const 7)))
-unreachable
-```
-
-The exact final shape varies, but the important rule is:
-
-- DCE may need a real explicit `unreachable` after the simplified final control.
-
-## Negative family: branch-targeted typed wrapper must stay
-
-Before:
-
-```wat
-(block $out (result i32)
-  ...
-  (br $out (i32.const 1))
-  ...)
-```
-
-If that label is still live, DCE cannot treat this like a plain dead wrapper just because one surrounding `drop` or tail value disappeared.
-
-## Negative family: EH shape still requires repair
-
-Before:
-
-```wat
-(try (result i32)
-  ...
-  (catch ...))
-```
-
-When the result becomes dead, DCE may voidify or simplify the typed wrapper.
-But that does **not** mean the EH structure is automatically fine afterward.
-That is why the pass explicitly runs EH repair before it finishes.
-
-## What a future Starshine port must preserve
-
-- Do not confuse dead-result cleanup with simple node deletion.
-- Preserve the distinction between:
-  - removing a dead value
-  - voidifying a typed control wrapper
-  - and repairing the function afterward
-- Keep explicit-`unreachable` insertion honest.
-- Keep branch-target safety honest.
-- Keep type and EH repair as part of the pass boundary, not optional follow-up polish.
+- Do not implement generic control voidification under the name `dce`.
+- Keep the block `hasBreaks(...)` guard before collapsing block type to `unreachable`.
+- Keep `if`, `loop`, `try`, and `try_table` as separate special cases.
+- Preserve the exact EH repair trigger: `hasPop && addedBlock`.
+- Treat stack-switching handler labels as part of the real liveness boundary.

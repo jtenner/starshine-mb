@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
+  - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./dominance-propagation-and-cycle-safety.md
   - ./parity.md
   - ../../no-dwarf-default-optimize-path.md
@@ -309,6 +311,25 @@ Important note:
 
 - this is part of the official Binaryen source surface
 - the current Starshine implementation does not model that path today
+
+## Positive family 11: try/catch control containers do not block the CFG proof by themselves
+
+Conceptually, the official lit file also checks that once-facts can still be emitted in a stable reverse-postorder walk when they appear inside EH-shaped control:
+
+```wat
+(try
+  (do
+    (call $once_fn)
+    ...)
+  (catch_all
+    ...))
+```
+
+Why this matters:
+
+- `once-reduction` is not just a straight-line expression peephole
+- the CFG walker still has to serialize relevant `Call` / `GlobalSet` facts through more complicated control containers without tripping its assertions
+- this lit family is mainly about keeping the pass's block-order reasoning honest, not about adding special EH-only optimization powers
 
 ## Negative family 1: code before the guard
 

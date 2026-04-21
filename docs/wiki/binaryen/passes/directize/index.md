@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
+  - ../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
@@ -13,6 +14,7 @@ sources:
   - ../tracker.md
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./table-info-and-immutability.md
   - ./wat-shapes.md
   - ../reorder-globals/index.md
@@ -67,7 +69,8 @@ That is much closer to the real pass than either:
 ## Current durable takeaways
 
 - `directize` is a **late table-facts-driven call rewrite pass**, not a generic constant-propagation pass.
-- In `version_129`, the implementation lives in `src/passes/Directize.cpp`.
+- The refreshed dossier now also has a compact source-confirmed owner/test-map page, making explicit that the real `version_129` contract is split across `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, and the three dedicated `directize*` lit files.
+- In `version_129`, the main implementation lives in `src/passes/Directize.cpp`.
 - It computes module-wide table facts first with `TableUtils::computeTableInfo(...)`.
 - It only visits `CallIndirect` nodes.
   - That includes the tail-call form via `isReturn`, but it does **not** mean `call_ref` is handled here.
@@ -92,6 +95,8 @@ That is much closer to the real pass than either:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: scheduler placement, pass arg surface, module-wide table analysis, constant-vs-trap-vs-unknown classification, select-lowering, and the real “what this is not” facts.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  Compact source-confirmed owner/test map for `directize`: what `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, `pass.cpp`, `passes.h`, and the three shipped lit files each prove about the real pass contract.
 - [`./table-info-and-immutability.md`](./table-info-and-immutability.md)
   Focused guide to `TableUtils`, flat-table construction, mutation barriers, the `initial-contents-immutable` mode, hole-vs-out-of-range behavior, and the main table-analysis corner cases a future port must preserve.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -108,6 +113,7 @@ That is much closer to the real pass than either:
 ## Sources
 
 - [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
+- [`../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md`](../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

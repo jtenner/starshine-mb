@@ -1,0 +1,136 @@
+---
+kind: concept
+status: supported
+last_reviewed: 2026-04-21
+sources:
+  - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-global-effects.wast
+related:
+  - ./index.md
+  - ./binaryen-strategy.md
+  - ./wat-shapes.md
+  - ../simplify-locals/index.md
+  - ../vacuum/index.md
+---
+
+# Naming, metadata, and downstream consumers
+
+## The name split is real
+
+The local Starshine registry uses the short name `global-effects`.
+Upstream Binaryen publishes the actual pass as `generate-global-effects`.
+
+That distinction matters because a future port needs to keep at least three names straight:
+
+- local registry placeholder: `global-effects`
+- upstream producer pass: `generate-global-effects`
+- upstream lifecycle sibling: `discard-global-effects`
+
+If the wiki collapses those together, later implementation or CLI work will get confusing quickly.
+
+## The pass changes metadata, not printed WAT
+
+This is the single most important teaching point.
+
+`wasm.h` shows that a `Function` can store an optional `effects` summary.
+`generate-global-effects` writes that field.
+
+So the pass may leave the visible WAT unchanged while still changing later optimizer decisions.
+
+That is why this folder exists at all:
+
+- without a dedicated page, readers can see later passes mention “generated global effects” and still not know where they came from
+- because there is often no immediate WAT diff, it is easy to assume nothing important happened
+
+## Why `discard-global-effects` exists
+
+The existence of `discard-global-effects` is a quiet but important clue about Binaryen's design.
+
+It means:
+
+- the summaries are explicit pass-managed state
+- they are not treated as permanently valid ambient truth
+- later transforms may need to clear them if they become stale or if a pipeline no longer wants to rely on them
+
+So a future Starshine port should think about both production and lifecycle, not just production.
+
+## How later passes benefit
+
+The reviewed `effects.h` source shows that later `EffectAnalyzer` queries on direct `Call` nodes may use the target function's stored summary.
+
+That enables more precise answers to questions like:
+
+- does this call write a specific global?
+- is it only reading globals?
+- can a `global.get` move across it?
+- can an unused call be dropped?
+
+This is why neighboring optimizer pages already care about the pass.
+
+## Consumer family 1: `simplify-locals`
+
+The neighboring simplify-locals docs explain the most intuitive example:
+
+- some motion is unsafe across a call that writes globals
+- some motion is safe across a call that only reads globals
+- `generate-global-effects` can supply exactly that distinction
+
+In this thread I did not reopen the upstream simplify-locals-specific test directly, so treat that exact consumer example as an inference grounded in:
+
+- the reviewed `effects.h` handoff
+- the neighboring reviewed simplify-locals docs already present in the repo
+
+## Consumer family 2: `vacuum`
+
+The directly reviewed `vacuum-global-effects.wast` test proves another consumer family:
+
+- after generated summaries exist, some calls become effect-free enough for `vacuum` to erase when unused
+
+That is a good beginner example because it makes the indirect payoff visible:
+
+- `generate-global-effects` itself does not erase the call
+- it makes a later pass confident enough to do so
+
+## Easy misunderstandings
+
+### “If there is no WAT diff, the pass did nothing.”
+
+Wrong.
+The pass may have produced only metadata, but that metadata can materially change later optimizer behavior.
+
+### “This pass is a global version of DCE.”
+
+Wrong.
+It is not a direct cleanup pass.
+It is an interprocedural effect-summary producer.
+
+### “Once the summaries exist, they are just always correct forever.”
+
+Wrong.
+The sibling `discard-global-effects` pass is explicit evidence that Binaryen treats summary lifecycle seriously.
+
+### “This is obviously part of the default optimization path.”
+
+Wrong.
+`pass.cpp` explicitly says it is not added to the default pipeline today.
+
+## Porting rule of thumb
+
+When porting this family, think in three steps:
+
+1. **produce** summaries honestly
+2. **consume** them in later effect reasoning honestly
+3. **invalidate or discard** them honestly when later rewrites would make them stale
+
+Skipping any one of those will drift away from Binaryen's real contract.
+
+## Sources
+
+- [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-global-effects.wast>

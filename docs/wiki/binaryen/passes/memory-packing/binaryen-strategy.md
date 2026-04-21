@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
+  - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
 related:
   - ./index.md
   - ./segment-op-rewrites-and-traps.md
@@ -44,6 +45,8 @@ The shipped lit surface is also part of the contract:
 - `test/lit/passes/memory-packing_zero-filled-memory64.wast`
 - `test/lit/passes/memory-packing_memory64-high-addr.wast`
 - `test/lit/passes/memory-packing-gc.wast`
+
+For a compact owner/test map, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## High-level intent
 
@@ -114,6 +117,8 @@ So the pass first proves:
 
 ## Phase 1: early segment-op simplification in `optimizeSegmentOps(...)`
 
+This is one of the easiest phases to underestimate because it means `memory-packing` already owns real instruction rewrites before it ever decides how to split bytes.
+
 Before splitting anything, Binaryen rewrites some existing segment operations.
 
 This helper pass runs per function and handles active-segment uses such as:
@@ -178,6 +183,11 @@ These checks are important because they show the pass is not purely about bytes.
 It is equally about whether **users** can be rewritten honestly afterward.
 
 ## Phase 5: range building and profitability in `calculateRanges(...)`
+
+A useful source-confirmed teaching split is:
+
+- `canSplit(...)` answers whether a segment may be transformed at all.
+- `calculateRanges(...)` answers which zero runs are worth transforming once legality is already proven.
 
 This function performs the core range analysis.
 

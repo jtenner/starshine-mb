@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
+  - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names.txt
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-names_precompute.wast
@@ -21,6 +22,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./control-names-implicit-blocks-and-delegates.md
   - ../remove-unused-brs/index.md
   - ../vacuum/index.md
@@ -38,6 +40,12 @@ This page is the beginner-friendly answer to:
 The key reminder for every example below is:
 
 - these are **control-label** shapes, not debug-name shapes
+
+And the compact proof-surface rule is:
+
+- the dedicated `remove-unused-names.wast` / `.txt` pair proves the core block / loop / `br_table` families directly
+- the larger `*_precompute`, `*_vacuum`, `*_remove-unused-brs_vacuum`, `*_code-folding`, and `*_merge-blocks_all-features` files prove the surrounding cleanup-cluster interactions
+- the delegate-caller sentinel story is source-confirmed mainly from owner files rather than from a dedicated standalone lit filename
 
 ## How to read these examples
 

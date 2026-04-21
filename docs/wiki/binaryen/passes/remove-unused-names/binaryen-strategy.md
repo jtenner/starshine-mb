@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0143-2026-04-20-remove-unused-names-binaryen-research.md
+  - ../../../raw/research/0220-2026-04-21-remove-unused-names-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedNames.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h
@@ -11,6 +12,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_129/README.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./control-names-implicit-blocks-and-delegates.md
   - ./wat-shapes.md
   - ./invalid-tag-index-parser-gap.md
@@ -33,11 +35,18 @@ Primary files:
 - `src/shared-constants.h`
 - `README.md`
 
+For the compact source-confirmed owner/test map that now separates file ownership from proof-surface coverage, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+
 Most important official test surfaces for this dossier:
 
 - `test/passes/remove-unused-names.wast`
 - `test/passes/remove-unused-names.txt`
 - the neighboring combo tests that pair this pass with `precompute`, `vacuum`, `remove-unused-brs`, `code-folding`, and `merge-blocks`
+
+The new implementation/test-map page also keeps one subtle test-surface limitation explicit:
+
+- the block / loop / cleanup-cluster behavior is directly lit-backed
+- the delegate-caller sentinel story is source-confirmed mainly from `visitTry(...)`, `operateOnScopeNameUses(...)`, and `DELEGATE_CALLER_TARGET`, not from a dedicated standalone lit filename
 
 I also did a narrow 2026-04-20 freshness check against current GitHub `main` for:
 

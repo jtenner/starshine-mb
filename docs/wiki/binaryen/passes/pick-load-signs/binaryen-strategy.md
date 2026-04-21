@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-21
 sources:
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
+  - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
@@ -38,6 +40,10 @@ Most important helper dependency visible in the implementation:
 The shipped dedicated lit surface is also part of the contract:
 
 - `test/lit/passes/pick-load-signs_sign-ext.wast`
+
+A source-confirmed file/test map now lives on the dedicated companion page:
+
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 
 A helpful neighboring source is:
 

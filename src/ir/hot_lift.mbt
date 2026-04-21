@@ -20,9 +20,7 @@ fn hot_lift_impl_new_label_frames() -> HotLiftLabelFrames {
 }
 
 ///|
-fn hot_lift_impl_seed_function_label(
-  frames : HotLiftLabelFrames,
-) -> Int {
+fn hot_lift_impl_seed_function_label(frames : HotLiftLabelFrames) -> Int {
   frames.active.push(HOT_IMPLICIT_FUNCTION_LABEL)
   frames.active.length() - 1
 }
@@ -320,42 +318,34 @@ fn hot_lift_impl_try_catch_arm(
 ) -> Result[HotCatchArm, HotLiftError] {
   match catch_ {
     Catch::Catch(tag_idx, label_idx) =>
-      match hot_lift_impl_resolve_catch_label(
-        frames,
-        label_stack_head,
-        label_idx,
-        return_type,
-      ) {
+      match
+        hot_lift_impl_resolve_catch_label(
+          frames, label_stack_head, label_idx, return_type,
+        ) {
         Ok(label_id) => Ok(HotCatchArm::catch_(tag_idx, label_id))
         Err(err) => Err(err)
       }
     Catch::CatchRef(tag_idx, label_idx) =>
-      match hot_lift_impl_resolve_catch_label(
-        frames,
-        label_stack_head,
-        label_idx,
-        return_type,
-      ) {
+      match
+        hot_lift_impl_resolve_catch_label(
+          frames, label_stack_head, label_idx, return_type,
+        ) {
         Ok(label_id) => Ok(HotCatchArm::catch_ref(tag_idx, label_id))
         Err(err) => Err(err)
       }
     Catch::CatchAll(label_idx) =>
-      match hot_lift_impl_resolve_catch_label(
-        frames,
-        label_stack_head,
-        label_idx,
-        return_type,
-      ) {
+      match
+        hot_lift_impl_resolve_catch_label(
+          frames, label_stack_head, label_idx, return_type,
+        ) {
         Ok(label_id) => Ok(HotCatchArm::all(label_id))
         Err(err) => Err(err)
       }
     Catch::CatchAllRef(label_idx) =>
-      match hot_lift_impl_resolve_catch_label(
-        frames,
-        label_stack_head,
-        label_idx,
-        return_type,
-      ) {
+      match
+        hot_lift_impl_resolve_catch_label(
+          frames, label_stack_head, label_idx, return_type,
+        ) {
         Ok(label_id) => Ok(HotCatchArm::all_ref(label_id))
         Err(err) => Err(err)
       }
@@ -2502,13 +2492,7 @@ pub fn hot_lift_body_result(
   let label_frames = hot_lift_impl_new_label_frames()
   let label_stack_head = hot_lift_impl_seed_function_label(label_frames)
   match
-    hot_lift_impl_lift_region(
-      func,
-      body,
-      state,
-      label_frames,
-      label_stack_head,
-    ) {
+    hot_lift_impl_lift_region(func, body, state, label_frames, label_stack_head) {
     Ok((roots, _, _)) => Ok(hot_lift_impl_finish(func, roots))
     Err(err) => Err(err)
   }
