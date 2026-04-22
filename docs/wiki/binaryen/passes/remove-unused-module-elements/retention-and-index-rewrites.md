@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-09
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
 related:
@@ -45,6 +46,16 @@ related:
 - `name_sec` is rewritten through per-kind name maps for functions, locals, labels, tables, memories, globals, elems, data, and tags.
 - `func_annotation_sec` is rewritten and filtered to surviving function indices.
 - `data_cnt_sec` is rebuilt to match the surviving data-section length.
+
+## Type-section Cleanup After Pruning
+
+- Current Starshine RUME also compacts dead type entries after ordinary module-element pruning.
+- The local owner path is:
+  - `rume_collect_used_type_flags(...)` in `src/passes/remove_unused_module_elements.mbt`
+  - `rume_compact_type_sec(...)` in the same file
+  - `dfe_rewrite_module_type_idxs(...)` reused underneath to repair surviving type-index carriers
+- This matters because local RUME correctness is not only about value/index carriers like `call`, `memory.init`, or exports.
+- Once dead imported functions and dead defined functions disappear, their now-unused function types can disappear too, and every surviving type-bearing surface must stay coherent.
 
 ## Practical Rule
 

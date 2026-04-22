@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md
+  - ../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -50,11 +52,9 @@ That is much closer to the official source than “remove dead functions.”
 ## Why this pass matters
 
 - The old tracker queues are now clear enough that this thread had to justify an already-`deep` fallback pick.
-- `remove-unused-module-elements` was a valid fallback because the folder still lacked the biggest source-backed teaching surfaces:
-  - exact upstream file map
-  - official test-surface map
-  - a focused explanation of `used` versus `usedReferenced`
-  - a focused explanation of when Binaryen weakens a reference-only non-function element instead of deleting it outright
+- `remove-unused-module-elements` stayed worth revisiting because the upstream-side dossier was already strong, but the folder still lacked two practical durability surfaces:
+  - an immutable raw primary-source manifest anchoring the reviewed official Binaryen release / source / test pages
+  - an exact Starshine code-location map for the current MoonBit registry / dispatcher / liveness / rewrite / type-cleanup flow
 - The canonical no-DWARF `-O` / `-Os` scheduler still runs the pass **three** times:
   - pre slot `2`
   - pre slot `6`
@@ -110,9 +110,9 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
 - [`./roots-reference-only-and-nullification.md`](./roots-reference-only-and-nullification.md)
   - Focused guide to the hardest part of the pass: strong roots versus reference-only roots, active-segment parent retention, and when Binaryen weakens a declaration instead of deleting it.
 - [`./retention-and-index-rewrites.md`](./retention-and-index-rewrites.md)
-  - Current in-tree Starshine rewrite surface for surviving func/global/table/memory/tag/elem/data/name/annotation indices.
+  - Current in-tree Starshine rewrite surface for surviving func/global/table/memory/tag/elem/data/name/annotation indices, plus the local dead-type-cleanup path that now runs after pruning.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine strategy and why the pass remains module-scoped instead of becoming a pure HOT pass.
+  - Current in-tree Starshine strategy with exact MoonBit registry, dispatcher, liveness, rewrite, type-cleanup, and test code locations; also explains why the pass remains module-scoped instead of becoming a pure HOT pass.
 - [`./parity.md`](./parity.md)
   - Current signoff state, focused coverage, and remaining non-semantic compare noise.
 
@@ -130,6 +130,8 @@ That difference matters a lot if Starshine ever wants fully honest parity here.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-module-elements-primary-sources.md)
+- [`../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md`](../../../raw/research/0243-2026-04-22-remove-unused-module-elements-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md`](../../../raw/research/0145-2026-04-20-remove-unused-module-elements-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
