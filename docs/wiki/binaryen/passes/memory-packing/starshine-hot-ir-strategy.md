@@ -1,35 +1,49 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-20
+status: supported
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
+  - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
+  - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/memory_packing.mbt
-  - ../../../../../src/passes/memory_packing_test.mbt
+  - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/memory_packing_test.mbt
   - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./segment-op-rewrites-and-traps.md
   - ./wat-shapes.md
   - ./parity.md
+  - ../remove-unused-module-elements/index.md
+  - ../once-reduction/index.md
 ---
 
-# Current Starshine `memory-packing` strategy
+# Starshine `memory-packing` strategy today
 
-This page is the local “what is actually implemented today?” companion to the upstream Binaryen strategy page.
+This page describes the **current in-tree Starshine implementation**, not the full upstream Binaryen `version_129` contract.
 
 ## Short version
 
-Current Starshine `src/passes/memory_packing.mbt` follows the same **core goal** as upstream Binaryen:
+Starshine currently implements a deliberately narrow **module-pass** subset of `memory-packing` focused on:
 
-- shrink zero-heavy data-segment layout without changing memory semantics
+- one-memory-only legality gating
+- constant i32/i64 active data offsets
+- zero/nonzero range collection for active segments
+- merging back across small zero runs with a fixed threshold of `8`
+- top-byte retention when startup trap behavior must survive
+- overlap bailout for active segments
+- `data_count` section repair after segment-count changes
 
-But it is not a literal source port of Binaryen `MemoryPacking.cpp`.
+That is already useful and artifact-proven.
 
-The local pass is much narrower, more direct, and focused almost entirely on the easy active-segment subset.
+But it is still much smaller than upstream Binaryen `MemoryPacking.cpp`, which also rewrites active segment ops, analyzes passive segment users, inserts `memory.fill`, rewrites `data.drop`, creates lazy drop-state globals, honors `zeroFilledMemory` for imported memory, and enforces `MaxDataSegments` limits.
 
 ## Current rule about the filename
 
@@ -38,208 +52,263 @@ It is intentionally a module pass.
 
 That is the right shape for this pass because even the narrow local implementation still needs whole-module access to:
 
-- memories
-- data segments
-- overlap checks
-- data-count section updates
+- memory declarations and imports
+- all data segments together
+- active-segment overlap checks
+- output `data_count` repair
+- preset/module-pass scheduling boundaries
 
-## What current Starshine already models well
+## Exact local code map
 
-The local pass already covers these useful active-segment behaviors:
+## 1. Public summary and registry identity
 
-- one-memory-only legality gating
-- active segment byte scanning into zero and nonzero ranges
-- a simple merge threshold of `8`
-- leading, trailing, and middle active zero-run trimming
-- constant i32 and i64 active offsets
-- startup-trap preservation by keeping the topmost byte
-- overlap bailout for active segments
-- data-count section recomputation when the number of data segments changes
+The user-visible local pass identity starts in [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt):
 
-The focused tests in `src/passes/memory_packing_test.mbt` lock in three core families:
+- `memory_packing_summary()`
+  - currently promises: “Split active data segments around profitable zero ranges while preserving startup memory semantics.”
 
-- profitable active zero-range splitting
-- trapping active-segment top-byte preservation
-- overlap bailout
+That summary is intentionally narrower than upstream Binaryen and still matches the code.
 
-That is already enough to explain why the saved generated-artifact slot can be green.
+The pass also appears in the registry and preset expansions in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt):
 
-## What local Starshine does differently from Binaryen
+- `pass_registry_entries()`
+  - exposes `memory-packing` as an active **module pass**
+- the `optimize` preset list
+- the `shrink` preset list
+  - both place `memory-packing` at the front of the current module-pass prefix, before `once-reduction`, `global-refining`, and `global-struct-inference`
 
-## 1. The local pass only optimizes active segments
+The module-pass category is also locked in [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) by:
 
-This is the biggest difference.
+- `pass_registry_category("memory-packing") == module_pass`
+- the preset-expansion test that keeps `memory-packing` at the front of both public presets
 
-Current Starshine rewrites:
+## 2. Memory and offset helpers
 
-- active segments only
+The first helper cluster in [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt) is the module-shape and offset layer:
 
-It leaves:
+- `mp_imported_mem_count(...)`
+  - counts imported memories and currently forces a hard local bailout when nonzero
+- `mp_defined_mem_count(...)`
+  - counts defined memories
+- `mp_defined_memory_size_bytes(...)`
+  - computes the defined memory's initial size in bytes for either memory32 or memory64 declarations
+- `mp_parse_base_offset(...)`
+  - accepts only exact `i32.const` and exact `i64.const` active offsets
+- `mp_base_offset_u64(...)`
+- `mp_shift_base_offset(...)`
+  - turn parsed offsets back into rewritten active data offsets after a kept-range shift
 
-- passive segments completely untouched
+This cluster is the first big Binaryen/Starshine divergence:
+local Starshine has no generic segment-user analysis and no broader offset reasoning here.
+It only knows how to reason about exact constant active offsets.
 
-That means it does **not** currently model the main upstream passive-segment story:
+## 3. Range collection and profitability helpers
 
-- `memory.init` rewriting
-- `memory.fill` insertion
-- `data.drop` expansion
-- drop-state globals
+The second helper cluster in [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt) owns the current active-segment rewrite mechanics:
 
-## 2. Imported memory is a hard local bailout
+- `mp_slice_bytes(...)`
+  - extracts a surviving kept range
+- `mp_collect_ranges(...)`
+  - scans one active segment into alternating zero and nonzero ranges
+- `mp_merge_small_zero_ranges(...)`
+  - merges back across zero runs whose width is `<= 8`
+- `mp_preserve_trapping_top_byte(...)`
+  - rewrites a final all-zero tail so the last byte still gets written when trap preservation matters
+- `mp_should_preserve_trap(...)`
+  - decides whether the active write might extend past the defined initial memory and therefore must keep the top-byte write effect
 
-Upstream Binaryen can optimize imported memory when the pass option says imported memory is zero-filled.
+This is the local equivalent of only a thin slice of upstream `calculateRanges(...)`.
+It models:
 
-Current Starshine instead bails out whenever there is any imported memory:
+- active-only profitability
+- a fixed small-zero threshold
+- top-byte trap retention
 
-- `mp_imported_mem_count(mod_) != 0` => `false`
+It does **not** model:
 
-So the local implementation is stricter and smaller here.
+- passive edge thresholds
+- passive metadata/code-size overhead
+- drop-state bookkeeping
+- `memory.init` replacement planning
+- `MaxDataSegments`
 
-## 3. No segment-op rewrite pass exists locally yet
+## 4. The actual active-segment rewrite
 
-There is no local equivalent of upstream `optimizeSegmentOps(...)` today.
+The active-segment transformer in [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt) is:
 
-That means local Starshine does **not** currently simplify:
+- `mp_active_rewrite(...)`
 
-- active `memory.init` into explicit trap/bounds-check forms
-- active `data.drop` into `nop`
+That function owns the current local rewrite contract:
 
-The local implementation only changes the segment list itself.
+- bail out unchanged on empty segments
+- bail out unchanged on nonconstant active offsets
+- collect zero/nonzero runs
+- merge small zero runs back into neighbors
+- preserve the top byte if startup trap behavior must remain observable
+- emit only nonzero kept ranges as rewritten active data segments with shifted offsets
 
-## 4. No referrer collection or passive dead-segment cleanup exists locally yet
+So the local pass is genuinely doing a semantics-aware active split.
+But it is still just the active subset.
+There is no local equivalent here of upstream:
 
-Upstream Binaryen scans the whole module for data-segment referrers and can remove passive segments that are only dropped.
-
-Current Starshine does not yet do that.
-It leaves passive segments and their users in place.
-
-So there is no local equivalent yet of:
-
+- `optimizeSegmentOps(...)`
 - `getSegmentReferrers(...)`
 - `dropUnusedSegments(...)`
+- `createReplacements(...)`
+- `replaceSegmentOps(...)`
 
-## 5. No GC-aware conservative boundary is modeled locally yet
+## 5. Whole-module legality gate
 
-Upstream `version_129` sees `array.new_data` and `array.init_data` users and refuses to split those segments.
+The next critical owner in [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt) is:
 
-Current Starshine does not scan for those users at all because it never reaches the passive-segment / referrer-rewrite half of the problem.
+- `mp_can_optimize(...)`
 
-That means the local implementation is not yet making the same GC-aware decision.
-It is simply operating on a smaller problem.
+This function is the real current Starshine legality proof.
+It requires:
 
-## 6. The local offset story is simpler
+- no imported memories
+- exactly one total memory when defined plus imported memories are counted together
+- memory index `0` for every active segment
+- exact constant active offsets when multiple active segments exist
+- no active-segment overlap
+- no unsigned overflow while computing active segment end offsets
 
-Current Starshine parses only these active offset forms:
+That is narrower than upstream Binaryen in two important ways:
 
-- exact `i32.const`
-- exact `i64.const`
+- imported memory is always a hard local bailout, instead of an optional `zeroFilledMemory` mode
+- passive-segment users are not analyzed at all, because passive segments are not rewritten locally
 
-That is enough for the current active subset, but it is much smaller than upstream Binaryen's broader module-level reasoning about what can or cannot be split.
+## 6. Module-pass driver and output repair
 
-## 7. No segment-count limiting exists locally yet
+The actual public module-pass entry point in [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt) is:
 
-Binaryen stops splitting further when it would exceed `WebLimitations::MaxDataSegments`.
+- `memory_packing_run_module_pass(...)`
 
-Current Starshine does not model that output-limit guard today.
-So the local pass is currently relying on the narrow tested subset rather than the full upstream output-validity story.
+That driver owns:
 
-## Important current gaps versus upstream Binaryen
+- reading the module `data_sec`
+- applying `mp_can_optimize(...)`
+- rewriting active segments through `mp_active_rewrite(...)`
+- leaving passive segments untouched
+- detecting whether anything changed
+- rebuilding `data_sec`
+- recomputing `data_cnt_sec` when the module already had one
+- rebuilding the full `@lib.Module`
 
-## 1. No passive-segment rewrite engine
+The `data_count` rewrite matters because it is part of why the current local subset can still be a correct module pass rather than only a byte-array helper.
 
-This is the headline gap.
-Current Starshine has no local equivalent of upstream `createReplacements(...)` or `replaceSegmentOps(...)`.
+## 7. Pipeline dispatch
 
-That means the local pass does **not** yet preserve the official passive families involving:
+The actual module-pass dispatcher is in [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt):
 
-- `memory.init`
-- `memory.fill`
-- `data.drop`
-- dropped-segment trap checks
-- destination temp locals
+- `"memory-packing" => memory_packing_run_module_pass(mod_)`
 
-## 2. No `zeroFilledMemory` imported-memory mode
+That is the exact code location where the public pipeline turns the registry name into the module rewrite.
 
-A future parity port must decide whether to model Binaryen's explicit option or to keep a documented stricter local policy.
-Right now the local policy is just:
+Unlike some other recently refreshed implemented-pass dossiers, `memory-packing` does **not** currently have a dedicated artifact-failure guard cluster in `pass_manager.mbt`.
+The interesting local story here is the explicit module-pass dispatch, not extra writeback hardening.
 
-- imported memory => no optimization
+## What the current proof surface looks like
 
-## 3. No upstream-style active-op simplification
+## 1. Main pass-local behavior tests
 
-The current local file does not yet cover the source-backed active `memory.init` rewrites that Binaryen performs before splitting.
+[`src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt) is the primary local semantic proof lane.
 
-That means the local pass is semantically smaller even for active-segment-heavy modules.
+Important focused tests include:
 
-## 4. No GC segment-user boundary modeling
+- `run_hot_pipeline applies memory-packing to profitable active zero ranges`
+  - proves the active leading-zero trim that keeps only the `ABC` suffix at offset `9`
+- `memory-packing preserves trapping active segments by keeping the top byte`
+  - proves the out-of-bounds-startup-trap family by keeping the final byte at offset `65536`
+- `memory-packing bails out when active segments overlap`
+  - proves the whole-module overlap bailout and leaves `data_sec` unchanged
 
-Because the local pass does not collect referrers, it does not yet encode the upstream rule:
+Those tests are small, but they lock the real currently implemented subset.
 
-- do not split segments used by `array.new_data` / `array.init_data`
+## 2. Registry and preset proof
 
-A future port must make that conservative boundary explicit.
+[`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) proves the public registry surface:
 
-## 5. No current equivalent of `MaxDataSegments` limiting
+- `memory-packing` is categorized as a module pass
+- both public presets begin with the same early module-pass prefix that includes `memory-packing`
 
-This is a correctness and validity issue, not just a perf or heuristic issue.
-If local splitting ever grows beyond the narrow tested subset, it will need an honest output-segment-count guard.
+[`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) is the source of truth for that same preset order.
 
-## Current scheduler story in-tree
+## 3. CLI replay evidence
 
-The local preset and registry surfaces show that Starshine already schedules `memory-packing` as an explicit module pass:
+[`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) does not currently have a dedicated single-pass `memory-packing` replay lane.
+The nearest committed CLI evidence is the debug-artifact optimize-prefix replay that includes:
 
-- it is registered in `src/passes/optimize.mbt`
-- it is dispatched through `run_hot_pipeline_apply_module_pass(...)` in `src/passes/pass_manager.mbt`
-- the optimize and shrink presets place it before `once-reduction` and `global-refining`
+- `--memory-packing`
+- `--once-reduction`
+- `--global-refining`
+- `--global-struct-inference`
+- and the early hot-pass prefix after them
 
-So the local scheduler slot is already aligned with upstream at a coarse level.
-The remaining gaps are about surface area, not the existence of the slot itself.
+That is weaker than a dedicated pass-local replay, so future parity work should keep that limitation explicit instead of overstating the current proof surface.
 
-## Current evidence and honest status
+## Current semantic boundary versus upstream Binaryen
 
-## The saved generated-artifact slot is green
+## What Starshine does implement today
 
-The saved `-O4z` audit reports slot `3` as:
+Current Starshine `memory-packing` implements:
 
-- canonical wasm equal: `yes`
-- normalized WAT equal: `yes`
+- active constant-offset segment scanning
+- active zero/nonzero range splitting
+- small-zero-run merge-back with threshold `8`
+- startup-trap-preserving top-byte retention
+- one-memory-only and overlap legality gating
+- passive-segment pass-through
+- `data_count` repair after rewritten segment counts
+- explicit module-pass scheduling in the public presets
 
-That is good evidence that the current local active-segment subset is already useful.
+## What Starshine still does **not** implement
 
-## But it is not evidence of full upstream parity
+Compared with upstream Binaryen `version_129`, the local pass still lacks:
 
-The local pass still lacks the main upstream passive-segment machinery.
-So the honest reading is:
+- active-segment `memory.init` / `data.drop` simplification
+- passive-segment splitting and referrer collection
+- `memory.init` replacement planning
+- `memory.fill` insertion for zero slices
+- `data.drop` expansion into surviving split segments
+- lazy drop-state globals
+- imported-memory `zeroFilledMemory` mode
+- GC `array.new_data` / `array.init_data` conservative boundaries
+- `MaxDataSegments` limiting
 
-- current Starshine matches the saved artifact's exercised subset,
-- but does not yet cover the full official `MemoryPacking.cpp` contract.
+So the honest short description of current Starshine remains:
 
-## The current tests are still very small
+- **active constant-offset module-level segment packing with overlap and trap guards**
 
-`src/passes/memory_packing_test.mbt` currently covers only three focused shapes.
-That is enough for the landed subset, but still much smaller than upstream Binaryen's dedicated lit surface.
+not:
 
-## Best current mental model
+- a full port of Binaryen `MemoryPacking.cpp`
 
-Upstream Binaryen tells us what `memory-packing` **means** semantically:
+## Practical follow-along path
 
-- a module-level data-segment plus segment-op packing pass with trap preservation
+If you want to read the local implementation in code order, use this path:
 
-Current Starshine tells us what a smaller local implementation already **gets right** today:
+1. [`src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt)
+   - summary, memory/offset helpers, range helpers, legality gate, and module-pass driver
+2. [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+   - module-pass dispatch inside the public pipeline
+3. [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+   - registry entry plus early preset placement
+4. [`src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt)
+   - focused active-split, trap-preservation, and overlap-bailout tests
+5. [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
+   - module-pass category and preset-expansion proof
+6. [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+   - nearest committed optimize-prefix artifact replay evidence
 
-- active constant-offset segment packing with overlap and trap guards
+## Bottom line
 
-When those two stories differ, treat Binaryen `version_129` as the semantic oracle and treat the current Starshine file as the narrower local strategy that still needs to grow.
+The local page is more useful now as an exact code map:
 
-## What a future local refactor must preserve
+- what file owns which behavior,
+- where the module legality and active-range logic live,
+- where the public scheduler slot is defined,
+- which tests lock the current contract,
+- and which major Binaryen surfaces are still missing.
 
-If Starshine rewrites this pass again, keep these lessons explicit:
-
-- keep the pass module-scoped
-- preserve the overlap and dynamic-layout legality gate
-- preserve top-byte trap retention for active segments
-- add passive-segment rewriting instead of pretending active-segment splitting is the whole pass
-- add imported-memory `zeroFilledMemory` semantics honestly or document a stricter divergence
-- add GC data-referrer conservatism before widening the split surface
-- add output-segment-count guarding if broader splitting is implemented
-- keep the saved artifact green while expanding surface area
+That keeps the Starshine side beginner-readable while still giving advanced readers a concrete path from the living wiki into the MoonBit implementation.

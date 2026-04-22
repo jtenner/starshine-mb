@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
+  - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/memory_packing.mbt
   - ../../../../../src/passes/memory_packing_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -71,7 +73,7 @@ It is a whole-module segment-layout plus segment-op rewrite pass.
 ## Most important durable takeaways
 
 - Upstream `memory-packing` is not just “split active data segments around zeroes.”
-- The folder now also has a source-confirmed implementation/test-map page, so the exact owner-phase split no longer has to be reconstructed from the strategy prose alone.
+- The folder now also has an immutable raw primary-source manifest plus a refreshed exact Starshine code-map page, so future readers no longer need to reconstruct release provenance or MoonBit navigation from prose alone.
 - The real safety story starts with a whole-module legality gate:
   - exactly one memory only
   - imported memory only when `zeroFilledMemory` is enabled
@@ -129,16 +131,19 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering positive active and passive families, profitability-driven no-split cases, bailout shapes, and the main “looks safe but is not” layouts.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine strategy: why this remains a module pass, what the local implementation already covers, and the major upstream surfaces still missing.
+  - Current in-tree Starshine strategy and exact MoonBit code map: why this remains a module pass, where the local legality/range/dispatch/test surfaces live, and which major upstream surfaces are still missing.
+- `docs/wiki/raw/binaryen/2026-04-22-memory-packing-primary-sources.md`
+  - Immutable manifest for the official Binaryen release/source/test pages reviewed in this run.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, saved generated-artifact evidence, and the honest remaining gap between local and upstream surface area.
 
 ## Freshness note
 
-A narrow 2026-04-20 direct source comparison found **no semantic post-`version_129` drift** in this pass.
+A narrow 2026-04-22 direct source comparison found **no teaching-relevant semantic post-`version_129` drift** in this pass.
 
-- `MemoryPacking.cpp` differs on current `main` only by two comment typo fixes.
-- The dedicated lit files audited for this dossier are identical between `version_129` and current `main`.
+- The reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**.
+- `MemoryPacking.cpp` still matched the released semantics on the reviewed `main` spot-check surfaces.
+- The dedicated lit files used for this dossier still matched the released contract on the reviewed surfaces.
 
 So the durable rule is:
 
@@ -152,10 +157,13 @@ So the durable rule is:
   - upstream `memory-packing` is a segment-plus-segment-op rewrite pass, not just an active-segment splitter
 - Keep the active/passive split, trap-preservation story, imported-memory gate, GC conservative boundary, and memory64/high-bit unsigned handling explicit whenever future docs or code changes touch this pass.
 - Treat the implementation/test-map page as the compact owner map for future follow-ups instead of re-deriving the phase split from chat history.
+- Treat the raw primary-source manifest plus the refreshed Starshine page as the default provenance-and-navigation pair for future `memory-packing` work.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md`](../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md)
 - [`../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md`](../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md)
+- [`../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md`](../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md)
 - [`../../../../../src/passes/memory_packing.mbt`](../../../../../src/passes/memory_packing.mbt)
 - [`../../../../../src/passes/memory_packing_test.mbt`](../../../../../src/passes/memory_packing_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

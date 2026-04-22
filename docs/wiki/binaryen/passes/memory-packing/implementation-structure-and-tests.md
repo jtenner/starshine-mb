@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
+  - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -29,6 +31,7 @@ The rest of the folder already explained the pass well, but it still lacked one 
 
 That gap matters because `memory-packing` is easy to mis-teach as a one-loop data-segment splitter.
 The real Binaryen pass is a small module pipeline.
+The 2026-04-22 raw primary-source capture now also keeps the reviewed release/source/test provenance explicit instead of leaving this page to carry that burden indirectly.
 
 ## Official owner files
 
@@ -275,6 +278,7 @@ This file proves the current GC boundary:
 This page closes one concrete gap in the living folder:
 
 - there is now a compact source-confirmed implementation/test map for `memory-packing`.
+- the 2026-04-22 refresh also keeps this owner/test map aligned with the new immutable raw primary-source manifest and the refreshed exact Starshine code-map page.
 
 That means future campaign threads should not treat “the folder still needs a page explaining which official file/test owns which part of the pass” as an open default fallback.
 
@@ -294,3 +298,8 @@ It is a small module pipeline:
 9. apply those rewrites to function code.
 
 That phase structure is the most important thing this page pins down.
+
+## Freshness note
+
+A narrow 2026-04-22 spot check against the reviewed `main` source surfaces did not reveal a teaching-relevant drift from the `version_129` owner/test story summarized here.
+Use the raw primary-source manifest for the exact release/source/test URLs reviewed in this run.
