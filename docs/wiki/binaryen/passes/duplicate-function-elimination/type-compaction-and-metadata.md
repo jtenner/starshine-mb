@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
+  - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
   - ../../../../../src/passes/duplicate_function_elimination.mbt
   - ../../../../../src/passes/duplicate_function_elimination_test.mbt
@@ -19,17 +21,14 @@ related:
 
 # `duplicate-function-elimination` type compaction and metadata
 
-## Why this page changed meaning
+## Why this page exists
 
-Earlier DFE notes in this repo tended to treat type compaction, name stripping, and metadata cleanup as if they were part of official Binaryen DFE itself.
-
-The 2026-04-20 source refresh corrected that.
-
-This page now exists to keep one crucial distinction explicit:
+Earlier DFE notes in this repo tended to blur together two different things:
 
 - **upstream Binaryen DFE proper**
-- versus
 - **broader local Starshine cleanup currently bundled into the local DFE pass**
+
+This page keeps that split explicit and practical.
 
 ## Source-backed correction
 
@@ -41,7 +40,7 @@ Official Binaryen `version_129` DFE does **not** itself do a second phase of:
 - element-kind canonicalization back to compact function lists
 - function-annotation-section rewrite bookkeeping
 
-The owning upstream file does only these DFE-core steps:
+The owning upstream file still does only these DFE-core steps:
 
 - choose an iteration budget
 - hash functions
@@ -77,24 +76,131 @@ The local MoonBit implementation in `src/passes/duplicate_function_elimination.m
 
 Local code builds a canonical map of duplicate simple function types and may compact the type section after a function merge.
 
+Key code locations:
+
+- `src/passes/duplicate_function_elimination.mbt:142-183`
+  - `dfe_duplicate_simple_type_canonical_map(...)`
+- `src/passes/duplicate_function_elimination.mbt:3172-3243`
+  - `dfe_canonicalize_duplicate_simple_type_indices(...)`
+
 That is a real local feature.
 It is not something the official DFE source performs itself.
+
+### Local shape: duplicate typed block signatures collapse after a merge
+
+Before, conceptually:
+
+```wat
+(type (func (result i32))) ;; type 0
+(type (func (result i32))) ;; type 1
+(func
+  (block (type 1)
+    i32.const 7)
+  drop)
+(func
+  (block (type 1)
+    i32.const 7)
+  drop)
+```
+
+After local Starshine DFE, conceptually:
+
+```wat
+(type (func (result i32))) ;; only one kept
+(func
+  (block (type 0)
+    i32.const 7)
+  drop)
+```
+
+The focused local proof lane is `src/passes/duplicate_function_elimination_test.mbt:254-317`.
 
 ## 2. Wide type-index rewriting
 
 Because the local implementation compacts types, it also rewrites many type-index-bearing surfaces across instructions and types.
 
+Key code locations:
+
+- `src/passes/duplicate_function_elimination.mbt:1088-1116`
+  - `dfe_scan_rewrite_func_type_idxs(...)`
+- `src/passes/duplicate_function_elimination.mbt:2394-2521`
+  - `dfe_rewrite_module_type_idxs(...)`
+- the underlying scan/rewrite helpers span `:185-2394`
+
 Again, this is a local extension required by local type compaction, not part of upstream DFE proper.
+
+### Local shape: typed select and concrete-ref block types retag
+
+Before, conceptually:
+
+```wat
+(type (func (result i32))) ;; duplicate type family
+(type (func (param i32) (result i64))) ;; concrete ref type 2
+(func
+  (block (result (ref null 2))
+    (ref.null 2))
+  (ref.null 2)
+  (ref.null 2)
+  i32.const 1
+  (select (result (ref null 2)))
+  drop
+  drop)
+```
+
+After local Starshine DFE, conceptually:
+
+```wat
+(type (func (param i32) (result i64))) ;; remapped concrete ref type 1
+(func
+  (block (result (ref null 1))
+    (ref.null 1))
+  (ref.null 1)
+  (ref.null 1)
+  i32.const 1
+  (select (result (ref null 1)))
+  drop
+  drop)
+```
+
+The focused proof lane is `src/passes/duplicate_function_elimination_test.mbt:511-654`.
 
 ## 3. Element-kind canonicalization
 
 Local code can rewrite compactable `ref.func` element-expression forms back into compact function-list element forms.
 
+Key code locations:
+
+- `src/passes/duplicate_function_elimination.mbt:54-90`
+  - compactable-expression detection and `funcs`-kind rebuilding
+- `src/passes/duplicate_function_elimination.mbt:92-114`
+  - whole-element-section canonicalization
+
 Useful locally, but not a direct part of the official DFE file.
+
+### Local shape: passive `ref.func` element expressions become `funcs`
+
+Before, conceptually:
+
+```wat
+(elem func (ref.func 0))
+```
+
+After local Starshine DFE, conceptually:
+
+```wat
+(elem func 0)
+```
+
+The local proof lane is `src/passes/duplicate_function_elimination_test.mbt:700-764`.
 
 ## 4. Name-section stripping
 
 Local code explicitly strips the `name` section.
+
+Key code location:
+
+- `src/passes/duplicate_function_elimination.mbt:116-118`
+  - `dfe_strip_name_sec(...)`
 
 That may still be a valid local cleanup decision, but it should not be mistaken for a source-backed DFE requirement from Binaryen `DuplicateFunctionElimination.cpp`.
 
@@ -102,7 +208,34 @@ That may still be a valid local cleanup decision, but it should not be mistaken 
 
 Local code also rewrites a dedicated function-annotation section after merges.
 
+Key code locations:
+
+- `src/passes/duplicate_function_elimination.mbt:2663-2711`
+  - annotation-section rewrite helpers
+- `src/passes/duplicate_function_elimination.mbt:2712-2827`
+  - module-wide function-index rewrite path that feeds survivor remapping into that metadata
+
 That is another example of local serialized-format bookkeeping layered around DFE.
+
+### Local shape: duplicate annotation entries collapse to the survivor
+
+Before, conceptually:
+
+```wat
+(func $middle ...)
+(func $right ...)
+(@func_annotation 1 "binaryen.idempotent")
+(@func_annotation 2 "binaryen.idempotent")
+```
+
+After local Starshine DFE, conceptually:
+
+```wat
+(func $middle ...)
+(@func_annotation 1 "binaryen.idempotent")
+```
+
+The local proof lane is `src/passes/duplicate_function_elimination_test.mbt:766-848`.
 
 ## Why this distinction matters for parity
 

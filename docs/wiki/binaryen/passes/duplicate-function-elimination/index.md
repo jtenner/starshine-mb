@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
+  - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
   - ../../../raw/research/0067-2026-03-24-duplicate-function-elimination.md
   - ../../../../../src/passes/duplicate_function_elimination.mbt
@@ -89,7 +91,7 @@ The safer source-backed mental model is:
 - Binaryen DFE is just the duplicate-function identity loop.
 - If the local Starshine implementation does more, that extra work should be documented as **Starshine-local cleanup layered around DFE**, not silently attributed to official Binaryen.
 
-That distinction is the main reason this folder needed a 2026-04-20 refresh even though it already had multiple pages.
+That distinction is the main reason this folder needed a 2026-04-20 refresh and a narrower 2026-04-22 provenance/code-map follow-up even though it already had multiple pages.
 
 ## What the pass sounds like versus what it actually does
 
@@ -114,9 +116,9 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering positive merge families, ref.func/global/export/start rewrites, iteration-driven transitive unlocks, and the main non-merge families.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine strategy and the explicit reason this remains a module pass rather than a HOT pass.
+  - Current in-tree Starshine strategy with the exact MoonBit registry/dispatcher/core-rewrite code map, plus the explicit reason this remains a module pass rather than a HOT pass.
 - [`./type-compaction-and-metadata.md`](./type-compaction-and-metadata.md)
-  - The crucial source-backed distinction between upstream DFE proper and the broader local type/name/metadata cleanup currently bundled into Starshine's pass.
+  - The crucial source-backed distinction between upstream DFE proper and the broader local type/name/metadata cleanup currently bundled into Starshine's pass, now with concrete local before/after shape families and exact owner-file locations.
 - [`./parity.md`](./parity.md)
   - Current parity framing, including the now-explicit split between upstream DFE behavior and local extra cleanup work.
 
@@ -132,6 +134,7 @@ So the durable rule is:
 
 - treat Binaryen `version_129` as the released algorithm oracle for this dossier
 - keep the current-main note explicit only to say that the checked core logic and tests still match semantically
+- use the raw primary-source manifest when future follow-ups need exact release/source/test provenance without re-deriving it from the living pages
 
 ## Current maintenance rule
 
@@ -144,6 +147,8 @@ So the durable rule is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md)
+- [`../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md`](../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md`](../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md)
 - [`../../../../../src/passes/duplicate_function_elimination.mbt`](../../../../../src/passes/duplicate_function_elimination.mbt)
 - [`../../../../../src/passes/duplicate_function_elimination_test.mbt`](../../../../../src/passes/duplicate_function_elimination_test.mbt)
