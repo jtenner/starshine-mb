@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
+  - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
+  - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -21,6 +23,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the primary source oracle for this pass.
+An immutable source manifest for the exact reviewed release/source/test URLs now lives at [`../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md`](../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md).
 
 Primary files:
 
@@ -287,7 +290,7 @@ The correct beginner takeaway is:
 
 ## Current freshness note
 
-A narrow 2026-04-20 check found no visible drift here:
+A narrow 2026-04-22 re-check found no visible drift here:
 
 - `PickLoadSigns.cpp` is identical on `version_129` and current `main`
 - `pick-load-signs_sign-ext.wast` is also identical

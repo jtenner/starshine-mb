@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
+  - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
+  - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
   - ../../../raw/research/0069-2026-03-26-pick-load-signs.md
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/pick_load_signs.mbt
@@ -41,7 +43,7 @@ related:
 ## Role
 
 - `pick-load-signs` is an active implemented **hot pass** in Starshine.
-- This folder is already a deep dossier, but this 2026-04-21 follow-up closes one real remaining documentation gap: a compact source-confirmed implementation/test map for the tiny owner graph around `PickLoadSigns.cpp`, `properties.h`, and the split dedicated-vs-neighboring lit proof surface.
+- This folder is already a deep dossier, and the 2026-04-22 follow-up closes the remaining provenance-and-navigation gap: it adds an immutable raw primary-source manifest and refreshes the Starshine side with an exact MoonBit registry / dispatcher / raw-skip / rewrite / test map.
 - In upstream Binaryen `version_129`, the public `pass.cpp` description is only:
   - `pick load signs based on their uses`
 
@@ -124,14 +126,16 @@ What it actually is in `version_129`:
 - [`./parity.md`](./parity.md)
   - Current in-tree Starshine parity state, focused evidence, and the explicit local-vs-upstream scope difference.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current Starshine HOT-IR strategy: what the local pass actually models today, how it differs from upstream Binaryen, and what a future strict-parity pass would need to preserve.
+  - Current Starshine HOT-IR strategy: exact MoonBit registry / dispatcher / raw-skip / rewrite / test ownership, the broader local i64 recognition surface, and the honest split between coded i64 support and explicitly isolated local tests.
+- [`../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md`](../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md)
+  - Immutable manifest of the official Binaryen release/source/test URLs reviewed for this folder on 2026-04-22.
 
 ## Freshness note
 
-A narrow 2026-04-20 direct source comparison found **no visible drift** here:
+A narrow 2026-04-22 direct source comparison found **no visible drift** here:
 
-- `src/passes/PickLoadSigns.cpp` is identical between Binaryen `version_129` and current `main`
-- the dedicated lit file `pick-load-signs_sign-ext.wast` is also identical
+- the reviewed `src/passes/PickLoadSigns.cpp` release and current-`main` surfaces still match on the teaching-relevant mechanics captured in this folder
+- the dedicated lit file `pick-load-signs_sign-ext.wast` also still matches between the reviewed release and current `main`
 
 So the released `version_129` source is still the right semantic oracle for this dossier.
 

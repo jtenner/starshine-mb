@@ -1,10 +1,12 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
+  - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
+  - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
   - ../../../raw/research/0069-2026-03-26-pick-load-signs.md
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/pick_load_signs.mbt
@@ -38,6 +40,7 @@ related:
 - The current in-tree Starshine implementation is broader than upstream in one visible way:
   - it recognizes i64 extend / mask / shift-pair families too
 - Current local artifact and focused fuzz evidence are still green despite that broader local surface.
+- The local documentation now also keeps one narrower honesty note explicit: focused local pass tests do not yet isolate dedicated i64 positive rewrite cases, so the i64 divergence is source-confirmed in code and only indirectly exercised by broader replay/fuzz evidence today.
 
 ## Current in-tree status
 
@@ -72,7 +75,7 @@ Current practical reading:
 
 ## Freshness note
 
-A narrow 2026-04-20 direct comparison found no visible drift here:
+A narrow 2026-04-22 direct comparison found no visible drift here:
 
 - `PickLoadSigns.cpp` is identical on Binaryen `version_129` and current `main`
 - `pick-load-signs_sign-ext.wast` is also identical
