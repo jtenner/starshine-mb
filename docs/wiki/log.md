@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-22] lint | align stale `remove-unused-brs` implementation-map freshness metadata with the new source capture
+
+- During the touched-area health check after the `remove-unused-brs` primary-source/code-map commit, re-scanned the folder and found that `implementation-structure-and-tests.md` still carried the older `2026-04-20` freshness wording even though this run had just re-checked the same current-`main` pass/test surfaces while building the new raw source manifest.
+- Updated `docs/wiki/binaryen/passes/remove-unused-brs/implementation-structure-and-tests.md` so the page now cites the new raw primary-source capture directly and says the narrow current-main freshness check was re-confirmed on **2026-04-22**, keeping the touched folder internally consistent instead of mixing the new provenance with stale local freshness metadata.
+
 ## [2026-04-22] research | add `remove-unused-brs` primary-source capture and exact Starshine code-map coverage
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/remove-unused-brs/` folder, then chose `remove-unused-brs` because the dossier was already strong on upstream strategy and local shape families but still lacked an immutable raw primary-source manifest and the local Starshine strategy page still stopped at high-level HOT framing instead of pointing readers to the exact MoonBit registry / preset / raw-dispatch / helper-cluster / test map.

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md
   - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedBrs.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -120,7 +121,7 @@ RUB is structured-control-heavy, not generic-control-flow-heavy.
 
 ## Current-main freshness note
 
-A narrow 2026-04-20 check found:
+A narrow 2026-04-22 check found:
 
 - the `remove-unused-brs*` lit roster is unchanged between `version_129` and current `main`
 - the core implementation is still recognizably the same staged algorithm
