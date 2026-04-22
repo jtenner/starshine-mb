@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md
+  - ../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md
@@ -43,6 +45,7 @@ related:
 ## Role
 
 - `remove-unused-brs` is an active implemented **hot pass** in Starshine.
+- The folder now also has an immutable raw primary-source capture at [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md), so the Binaryen release/source/test provenance for this dossier no longer lives only in interpreted pages.
 - In upstream Binaryen `version_129`, it is a function-parallel structured-control cleanup pass.
 - The short public description in `pass.cpp` says it removes breaks that are not needed.
 - That description is true, but incomplete.
@@ -139,7 +142,7 @@ What it actually is in `version_129`:
 - [`./pattern-catalog.md`](./pattern-catalog.md)
   - Exhaustive inventory of the current in-tree Starshine rewrite and skip surface.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current local HOT architecture: raw pre-lift shortcuts, lifted fixpoint behavior, caches, and structural guards.
+  - Current local HOT architecture plus an exact MoonBit registry / preset / raw-dispatch / helper-cluster / test map for the current implementation.
 - [`./tail-and-return-cleanups.md`](./tail-and-return-cleanups.md)
   - Local detailed notes for tail exits, return-context cleanup, and exit-only value-`if` families.
 - [`./select-and-condition-rewrites.md`](./select-and-condition-rewrites.md)
@@ -158,8 +161,9 @@ What it actually is in `version_129`:
 ## Freshness note
 
 This refreshed landing page is anchored on Binaryen `version_129`.
+The reviewed official GitHub release page checked on 2026-04-22 showed publish date **2026-04-01**.
 
-A narrow 2026-04-20 direct source check found:
+A narrow 2026-04-22 direct source check found:
 
 - the `remove-unused-brs*` lit roster is unchanged on current `main`
 - the pass is still recognizably the same staged algorithm
@@ -183,6 +187,8 @@ That is a small but real drift, so keep treating `version_129` as the explicit r
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md)
+- [`../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md`](../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md`](../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md)
 - [`../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md`](../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md)
 - [`../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md`](../../../raw/research/0071-2026-03-28-remove-unused-brs-hot-lift-shapes.md)

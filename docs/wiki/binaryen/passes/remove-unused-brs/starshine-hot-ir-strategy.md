@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-13
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md
+  - ../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0079-2026-04-10-remove-unused-brs-mid-unique-tee-floor.md
   - ../../../raw/research/0080-2026-04-10-remove-unused-brs-large-brtable-hot-skip.md
   - ../../../raw/research/0081-2026-04-10-remove-unused-brs-large-value-if-branch-raw-skip.md
@@ -17,6 +19,8 @@ sources:
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/remove_unused_brs.mbt
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/remove_unused_brs_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -32,6 +36,56 @@ related:
 ---
 
 # Starshine HOT-IR Strategy For `remove-unused-brs`
+
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md).
+The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives and how the raw-plus-HOT split is wired today.
+
+## Exact local code map
+
+The fastest read-along path through the current Starshine implementation is:
+
+- registry descriptor, summary, and HOT entry point
+  - `src/passes/remove_unused_brs.mbt`
+    - `remove_unused_brs_descriptor()`
+    - `remove_unused_brs_summary()`
+    - `remove_unused_brs_run(...)`
+  - `src/passes/optimize.mbt`
+    - active hot-pass registration for `remove-unused-brs`
+    - repeated `optimize` / `shrink` preset placement in the early, middle, and late cleanup slots
+- raw pre-lift integration in `src/passes/pass_manager.mbt`
+  - `run_hot_pipeline_raw_remove_unused_brs(...)`
+  - `run_hot_pipeline_raw_remove_unused_brs_rewrite_decision_ladder_instrs(...)`
+  - the raw no-lift classifier family such as
+    - `run_hot_pipeline_raw_remove_unused_brs_can_skip_large_result_br_table_dispatch_ladder(...)`
+    - `run_hot_pipeline_raw_remove_unused_brs_can_skip_large_value_if_branch_ladder(...)`
+    - `run_hot_pipeline_raw_remove_unused_brs_can_skip_large_drop_heavy_branch_ladder(...)`
+    - `run_hot_pipeline_raw_remove_unused_brs_can_skip_structured_return_ladder(...)`
+    - `run_hot_pipeline_raw_remove_unused_brs_can_skip_unique_loop_select_return_ladder(...)`
+  - the main hot-pass dispatch case for `"remove-unused-brs"`
+- lifted HOT summary and fixpoint scaffolding in `src/passes/remove_unused_brs.mbt`
+  - `remove_unused_brs_collect_hot_void_return_ladder_summary(...)`
+  - `remove_unused_brs_can_skip_large_br_table_return_ladder(...)`
+  - `remove_unused_brs_can_skip_large_tagged_result_prefix_ladder(...)`
+  - `remove_unused_brs_can_skip_medium_branchy_block_ladder(...)`
+  - `remove_unused_brs_can_skip_call_heavy_mixed_if_mesh(...)`
+  - `remove_unused_brs_can_skip_localset_heavy_value_if_mesh(...)`
+  - `remove_unused_brs_compute_cycle_scan(...)`
+  - `remove_unused_brs_visit_region(...)`
+- representative rewrite helpers in `src/passes/remove_unused_brs.mbt`
+  - `remove_unused_brs_try_rewrite_br_if_eq_ladder_to_br_table(...)`
+  - `remove_unused_brs_try_rewrite_value_if_to_select(...)`
+  - `remove_unused_brs_try_rewrite_one_arm_payload_branch_if(...)`
+  - `remove_unused_brs_try_rewrite_br_table_continuation_wrappers(...)`
+  - `remove_unused_brs_try_rewrite_result_block_prefix_payload_branch(...)`
+  - `remove_unused_brs_try_restructure_one_arm_return_if_suffix(...)`
+  - `remove_unused_brs_try_rotate_void_block_single_loop(...)`
+- focused local evidence surfaces
+  - `src/passes/remove_unused_brs_test.mbt` for reduced legality and rewrite coverage
+  - `src/passes/perf_test.mbt` for raw/hot skip behavior and trace-guided cost-control coverage
+  - `src/passes/optimize_test.mbt` for repeated preset-slot exposure
+  - `src/cmd/cmd_wbtest.mbt` for direct `--remove-unused-brs` artifact and extracted-function replay lanes
+
+That exact code map is the main practical addition in this refresh: readers can now jump directly from the strategy summary to the owning files and helper clusters.
 
 ## Two-Layer Architecture
 
