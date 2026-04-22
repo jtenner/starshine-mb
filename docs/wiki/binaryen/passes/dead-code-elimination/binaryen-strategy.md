@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
   - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
@@ -53,7 +54,8 @@ Primary dedicated tests:
 - `test/lit/passes/dce-eh-legacy.wast`
 - `test/lit/passes/dce-stack-switching.wast`
 
-A direct diff check found no textual drift between `version_129` and current `main` in `src/passes/DeadCodeElimination.cpp`.
+The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
+A narrow source spot check found no teaching-relevant drift between `version_129` and current `main` in `src/passes/DeadCodeElimination.cpp`.
 
 ## Public pass identity and placement
 

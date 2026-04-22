@@ -1,227 +1,286 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
+  - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
   - ../../../../../src/passes/dead_code_elimination.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/dead_code_elimination_test.mbt
   - ../../../../../src/passes/dead_code_elimination_live_repro_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../agent-todo.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./typed-control-voidification-and-eh.md
   - ./wat-shapes.md
 ---
 
 # Current Starshine `dead-code-elimination` strategy
 
-This page is the local “what is actually implemented today?” companion to the upstream Binaryen strategy page.
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md).
+The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives and how the local HOT-plus-pipeline split is wired today.
 
 ## Short version
 
-The 2026-04-21 source-confirmation follow-up changed the upstream comparison point.
-Current Starshine `src/passes/dead_code_elimination.mbt` no longer looks like a HOT-native port of Binaryen `version_129` `DeadCodeElimination.cpp`.
-Instead, Starshine currently implements a **broader DCE-like cleanup family** than the real upstream pass.
+The 2026-04-21 source-confirmation reread already corrected the upstream side:
+Binaryen `version_129` `dce` is a small `TypeUpdater`-centered unreachable-shape postwalk.
 
-Binaryen `version_129` uses a much smaller pass:
+Current Starshine is still broader than that oracle.
+The local pass combines:
 
-- one post-walk AST pass
-- `TypeUpdater` as the central helper
-- dead-suffix trimming after the first unreachable child
-- a few narrow control-type-to-`unreachable` rules
-- and one conditional `EHUtils::handleBlockNestedPops(...)` repair
+- a dedicated HOT owner file with branch-user, fallthrough, purity, and node-use caches
+- region-local payload-forwarder and wrapper rewrites needed for current HOT lowering survival
+- explicit nonfallthrough tail repair and `unreachable` materialization
+- raw-skip heuristics in the hot pipeline manager
+- writeback-validation and suspicious-carrier guard rails in the hot pipeline manager
 
-Current Starshine uses:
+So the honest one-line summary is:
 
-- HOT-region traversal and rewrite helpers
-- cached branch-user maps, fallthrough maps, purity maps, and node-use data
-- explicit root and region editing helpers
-- detached-subtree deletion
-- explicit `unreachable` tail materialization
-- several HOT-specific payload-forwarder and split-wrapper rewrites needed for artifact-safe lowering
-- pass-manager raw-skip heuristics when a function obviously has no DCE candidates
+- **Binaryen `dce` defines the semantic target, but current Starshine `dead-code-elimination` is a larger HOT rewrite family plus pipeline hygiene around that family.**
 
-So the local pass is best understood as:
+## Exact local code map
 
-- a larger Starshine-local cleanup pass that overlaps some of Binaryen `dce`'s reachability goals,
+The fastest read-along path through the current Starshine implementation is:
 
-not:
+- registry descriptor, summary, and preset placement in `src/passes/optimize.mbt`
+  - `pass_registry_entry_hot("dead-code-elimination", ...)`
+  - summary text: `Prune unreachable tails, dead dropped values, and dead-result structured control in hot IR regions.`
+- main HOT implementation in `src/passes/dead_code_elimination.mbt`
+  - `dead_code_elimination_run(...)`
+  - `dead_code_elimination_visit_region(...)`
+- core helper clusters in `src/passes/dead_code_elimination.mbt`
+  - caches and liveness/purity support:
+    - `DeadCodeEliminationNodeUseCache`
+    - `DeadCodeEliminationFallthroughCache`
+    - `DeadCodeEliminationBranchUserCache`
+    - `DeadCodeEliminationPurityCache`
+  - branch-target and fallthrough support:
+    - `dead_code_elimination_build_branch_users_by_label(...)`
+    - `dead_code_elimination_region_may_fallthrough(...)`
+    - `dead_code_elimination_node_may_fallthrough(...)`
+  - artifact-sensitive rewrite helpers:
+    - `dead_code_elimination_try_rewrite_branch_payload_forwarder(...)`
+    - `dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(...)`
+    - `dead_code_elimination_try_fold_nonfallthrough_prefix_into_branch_payload(...)`
+  - dead-result and tail-repair helpers:
+    - `dead_code_elimination_try_voidify_split_drop_control(...)`
+    - `dead_code_elimination_voidify_control(...)`
+    - `dead_code_elimination_ensure_explicit_unreachable_tail(...)`
+    - `dead_code_elimination_finish_nonfallthrough_final_root(...)`
+- raw-skip and pipeline guards in `src/passes/pass_manager.mbt`
+  - raw-skip analysis helpers:
+    - `run_hot_pipeline_dce_raw_has_early_terminator(...)`
+    - `run_hot_pipeline_dce_raw_void_structured_noop(...)`
+    - `run_hot_pipeline_dce_raw_live_typed_control_only(...)`
+    - `run_hot_pipeline_dce_can_skip_raw(...)`
+  - pass dispatch arm:
+    - `"dead-code-elimination" => dead_code_elimination_run(ctx, func)`
+  - pass-specific writeback guard:
+    - `if descriptor_name == "dead-code-elimination" { ... }`
+- focused local proof surfaces
+  - `src/passes/dead_code_elimination_test.mbt`
+  - `src/passes/dead_code_elimination_live_repro_test.mbt`
+  - `src/passes/perf_test.mbt`
+  - `src/cmd/cmd_wbtest.mbt`
 
-- a direct line-by-line port of Binaryen `DeadCodeElimination.cpp`,
-- and not even a close one-to-one semantic match for every subfamily named in older local docs.
+That exact code map is the main practical addition in this refresh: readers can now jump directly from the strategy summary to the owning files and evidence surfaces.
 
-## What Starshine already models well
+## What the local owner file actually does
 
-## 1. Overlap with the upstream pass is concentrated in unreachable-shape handling
+The real local implementation lives in `src/passes/dead_code_elimination.mbt`, not in `pass_manager.mbt`.
+`pass_manager.mbt` owns only the surrounding raw-skip and writeback-routing logic.
 
-The local pass still overlaps most clearly with Binaryen on:
+Within the owner file, the pass is organized around a few durable concerns.
 
-- unreachable-tail pruning
-- explicit tail repair for non-fallthrough final control
-- branch-sensitive control cleanup
+### 1. Cached branch-user, fallthrough, purity, and node-use facts
 
-But unlike real upstream `version_129` `dce`, Starshine also owns broader dead dropped-value and dead typed-control cleanup families locally.
+The local pass does not use Binaryen's small `TypeUpdater` shell.
+Instead it rebuilds HOT-oriented facts as needed:
 
-## 2. Branch-target and fallthrough awareness
+- node-use counts for safe detached-subtree cleanup
+- branch-user and incoming-branch maps by label
+- fallthrough caches for control/result reasoning
+- purity caches for dead dropped-value cleanup
 
-Binaryen's small `TypeUpdater`-plus-structure checks become a larger cache story locally.
-Starshine builds and caches:
+That broader cache stack is the clearest sign that current Starshine is not a direct line-by-line Binaryen port.
 
-- whether any branches exist at all
-- incoming branches by label
-- branch users by label
-- fallthrough facts by node
+### 2. Region-local dead-result cleanup
 
-That is not the same implementation shape as upstream, but it is aiming at the same safety boundary:
+The local pass still overlaps the upstream intent most strongly on reachable-prefix versus dead-tail cleanup.
+The owner file includes helpers that:
 
-- do not simplify control structure as if it were a plain sequence when live branches still care about it
+- remove dead roots after nonfallthrough control
+- replace roots with surviving children when that is HOT-safe
+- voidify dropped control wrappers when the result really is dead locally
+- preserve or materialize explicit `unreachable` tails when later lowering still needs them
 
-## 3. Dead pure-value cleanup plus side-effect preservation
+This is where the local pass most directly matches the beginner mental model of “DCE.”
 
-The local file has explicit purity analysis and dead-subtree cleanup logic.
-That matches the Binaryen idea that dead pure values can disappear, while effectful work must remain.
+### 3. HOT-specific payload-forwarder and wrapper rewrites
 
-## 4. Explicit `unreachable` tail handling is part of the local contract too
+Several helpers are explicitly about shapes that arose from HOT lifting/lowering and generated-artifact replay, not from the small upstream AST pass shape.
+Examples include:
 
-Like Binaryen, current Starshine has explicit helpers for:
+- branch-payload-forwarder rewrites
+- split-`local.set` wrapper forwarder rewrites
+- folding nonfallthrough prefixes into branch payloads
 
-- deciding whether a rewritten region still needs a trailing `unreachable`
-- checking whether one is already present
-- inserting one when it is required
+These helpers should be taught as **local lowering-survival logic**, not as the semantic definition of Binaryen `dce`.
 
-This is an important sign that the local implementation understands the same “simplify, but stay well-typed” rule.
+### 4. Explicit final-tail repair
 
-## 5. Artifact-backed reduced coverage is much wider locally than upstream's shipped DCE files
+The owner file has a clear final-root repair story:
 
-The in-tree local test corpus includes many HOT-specific survival families, including:
+- decide whether a nonfallthrough final root needs an explicit `unreachable`
+- avoid duplicating a tail that already exists
+- insert the explicit tail only when the lowered form still needs it
 
-- pure-drop preservation and impure-drop retention
-- unreachable-root pruning
-- typed block / `if` / loop dead-result cleanup
+That is broader and more operational than upstream Binaryen's small postwalk, but it is a durable local invariant.
+
+## Raw-skip behavior is part of the local strategy
+
+A major local difference from upstream Binaryen is the raw fast path in `src/passes/pass_manager.mbt`.
+The pipeline can skip HOT lifting entirely when raw Wasm inspection shows there are no likely DCE candidates.
+
+The key helpers are:
+
+- `run_hot_pipeline_dce_raw_has_early_terminator(...)`
+- `run_hot_pipeline_dce_raw_void_structured_noop(...)`
+- `run_hot_pipeline_dce_raw_live_typed_control_only(...)`
+- `run_hot_pipeline_dce_can_skip_raw(...)`
+
+The practical meaning is:
+
+- some functions with structured control still take the raw fast path
+- top-level parity success for `dead-code-elimination` does not always mean the full HOT rewrite family ran on that function
+- perf and trace evidence are part of the real local contract, not just an optimization detail
+
+## Writeback and validation guards are part of the current contract
+
+`src/passes/pass_manager.mbt` also keeps pass-specific post-lowering safeguards for DCE.
+The `descriptor_name == "dead-code-elimination"` branch checks for:
+
+- invalid escape carriers
+- suspicious escape carriers
+- local-count blowups
+- writeback validation errors
+
+That matters because several historically visible failures surfaced during DCE replay even when the root cause was a HOT/writeback interaction rather than a pure pass-local semantic mismatch.
+For current Starshine, those guard rails are part of the honest strategy story.
+
+## Current proof surface in this repository
+
+The local proof surface is broader than one regression file.
+
+### Main HOT rewrite coverage
+
+`src/passes/dead_code_elimination_test.mbt` locks the main local families, including:
+
+- ordinary dead dropped-value cleanup
+- unreachable-root pruning after `return`
+- dead-result typed `if` and block cleanup
 - payload-forwarder rewrites
-- split `local.set` wrapper rewrites
-- detached label-owner safety
-- detached shared-subtree cleanup
-- live reproductions for exact lowering-sensitive carrier families
-- raw-skip perf coverage
-- native debug-artifact replay coverage
+- split-`local.set` wrapper rewrites
+- explicit `unreachable` tail repair
+- detached label-owner and detached shared-subtree cleanup
 
-That does not automatically mean Starshine is fully upstream-parity complete.
-But it does mean the local implementation has already accumulated a lot of real-world HOT-specific lessons.
+This file is the best compact proof surface for what the MoonBit owner file actually tries to do.
 
-## Important structural differences from Binaryen
+### Live repro coverage
 
-## 1. Binaryen's `visitDrop(...)` becomes a much larger region-rewrite story locally
+`src/passes/dead_code_elimination_live_repro_test.mbt` exists for artifact-sensitive cases that were worth freezing as direct repros, including:
 
-Binaryen's source has one central `visitDrop(...)` function.
-Current Starshine distributes the same overall job across a larger helper cluster such as:
+- exact inner-carrier shapes
+- typed loop-input drops needed for lowering
 
-- `dead_code_elimination_try_voidify_split_drop_control`
-- `dead_code_elimination_voidify_control`
-- `dead_code_elimination_finish_nonfallthrough_final_root`
-- `dead_code_elimination_ensure_explicit_unreachable_tail`
+That file is especially useful for readers who want to understand why the local helper set grew beyond the upstream Binaryen algorithm.
 
-That is a local HOT/writeback reality, not a contradiction of the upstream contract.
+### Perf and raw-skip coverage
 
-## 2. Starshine has HOT-specific branch-payload and wrapper rewrites that are not visible in upstream AST DCE
-
-The local file contains sizable logic for families like:
-
-- `dead_code_elimination_try_rewrite_branch_payload_forwarder`
-- `dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder`
-- `dead_code_elimination_try_fold_nonfallthrough_prefix_into_branch_payload`
-
-Those are local implementation details that exist because HOT lifting/lowering and artifact replay exposed concrete structural hazards there.
-
-Important beginner correction:
-
-- these are part of how Starshine currently survives real HOT/lowering shapes
-- they are **not** evidence that upstream Binaryen DCE is secretly defined by those exact helper families
-
-## 3. Detached-node cleanup is more explicit locally
-
-Binaryen largely relies on AST rewrites plus later flatten/refinalize cleanup.
-Starshine also has explicit detached-node collection and deletion helpers because HOT nodes and shared subtrees make “was this really detached?” more operationally important in-tree.
-
-## 4. Raw-skip behavior is a deliberate local strategy
-
-`pass_manager.mbt` has explicit raw-skip logic for DCE.
-The local pipeline can skip HOT lifting entirely when the raw instruction stream obviously has no DCE candidates.
-
-The perf tests lock several examples of that behavior in place, including:
+`src/passes/perf_test.mbt` proves the raw fast path and its boundaries.
+The existing tests lock cases such as:
 
 - straight-line value-returning functions
 - straight-line void direct calls
 - branchless void structured control
 - branchless typed final `if`
-- branchy typed final control with only live typed results
+- branchy typed control that is still locally live and therefore a no-op for DCE
 
-And they also lock the opposite boundary:
+The same file also proves that the pipeline emits the expected `skip-raw reason=no-dce-candidates` trace when those fast-path rules fire.
 
-- real dead-drop work and nonfallthrough typed final control must **not** take the raw-skip fast path.
+### CLI and artifact replay coverage
 
-This is a big local implementation fact because it explains why the top-level saved artifact DCE slot could match Binaryen while still reporting `starshinePassSkippedRaw = true`.
+`src/cmd/cmd_wbtest.mbt` proves that:
 
-## Current honest parity state
+- `--dead-code-elimination` is a real CLI-visible pass flag
+- the pass can validate the checked-in debug artifact through `run_cmd_with_adapter`
+- the native default-IO path still reports the known debug-artifact blocker explicitly
+- the pass resolves correctly inside larger explicit pass chains and preset-like command lines
 
-## Top-level generated-artifact audit
+That keeps the local strategy grounded in an end-to-end artifact replay lane rather than only in unit-style HOT tests.
 
-The saved generated-artifact `-O4z` audit recorded for the top-level DCE slot:
+## Current local-vs-upstream split
 
-- `normalizedWatEqual = true`
-- `canonicalFuncPrettyEqual = true`
-- `wasmEqual = false`
-- `starshinePassSkippedRaw = true`
+The safest contrast remains:
 
-So the honest reading is:
+- **Binaryen `dce`:** a small child-first unreachable-shape cleanup pass centered on `TypeUpdater`
+- **Starshine `dead-code-elimination`:** a broader HOT-region cleanup pass with cache-heavy control reasoning, lowering-sensitive wrapper rewrites, raw-skip heuristics, and writeback-validation guard rails
 
-- the local fast path preserved the same normalized semantic outcome there
-- but that top-level success is not proof that the full HOT rewrite surface was exercised on that artifact slot
+Current Starshine therefore includes behaviors that should not be silently attributed upstream, including:
 
-## Debug-artifact replay coverage exists in-tree
+- payload-forwarder rewrites
+- split-wrapper retargeting
+- explicit final-tail materialization logic
+- raw no-op classification before HOT lift
+- suspicious-carrier and local-limit writeback guards
 
-`src/cmd/cmd_wbtest.mbt` contains a native regression ensuring:
+The living docs should keep that split explicit.
 
-- `run_cmd_with_adapter validates dead-code-elimination on debug artifact`
+## Why the implementation is split across two files
 
-That matters because it proves the pass can run through the checked-in large artifact in the main supported path.
+The split is now fairly clear:
 
-## The backlog is now mostly about runtime and the remaining native divergence families
+- `src/passes/dead_code_elimination.mbt` owns the semantic HOT rewrite family
+- `src/passes/pass_manager.mbt` owns pipeline policy around that family
 
-`agent-todo.md` keeps the current frontier explicit.
-The local DCE work is no longer framed as a newly isolated pass-local semantic mismatch in the ordinary source-mode path.
-The live work is now mainly:
+That is a better mental model than treating everything under the DCE name as one monolithic pass body.
+It also makes future refactors easier to reason about:
 
-- runtime budget
-- valid-baseline ordered-prefix replay proof
-- the remaining native-release lowering divergence families that still show up in artifact replay
+- semantic parity work belongs mainly in `dead_code_elimination.mbt`
+- raw-skip policy and writeback-hygiene decisions belong mainly in `pass_manager.mbt`
 
-That is a healthier place to be than the older “DCE still corrupts the chain immediately” story.
+## Honest future port rule
 
-## What a future local refactor must preserve
+If Starshine moves closer to upstream Binaryen `dce`, preserve two truths at the same time:
 
-If Starshine rewrites this pass again, keep these durable local lessons:
+1. Binaryen `version_129` remains the semantic oracle.
+2. Current Starshine has already learned real HOT/lowering lessons that should not be discarded casually.
 
-- preserve the same high-level contract as Binaryen: dead-result cleanup plus unreachable-tail pruning, not generic dead-store elimination
-- keep branch-target and fallthrough reasoning explicit
-- keep explicit `unreachable` tail insertion honest
-- preserve the raw-skip fast path only for genuinely no-op families
-- keep HOT-specific payload-forwarder and split-wrapper repairs clearly labeled as local lowering-survival logic, not as the upstream semantic definition of DCE
-- preserve detached-subtree cleanup and label-owner safety
-- keep artifact-backed reduced repro tests for the known hard shapes
+So future work should aim to shrink the semantic gap without erasing the local evidence encoded in:
 
-## Best current mental model
+- the payload-forwarder and wrapper rewrite helpers
+- the explicit tail-repair logic
+- the raw-skip boundaries
+- the artifact replay tests
 
-Upstream Binaryen tells us **what DCE means**:
+## Bottom line
 
-- effect-aware unused-result and unreachable cleanup with type/EH repair
+Current Starshine `dead-code-elimination` is real, useful, and well-tested.
+Its exact local implementation is now easy to follow:
 
-Current Starshine tells us **what a HOT-IR implementation needs in order to survive real artifact replay and lowering**.
+- registration in `src/passes/optimize.mbt`
+- HOT semantics in `src/passes/dead_code_elimination.mbt`
+- raw-skip and writeback guards in `src/passes/pass_manager.mbt`
+- focused proof in the pass, live-repro, perf, and CLI test files
 
-Both matter.
-But when those two stories diverge, treat Binaryen `version_129` as the semantic oracle and the local file as the current execution strategy that still has to keep proving itself against that oracle.
+That makes the current subset easy to teach honestly:
+
+- **what it does today:** a broader HOT cleanup family around dead dropped values, dead-result control, payload-forwarder repair, and explicit tail repair
+- **what it does not equal:** upstream Binaryen's smaller `TypeUpdater`-centered `dce`

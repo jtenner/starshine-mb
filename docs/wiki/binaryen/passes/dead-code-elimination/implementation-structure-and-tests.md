@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
+  - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -234,7 +236,8 @@ The combined test file and scheduler placement together support a simple rule:
 
 ## Current `main` drift check
 
-A direct `version_129` versus current `main` source diff on `src/passes/DeadCodeElimination.cpp` showed no textual drift in the pass implementation.
+The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
+A narrow `version_129` versus current `main` source diff on `src/passes/DeadCodeElimination.cpp`, `pass.cpp`, and representative ordinary/EH tests did not surface a teaching-relevant drift in the pass contract.
 So the `version_129` file remains a strong current oracle for this dossier.
 
 ## What a future Starshine port must preserve

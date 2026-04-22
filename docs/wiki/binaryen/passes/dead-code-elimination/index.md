@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
+  - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
   - ../../../../../src/passes/dead_code_elimination.mbt
@@ -124,11 +126,12 @@ Those older claims were the main documentation gap this follow-up closes.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog for the real `version_129` rewrite surface.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine HOT-region strategy and remaining parity/perf work.
+  - Current in-tree Starshine HOT-region strategy, exact MoonBit code map, raw-skip/writeback guard story, and remaining parity/perf work.
 
 ## Freshness note
 
-A direct `version_129` versus current-`main` check showed no textual drift in `src/passes/DeadCodeElimination.cpp`.
+The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
+A narrow `version_129` versus current-`main` spot check on `src/passes/DeadCodeElimination.cpp`, `pass.cpp`, and representative `dce` lit files did not surface a new teaching-relevant contract drift.
 So the tagged source remains a strong current oracle for this folder.
 
 ## Current maintenance rule
