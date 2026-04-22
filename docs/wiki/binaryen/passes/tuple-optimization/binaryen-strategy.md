@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md
+  - ../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -26,6 +28,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the primary source oracle for this pass.
+The reviewed official Binaryen release page on 2026-04-22 showed publish date **2026-04-01**, and the raw primary-source capture for this pass now records that provenance explicitly.
 
 Core upstream files:
 
@@ -36,7 +39,7 @@ Core upstream files:
 - `src/wasm/wasm-validator.cpp`
 - `test/lit/passes/tuple-optimization.wast`
 
-A narrow 2026-04-20 freshness check found no drift in the core tuple-opt pass file or dedicated lit file on current `main`, and no relevant drift in the tuple-specific scheduler / peephole sections that frame this pass.
+A narrow 2026-04-22 freshness check found no drift in the core tuple-opt pass file or dedicated lit file on current `main`, and no relevant drift in the tuple-specific scheduler / peephole sections that frame this pass.
 
 ## High-level intent
 
@@ -357,6 +360,8 @@ A future implementation should preserve these invariants even if the host IR is 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md)
+- [`../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md`](../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TupleOptimization.cpp>

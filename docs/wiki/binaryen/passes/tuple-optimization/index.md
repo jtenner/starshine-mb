@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md
+  - ../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
   - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
@@ -52,9 +54,9 @@ The tracker no longer had any pass with wiki status `none`, so this thread had t
 - it still matters on the canonical no-DWARF function path:
   - `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`
 - it also still appears repeatedly in the saved generated-artifact optimize log, including later nested `precompute-propagate -> code-pushing -> tuple-optimization` reruns
-- the existing folder grew out of an older port-plan note and Starshine implementation work, but it did not yet have a dedicated living page focused on the exact Starshine code map, registry/dispatch/preset wiring, and local test-lane ownership
-- the existing Starshine strategy page still explained the algorithm mostly as a design narrative instead of as a maintained exact code-location guide
-- the old landing-page summary had stale wording about red exact-shape expectations that no longer matched the newer parity page
+- the existing folder already had the required living pass pages, but it still lacked an immutable raw primary-source manifest tying the reviewed official release page, source files, and dedicated lit file together in the raw-source system
+- several living pages still relied on 2026-04-20 / 2026-04-21 freshness wording without one compact 2026-04-22 provenance anchor that connected those upstream surfaces directly to the exact Starshine code map
+- this refresh therefore closes a provenance-and-navigation gap, not a missing-overview or missing-strategy gap
 
 So this refresh is not a tracker-status promotion.
 It is a source-backed clarification pass over a real existing dossier.
@@ -72,7 +74,8 @@ It is a source-backed clarification pass over a real existing dossier.
   - It does **not** depend on CFG, effects, liveness, dominance, or refinalization helpers.
 - The real payoff comes later.
   - `tuple-optimization` exposes scalar locals so later local passes can remove dead lanes and dead copies.
-- A narrow 2026-04-20 freshness check found no current-main drift in the core upstream pass file, the dedicated lit suite, or the tuple-specific scheduler / peephole sections relevant to this dossier.
+- A narrow 2026-04-22 freshness check found no current-main drift in the core upstream pass file, the dedicated lit suite, or the tuple-specific scheduler / peephole sections relevant to this dossier.
+- The dossier now also has an immutable raw primary-source manifest recording that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**.
 
 ## Current status summary
 
@@ -102,7 +105,7 @@ That broader reading is not what the source file or test suite implement today.
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Exact upstream `version_129` algorithm: early gates, `uses` / `validUses`, symmetric copy graph, badness propagation, contiguous scalar-local allocation, `MapApplier`, and tee-preserving rewrites.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  - The upstream file map, helper dependencies, validation/finalize neighbors, official lit families, and the narrow current-main freshness note.
+  - The upstream file map, helper dependencies, validation/finalize neighbors, official lit families, the immutable raw primary-source anchor, and the narrow current-main freshness note.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly catalog of the official positive and negative tuple-local shapes Binaryen rewrites or deliberately leaves alone, plus the HOT-native equivalents Starshine sees after lift.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
@@ -118,7 +121,8 @@ That broader reading is not what the source file or test suite implement today.
 
 ## Freshness note
 
-A narrow 2026-04-20 comparison against current GitHub `main` found:
+The reviewed official Binaryen release page on 2026-04-22 showed `version_129` with publish date **2026-04-01**.
+A narrow 2026-04-22 comparison against current GitHub `main` found:
 
 - `src/passes/TupleOptimization.cpp` unchanged from `version_129`
 - the relevant `pass.cpp` scheduler / registration lines unchanged
@@ -141,6 +145,8 @@ That means the tuple-opt dossier does **not** currently need a current-main drif
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md)
+- [`../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md`](../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md`](../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md)
 - [`../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md`](../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md)
 - [`../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md`](../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md)
