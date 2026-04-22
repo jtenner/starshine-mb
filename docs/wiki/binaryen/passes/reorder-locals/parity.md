@@ -1,8 +1,10 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
+  - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
   - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
   - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
@@ -25,7 +27,7 @@ related:
 - Zero-count ties preserve original order, and the final zero-count suffix is dropped.
 - `local.set` and `local.tee` count as accesses, so write-only locals survive this pass.
 - The clean Starshine port is a module pass, not a hot pass, because local-name metadata and raw name-section invalidation are boundary-owned.
-- A `2026-04-09` review of `version_129/src/passes/ReorderLocals.cpp` confirms the same access-count plus first-use sorter captured here.
+- The 2026-04-22 raw primary-source capture re-confirmed that the official Binaryen `version_129` release page showed publish date **2026-04-01**, and that the reviewed `version_129/src/passes/ReorderLocals.cpp` plus dedicated pass tests still match the dossier's access-count plus first-use sorter story on the checked current-`main` surfaces.
 
 ## Current In-Tree Status
 
@@ -68,6 +70,7 @@ Use the Binaryen boundary controls when comparing this pass:
 
 - Archived research doc: [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
 - Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
+- Raw primary-source manifest: [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderLocals.cpp>
 - Scope decision: [`./multivalue-call-scope.md`](./multivalue-call-scope.md)
 - Implementation: [`../../../../../src/passes/reorder_locals.mbt`](../../../../../src/passes/reorder_locals.mbt)

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
+  - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
   - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
   - ../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md
@@ -26,6 +28,7 @@ related:
 # `reorder-locals`: names, roundtrips, and porting boundaries
 
 This page explains the half of `reorder-locals` that is easiest to underestimate.
+It should now be read together with the immutable primary-source manifest at [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md).
 
 The algorithm in `ReorderLocals.cpp` is tiny, but the practical contract is larger because:
 

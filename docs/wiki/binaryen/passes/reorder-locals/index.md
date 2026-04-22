@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
+  - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
   - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
@@ -30,6 +32,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/reorder-locals_print_roundtrip.txt
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./names-roundtrip-and-porting.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
@@ -91,7 +94,7 @@ So this is **not** coalescing, **not** liveness-based dead-store cleanup, and **
 - The pass rewrites local-user indices and function-local name maps.
 - Upstream explicitly declares that it does **not** need non-nullable-local fixups.
 - The dedicated print-roundtrip tests show that declaration order after reordering must survive binary writing and reading, not just in-memory AST mutation.
-- A narrow 2026-04-20 source comparison found no current-main drift in `ReorderLocals.cpp` or the dedicated test files relative to `version_129`.
+- A narrow 2026-04-22 source comparison found no current-main drift in `ReorderLocals.cpp` or the dedicated test files relative to `version_129`.
 
 ## Biggest beginner correction
 
@@ -123,6 +126,8 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the actual `ReorderLocals.cpp` structure, pass registration, scheduler placement, sort comparator, truncation rule, and the important things the pass does **not** depend on.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Compact source-confirmed owner/test map for `reorder-locals`, including the tiny `ReIndexer` + sorter split inside `ReorderLocals.cpp`, the public/scheduler role in `pass.cpp`, and the exact split between semantic-sort tests and print-roundtrip tests.
 - [`./names-roundtrip-and-porting.md`](./names-roundtrip-and-porting.md)
   - Focused guide to the most practical half of the contract: function-local names, printed declaration order, why Starshine implements this as a module pass, and why the multivalue-call divergence is a boundary issue rather than a sorter bug.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -136,7 +141,7 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A narrow 2026-04-20 direct source comparison found **no semantic post-`version_129` drift** in the main official surfaces used for this dossier.
+A narrow 2026-04-22 direct source comparison found **no semantic post-`version_129` drift** in the main official surfaces used for this dossier.
 
 - `src/passes/ReorderLocals.cpp` is identical on current `main`
 - `test/passes/reorder-locals.wast` is identical on current `main`
@@ -147,11 +152,12 @@ A narrow 2026-04-20 direct source comparison found **no semantic post-`version_1
 So the durable rule is:
 
 - treat Binaryen `version_129` as the released oracle for this dossier
+- treat [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md) as the immutable provenance anchor for the reviewed official release, source, and dedicated test URLs
 - keep the current-main note only to record that there is no visible implementation or dedicated-test drift right now
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `reorder-locals` parity, scheduler, Starshine strategy/code-map, and writeback-boundary notes.
+- Treat this folder as the canonical home for future `reorder-locals` parity, scheduler, Binaryen owner/test attribution, Starshine strategy/code-map, and writeback-boundary notes.
 - Keep the main beginner correction explicit:
   - upstream `reorder-locals` is a stable frequency sorter plus unused-body-local trimmer, not `coalesce-locals` or dead-store elimination.
 - Keep the writer-roundtrip rule explicit whenever future docs or code changes touch this pass.
@@ -159,6 +165,8 @@ So the durable rule is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md)
+- [`../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md`](../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md`](../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md)
 - [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
 - [`../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md`](../../../raw/research/0074-2026-04-02-binaryen-multivalue-call-local-disparity.md)

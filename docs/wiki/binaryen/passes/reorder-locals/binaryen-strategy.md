@@ -1,11 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
+  - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./names-roundtrip-and-porting.md
   - ./wat-shapes.md
   - ./parity.md
@@ -17,6 +20,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the primary source oracle for this pass.
+For the immutable manifest of the reviewed official release, source, and representative test URLs, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md).
 
 Primary files:
 
@@ -35,7 +39,7 @@ Supporting official files for the known remaining parity boundary:
 - `src/wasm/wasm-ir-builder.cpp`
 - `src/wasm/wasm-stack.cpp`
 
-I also did a narrow 2026-04-20 freshness check against current GitHub `main` for:
+I also did a narrow 2026-04-22 freshness check against current GitHub `main` for:
 
 - `ReorderLocals.cpp`
 - both dedicated pass tests and their golden outputs
@@ -44,7 +48,20 @@ Durable result:
 
 - all of those surfaces still match `version_129` exactly
 
+The reviewed official GitHub `version_129` release page also showed publish date **2026-04-01** when checked on 2026-04-22.
 So the wiki should keep treating `version_129` as the semantic oracle here without an active trunk-drift warning.
+
+## File landmarks worth keeping explicit
+
+In the reviewed `version_129` source, the key mechanics are tightly concentrated:
+
+- `ReorderLocals.cpp` lines `8-63`
+  - `ReIndexer`, which rewrites only `LocalGet` and `LocalSet` users after the new numbering is known
+- `ReorderLocals.cpp` lines `65-162`
+  - the full pass body: access counting, first-use ranking, sorting, parameter stabilization, zero-count body-local truncation, inverse-map construction, local-user reindexing, and local-name-map repair
+
+That exact concentration is part of the contract.
+It is why this pass should be remembered as a tiny sorter-plus-name-repair pass, not as a hidden dataflow analysis.
 
 ## High-level intent
 

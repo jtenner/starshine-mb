@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
+  - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
   - ../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md
@@ -27,8 +29,18 @@ related:
 # Starshine module-pass strategy for `reorder-locals`
 
 This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `ReorderLocals.cpp` contract.
+For the immutable manifest of the reviewed official Binaryen release, source, and dedicated test URLs behind the comparison on this page, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md).
 
 ## Current local surface
+
+The upstream bridge for this local page stays small and explicit:
+
+- reviewed Binaryen `version_129` owner file: `src/passes/ReorderLocals.cpp`
+- reviewed core implementation region: lines `65-162`
+- reviewed local owner file: `src/passes/reorder_locals.mbt`
+- reviewed local module-pass entry: `reorder_locals_run_module_pass(...)` at `src/passes/reorder_locals.mbt:544`
+
+That makes the Starshine-vs-Binaryen mapping easy to follow without pretending the local module-pass adaptation lives in the same representation layer as upstream.
 
 Starshine exposes `reorder-locals` as an active **module pass** with:
 
