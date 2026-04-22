@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
 related:
@@ -17,6 +18,7 @@ related:
 # `precompute`: implementation structure and tests
 
 This page is the compact source-confirmed map for Binaryen `version_129` plain `precompute`.
+Use [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md) as the immutable provenance manifest for the reviewed official release, source, and test URLs cited here.
 
 Its main job is to answer two practical questions:
 

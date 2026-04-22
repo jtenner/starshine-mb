@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
+  - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -142,7 +144,7 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering scalar, control, `select`, tuple, string, GC, atomic, and bailout families.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine strategy and the major Binaryen behaviors the repo still does not model.
+  - Current in-tree Starshine strategy plus an exact MoonBit code map for the descriptor, fold helpers, region cleanup, pipeline writeback guards, preset placement, and focused proof lanes.
 - [`../precompute-propagate/index.md`](../precompute-propagate/index.md)
   - Dedicated dossier for the upstream aggressive / nested-rerun sibling, focused on the separate public pass name, the extra `LazyLocalGraph` propagation phase, and the `optimizeAfterInlining(...)` scheduler role.
 
@@ -162,6 +164,7 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future plain `precompute` parity work and family-level context.
+- Treat [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md) as the immutable provenance anchor for the reviewed official release, source, and test URLs.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
 - Use Binaryen `version_129` as the current source oracle for new conclusions.
@@ -175,8 +178,10 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md)
 - [`../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md`](../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md)
 - [`../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md`](../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md)
+- [`../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md`](../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md)
 - [`../../../../../src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt)
 - [`../../../../../src/passes/precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

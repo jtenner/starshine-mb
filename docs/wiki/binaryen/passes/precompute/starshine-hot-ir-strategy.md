@@ -1,22 +1,27 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
+  - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/precompute.mbt
-  - ../../../../../src/passes/precompute_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/precompute_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md
   - ../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./propagation-partial-precompute-and-gc-identity.md
   - ./wat-shapes.md
+  - ../precompute-propagate/index.md
 ---
 
 # Starshine `precompute` strategy today
@@ -28,300 +33,280 @@ This page describes the **current in-tree Starshine implementation**, not the fu
 Starshine currently implements a deliberately narrow HOT-IR `precompute` pass focused on:
 
 - exact i32/i64 unary and binary folds
-- exact i32/i64 comparisons to i32 boolean results
-- immutable scalar `global.get` replacement
+- exact i32/i64 comparisons lowered to i32 boolean constants
+- immutable scalar-or-null `global.get` replacement
 - constant-`if` arm picking
-- dead pure-drop cleanup
-- some root-region `nop` and empty-block cleanup around rewritten roots
-- writeback-safety hardening for the old generated-artifact slot-19 failure family
+- dead pure-`drop` cleanup
+- root-region `nop` / empty-wrapper cleanup needed for safe writeback
+- artifact-driven invalid-lower and writeback-validation guard rails around the old slot-19 failure family
 
-That is useful and already artifact-tested.
+That is useful and already well tested.
 
-But it is still much smaller than upstream Binaryen.
+But it is still much smaller than upstream Binaryen plain `precompute`, and much smaller again than the full `precompute` + `precompute-propagate` family.
 
-## What the current descriptor promises
+## Exact local code map
 
-`src/passes/precompute.mbt` describes the pass as:
+## 1. Registry entry and user-visible summary
 
-- `Fold exact constant integer expressions that are trap-free and stable across the top-level precompute slots.`
+The public local pass identity lives in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt):
 
-That wording is honest for the current implementation.
+- `precompute_descriptor()`
+  - declares the hot-pass name `precompute`
+  - invalidates CFG, dominance, liveness, use-def, effects, loop-info, and SSA analyses
+- `precompute_summary()`
+  - currently promises: exact constant integer folding that is trap-free and stable across the top-level precompute slots
 
-It is much narrower than the upstream Binaryen dossier on purpose.
+That wording is intentionally narrower than upstream Binaryen and still matches the code.
 
-## What the current pass actually does
+The pass also appears in the registry and preset expansions in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt):
 
-## 1. Exact scalar folding only
+- `pass_registry_entries()`
+  - exposes `precompute` as an active hot pass
+- `optimize_preset_passes(...)`
+- `shrink_preset_passes(...)`
+  - both replay `precompute` twice, matching the current local top-level PC slot story
 
-The local pass implements explicit helpers for:
+## 2. Exact constant sources the pass knows how to read
 
-- exact i32 constants
-- exact i64 constants
-- exact immutable global constants that resolve to scalar or null payloads
+The constant-source helpers are all in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt):
 
-Then it folds a specific set of instructions:
+- `precompute_global_const(...)`
+  - resolves immutable defined-global initializers through `ctx.module_ctx`
+- `precompute_i32_const(...)`
+- `precompute_i64_const(...)`
+  - read literal HOT `Const` nodes only
+- `precompute_i32_exact_const(...)`
+- `precompute_i64_exact_const(...)`
+  - widen the local notion of “exact constant” to include immutable resolved globals
 
-### Unary
+This is the first major difference from upstream Binaryen:
+local `precompute` has no general interpreter and no `Flow` lattice here; it is a direct HOT constant recognizer over a small scalar/global subset.
 
-- `i32.eqz`
-- `i64.eqz`
+## 3. Rewrite builders and the actual scalar folds
 
-### Binary i32
+The core rewrite helpers also live in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt):
 
-- `i32.add`
-- `i32.sub`
-- `i32.mul`
-- `i32.and`
-- `i32.or`
-- `i32.xor`
-- `i32.shl`
-- `i32.shr_u`
-- `i32.shr_s`
-- all signed/unsigned i32 comparisons currently listed in `precompute_try_fold_binary(...)`
+- `precompute_replace_with_const_i32(...)`
+- `precompute_replace_with_const_i64(...)`
+  - build temporary HOT const nodes, replace the target node, and call `pass_mark_mutated(...)`
+- `precompute_try_fold_global_get(...)`
+  - rewrites immutable defined `global.get` to literal consts or `ref.null`
+  - deliberately rejects `StringConst`, which keeps the local string gap explicit
+- `precompute_try_fold_unary(...)`
+  - currently covers only `i32.eqz` and `i64.eqz`
+- `precompute_try_fold_binary(...)`
+  - owns all current exact scalar binary folding
+  - positive families today are integer add/sub/mul, bitwise ops, shifts, and the signed/unsigned compare set for both i32 and i64
+  - trapping operators like division and remainder are intentionally absent
 
-### Binary i64
+So the local coded fold surface is larger than the one-line summary, but still strictly scalar and trap-averse.
 
-- `i64.add`
-- `i64.sub`
-- `i64.mul`
-- `i64.and`
-- `i64.or`
-- `i64.xor`
-- `i64.shl`
-- `i64.shr_u`
-- `i64.shr_s`
-- all signed/unsigned i64 comparisons currently listed there
+## 4. Constant-`if` lowering and root-shape rebuilding
 
-Important deliberate non-fold today:
+The current constant-`if` implementation is also in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt):
 
-- trapping operators like division/remainder are left alone
+- `precompute_try_fold_constant_if(...)`
+  - proves the condition with `precompute_i32_exact_const(...)`
+  - chooses the `then` or `else` region directly
+  - emits `nop` if the chosen region is empty
+  - replaces the `if` with the single surviving root if the chosen region has one root
+  - otherwise rebuilds a result block via `@ir.hot_build_block(...)`
 
-That matches the test named:
+This is an important local read-along point: constant-`if` folding is not owned by `optimize-instructions` in Starshine today. It is a first-class part of the current local `precompute` file.
 
+## 5. Dead-value and region-cleanup helpers bundled into the same pass
+
+The structural cleanup cluster in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt) is what makes the local pass more than “just fold constants.”
+
+### Pure-value and drop cleanup
+
+- `precompute_is_discardable_value(...)`
+  - defines the local pure/discardable lattice
+  - accepts `Const`, `LocalGet`, `GlobalGet`, `RefNull`, `RefFunc`, and recursively pure unary/binary/compare/convert/select trees
+  - rejects anything with side effects, traps, control, terminators, or zero result arity
+- `precompute_try_eliminate_dead_drop(...)`
+  - turns `drop(pure-value)` into `nop`
+
+### Region and wrapper cleanup
+
+- `precompute_simplify_region_roots(...)`
+  - recursively visits `block`, `loop`, `if`, `try`, and `try_table` regions
+  - removes empty root `block` / `loop` wrappers when they are all-`nop`
+  - splices folded void-`if` bodies directly into the parent region
+  - removes dead dropped pure values from regions
+- `precompute_region_is_all_nops(...)`
+  - helper for the empty-wrapper rule
+- `precompute_trim_region_nops(...)`
+  - removes non-root `nop`s from nested regions after rewrites
+- `precompute_coalesce_all_root_nops(...)`
+  - collapses an all-`nop` root region to one `nop`
+- `precompute_trim_root_nops_before_trailing_const(...)`
+  - removes a pure root `nop` prefix before a surviving final `const`
+
+This cleanup cluster is not a generic Binaryen port. It is a local HOT/writeback hygiene design that keeps rewritten regions simple enough to lower safely.
+
+## 6. Fixpoint driver
+
+The pass driver is `precompute_run(...)` in [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt).
+
+Each round currently does:
+
+1. `precompute_simplify_region_roots(...)`
+2. full node scan for:
+   - `precompute_try_fold_global_get(...)`
+   - `precompute_try_eliminate_dead_drop(...)`
+   - `precompute_try_fold_constant_if(...)`
+   - `precompute_try_fold_unary(...)`
+   - `precompute_try_fold_binary(...)`
+3. `precompute_trim_region_nops(...)`
+4. `precompute_coalesce_all_root_nops(...)`
+5. `precompute_trim_root_nops_before_trailing_const(...)`
+
+Then it repeats until a round makes no further changes.
+
+That iterative HOT fixpoint is useful locally, but it is not Binaryen-shaped:
+there is no compile-time interpreter, no partial-select climb, no local-flow propagation phase, and no explicit refinalization tail here.
+
+## 7. Pipeline dispatch and writeback guards
+
+The registry file is not the only place to read this pass.
+The other critical owner is [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
+
+### Dispatch
+
+- the hot-pass dispatcher maps `"precompute" => precompute_run(ctx, func)`
+
+### Invalid-lower / writeback guard rails
+
+The precompute-specific safety surfaces that retired the old slot-19 artifact failure also live here:
+
+- `run_hot_pipeline_precompute_writeback_validation_error(...)`
+  - produces a focused validation error for bad lowered output
+- `run_hot_pipeline_precompute_branch_depth(...)`
+- `run_hot_pipeline_precompute_has_control_transfer(...)`
+- `run_hot_pipeline_precompute_has_mismatched_escape_carrier_block(...)`
+- `run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(...)`
+  - detect suspicious lowered carrier shapes before committing bad writeback
+
+Those helpers are consulted both in precompute-specific validation paths and in neighboring guarded passes that share the same writeback-sensitive carrier family.
+
+This is one of the most important practical differences from upstream Binaryen: a real part of current Starshine `precompute` lives in pipeline safety code, not only in the pass file.
+
+## What the current proof surface looks like
+
+## 1. Main pass-local behavior tests
+
+[`src/passes/precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt) is the primary local semantic proof lane.
+
+Important focused tests include:
+
+- `precompute folds exact i32 constant arithmetic`
+- `precompute folds chained exact constants in one pass`
+- `precompute folds exact i64 unsigned comparisons to i32 constants`
 - `precompute preserves trapping exact operators it does not fold`
+- `precompute folds constant false void ifs away`
+- `precompute folds constant true result ifs to the chosen arm`
+- `precompute removes dropped pure constants from void bodies`
+- `precompute folds immutable global.get uses into constants`
+- `precompute validates rewritten functions against full module call targets`
+- `precompute keeps the structured branch-exit body valid after folding dead exact prefixes`
 
-## 2. Immutable global replacement exists, but only for payloads the local IR already models simply
+Those tests prove that the local contract is not just arithmetic folding. They also lock the current `if`, dead-drop, root-cleanup, full-module-validation, and branch-carrier safety stories.
 
-The pass can fold `global.get` when the module context resolves the global to a constant init.
+## 2. Preset-slot proof
 
-Today that supports payloads already represented in local HOT builders such as:
+[`src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt) proves the local scheduler claim directly:
 
-- i32
-- i64
-- f32
-- f64
-- `ref.null`
+- `optimize preset replays precompute in both PC slots`
+- `shrink preset replays precompute in both PC slots`
 
-String constants are explicitly declined in the current local helper.
+Those tests are the honest source for the statement that Starshine replays top-level `precompute` twice today.
 
-So even on globals the local pass is still much smaller than upstream Binaryen's broader string and GC surface.
+## 3. Registry proof
 
-## 3. Constant-`if` folding is more aggressive locally than upstream `OptimizeInstructions`, but still much narrower than upstream `Precompute`
+[`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) proves the public registry surface:
 
-Starshine's current pass does fold constant `if`s directly.
+- `precompute_descriptor()` is registered under the expected name
+- the optimize and shrink preset expansions both include the two `precompute` slots
 
-That includes:
+## 4. CLI replay and artifact-retirement proof
 
-- result `if`s
-- void `if`s
-- chosen-arm replacement with `nop` fallback when the chosen arm is empty
-- rebuilding a result block when the chosen arm has multiple roots
+[`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) is the current artifact-replay proof surface.
 
-This local behavior is already important to artifact parity and is locked by several focused tests.
+Important precompute lanes include:
 
-But it is still only one small piece of Binaryen's broader precompute family.
+- `run_cmd_with_adapter validates precompute on generated O4z slot19 predecessor`
+- `run_cmd_with_adapter keeps extracted generated O4z slot19 precompute func108 output wasm-tools-valid`
+- `run_cmd_with_adapter validates precompute on debug artifact`
 
-## 4. Local root cleanup is bundled into the current pass
+Those tests are the strongest local evidence that the old slot-19 family is now retired by writeback guards plus full-module validation, not merely papered over in prose.
 
-The local implementation also includes cleanup that is not the main “evaluate to a constant” story.
+## Current semantic boundary versus upstream Binaryen
 
-Today it can:
+## What Starshine does implement today
 
-- remove dead `drop` of pure values
-- simplify empty root `block` / `loop` wrappers into `nop`
-- splice constant false void-`if` bodies away inside regions
-- trim non-root `nop`s from regions
-- coalesce multiple root `nop`s to one
-- trim root `nop` prefixes before a trailing final `const`
+Current Starshine `precompute` implements:
 
-This is a pragmatic local design choice.
-It helps keep rewritten HOT regions clean enough to write back safely.
+- exact i32/i64 unary and binary scalar folds
+- exact integer comparison folding to i32 booleans
+- immutable defined-global folding for scalar and `ref.null` payloads
+- direct constant-`if` picking
+- dead pure-`drop` cleanup
+- region/root `nop` and empty-wrapper cleanup
+- iterative local fixpoint repetition over those rewrites
+- pipeline-level invalid-carrier and writeback-validation hardening
 
-## 5. The local implementation is iterative, but not Binaryen-shaped
+## What Starshine still does **not** implement
 
-`precompute_run(...)` loops until a round makes no more changes.
+Compared with upstream Binaryen `version_129`, the local pass still lacks:
 
-Inside each round it does:
+- the plain-vs-`precompute-propagate` public mode split
+- `LazyLocalGraph` propagation through locals
+- bounded compile-time interpretation via `ConstantExpressionRunner` / `Flow`
+- write-preserving child-retention logic for arbitrary local/global-writing children
+- partial-`select` upward precompute
+- GC identity caching and immutable-GC propagation
+- string precompute families
+- deterministic-SIMD-vs-relaxed-SIMD handling
+- synchronization-sensitive GC atomic get rules
+- final Binaryen-style refinalization as part of the pass contract
 
-1. region-root structural simplification
-2. per-node scalar/global/if/drop folding
-3. region `nop` trimming
-4. root `nop` coalescing
-5. root-prefix-before-trailing-const cleanup
+So the honest short description of current Starshine remains:
 
-That is a useful local fixpoint.
+- **exact scalar HOT folding plus structural cleanup and artifact-driven writeback safety work**
 
-But it is **not** the same phase structure as upstream Binaryen, which has:
+not:
 
-- main semantic compile-time evaluation
-- optional partial-select precompute
-- optional `LazyLocalGraph` propagation
-- then refinalization
+- a full port of Binaryen plain `precompute`, and definitely not
+- a full port of the `precompute` + `precompute-propagate` family
 
-So even when the pass names align, the internal algorithm still does not.
+## Practical follow-along path
 
-## What Starshine does **not** implement yet
+If you want to read the local implementation in code order, use this path:
 
-## 1. No `precompute-propagate` mode today
-
-The biggest missing upstream surface is the explicit propagate variant.
-
-Starshine currently exposes only one public pass name:
-
-- `precompute`
-
-It does **not** yet implement the Binaryen split between:
-
-- plain `precompute`
-- `precompute-propagate`
-
-That means the repo still lacks:
-
-- `LazyLocalGraph`-based constant propagation through locals
-- the extra rerun of the main walk after propagation
-- the stronger aggressive/nested-rerun semantics Binaryen uses in `-O4z`-style and optimize-after-inlining contexts
-
-## 2. No general compile-time interpreter model
-
-The local pass is mostly a direct pattern matcher over current HOT nodes.
-
-It does **not** yet model Binaryen's broader interpreter behavior for:
-
-- breaks / returns as general `Flow`
-- tuple/multivalue constant execution beyond today's narrow cases
-- stack-switching instruction boundaries
-- general reference-typed value evaluation
-- the richer child-retention logic used upstream when speculative evaluation walked through local/global writes
-
-## 3. No partial-select precompute
-
-The local pass does not implement Binaryen's separate upward partial-precompute algorithm that pushes parent operations into `select` arms.
-
-So all of these upstream families are still missing locally:
-
-- `i32.eqz(select(...)) -> select(const, const, cond)`
-- binary op over select arms becoming constant arms
-- multi-parent stack climbs through `select`
-- the temporary heap-cache rule for speculative partial-precompute attempts
-
-## 4. No GC identity cache or immutable-GC propagation
-
-The local pass does not yet implement the upstream heap-identity story.
-
-Missing upstream surfaces include:
-
-- identity-aware `ref.eq` reasoning
-- immutable struct-field propagation
-- immutable array-element propagation
-- nested immutable object / global-held vtable propagation
-- array length propagation in the wider upstream sense
-- descriptor-sensitive GC precompute families
-- the emitability boundary for known-but-non-emittable non-null GC refs
-
-## 5. No string precompute surface
-
-Missing upstream string families include:
-
-- `string.eq`
-- `string.concat`
-- `string.measure_wtf16`
-- `stringview_wtf16.get_codeunit`
-- valid UTF-16 string slicing
-- immediate-child `string.new_wtf16_array`
-- propagation of constant string locals / globals
-
-## 6. No SIMD / relaxed-SIMD distinction
-
-The local pass does not currently model Binaryen's wider deterministic SIMD precompute or its deliberate no-fold boundary for relaxed SIMD.
-
-## 7. No atomic-order-aware GC get rules
-
-The local pass does not yet model Binaryen's distinction between:
-
-- unordered GC gets
-- acqrel gets on unshared heaps
-- preserved seqcst / shared synchronization cases
-
-## Why the local writeback guards still matter
-
-## The old slot-19 witness was real
-
-The retired generated-artifact note `0096` captured a real earlier failure:
-
-- direct `--precompute` replay emitted invalid raw wasm
-- `func 108` lost a required `i32` result
-
-That was not a synthetic unit test mistake.
-It was an actual ordered-artifact corruption witness.
-
-## The current tree keeps the replay safe
-
-The follow-up note `0105` records that the same predecessor now replays cleanly and validates.
-
-The local hardening surfaces most directly tied to that retirement are:
-
-- `src/passes/pass_manager.mbt`
-  - precompute-specific invalid-escape-carrier detection
-  - precompute-specific writeback validation error reporting
-- `src/passes/precompute_test.mbt`
-  - focused structured branch-exit validity regression
-  - full-module call-target validation regression
-- `src/cmd/cmd_wbtest.mbt`
-  - saved slot-19 predecessor replay
-  - extracted `func 108` replay
-  - debug-artifact replay
-
-So the current local precompute story is:
-
-- still narrower than Binaryen semantically
-- but much stronger than the old landing page admitted on artifact safety and replay regression coverage
-
-## Current scheduler surface in Starshine
-
-The local optimize preset intentionally replays `precompute` in both visible `PC` slots.
-
-That is locked by tests in `src/passes/optimize_test.mbt` for both:
-
-- `optimize`
-- `shrink`
-
-So the repo already models the visible top-level slot count honestly.
-
-What it does **not** yet model is the upstream mode split or nested propagate behavior.
-
-## Practical mapping for future work
-
-A future honest Starshine expansion should probably happen in this order:
-
-1. keep the existing scalar/top-level pass correct and artifact-safe
-2. separate the concept of plain `precompute` from `precompute-propagate`
-3. add a proper constant-propagation substrate for locals
-4. add partial-select precompute only after that substrate exists
-5. add GC identity and immutable-GC reasoning only with a clear emitability boundary
-6. add string / SIMD / atomic-order surfaces later, not by pretending they are just more arithmetic cases
-
-That order matches the real upstream shape better than simply adding more scalar fold opcodes to the current file.
+1. [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt)
+   - descriptor, summary, exact-constant helpers, fold helpers, region cleanup, and `precompute_run(...)`
+2. [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+   - dispatch plus invalid-lower/writeback guard rails
+3. [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+   - registry entry plus the two top-level preset slots
+4. [`src/passes/precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt)
+   - pass-local rewrite and validation regressions
+5. [`src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
+   - preset-slot proof
+6. [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
+   - public registry and preset-expansion proof
+7. [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+   - generated-artifact and debug-artifact CLI replay lanes
 
 ## Bottom line
 
-Starshine today has a useful, tested, and artifact-hardened `precompute` pass.
+The local page no longer needs to be taught as a vague “current Starshine gap.”
+It is now more useful as an exact code map:
 
-But it is still best described as:
+- what file owns which behavior,
+- where the artifact hardening lives,
+- which tests lock the current contract,
+- and which major Binaryen surfaces are still missing.
 
-- **exact scalar HOT folding plus structural cleanup and writeback safety work**
-
-not as:
-
-- a full port of Binaryen `version_129` `precompute` / `precompute-propagate`
-
-The dossier pages in this folder are meant to keep that difference explicit.
+That keeps the Starshine side readable for beginners while still giving advanced readers a concrete path from the living wiki into the MoonBit implementation.
