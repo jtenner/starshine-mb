@@ -1,12 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
+  - ../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
 related:
   - ./index.md
   - ./wat-shapes.md
+  - ./starshine-hot-ir-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -17,6 +20,8 @@ related:
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The core implementation is `src/passes/MergeBlocks.cpp`.
 - The late-slot placement is confirmed by the saved generated-artifact `-O4z` audit and by Binaryen's scheduler source in `src/passes/pass.cpp`.
+- The immutable primary-source manifest for this dossier is [`../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md`](../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md).
+- On 2026-04-22, the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 
 Primary source URLs:
 
@@ -272,6 +277,8 @@ Those are the real Binaryen contracts. Everything else is detail.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md`](../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md)
+- [`../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md`](../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md`](../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeBlocks.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

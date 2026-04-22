@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
   - ../../../../src/passes/optimize.mbt
+  - ../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
+  - ../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../no-dwarf-default-optimize-path.md
   - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
   - ../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
@@ -131,13 +133,13 @@ If these ever disagree, update this tracker in the same change.
 
 ## Current summary counts
 
-- Active implemented passes in the registry: `19`
-- Active implemented passes with a dedicated living wiki page: `19 / 19`
-- Active implemented passes with a deep multi-page dossier: `19 / 19`
-- Unique unimplemented passes observed in the saved generated-artifact `-O4z` audit: `19`
-- Those unimplemented `-O4z` passes with a dedicated living dossier today: `19 / 19` (`coalesce-locals`, `code-folding`, `code-pushing`, `dae-optimizing`, `directize`, `duplicate-import-elimination`, `flatten`, `inlining-optimizing`, `local-cse`, `local-subtyping`, `merge-blocks`, `merge-locals`, `optimize-casts`, `reorder-globals`, `rse`, `simplify-globals-optimizing`, `simplify-locals-notee-nostructure`, `simplify-locals-nostructure`, `string-gathering`)
-- Unique unimplemented passes in the canonical no-DWARF `-O` / `-Os` path: `16`
-- Those no-DWARF-missing passes with a dedicated living dossier today: `16 / 16` (`coalesce-locals`, `code-folding`, `code-pushing`, `dae-optimizing`, `directize`, `duplicate-import-elimination`, `inlining-optimizing`, `local-cse`, `local-subtyping`, `merge-blocks`, `optimize-casts`, `reorder-globals`, `rse`, `simplify-globals-optimizing`, `simplify-locals-nostructure`, `string-gathering`)
+- Active implemented passes in the registry: `20`
+- Active implemented passes with a dedicated living wiki page: `20 / 20`
+- Active implemented passes with a deep multi-page dossier: `20 / 20`
+- Unique unimplemented passes observed in the saved generated-artifact `-O4z` audit: `18`
+- Those unimplemented `-O4z` passes with a dedicated living dossier today: `18 / 18` (`coalesce-locals`, `code-folding`, `code-pushing`, `dae-optimizing`, `directize`, `duplicate-import-elimination`, `flatten`, `inlining-optimizing`, `local-cse`, `local-subtyping`, `merge-locals`, `optimize-casts`, `reorder-globals`, `rse`, `simplify-globals-optimizing`, `simplify-locals-notee-nostructure`, `simplify-locals-nostructure`, `string-gathering`)
+- Unique unimplemented passes in the canonical no-DWARF `-O` / `-Os` path: `15`
+- Those no-DWARF-missing passes with a dedicated living dossier today: `15 / 15` (`coalesce-locals`, `code-folding`, `code-pushing`, `dae-optimizing`, `directize`, `duplicate-import-elimination`, `inlining-optimizing`, `local-cse`, `local-subtyping`, `optimize-casts`, `reorder-globals`, `rse`, `simplify-globals-optimizing`, `simplify-locals-nostructure`, `string-gathering`)
 
 ## Active implemented passes
 
@@ -162,6 +164,7 @@ If these ever disagree, update this tracker in the same change.
 | `tuple-optimization` | implemented hot | deep | [`tuple-optimization/index.md`](tuple-optimization/index.md) | Refreshed dossier now includes an immutable raw primary-source manifest plus the dedicated upstream implementation/test-map and Starshine implementation-map pages, keeps explicit that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**, keeps Binaryen framed as a conservative tuple-local splitter rather than a generic multivalue optimizer, and still records that the tagged core pass plus dedicated lit file match current `main`; exact preset slot remains blocked by missing neighbors. |
 | `precompute` | implemented hot | deep | [`precompute/index.md`](precompute/index.md) | Full dossier with Binaryen strategy, source-confirmed implementation/test map, propagation/partial-precompute/GC-identity notes, WAT-shape catalog, an immutable raw primary-source manifest, and a refreshed Starshine code-map page; the refreshed folder now also makes explicit that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**, that plain `precompute` is the shared `Precompute.cpp` semantic-evaluator core in its non-propagating public mode, and that the local Starshine page now points readers to the exact MoonBit descriptor/fold-helper/cleanup/writeback-guard/test-lane map instead of only a high-level subset summary. |
 | `simplify-locals` | implemented hot | deep | [`simplify-locals/index.md`](simplify-locals/index.md) | Refreshed dossier now includes a dedicated upstream implementation/test-map page, an explicit public-variant/scheduler page, a raw primary-source manifest, and a compact structure-result/carrier bridge page; it makes clear that Binaryen `version_129` is a staged five-variant family rather than one vague locals pass, and records that the checked current-main drift is only tiny container cleanup. |
+| `merge-blocks` | implemented hot | deep | [`merge-blocks/index.md`](merge-blocks/index.md) | Refreshed dossier now includes an immutable raw primary-source manifest plus the missing Starshine HOT-strategy/code-map page, keeps explicit that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**, and repairs the stale tracker story by documenting that current Starshine already ships an active HOT-region-root flattening pass with exact MoonBit registry/preset/test/CLI pointers rather than a merely planned future port. |
 
 ## Unimplemented passes that still block fuller Binaryen parity
 
@@ -172,7 +175,6 @@ This table is the main implementation queue tracker.
 
 | Pass | Relevance | Registry status | Wiki status | Backlog slice | Current tracking note |
 | --- | --- | --- | --- | --- | --- |
-| `merge-blocks` | both | removed | dossier | `MB` | Dedicated dossier exists: [`merge-blocks/index.md`](merge-blocks/index.md). |
 | `code-pushing` | both | removed | dossier | `CP` | Dedicated dossier exists: [`code-pushing/index.md`](code-pushing/index.md). |
 | `simplify-locals-nostructure` | both | removed | dossier | `SLNS` | Dedicated dossier exists: [`simplify-locals-nostructure/index.md`](simplify-locals-nostructure/index.md); the current removed-name registry placeholder in `src/passes/optimize.mbt` is still spelled `simplify-locals-no-structure`. |
 | `optimize-casts` | both | removed | dossier | `OC` | Dedicated dossier exists: [`optimize-casts/index.md`](optimize-casts/index.md). |
