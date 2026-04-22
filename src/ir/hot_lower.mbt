@@ -3762,6 +3762,7 @@ fn hot_lower_impl_fix_split_payload_wrappers_in_body(
 
 ///|
 fn hot_lower_impl_rewrite_binary_const_result_spill_in_instr(
+  func : HotFunc,
   instr : Instruction,
 ) -> Instruction {
   match instr {
@@ -3769,25 +3770,25 @@ fn hot_lower_impl_rewrite_binary_const_result_spill_in_instr(
       Instruction::block(
         bt,
         Expr::new(
-          hot_lower_impl_rewrite_binary_const_result_spills_in_body(body),
+          hot_lower_impl_rewrite_binary_const_result_spills_in_body(func, body),
         ),
       )
     Loop(bt, Expr(body)) =>
       Instruction::loop_(
         bt,
         Expr::new(
-          hot_lower_impl_rewrite_binary_const_result_spills_in_body(body),
+          hot_lower_impl_rewrite_binary_const_result_spills_in_body(func, body),
         ),
       )
     If(bt, then_, else_) =>
       Instruction::if_(
         bt,
-        hot_lower_impl_rewrite_binary_const_result_spills_in_body(then_),
+        hot_lower_impl_rewrite_binary_const_result_spills_in_body(func, then_),
         match else_ {
           Some(else_body) =>
             Some(
               hot_lower_impl_rewrite_binary_const_result_spills_in_body(
-                else_body,
+                func, else_body,
               ),
             )
           None => None
@@ -3798,7 +3799,7 @@ fn hot_lower_impl_rewrite_binary_const_result_spill_in_instr(
         bt,
         catches,
         Expr::new(
-          hot_lower_impl_rewrite_binary_const_result_spills_in_body(body),
+          hot_lower_impl_rewrite_binary_const_result_spills_in_body(func, body),
         ),
       )
     _ => instr
@@ -3807,12 +3808,13 @@ fn hot_lower_impl_rewrite_binary_const_result_spill_in_instr(
 
 ///|
 fn hot_lower_impl_rewrite_binary_const_result_spills_in_body(
+  func : HotFunc,
   body : Array[Instruction],
 ) -> Array[Instruction] {
   let nested : Array[Instruction] = []
   for instr in body {
     nested.push(
-      hot_lower_impl_rewrite_binary_const_result_spill_in_instr(instr),
+      hot_lower_impl_rewrite_binary_const_result_spill_in_instr(func, instr),
     )
   }
   let rewritten : Array[Instruction] = []
@@ -3839,15 +3841,30 @@ fn hot_lower_impl_rewrite_binary_const_result_spills_in_body(
             match set_instr {
               LocalSet(target_local) if target_local != source_local =>
                 match get_instr {
-                  LocalGet(found_local) if found_local == target_local => {
-                    rewritten.push(lhs)
-                    rewritten.push(set_instr)
-                    rewritten.push(get_instr)
-                    rewritten.push(rhs)
-                    rewritten.push(op_instr)
-                    i = i + 5
-                    continue
-                  }
+                  LocalGet(found_local) if found_local == target_local =>
+                    match (source_local, target_local) {
+                      (LocalIdx(raw_source), LocalIdx(raw_target)) => {
+                        let source_local_id = raw_source.reinterpret_as_int()
+                        let target_local_id = raw_target.reinterpret_as_int()
+                        match
+                          (
+                            hot_local_type(func, source_local_id),
+                            hot_local_type(func, target_local_id),
+                          ) {
+                          (Some(source_ty), Some(target_ty)) if source_ty ==
+                            target_ty => {
+                            rewritten.push(lhs)
+                            rewritten.push(set_instr)
+                            rewritten.push(get_instr)
+                            rewritten.push(rhs)
+                            rewritten.push(op_instr)
+                            i = i + 5
+                            continue
+                          }
+                          _ => ()
+                        }
+                      }
+                    }
                   _ => ()
                 }
               _ => ()
@@ -3914,7 +3931,7 @@ fn hot_lower_body_with_extras_unverified_with_options(
   )
   let stackified = hot_lower_impl_fix_split_payload_wrappers_in_body(stackified)
   let stackified = hot_lower_impl_rewrite_binary_const_result_spills_in_body(
-    stackified,
+    func, stackified,
   )
   let stackified = hot_lower_impl_prune_dead_local_tees(
     func, stackified, extra_locals, options,

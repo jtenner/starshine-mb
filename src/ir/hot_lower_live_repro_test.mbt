@@ -223,3 +223,56 @@ test "hot lower live repro validates value-if condition consumed before later dr
     Err(err) => fail(@validate.validation_error_message(err))
   }
 }
+
+///|
+test "hot lower live repro keeps call result spills behind mixed-typed call operands" {
+  let source =
+    #|(module
+    #|  (type $callee_t (func (param i32 i32 i32 i64 i32) (result i32)))
+    #|  (import "env" "callee" (func $callee (type $callee_t)))
+    #|  (memory 1)
+    #|  (func (param i32 i32 i32 i64) (result i64) (local i32)
+    #|    local.get 0
+    #|    local.get 1
+    #|    local.get 2
+    #|    local.get 3
+    #|    i32.const 1
+    #|    call $callee
+    #|    local.set 4
+    #|    local.get 4
+    #|    i64.load offset=8 align=1))
+    #|)
+  let fixture = ir_test_build_hot_from_wat(source)
+  let lowered = hot_lower_func(fixture.hot_func)
+  let @lib.Func(locals, body) = lowered
+  assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+  assert_eq(
+    body,
+    @lib.Expr::new([
+      @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+      @lib.Instruction::i32_const(@lib.I32(1)),
+      @lib.Instruction::call(@lib.FuncIdx::new(0U)),
+      @lib.Instruction::local_set(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::local_get(@lib.LocalIdx::new(4U)),
+      @lib.Instruction::i64_load(
+        @lib.MemArg::new(@lib.U32(0), None, @lib.U64(8)),
+      ),
+    ]),
+  )
+  let next_code_sec = match fixture.mod_.code_sec {
+    Some(@lib.CodeSec(defs)) => {
+      let next_defs = defs.copy()
+      next_defs[fixture.code_idx] = lowered
+      @lib.CodeSec::new(next_defs)
+    }
+    None => fail("fixture missing code sec")
+  }
+  let out = fixture.mod_.with_code_sec(next_code_sec)
+  match @validate.validate_module(out) {
+    Ok(_) => ()
+    Err(err) => fail(@validate.validation_error_message(err))
+  }
+}
