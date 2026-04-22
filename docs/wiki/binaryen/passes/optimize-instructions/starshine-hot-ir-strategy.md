@@ -1,47 +1,128 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-20
+status: supported
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
+  - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
-  - ../../../../../src/ir/hot_lower.mbt
-  - ../../../../../src/ir/hot_lower_test.mbt
-  - ../../../raw/research/0095-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-stack-underflow.md
-  - ../../../raw/research/0100-2026-04-18-generated-o4z-optimize-instructions-slot44-func1818-stack-underflow.md
-  - ../../../raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md
-  - ../../../raw/research/0104-2026-04-18-generated-o4z-optimize-instructions-slot16-func1818-parent-exit-payload-guard.md
-  - ../../../raw/research/0109-2026-04-18-generated-o4z-optimize-instructions-slot44-retired-by-replay-verification.md
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./gc-casts-call_ref-and-trap-sensitive-rewrites.md
   - ./wat-shapes.md
 ---
 
 # Current Starshine `optimize-instructions` strategy
 
-This page is the local “what is actually implemented today?” companion to the upstream Binaryen strategy page.
+This page describes the **current local implementation**, not upstream Binaryen's AST pass.
+For the upstream contract, start with [`./binaryen-strategy.md`](./binaryen-strategy.md).
 
 ## Short version
 
 Current Starshine `src/passes/optimize_instructions.mbt` is **much narrower** than Binaryen `version_129` `OptimizeInstructions.cpp`.
 
-The in-tree implementation is mostly a HOT-IR peephole and canonicalization pass focused on:
+The in-tree implementation is still a real, useful hot pass.
+Its center of gravity is:
 
-- exact integer constant folding
-- `eqz` / compare-to-zero rewrites
-- commutative operand canonicalization
+- exact constant and `eqz` folding
+- compare-to-zero and relational constant canonicalization
+- commutative operand ordering with HOT use-def safety guards
 - add/sub/mul/shift rewrites
-- some nested boolean-`if` normalization
-- a few artifact-driven control / branch cleanups
+- constant-`if` folding
+- nested boolean-`if` normalization and `eqz` wrapping
+- duplicate-branch collapse in then-regions
+- dead-region-suffix cleanup with explicit fallback-branch and zero-sentinel preservation
 
-That is real work and is already useful, but it is not yet the same pass surface as upstream Binaryen.
+That is a meaningful implemented pass.
+But it is not yet the same surface as upstream Binaryen.
+
+## Exact local code map
+
+### Registry and preset placement
+
+The public registry surface lives in `src/passes/optimize.mbt`:
+
+- `optimize_instructions_descriptor()` declares the active HOT descriptor
+- `optimize_instructions_summary()` provides the public help text
+- `pass_registry_entries()` registers `optimize-instructions` as a hot pass
+- `optimize_preset_passes(...)` and `shrink_preset_passes(...)` place it in both the early and late cleanup slots of the default preset order
+
+That file is the local answer to:
+
+- is the pass active?
+- how is it described publicly?
+- where does it sit in the preset order?
+
+### Pass-manager dispatch
+
+The main pipeline handoff lives in `src/passes/pass_manager.mbt`:
+
+- `run_hot_pipeline_run_descriptor(...)` dispatches the descriptor name `optimize-instructions` into `optimize_instructions_run(...)`
+
+Unlike several neighboring passes, the current local `optimize-instructions` integration does **not** add a large raw pre-lift classifier family in `pass_manager.mbt`.
+That is itself a useful local distinction:
+
+- the current implementation expects the work to happen after HOT lift
+- the artifact-driven safeguards live mostly inside the pass file itself, not in a large raw skip layer
+
+### Core algorithm owner file
+
+The main implementation lives in `src/passes/optimize_instructions.mbt`.
+The fastest read-along path is:
+
+- descriptor and summary
+  - `optimize_instructions_descriptor()`
+  - `optimize_instructions_summary()`
+- HOT-specific traversal scaffolding
+  - `OptimizeInstructionsScratch::new(...)`
+  - `optimize_instructions_mark_loop_input_nodes(...)`
+  - `optimize_instructions_can_cross_local_get(...)`
+- constant and control cleanup helpers
+  - `optimize_instructions_try_fold_constant_if_condition(...)`
+  - `optimize_instructions_try_optimize_if_condition(...)`
+  - `optimize_instructions_negate_boolean_expr_recursive(...)`
+  - `optimize_instructions_try_wrap_boolean_if_value_in_eqz(...)`
+  - `optimize_instructions_try_collapse_duplicate_then_branch(...)`
+  - `optimize_instructions_try_collapse_dead_region_suffix(...)`
+- canonicalization helpers
+  - `optimize_instructions_try_canonicalize_commutative(...)`
+  - `optimize_instructions_try_canonicalize_relational_const(...)`
+  - `optimize_instructions_try_canonicalize_relational_operands(...)`
+  - `optimize_instructions_try_canonicalize_compare_const(...)`
+- arithmetic and compare rewrites
+  - `optimize_instructions_try_rewrite_add_sub(...)`
+  - `optimize_instructions_try_rewrite_mul_shift(...)`
+  - `optimize_instructions_try_rewrite_shift(...)`
+  - `optimize_instructions_try_rewrite_compare_eqz(...)`
+- walker and driver
+  - `optimize_instructions_visit_node(...)`
+  - `optimize_instructions_run(...)`
+
+That exact code map is the main practical improvement in this refresh: readers can now jump straight from the strategy summary to the owning MoonBit helper clusters.
+
+### Focused local proof lanes
+
+The local tests are intentionally split across multiple files:
+
+- `src/passes/optimize_instructions_test.mbt`
+  - focused reduced pass behavior: exact constant folding, `eqz` and compare canonicalization, arithmetic rewrites, nested boolean-`if` cleanup, duplicate-branch collapse, dead-region-suffix trimming, commutative reordering, relational constant normalization, and guard-heavy no-reorder cases
+- `src/passes/registry_test.mbt`
+  - registry/descriptors exposure for the public HOT pass surface
+- `src/cmd/cmd_wbtest.mbt`
+  - CLI-visible `--optimize-instructions` replay on the debug artifact and on the saved generated-artifact slot-16 / slot-44 predecessor lanes
+
+A useful local honesty note is that there is no dedicated `perf_test.mbt` or `optimize_test.mbt` lane for this pass today.
+The strongest evidence surface is the focused reduced pass file plus the CLI replay coverage.
 
 ## What Starshine already models reasonably well
-
-By source inspection, the current implementation already covers several important upstream-adjacent themes.
 
 ## 1. Exact integer and compare peepholes
 
@@ -53,20 +134,17 @@ The local file has dedicated helpers for:
 - relational operand canonicalization
 - relational-constant normalization
 
-This is the part of the current implementation that most closely matches the popular mental model of the upstream pass.
+This is the part of the implementation that most closely matches the popular mental model of the upstream pass.
 
-## 2. Commutative canonicalization
+## 2. Commutative canonicalization with HOT-specific safety proof
 
 The local file has explicit machinery for:
 
-- putting constants on the preferred side
-- ordering `local.get` operands
-- sorting otherwise-commutative node kinds conservatively
-- guarding reordering through use-def and loop-input checks
+- moving constants to the preferred side
+- sorting local gets and some node kinds conservatively
+- refusing reordering across same-local writes, shared tee payloads, trapping loads, and loop-carried inputs
 
-That matches the general *strategy* of upstream Binaryen:
-
-- canonicalize first so later peepholes have fewer spellings to handle
+That matches the *strategy* of upstream Binaryen — canonicalize first so later peepholes have fewer spellings to handle — but the proof substrate is very local-HOT-specific.
 
 ## 3. Add / sub / mul / shift rewrites
 
@@ -74,51 +152,40 @@ The in-tree HOT pass includes helpers for:
 
 - add/sub normalization
 - multiply-by-power-of-two to shift rewrites
-- shift normalization
+- redundant shift-mask removal
+- effective-zero shift cleanup
 - compare-to-zero reductions
 
 So Starshine already covers a meaningful subset of the classic arithmetic rewrite surface.
 
 ## 4. Boolean and nested-`if` cleanup
 
-The local file goes fairly deep on HOT-IR boolean / control patterns.
+The local file goes fairly deep on HOT-IR boolean and control patterns.
+It can:
 
-Examples include helpers to:
+- optimize `if` conditions directly
+- fold constant conditions
+- recursively negate nested boolean trees
+- wrap certain boolean value-`if`s in `eqz`
+- flip some nested conditions when the tree is unshared
+- collapse duplicate then-branch `if`s into a direct branch
 
-- optimize if conditions
-- wrap boolean `if` values in `eqz`
-- invert nested `if` conditions
-- recursively negate nested boolean `if` conditions
-- collapse duplicate then-branch `if`s
-- collapse dead region suffixes after escaping control
+This is one area where the local code is more explicit than the upstream `visitIf()` teaching surface because several helpers exist mainly to preserve local HOT/writeback behavior.
 
-This is an area where current Starshine is actually *more explicit* than the upstream `visitIf()` surface, because it encodes several artifact-driven structural safeguards directly in HOT IR.
-
-## 5. Artifact-backed dead-suffix and branch cleanup guards
+## 5. Artifact-backed dead-suffix and fallback-branch cleanup
 
 The current local pass includes logic for:
 
-- preserving zero sentinels in dropped value carriers
-- keeping fallback branches alive in mixed-label or nested-return shapes
-- avoiding unsafe dead-suffix collapse in several carrier / label-sensitive cases
+- truncating dead suffixes after escaping control
+- preserving value-carrying fallback branches in mixed-label and nested-return shapes
+- keeping explicit zero sentinels when the result carrier still flows to a `drop` or another value-preserving boundary
 
 Those are not a direct copy of Binaryen `OptimizeInstructions.cpp`.
-
-They are local HOT-IR and writeback survival work driven by the repo's artifact replay history.
-
-That distinction matters.
-
-Some of the current code is protecting:
-
-- Starshine's HOT lowering and final writeback boundaries
-
-more than it is proving:
-
-- full upstream peephole parity.
+They are local HOT-IR and writeback-survival work shaped by this repo's artifact history.
 
 ## What upstream Binaryen does that Starshine still lacks
 
-This is the bigger story.
+This is still the bigger story.
 
 ## 1. No broad AST reference / GC optimization surface yet
 
@@ -128,31 +195,31 @@ The local file does not implement the upstream visitor families for things like:
 - `ref.cast`
 - `ref.test`
 - `ref.is_null`
-- `ref.as_non_null` interaction cleanup
-- `ref.get_desc`
+- `ref.as_non_null` cleanup
 - descriptor-aware casts
 - exactness-aware cast tightening
 
-So the upstream cast / trap-on-null / descriptor story is still largely missing locally.
+So the upstream cast/null-trap/descriptor story is still largely missing locally.
 
 ## 2. No `call_ref` directization surface
 
 The local HOT implementation does not currently model the upstream `visitCallRef(...)` story:
 
-- `ref.func` target -> direct call
-- `table.get` target -> `call_indirect`
-- fallthrough-known direct target with operand-order-preserving locals
-- select-of-known-direct-targets -> `if` over direct calls / return-calls
+- `ref.func` target to direct call
+- `table.get` target to `call_indirect`
+- select-of-known-direct-target rewrites
+- `return_call_ref`-adjacent directization families
 
-That is a large upstream feature gap.
+That is a major upstream feature gap.
 
-## 3. No bulk-memory lowering surface
+## 3. No broad memory and bulk-memory lowering surface
 
 The local pass does not currently cover upstream families like:
 
 - tiny constant-size `memory.copy` to load/store
-- tiny `memory.fill` to store/store pair / SIMD store
-- IIT/TNH zero-size drop cleanup for bulk memory
+- tiny `memory.fill` to store/store pair or SIMD store
+- trap-relaxing zero-size bulk-memory cleanup
+- stored-value and offset canonicalization for the general load/store surface
 
 ## 4. No GC constructor / field / atomics surface
 
@@ -172,30 +239,24 @@ The local pass does not yet model upstream visitors such as:
 - `ArrayRMW`
 - `ArrayCmpxchg`
 
-So important upstream behaviors are still absent locally, including:
-
-- `struct.new_default` / `array.new_default` style cleanup
-- unshared GC memory-order relaxation
-- unshared GC RMW / cmpxchg lowering
+So important upstream behaviors are still absent locally, including default-constructor cleanup and unshared GC atomic lowering.
 
 ## 5. No tuple extraction parity surface
 
 The local file does not model upstream `visitTupleExtract(...)`:
 
-- `tuple.extract(tuple.make(...))` simplification with tee / drop reconstruction
+- `tuple.extract(tuple.make(...))` simplification with the surrounding tee/drop reconstruction
 
-## 6. No local pre-scan equivalent for sign-extension knowledge
+## 6. No whole-function local prescan equivalent
 
 Upstream Binaryen runs a whole-function `LocalScanner` to infer:
 
 - `maxBits`
 - `signExtBits`
 
-Current Starshine has a lot of direct pattern matching and some local ordering logic, but it does not currently appear to have the same function-wide local pre-scan that powers many upstream bit-width and sign-extension decisions.
+Current Starshine has direct HOT pattern matching and some local ordering logic, but it does not currently appear to have the same function-wide local prescan that powers many upstream width/sign rules.
 
-That means some upstream “small” rules are actually blocked on missing helper structure here.
-
-## 7. No deferred `ReFinalize` / EH-pop-fixup equivalent in this pass
+## 7. No deferred `ReFinalize` / EH-pop-fixup equivalent inside this pass
 
 Upstream Binaryen explicitly depends on:
 
@@ -204,8 +265,6 @@ Upstream Binaryen explicitly depends on:
 
 The current local HOT pass has its own HOT / lower / writeback validity story, but it is not the same helper contract.
 
-A future parity port must preserve the fact that upstream rewrites are allowed to rely on those end-of-pass repairs.
-
 ## Important current divergence: constant `if` folding
 
 One of the most useful durable differences between the local and upstream implementations is:
@@ -213,129 +272,64 @@ One of the most useful durable differences between the local and upstream implem
 - current Starshine has an explicit `optimize_instructions_try_fold_constant_if_condition(...)`
 - upstream Binaryen `version_129` `visitIf()` does **not** do generic constant-if folding here
 
-That does **not** automatically make the local rule wrong.
-
+That does not automatically make the local rule wrong.
 But it does mean:
 
 - the local pass is not a direct copy of the upstream phase boundary
-- some currently-landed local behavior belongs more naturally to `precompute` in the Binaryen mental model
-
-That is exactly the kind of drift future docs and parity planning should keep explicit.
+- some landed local behavior belongs more naturally to `precompute` in the Binaryen mental model
 
 ## Important current divergence: artifact-driven dead-region cleanup
 
-Several local helpers are clearly tailored to artifact-backed HOT / lowering issues rather than directly to upstream source structure.
-
+Several local helpers are clearly tailored to HOT / lowering issues rather than directly to upstream source structure.
 Examples include:
 
 - duplicate-then-branch collapse helpers
-- dead region suffix collapse with sentinel preservation
-- nested boolean-tree inversion / wrapping logic
-- fallback-branch preservation around escaping ifs and carried labels
+- dead-region-suffix cleanup with sentinel preservation
+- nested boolean-tree inversion and wrapping logic
+- fallback-branch preservation around escaping `if`s and carried labels
 
 Those local rules may still be useful or necessary.
-
 But they should be documented as:
 
 - current Starshine HOT-IR and writeback strategy
 
 not automatically as:
 
-- direct evidence of how upstream Binaryen `OptimizeInstructions.cpp` is structured.
+- direct evidence of how upstream Binaryen `OptimizeInstructions.cpp` is structured
 
-## Ordered-artifact blocker story: now retired, but still important context
+## Ordered-artifact blocker story: now retired, still important context
 
 The saved generated-artifact `-O4z` audit originally found two hard failure slots for `optimize-instructions`:
 
 - slot `16`
 - slot `44`
 
-The durable repo-local conclusion from `0095`, `0100`, `0103`, `0104`, and `0109` is:
+The durable repo-local conclusion is still:
 
 - both slots are now retired
-- the fixes were not new upstream-shape peepholes in the pass
+- the fixes were not new upstream-shape peepholes inside the pass
 - they were HOT-lowering / writeback safety fixes around carried-result wrappers and parent-exit payload packing
 
-In practical terms:
-
-- the current artifact-facing correctness risk around this pass is lower than it was on 2026-04-18
-- the remaining gap is breadth and honesty of upstream parity, not a still-open hard corruption witness
+So the remaining gap is breadth and honesty of upstream parity, not a still-open hard corruption witness.
 
 ## What a future honest Starshine port must preserve
 
-A future port does **not** need to copy the 5.8k-line Binaryen file literally.
-
+A future port does **not** need to copy the entire Binaryen file literally.
 But it does need to preserve these big truths:
 
-## 1. The pass is broader than arithmetic
+1. the pass is broader than arithmetic
+2. canonicalization is part of the algorithm
+3. helper substrate matters
+4. phase boundaries should stay honest when local behavior intentionally differs
 
-Future work must treat the upstream surface as including:
+## Practical maintenance rule
 
-- control / ternary forms
-- memory and bulk memory
-- `call_ref`
-- GC casts and null-trap simplification
-- GC field/array and unshared atomics forms
-- tuple extraction
+Treat the current local implementation as:
 
-## 2. Canonicalization is part of the algorithm
+- a real implemented HOT pass
+- strongest today on integer / boolean / control canonicalization
+- intentionally carrying extra writeback-safety logic for local artifact history
+- still missing most of the upstream `call_ref`, memory, bulk-memory, GC, tuple, and helper-substrate surface
 
-The local pass already understands this in some areas.
-
-That should remain a design principle.
-
-## 3. Helper substrate matters
-
-Several upstream families depend on utilities that do not yet seem to exist locally in equivalent form, including:
-
-- whole-function bit/sign-ext local summaries
-- refined fallthrough tracking for refs
-- cast-check result classification
-- child localization helpers for effect-preserving rewrites
-- post-pass type and EH repair helpers
-
-## 4. Phase boundaries should stay honest
-
-If Starshine keeps constant-if folding or artifact-specific dead-suffix cleanup in `optimize-instructions`, that may still be the right local engineering choice.
-
-But the wiki should keep saying clearly when such work is:
-
-- an upstream parity match
-
-versus
-
-- a current local HOT-IR survival strategy.
-
-## Suggested near-term documentation / implementation reading order
-
-If someone wants to expand the local implementation honestly, the most useful order is probably:
-
-1. keep the current HOT integer / boolean core stable
-2. study the upstream helper dependencies
-3. add cast / trap-on-null helper infrastructure
-4. add `call_ref` support
-5. add memory / bulk-memory tiny-shape rewrites
-6. add GC constructor / field / atomic families
-7. only then worry about finer-grained parity on the more obscure arithmetic tail rules
-
-That order follows the biggest present structural gaps, not the biggest individual peephole counts.
-
-## Bottom line
-
-Current Starshine `optimize-instructions` is already a meaningful implemented pass.
-
-But compared to Binaryen `version_129`, it is still mostly:
-
-- integer / boolean / HOT-control canonicalization
-- plus artifact-driven writeback-safety cleanup
-
-The largest missing upstream surfaces are:
-
-- GC casts and null-trap logic
-- `call_ref`
-- memory and bulk memory
-- GC field/array / unshared atomics
-- tuple extraction
-- the helper substrate that makes those rewrites safe
-
-That is the honest gap a future parity plan must preserve.
+For this pass, "what Starshine does today" and "what Binaryen `version_129` does" are not the same thing.
+The wiki should keep that difference explicit.
