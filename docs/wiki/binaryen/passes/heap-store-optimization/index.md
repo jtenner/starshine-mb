@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
+  - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/heap_store_optimization.mbt
   - ../../../../../src/passes/heap_store_optimization_test.mbt
   - ../../../../../src/passes/perf_test.mbt
@@ -27,6 +29,7 @@ related:
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
+  - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
   - ../optimize-instructions/index.md
@@ -122,7 +125,9 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering tee folds, subsequent local-set chains, default-materialization positives, safe and unsafe control-flow families, and the main bailout shapes.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine strategy and the major ways the HOT-region implementation differs from upstream Binaryen's CFG-based source while still pursuing the same core optimization.
+  - Current in-tree Starshine strategy and the major ways the HOT-region implementation differs from upstream Binaryen's CFG-based source while still pursuing the same core optimization; the refreshed page now also points readers to the exact MoonBit registry / dispatcher / helper-cluster / reduced-test / CLI-replay code map.
+- [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md)
+  - Immutable capture of the official Binaryen release, source, and lit-test URLs re-checked for this dossier on 2026-04-22.
 
 ## Freshness and naming note
 
@@ -131,8 +136,9 @@ The earlier landing page mostly existed to track naming evidence, so the richer 
 Current durable answer:
 
 - Binaryen `pass.cpp` still registers `heap-store-optimization` in `version_129`.
+- The official Binaryen GitHub `version_129` release page re-checked on 2026-04-22 showed publish date **2026-04-01**.
 - The current upstream changelog still records `Add a new --heap-store-optimization pass. (#6882)` under `v119`.
-- A 2026-04-20 direct source comparison found `main` `HeapStoreOptimization.cpp` and `test/lit/passes/heap-store-optimization.wast` identical to `version_129`.
+- A 2026-04-22 direct source re-check preserved the earlier no-drift result for the teaching-relevant surfaces in `main` `HeapStoreOptimization.cpp` and `test/lit/passes/heap-store-optimization.wast` versus `version_129`.
 - The Debian experimental `wasm-opt` manpage still lists `--heap-store-optimization`.
 - The published docs.rs `wasm_opt::Pass` enum still omits `HeapStoreOptimization`, so that surface is still wrapper lag, not rename pressure.
 

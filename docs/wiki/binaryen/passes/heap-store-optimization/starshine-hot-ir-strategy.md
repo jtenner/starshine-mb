@@ -1,11 +1,16 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-20
+status: supported
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
+  - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/heap_store_optimization.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/heap_store_optimization_test.mbt
+  - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
@@ -49,6 +54,44 @@ So the local pass is best understood as:
 not:
 
 - a direct line-by-line port of Binaryen `HeapStoreOptimization.cpp`
+
+## Exact local code map
+
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md).
+The fastest read-along path through the current MoonBit implementation is:
+
+- registry descriptor and one-line public summary
+  - `src/passes/heap_store_optimization.mbt`
+    - `heap_store_optimization_descriptor()`
+    - `heap_store_optimization_summary()`
+  - `src/passes/optimize.mbt`
+    - active hot-pass registration for `heap-store-optimization`
+    - optimize/shrink preset placement after `optimize-instructions` and before `pick-load-signs`, plus the late rerun after the second `precompute`
+- pass-manager integration and raw fast-skip plumbing
+  - `src/passes/pass_manager.mbt`
+    - `run_hot_pipeline_raw_heap_store_optimization(...)`
+    - main hot-pass dispatch case for `"heap-store-optimization"`
+- local proof helpers in `src/passes/heap_store_optimization.mbt`
+  - `hso_subtree_may_skip_local_set(...)`
+  - `hso_subtree_is_trapless_readonly(...)`
+  - `hso_subtree_is_trapless_reorderable(...)`
+  - `hso_root_can_swap_before_local_struct_new(...)`
+  - `hso_supported_struct_new(...)`
+- local rewrite helpers in `src/passes/heap_store_optimization.mbt`
+  - `hso_try_flatten_block_wrapper(...)`
+  - `hso_trim_unreachable_subtree(...)`
+  - `hso_try_fold_into_struct_new(...)`
+  - `hso_try_fold_tee_wrapped_struct_set(...)`
+  - `hso_process_region(...)`
+- focused local evidence surfaces
+  - `src/passes/heap_store_optimization_test.mbt`
+    - reduced constructor/store, readonly-prefix, swap, branch, descriptor, raw-prefix, and wrapper-cleanup regressions
+  - `src/passes/registry_test.mbt`
+    - registration and preset exposure
+  - `src/cmd/cmd_wbtest.mbt`
+    - focused `--heap-store-optimization` CLI replay lanes
+
+This exact code map is the main practical difference between the older page and the refreshed one: readers can now go directly from the living strategy text to the concrete implementation entry points.
 
 ## What Starshine already models well
 
@@ -115,7 +158,7 @@ The current repo test suite covers many source-local families beyond the upstrea
 - nested block / if / loop wrappers
 - raw-decoded ref-prefix shapes
 - named-label preservation and raw-skip cases
-- artifact replay via native `cmd`
+- artifact replay via focused `src/cmd/cmd_wbtest.mbt` `--heap-store-optimization` lanes
 - perf fast-skip behavior when there are no candidates
 
 That does **not** automatically mean Starshine is fully upstream-parity complete.
@@ -157,6 +200,13 @@ Current Starshine answers the same *kind* of question with custom HOT helpers su
 - subtree-may-skip-local-set predicates
 - reorderability predicates over HOT effect masks
 
+The exact local code locations worth reading are:
+
+- `src/passes/heap_store_optimization.mbt:hso_subtree_may_skip_local_set(...)`
+- `src/passes/heap_store_optimization.mbt:hso_subtree_is_trapless_readonly(...)`
+- `src/passes/heap_store_optimization.mbt:hso_subtree_is_trapless_reorderable(...)`
+- `src/passes/heap_store_optimization.mbt:hso_root_can_swap_before_local_struct_new(...)`
+
 So the local proof is aiming at the same semantic barrier, but it is not using the same exact helper stack.
 
 ## 3. Starshine currently cares a lot about writeback-valid shapes
@@ -166,6 +216,12 @@ Several local helpers exist mainly to avoid generating invalid or awkward lowere
 - trimming unreachable tails in value wrappers
 - flattening single-root block wrappers
 - retargeting labels when flattening nested block roots
+
+The exact local code locations worth reading are:
+
+- `src/passes/heap_store_optimization.mbt:hso_trim_unreachable_subtree(...)`
+- `src/passes/heap_store_optimization.mbt:hso_try_flatten_block_wrapper(...)`
+- `src/passes/heap_store_optimization.mbt:hso_retarget_subtree_label(...)`
 
 That is a local HOT/writeback reality, not a direct upstream Binaryen concern.
 
@@ -213,11 +269,10 @@ So the honest reading is:
 
 ## Native artifact replay coverage exists in-tree
 
-`src/cmd/cmd_wbtest.mbt` contains a native regression ensuring:
+`src/cmd/cmd_wbtest.mbt` contains focused native regressions for many concrete `--heap-store-optimization` shapes plus the checked large-artifact replay lane.
+Representative entry points include the `hso.wasm`, `hso-tee.wasm`, `hso-branch-fold.wasm`, `hso-swap.wasm`, and debug-artifact cases.
 
-- `run_cmd_with_adapter validates heap-store-optimization on debug artifact`
-
-That is important because it proves the current implementation can at least run and validate cleanly on the checked-in large artifact.
+That is important because it proves the current implementation can at least run and validate cleanly on both reduced fixtures and the checked-in large artifact.
 
 ## There is no dedicated `HSO` backlog slice in `agent-todo.md`
 
