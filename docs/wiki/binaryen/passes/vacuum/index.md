@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
   - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
+  - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -42,8 +44,8 @@ That includes more than `nop` removal, but less than full dead-code elimination.
 
 ## Why this pass matters
 
-- The tracker's earlier saved-audit `none` queue is now clear, so implemented folders still missing compact owner/test-map pages remain good follow-up targets.
-- This folder now has that compact owner/test-map page too, so future threads should not come back to `vacuum` for the same reason.
+- The tracker's earlier saved-audit `none` queue is now clear, so implemented folders still missing immutable primary-source captures or exact Starshine code-map coverage remain good follow-up targets.
+- This folder now has both of those additions too, so future threads should not come back to `vacuum` for the same provenance-and-navigation gap.
 - The canonical no-DWARF `-O` / `-Os` scheduler uses `vacuum` **four times** in the default function pipeline.
 - The saved generated-artifact `-O4z` audit also saw `vacuum` at four real top-level Binaryen slots:
   - slot `23`
@@ -100,12 +102,12 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering positive, negative, bailout, EH, GC, string, and TNH-specific rewrite families.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine strategy and the major Binaryen behaviors the repo still does not model.
+  - Current in-tree Starshine strategy with the exact MoonBit registry, dispatch, helper, validation-guard, trace, perf, and CLI replay code map, plus the major Binaryen behaviors the repo still does not model.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `vacuum` parity and scheduler research.
-- Treat the new implementation/test-map page as the compact answer for file ownership and shipped proof coverage; future edits should keep it aligned with the broader strategy and WAT-shape pages.
+- Treat the new raw primary-source manifest plus the refreshed Starshine code-map page as the compact answer for provenance and local navigation; future edits should keep them aligned with the broader strategy and WAT-shape pages.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
@@ -113,8 +115,10 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md`](../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md)
 - [`../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md`](../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md)
 - [`../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md`](../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md)
+- [`../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md`](../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)

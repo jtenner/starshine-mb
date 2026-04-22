@@ -1,168 +1,223 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
+  - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
-  - ../../../../../src/passes/optimize.mbt
+  - ../../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
+  - ../../../raw/research/0097-2026-04-18-generated-o4z-vacuum-slot23-func652-stack-underflow.md
+  - ../../../raw/research/0098-2026-04-18-generated-o4z-vacuum-slot33-func1818-stack-underflow.md
+  - ../../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md
+  - ../../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/passes/trace_golden_test.mbt
+  - ../../../../../src/passes/perf_test.mbt
+  - ../../../../../src/passes/pass_manager_wbtest.mbt
+  - ../../../../../src/cmd/cmd.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./effect-pruning-and-traps-never-happen.md
   - ./wat-shapes.md
 ---
 
-# Starshine `vacuum` strategy
+# Starshine HOT-IR Strategy For `vacuum`
 
-## Current rule
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md`](../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md).
+The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives and how the local HOT-plus-pipeline split is wired today.
 
-Starshine's current `vacuum` implementation is intentionally much smaller than Binaryen's.
+## Exact local code map
 
-The repo does **not** currently try to port Binaryen's full tree cleanup semantics here.
+The fastest read-along path through the current Starshine implementation is:
 
-Instead, the in-tree pass is:
+- registry descriptor, summary, and preset visibility in `src/passes/optimize.mbt`
+  - hot-pass registration for `vacuum`
+  - summary text: `Remove \`nop\` roots and region entries through hot IR cleanup.`
+  - invalidated analyses list on the `HotPassDescriptor`
+- main hot-pass dispatch in `src/passes/pass_manager.mbt`
+  - the `"vacuum"` dispatch arm in the hot-pass runner
+  - `hot_pass_remove_region_nops(...)`, which is the whole current rewrite engine
+- writeback and debug-pipeline support in `src/passes/pass_manager.mbt`
+  - the `descriptor_name == "vacuum"` writeback-validation guard path
+  - the `run_hot_pipeline_debug_dump_enabled(...)` special-case target for traced debug dumps on the saved artifact hotspot function
+- focused local proof surfaces
+  - `src/passes/optimize_test.mbt` for the reduced semantic locks
+  - `src/passes/trace_golden_test.mbt` for deterministic trace output
+  - `src/passes/perf_test.mbt` for perf timer and unchanged-pass behavior
+  - `src/passes/pass_manager_wbtest.mbt` for registry-copy safety and traced debug-dump routing
+  - `src/cmd/cmd.mbt` for pass-note and flag-limit plumbing
+  - `src/cmd/cmd_wbtest.mbt` for CLI flag resolution plus saved generated-artifact replay lanes
 
-- a HOT-IR recursive region sweep that removes explicit `nop` entries
+That exact code map is the main practical addition in this refresh: readers can now jump directly from the strategy summary to the owning files and evidence surfaces.
 
-That is useful and honest, but it is not upstream parity.
+## Current local implementation
 
-## Current in-tree implementation
+The current in-tree `vacuum` implementation is intentionally much smaller than upstream Binaryen.
+The real rewrite logic is one recursive HOT helper in `src/passes/pass_manager.mbt`:
 
-The active implementation lives in `src/passes/pass_manager.mbt`.
+- `hot_pass_remove_region_nops(ctx, func, region_ref)`
 
-The key helper is:
+That helper walks a region root list and does only two things:
 
-- `hot_pass_remove_region_nops(...)`
+1. if the current root is `HotOp::Nop`, it splices that root out of the region and deletes the detached nodes
+2. if the current root owns nested regions, it recurses into them
 
-It recursively visits:
+The recursion surface is explicit and limited:
 
-- the root region
-- block / loop bodies
-- `if` then/else regions
-- `try` body/catch regions
-- `try_table` body/catch-list regions
+- `Block` and `Loop` body regions
+- `If` then and optional else regions
+- `Try` body and optional catch regions
+- `TryTable` body and catch-list regions
 
-When it sees `HotOp::Nop` as a region entry, it:
+The dispatch arm then reports:
 
-- splices that entry out of the region
-- deletes the detached nodes
+- `HotPassResult::changed()` if any explicit `nop` entry was removed
+- `HotPassResult::unchanged()` otherwise
 
-That is the whole transformation today.
-
-The pass registry entry in `src/passes/optimize.mbt` describes it accurately:
-
-- `Remove \`nop\` roots and region entries through hot IR cleanup.`
+There is no hidden second-phase cleanup engine for this pass in-tree today.
 
 ## What Starshine already does well
 
-- It is cheap.
-- It is structurally simple.
-- It works in the existing `HotFunc` / `HotRegionRef` ownership model.
-- It already gives the repo a useful cleanup step after `simplify-locals` residue.
-- The pass manager correctly invalidates broad HOT analyses after it mutates the function.
+The current local strategy is small, but it is not useless.
+It already gives the repo a few concrete wins:
 
-## Current in-tree proof points
+- cheap cleanup of explicit HOT `nop` residue after other hot passes
+- a straightforward fit with the `HotFunc` / region-reference ownership model
+- honest invalidation of broad HOT analyses after mutation
+- stable tracing and perf observability in the main hot pipeline
+- a practical replay boundary for validation/writeback issues found during generated-artifact audits
 
-The repo already has a few useful pass-local locks:
+So the right teaching stance is not “this pass is fake.”
+It is:
 
-- `src/passes/optimize_test.mbt`
-  - `vacuum cleans simplify-locals structured return residue in the late cleanup pair`
-- `src/passes/trace_golden_test.mbt`
-  - deterministic trace coverage for a one-pass `vacuum` run
-- `src/passes/perf_test.mbt`
-  - timer coverage for `pass:vacuum`
-- `src/passes/pass_manager.mbt`
-  - `vacuum`-specific writeback validation guard using the same helper family as `precompute`
+- the current Starshine pass is real and useful
+- but its semantic scope is much narrower than Binaryen's `vacuum`
 
-Those tests are valuable, but they lock only the repo's current narrower semantics.
+## Current proof surface in this repository
 
-## What Starshine does **not** yet model from Binaryen
+The local tests are small but meaningful.
 
-Current Starshine `vacuum` does not yet implement upstream behaviors such as:
+### Reduced semantic locks
 
-- unused-result pruning through effect analysis
-- collapsing pure wrappers down to effectful children
-- default-value insertion when a concrete fallthrough cannot simply vanish
-- constant-condition `if` selection
-- unreachable-condition `if` collapse
-- flipping `if` conditions when the `then` arm is empty
-- flipping branch hints when that `if` flip happens
+`src/passes/optimize_test.mbt` currently gives the cleanest direct pass-local proof points:
+
+- `vacuum cleans simplify-locals structured return residue in the late cleanup pair`
+  - proves that explicit `nop` cleanup helps a real late local-cleanup pipeline shape
+- `vacuum roundtrips dead simd prefixes before unreachable`
+  - proves the pass does not corrupt a prefix that should remain visible before `unreachable`
+- `vacuum roundtrips top-level try_table catches that target the implicit function label`
+  - proves the recursive region walk keeps an important top-level EH/control shape valid
+
+### Trace and perf locks
+
+`src/passes/trace_golden_test.mbt` locks the deterministic traced mutation shape for a tiny `nop`-removal example.
+
+`src/passes/perf_test.mbt` locks that:
+
+- traced/perf pipelines record `pass:vacuum`
+- unchanged `vacuum` runs skip lower/writeback work when possible
+- the pass composes correctly with verify-policy timing checkpoints
+
+### Pipeline and registry locks
+
+`src/passes/pass_manager_wbtest.mbt` proves that:
+
+- the pass registry lookup for `vacuum` returns a detached descriptor copy
+- the traced debug-dump target logic includes the saved artifact hotspot function only for `vacuum`
+
+`src/cmd/cmd.mbt` and `src/cmd/cmd_wbtest.mbt` prove that:
+
+- `--vacuum` is a real CLI-visible pass flag
+- resolved-pass summaries report it correctly
+- replaying saved generated-artifact inputs through the CLI still stays wasm-tools-valid
+
+### Saved artifact replay lanes
+
+The most specific local replay evidence in `src/cmd/cmd_wbtest.mbt` is important because it documents the old failure visibility honestly.
+The saved generated `-O4z` slot-23 predecessor and extracted function replay lanes now validate under `--vacuum`.
+That is the concrete proof surface behind the older artifact notes that retired the slot-23 and slot-33 failures.
+
+## Current local-vs-upstream split
+
+The safest one-line contrast is:
+
+- **Binaryen `vacuum`:** effect-aware unused-result pruning plus structural cleanup, TNH handling, and mandatory refinalization
+- **Starshine `vacuum`:** recursive explicit-`nop` trimming in HOT regions, plus pipeline-level validation/writeback hygiene around that trimming
+
+Current Starshine does **not** yet model upstream behaviors such as:
+
+- effect-aware dropped-wrapper elimination
+- multi-child effect preservation through dropped-child rebuilding
+- constant or unreachable `if` collapse
+- branch-hint flips when an `if` is inverted
 - `drop(local.tee(...)) -> local.set(...)`
-- block-result popping with branch-target safety checks
-- non-throwing `try` / `try_table` wrapper removal
-- TNH-specific trap-path cleanup
-- whole-function `nop` cleanup when a void function has no observable effects
-- explicit-`unreachable` preservation at function scope
-- mandatory post-rewrite refinalization of Binaryen-style tree rewrites
+- block-result popping with label-safety checks
+- non-throwing `try` / `try_table` collapse
+- TNH trap-path cleanup
+- whole-function `nop` cleanup based on side effects
+- explicit-`unreachable` preservation logic as a first-class rewrite rule
+- Binaryen-style post-edit refinalization
 
-So the practical repo rule is:
+That boundary should stay explicit in every future edit.
 
-- do not read the current Starshine pass as if it already means Binaryen parity
+## Why the local implementation lives in `pass_manager.mbt`
 
-## Why that narrower strategy made sense locally
+Unlike several other hot passes in this repo, `vacuum` does not currently have its own dedicated `src/passes/vacuum.mbt` file.
+The small current scope made it reasonable to keep the implementation close to the hot-pass runner itself:
 
-The repo got real value from a tiny `vacuum` first because:
+- the rewrite is tiny
+- it depends directly on core region-splice and detached-node cleanup helpers
+- the pass-specific writeback-validation guard also lives in the pipeline manager
 
-- many in-tree cleanup needs really were just leftover `nop` region entries
-- the ordered generated-artifact audit eventually showed the two scary `vacuum` corruption slots were replay-boundary symptoms, not proof that the pass should invent richer typed repairs
-- a small HOT-IR region sweep is easy to reason about, cheap to rerun, and easy to validate after late local cleanup passes
+If the pass grows toward Binaryen parity, it will probably become worth moving into its own dedicated file.
+Right now the code map is still small enough that keeping the exact `pass_manager.mbt` ownership visible is more helpful than pretending there is a larger local subsystem.
 
-That made the pass a good early implementation target even though it is far from full Binaryen behavior.
+## Boundary lesson from the retired artifact failures
 
-## Current boundary lesson from the retired artifact failures
+The saved generated-artifact notes remain important context.
+They showed that `vacuum` was sometimes the place where invalid output became visible, but not necessarily the place where the real semantic bug originated.
 
-The retired slot-23 and slot-33 raw notes are important context.
+The retired slot-23 and slot-33 notes now support a stable lesson:
 
-They showed:
+- some earlier failures surfaced during `vacuum` replay
+- the durable fixes lived in writeback / carrier / validation hygiene around the hot pipeline
+- future parity work should port real Binaryen `vacuum` semantics instead of turning local `vacuum` into an ad hoc repair bucket
 
-- `vacuum` was sometimes the replay boundary where invalid output became visible
-- but the underlying fixes lived elsewhere:
-  - earlier HOT-lower carrier-wrapper guarding
-  - validator / writeback hygiene
-
-That lesson still matters for future work:
-
-- richer Binaryen parity should come from correctly porting Binaryen semantics
-- not from treating `vacuum` as a place to synthesize ad hoc repair carriers
+That is why this page treats the writeback guard and CLI replay lanes as part of the strategy story.
+For the current implementation, they are part of the honest contract.
 
 ## Honest future port shape
 
-If Starshine wants closer Binaryen parity, the likely path is still HOT-IR-centric, but broader than region `nop` trimming.
+If Starshine wants closer Binaryen parity, the likely path is still staged:
 
-A plausible staged expansion would be:
-
-1. keep the current region-`nop` sweep
-2. add effect-aware dropped-wrapper elimination in HOT IR
-3. add the easy structural cases:
+1. keep the current recursive `nop` sweep
+2. move the pass into a dedicated owner file once the helper surface grows
+3. add effect-aware dropped-wrapper elimination
+4. add the easy structural cases
    - constant / unreachable `if`
    - drop-of-tee to set
-   - trivial loop-body removal
-4. add branch-result-aware block cleanup
-5. add TNH cleanup only with explicit barrier modeling
-6. add whatever HOT-IR equivalent of refinalization / exact writeback proof is required for GC and EH-sensitive rewrites
+   - trivial block and loop cleanup
+5. add branch-result-aware and EH-aware cleanup only with explicit legality proofs
+6. add whatever HOT writeback or refinalization-equivalent discipline is needed for broader GC and EH-sensitive rewrites
 
-## Port invariants to preserve
-
-Any future Starshine expansion should keep these Binaryen-derived invariants explicit:
-
-- never delete structure in a way that changes observable effects
-- never drop a concrete result without a valid replacement story
-- preserve explicit `unreachable` propagation
-- keep branch payload structure honest when popping block results
-- flip branch metadata if a flipped-`if` rewrite ever lands
-- keep TNH cleanup conservative around calls, control transfer, may-not-return, and `pop`
+The important rule is that future work should grow from the current exact code map, not from a fuzzy idea that `vacuum` already means Binaryen parity.
 
 ## Bottom line
 
-Current Starshine `vacuum` is a small, useful HOT-IR cleanup pass.
+Current Starshine `vacuum` is a tiny but useful hot pass.
+Its exact local implementation is now easy to follow:
 
-It is correctly named and honestly wired into the scheduler.
+- registration in `src/passes/optimize.mbt`
+- recursion, dispatch, and writeback guards in `src/passes/pass_manager.mbt`
+- semantic, trace, perf, registry, and CLI evidence in the focused test files
 
-But compared to upstream Binaryen, it is still just the first slice:
+That makes the local subset easy to teach honestly:
 
-- **Starshine today:** recursive explicit-`nop` trimming
-- **Binaryen `version_129`:** effect-aware unused-result pruning plus structural cleanup and TNH-sensitive residue removal
-
-This page exists so future work does not confuse those two meanings.
+- **what it does today:** remove explicit HOT `nop` region entries and keep the pipeline safe
+- **what it does not do yet:** most of Binaryen `vacuum`
