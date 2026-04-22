@@ -1,19 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
+  - ../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0114-2026-04-20-rse-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./cfg-and-value-tracking.md
+  - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
 # `rse` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's `rse` pass.
+The upstream provenance for the shapes here was rechecked against the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md) on 2026-04-22.
 
 ## Read this page with one mental model
 
@@ -392,6 +396,8 @@ If the answer to `2`, `4`, `5`, or `6` is wrong for the transformation, expect B
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md)
+- [`../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md`](../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0114-2026-04-20-rse-binaryen-research.md`](../../../raw/research/0114-2026-04-20-rse-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>
 - Binaryen `version_129` pass tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/rse_all-features.wast>

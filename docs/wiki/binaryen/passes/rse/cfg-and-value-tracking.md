@@ -1,18 +1,22 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
+  - ../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0114-2026-04-20-rse-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `rse` CFG And Value Tracking
 
-This page focuses on the easiest part of Binaryen `rse` to misunderstand:
+This page focuses on the easiest part of Binaryen `rse` to misunderstand.
+The upstream provenance for the claims here was rechecked against the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md) on 2026-04-22:
 
 - what exactly the pass thinks it knows about a local at any point
 - how that knowledge merges across blocks
@@ -269,6 +273,8 @@ That is the real Binaryen flavor of the pass.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md)
+- [`../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md`](../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0114-2026-04-20-rse-binaryen-research.md`](../../../raw/research/0114-2026-04-20-rse-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>
 - Binaryen `version_129` local graph helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>

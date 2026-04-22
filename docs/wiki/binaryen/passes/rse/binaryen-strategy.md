@@ -1,19 +1,26 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
+  - ../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0114-2026-04-20-rse-binaryen-research.md
 related:
   - ./index.md
   - ./cfg-and-value-tracking.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
 # Binaryen `rse` Strategy
 
 ## Upstream source rule
+
+Use the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md) as the provenance anchor for this page.
+The reviewed official Binaryen `version_129` release page was rechecked on 2026-04-22 and showed publish date **2026-04-01**.
+A narrow 2026-04-22 spot check against current `main` did not surface a new teaching-relevant contract drift beyond the claims below.
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The core implementation is `src/passes/RedundantSetElimination.cpp`.
@@ -383,6 +390,8 @@ Those are the durable upstream truths.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md)
+- [`../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md`](../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0114-2026-04-20-rse-binaryen-research.md`](../../../raw/research/0114-2026-04-20-rse-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

@@ -1,15 +1,19 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
+  - ../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0114-2026-04-20-rse-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
 related:
   - ./binaryen-strategy.md
   - ./cfg-and-value-tracking.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../late-pipeline-dispatch.md
   - ../../no-dwarf-default-optimize-path.md
 ---
@@ -30,6 +34,7 @@ related:
   - top-level slot `46`
 - The saved Binaryen debug log also shows repeated nested reruns of the same `optimize-instructions -> heap-store-optimization -> rse -> vacuum` tail cluster under later optimizing passes.
 - The repo backlog already treats it as a real parity task under slice `RSE` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- The dossier now also has an immutable raw primary-source manifest recording that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**, plus a dedicated Starshine status/port-map page tying the upstream story directly to the current local registry, backlog, and scheduler surfaces.
 
 ## Beginner summary
 
@@ -66,6 +71,8 @@ That is much closer to the real Binaryen pass than the name alone.
   The easiest part of the pass to misunderstand: the tiny value lattice (`Unseen` vs exact value vs merged values), copied-local inheritance, same-block read rewriting, and why loop inputs currently stay conservative.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and pass-interaction families that matter most.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future landing-zone map: removed-name registry tracking, backlog slice `RSE`, canonical no-DWARF slot, and the neighboring local pass dossiers a future port should compose with.
 
 ## Current maintenance rule
 
@@ -76,8 +83,11 @@ That is much closer to the real Binaryen pass than the name alone.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md)
+- [`../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md`](../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0114-2026-04-20-rse-binaryen-research.md`](../../../raw/research/0114-2026-04-20-rse-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
