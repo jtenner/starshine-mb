@@ -1,16 +1,20 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
+  - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/optimize_test.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 related:
   - ./binaryen-strategy.md
   - ./segment-selection-and-barriers.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../late-pipeline-dispatch.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -32,6 +36,7 @@ related:
 - The saved Binaryen debug log also shows many repeated nested reruns of `precompute-propagate -> code-pushing -> tuple-optimization`, so this pass is not just a one-off top-level detail.
 - The repo backlog already treats it as a real parity blocker under slice `CP` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
 - It is also one of the missing scheduler neighbors that still block fully honest public-preset placement for the already-implemented `tuple-optimization` pass.
+- The dossier now also has an immutable raw primary-source manifest recording that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**, plus a dedicated Starshine status/port-map page tying the upstream story directly to the current local registry, tuple-slot gate, and backlog surfaces.
 
 ## Beginner summary
 
@@ -75,11 +80,13 @@ But two corrections matter immediately:
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Deep dive into the actual Binaryen `version_129` implementation: block scanning, contiguous suffix selection, `BranchSeeker`, `Pusher`, the `if` special case, profitability gating, helper dependencies, and scheduler placement.
+  Deep dive into the actual Binaryen `version_129` implementation: block scanning, contiguous suffix selection, `BranchSeeker`, `Pusher`, the `if` special case, profitability gating, helper dependencies, scheduler placement, and explicit 2026-04-22 release/source provenance.
 - [`./segment-selection-and-barriers.md`](./segment-selection-and-barriers.md)
   Focused explanation of the pass’s hidden core: how Binaryen chooses a movable suffix, how invalidation works, why one-arm and two-arm `if` sinking differ, and which effect / trap / EH families stop motion.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future landing-zone map: removed-name registry tracking, tuple exact-slot gating, backlog slice `CP`, and the neighboring local pass dossiers a future port must compose with.
 
 ## Current maintenance rule
 
@@ -89,8 +96,11 @@ But two corrections matter immediately:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md)
+- [`../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md`](../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md`](../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>

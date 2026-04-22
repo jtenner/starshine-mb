@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
+  - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./segment-selection-and-barriers.md
+  - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -388,6 +391,8 @@ If any answer is “no,” expect Binaryen to keep the prefix where it is.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md)
+- [`../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md`](../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md`](../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

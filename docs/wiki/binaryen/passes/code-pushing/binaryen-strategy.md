@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
+  - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
 related:
   - ./index.md
   - ./segment-selection-and-barriers.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 ---
@@ -17,6 +20,8 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- The immutable primary-source manifest for this dossier is [`../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md).
+- The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
 - The core implementation is `src/passes/CodePushing.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contract for movement safety comes from `src/ir/effects.h`.
@@ -356,6 +361,8 @@ Those are the durable upstream-level truths.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md)
+- [`../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md`](../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md`](../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

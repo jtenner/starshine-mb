@@ -177,7 +177,7 @@ This table is the main implementation queue tracker.
 
 | Pass | Relevance | Registry status | Wiki status | Backlog slice | Current tracking note |
 | --- | --- | --- | --- | --- | --- |
-| `code-pushing` | both | removed | dossier | `CP` | Dedicated dossier exists: [`code-pushing/index.md`](code-pushing/index.md). |
+| `code-pushing` | both | removed | dossier | `CP` | Dedicated dossier exists: [`code-pushing/index.md`](code-pushing/index.md); the refreshed folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page that maps the current removed-name registry, tuple exact-slot gate, backlog slice `CP`, canonical no-DWARF slot, and the neighboring `precompute` / `tuple-optimization` / `simplify-locals-nostructure` landing zone a future local port would compose with. |
 | `simplify-locals-nostructure` | both | removed | dossier | `SLNS` | Dedicated dossier exists: [`simplify-locals-nostructure/index.md`](simplify-locals-nostructure/index.md); the current removed-name registry placeholder in `src/passes/optimize.mbt` is still spelled `simplify-locals-no-structure`. |
 | `optimize-casts` | both | removed | dossier | `OC` | Dedicated dossier exists: [`optimize-casts/index.md`](optimize-casts/index.md). |
 | `local-subtyping` | both | removed | dossier | `LS` | Dedicated dossier exists: [`local-subtyping/index.md`](local-subtyping/index.md). |

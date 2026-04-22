@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
+  - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `code-pushing` Segment Selection And Barriers
@@ -244,6 +247,8 @@ If any of those are weakened, the result may still look like “code motion,” 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md)
+- [`../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md`](../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md`](../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
 - Binaryen `version_129` effects helpers: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
