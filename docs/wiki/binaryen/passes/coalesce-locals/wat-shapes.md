@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
+  - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md
 related:
   - ./index.md
@@ -14,6 +16,11 @@ related:
 # `coalesce-locals` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's `coalesce-locals` pass.
+
+## Provenance note
+
+Use [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md) as the immutable source manifest for the official Binaryen release/source/test URLs rechecked on 2026-04-22.
+A narrow current-`main` spot check during that follow-up did not surface a new teaching-relevant drift beyond the `version_129` shape families summarized here.
 
 ## Read this page with one mental model
 
@@ -472,6 +479,8 @@ If the answer to question 1 or 2 is “no,” expect Binaryen to keep separate s
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md)
+- [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md`](../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md)
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/coalesce-locals.wast>
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CoalesceLocals.cpp>

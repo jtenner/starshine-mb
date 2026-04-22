@@ -1,10 +1,13 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
+  - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/optimize_test.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
@@ -12,8 +15,11 @@ related:
   - ./binaryen-strategy.md
   - ./interference-and-ordering.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../local-subtyping/index.md
-  - ../reorder-locals/parity.md
+  - ../local-cse/index.md
+  - ../reorder-locals/index.md
+  - ../simplify-locals/index.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 ---
@@ -36,6 +42,7 @@ related:
   - top-level slot `35`
 - The saved Binaryen debug log also shows many later reruns of the same local-cleanup neighborhood, which matches the nested rerun story from `opt-utils.h`.
 - The repo backlog already treats it as a real parity blocker under slice `CL` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- The current preset story is intentionally still incomplete: [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt) already locks in that `optimize` and `shrink` do **not** schedule `reorder-locals` before its missing neighboring local passes like `coalesce-locals` land.
 - It is also one of the missing scheduler neighbors that still block fully honest preset placement around the already-implemented `reorder-locals` and the future `local-cse` port.
 
 ## Beginner summary
@@ -67,17 +74,23 @@ That is narrower than “merge any locals that look unused.”
   Dedicated guide to the easiest parts of the pass to misunderstand: why equal values can overlap without interfering, why zero-init matters, why greedy order matters, and how backedge weighting changes outcomes.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future port map: removed-name registry tracking, backlog slice `CL`, honest scheduler/preset story, and the exact neighboring MoonBit declaration-rewrite and cleanup files a future local port would need to compose with.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `coalesce-locals` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
-- New `coalesce-locals` findings should update both the strategy page and the interference/order page so the algorithm explanation and the example catalog stay aligned.
+- Treat [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md) as the immutable provenance anchor for the official release/source/test surfaces reviewed on 2026-04-22.
+- New `coalesce-locals` findings should update the Binaryen strategy page, the interference/order page, and the Starshine strategy page together so the algorithm explanation, example catalog, and local status story stay aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md)
+- [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md`](../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CoalesceLocals.cpp>
@@ -88,3 +101,8 @@ That is narrower than “merge any locals that look unused.”
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/numbering.h>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/utils.h>
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/coalesce-locals.wast>
+- Narrow freshness-check surface:
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CoalesceLocals.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/opt-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/coalesce-locals.wast>
