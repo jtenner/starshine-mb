@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
+  - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
 related:
   - ./index.md
   - ./variant-surface.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
   - ../../no-dwarf-default-optimize-path.md
 ---
@@ -26,17 +29,20 @@ related:
   - `src/ir/linear-execution.h`
   - `src/ir/properties.h`
 - The shipped behavior examples come from the dedicated no-structure and nearby-variant tests under `test/passes/`.
+- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and a narrow same-day `main` spot check on `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `opt-utils.h`, and the dedicated no-structure test files did not surface a new teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md).
 
 Primary source URLs:
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-utils.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/equivalent_sets.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/linear-execution.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nostructure.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nostructure.txt>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.wast>
@@ -70,9 +76,9 @@ Instead, the real `version_129` contract is:
 
 ## Variant identity is the first important fact
 
-The public constructor is:
+The shared implementation instantiates this public pass as:
 
-- `createSimplifyLocalsNoStructurePass() -> SimplifyLocals<true, false>()`
+- `SimplifyLocals<true, false, true>`
 
 That means:
 
@@ -392,6 +398,8 @@ Those are the durable upstream-level truths.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md)
+- [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

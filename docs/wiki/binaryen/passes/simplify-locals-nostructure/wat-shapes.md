@@ -1,19 +1,24 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
+  - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./variant-surface.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
 ---
 
 # `simplify-locals-nostructure` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen’s `simplify-locals-nostructure` pass.
+
+The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and a narrow same-day `main` spot check did not surface a teaching-relevant drift for these shape families. See [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md).
 
 ## Read this page with one mental model
 
@@ -427,6 +432,16 @@ may collapse to the underlying value when that tee result is dead.
 
 This is handled by `UnneededSetRemover`, not the main sink loop.
 
+## Local Starshine planning consequence
+
+Current Starshine does **not** implement these rewrites yet, but the local planning story is now explicit:
+
+- the local removed-name spelling is tracked in `src/passes/optimize.mbt`
+- the tuple exact-slot gate and its optimize-test regression already treat this pass as a real missing neighbor
+- the practical local landing zone now lives in [`./starshine-strategy.md`](./starshine-strategy.md), which points future work at `src/passes/simplify_locals.mbt`, `src/passes/reorder_locals.mbt`, `src/passes/pass_manager_wbtest.mbt`, and `src/cmd/cmd_wbtest.mbt`
+
+So these shapes are now tied directly to the future MoonBit port path instead of only to upstream Binaryen.
+
 ## A simple rule of thumb
 
 When you look at a possible `simplify-locals-nostructure` candidate, ask these questions in order:
@@ -446,6 +461,8 @@ If the answer to the last question is “yes,” expect Binaryen to leave that f
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md)
+- [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
 - Binaryen `version_129` helper sources:

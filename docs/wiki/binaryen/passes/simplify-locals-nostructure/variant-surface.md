@@ -1,14 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
+  - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
+  - ../simplify-locals-notee-nostructure/index.md
+  - ../simplify-locals-nonesting/index.md
 ---
 
 # `simplify-locals-nostructure` Variant Surface
@@ -18,6 +23,8 @@ This page focuses on the easiest part of Binaryen’s locals family to misunders
 - what “no structure” actually turns off
 - what it surprisingly leaves on
 - and how that differs from the nearby public variants
+
+The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and a narrow same-day `main` spot check did not surface a teaching-relevant drift for this variant surface. See [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md).
 
 ## The whole family in one table
 
@@ -267,6 +274,17 @@ That placement makes sense if you read the variant boundary literally:
 
 So the early and late simplify-locals passes are meant to be different tools, not duplicate work.
 
+## Local Starshine planning consequence
+
+Current Starshine still does **not** implement this variant, but the local planning story is already precise enough to matter:
+
+- `src/passes/optimize.mbt` tracks the local spelling `simplify-locals-no-structure` in the removed-name registry
+- the same file keeps `tuple_optimization_exact_slot_prereqs_ready()` false until this missing right neighbor lands
+- `src/passes/optimize_test.mbt` locks that honesty rule in place with the tuple-slot blocker regression
+- [`./starshine-strategy.md`](./starshine-strategy.md) now ties that blocker story to the practical MoonBit landing zone in `src/passes/simplify_locals.mbt`, `src/passes/reorder_locals.mbt`, `src/passes/pass_manager_wbtest.mbt`, and `src/cmd/cmd_wbtest.mbt`
+
+So the variant surface is now linked directly to the local port-planning story instead of floating as an upstream-only note.
+
 ## A simple rule of thumb
 
 When you see `simplify-locals-nostructure`, ask these questions in order:
@@ -286,6 +304,8 @@ If you keep those five answers straight, the variant surface becomes much easier
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md)
+- [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
 - Binaryen `version_129` dedicated tests:

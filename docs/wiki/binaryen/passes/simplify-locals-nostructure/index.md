@@ -1,10 +1,13 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
+  - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/optimize_test.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
@@ -12,9 +15,11 @@ related:
   - ./binaryen-strategy.md
   - ./variant-surface.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
-  - ../tuple-optimization/scheduler-and-gates.md
-  - ../reorder-locals/parity.md
+  - ../tuple-optimization/index.md
+  - ../reorder-locals/index.md
+  - ../coalesce-locals/index.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 ---
@@ -33,9 +38,9 @@ related:
 - The canonical Binaryen no-DWARF `-O` / `-Os` function pipeline runs `simplify-locals-nostructure` after `code-pushing` plus `tuple-optimization` and before `vacuum` plus the first `reorder-locals`.
 - The saved generated-artifact `-O4z` audit records it as a real skipped top-level upstream slot:
   - top-level slot `22`
-- The saved Binaryen debug log also shows many repeated later reruns of the same local-cleanup neighborhood, which matches the nested rerun story from `opt-utils.h`.
 - The repo backlog already treats it as a real parity blocker under slice `SLNS` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
-- It is also one of the missing scheduler neighbors that still block fully honest preset placement around the already-implemented `tuple-optimization` and `reorder-locals` work.
+- The current Starshine tuple-slot gate also treats it as a real missing neighbor: `tuple_optimization_exact_slot_prereqs_ready()` stays false until both `code-pushing` and `simplify-locals-no-structure` stop being removed placeholders.
+- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and a narrow same-day `main` spot check did not surface a new teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md).
 
 ## Beginner summary
 
@@ -45,7 +50,7 @@ A safe beginner mental model is:
 - sink easy `local.set` values forward into the real use sites,
 - create a tee later if the first use still needs the value to stay live,
 - delete dead or overwritten local traffic,
-- but **do not** create new block/`if`/loop return values yet.
+- but **do not** create new block / `if` / loop return values yet.
 
 That is narrower than “full simplify-locals.”
 
@@ -64,7 +69,7 @@ That is narrower than “full simplify-locals.”
   - one-armed `if` speculative else-side `local.get` insertion
 - The first fixpoint cycle is still stricter than later ones: it only sinks easy single-use locals.
 - The main analysis is deliberately linear-trace based and uses directional effect invalidation instead of whole-function CFG reasoning.
-- The late equivalent-local phase still canonicalizes `local.get`s, but it does **not** remove equivalent sets in this variant because `removeEquivalentSets = allowStructure`.
+- Current Starshine still has **no transform** for this pass, but it now has a dedicated status / port-map page that ties together the removed-name registry, tuple-slot blocker, backlog slice, scheduler note, and neighboring MoonBit implementation files.
 
 ## Page map
 
@@ -74,17 +79,22 @@ That is narrower than “full simplify-locals.”
   Focused guide to the easiest part of the pass to misunderstand: what “no structure” actually toggles, what it surprisingly leaves on, and how it differs from `simplify-locals`, `simplify-locals-notee-nostructure`, and `simplify-locals-nonesting`.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future port map: removed-name registry tracking, tuple exact-slot blocker coverage, backlog slice `SLNS`, canonical no-DWARF slot, and the practical MoonBit local-cleanup / local-index rewrite files that a future port would compose with.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `simplify-locals-nostructure` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
-- New `simplify-locals-nostructure` findings should update both the strategy page and the variant-surface page so the algorithm explanation and the “what is actually disabled” explanation stay aligned.
+- New `simplify-locals-nostructure` findings should update the strategy, variant-surface, and Starshine pages together so the upstream algorithm, the variant boundary, and the local port story stay aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md)
+- [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
