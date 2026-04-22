@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
+  - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./basic-block-windows-and-barriers.md
+  - ./starshine-strategy.md
   - ../coalesce-locals/index.md
   - ../simplify-locals/index.md
 ---
@@ -15,6 +18,7 @@ related:
 # `local-cse` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen’s `local-cse` pass.
+It was rechecked against the 2026-04-22 raw primary-source capture at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), which also records the reviewed official Binaryen `version_129` release-page date (**2026-04-01**).
 
 ## Read this page with one mental model
 

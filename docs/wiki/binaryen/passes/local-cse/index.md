@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
+  - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -12,6 +14,7 @@ related:
   - ./binaryen-strategy.md
   - ./basic-block-windows-and-barriers.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../coalesce-locals/index.md
   - ../simplify-locals/index.md
   - ../../no-dwarf-default-optimize-path.md
@@ -61,6 +64,8 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 
 ## Current durable takeaways
 
+- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and the dossier now has an immutable raw primary-source manifest at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md).
+- A narrow 2026-04-22 current-`main` spot check on `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, and `local-cse.wast` did not surface a new teaching-relevant drift beyond the existing living Binaryen pages.
 - The pass really is a three-stage algorithm:
   - `scan`
   - `check`
@@ -82,6 +87,8 @@ That is smaller and more local than “Binaryen does generic CSE here.”
   Focused guide to the easiest parts of the pass to misunderstand: what “inside basic blocks” really means here, which control-flow boundaries reset the window, and why effects, traps, generativity, and idempotent calls matter.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, negative, bailout, and interaction families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Dedicated Starshine status/port map for this still-unimplemented pass: exact registry/backlog/scheduler surfaces, concrete neighboring MoonBit files and test lanes, and the main honesty rule that preset placement should stay blocked until the missing Binaryen-neighbor equivalents land locally.
 
 ## Current maintenance rule
 
@@ -91,7 +98,9 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md)
 - [`../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md`](../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md)
+- [`../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md`](../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

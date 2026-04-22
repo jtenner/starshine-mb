@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
+  - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../coalesce-locals/index.md
   - ../simplify-locals/index.md
 ---
@@ -21,6 +24,8 @@ The real `version_129` rule is:
 - **mostly one linear window at a time**
 - with a small cheap adjacent-block extension
 - plus several effect and determinism barriers
+
+This page was rechecked against the 2026-04-22 raw primary-source capture at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), which also records that the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 
 ## The shortest honest summary
 

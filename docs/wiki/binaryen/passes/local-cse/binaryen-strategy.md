@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
+  - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./basic-block-windows-and-barriers.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../coalesce-locals/index.md
   - ../simplify-locals/index.md
 ---
@@ -17,6 +20,8 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**; the exact release/source/test URLs from this refresh are captured immutably in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md).
+- A narrow 2026-04-22 current-`main` spot check on `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, and `local-cse.wast` did not surface a new teaching-relevant contract drift beyond the current living claims.
 - The core implementation is `src/passes/LocalCSE.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contracts come from:
