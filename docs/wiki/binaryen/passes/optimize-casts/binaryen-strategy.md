@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md
 related:
   - ./index.md
@@ -17,6 +18,8 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- The reviewed official Binaryen `version_129` release page checked on 2026-04-22 showed publish date **2026-04-01**.
+- A narrow 2026-04-22 spot check on current `main` did not surface a teaching-relevant drift beyond the contract summarized here.
 - The core implementation is `src/passes/OptimizeCasts.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contracts come from:
@@ -446,6 +449,7 @@ Those are the durable upstream-level truths.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md)
 - [`../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md`](../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeCasts.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
