@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md
+  - ../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
   - ../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md
   - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
@@ -133,11 +135,15 @@ What it actually is in `version_129`:
 - [`./parity.md`](./parity.md)
   - Current in-tree Starshine parity state, focused coverage, and the local remaining gap.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current Starshine HOT-IR strategy: what the local pass actually models today, how it differs from upstream Binaryen, and what remains to port honestly.
+  - Current Starshine HOT-IR strategy, now with an exact MoonBit registry / dispatcher / candidate-analysis / rewrite / test map so readers can move directly from the dossier into `src/passes/heap2local.mbt`.
+- [`../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md)
+  - Immutable primary-source manifest for the official Binaryen release, source, and lit-test surfaces re-checked in this run.
 
 ## Freshness note
 
-A narrow 2026-04-20 direct source comparison found **real but limited** post-`version_129` drift in current `main`:
+A 2026-04-22 re-check of the official Binaryen GitHub release surfaces recorded `version_129` as the reviewed release anchor for this dossier, with the release page showing publish date **2026-04-01**.
+
+A narrow direct source comparison still found **real but limited** post-`version_129` drift in current `main`:
 
 - array interaction checks are slightly more precise
 - `array.cmpxchg` / `struct.cmpxchg` expected-vs-ref handling is more refined
@@ -157,6 +163,7 @@ Current durable rule:
 - Keep the main correction explicit:
   - upstream `heap2local` is conservative GC scalarization, not generic stack allocation
 - Keep the array-first, exclusivity-proof, and validation-repair stories explicit whenever future docs or code changes touch this pass.
+- Keep the exact local navigation path explicit too: registry / preset placement in `src/passes/optimize.mbt`, dispatch in `src/passes/pass_manager.mbt`, rewrite logic in `src/passes/heap2local.mbt`, and proof coverage in the focused local test files.
 - Keep the current-main drift note explicit unless a future released Binaryen tag absorbs those changes.
 
 ## Sources
