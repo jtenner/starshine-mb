@@ -3,8 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-21
 sources:
+  - ../../../raw/binaryen/2026-04-22-memory-packing-primary-sources.md
   - ../../../raw/research/0137-2026-04-20-memory-packing-binaryen-research.md
   - ../../../raw/research/0204-2026-04-21-memory-packing-source-confirmation-followup.md
+  - ../../../raw/research/0252-2026-04-22-memory-packing-primary-sources-and-code-map-followup.md
 related:
   - ./index.md
   - ./segment-op-rewrites-and-traps.md
@@ -344,10 +346,11 @@ Taken together, those tests show that the pass is much more about semantic bookk
 
 ## Current freshness note
 
-A narrow 2026-04-20 check found no semantic drift here:
+A narrow 2026-04-22 check found no teaching-relevant semantic drift here:
 
-- current `main` differs from `version_129` only by comment typo fixes in `MemoryPacking.cpp`
-- the dedicated lit files are identical
+- the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**
+- current `main` still matched the reviewed `version_129` semantics on the checked `MemoryPacking.cpp` and `pass.cpp` surfaces
+- the dedicated lit files used for this dossier still matched the released contract on the reviewed surfaces
 
 So the current wiki should continue treating `version_129` as the semantic oracle without an active trunk-drift caveat.
 
