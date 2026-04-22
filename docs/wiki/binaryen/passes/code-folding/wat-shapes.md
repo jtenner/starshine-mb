@@ -1,19 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
   - ../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md
+  - ../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./terminating-tails.md
+  - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
 # `code-folding` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's `code-folding` pass.
+The 2026-04-22 raw-source capture rechecked the dedicated Binaryen test and pass surfaces for these teaching examples and did not surface a newer shape family that changes the page's current contract.
 
 ## Read this page with one mental model
 
@@ -382,7 +386,9 @@ If any answer is “no,” expect Binaryen to keep the duplicate code.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
 - [`../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md`](../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md)
+- [`../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md`](../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md)
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-folding.wast>
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodeFolding.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

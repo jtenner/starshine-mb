@@ -1,16 +1,21 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
   - ../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md
+  - ../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Binaryen `code-folding` terminating tails
+
+The 2026-04-22 raw-source capture rechecked the same `version_129` plus narrow current-`main` surfaces and did not find a teaching-relevant drift in this subsystem.
 
 This page focuses on the part of `code-folding` that is easiest to misunderstand:
 
@@ -250,7 +255,9 @@ Those are the real implementation contracts.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
 - [`../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md`](../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md)
+- [`../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md`](../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodeFolding.cpp>
 - Binaryen `version_129` label helpers: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/label-utils.h>
 - Binaryen `version_129` effects helpers: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>

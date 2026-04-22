@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
   - ../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md
+  - ../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./terminating-tails.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -15,7 +18,9 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Use Binaryen `version_129` as the current released source oracle for this pass.
+- The raw source manifest for the 2026-04-22 recheck lives in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md).
+- On 2026-04-22 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 - The core implementation is `src/passes/CodeFolding.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contracts come from:
@@ -39,6 +44,9 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-folding.wast>
 
 ## High-level intent
+
+A narrow 2026-04-22 spot check on `main` (`CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, and the dedicated `code-folding.wast` file) did not surface a new teaching-relevant drift beyond the `version_129` contract summarized here.
+
 
 Binaryen uses `code-folding` to share duplicated tails of code.
 
@@ -347,7 +355,9 @@ Those are the durable upstream-level truths.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
 - [`../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md`](../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md)
+- [`../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md`](../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodeFolding.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - Binaryen `version_129` after-inlining helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
