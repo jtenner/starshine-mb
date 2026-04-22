@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
+  - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -624,3 +626,7 @@ It sits between `memory-packing` and `global-refining`, and it is not part of th
 
 Its job is not to solve every repeated-call optimization story.
 Its job is to clean up a narrow family of run-once control scaffolding early enough that later module and function passes see a smaller, simpler module.
+
+## Freshness note
+
+The 2026-04-22 raw primary-source capture rechecked the official `version_129` release page plus the current `main` `OnceReduction.cpp` and dedicated `once-reduction.wast` file, and did not surface a new teaching-relevant drift in the positive or bailout shape families summarized here.

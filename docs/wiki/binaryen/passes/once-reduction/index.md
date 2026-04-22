@@ -1,11 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
+  - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -138,15 +140,18 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A narrow 2026-04-20 direct source comparison found **no semantic post-`version_129` drift** in the owning official surfaces used for this dossier.
+The dossier now has an immutable raw provenance capture at:
 
-- `src/passes/OnceReduction.cpp` is identical on current `main` and `version_129`
-- `test/lit/passes/once-reduction.wast` is also identical on current `main` and `version_129`
+- [`../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md`](../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md)
+
+That 2026-04-22 capture rechecked the official Binaryen GitHub release page for `version_129`, where GitHub showed publish date **2026-04-01**, and also rechecked the core pass/test surfaces on `version_129` and `main`.
+
+The narrow current-`main` spot check did **not** surface a new teaching-relevant contract drift beyond the dossier's existing claims.
 
 So the durable rule is:
 
 - treat Binaryen `version_129` as the released oracle for this dossier
-- keep the current-main note explicit only to say there is no visible source or dedicated-lit drift right now
+- keep the current-main note explicit only to say there is no visible source or dedicated-lit drift on the reviewed surfaces right now
 
 ## Current maintenance rule
 
@@ -157,8 +162,10 @@ So the durable rule is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md`](../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md)
 - [`../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md`](../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md)
 - [`../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md`](../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md)
+- [`../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md`](../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md)
 - [`../../../../../src/passes/once_reduction.mbt`](../../../../../src/passes/once_reduction.mbt)
 - [`../../../../../src/passes/once_reduction_test.mbt`](../../../../../src/passes/once_reduction_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

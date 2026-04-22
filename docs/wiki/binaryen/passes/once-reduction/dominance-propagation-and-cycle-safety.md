@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
+  - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -230,3 +232,7 @@ A future strict-parity implementation must keep these durable facts explicit:
 - trivial wrapper cleanup needs deterministic cycle protection
 - self-recursive once calls are safe to fold in ways some multi-node cycles are not
 - idempotent annotations extend the same once-bit framework, but only narrowly
+
+## Freshness note
+
+The 2026-04-22 raw primary-source capture rechecked the official `version_129` release page plus the current `main` `OnceReduction.cpp` and dedicated `once-reduction.wast` surfaces, and did not surface a new teaching-relevant drift in the dominance, summary-propagation, or wrapper-cycle rules described here.

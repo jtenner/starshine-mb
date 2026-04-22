@@ -1,10 +1,12 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
+  - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
   - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/summary.md
   - ../../../../../.artifacts/o4z-wasm-opt-debug.log
   - ../../../../../src/passes/once_reduction.mbt
@@ -107,6 +109,12 @@ I did **not** prove in this thread whether that is:
 So treat it as an explicit open follow-up question, not a silent assumption.
 
 ## Current evidence
+
+The dossier now has an immutable raw provenance capture at:
+
+- [`../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md`](../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md)
+
+That 2026-04-22 capture records that the reviewed official Binaryen GitHub release page for `version_129` showed publish date **2026-04-01**, and that a narrow current-`main` spot check did not surface a new teaching-relevant drift in the upstream source/test surfaces this parity note depends on.
 
 ## Saved generated-artifact audit
 

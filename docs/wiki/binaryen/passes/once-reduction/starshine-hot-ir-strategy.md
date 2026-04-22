@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0238-2026-04-21-once-reduction-starshine-strategy-followup.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
+  - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/once_reduction.mbt
   - ../../../../../src/passes/once_reduction_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -238,3 +240,7 @@ Future work on this pass should answer one question explicitly:
 - or are we expanding toward the full Binaryen `OnceReduction.cpp` contract?
 
 For `once-reduction`, those are meaningfully different projects, and the docs should keep that boundary explicit.
+
+## Freshness note
+
+The 2026-04-22 raw primary-source capture re-anchored this page to the reviewed official `version_129` release/source/test surfaces and did not surface a new teaching-relevant drift between the documented Starshine subset and the upstream Binaryen contract. The local read-along code map above is still the correct starting point for the in-tree MoonBit implementation.

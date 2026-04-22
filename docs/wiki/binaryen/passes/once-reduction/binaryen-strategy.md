@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md
   - ../../../raw/research/0138-2026-04-20-once-reduction-binaryen-research.md
   - ../../../raw/research/0202-2026-04-21-once-reduction-implementation-followup.md
+  - ../../../raw/research/0256-2026-04-22-once-reduction-primary-sources-and-code-map-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -436,12 +438,13 @@ That is much broader than the current local test file.
 
 ## Current freshness note
 
-A narrow 2026-04-20 check found no semantic drift here:
+The dossier now has an immutable raw provenance capture at:
 
-- current `main` `OnceReduction.cpp` is identical to `version_129`
-- current `main` `once-reduction.wast` is also identical to `version_129`
+- [`../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md`](../../../raw/binaryen/2026-04-22-once-reduction-primary-sources.md)
 
-So the current wiki should continue treating `version_129` as the semantic oracle without an active trunk-drift caveat.
+That 2026-04-22 capture records that the reviewed official Binaryen GitHub release page for `version_129` showed publish date **2026-04-01** and that a narrow current-`main` spot check on `OnceReduction.cpp` plus the dedicated `once-reduction.wast` file did not surface a new teaching-relevant contract drift beyond this page's existing claims.
+
+So the current wiki should continue treating `version_129` as the semantic oracle without an active trunk-drift caveat on the reviewed surfaces.
 
 ## What a future port or parity pass must preserve
 
