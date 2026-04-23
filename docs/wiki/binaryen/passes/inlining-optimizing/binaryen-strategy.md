@@ -1,13 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
   - ../../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
+  - ../../../raw/research/0271-2026-04-23-inlining-optimizing-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./planning-partial-inlining-and-reruns.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../inlining/index.md
   - ../dae-optimizing/index.md
   - ../../no-dwarf-default-optimize-path.md
 ---
@@ -18,43 +22,48 @@ related:
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The core implementation is `src/passes/Inlining.cpp`.
-- Scheduler placement comes from `src/passes/pass.cpp` and the after-inline helper in `src/passes/opt-utils.h`.
-- The key helper contracts come from:
-  - `src/ir/FunctionSplitter.cpp`
-  - `src/ir/possible-contents.h`
-  - `src/ir/cost.h`
-- The shipped behavior examples come from `test/lit/passes/inlining.wast`.
+- Public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`.
+- Heuristic defaults come from `src/pass.h`.
+- Explicit no-inline policy comes from `src/passes/NoInline.cpp`.
+- Clone-surviving no-inline behavior comes from `src/ir/module-utils.cpp`.
+- The shipped behavior examples come from the `inlining*`, `no-inline*`, and `inline-main` lit files.
 
 Primary source URLs:
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/FunctionSplitter.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/possible-contents.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/cost.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/NoInline.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining_optimize-level=3.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining_enable-tail-call.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining_splitting.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining_splitting_basics.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining-trivial-instructions.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining-trivial-calls-1.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining-unreachable.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inlining-gc.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/no-inline.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/no-inline-monomorphize-inlining.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/inline-main.wast>
 
-## High-level intent
+## The pass in one sentence
 
-Binaryen uses `inlining-optimizing` to replace profitable callsites with callee bodies.
+Binaryen `inlining-optimizing` is the late whole-module inliner that chooses profitable direct callsites, optionally splits one of two narrow top-of-function `if` families first, copies callee bodies into callers with real control/local/type repair, removes now-dead private helpers, and then immediately reruns `precompute-propagate` plus the default function optimization pipeline on touched functions.
 
-That sentence is true but incomplete.
-
-The actual implementation is a late **module planner** with four important parts:
+## The pass in one table
 
 | Phase | What Binaryen does | Why it exists |
 | --- | --- | --- |
-| Scan | Build `FunctionInfo` summaries for every function and count rewriteable calls | Inline profitability depends on whole-module facts, not only on one call expression |
-| Plan | Choose a direct inline, inline-without-delete, partial inline, or no-op action | Different call/callee situations need different rewrite modes |
-| Rewrite | Apply the chosen inline or split, update call/use counts, and maybe remove dead internal helpers | The planner has to keep module state honest after every wave |
-| Optimize-after-inline | Rerun `precompute-propagate` plus the default function optimization pipeline on touched functions | The optimizing variant is designed to cash in on cleanup opportunities immediately |
-
-That means the pass is not just:
-
-- “tiny function inlining”
-- “copy the callee body into the caller”
-- or “inline and stop”
+| Scan | Build `FunctionInfo` summaries for every function | Inline profitability depends on whole-module facts, not only one call node |
+| Classify | Decide `Full`, split pattern, or `Uninlineable` per function | Later planning should not recompute structural eligibility from scratch |
+| Discover actions | Walk functions and collect reachable direct-call inline opportunities | Discovery is local to each caller but still uses module-wide callee facts |
+| Choose actions | Filter sequentially for determinism and interaction safety | Avoid inline-into-and-inline-from races and giant-function blowups |
+| Rewrite | Copy callee bodies into callers and repair locals, returns, labels, and types | Inline rewrites are structured IR surgery, not text substitution |
+| Clean up | Remove now-dead callees and temporary split helpers | Inlining changes module topology |
+| Optimize-after-inline | Rerun `precompute-propagate` plus the default function pipeline on touched functions | The optimizing variant is designed to cash in on fresh simplifications immediately |
 
 ## Pass family and scheduler placement
 
@@ -63,10 +72,16 @@ That means the pass is not just:
 - `inlining`
 - `inlining-optimizing`
 
-The default global optimization post-pass cluster uses `inlining-optimizing` when:
+The core implementation is one pass class parameterized by an `optimize` flag.
+That split matters:
 
-- `optimizeLevel >= 2`, or
-- `shrinkLevel >= 2`
+| Variant | Core inline rewrite | Post-inline filtered cleanup |
+| --- | --- | --- |
+| `inlining` | yes | no |
+| `inlining-optimizing` | yes | yes |
+
+So the optimizing variant is not a cosmetic alias.
+It is the same shared inliner plus one real nested helper contract.
 
 In the canonical no-DWARF `-O` / `-Os` path documented in this repo, the pass appears:
 
@@ -75,203 +90,200 @@ In the canonical no-DWARF `-O` / `-Os` path documented in this repo, the pass ap
 - before `duplicate-import-elimination`
 - before `simplify-globals-optimizing`
 
-A future Starshine port must preserve that placement because the pass changes the number of functions, their bodies, and which later module cleanups can fire.
-
-## Same engine, different variant
-
-The core implementation in `Inlining.cpp` is one main inliner parameterized by an `optimize` flag.
-
-That split matters:
-
-| Variant | Core inline rewrite | Post-inline filtered cleanup |
-| --- | --- | --- |
-| `inlining` | yes | no |
-| `inlining-optimizing` | yes | yes |
-
-So the optimizing variant is not a cosmetic alias. It is a semantically larger pass.
+A future Starshine port must preserve that placement because the pass changes the function graph and the nested rerun creates fresh opportunities that later late-boundary cleanup passes assume.
 
 ## Phase 1: `FunctionInfoScanner` is the first real algorithm
 
-Before rewriting anything, Binaryen scans each function and records summary facts.
-
+Before rewriting anything, Binaryen scans each function into a `FunctionInfo` summary.
 Important recorded facts include:
 
-- `baseSize`
-  - estimated from `CostAnalyzer`
-- `hasCalls`
-  - whether the function calls anything at all
-- `hasInlineableCalls`
-  - whether it contains calls worth considering for inline planning
-- `hasUninlineableUses`
-  - whether some surviving uses are outside the easy rewrite surface
-- `hasLoops`
-  - used by the profitability heuristics
-- `hasTailCalls`
-  - a major bailout family
-- `hasTryDelegate`
-  - a control-structure warning flag
 - `refs`
-  - direct function-reference uses
-- `isRoot`
-  - whether the function is exported or is the start function, unless implicit calls are ignored
-- `inliningDepth`
-  - used to stop unbounded nesting growth
+- `size`
+- `hasCalls`
+- `hasLoops`
+- `hasTryDelegate`
+- `usedGlobally`
+- `trivialInstruction`
+- `inliningMode`
 
 Beginner takeaway:
 
 - a callsite is not planned in isolation
-- it is planned using a summary of both the callee and the whole module environment around it
+- it is planned using facts about the callee and its whole-module environment
 
-## What counts as a root
+### What counts as a root
 
-By default, exports and the start function are treated as roots.
+By the end of preparation, exports and the start function count as global roots.
+That means a function can inline into some internal callers and still survive because unseen callers may still exist.
 
-That means:
+### What `refs` really means
 
-- Binaryen must assume unseen callers may still exist
-- so the function boundary cannot be treated as disposable just because some direct calls were inlined away
+In reviewed `version_129`, the scanner increments `refs` for:
 
-This is one of the most important differences between module inlining and local expression simplification.
+- direct calls to the function
+- `ref.func` uses of the function
 
-## What counts as an uninlineable use
+So `refs` is not just “number of direct callers.”
+It is closer to:
 
-The scanner distinguishes between:
+- “how many direct or explicit function-reference uses still keep this function relevant?”
 
-- ordinary direct or precise ref-based calls that the pass might rewrite
-- and other uses that keep the function boundary alive
+That is one of the main reasons “inline” and “delete callee” are related but not identical outcomes.
 
-That escape/use distinction is why a callee may inline into some callers while still surviving as a standalone function.
+## Phase 2: `worthFullInlining(...)` is layered, not one threshold
 
-## Phase 2: Binaryen only plans inlineable call kinds
+The full-inline heuristic proceeds in a deliberate order.
 
-The pass can plan around:
+### `try_delegate` blocks full inlining
 
-- direct `call`
-- direct `return_call`
-- some `call_ref`
-- some `return_call_ref`
+`hasTryDelegate` immediately returns false in `version_129`.
+This is a real pass boundary, not an accidental omission.
 
-The pass uses `ModuleUtils::ParallelFunctionAnalysis<PossibleContents>` to approximate what function values may flow into a `call_ref` target expression.
+### Very small helpers inline immediately
 
-Safe summary:
+If `size <= alwaysInlineMaxSize`, the function is full-inlineable.
+`pass.h` sets the default `alwaysInlineMaxSize` to `2`.
 
-- precise internal target knowledge can unlock ref-based inline opportunities
-- broad or unknown indirect targets are left alone
+### One-use helpers get special treatment
 
-A future port should preserve that asymmetry rather than flattening it into either:
+If:
 
-- “only direct calls ever inline,” or
-- “all indirect-style calls are fair game”
+- `refs == 1`
+- `!usedGlobally`
+- `size <= oneCallerInlineMaxSize`
 
-## Phase 3: the cost model is structural, not hand-wavy
+then the function is full-inlineable.
+By default `oneCallerInlineMaxSize = -1`, which effectively means Binaryen is willing to inline all such one-caller functions.
 
-Inlining profitability in Binaryen is based on estimated size, but not in a simplistic “callee smaller than X” way.
+### Trivial shrinking wrappers always inline
 
-The planner combines:
+If `trivialInstruction == Shrinks`, the function is full-inlineable even in shrink modes.
 
-- the estimated callee size from `CostAnalyzer`
-- the cost of the current callsite itself
-- whether all uses disappear
-- whether the callee has a single use
-- shrink-vs-speed policy
-- loop, tail-call, and recursive-growth guards
+### Very large functions stop early
 
-Important source-derived rules:
+If `size > flexibleInlineMaxSize`, the pass returns false.
+The default `flexibleInlineMaxSize` is `20`.
 
-### Very small helpers inline aggressively
+### Multi-use flexible cases depend on policy
 
-Binaryen has an always-inline tiny threshold.
+Once Binaryen gets past the early always-inline cases, it becomes more conservative:
 
-If a helper is tiny enough and not blocked by loop or tail-call structure, it gets a stronger fast path.
+- any shrink-focused mode stops here
+- optimize levels below `3` also stop here
 
-### Single-use helpers get a looser threshold
+### `MayNotShrink` trivial instructions inline only at heavy speed focus
 
-A helper used only once is easier to justify inlining because the separate function body buys less reuse.
+Single-instruction wrappers whose callsite size may grow still inline under `-O3`-style settings.
 
-### Call overhead is discounted
+### Remaining flexible cases must avoid calls and usually loops
 
-If Binaryen removes the callsite itself, the effective net size is better than the raw callee-body size suggests.
+The final case requires:
 
-That is why the pass compares against a net-size model instead of a raw body-size threshold only.
+- no calls in the callee body
+- and either no loops or `allowFunctionsWithLoops`
 
-### Tail calls are a strong bailout family
+The default in `pass.h` leaves `allowFunctionsWithLoops = false`.
 
-The ordinary “worth inlining” helper bails out for tail-call-containing functions.
+## Phase 3: actual action discovery is direct-call based in reviewed `version_129`
 
-So “tiny” is not enough by itself. Tail-call shape changes the whole decision.
+This is the biggest correction this follow-up keeps explicit.
+In reviewed `version_129`, `Planner::visitCall(...)` adds chosen inline actions from reachable direct `call` / `return_call` sites.
 
-### Self-recursive growth is blocked
+The safe summary is:
 
-The planner refuses to inline when the rewrite would grow a self-recursive function in the wrong direction.
+- chosen inline actions are discovered from direct callsites
+- `call_ref`, `call_indirect`, `return_call_ref`, and `return_call_indirect` still matter in copied-body repair and surrounding helper logic
+- `ref.func` still matters for keeping the callee boundary alive
+- but the main chosen-action planner contract in this release is not “general precise ref-call inlining”
 
-This is another sign that the pass is managing module growth, not just matching tiny patterns.
+That distinction matters for both teaching and port scope.
 
-## Phase 4: the planner has several action families
+## Phase 4: `doCodeInlining(...)` is real IR surgery
 
-The source models multiple actions, not one yes/no answer.
+Once a callsite is chosen, Binaryen does much more than “replace call with body.”
 
-Useful beginner summary:
+### It creates a fresh named wrapper block
 
-| Action family | Meaning |
-| --- | --- |
-| Inline and remove | Inline the callsites and let the callee disappear if no rewriteable or root-keeping uses remain |
-| Inline but keep | Inline at some sites, but the callee boundary must survive because other uses remain |
-| Partial inline | Split a structured region into a smaller helper first, then inline that helper |
-| No action | Keep the call and callee as they are |
+The wrapper block gets a name derived from the callee and optional numeric hint.
+Binaryen then checks for collisions against branch targets inside the copied code and call operands.
 
-That action split is the easiest way to remember why this pass feels “bigger” than ordinary direct call substitution.
+### It remaps all callee locals onto new caller locals
 
-## Phase 5: partial inlining is a real second algorithm
+For every local in the callee, the updater allocates a new local in the caller and records a mapping.
+The copied callee body then sees param values through those new locals.
 
-If direct inlining is not chosen, Binaryen may still partially inline a function.
+### It zeroes zeroable vars
 
-This uses `FunctionSplitter::FlexSplitter` from `FunctionSplitter.cpp`.
+Binaryen explicitly zeroes copied callee vars when their types have a zero value.
+This matters because the inlined block may sit inside a loop, and repeated execution must still see the same initial-local semantics the original callee had.
 
-The high-level story is:
+Nonzeroable locals are skipped, because they cannot validly be read before a write anyway.
 
-1. find a structured region whose call-carrying fragment is profitable to peel out
-2. split that fragment into a helper function
-3. inline the helper where it now pays off better than the original whole function did
+### Returns become breaks
 
-The helper source shows that this is intentionally structured and conservative. The splitter is designed around shapes like:
+The updater rewrites:
 
-- `if`
-- `br_if`
-- `select`
-- straight-line regions with a clear split point
+- `return value` -> `br returnLabel value`
+- `return` -> `br returnLabel`
 
-The splitter also tries to preserve:
+so copied callee returns exit only the inlined body rather than the whole caller function.
 
-- branch targets
-- fallthrough meaning
-- useful return shapes
-- profitability discipline
+### Nested `return_call*` repair is still subtle
 
-So a faithful Starshine port will likely need an actual structured splitter helper rather than trying to bolt partial inlining onto a direct inline rewrite.
+If the outer callsite was not already a return call, then nested `return_call`, `return_call_indirect`, or `return_call_ref` inside the copied body cannot keep returning from the whole caller.
+Binaryen handles that by converting them into ordinary calls, collecting follow-up branch information, and wrapping the copied body so the repaired control still exits correctly.
 
-## Phase 6: rewrites update the module, not just the caller body
+### Unreachable callees must stay unreachable
 
-After Binaryen chooses inline actions, it updates state such as:
+Inlining can accidentally make an originally unreachable callsite look reachable if the copied body wraps an unreachable child in typed structure.
+Binaryen compensates when the original call was unreachable and not a return call by forcing the replacement to end in explicit `unreachable` structure.
 
-- remaining call counts
-- surviving uses
-- which callees are now removable
-- which callers were modified and should be optimized afterward
+## Phase 5: partial inlining is narrow and opt-in
 
-That means the pass behaves more like:
+`FunctionSplitter` exists only when:
 
-- scan
-- plan
-- mutate
-- refresh module state
-- maybe plan more
+- `optimizeLevel >= 3`
+- `shrinkLevel == 0`
+- `partialInliningIfs > 0`
 
-than like a one-shot scan over a frozen call graph.
+The default in `pass.h` leaves `partialInliningIfs = 0`.
+So partial inlining is off by default and only exists in heavier speed-oriented configurations.
+
+Binaryen supports two narrow top-of-function pattern families:
+
+- Pattern A: `if (simple) return;` then heavier later work
+- Pattern B: a short run of simple top-level `if`s with no else arms and tight final-item/local-dependency rules
+
+This is a structured split strategy, not arbitrary CFG extraction.
+
+## Phase 6: iteration policy is conservative and deterministic
+
+The pass runs iterative waves, but several limits keep it bounded.
+
+### Bounded outer loop
+
+Binaryen stops after more than the original function count in iterations.
+
+### Per-name repeat cap
+
+It also tracks per-function-name repeated operations and stops when any such name reaches `5` repeated iterations of work.
+
+### Parallel discovery, sequential choice
+
+Discovery of opportunities is parallel.
+Choice of which actions to actually perform is sequential and deterministic over a saved function-name order.
+
+### No inline-into and inline-from races in one iteration
+
+If a function has been inlined into, Binaryen will not also inline that same function elsewhere in the same iteration.
+
+### Giant-function protection
+
+Chosen actions must satisfy `isUnderSizeLimit(...)`, which uses `maxCombinedBinarySize`.
 
 ## Phase 7: `optimizeAfterInlining(...)` is the real contract behind `optimizing`
 
 `opt-utils.h` makes the post-inline helper explicit.
-
 `OptUtils::optimizeAfterInlining(...)`:
 
 1. optionally validates before the nested run in pass-debug mode
@@ -286,16 +298,16 @@ That means the optimizing variant is designed to immediately cash in on fresh op
 - constant propagation
 - dead local cleanup
 - dead branch cleanup
-- cast cleanup
+- redundant casts
 - code folding and block merging
 - redundant-set cleanup
 
-The later cleanup is not optional polish. It is part of the intended behavior.
+The later cleanup is not optional polish.
+It is part of the intended public behavior.
 
 ## Saved `-O4z` log evidence
 
 The saved local `-O4z` debug log shows that the top-level `inlining-optimizing` line expands into several nested reruns before Binaryen moves on to top-level `duplicate-function-elimination`.
-
 Repo-local counting over that interval finds:
 
 - `5` nested `ssa-nomerge`
@@ -306,48 +318,24 @@ Repo-local counting over that interval finds:
 
 Those numbers are a useful reminder that the pass is not “replace call, then stop.”
 
-## Important helper dependencies
+## Practical porting rules for Starshine
 
-## `CostAnalyzer`
+A future Starshine port must preserve at least these source-backed rules:
 
-Used to estimate body size and call-overhead tradeoffs. This is the heart of the pass’s size/profitability reasoning.
+- model `inlining-optimizing` as a module pass with function summaries, not a function-local peephole
+- start from the reviewed direct-call chosen-action planner surface
+- keep roots, `ref.func` uses, and surviving observable uses honest
+- preserve the layered trivial/one-caller/flexible heuristic structure
+- preserve `try_delegate`, tail-call, and recursive-growth conservatism
+- preserve the exact split between plain and optimizing variants
+- repair returns, labels, nondefaultable locals, and reachability after every inline
+- keep split inlining limited to the two source-backed top-of-function `if` families
+- preserve the filtered nested rerun of `precompute-propagate` plus the default function optimization pipeline
 
-## `PossibleContents`
+## What beginners most often get wrong
 
-Used to approximate what function values may flow into ref-based callsites. This is what makes some `call_ref` / `return_call_ref` opportunities visible.
-
-## `FunctionSplitter::FlexSplitter`
-
-Provides the structured split helper that partial inlining relies on.
-
-## `FilteredPassRunner`
-
-Gives the optimizing variant a way to rerun cleanup only on touched functions instead of the whole module.
-
-## `ReFinalize` / builder-side refinalization
-
-Required because inlining and splitting rebuild and reconnect expressions in a way that changes local typing and control-flow shapes.
-
-## Shipped test coverage worth remembering
-
-`test/lit/passes/inlining.wast` is worth rereading whenever the pass seems simpler than it is.
-
-The test covers:
-
-- plain vs optimizing variants
-- tiny-threshold tuning
-- partial inlining through `--partial-inlining-ifs`
-- export/root preservation
-- ref-based call shapes
-- loop/return/control corner cases
-
-## Future Starshine port checklist
-
-- Model `inlining-optimizing` as a module pass with function summaries, not a function-local peephole.
-- Preserve root/escape conservatism for exports, start, and other uninlineable uses.
-- Preserve the direct-call vs precise-ref-call distinction.
-- Preserve the size heuristics, including call-overhead discount and single-use bias.
-- Preserve tail-call and self-recursive growth guards.
-- Preserve partial inlining as a distinct structured split strategy.
-- Preserve the filtered nested rerun of `precompute-propagate` plus the default function optimization pipeline.
-- Preserve the fact that deleting the callee is conditional on surviving uses, not automatic.
+- The pass is not just “plain `inlining`, but more aggressive.” The nested rerun is part of the public contract.
+- The reviewed `version_129` planner surface is still direct-call based.
+- Partial inlining is not arbitrary CFG extraction.
+- Inlining a callee does not automatically delete the callee declaration.
+- The late-tail scheduler neighborhood matters because `duplicate-function-elimination` and the rest of the cleanup tail consume the rewritten function graph immediately afterward.
