@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
   - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
+  - ../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -19,6 +21,8 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- The 2026-04-23 raw source manifest is [`../../../raw/binaryen/2026-04-23-inlining-primary-sources.md`](../../../raw/binaryen/2026-04-23-inlining-primary-sources.md).
+- On 2026-04-23 the reviewed official GitHub release page for `version_129` showed publish date **2026-04-01**.
 - The core implementation is `src/passes/Inlining.cpp`.
 - Public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp`, `src/passes/NoInline.cpp`, and `src/passes/opt-utils.h`.
 - Heuristic defaults come from `src/pass.h`.

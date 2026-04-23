@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
   - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
+  - ../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -15,6 +17,7 @@ related:
   - ./heuristics-splitting-and-plain-vs-optimizing.md
   - ./compilation-hints-vs-no-inline-flags-and-clone-survival.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../inlining-optimizing/index.md
   - ../dae-optimizing/index.md
   - ../duplicate-function-elimination/index.md
@@ -78,6 +81,8 @@ That final “then stop” is the big difference from `inlining-optimizing`.
 
 ## Page map
 
+- [`../../../raw/binaryen/2026-04-23-inlining-primary-sources.md`](../../../raw/binaryen/2026-04-23-inlining-primary-sources.md)
+  Immutable primary-source manifest for the exact official Binaryen release, source, and lit-test URLs rechecked on 2026-04-23.
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: phases, helper dependencies, scheduler placement, and what the plain pass really owns.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
@@ -88,6 +93,8 @@ That final “then stop” is the big difference from `inlining-optimizing`.
   Compact source-confirmed guide to the difference between preserved `@metadata.code.inline` bytes, Binaryen's real `no-inline` / `no-full-inline` / `no-partial-inline` function flags, and why those flags survive cloning through `ModuleUtils::copyFunction`.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, bailout, preserved, and easy-to-misread rewrite families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future port map: exact boundary-only registry / request-guard locations, current planning gap around a dedicated plain-`inlining` backlog slice, and the neighboring dossiers a future local port should compose with.
 
 ## Current maintenance rule
 
@@ -97,7 +104,9 @@ That final “then stop” is the big difference from `inlining-optimizing`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-inlining-primary-sources.md`](../../../raw/binaryen/2026-04-23-inlining-primary-sources.md)
 - [`../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md`](../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md)
+- [`../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md`](../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
