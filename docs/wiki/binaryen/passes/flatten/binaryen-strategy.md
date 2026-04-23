@@ -1,22 +1,28 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
+  - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
 related:
   - ./index.md
   - ./flat-ir-contract-and-preludes.md
   - ./wat-shapes.md
-  - ../simplify-locals-nostructure/index.md
+  - ./starshine-strategy.md
+  - ../simplify-locals-notee-nostructure/index.md
   - ../local-cse/index.md
 ---
 
 # Binaryen `flatten` strategy
 
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md).
+
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- The reviewed official release surface on 2026-04-23 still anchored this dossier on Binaryen `version_129`, whose GitHub release page showed publish date **2026-04-01**.
 - The core implementation lives in `src/passes/Flatten.cpp`.
 - The formal flat-IR contract lives in `src/ir/flat.h`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
@@ -28,10 +34,12 @@ related:
   - `test/lit/passes/opt_flatten.wast`
   - `test/lit/passes/flatten_rereloop.wast`
   - `test/lit/passes/flatten_i64-to-i32-lowering.wast`
-- I also did a narrow freshness check against current upstream `main` for the two most important drift points:
+- I also did a narrow freshness check against current upstream `main` for the most important drift points:
   - the top-of-file non-nullability TODO
   - the `Unsupported instruction for Flatten` fatal on `BrOn*` and `TryTable`
-- As of `2026-04-20`, both of those lines still match `version_129`.
+  - the formal Flat IR rule surface in `flat.h`
+  - the dedicated `flatten`, `flatten_all-features`, and `flatten-eh-legacy` lit files
+- As of `2026-04-23`, those checked surfaces still match the teaching-relevant `version_129` contract described in this dossier.
 
 Primary source URLs:
 

@@ -1,16 +1,21 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
+  - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./flat-ir-contract-and-preludes.md
+  - ./starshine-strategy.md
 ---
 
 # `flatten` WAT shapes
+
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md).
 
 This page is a beginner-friendly shape catalog for the main `flatten` rewrite families.
 

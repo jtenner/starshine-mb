@@ -1,10 +1,15 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
+  - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/cli/cli_test.mbt
+  - ../../../../../docs/0065-2026-03-24-ir2-execution-plan.md
+  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json
@@ -14,7 +19,8 @@ related:
   - ./binaryen-strategy.md
   - ./flat-ir-contract-and-preludes.md
   - ./wat-shapes.md
-  - ../simplify-locals-nostructure/index.md
+  - ./starshine-strategy.md
+  - ../simplify-locals-notee-nostructure/index.md
   - ../local-cse/index.md
   - ../tracker.md
 ---
@@ -35,17 +41,22 @@ related:
 
 ## Why it matters
 
-- The updated pass tracker listed `flatten` as the strongest remaining wiki status `none` target when this thread started.
-- The saved generated-artifact `-O4z` audit records it as a real skipped top-level upstream slot:
+- The dossier already explained the upstream Binaryen contract, but until this run it still lacked two practical things readers now expect in the stronger pass folders:
+  - an immutable raw primary-source manifest
+  - a dedicated Starshine status/port-strategy page
+- The saved generated-artifact `-O4z` audit still records `flatten` as a real skipped top-level upstream slot:
   - slot `9`
-- The saved Binaryen debug log shows it is bigger than a one-off top-level detail:
+- The saved Binaryen debug log still shows it is bigger than a one-off top-level detail:
   - the top-level slot `9` run took about `1.67786` seconds
   - the full `-O4z` run executed `flatten` `18` total times because nested optimizing reruns reuse the default aggressive function pipeline
 - The pass sits immediately before two already-documented neighbors whose purpose is easier to understand once flatten is clear:
   - `simplify-locals-notee-nostructure`
   - `local-cse`
-- The local backlog does **not** yet have a dedicated `flatten` slice in `agent-todo.md`.
-  - The current planning surface is still the older Batch 2 intent in `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` and `docs/0065-2026-03-24-ir2-execution-plan.md`.
+- The current Starshine planning story is worth keeping explicit:
+  - `src/passes/optimize.mbt` still tracks `flatten` in the removed-name registry
+  - `src/cli/cli_test.mbt` still preserves the public `--flatten` spelling
+  - `docs/0065-2026-03-24-ir2-execution-plan.md` and `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` still place `flatten` at the front of the next removed-pass batch
+  - `agent-todo.md` still has **no dedicated `flatten` slice today**, which is a real local planning gap rather than something to smooth over
 
 ## Beginner summary
 
@@ -94,11 +105,13 @@ That is much closer to the real pass than “flatten removes nesting.”
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Deep dive into the actual Binaryen `version_129` implementation: scheduler placement, formal Flat IR meaning, the postorder prelude algorithm, control-value rewrites, branch-value temp routing, EH fixups, and the current unsupported-instruction boundary.
+  Deep dive into the actual Binaryen `version_129` implementation: scheduler placement, formal Flat IR meaning, the postorder prelude algorithm, control-value rewrites, branch-value temp routing, EH fixups, the reviewed 2026-04-23 release/source provenance, and the current unsupported-instruction boundary.
 - [`./flat-ir-contract-and-preludes.md`](./flat-ir-contract-and-preludes.md)
   Focused guide to the easiest part of the pass to misunderstand: what “flat” means exactly, how preludes migrate, why flatten creates so many locals, how named branch targets get temps, and why `unreachable` placeholders plus EH pop repair are part of the real contract.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for nested arithmetic, value-carrying `block` / `if` / `loop` / `try`, tee removal, `br_if` / switch value carriers, preserved simple-child families, and hard bailout shapes.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Exact current Starshine status/port map for `flatten`: removed-name registry tracking, preserved `--flatten` CLI spelling, Batch 2 planning surfaces, the still-missing active backlog slice, and the downstream dossier cluster a future local port would need to serve.
 
 ## Current maintenance rule
 
@@ -110,22 +123,16 @@ That is much closer to the real pass than “flatten removes nesting.”
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md)
+- [`../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md`](../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md`](../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
+- [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md)
+- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json)
 - [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
-- Official Binaryen sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Flatten.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/flat.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_all-features.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten-eh-legacy.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/opt_flatten.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_rereloop.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_i64-to-i32-lowering.wast>
-- Current upstream freshness check:
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Flatten.cpp>
+- Official Binaryen sources and release surfaces are captured immutably in:
+  - [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md)
