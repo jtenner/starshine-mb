@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
   - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
+  - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -11,6 +13,9 @@ related:
 ---
 
 # `directize` table info and immutability
+
+The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
+A narrow 2026-04-22 current-`main` spot check on `Directize.cpp`, `table-utils.{h,cpp}`, and the dedicated `directize*` lit files did not surface a new teaching-relevant contract drift beyond this page.
 
 This page is the focused guide to the part of `directize` that is easiest to misunderstand:
 
@@ -292,7 +297,9 @@ A faithful Starshine port should preserve:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)
 - [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
+- [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Directize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/table-utils.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/table-utils.cpp>

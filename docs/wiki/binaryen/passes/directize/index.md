@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
   - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
   - ../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md
+  - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
@@ -17,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./table-info-and-immutability.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../reorder-globals/index.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -68,6 +71,9 @@ That is much closer to the real pass than either:
 
 ## Current durable takeaways
 
+- The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
+- The dossier now has an immutable raw primary-source manifest at [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md).
+- A narrow 2026-04-22 current-`main` spot check on `Directize.cpp`, `pass.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, and the dedicated `directize*` lit files did not surface a new teaching-relevant contract drift beyond the living pages below.
 - `directize` is a **late table-facts-driven call rewrite pass**, not a generic constant-propagation pass.
 - The refreshed dossier now also has a compact source-confirmed owner/test-map page, making explicit that the real `version_129` contract is split across `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, and the three dedicated `directize*` lit files.
 - In `version_129`, the main implementation lives in `src/passes/Directize.cpp`.
@@ -101,6 +107,8 @@ That is much closer to the real pass than either:
   Focused guide to `TableUtils`, flat-table construction, mutation barriers, the `initial-contents-immutable` mode, hole-vs-out-of-range behavior, and the main table-analysis corner cases a future port must preserve.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after WAT shape catalog for direct-call positives, trap/unreachable rewrites, `select` lowering, mutation and flat-table bailouts, wasm64 width correctness, and GC subtype behavior.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Dedicated Starshine status-and-port-map page covering the current boundary-only registry story, request guard, backlog slice `DIR`, canonical no-DWARF tail slot, and the exact neighboring local dossiers a future port would need to compose with.
 
 ## Current maintenance rule
 
@@ -112,8 +120,10 @@ That is much closer to the real pass than either:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)
 - [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
 - [`../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md`](../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md)
+- [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

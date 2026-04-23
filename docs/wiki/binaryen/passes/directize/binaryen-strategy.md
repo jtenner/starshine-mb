@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
   - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
   - ../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md
+  - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -20,6 +22,10 @@ This page is the strategy view of the dossier.
 For the compact owner/test map, use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Upstream source rule
+
+- The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
+- A narrow 2026-04-22 current-`main` spot check on `Directize.cpp`, `pass.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, and the dedicated `directize*` lit files did not surface a new teaching-relevant contract drift beyond the contract described here.
+
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The core implementation lives in `src/passes/Directize.cpp`.
@@ -427,8 +433,10 @@ A future Starshine port should preserve all of these:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)
 - [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
 - [`../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md`](../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md)
+- [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Directize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
