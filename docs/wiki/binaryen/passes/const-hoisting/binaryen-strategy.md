@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
+  - ../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/support/insert_ordered.h
@@ -36,6 +38,9 @@ That means the best mental model is:
 - not global pooling
 
 ## Public surface and scheduler meaning
+
+The reviewed official Binaryen GitHub release page for `version_129`, rechecked on 2026-04-23 through [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md), showed publish date **2026-04-01**.
+A narrow current-`main` spot check on `ConstHoisting.cpp`, `literal.h`, `pass.cpp`, `insert_ordered.h`, `wasm-binary.h`, `wasm-builder.h`, and `const-hoisting.wast` did not surface a new teaching-relevant contract drift beyond this page.
 
 `src/passes/pass.cpp` registers `const-hoisting` as a public pass.
 The registration text says:
@@ -303,7 +308,9 @@ That is the real Binaryen strategy for `const-hoisting`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
+- [`../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/literal.h>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

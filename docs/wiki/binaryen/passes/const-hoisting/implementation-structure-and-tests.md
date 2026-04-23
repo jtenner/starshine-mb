@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
+  - ../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/const-hoisting.wast
@@ -125,6 +127,7 @@ between `version_129` and `main`.
 Result:
 
 - no diff in the reviewed implementation or dedicated test surface
+- the reviewed official Binaryen GitHub release page for `version_129`, rechecked on 2026-04-23 through [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md), still showed publish date **2026-04-01**
 
 That means the `version_129` release tag is a reliable oracle for this pass at the moment.
 
@@ -178,7 +181,9 @@ When this pass is eventually ported, these are the source-backed obligations to 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
+- [`../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/literal.h>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

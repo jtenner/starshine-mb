@@ -1,10 +1,14 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
+  - ../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
+  - ../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -15,6 +19,7 @@ related:
   - ./size-model-and-boundaries.md
   - ./literal-bit-identity-zero-signs-and-nan-payloads.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../precompute/index.md
   - ../optimize-added-constants/index.md
   - ../merge-similar-functions/index.md
@@ -45,6 +50,7 @@ A better beginner summary is:
 - `const-hoisting` is small, but it teaches an optimization idea that beginner readers often miss: **binary encoding size economics are not the same thing as runtime speed or generic constant folding**.
 - It sits naturally beside already-covered size and literal-neighbor passes like `precompute*`, `optimize-added-constants*`, `simplify-locals*`, and `merge-similar-functions`, but it solves a different problem from all of them.
 - The upstream implementation and tests are tiny enough to audit exactly, which makes it a good high-confidence source-backed addition.
+- The folder now also has an immutable raw primary-source manifest and a dedicated Starshine status/port-strategy page, so readers no longer need to reconstruct either reviewed release provenance or the local port-planning story from older research notes alone.
 
 ## Beginner summary
 
@@ -104,6 +110,8 @@ What it actually is in `version_129`:
   Focused guide to the second easy-to-miss part of the pass: exact `Literal` grouping, float bit identity, `+0.0` versus `-0.0`, NaN payload buckets, and the one stale `f64` threshold comment in the upstream lit file.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the profitable literal families, the preserved small-literal families, and the main bailout surfaces.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Exact current Starshine status and port map, including the removed-registry location, runtime rejection path, the still-missing active backlog slice, and the most relevant neighboring local size-pass dossiers.
 
 ## Current maintenance rule
 
@@ -111,21 +119,17 @@ What it actually is in `version_129`:
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass for it.
 - Keep the split from `precompute` explicit: `precompute` creates constants, but `const-hoisting` decides whether repeated literal payloads should be compressed through locals.
 - Keep the split from generic locals optimization explicit too: this pass introduces fresh locals for size reasons, but it does not attempt broad locals cleanup or register-pressure reasoning.
+- Treat the raw primary-source manifest plus the new Starshine page as the default provenance-and-navigation pair for future `const-hoisting` follow-ups.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
+- [`../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)
+- [`../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md`](../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
-- Binaryen `version_129` sources:
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/literal.h>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/const-hoisting.wast>
-- Narrow freshness-check sources:
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/ConstHoisting.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/const-hoisting.wast>
