@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
+  - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -15,6 +17,7 @@ related:
 # `duplicate-import-elimination` WAT and module shape guide
 
 This page is the beginner-friendly shape catalog for the real Binaryen `version_129` `duplicate-import-elimination` pass.
+The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**.
 
 The main question to keep asking is:
 

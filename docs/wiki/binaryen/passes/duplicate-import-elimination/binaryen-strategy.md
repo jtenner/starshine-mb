@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
+  - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -19,6 +21,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**.
 - The core implementation is `src/passes/DuplicateImportElimination.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - The actual rewrite surface used by this pass comes from `src/passes/opt-utils.h`, specifically `OptUtils::replaceFunctions(...)`.
@@ -27,7 +30,7 @@ related:
   - `test/passes/duplicate-import-elimination.wast`
   - `test/passes/duplicate-import-elimination.txt`
 
-Primary source URLs:
+Primary source URLs captured again on 2026-04-23:
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateImportElimination.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
@@ -35,6 +38,8 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/import-utils.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.txt>
+
+A narrow 2026-04-23 spot check of current Binaryen `main` did not surface a teaching-relevant drift on the reviewed implementation, helper, or dedicated-test surfaces.
 
 ## Main correction
 

@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
+  - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -17,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./identity-and-rewrite-surface.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../inlining-optimizing/index.md
   - ../simplify-globals-optimizing/index.md
   - ../remove-unused-module-elements/index.md
@@ -31,6 +34,7 @@ related:
 - `duplicate-import-elimination` is an upstream Binaryen late module / boundary cleanup pass.
 - It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - Binaryen runs it in the late post-pass cluster after the second `duplicate-function-elimination` and before `simplify-globals-optimizing`.
+- The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through the raw primary-source manifest at [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**.
 
 ## Why this dossier needed a follow-up
 
@@ -107,18 +111,23 @@ That is much closer to the real pass than either:
   Focused guide to the exact duplicate key and rewrite surface, including the crucial correction from the older dossier's over-broad all-import story.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after WAT and module-shape catalog for the real positive function-import families, the preserved different-signature family, and the explicit current non-goals.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Dedicated Starshine status/port-map page covering the exact in-repo boundary-only registry and request-guard locations, the `DIE` backlog slice, the canonical late-tail slot, and the important reviewed mismatch between current backlog wording and Binaryen `version_129`'s function-import-only contract.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `duplicate-import-elimination` research and port planning.
 - Treat the older broad all-import story as superseded by the 2026-04-21 source-confirmation follow-up.
+- Treat the current broader `agent-todo.md` wording as a local planning mismatch that still needs to be narrowed for strict Binaryen `version_129` parity; do not silently smooth that contradiction away.
 - Keep the folder explicitly marked as **unimplemented** until Starshine grows a real late module pass with the same function-import-only contract as Binaryen `version_129`, or until a deliberate divergence is documented.
 - If future upstream Binaryen expands the pass beyond functions, record that as new drift instead of silently widening this `version_129` contract.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md)
 - [`../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md`](../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md)
 - [`../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md`](../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md)
+- [`../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md`](../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
