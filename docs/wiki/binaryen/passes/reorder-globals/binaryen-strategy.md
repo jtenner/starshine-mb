@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
+  - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./size-model-and-dependency-order.md
@@ -17,6 +19,8 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- On 2026-04-23, the reviewed official Binaryen release page for `version_129` still showed publish date **2026-04-01**.
+- A narrow 2026-04-23 current-`main` spot check on the same owner, helper, and dedicated test surfaces did not reveal a teaching-relevant contract drift beyond the rules summarized here.
 - The core implementation lives in `src/passes/ReorderGlobals.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.
@@ -434,7 +438,9 @@ A future Starshine port should preserve all of these:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md)
 - [`../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md`](../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md)
+- [`../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>

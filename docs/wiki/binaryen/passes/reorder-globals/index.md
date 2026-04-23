@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
   - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
+  - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
@@ -15,7 +17,10 @@ related:
   - ./binaryen-strategy.md
   - ./size-model-and-dependency-order.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../string-gathering/index.md
+  - ../reorder-globals-always/index.md
+  - ../directize/index.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 ---
@@ -26,6 +31,7 @@ related:
 
 - `reorder-globals` is an upstream Binaryen late module / boundary-shaped global-layout pass.
 - It is currently **unimplemented** in Starshine.
+- On 2026-04-23, the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**, and a narrow current-`main` spot check did not surface a new teaching-relevant contract drift beyond this folder's existing Binaryen claims.
 - In Binaryen `version_129`, it runs near the very end of the no-DWARF optimize pipeline.
 - Its job is to reorder global declarations so that more index-sensitive globals get smaller indices, while still preserving import ordering and global-initializer dependency order.
 
@@ -44,6 +50,7 @@ related:
   - `0.000166174` seconds
 - The backlog already tracks it as slice `RG` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
 - The pass also matters as the explicit handoff target from `string-gathering`: Binaryen’s own scheduler comment says gathering happens right before `reorder-globals`, which then sorts the globals properly.
+- The folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page, so readers can move directly from reviewed upstream release/source/test surfaces to the current local boundary-only registry, request guard, backlog slice, and eventual reindexing-oriented landing zone.
 
 ## Beginner summary
 
@@ -99,18 +106,23 @@ A future port should preserve the distinction between the public pass and the `a
   Focused guide to the use-count model, the dependency DAG, the under-`128` production cutoff, the `reorder-globals-always` variant, and the important internal use from `GlobalStructInference`.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after WAT and module-shape catalog for the main positive, negative, bailout, and interaction families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Exact current Starshine status plus the local code/doc map for the boundary-only registry entry, request guard, `RG` backlog slice, `string-gathering -> reorder-globals -> directize` scheduler slot, and the explicit split from `reorder-globals-always`.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `reorder-globals` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real late module pass with the correct count model, dependency ordering, size scoring, and public-vs-`always` distinction.
-- Keep the strategy page and the size/dependency page in sync whenever new evidence changes the answer to either:
-  - “what does the pass actually optimize for?” or
+- Keep the strategy page, the size/dependency page, and the Starshine strategy page in sync whenever new evidence changes the answer to either:
+  - “what does the pass actually optimize for?”
   - “when does Binaryen deliberately do nothing?”
+  - “what exact local remap and late-tail landing story would a future Starshine port need to preserve?”
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md)
 - [`../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md`](../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md)
+- [`../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
