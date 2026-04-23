@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-23
 sources:
   - ../../raw/research/0080-2026-04-11-late-pipeline-pass-dispatch-audit.md
   - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
@@ -11,6 +11,7 @@ sources:
   - ../../raw/research/0108-2026-04-18-generated-o4z-rub-slot40-retired-by-tail-value-if-rewrite-guard.md
   - ../../raw/research/0109-2026-04-18-generated-o4z-optimize-instructions-slot44-retired-by-replay-verification.md
   - ../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
+  - ../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
   - ../../../../src/cli/cli.mbt
   - ../../../../src/cmd/cmd.mbt
   - ../../../../src/passes/optimize.mbt
@@ -39,6 +40,7 @@ related:
 
 - The 2026-04-18 generated `cmd.wasm` audit observed 56 top-level slots, 34 implemented Starshine slots, and 7 hard corruption slots.
 - All 7 hard corruption slots are now retired on the current tree; there is no remaining open hard-failure cluster from that saved audit.
+- The later rooted continuation chain under `.tmp/o4z-post-5d2fd48/current-chain/` is also green on the current tree: slot `43` was retired by the HOT-lower carried-prefix own-label guard in [`0268`](../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md), and downstream implemented slots `44`, `45`, `47`, `50`, and `53` all validate successfully from that same chain.
 - The retired blockers are now explicitly tracked in the living wiki:
   - `remove-unused-brs` early slot `14` was fixed by the large non-reorder-safe plain-`br` condition guard in [`0102`](../../raw/research/0102-2026-04-18-generated-o4z-rub-slot14-if-br-large-condition-guard.md)
   - `optimize-instructions` early slot `16` was fixed by the paired HOT-lower carrier/parent-exit guards in [`0103`](../../raw/research/0103-2026-04-18-generated-o4z-optimize-instructions-slot16-func652-carrier-guard.md) and [`0104`](../../raw/research/0104-2026-04-18-generated-o4z-optimize-instructions-slot16-func1818-parent-exit-payload-guard.md)
@@ -79,6 +81,7 @@ related:
 - Retired slot-19 follow-up: [`../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md`](../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md)
 - Retired slot-23 follow-up: [`../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md`](../../raw/research/0106-2026-04-18-generated-o4z-vacuum-slot23-retired-by-carrier-wrapper-guard.md)
 - Retired slot-33 follow-up: [`../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md`](../../raw/research/0107-2026-04-18-generated-o4z-vacuum-slot33-retired-by-validator-escape-fix.md)
+- Rooted continuation retirement: [`../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md`](../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md)
 - [`../../../../src/cli/cli.mbt`](../../../../src/cli/cli.mbt)
 - [`../../../../src/cmd/cmd.mbt`](../../../../src/cmd/cmd.mbt)
 - [`../../../../src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt)

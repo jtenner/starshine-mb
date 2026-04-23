@@ -1,11 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-23
 sources:
   - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
+  - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -13,6 +14,8 @@ sources:
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../src/ir/hot_lower.mbt
+  - ../../../../../src/ir/hot_lower_test.mbt
   - ../../../raw/research/0096-2026-04-18-generated-o4z-precompute-slot19-missing-i32-result.md
   - ../../../raw/research/0105-2026-04-18-generated-o4z-precompute-slot19-retired-by-writeback-guards.md
 related:
@@ -241,6 +244,19 @@ Important precompute lanes include:
 
 Those tests are the strongest local evidence that the old slot-19 family is now retired by writeback guards plus full-module validation, not merely papered over in prose.
 
+### Adjacent HOT-lower proof for the later rooted slot-43 continuation
+
+A later rooted continuation under `.tmp/o4z-post-5d2fd48/current-chain/` surfaced one more live slot-43 witness after the earlier saved slot-19 work was already green. The durable outcome there is the same general lesson but at a narrower lowerer site:
+
+- the remaining live blocker was **not** a new `precompute` fold bug
+- the bad rewrite lived in `hot_lower_impl_stackify_wrapped_struct_set_prefixes(...)` in [`src/ir/hot_lower.mbt`](../../../../../src/ir/hot_lower.mbt)
+- the missing guard was that doubly nested child exits could still target the carried-prefix block's **own** label even when the source local was not rewritten
+- the new regression in [`src/ir/hot_lower_test.mbt`](../../../../../src/ir/hot_lower_test.mbt) locks that exact case:
+  - `hot lower keeps wrapped local.set prefixes void when a doubly nested child exit still targets the carried-prefix block without rewriting the source local`
+- the fixed rooted slot-43 witness (`func 3867`, extracted as `func 15`) and downstream implemented slots `44`, `45`, `47`, `50`, and `53` now all validate green, as recorded in [`0268`](../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md)
+
+That follow-up matters for honest ownership: the local `precompute` dossier should teach readers that some artifact-backed retirement evidence lives in neighboring HOT-lower safety work, not only in the pass file or cmd replay tests.
+
 ## Current semantic boundary versus upstream Binaryen
 
 ## What Starshine does implement today
@@ -273,7 +289,7 @@ Compared with upstream Binaryen `version_129`, the local pass still lacks:
 
 So the honest short description of current Starshine remains:
 
-- **exact scalar HOT folding plus structural cleanup and artifact-driven writeback safety work**
+- **exact scalar HOT folding plus structural cleanup and artifact-driven writeback safety work**, including neighboring HOT-lower carried-prefix label guards that retired the later rooted slot-43 continuation family
 
 not:
 

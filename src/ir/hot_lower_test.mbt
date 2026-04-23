@@ -584,6 +584,168 @@ test "hot lower repacks split local.set carried values under result blocks" {
 }
 
 ///|
+test "hot lower keeps wrapped local.set prefixes void when the carried local is written before a deeper parent exit" {
+  let fixture = ir_test_build_hot_from_wat(
+    "(module (func (param i32) (result i32) (local i32 i32) (block $outer (block $inner (if (local.get 0) (then (local.set 2 (i32.const 7)) (br $inner)) (else (local.set 2 (i32.const 9)) (br $outer))) unreachable) (local.set 1 (local.get 2))) (local.get 1))))",
+  )
+  let lowered = hot_lower_func(fixture.hot_func)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32()], [@lib.ValType::i32()]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected guarded wrapped local.set prefix form to validate, got \{err}",
+      )
+  }
+  let pretty = mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 2)"), msg=pretty)
+}
+
+///|
+test "hot lower keeps wrapped local.set prefixes void when a doubly nested child exit still targets the carried-prefix block" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [
+                @lib.Instruction::i32_const(@lib.I32(7)),
+                @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
+                @lib.Instruction::br(@lib.LabelIdx::new(2U)),
+              ],
+              None,
+            ),
+            @lib.Instruction::unreachable_(),
+          ],
+          None,
+        ),
+        @lib.Instruction::unreachable_(),
+      ]),
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+  ])
+  let hot = hot_lift_body(
+    body,
+    HotLocals::new(params=[@lib.ValType::i32(), @lib.ValType::i32()], locals=[
+      @lib.ValType::i32(),
+    ]),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+  let lowered = hot_lower_func(hot)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func([@lib.ValType::i32(), @lib.ValType::i32()], [
+              @lib.ValType::i32(),
+            ]),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected nested child-exit wrapped local.set prefix form to validate, got \{err}",
+      )
+  }
+  let pretty = mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.get (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("(br (Label 2))"), msg=pretty)
+  assert_false(pretty.contains("(br (Label 3))"), msg=pretty)
+}
+
+///|
+test "hot lower keeps wrapped local.set prefixes void when a doubly nested child exit still targets the carried-prefix block without rewriting the source local" {
+  let body = @lib.Expr::new([
+    @lib.Instruction::block(
+      @lib.BlockType::void_(),
+      @lib.Expr::new([
+        @lib.Instruction::local_get(@lib.LocalIdx::new(0U)),
+        @lib.Instruction::if_(
+          @lib.BlockType::void_(),
+          [
+            @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
+            @lib.Instruction::if_(
+              @lib.BlockType::void_(),
+              [@lib.Instruction::br(@lib.LabelIdx::new(2U))],
+              None,
+            ),
+            @lib.Instruction::unreachable_(),
+          ],
+          None,
+        ),
+        @lib.Instruction::unreachable_(),
+      ]),
+    ),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+    @lib.Instruction::local_set(@lib.LocalIdx::new(3U)),
+    @lib.Instruction::local_get(@lib.LocalIdx::new(3U)),
+  ])
+  let hot = hot_lift_body(
+    body,
+    HotLocals::new(
+      params=[@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+      locals=[@lib.ValType::i32()],
+    ),
+    body_result_type=@lib.BlockType::val_type(@lib.ValType::i32()),
+  )
+  let lowered = hot_lower_func(hot)
+  let mod_ = @lib.Module::new()
+    .with_type_sec(
+      @lib.TypeSec::new([
+        @lib.RecType::new(
+          @lib.SubType::comp_type(
+            @lib.CompType::func(
+              [@lib.ValType::i32(), @lib.ValType::i32(), @lib.ValType::i32()],
+              [@lib.ValType::i32()],
+            ),
+          ),
+        ),
+      ]),
+    )
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(0U)]))
+    .with_code_sec(@lib.CodeSec::new([lowered]))
+  match @validate.validate_module(mod_) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected source-stable nested child-exit wrapped local.set prefix form to validate, got \{err}",
+      )
+  }
+  let pretty = mod_.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.get (Local 2)"), msg=pretty)
+  assert_true(pretty.contains("local.set (Local 3)"), msg=pretty)
+  assert_true(pretty.contains("(br (Label 2))"), msg=pretty)
+  assert_false(pretty.contains("(br (Label 3))"), msg=pretty)
+}
+
+///|
 test "hot lower repacks split local.set carried values with store-store-return tails" {
   let fixture = ir_test_build_hot_from_wat(
     "(module (memory 1) (func (param i32) (result i32) (local i32 i32) (block $outer (result i32) (block $block23 (if (local.get 0) (then (drop (i32.const 5)) (br $block23)) (else (local.set 2 (i32.const 9)) (br $block23))) unreachable) (local.set 1 (local.get 2)) (i32.store align=1 (i32.const 0) (local.get 2)) (i32.store align=1 (i32.const 4) (local.get 2)) (return (local.get 2))) (i32.const 0)))",

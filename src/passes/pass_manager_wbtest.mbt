@@ -2637,3 +2637,49 @@ test "raw simplify-locals rewrites small multivalue debug artifact Func 353" {
   )
   assert_eq(pipeline_result.reason, "multivalue-call-heavy-ladder")
 }
+
+///|
+#cfg(target="native")
+test "merge-blocks keeps O4z slot-42 no-data func 1355 witness valid" {
+  let input_path = "tests/repros/o4z-slot42-merge-blocks-f1355-nodata.wasm"
+  let bytes = match pass_manager_test_native_read_repo_fixture(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in witness at \{input_path}")
+  }
+  let mod_ = match @binary.decode_module(bytes) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected witness decode success, got \{err}")
+  }
+  let func_idx = @lib.FuncIdx::new(0U)
+  let pipeline_result = match
+    pass_manager_test_run_hot_pipeline_func(
+      mod_,
+      func_idx,
+      @ir.HotPassDescriptor::new("merge-blocks"),
+      HotPipelineOptions::new(),
+    ) {
+    Ok(result) => result
+    Err(err) => fail("expected merge-blocks hot pipeline success, got \{err}")
+  }
+  let rewritten_funcs = match mod_.code_sec {
+    Some(@lib.CodeSec(funcs)) => funcs.copy()
+    None => fail("expected code section in slot-42 witness")
+  }
+  let defined_idx = func_idx.0.reinterpret_as_int() -
+    pass_manager_test_imported_func_count(mod_)
+  if defined_idx < 0 || defined_idx >= rewritten_funcs.length() {
+    fail("expected defined idx for Func 0, got \{defined_idx}")
+  }
+  rewritten_funcs[defined_idx] = pipeline_result.func
+  let rewritten_mod = mod_.with_code_sec(@lib.CodeSec::new(rewritten_funcs))
+  let pretty = rewritten_mod.pretty_print_func(func_idx)
+  match @validate.validate_module(rewritten_mod) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected merge-blocks slot-42 witness to validate: \{@validate.validation_error_message(err)}\n\n\{pretty}",
+      )
+  }
+  assert_true(pretty.contains("local.tee (Local 131)"), msg=pretty)
+  assert_true(pretty.contains("local.tee (Local 88)"), msg=pretty)
+}

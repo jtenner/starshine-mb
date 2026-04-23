@@ -1,12 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-23
 sources:
   - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
   - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
+  - ../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md
   - ../../../../../src/passes/precompute.mbt
   - ../../../../../src/passes/precompute_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -99,6 +100,8 @@ So this pass is not just “integer constant folding.”
 - Current Starshine models only a small scalar/control subset of the upstream behavior.
 - The earlier generated-artifact slot-19 hard failure is retired.
   - The durable explanation is that the saved failure was fixed by HOT-lowering / writeback guards and full-module validation, not by discovering that Binaryen `precompute` itself is a still-open structural rewrite hazard.
+- The later rooted slot-43 continuation blocker is also retired.
+  - The durable explanation is again HOT-lowering / writeback hardening rather than a new `precompute`-local algorithm bug: the remaining live witness was a wrapped carried-local branch-depth corruption in `hot_lower_impl_stackify_wrapped_struct_set_prefixes(...)`, fixed by refusing stackification when a doubly nested child exit still targets the carried-prefix block's own label.
 
 ## Beginner warning: what the name hides
 
@@ -173,6 +176,7 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
   - aggressive `-O4z`-style and nested optimizing reruns use `precompute-propagate`
 - Keep the landing page honest about the artifact story:
   - the saved slot-19 `func 108` invalid-output witness is retired
+  - the later rooted slot-43 continuation witness (`func 3867`, extracted as `func 15`) is also retired by HOT-lower carried-prefix label guarding rather than by a new pass-local `precompute` rewrite
   - the remaining work is documentation depth, parity breadth, and runtime honesty, not an open hard-corruption blocker
 - Keep newer upstream drift notes labeled as newer-than-`version_129` facts instead of silently rewriting the `version_129` contract.
 
@@ -182,6 +186,7 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
 - [`../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md`](../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md)
 - [`../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md`](../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md)
 - [`../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md`](../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md)
+- [`../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md`](../../../raw/research/0268-2026-04-23-generated-o4z-precompute-slot43-retired-by-hot-lower-prefix-label-guard.md)
 - [`../../../../../src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt)
 - [`../../../../../src/passes/precompute_test.mbt`](../../../../../src/passes/precompute_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

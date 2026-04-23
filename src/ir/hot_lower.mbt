@@ -3350,8 +3350,10 @@ fn hot_lower_impl_instr_stops_following_body_instrs(
 ) -> Bool {
   match instr {
     Br(_) | BrTable(_, _) | Return | Throw(_) | ThrowRef | Unreachable => true
-    Block(_, Expr(body)) | Loop(_, Expr(body)) =>
-      hot_lower_impl_body_is_nonfallthrough(body)
+    Block(_, Expr(body)) =>
+      hot_lower_impl_body_is_nonfallthrough(body) &&
+      !hot_lower_impl_body_targets_removed_label(body, 0)
+    Loop(_, Expr(body)) => hot_lower_impl_body_is_nonfallthrough(body)
     If(_, then_, Some(else_)) =>
       hot_lower_impl_body_is_nonfallthrough(then_) &&
       hot_lower_impl_body_is_nonfallthrough(else_)
@@ -3520,6 +3522,142 @@ fn hot_lower_impl_body_has_later_local_get(
 }
 
 ///|
+fn hot_lower_impl_instr_writes_local(
+  instr : Instruction,
+  local_ : LocalIdx,
+) -> Bool {
+  match instr {
+    LocalSet(found) | LocalTee(found) => found == local_
+    Block(_, Expr(body)) | Loop(_, Expr(body)) =>
+      hot_lower_impl_body_writes_local(body, local_)
+    If(_, then_, Some(else_)) =>
+      hot_lower_impl_body_writes_local(then_, local_) ||
+      hot_lower_impl_body_writes_local(else_, local_)
+    If(_, then_, None) => hot_lower_impl_body_writes_local(then_, local_)
+    TryTable(_, _, Expr(body)) => hot_lower_impl_body_writes_local(body, local_)
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_body_writes_local(
+  body : Array[Instruction],
+  local_ : LocalIdx,
+) -> Bool {
+  for instr in body {
+    if hot_lower_impl_instr_writes_local(instr, local_) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_lower_impl_catch_targets_enclosing_label_from_min_depth(
+  catch_ : Catch,
+  owner_depth : Int,
+  min_owner_depth : Int,
+) -> Bool {
+  match catch_ {
+    Catch(_, li) | CatchRef(_, li) | CatchAll(li) | CatchAllRef(li) => {
+      let depth = hot_lower_impl_decoded_label_depth(li)
+      depth == owner_depth && depth >= min_owner_depth
+    }
+  }
+}
+
+///|
+fn hot_lower_impl_instr_targets_enclosing_label_from_min_depth(
+  instr : Instruction,
+  owner_depth : Int,
+  min_owner_depth : Int,
+) -> Bool {
+  match instr {
+    Br(li) | BrIf(li) | BrOnNull(li) | BrOnNonNull(li) => {
+      let depth = hot_lower_impl_decoded_label_depth(li)
+      depth == owner_depth && depth >= min_owner_depth
+    }
+    BrTable(labels, fallback) => {
+      let fallback_depth = hot_lower_impl_decoded_label_depth(fallback)
+      if fallback_depth == owner_depth && fallback_depth >= min_owner_depth {
+        return true
+      }
+      for li in labels {
+        let depth = hot_lower_impl_decoded_label_depth(li)
+        if depth == owner_depth && depth >= min_owner_depth {
+          return true
+        }
+      }
+      false
+    }
+    Block(_, Expr(body)) | Loop(_, Expr(body)) =>
+      hot_lower_impl_body_targets_enclosing_label_from_min_depth(
+        body,
+        owner_depth + 1,
+        min_owner_depth,
+      )
+    If(_, then_, Some(else_)) =>
+      hot_lower_impl_body_targets_enclosing_label_from_min_depth(
+        then_,
+        owner_depth + 1,
+        min_owner_depth,
+      ) ||
+      hot_lower_impl_body_targets_enclosing_label_from_min_depth(
+        else_,
+        owner_depth + 1,
+        min_owner_depth,
+      )
+    If(_, then_, None) =>
+      hot_lower_impl_body_targets_enclosing_label_from_min_depth(
+        then_,
+        owner_depth + 1,
+        min_owner_depth,
+      )
+    TryTable(_, catches, Expr(body)) => {
+      for catch_ in catches {
+        if hot_lower_impl_catch_targets_enclosing_label_from_min_depth(
+            catch_, owner_depth, min_owner_depth,
+          ) {
+          return true
+        }
+      }
+      hot_lower_impl_body_targets_enclosing_label_from_min_depth(
+        body,
+        owner_depth + 1,
+        min_owner_depth,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn hot_lower_impl_body_targets_enclosing_label_from_min_depth(
+  body : Array[Instruction],
+  owner_depth : Int,
+  min_owner_depth : Int,
+) -> Bool {
+  for instr in body {
+    if hot_lower_impl_instr_targets_enclosing_label_from_min_depth(
+        instr, owner_depth, min_owner_depth,
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn hot_lower_impl_body_targets_own_label_from_min_depth(
+  body : Array[Instruction],
+  min_owner_depth : Int,
+) -> Bool {
+  hot_lower_impl_body_targets_enclosing_label_from_min_depth(
+    body, 0, min_owner_depth,
+  )
+}
+
+///|
 fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
   func : HotFunc,
   body : Array[Instruction],
@@ -3537,7 +3675,16 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                 match body[idx + 1] {
                   LocalGet(source_local) =>
                     match body[idx + 2] {
-                      LocalSet(target_local) | LocalTee(target_local) =>
+                      LocalSet(target_local) | LocalTee(target_local) => {
+                        let prefix_writes_source_local = hot_lower_impl_body_writes_local(
+                          prefix_body, source_local,
+                        )
+                        let prefix_targets_removed_enclosing_label_deep = hot_lower_impl_body_targets_removed_label(
+                          prefix_body, 2,
+                        )
+                        let prefix_targets_own_label_deep = hot_lower_impl_body_targets_own_label_from_min_depth(
+                          prefix_body, 2,
+                        )
                         if source_local != target_local &&
                           !hot_lower_impl_body_has_later_local_get(
                             body,
@@ -3546,22 +3693,27 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                           ) &&
                           !hot_lower_impl_body_targets_removed_label(
                             prefix_body, 1,
-                          ) {
+                          ) &&
+                          !prefix_targets_own_label_deep &&
+                          !(prefix_writes_source_local &&
+                          prefix_targets_removed_enclosing_label_deep) {
                           match target_local {
                             LocalIdx(raw_local) => {
                               let local_id = raw_local.reinterpret_as_int()
                               match hot_local_type(func, local_id) {
                                 Some(local_ty) => {
+                                  let wrapped_body = hot_lower_impl_canonicalize_block_body(
+                                    BlockType::val_type(local_ty),
+                                    [body[idx], body[idx + 1]],
+                                    HotLowerOptions::new(),
+                                  )
+                                  let wrapped_body = hot_lower_impl_expand_branch_depths_above(
+                                    wrapped_body, 1,
+                                  )
                                   rewritten.push(
                                     Instruction::block(
                                       BlockType::val_type(local_ty),
-                                      Expr::new(
-                                        hot_lower_impl_canonicalize_block_body(
-                                          BlockType::val_type(local_ty),
-                                          [body[idx], body[idx + 1]],
-                                          HotLowerOptions::new(),
-                                        ),
-                                      ),
+                                      Expr::new(wrapped_body),
                                     ),
                                   )
                                   rewritten.push(body[idx + 2])
@@ -3573,6 +3725,7 @@ fn hot_lower_impl_stackify_wrapped_struct_set_prefixes(
                             }
                           }
                         }
+                      }
                       _ => ()
                     }
                   _ => ()
