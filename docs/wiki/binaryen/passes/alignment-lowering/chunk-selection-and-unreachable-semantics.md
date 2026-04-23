@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
   - ../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md
   - ../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp

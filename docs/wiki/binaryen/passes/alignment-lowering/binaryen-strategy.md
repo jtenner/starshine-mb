@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
   - ../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -23,6 +24,8 @@ Upstream Binaryen publishes this pass as `alignment-lowering`.
 The public registration description is: lower unaligned loads and stores to smaller aligned ones.
 
 That description is accurate, but still slightly too vague for teaching.
+On 2026-04-23 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
+
 The reviewed implementation is a **small local AST legalization pass** that:
 
 - visits only ordinary `Load` and `Store` nodes
@@ -375,6 +378,7 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md)
 - [`../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md`](../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

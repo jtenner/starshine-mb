@@ -1,10 +1,12 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
   - ../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md
   - ../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md
+  - ../../../raw/research/0273-2026-04-23-alignment-lowering-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./chunk-selection-and-unreachable-semantics.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
 ---
 
@@ -51,6 +54,7 @@ So this pass is best taught as:
 ## Most important durable takeaways
 
 - The real upstream public pass name is just `alignment-lowering`.
+- On 2026-04-23 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 - It is a small AST walker, not a CFG/dataflow optimization pass.
 - Reviewed Binaryen `version_129` rewrites only ordinary `Load` and `Store` nodes.
 - Already-natural alignment stays untouched.
@@ -58,7 +62,8 @@ So this pass is best taught as:
 - The exact helper matrix is small and source-confirmed: the interesting integer helper cases are misaligned `2`-byte and `4`-byte families, not an open-ended generic chunker.
 - The pass introduces fresh locals to preserve single evaluation of pointer and value expressions.
 - Unreachable loads and stores have special operand-preserving rewrites.
-- The reviewed `version_129` and current upstream `main` implementation file are identical.
+- The reviewed `version_129` and current upstream `main` implementation file are identical in the 2026-04-23 spot check.
+- Starshine still has no implementation or dedicated backlog slice for this pass, but the dossier now has a dedicated local status/port-planning page instead of leaving that story scattered across registry docs.
 
 ## Page map
 
@@ -70,28 +75,26 @@ So this pass is best taught as:
   Dedicated follow-up page for the exact byte-width/alignment helper matrix, the largest-legal-chunk selection rule, and the operand-preserving unreachable fast paths a future port must match literally.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main aligned-chunk rewrite families, negative shapes, bailout shapes, and easy-to-miss corner cases.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Exact current Starshine status and port-planning bridge, including the boundary-only registry entry, the active request guard, the missing dedicated backlog slice, and the still-open landing-zone question.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `alignment-lowering` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real active pass for it.
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is not in the current no-DWARF default optimize path.
+- Keep the local-status fact explicit too: Starshine still tracks the name boundary-only, rejects explicit requests honestly, and still has no dedicated backlog slice or chosen landing zone.
 - Keep the scope fact explicit: reviewed Binaryen handles ordinary scalar loads/stores here, not every memory instruction family.
-- Keep the helper-matrix fact explicit too: the future-port contract is not just “split to smaller loads/stores somehow,” but the exact source-backed chunk-selection and unreachable-operand rules documented in the new mechanics page.
+- Keep the helper-matrix fact explicit too: the future-port contract is not just “split to smaller loads/stores somehow,” but the exact source-backed chunk-selection and unreachable-operand rules documented in the mechanics page.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md)
 - [`../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md`](../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md)
 - [`../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md`](../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md)
+- [`../../../raw/research/0273-2026-04-23-alignment-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0273-2026-04-23-alignment-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../tracker.md`](../tracker.md)
-- Binaryen `version_129` and current-main sources:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/bits.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/alignment-lowering.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/AlignmentLowering.cpp>

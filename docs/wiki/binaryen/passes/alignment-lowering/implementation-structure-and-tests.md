@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
   - ../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -129,6 +130,7 @@ If you need to re-open the official sources later, use them in this order:
 
 During this dossier review I compared `version_129` and current `main` for `AlignmentLowering.cpp`.
 They were identical.
+The reviewed official Binaryen `version_129` release page observed on 2026-04-23 showed publish date **2026-04-01**.
 
 That means:
 
@@ -150,6 +152,7 @@ Before calling a future Starshine port faithful, verify all of these against the
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md)
 - [`../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md`](../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
