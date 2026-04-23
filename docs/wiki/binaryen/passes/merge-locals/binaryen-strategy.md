@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-23
 sources:
-  - ../../../raw/research/0128-2026-04-20-merge-locals-binaryen-research.md
+  - ../../../raw/binaryen/2026-04-23-merge-locals-primary-sources.md
+  - ../../../raw/research/0272-2026-04-23-merge-locals-primary-sources-and-source-correction-followup.md
 related:
   - ./index.md
   - ./local-graph-and-copy-influences.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../optimize-casts/index.md
   - ../coalesce-locals/index.md
 ---
@@ -18,238 +20,146 @@ related:
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The core implementation is `src/passes/MergeLocals.cpp`.
-- Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
-- The key helper contracts come from:
+- Scheduler placement comes from `src/passes/pass.cpp`.
+- The pass contract surface also depends directly on:
+  - `src/pass.h`
   - `src/ir/local-graph.h`
+  - `src/ir/LocalStructuralDominance.h`
   - `src/passes/pass-utils.h`
 - The shipped behavior examples come from `test/lit/passes/merge-locals.wast`.
-- I also did a narrow freshness check against current upstream `main` for the two easiest drift points to miss:
-  - the scheduler gate `optimizeLevel >= 3 || shrinkLevel >= 2`
-  - the early bailout when local names are present
-- As of `2026-04-20`, both still match `version_129` in substance.
-
-Primary source URLs:
-
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeLocals.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-locals.wast>
-- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeLocals.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
+- As of the 2026-04-23 spot check, reviewed current `main` did not show a teaching-relevant drift beyond the claims on this page.
 
 ## High-level intent
 
-Binaryen uses `merge-locals` to reduce alias-style local traffic before the later GC/type/coloring cleanup passes run.
+Binaryen uses `merge-locals` to collapse families of equivalent alias locals before later cast, local-type, and slot-sharing cleanup passes run.
 
 That sentence is true but incomplete.
+The reviewed source shows a much sharper contract:
 
-The actual implementation is a **LocalGraph-based single-set alias normalizer**.
+- start from a simple value-producing `local.set`
+- use `LocalGraph` influence facts to find the gets and copy sets tied to that root
+- use `LocalStructuralDominance` plus equivalent-copy checks to prove other locals are just structurally identical wrappers around the same source story
+- choose one existing local as the winner
+- rewrite dominated gets and redundant copy sets to that winner
 
-The core question is not:
+So the real question is not:
 
-- “which locals look similar?”
+- “which locals have one set?”
 
 It is:
 
-- “which locals are really just one simple source story seen through several alias locals, and can we replace that whole story with one canonical slot?”
-
-That extra “one simple source story” clause is the real pass.
+- “which local families are provably the same simple value story modulo equivalent copy wrappers?”
 
 ## The pass in one table
 
 | Phase | What Binaryen does | Why it exists |
 | --- | --- | --- |
-| Skip debug-sensitive functions | Bail out when local names exist | Avoid worsening local-name / debug-info behavior |
-| Build eager graph facts | `LocalGraph(false)` + `computeSetInfluences()` | See transitive alias structure instead of only adjacent pairs |
-| Filter candidates | Require exactly one set, a real value, a simple/reorderable value, and influenced gets still tied to that same set | Keep the optimization narrow and safe |
-| Choose canonical slot | Reuse an existing tiny source local for direct copy chains, otherwise create one fresh temp | Normalize the whole alias group around one slot |
-| Materialize rewrites | Graph-guided post-walk retargets gets/sets and drops redundant copy sets | Turn graph facts into actual IR changes |
+| Declare pass properties | `isFunctionParallel() == true` and `invalidatesDWARF() == true` | This is a per-function rewrite that openly invalidates DWARF instead of using a local-name bailout |
+| Build graph facts | Create `LocalGraph`, then compute ordinary influences and set influences | Find value roots plus copy/use structure across the function |
+| Seed candidate roots | Consider simple root `local.set`s from the graph's set-influence map | Keep the pass small and value-rooted |
+| Prove equivalent copy wrappers | Use `LocalStructuralDominance` and `EquivalentCopies` checks | Distinguish true equivalent alias locals from merely similar ones |
+| Choose one existing target local | Pick one already-existing local in the family, preferring the one that minimizes rewrites | Normalize around an existing slot rather than inventing a new temp |
+| Materialize rewrites | Redirect dominated gets and remove or retarget equivalent copy sets | Turn proof into concrete local cleanup |
 
-## Phase 1: this is a function pass with a metadata bailout, not a DWARF-invalidating rewrite
+## Phase 1: pass properties are part of the contract
 
-`MergeLocals` reports `isFunctionParallel() == true`, so Binaryen treats it as a per-function pass that can run across functions in parallel.
+`MergeLocals` reports two easy-to-miss properties in the pass source:
 
-Unlike some nearby passes, the interesting metadata behavior here is **not** an `invalidatesDWARF()` override.
-The file does something narrower and more conservative:
+- `isFunctionParallel() == true`
+- `invalidatesDWARF() == true`
 
-- if the function already has a local name at index `0`, Binaryen returns immediately without running the pass
+That means the reviewed `version_129` story is **not**:
 
-The source comment says those local names are useful in debug info, and that interpreted wasm may still carry them even though they are not valid in the wasm backend.
+- skip named-local functions to avoid metadata trouble
 
-So the current implementation policy is:
+The older dossier preserved that stale explanation, but the reviewed pass source does not.
+The durable rule is simpler:
 
-- do not try to repair debug/name metadata after merging locals
-- simply skip such functions instead
+- Binaryen treats this as a function-parallel optimization and explicitly declares DWARF invalidation.
 
-That is a real contract edge, not a side note.
+## Phase 2: the graph setup is two-part, not just “one-set local” analysis
 
-## Phase 2: eager `LocalGraph` is part of the strategy
+Inside `doWalkFunction(...)`, the pass builds a `LocalGraph` and then calls:
 
-After the early bailout, `doWalkFunction(...)` does three structurally important things:
+- `computeInfluences()`
+- `computeSetInfluences()`
 
-1. `noteNonLinear(...)`
-2. build `LocalGraph(false)`
-3. call `graph.computeSetInfluences()`
+That distinction matters.
+The pass needs both:
 
-The `false` means **eager**, not lazy.
+- ordinary get/use influence facts
+- set-rooted influence facts
 
-That matters because the source comment explicitly says:
+The older dossier over-focused on one local having one set.
+The reviewed source is more operational:
 
-- lazy mode can save memory
-- but lazy mode can miss opportunities
-- and lazy mode ran about `25%` slower on the Binaryen benchmark note captured in the comment
+- iterate value-producing root sets from the set-influence map
+- then reason outward from those roots through ordinary influences, copy sets, and structural dominance
 
-So the durable lesson is:
+## Phase 3: candidate roots are simple sets, not arbitrary locals
 
-- Binaryen wants the more precise and more opportunity-rich graph here, even at some memory cost
+The positive root is a `local.set` whose value is simple enough under `FunctionUtils::isSimple(...)`.
+That means `merge-locals` is still effect-aware and intentionally conservative, but the conservatism is attached to the **root set value**, not to the old “exactly one set per local plus maybe fresh temp” story.
 
-## Phase 3: `LocalGraph` defines what “same source story” means
+This keeps the pass out of:
 
-The pass depends on four `LocalGraph` ideas.
+- effectful or trap-sensitive producer families
+- large control-heavy producers
+- locals whose surrounding rewrite proof depends on more than equivalent copies and dominance can justify
 
-## 1. `getSetses(index)`
+## Phase 4: equivalent-copy proof is the real heart of the pass
 
-This gives every set site for a local.
-`merge-locals` immediately uses it to enforce its most important narrowness rule:
+The reviewed source introduces a concept the older dossier did not teach clearly enough:
 
-- the candidate local must have **exactly one** set
+- `EquivalentCopies`
 
-## 2. `computeSetInfluences()`
+Binaryen does not just say “local B copies local A.”
+It checks whether a local's wrapper copy set is structurally equivalent to the root story and whether that equivalence is valid under `LocalStructuralDominance`.
 
-This computes which gets are influenced by which sets.
-The helper comment says this can work transitively when locals are set from other locals.
+That is why the pass can merge more than adjacent copies but still remain much narrower than global slot coloring.
 
-That is why the pass can see:
+The durable mental model is:
 
-- direct copy chains
-- transitive chains
-- DAG-like fanout from one source
+- a root set provides the source value story
+- equivalent copy sets prove that some other locals are only wrappers around that same story
+- structural dominance proves the rewritten gets are actually safe to retarget
 
-instead of only one adjacent `local.set` / `local.get` pair.
+## Phase 5: target selection chooses one existing local
 
-## 3. `getInfluences(set)`
+The older dossier claimed a split between:
 
-This gives the gets influenced by one particular set.
-`merge-locals` uses it to say:
+- reuse an old source local, or
+- allocate one fresh canonical temp
 
-- “show me the whole proven user set for this candidate source story”
+That is not the reviewed `version_129` contract.
+The pass source instead picks one **existing** target local among the compatible locals in the family.
+The practical reason is rewrite cost:
 
-## 4. `postWalkFunction(...)`
+- if one existing local already serves many gets or is otherwise a cheaper pivot, use it as the winner
+- rewrite the equivalent copy locals around that winner
 
-This is the graph-guided materialization stage.
-The pass callback `postGraph(...)` uses it to retarget gets/sets and erase redundant copy sets after the mapping decisions are known.
+So a better beginner description is:
 
-## Phase 4: candidates are intentionally tiny in scope
+- Binaryen picks the best existing local in the equivalent family and collapses the others into it
 
-Binaryen loops over every param + local index, but most locals are rejected quickly.
-The candidate must satisfy all of these:
+not:
 
-1. it was not already absorbed into an earlier canonical group
-2. `graph.getSetses(i).size() == 1`
-3. that single set has a real value
-4. `FunctionUtils::isSimple(set->value)` is true
-5. the influenced gets, after filtering, are still influenced by that exact set
+- Binaryen invents one new canonical temp for each merge family
 
-Each filter is important.
+## Phase 6: the rewrite surface is dominated gets plus equivalent copy sets
 
-## Exactly one set
+Once the pass has:
 
-This means the pass does **not** try to solve:
+- a simple root set
+- a compatible family of equivalent copy locals
+- one chosen target local
 
-- multi-branch merge locals
-- phi-like locals with several writes
-- general-purpose mutable temporaries
-- liveness-wide slot sharing
+it rewrites two main things:
 
-That work belongs to other passes, especially `coalesce-locals`.
+- dominated `local.get`s can retarget to the chosen local
+- redundant equivalent copy `local.set`s can disappear or retarget because their wrapper role is no longer needed
 
-## Real value
-
-If the set has no value, there is no source expression to normalize around.
-So the pass bails out immediately.
-
-## `FunctionUtils::isSimple(...)`
-
-This is the safety gate most people underestimate.
-`pass-utils.h` shows it is effect-aware, not just textual.
-The helper uses `EffectAnalyzer` and requires the expression to be reorderable without unremovable side effects.
-
-So the real rule is:
-
-- the source value must be simple **enough to move the alias group around it safely**
-
-This is why the `keepSimple1` and `keepSimple2` tests keep complex block/loop producers intact.
-
-## Influenced gets must still agree on the source set
-
-Even after `LocalGraph` gives the influenced gets for a candidate set, Binaryen still filters out any get whose recorded influencing set is not that exact set.
-
-That means the pass is explicitly guarding against a subtle false positive:
-
-- a local might look single-set locally,
-- but some gets might actually belong to another reaching set story in the wider graph
-
-If the remaining influenced-get set becomes empty, the candidate is abandoned.
-
-## Phase 5: the pass has a real direct-reuse vs fresh-temp split
-
-Once a candidate passes the filters, Binaryen chooses one canonical slot.
-That choice is not uniform.
-
-## Direct source reuse
-
-If the candidate set’s value is literally a `local.get`, and the source local also has a very tiny graph surface:
-
-- exactly one get
-- exactly one set
-
-then Binaryen uses that source local index directly as the canonical slot.
-
-This is the pure copy-chain collapse case.
-
-Good beginner wording:
-
-- if local B is really just a very thin alias of local A,
-- and A itself already has a very small clean source story,
-- then redirect the whole chain back to A
-
-## Fresh temp canonicalization
-
-If the value is still simple but not that trivial `local.get` case, Binaryen allocates one new local of the set’s type and uses that as the canonical slot.
-
-Good beginner wording:
-
-- if the source story is simple enough to share,
-- but it is not just “read one already-canonical local,”
-- then create one dedicated temp and make the whole alias group read that temp instead
-
-That means `merge-locals` can temporarily **add** a local in service of simplifying the alias structure.
-It is not a monotonic “only delete locals” pass.
-
-## Phase 6: mapping is whole-local for the proven group
-
-The pass records mappings keyed by local index, not by one particular get node.
-
-That means once Binaryen has proved a local belongs to the candidate’s simple source story, it rewrites the local index itself to the canonical slot.
-
-This is exactly why the earlier filters are so strict.
-The optimization is more powerful than a peephole, so the preconditions are narrower than a peephole too.
-
-## Phase 7: materialization happens in the graph-guided post-walk
-
-If Binaryen found no mappings, it exits.
-Otherwise it calls `graph.postWalkFunction(this, func, module)`.
-
-The durable user-visible outcomes of `postGraph(...)` are:
-
-- eligible `local.get`s are retargeted to the canonical slot
-- eligible `local.set`s are retargeted to the canonical slot
-- redundant copy-only sets are removed when the rewrite made them pointless
-
-I am intentionally describing the materialization step at that level.
-The helper callback plus the shipped tests make that contract clear, while some lower-level internal `LocalGraph` mutation details are not worth overfitting into a beginner-facing summary.
+The visible user-facing effect is still “fewer alias locals and fewer redundant copies,” but the source-backed explanation is now more precise.
 
 ## Scheduler placement is part of the meaning
 
@@ -258,7 +168,7 @@ The helper callback plus the shipped tests make that contract clear, while some 
 - `options.optimizeLevel >= 3`, or
 - `options.shrinkLevel >= 2`
 
-and it places it here:
+and it places the pass here in the stronger local-cleanup cluster:
 
 - after `heap2local`
 - before `optimize-casts`
@@ -267,52 +177,36 @@ and it places it here:
 
 That placement is not accidental.
 
-## Why after `heap2local`
+### Why after `heap2local`
 
-`heap2local` can create more local traffic and more copy-like alias families.
-So `merge-locals` gets more to clean up there than it would earlier.
+`heap2local` can create more local traffic and more trivial copy wrappers.
+`merge-locals` then gets a richer alias-local surface to collapse.
 
-## Why before `optimize-casts` and `local-subtyping`
+### Why before `optimize-casts` and `local-subtyping`
 
-The already-documented `optimize-casts` dossier notes that `merge-locals` may appear immediately before it under stronger optimize/shrink settings.
-That means Binaryen wants some alias cleanup done before cast reuse and local-type tightening reason about the local surface.
+Binaryen wants some copy-wrapper cleanup done before cast cleanup and local-type sharpening reason about the local surface.
 
-## Why before `coalesce-locals`
+### Why before `coalesce-locals`
 
-`merge-locals` handles the narrow, obvious, one-source alias families first.
-Then `coalesce-locals` can do the more global slot-sharing work later.
-
-So the two passes are complementary, not redundant.
-
-## Nested reruns matter too
-
-`opt-utils.h` shows that optimizing passes rerun `addDefaultFunctionOptimizationPasses(...)` on touched functions.
-Under stronger optimize/shrink settings, that means `merge-locals` can execute again inside those nested cleanups.
-
-The saved `-O4z` debug log proves this is not hypothetical:
-
-- there is one top-level skipped slot `27`
-- but `18` total `merge-locals` executions in the captured full run
+`merge-locals` handles narrow equivalent-copy families first.
+`coalesce-locals` later handles broader liveness/interference-driven slot sharing.
+The two passes are complementary, not redundant.
 
 ## What the pass does **not** do
 
 Binaryen `merge-locals` does **not**:
 
-- run in the ordinary `-O` / `-Os` no-DWARF path
-- do full liveness/coloring like `coalesce-locals`
-- narrow or widen local types like `local-subtyping`
-- optimize effectful or control-heavy source values freely
-- merge arbitrary multi-set locals
-- preserve local-name metadata while rewriting; instead it bails out
-- act like a generic copy-propagation fixpoint across the whole function
+- run in the ordinary no-DWARF `-O` / `-Os` path used as the repo's canonical parity baseline
+- operate as a generic “any local with one set” merger
+- create the fresh canonical temp-local story taught in the older dossier
+- rely on the stale named-local early bailout explanation
+- replace `local-subtyping`, `optimize-casts`, or `coalesce-locals`
+- perform full liveness coloring or interference minimization
 
 The real contract is smaller and sharper than the name suggests.
 
 ## Bottom line
 
-Binaryen’s `merge-locals` pass is a higher-aggression, LocalGraph-driven, single-set alias cleanup.
+Binaryen `merge-locals` is a higher-aggression local cleanup pass that starts from simple root sets, proves equivalent copy wrappers with `LocalGraph` plus `LocalStructuralDominance`, chooses one existing target local, and rewrites dominated gets and redundant copy sets around that winner.
 
-The pass only fires when a local group has one trusted simple source story, and it normalizes that group around one canonical slot.
-Sometimes that slot is an old source local; sometimes it is a fresh temp.
-
-That is the behavior a future Starshine port must preserve.
+That corrected description is the behavior a future Starshine port must preserve.

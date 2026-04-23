@@ -1,90 +1,91 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-23
 sources:
-  - ../../../raw/research/0128-2026-04-20-merge-locals-binaryen-research.md
+  - ../../../raw/binaryen/2026-04-23-merge-locals-primary-sources.md
+  - ../../../raw/research/0272-2026-04-23-merge-locals-primary-sources-and-source-correction-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./local-graph-and-copy-influences.md
+  - ./starshine-strategy.md
   - ../coalesce-locals/index.md
 ---
 
 # `merge-locals` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen’s `merge-locals` pass.
+This page is the beginner-friendly shape catalog for Binaryen's `merge-locals` pass.
 
 ## Read this page with one mental model
 
 Binaryen is not asking:
 
-- “can I delete this one copy instruction?”
+- “does this local have exactly one set?”
+- “should I invent one fresh canonical temp?”
 
-It is asking:
+The reviewed source points to a different mental model:
 
-- “do these locals all belong to one simple single-set source story?”
+- “is there one simple root set, and are these other locals only equivalent copy wrappers around it?”
 
 That means four questions matter most:
 
-1. does the candidate local have exactly **one set**?
-2. does that set have a real **value**?
-3. is that value **simple / reorderable** enough under `FunctionUtils::isSimple(...)`?
-4. do the uses Binaryen wants to rewrite still trace back to that **same exact set**?
+1. is the root `local.set` value simple enough?
+2. do the other locals form equivalent copy wrappers around that root story?
+3. are the relevant gets structurally dominated so the retargeting stays valid?
+4. which existing local is the best winner for the merged family?
 
 ## Important note about the examples
 
 The `after` snippets below are often **conceptual**.
-
 In real Binaryen output:
 
-- the chosen temp index may differ
-- some old locals may still appear in declarations before later passes clean them up
-- exact printed structure depends on neighboring cleanup passes
+- the chosen winner local can differ
+- some declarations may remain until later cleanup passes run
+- exact printed structure depends on neighboring passes
 
-So read the shapes as “what family rewrites or stays put,” not “the exact final pretty-printed indices in every case.”
+So read the shapes as “what family rewrites or stays put,” not “the exact final pretty-printed text in every case.”
 
 ## Quick glossary
 
-- **candidate local**: the local Binaryen is currently checking for the one-set-simple-source rule
-- **influenced gets**: the gets `LocalGraph` says are fed by that candidate’s set story
-- **canonical slot**: the local index all proven aliases will read after the rewrite
-- **direct reuse**: Binaryen reuses an existing source local as the canonical slot
-- **fresh temp**: Binaryen creates one new local to be the canonical slot
+- **root set**: the simple value-producing `local.set` Binaryen treats as the source story
+- **equivalent copy wrapper**: a local whose copy set is structurally equivalent to a wrapper around the root story
+- **winner local**: the existing local Binaryen chooses as the final target for the family
+- **dominated get**: a use site that can safely retarget to the winner under the structural-dominance proof
 
-## Shape 1: simple copy chain collapses back to the original source local
+## Shape 1: one root plus direct equivalent copy wrappers collapse to one existing local
 
 Before:
 
 ```wat
-(local.set $a (i32.const 10))
-(local.set $b (local.get $a))
+(local.set $root (i32.const 10))
+(local.set $b (local.get $root))
+(local.set $c (local.get $root))
 (drop (local.get $b))
+(drop (local.get $c))
 ```
 
 After, conceptually:
 
 ```wat
-(local.set $a (i32.const 10))
-(drop (local.get $a))
+(local.set $root (i32.const 10))
+(drop (local.get $root))
+(drop (local.get $root))
 ```
 
 Why it rewrites:
 
-- `$b` has exactly one set
-- that set is a direct `local.get $a`
-- the uses of `$b` all still belong to that one source story
-- Binaryen can reuse `$a` directly as the canonical slot
+- the root set is simple
+- `$b` and `$c` are only equivalent copy wrappers
+- the rewritten gets remain valid under the structural proof
 
-This is the cleanest positive case.
-
-## Shape 2: transitive copy chain also collapses
+## Shape 2: transitive copy chains can still collapse
 
 Before:
 
 ```wat
-(local.set $a (i32.const 10))
-(local.set $b (local.get $a))
+(local.set $root (i32.const 10))
+(local.set $b (local.get $root))
 (local.set $c (local.get $b))
 (drop (local.get $c))
 ```
@@ -92,83 +93,25 @@ Before:
 After, conceptually:
 
 ```wat
-(local.set $a (i32.const 10))
-(drop (local.get $a))
+(local.set $root (i32.const 10))
+(drop (local.get $root))
 ```
 
 Why it rewrites:
 
-- `LocalGraph` can compute influences transitively through the chain
-- the whole group still has one simple source story
+- `LocalGraph` can still recover the connected value story
+- the wrapper copies still behave like the same root-based alias family
 
-This is why the official tests include transitive-order families.
+This is why the official tests include transitive and ordering-sensitive cases.
 
-## Shape 3: one simple computed value can become one fresh canonical temp
-
-Before:
-
-```wat
-(local.set $a
-  (i32.add
-    (local.get $x)
-    (i32.const 1)))
-(local.set $b (local.get $a))
-(drop (local.get $b))
-```
-
-After, conceptually:
-
-```wat
-(local.set $canon
-  (i32.add
-    (local.get $x)
-    (i32.const 1)))
-(drop (local.get $canon))
-```
-
-Why it rewrites:
-
-- the value is still simple / reorderable enough
-- but it is not the trivial “just reuse one existing source local” case
-- Binaryen therefore creates one fresh canonical temp
-
-This is the easiest shape for beginners to miss because the pass name sounds like it should only delete locals.
-
-## Shape 4: DAG fanout can still normalize to one slot
-
-Before, conceptually:
-
-```wat
-(local.set $a (i32.const 1))
-(local.set $b (local.get $a))
-(local.set $c (local.get $a))
-(drop (local.get $b))
-(drop (local.get $c))
-```
-
-After, conceptually:
-
-```wat
-(local.set $a (i32.const 1))
-(drop (local.get $a))
-(drop (local.get $a))
-```
-
-Why it rewrites:
-
-- the graph still says both branches of alias traffic come from the same set story
-- Binaryen is not limited to one linear chain
-
-This is the `merge in a DAG` lesson.
-
-## Shape 5: loop-backedge alias traffic is still a real positive case
+## Shape 3: loops do not automatically disqualify the pass
 
 Before, conceptually:
 
 ```wat
 (loop $L
-  (local.set $next (local.get $curr))
-  (drop (local.get $next))
+  (local.set $tmp (local.get $root))
+  (drop (local.get $tmp))
   (br $L)
 )
 ```
@@ -177,62 +120,19 @@ After, conceptually:
 
 ```wat
 (loop $L
-  (drop (local.get $curr))
+  (drop (local.get $root))
   (br $L)
 )
 ```
 
-Why it rewrites:
+Why it can still rewrite:
 
-- the official `loop-backedge` test says Binaryen wants this family
-- the graph still proves one simple source story for the alias local
+- the relevant family can remain structurally dominated even across loop structure
+- the pass is broader than a straight-line peephole
 
-The exact printed result can vary, but the important fact is:
-
-- loops do not automatically disqualify the pass
-
-## Shape 6: multiple sets to the same local do **not** qualify
+## Shape 4: a non-simple root producer stays put
 
 Before and after stay the same in the important part:
-
-```wat
-(if (local.get $cond)
-  (then (local.set $x (i32.const 1)))
-  (else (local.set $x (i32.const 2))))
-(drop (local.get $x))
-```
-
-Why Binaryen keeps it:
-
-- `$x` does not have one set story
-- the pass’s core precondition fails immediately
-
-This is the most important negative case.
-
-## Shape 7: complex control-heavy source values stay put
-
-Before and after stay the same in the important part:
-
-```wat
-(local.set $x
-  (block (result i32)
-    (loop $L
-      (br $L)
-    )
-    (i32.const 1)))
-(drop (local.get $x))
-```
-
-Why Binaryen keeps it:
-
-- the source value is not simple enough under `FunctionUtils::isSimple(...)`
-- `keepSimple1` and `keepSimple2` exist to lock in this boundary
-
-This is a strong reminder that the pass is not allowed to normalize arbitrary control-heavy producers.
-
-## Shape 8: effectful or trap-sensitive source values should be treated as negative shapes
-
-Before and after stay the same in the important part, conceptually:
 
 ```wat
 (local.set $x
@@ -241,120 +141,128 @@ Before and after stay the same in the important part, conceptually:
 (drop (local.get $y))
 ```
 
-Why Binaryen should keep it:
+Why Binaryen keeps it:
 
-- the simple-value gate is effect-aware
-- an impure or unremovable-side-effect source is outside the intended merge surface
+- the root set value is not simple enough under `FunctionUtils::isSimple(...)`
+- the pass is intentionally conservative about effectful or otherwise non-simple producers
 
-The pass source expresses this through `FunctionUtils::isSimple(...)`, not by listing every forbidden operator family explicitly.
+## Shape 5: one extra competing set breaks the equivalent-wrapper proof
 
-## Shape 9: “looks simple locally, but uses do not all agree on one set” bails out
-
-Before, conceptually:
+Before and after stay the same in the important part:
 
 ```wat
 (local.set $x (i32.const 1))
 (if (local.get $cond)
   (then (local.set $x (i32.const 2))))
-(drop (local.get $x))
-```
-
-After, conceptually:
-
-```wat
-(local.set $x (i32.const 1))
-(if (local.get $cond)
-  (then (local.set $x (i32.const 2))))
-(drop (local.get $x))
+(local.set $y (local.get $x))
+(drop (local.get $y))
 ```
 
 Why Binaryen keeps it:
 
-- even if one source path looks attractive, the get no longer belongs to one unambiguous set story
-- the pass filters influenced gets against the exact candidate set before committing
+- the local family no longer has one clean root-plus-equivalent-wrapper story
+- the extra set breaks the proof surface the pass relies on
 
-This is the provenance-agreement bailout.
+## Shape 6: structurally different wrappers do not count as equivalent copies
 
-## Shape 10: local-name metadata can disable the pass for the whole function
-
-This is not a WAT surface shape, but it is still a real eligibility rule.
-
-If the function already has local names, Binaryen returns early and does not run the pass.
-
-Why that matters:
-
-- two structurally identical functions can get different optimization behavior depending on metadata
-- a future Starshine port must choose an explicit policy there too
-
-## Shape 11: unreachable/control-edge weirdness is a conservative zone
-
-Before, conceptually:
+Before and after stay the same in the important part, conceptually:
 
 ```wat
-(block
-  (br_if $out (local.get $cond))
-  (unreachable)
-)
-(local.set $x (i32.const 1))
-(drop (local.get $x))
+(local.set $root (i32.const 1))
+(local.set $a (local.get $root))
+(local.set $b (select (local.get $root) (local.get $root) (local.get $cond)))
+(drop (local.get $a))
+(drop (local.get $b))
 ```
 
-After, conceptually:
+Why Binaryen keeps the nontrivial side:
 
-- Binaryen may still optimize some surrounding alias traffic
-- but the important contract is that it stays conservative and valid around the unreachable/control boundary
+- `$a` is a plain copy wrapper
+- `$b` is not the same kind of wrapper story
+- the pass wants equivalent wrappers, not just vaguely related locals
 
-Why this matters:
+## Shape 7: this is not a fresh-temp canonicalization pass
 
-- the official `between-unreachable` test exists precisely because this area is easy to get wrong
-- a future port should preserve that conservatism, not just the happy-path copy-chain wins
+A useful negative shape is conceptual rather than syntactic.
+The older dossier taught a family like:
+
+```wat
+(local.set $a
+  (i32.add (local.get $x) (i32.const 1)))
+(local.set $b (local.get $a))
+(drop (local.get $b))
+```
+
+as if Binaryen would typically rewrite to one new canonical temp.
+The reviewed `version_129` source does **not** justify that teaching surface.
+
+The better expectation is:
+
+- choose one existing winner local if the equivalent-wrapper proof succeeds
+- otherwise bail out
+
+So future read-alongs should not teach `merge-locals` as a new-temp creator.
+
+## Shape 8: this is not `coalesce-locals`
+
+Before and after stay the same in the important part, conceptually:
+
+```wat
+(local.set $a (i32.const 1))
+... many unrelated live-range uses ...
+(local.set $b (i32.const 2))
+```
+
+Why this example matters:
+
+- even if a later slot-sharing pass might recycle storage here,
+- `merge-locals` is not trying to solve that problem
+
+The pass only cares about root-plus-equivalent-copy families.
 
 ## Important interaction families
 
-## Interaction 1: `heap2local` creates more opportunities
+### Interaction 1: `heap2local` creates more local alias traffic
 
 Why scheduler placement matters:
 
-- `heap2local` can turn memory traffic into more local traffic
+- `heap2local` can turn heap traffic into local traffic
 - stronger optimize/shrink modes then run `merge-locals`
-- so the pass gets a richer alias-local surface than it would earlier
+- so the pass gets richer alias-local families to clean up
 
-## Interaction 2: `optimize-casts` sees the post-merge local surface
+### Interaction 2: `optimize-casts` and `local-subtyping` see the cleaned local surface
 
 Why placement matters:
 
-- under stronger settings, `merge-locals` runs immediately before `optimize-casts`
-- that means cast optimization reasons about a cleaner alias surface, not the original copy-heavy one
+- under stronger settings, `merge-locals` runs immediately before those passes
+- they therefore reason about a less copy-wrapper-heavy local surface
 
-## Interaction 3: `coalesce-locals` is a different later cleanup layer
+### Interaction 3: `coalesce-locals` is a different later cleanup layer
 
 Why the distinction matters:
 
-- `merge-locals` handles narrow one-source alias families first
-- `coalesce-locals` later handles wider slot-sharing based on different reasoning
+- `merge-locals` handles rooted equivalent-copy families first
+- `coalesce-locals` later handles broader slot-sharing logic
 
 So if you see both passes in the same neighborhood, do not collapse them into one concept.
 
 ## One-sentence summary for each family
 
-- **simple direct copy chain**: positive, collapse to source local
-- **transitive chain**: positive, because `LocalGraph` can follow influences transitively
-- **simple computed shared source**: positive, collapse to one fresh temp
-- **DAG fanout**: positive, because the source story can fan out but still stay unique
-- **loop-backedge alias**: positive, dedicated official test says it matters
-- **multi-set local**: negative, core single-set rule fails
-- **control-heavy / effectful source**: negative, simple-value rule fails
-- **multi-source influenced uses**: negative, provenance-agreement filter fails
-- **local names present**: bailout, whole function skipped
-- **unreachable/control weirdness**: conservative boundary, keep validity first
+- **direct equivalent copy wrappers**: positive, collapse onto one existing winner local
+- **transitive copy chain**: positive, if the root story and wrapper equivalence stay provable
+- **loop case**: still positive when structural dominance is preserved
+- **non-simple root**: negative, simple-value gate fails
+- **extra set**: negative, root-plus-wrapper proof breaks
+- **structurally different wrapper**: negative, equivalence fails
+- **fresh-temp expectation**: stale teaching pattern, not the reviewed `version_129` contract
+- **slot-sharing / coloring story**: belongs to `coalesce-locals`, not here
 
 ## Bottom line
 
-The most important shape question is never “is there a copy?”
-
+The most important shape question is not “is there a copy?” or “does this local have one set?”
 It is:
 
-- “is there one simple set story that `LocalGraph` can still prove across this whole alias group?”
+- “is there one simple root set with structurally equivalent copy wrappers that Binaryen can safely collapse onto one existing local?”
 
-If yes, Binaryen can normalize it.
-If no, `merge-locals` is supposed to stay small and conservative.
+If yes, `merge-locals` can rewrite it.
+If no, the pass is supposed to stay small and conservative.
