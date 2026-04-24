@@ -161,6 +161,186 @@ fn code_pushing_make_local_set_clone(
 }
 
 ///|
+fn code_pushing_node_has_branch(func : @ir.HotFunc, node_id : Int) -> Bool {
+  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
+    return false
+  }
+  let node = @ir.hot_node_get(func, node_id)
+  match node.op {
+    @ir.HotOp::Br
+    | @ir.HotOp::BrIf
+    | @ir.HotOp::BrTable
+    | @ir.HotOp::BrOnNull
+    | @ir.HotOp::BrOnNonNull
+    | @ir.HotOp::BrOnCast
+    | @ir.HotOp::BrOnCastFail
+    | @ir.HotOp::Delegate => return true
+    _ => ()
+  }
+  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
+    if code_pushing_node_has_branch(
+        func,
+        @ir.hot_child_get(func, node_id, slot),
+      ) {
+      return true
+    }
+  }
+  match node.op {
+    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try =>
+      code_pushing_region_has_branch(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      )
+    @ir.HotOp::If => {
+      if code_pushing_region_has_branch(
+          func,
+          @ir.hot_region_then_ref(func, node_id),
+        ) {
+        return true
+      }
+      match @ir.hot_region_else_ref(func, node_id) {
+        Some(else_ref) => code_pushing_region_has_branch(func, else_ref)
+        None => false
+      }
+    }
+    @ir.HotOp::TryTable =>
+      code_pushing_region_has_branch(
+        func,
+        @ir.hot_region_body_ref(func, node_id),
+      ) ||
+      code_pushing_region_has_branch(
+        func,
+        @ir.hot_region_catch_list_ref(func, node_id),
+      )
+    _ => false
+  }
+}
+
+///|
+fn code_pushing_region_has_branch(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    if code_pushing_node_has_branch(
+        func,
+        @ir.hot_region_get(func, region_ref, idx),
+      ) {
+      return true
+    }
+  }
+  false
+}
+
+///|
+fn code_pushing_region_has_leading_unreachable_before(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  end_idx : Int,
+) -> Bool {
+  if end_idx <= 0 || @ir.hot_region_root_count(func, region_ref) == 0 {
+    return false
+  }
+  let root_id = @ir.hot_region_get(func, region_ref, 0)
+  if root_id < 0 || !@ir.hot_node_is_live(func, root_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, root_id).op {
+    @ir.HotOp::Unreachable => true
+    _ => false
+  }
+}
+
+///|
+fn code_pushing_try_flatten_dead_block_before_unreachable(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+  block_idx : Int,
+) -> Bool {
+  let block_id = @ir.hot_region_get(func, region_ref, block_idx)
+  if block_id < 0 || !@ir.hot_node_is_live(func, block_id) {
+    return false
+  }
+  match @ir.hot_node_get(func, block_id).op {
+    @ir.HotOp::Block => ()
+    _ => return false
+  }
+  let body_ref = @ir.hot_region_body_ref(func, block_id)
+  let body_count = @ir.hot_region_root_count(func, body_ref)
+  if body_count == 0 {
+    return false
+  }
+  let mut unreachable_idx = -1
+  for idx = 0; idx < body_count; idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, body_ref, idx)
+    match @ir.hot_node_get(func, root_id).op {
+      @ir.HotOp::Unreachable => {
+        if unreachable_idx >= 0 {
+          return false
+        }
+        unreachable_idx = idx
+      }
+      _ => ()
+    }
+  }
+  if unreachable_idx != 0 && unreachable_idx != body_count - 1 {
+    return false
+  }
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let block_has_neighboring_unreachable = if block_idx + 1 < root_count {
+    let next_id = @ir.hot_region_get(func, region_ref, block_idx + 1)
+    if next_id >= 0 && @ir.hot_node_is_live(func, next_id) {
+      match @ir.hot_node_get(func, next_id).op {
+        @ir.HotOp::Unreachable => true
+        _ => false
+      }
+    } else {
+      false
+    }
+  } else {
+    false
+  }
+  if !block_has_neighboring_unreachable &&
+    !code_pushing_region_has_leading_unreachable_before(
+      func, region_ref, block_idx,
+    ) {
+    return false
+  }
+  let replacement : Array[Int] = []
+  let append_body_root = fn(idx : Int) -> Bool {
+    let root_id = @ir.hot_region_get(func, body_ref, idx)
+    if code_pushing_node_has_branch(func, root_id) {
+      return false
+    }
+    if idx != unreachable_idx && @ir.hot_node_result_arity(func, root_id) > 1 {
+      return false
+    }
+    replacement.push(root_id)
+    true
+  }
+  if unreachable_idx == 0 {
+    for idx = 1; idx < body_count; idx = idx + 1 {
+      if !append_body_root(idx) {
+        return false
+      }
+    }
+    if !append_body_root(0) {
+      return false
+    }
+  } else {
+    for idx = 0; idx < body_count; idx = idx + 1 {
+      if !append_body_root(idx) {
+        return false
+      }
+    }
+  }
+  ignore(pass_splice_region(ctx, func, region_ref, block_idx, 1, replacement))
+  @ir.hot_region_replace_body(func, body_ref, [])
+  true
+}
+
+///|
 fn code_pushing_try_sink_set_into_if_then(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -239,6 +419,11 @@ fn code_pushing_scan_region_once(
 ) -> Bool {
   let mut idx = 0
   while idx < @ir.hot_region_root_count(func, region_ref) {
+    if code_pushing_try_flatten_dead_block_before_unreachable(
+        ctx, func, region_ref, idx,
+      ) {
+      return true
+    }
     if code_pushing_try_sink_set_into_if_then(ctx, func, region_ref, idx) {
       return true
     }

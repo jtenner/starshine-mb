@@ -42,6 +42,21 @@ fn code_pushing_expect_op(
         @ir.HotOp::LocalGet => ()
         _ => abort("expected local.get")
       }
+    "const" =>
+      match op {
+        @ir.HotOp::Const => ()
+        _ => abort("expected const")
+      }
+    "block" =>
+      match op {
+        @ir.HotOp::Block => ()
+        other => abort("expected block, got \{other}")
+      }
+    "unreachable" =>
+      match op {
+        @ir.HotOp::Unreachable => ()
+        _ => abort("expected unreachable")
+      }
     "drop" =>
       match op {
         @ir.HotOp::Drop => ()
@@ -149,6 +164,28 @@ test "code-pushing keeps local.set before if when the local is used after the if
     trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
     msg=trace.to_string(),
   )
+}
+
+///|
+test "code-pushing flattens dead typed block before unreachable" {
+  let func = code_pushing_test_run_hot(
+    (
+      #|(module
+      #|  (func (result i32)
+      #|    i32.const 0
+      #|    (block (result i32)
+      #|      (f64.const 0)
+      #|      unreachable)
+      #|    unreachable))
+      #|,
+    ),
+  )
+
+  let ops : Array[String] = []
+  for idx = 0; idx < @ir.hot_root_count(func); idx = idx + 1 {
+    ops.push(@ir.hot_node_get(func, @ir.hot_root_get(func, idx)).op.to_string())
+  }
+  assert_eq(ops, ["Unreachable", "Const", "Const", "Unreachable"])
 }
 
 ///|
