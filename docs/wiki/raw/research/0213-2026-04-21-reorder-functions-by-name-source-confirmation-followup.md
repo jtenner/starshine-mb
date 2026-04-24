@@ -1,5 +1,7 @@
 # Binaryen `reorder-functions-by-name` source-confirmation follow-up
 
+Supersession note (2026-04-24): this note remains useful for the original source-confirmation audit, but raw primary-source provenance and current Starshine status are now superseded by `docs/wiki/raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md`, `docs/wiki/raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md`, and `docs/wiki/binaryen/passes/reorder-functions-by-name/starshine-strategy.md`.
+
 Date: 2026-04-21
 Status: source-confirmed follow-up for an existing upstream-only dossier
 Pass: `reorder-functions-by-name`

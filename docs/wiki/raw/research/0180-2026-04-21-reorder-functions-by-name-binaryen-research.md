@@ -1,5 +1,7 @@
 # Binaryen `reorder-functions-by-name` research
 
+Supersession note (2026-04-24): this seed note remains useful for the initial dossier rationale, but raw primary-source provenance and current Starshine status are now superseded by `docs/wiki/raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md`, `docs/wiki/raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md`, and `docs/wiki/binaryen/passes/reorder-functions-by-name/starshine-strategy.md`.
+
 Date: 2026-04-21
 Author: Codex recursive wiki campaign thread
 Status: source-backed upstream-only dossier input
