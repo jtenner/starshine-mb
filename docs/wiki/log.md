@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] research | add `strip-toolchain-annotations` source dossier
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose `strip-toolchain-annotations` because the late-pass chronology already named it as a newer upstream-only Binaryen pass but the wiki had no dedicated dossier, immutable primary-source manifest, transformed-shape catalog, or Starshine status page.
+- Added `docs/wiki/raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md`, capturing the official Binaryen `version_129` release, `CHANGELOG.md`, `StripToolchainAnnotations.cpp`, `pass.cpp`, `passes.h`, the dedicated `strip-toolchain-annotations.wast` lit file, and current-`main` spot-check URLs. The capture records the source-backed contract: public `strip-toolchain-annotations`, function-parallel annotation cleanup, clearing `removableIfUnused`, `jsCalled`, and `idempotent`, empty-entry cleanup, and preservation of non-toolchain metadata such as `metadata.code.inline`.
+- Added `docs/wiki/raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md` plus a new living dossier under `docs/wiki/binaryen/passes/strip-toolchain-annotations/`, including overview, Binaryen strategy, implementation/test-map, annotation-shape catalog, and Starshine status pages.
+- Grounded the local status in exact repo surfaces: `src/passes/optimize.mbt` has no registry entry for `strip-toolchain-annotations`; `src/lib/types.mbt`, `src/wast/parser.mbt`, `src/wast/lower_to_lib.mbt`, and `src/wast/module_wast_tests.mbt` already model a function-annotation subset; `src/passes/duplicate_function_elimination.mbt` remaps and hashes annotations; and the local binary custom-section roundtrip for this surface remains an explicit uncertainty.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/late-pipeline-dispatch.md`, and `CHANGELOG.md` so the formerly only-mentioned upstream pass now has a stable home, while keeping `strip-target-features` separate as a still-only-catalog-level mention.
+
 ## [2026-04-24] health | mark `asyncify` tracker gap closed
 
 - Ran a focused reference-hygiene check after adding the `asyncify` dossier and found the tracker's long “gap closed” maintenance section listed `asyncify` in the covered summary but lacked the matching explicit sentence used for neighboring recent dossier additions.
