@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
+  - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./traps-never-happen-exact-casts-and-descriptors.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
   - ../index.md
   - ../global-struct-inference/index.md
@@ -85,7 +88,8 @@ It is **closed-world creation-evidence-based struct-type refinement**.
 - Only in `--traps-never-happen` mode can an abstract parent refine to a unique live child branch.
 - Declared subtype edges are intentionally preserved here.
 - Descriptor/exact-cast repair is part of the real contract, not optional polish.
-- A narrow 2026-04-21 freshness check found the reviewed `main` pass file and dedicated lit files unchanged relative to `version_129` on the surfaces that matter here.
+- The 2026-04-24 raw primary-source manifest now anchors the dossier to the official `version_129` release page and source/test URLs, and the refreshed Starshine page maps the current local boundary-only status to exact code locations.
+- A narrow 2026-04-24 freshness check found no teaching-relevant current-`main` drift from the reviewed `version_129` contract on the owner file, registration surface, helper headers, and dedicated lit files.
 
 ## Beginner warning: what the name hides
 
@@ -131,6 +135,8 @@ What it actually is in `version_129`:
   - Focused guide to the hardest half of the pass: why TNH matters, why exact casts often collapse to bottom/null checks instead of refining to a live child, and how descriptor casts / `ref.get_desc` / `struct.new_desc` are repaired safely.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT-shape catalog covering positive TNH refinements, always-on bottomization, multiple-child bailouts, descriptor/exact-cast repair families, `ref.get_desc` cases, allocation cases, and continuation robustness.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and future port map: boundary-only registry entry, honest request rejection, active preset omission, no owner file, no active backlog slice, and the exact GC/type/parser/validator surfaces a future closed-world module pass would need to reuse.
 
 ## Current maintenance rule
 
@@ -147,6 +153,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md)
+- [`../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)

@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
+  - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./traps-never-happen-exact-casts-and-descriptors.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `abstract-type-refining`: implementation structure and tests
@@ -231,6 +234,8 @@ So visible type-section shrinkage can be a combined effect.
 
 ## Freshness note
 
+The 2026-04-24 raw manifest in [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md) records the official release/source/test URLs used for this dossier.
+
 I did a narrow current-`main` check on:
 
 - `src/passes/AbstractTypeRefining.cpp`
@@ -242,6 +247,7 @@ Durable result:
 - the checked core pass logic still matches `version_129` on the important reviewed surfaces
 - the dedicated lit files still match exactly on the reviewed surfaces
 - the reviewed `pass.cpp` surface did not change the registration or scheduler slot for `abstract-type-refining`
+- the local Starshine follow-up still found no pass owner file; the exact current local status lives in [`./starshine-strategy.md`](./starshine-strategy.md)
 
 That is a narrow freshness note, not a proof that every neighboring helper file is identical.
 
@@ -273,6 +279,8 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md)
+- [`../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/AbstractTypeRefining.cpp>

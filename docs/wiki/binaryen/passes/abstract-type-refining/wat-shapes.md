@@ -1,19 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md
+  - ../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./traps-never-happen-exact-casts-and-descriptors.md
+  - ./starshine-strategy.md
 ---
 
 # `abstract-type-refining` WAT shapes
 
 This page is the beginner-friendly shape catalog for Binaryen `abstract-type-refining`.
+For provenance and local status, pair it with the raw manifest [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md) and the Starshine page [`./starshine-strategy.md`](./starshine-strategy.md).
 
 The easiest way to read these examples is to remember the pass has two different powers:
 
@@ -550,6 +554,8 @@ It is a larger source-backed set of families:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-abstract-type-refining-primary-sources.md)
+- [`../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0295-2026-04-24-abstract-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md`](../../../raw/research/0155-2026-04-21-abstract-type-refining-binaryen-research.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/AbstractTypeRefining.cpp>
