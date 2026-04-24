@@ -1,278 +1,187 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
+  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
   - ../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
-  - ./call-ref-casts-and-boundaries.md
+  - ./local-flow-type-floor-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../type-refining/index.md
   - ../gufa/index.md
   - ../gufa-cast-all/index.md
+supersedes:
+  - ../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
 ---
 
 # Binaryen `type-generalizing` strategy
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this family.
-The core sources are:
+Use Binaryen `version_129` as the source oracle for this corrected page.
+The core sources are captured in [`../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md).
+
+Most important official files:
 
 - `src/passes/TypeGeneralizing.cpp`
 - `src/passes/pass.cpp`
 - `test/lit/passes/type-generalizing.wast`
-- `test/lit/passes/type-generalizing-with-optimizing-casts.wast`
-
-Important helper dependencies:
-
-- `src/ir/possible-contents.h`
-- `src/ir/lubs.h`
-
-Primary source URLs:
-
-- <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeGeneralizing.cpp>
-- <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
-- <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/type-generalizing.wast>
-- <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/type-generalizing-with-optimizing-casts.wast>
-- <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/possible-contents.h>
-- <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/lubs.h>
+- `src/wasm/wasm-type.h` for the `Type` lattice helpers used by the pass
 
 ## The pass in one sentence
 
-Binaryen `type-generalizing` is a small closed-world GC pass that consumes `ContentOracle` facts to narrow types on `struct.get`, `struct.set`, and `call_ref`, with an optional sibling that also tightens `ref.cast` targets.
+Binaryen `experimental-type-generalizing` is a small hidden/test function pass that retags defaultable expressions to a compatible local-flow type inferred from local-set/local-tee evidence, with a special drop-plus-zero rewrite when the expression being retagged is a `local.get`.
 
-## Biggest naming fact
+## Biggest correction
 
-The local name `type-generalizing` is misleading if taught alone.
-Upstream actually exposes two **experimental** public names:
+The old dossier said this pass was a closed-world `ContentOracle` consumer over GC operations.
+That is stale for reviewed `version_129`.
 
-- `experimental-type-generalizing`
-- `experimental-type-generalizing-with-optimizing-casts`
+The corrected source-backed facts are:
 
-So this is best taught as an **experimental two-variant family**, not as one broad mature public pass.
+- `pass.cpp` registers **one** hidden/test pass name: `experimental-type-generalizing`.
+- `TypeGeneralizing.cpp` exports **one** constructor: `createTypeGeneralizingPass()`.
+- The owner file has no `ContentOracle`, no `struct.get` / `struct.set` visitors, no `call_ref` visitor, no `ref.cast` visitor, and no pass-specific `ReFinalize` call.
+- No `experimental-type-generalizing-with-optimizing-casts` registration or dedicated lit file was found in the reviewed release.
 
-## Scheduler fact
+## Scheduler and visibility fact
 
-This family is **registered publicly** in Binaryen `pass.cpp`, but it is **not scheduled** in the reviewed default no-DWARF `-O` / `-Os` pipeline and it does not appear in the saved generated-artifact `-O4z` audit.
-So this dossier is a deliberate upstream-only registry expansion.
+Binaryen wires this pass through `registerTestPass(...)`.
+That makes it useful for lit coverage and experiments, but it should not be taught as a default optimizer pass or as a normal public shrink pass.
 
-## Core gates
+It is also outside Starshine's current no-DWARF parity path and the saved generated-artifact `-O4z` skipped-slot audit.
 
-`getPassOptions()` requests:
+## High-level algorithm
 
-- `PassOptions::ClosedWorld`
-- `optimizeLevel = 3`
+The implementation is compact enough to teach as one loop:
 
-The pass also reports `isFunctionParallel() = true`.
+1. Keep a map from local index to the type evidence observed for that local.
+2. Walk function expressions and scan child expression structure.
+3. `local.set` and `local.tee` update the local-index evidence with the type of the value being assigned.
+4. For each candidate expression, ignore unreachable, concrete, and nondefaultable cases.
+5. Compare the expression's current type against the collected local-flow evidence.
+6. Compute a compatible type using Binaryen's subtype and least-upper-bound operations.
+7. If the computed type is safe, retag the expression to that type.
+8. If the expression is a `local.get`, replace it with a sequence that drops the original get and materializes a default/zero value of the target type instead of mutating the get directly.
+9. Clear and rescan the local evidence as the walk crosses barriers or rewrites.
 
-Beginner translation:
+The result is a local-flow type cleanup, not a body-restructuring pass.
 
-- the analysis assumes Binaryen can reason about the whole closed-world module
-- this is a fairly aggressive late type-shaping helper
-- each function can be walked independently after the shared module-wide oracle is built
+## What the local evidence means
 
-## Core dependency: `ContentOracle`
+The evidence map is keyed by local index because locals are the point where incompatible expression types tend to force splits or awkward typed control results.
 
-The family keeps one field:
+`local.set` / `local.tee` are important because they say:
 
-- `std::unique_ptr<ContentOracle> contentOracle;`
+- this expression value flows into this local,
+- the local-flow type only needs to satisfy the observed assignment shape,
+- a more compatible type may be enough for the surrounding expression.
 
-and initializes it in `doWalkModule`.
+This is why the pass belongs near locals/type-flow teaching, not near whole-program GC oracle teaching.
 
-This is the same possible-contents analysis family already important in the `gufa` dossiers.
-That is the first teaching correction:
+## Candidate-expression gates
 
-- this pass does **not** invent a fresh inference system
-- it reuses a whole-program oracle and only exposes a tiny rewrite surface on top of it
+The pass refuses to act on several families:
 
-## The family split
+- **unreachable** expressions: no useful concrete type cleanup is needed.
+- **concrete** expressions: these are scan barriers in the implementation.
+- **nondefaultable** expression types: the `local.get` fallback may need to create a zero/default value, so nondefaultable targets are unsafe.
+- **cases where the computed type is not a subtype-compatible improvement**: the pass keeps the original expression.
 
-The constructor takes one boolean:
+These gates are correctness constraints, not incidental implementation details.
 
-- `optimizeCasts`
+## The `local.get` special case
 
-That produces the two siblings:
+A normal candidate expression can be retagged by changing its `type` field.
+A `local.get` is different: its result type is tied to the local declaration, so directly mutating the expression type would be inconsistent.
 
-| Upstream public name | `optimizeCasts` | Distinctive behavior |
-| --- | --- | --- |
-| `experimental-type-generalizing` | `false` | no `ref.cast` tightening |
-| `experimental-type-generalizing-with-optimizing-casts` | `true` | also tightens `ref.cast` targets |
+Binaryen handles that by replacing the expression with a sequence shaped like:
 
-So the sibling story is exactly:
+```wat
+(block (result $chosen-type)
+  (drop (local.get $x))
+  (ref.null $chosen-type-or-other-zero))
+```
 
-- same oracle
-- same main visitors
-- one extra cast visitor effect when the flag is enabled
+The exact printed zero/default depends on the chosen type, but the invariant is stable:
 
-## What the implementation is really organized around
+- preserve evaluation of the original `local.get` through `drop`,
+- then produce a default value of the retagged type.
 
-The durable structure is:
+## Inputs and outputs
 
-1. build one module-wide `ContentOracle`
-2. walk each function post-order
-3. on supported nodes, ask the oracle for possible contents
-4. compute a narrower safe type when possible
-5. mutate the expression or field type in place
-6. if anything changed and GC is enabled, run `ReFinalize`
+Input:
 
-This is a **retagging / type-precision** pass, not a body-restructuring pass.
+- one function body
+- typed Binaryen expression tree
+- local assignment evidence discovered while walking the tree
 
-## Visitor 1: `visitStructGet`
+Output:
 
-This visitor only tries to refine **nullable reference result types**.
-If the current result type is not nullable, it exits immediately.
+- the same function shape, except some defaultable expression result types may be retagged
+- `local.get` retagging requests become drop-plus-zero sequences
+- no module declarations, signatures, struct fields, call targets, or casts are changed by this pass
 
-Then it:
+## Correctness constraints
 
-- asks the oracle for possible contents of the receiver
-- collects their heap types
-- computes a least upper bound
-- checks whether the inferred type is a subtype of the current heap type
-- rewrites the result type to the narrower heap type while preserving nullability
+A faithful implementation must preserve at least these constraints:
 
-This is the cleanest beginner example of the pass:
+1. Do not retag concrete or unreachable expressions.
+2. Do not synthesize zero/default values for nondefaultable types.
+3. Do not directly mutate `local.get` to a type inconsistent with its local declaration.
+4. Use subtype and LUB reasoning, not string/name equality.
+5. Reset or rescan local evidence after barriers and rewrites so stale evidence does not leak across unrelated shapes.
+6. Keep the pass function-local; do not invent closed-world module assumptions for this source contract.
 
-- broad static field result type in the IR
-- narrower actual receiver set in the closed world
-- narrower visible result type after the pass
+## Notable edge cases
 
-## Visitor 2: `visitStructSet`
+- **Local-get fallback:** this is the only source-backed case where a visible expression wrapper is created.
+- **Defaultability:** a type-flow cleanup can become invalid if the chosen type lacks a default value.
+- **Concrete typed expressions:** they stop the broad retagging story even when a human might think a nearby local shape is compatible.
+- **No GC-operation visitors:** `struct.get`, `struct.set`, `call_ref`, and `ref.cast` examples belong to other passes or future sources, not this one.
 
-This visitor does the same kind of reasoning on the **write-side field type**.
+## Validation strategy
 
-It:
+For Binaryen parity research, validate against:
 
-- reasons about the receiver's possible heap types
-- finds the actual field type on the inferred narrower receiver type
-- checks whether that field type is a subtype of the current declared field type
-- rewrites `curr->field.type` when that is safe
+- `test/lit/passes/type-generalizing.wast` for source-backed before/after shapes.
+- `TypeGeneralizing.cpp` for the local evidence and candidate gate rules.
+- `pass.cpp` for the hidden/test registration status.
 
-This is an easy thing to miss if you only skim the name.
-The pass does not just refine expression results; it also refines the expected field type on writes.
+For any future Starshine port, add local tests that cover:
 
-## Visitor 3: `visitCallRef`
-
-This is the richest part of the family.
-The pass:
-
-- asks the oracle for possible contents of the target expression
-- filters those contents down to function signatures
-- bails if the target set is unknown or mixed
-- if the target set is impossible, rewrites the target to `unreachable`
-- if exactly one signature remains, rewrites:
-  - `curr->target->type` to `funcref` of that signature, non-nullable
-  - `curr->type` to the signature's result type when it is a subtype of the current result type
-
-The core beginner rule is:
-
-- **one signature or nothing**
-
-If multiple signatures remain possible, Binaryen keeps the original broader `call_ref` typing.
-
-## Visitor 4: `visitRefCast`
-
-This visitor only has an effect when `optimizeCasts` is true.
-Then it:
-
-- asks the oracle for possible contents of the cast input
-- computes a heap-type LUB over those possible contents
-- if that LUB is a subtype of the current cast target heap type, rewrites the cast target type
-
-This is important to separate from `gufa-cast-all`.
-`gufa-cast-all` can insert **new** casts.
-This family only tightens the target type of an **existing** cast expression.
-
-## Refinalization is part of the contract
-
-At the end of `doWalkFunction`, Binaryen checks whether anything changed.
-If so, and if GC is enabled, it runs:
-
-- `ReFinalize().walkFunctionInModule(curr, getModule())`
-
-This matters because narrowing `struct.get`, `call_ref`, or cast types can change exact expression typing and LUB-sensitive parent nodes.
-So refinalization is not optional cleanup; it is part of correctness.
-
-## Positive family 1: narrower `struct.get` result types
-
-When the receiver's possible contents all live in a narrower subtype cone, Binaryen can make the visible `struct.get` result type more precise.
-
-## Positive family 2: narrower `struct.set` field expectations
-
-When the receiver is provably narrower than its broad static type, the field type on the write can also be tightened.
-
-## Positive family 3: `call_ref` target and result sharpening
-
-When the possible target set collapses to exactly one signature, Binaryen can:
-
-- make the target type non-nullable function-ref of that signature
-- make the result type equal to the signature result when it is narrower
-
-## Positive family 4: impossible `call_ref` turns into `unreachable`
-
-If the target's possible-contents set is empty, Binaryen rewrites the target expression to `unreachable`.
-That is a strong semantic rewrite, not just cosmetic retagging.
-
-## Positive family 5: optional cast-target tightening
-
-Only the optimizing-casts sibling tightens `ref.cast` targets.
-That is the whole reason the second public experimental pass exists.
-
-## Negative family 1: tiny supported surface
-
-Everything outside the four visitors is untouched.
-That includes many GC/type expressions a beginner might expect from the name.
-
-## Negative family 2: no multi-signature `call_ref` generalization
-
-If two or more different possible signatures remain, the pass preserves the original `call_ref` typing.
-This conservatism is core to the contract.
-
-## Negative family 3: no arbitrary new casts
-
-Even in the optimizing-casts sibling, the pass only tightens existing `ref.cast` nodes.
-It does not insert new ones.
-That is a crucial split from `gufa-cast-all`.
-
-## Important helper dependencies
-
-The most important helper dependencies are:
-
-- `ContentOracle` from `possible-contents.h`
-- `LUB` support from `lubs.h`
-- `ReFinalize`
-- the pass-local four-visitor surface in `TypeGeneralizing.cpp`
-
-So this family is best understood as:
-
-- **closed-world oracle facts plus small targeted type retagging**
-
-not as a whole-cluster optimizer.
+- expression retagging where local-flow evidence permits it,
+- `local.get` drop-plus-zero materialization,
+- nondefaultable no-ops,
+- concrete/unreachable barriers,
+- registry rejection until the pass becomes active.
 
 ## What a future Starshine port must preserve
 
-A faithful port should preserve at least nine things:
+A faithful Starshine port should preserve at least eight things:
 
-1. the local alias versus upstream experimental-name split
-2. the two-sibling `optimizeCasts` split
-3. the hard closed-world assumption
-4. function-parallel scheduling after one module-wide oracle build
-5. the exact four-visitor rewrite surface
-6. the one-signature-only `call_ref` rule
-7. the impossible-target `unreachable` rewrite for `call_ref`
-8. cast tightening only on the optimizing-casts sibling
-9. post-change refinalization when GC is enabled
+1. local alias versus upstream hidden/test name split
+2. function-local implementation boundary
+3. local-set/local-tee evidence collection
+4. subtype/LUB-based compatible type selection
+5. concrete/unreachable/nondefaultable bailouts
+6. `local.get` drop-plus-zero replacement
+7. absence from active presets until implemented honestly
+8. source-correction warning against the old `ContentOracle` / cast-sibling story
 
 ## Most important beginner correction
 
 If someone says:
 
-- “`type-generalizing` is just another broad type-refinement pass”
+- “`type-generalizing` narrows GC field accesses and `call_ref` using a closed-world oracle”
 
-that is too vague to be useful.
+that is the stale 0191 interpretation.
 
-A much better sentence is:
+A better sentence is:
 
-- “Binaryen `type-generalizing` is an experimental closed-world oracle consumer that narrows types on just four expression families, plus one sibling that also tightens existing cast targets.”
+- “Binaryen `experimental-type-generalizing` is a hidden/test local-flow pass that retags defaultable expressions based on local assignment type evidence.”

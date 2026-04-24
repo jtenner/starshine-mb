@@ -1,10 +1,18 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
+  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
   - ../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/lib/types.mbt
+  - ../../../../../src/ir/hot_core.mbt
+  - ../../../../../src/ir/hot_lift.mbt
+  - ../../../../../src/ir/hot_lower.mbt
+  - ../../../../../src/validate/typecheck.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -12,12 +20,15 @@ sources:
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
-  - ./call-ref-casts-and-boundaries.md
+  - ./local-flow-type-floor-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../type-refining/index.md
   - ../gufa/index.md
   - ../gufa-cast-all/index.md
   - ../type-merging/index.md
+supersedes:
+  - ../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
 ---
 
 # `type-generalizing`
@@ -25,86 +36,90 @@ related:
 ## Role
 
 - `type-generalizing` is a **local boundary-only registry alias** in Starshine.
-- The upstream Binaryen public names are:
-  - `experimental-type-generalizing`
-  - `experimental-type-generalizing-with-optimizing-casts`
+- The reviewed upstream Binaryen `version_129` pass name is `experimental-type-generalizing`.
+- Binaryen registers that upstream name as a **hidden/test pass**, not as a normal public optimizer pass.
 - It is currently **unimplemented** in Starshine's active optimizer.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-slot queue.
 - `agent-todo.md` currently has **no dedicated `type-generalizing` slice**.
 
-So this folder is an explicit tracker expansion for a real upstream-only registry pass family.
+So this folder is still a useful tracker expansion, but the 2026-04-24 source correction changes what the pass means.
 
-## Why this pass matters
+## Correction note
 
-- The local registry still names `type-generalizing`, so it is a real future port surface.
-- The pass sits directly beside already-documented GC/type neighbors like `type-refining`, `signature-*`, `abstract-type-refining`, `type-merging`, and `unsubtyping`.
-- The local name is easy to misread. Upstream is more honest: this is still an **experimental** pass family, and the family actually has **two** public names.
-- The implementation is much narrower than the name suggests, which makes it a good teaching target.
+The earlier 2026-04-21 dossier and research note described a closed-world `ContentOracle` pass over `struct.get`, `struct.set`, `call_ref`, and optional `ref.cast` tightening. A fresh official-source check did **not** support that interpretation for Binaryen `version_129`.
+
+The corrected source-backed model is:
+
+- one upstream hidden/test pass: `experimental-type-generalizing`
+- one owner file: `src/passes/TypeGeneralizing.cpp`
+- one dedicated lit file: `test/lit/passes/type-generalizing.wast`
+- no `experimental-type-generalizing-with-optimizing-casts` sibling found in the reviewed release
+- no `ContentOracle`, `struct.get`, `struct.set`, `call_ref`, `ref.cast`, or `ReFinalize` visitor surface in this pass
+
+Keep this contradiction visible because the old claim is easy to propagate from the local name alone.
 
 ## Beginner summary
 
-A good beginner mental model is:
+A beginner mental model is:
 
-- Binaryen asks a whole-program possible-contents oracle what values can really flow into a few GC-sensitive sites,
-- uses that information to make some expression or field types more precise,
-- and then refinalizes if anything changed.
+- Binaryen notices that nearby local-flow shapes only require a compatible non-concrete type,
+- computes a safe local-flow type using subtype and least-upper-bound reasoning,
+- retags defaultable expressions when that makes the local-flow shape simpler,
+- and uses a drop-plus-zero replacement for `local.get` when a direct type mutation would be invalid.
 
-In `version_129`, the real supported rewrite surface is only:
-
-- `struct.get`
-- `struct.set`
-- `call_ref`
-- optionally `ref.cast` in the optimizing-casts sibling
-
-So this is **not** a generic “improve all types everywhere” pass.
+This is **not** a whole-program GC oracle pass and **not** a generic type optimizer.
 
 ## Most important durable takeaways
 
-- The family requires **closed-world** reasoning.
-- Upstream wires it as a **function-parallel** pass backed by one module-wide `ContentOracle`.
-- The plain sibling narrows types on `struct.get`, `struct.set`, and `call_ref`.
-- The second sibling adds **cast-target tightening** for `ref.cast`.
-- `call_ref` only rewrites when the possible target set collapses to **one signature**.
-- Impossible `call_ref` targets are rewritten to **`unreachable`**.
-- Binaryen refinalizes afterwards when GC is enabled and anything changed.
+- Upstream `experimental-type-generalizing` is hidden/test registered in `pass.cpp`.
+- The implementation is function-local and lives in `TypeGeneralizing.cpp`.
+- The pass uses local-set/local-tee evidence plus Binaryen `Type` subtype/LUB operations.
+- It only rewrites defaultable expressions whose type can safely become the computed compatible type.
+- Concrete typed expressions, unreachable expressions, and nondefaultable types are practical barriers.
+- `local.get` is the special case: Binaryen replaces it with a sequence that drops the original get and emits a default/zero value of the chosen type.
+- Starshine currently preserves only the boundary-only alias `type-generalizing`; it has no owner file, active transform, preset slot, or backlog slice.
 
-## The sibling split in one table
+## What this pass is not
 
-| Local teaching name | Upstream public name | Extra behavior |
-| --- | --- | --- |
-| plain `type-generalizing` | `experimental-type-generalizing` | narrows `struct.get`, `struct.set`, and `call_ref` types |
-| cast-optimizing sibling | `experimental-type-generalizing-with-optimizing-casts` | same plus `ref.cast` target tightening |
+| Misread | Corrected source-backed fact |
+| --- | --- |
+| Closed-world `ContentOracle` pass | Function-local type-flow cleanup over local evidence |
+| `struct.get` / `struct.set` / `call_ref` / `ref.cast` visitor family | No such visitors in `TypeGeneralizing.cpp` |
+| Two upstream public siblings | One hidden/test registration found: `experimental-type-generalizing` |
+| Cast-insertion or cast-tightening pass | No cast visitor in the reviewed owner file |
+| Starshine partial implementation | Boundary-only alias only |
 
 ## Page map
 
-- [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Deep dive into the actual Binaryen `version_129` contract, helper dependencies, and algorithmic phases.
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  File-by-file and test-by-test map of the upstream sources that define the family.
-- [`./call-ref-casts-and-boundaries.md`](./call-ref-casts-and-boundaries.md)
-  Focused guide to the easiest part to misread: the one-signature `call_ref` rule, the impossible-target `unreachable` rewrite, and the cast-optimizing sibling split.
-- [`./wat-shapes.md`](./wat-shapes.md)
-  Beginner-friendly before/after shape catalog for the main positive, preserved, and bailout families.
+- [`./binaryen-strategy.md`](./binaryen-strategy.md)  
+  Corrected deep dive into the actual Binaryen `version_129` algorithm and source-backed invariants.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)  
+  File-by-file and test-by-test map of the upstream sources that define the corrected contract.
+- [`./local-flow-type-floor-and-boundaries.md`](./local-flow-type-floor-and-boundaries.md)  
+  Focused guide to local-set/local-tee evidence, defaultability barriers, the `local.get` drop-plus-zero rule, and the stale `ContentOracle` contradiction.
+- [`./wat-shapes.md`](./wat-shapes.md)  
+  Beginner-friendly before/after shape catalog for the corrected positive, preserved, and no-op families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)  
+  Current Starshine status and future-port map with exact repository code locations.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `type-generalizing` research and port planning.
-- Keep the local-vs-upstream naming split explicit: Starshine tracks `type-generalizing`, while Binaryen currently publishes an experimental two-pass family.
-- Keep the split from `type-refining` and `gufa-cast-all` explicit too. This pass consumes oracle facts on a tiny rewrite surface; it is not a broad type-shaping pass and it does not insert arbitrary new casts.
+- Cite the 2026-04-24 raw manifest and source-correction note for pass mechanics.
+- Treat `0191-2026-04-21-type-generalizing-binaryen-research.md` as historical and superseded for the algorithmic description.
+- Do not reintroduce the unsupported `ContentOracle` / `call_ref` / optimizing-casts sibling story unless future primary sources actually add that surface.
 
 ## Sources
 
-- [`../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md`](../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md)
+- [`../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md)
+- [`../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md`](../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md)
+- Historical superseded note: [`../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md`](../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
+- [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
+- [`../../../../../src/ir/hot_core.mbt`](../../../../../src/ir/hot_core.mbt)
+- [`../../../../../src/ir/hot_lift.mbt`](../../../../../src/ir/hot_lift.mbt)
+- [`../../../../../src/ir/hot_lower.mbt`](../../../../../src/ir/hot_lower.mbt)
+- [`../../../../../src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [`../tracker.md`](../tracker.md)
-- [`../index.md`](../index.md)
-- Binaryen `version_129` sources:
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeGeneralizing.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/type-generalizing.wast>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/type-generalizing-with-optimizing-casts.wast>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/possible-contents.h>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/lubs.h>
