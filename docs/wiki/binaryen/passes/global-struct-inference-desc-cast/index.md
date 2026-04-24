@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md
+  - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md
   - ../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./descriptor-singleton-gate-and-dedicated-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../global-struct-inference/index.md
   - ../tracker.md
 ---
@@ -91,6 +94,8 @@ So this pass is best taught as:
   - Focused explanation of the exact singleton-descriptor-global gate, the exact-vs-strict-subtype split, and what each dedicated lit family proves.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog showing which `ref.cast` families become `ref.cast_desc_eq`, which stay plain casts, and which still bail out.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and future-port map: boundary-only registry name, active request rejection, active plain-GSI sibling distinction, exact local code locations, existing `ref.cast_desc_eq` syntax/instruction infrastructure, and the missing closed-world descriptor-global / subtype machinery a faithful port needs.
 
 ## Current maintenance rule
 
@@ -108,8 +113,11 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md)
+- [`../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md`](../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md`](../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md)
 - [`../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md`](../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

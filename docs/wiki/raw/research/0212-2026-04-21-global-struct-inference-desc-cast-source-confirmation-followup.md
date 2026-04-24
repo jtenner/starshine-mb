@@ -1,5 +1,9 @@
 # 0212 - 2026-04-21 - global-struct-inference-desc-cast source-confirmation follow-up
 
+Status: superseded-for-provenance-and-local-status
+
+Supersession note (2026-04-24): this remains the durable source-correction note for the target-descriptor-singleton and dedicated-`gsi-to-desc-cast.wast` fixes. Raw source provenance and current Starshine code-location status now live in [`../binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md`](../binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md), [`0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md`](./0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md), and [`../../binaryen/passes/global-struct-inference-desc-cast/starshine-strategy.md`](../../binaryen/passes/global-struct-inference-desc-cast/starshine-strategy.md).
+
 ## Scope
 
 This follow-up revisits the existing `global-struct-inference-desc-cast` / upstream `gsi-desc-cast` dossier against official Binaryen `version_129` sources.

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md
+  - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md
   - ../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md
   - ../global-struct-inference/binaryen-strategy.md
@@ -11,6 +13,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./descriptor-singleton-gate-and-dedicated-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../global-struct-inference/index.md
 ---
 
@@ -18,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
+Use Binaryen `version_129` as the primary source oracle for this pass. The committed raw manifest is [`../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md).
 
 Primary files:
 
@@ -290,8 +293,11 @@ That is the behavior a future Starshine port would need to preserve.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md)
+- [`../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md`](../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md`](../../../raw/research/0170-2026-04-21-global-struct-inference-desc-cast-binaryen-research.md)
 - [`../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md`](../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../global-struct-inference/binaryen-strategy.md`](../global-struct-inference/binaryen-strategy.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalStructInference.cpp>

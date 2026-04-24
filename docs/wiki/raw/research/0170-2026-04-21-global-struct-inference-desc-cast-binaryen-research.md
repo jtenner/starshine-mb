@@ -1,7 +1,9 @@
 # 0170 - Binaryen `global-struct-inference-desc-cast` / upstream `gsi-desc-cast` research
 
 Date: 2026-04-21
-Status: supported
+Status: superseded-for-provenance-and-local-status
+
+Supersession note (2026-04-24): the durable high-level identity still matters, but [`0212`](./0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md) corrected this note's older test-surface and cast-input-origin overreads, and [`0326`](./0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md) plus [`../binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md`](../binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md) now own raw primary-source provenance and current Starshine status.
 
 ## Why this pass was chosen
 
