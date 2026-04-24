@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
+  - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./field-removal-subtyping-js-interop-and-traps.md
+  - ./starshine-strategy.md
 ---
 
 # `global-type-optimization` WAT shapes
@@ -526,6 +529,8 @@ That is what future port work must match.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md)
+- [`../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md`](../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/GlobalTypeOptimization.cpp>

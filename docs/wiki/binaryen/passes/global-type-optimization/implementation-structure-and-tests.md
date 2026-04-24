@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
+  - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./field-removal-subtyping-js-interop-and-traps.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `global-type-optimization`: implementation structure and tests
@@ -280,6 +283,7 @@ The tests prove the pass must still preserve:
 
 ## Freshness note
 
+The 2026-04-24 raw manifest in [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md) records the reviewed official release page, source files, helper files, and lit-test URLs.
 I did a narrow current-`main` check on:
 
 - `src/passes/GlobalTypeOptimization.cpp`
@@ -289,8 +293,7 @@ I did a narrow current-`main` check on:
 Durable result:
 
 - the checked core pass logic and dedicated test surface still match `version_129` on the important reviewed surfaces
-- the only reviewed pass-file diff was a comment typo fix
-- the reviewed lit files were unchanged
+- the reviewed owner, registration, helper, and lit surfaces did not show teaching-relevant current-`main` drift from the `version_129` contract captured here
 
 That is a narrow freshness note, not a proof that every helper file is identical.
 
@@ -320,6 +323,8 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md)
+- [`../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md`](../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/GlobalTypeOptimization.cpp>

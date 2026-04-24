@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
+  - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./field-removal-subtyping-js-interop-and-traps.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
   - ../index.md
   - ../global-refining/index.md
@@ -27,7 +30,7 @@ related:
 ## Role
 
 - `global-type-optimization` is an upstream Binaryen **module pass**.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); follow the exact local status in [`./starshine-strategy.md`](./starshine-strategy.md).
 - Upstream Binaryen `pass.cpp` registers the short CLI name:
   - `gto`
 - The local tracker and registry use the fuller descriptive name:
@@ -75,7 +78,7 @@ It is **closed-world private-struct mutability and layout cleanup**.
 - Field removal is hierarchy-aware and may reorder parent fields so children can still append compatible layouts.
 - Instruction rewrite happens before type rewrite.
 - Removed writes preserve value side effects and null-trap ordering, and removed trapping module-initializer operands become fresh globals.
-- A narrow 2026-04-21 freshness check found only a comment typo fix in the current-`main` pass file and no semantic drift in the reviewed lit surface.
+- A narrow 2026-04-24 freshness check, captured in [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md), found no teaching-relevant current-`main` drift in the reviewed owner, registration, helper, or lit surfaces beyond the existing `version_129` contract.
 
 ## Beginner warning: what the name hides
 
@@ -119,6 +122,8 @@ What it actually is in `version_129`:
   - Focused guide to the hardest half of the pass: subtype-layout constraints, public-parent limits, JS-exposed descriptor prototype fields, and trap-preserving instruction rewrites.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT-shape catalog covering immutability positives, unread-field removals, subtype reordering, JS-descriptor keepalive cases, and the main bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and future-port map: boundary-only local registry entry, no `gto` alias, no owner file, active request rejection, preset omission, reusable GC/type/parser/validator/binary surfaces, and the module/type-graph infrastructure a faithful port would need.
 
 ## Current maintenance rule
 
@@ -134,6 +139,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md)
+- [`../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md`](../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
