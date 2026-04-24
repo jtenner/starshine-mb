@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
+  - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
   - ../string-gathering/index.md
   - ../../no-dwarf-default-optimize-path.md
@@ -13,6 +15,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./json-and-magic-imports.md
+  - ./starshine-strategy.md
   - ../string-gathering/index.md
   - ../../../strings/string-const-surface.md
   - ../tracker.md
@@ -48,7 +51,8 @@ Even though `string-lowering` is not in the repo's current no-DWARF optimize pat
 - It changes ABI-visible types, imports, globals, custom sections, and feature flags.
 - The existing string docs in this repo repeatedly mention it as the next layer beyond literal gathering.
 
-There is **no dedicated `string-lowering` slice** in the current `agent-todo.md`; this folder is therefore tracker expansion for an upstream-only teaching gap, not a direct implementation handoff.
+There is **no dedicated `string-lowering` slice** in the current `agent-todo.md`, and `src/passes/optimize.mbt` currently preserves neither `string-lowering` nor the magic-import siblings as registry names.
+This folder is therefore tracker expansion for an upstream-only teaching gap, not a direct implementation handoff.
 
 ## Beginner summary
 
@@ -78,7 +82,8 @@ That is much more accurate than saying either:
 - Public singleton-rec-group function types are handled specially before `TypeMapper`; the file has an explicit TODO for broader public-type cases.
 - The supported op surface in `version_129` is narrow and explicit, not universal. Some `string.new*` and `string.encode*` variants still hit upstream `TODO` / `WASM_UNREACHABLE` paths.
 - After lowering, Binaryen runs `ReFinalize()` and disables `FeatureSet::Strings`.
-- A direct source check found no visible drift in `main/src/passes/StringLowering.cpp` on the checked surfaces.
+- A 2026-04-24 direct source check found no visible drift in `main/src/passes/StringLowering.cpp` on the checked surfaces.
+- Starshine currently supports `string.const` textual, binary, validation, and HOT roundtrip plumbing, but it has no `string-lowering` pass, no local registry spelling, and no active backlog slice for the broader ABI-lowering transform.
 
 ## Page map
 
@@ -90,6 +95,8 @@ That is much more accurate than saying either:
   Beginner-friendly before/after WAT catalog covering gathered literals, externref signatures, helper-call rewrites, unsupported-family boundaries, and preserved shapes.
 - [`./json-and-magic-imports.md`](./json-and-magic-imports.md)
   Focused guide to the most non-obvious part of the pass: numbered `string.const` imports vs magic imports, custom-section JSON encoding, invalid-string fallback, and assert-mode failure.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and code map: no registry spelling or pass owner yet, but real `string.const` parser / encoder / decoder / validator / HOT roundtrip infrastructure that future boundary-module work would reuse.
 
 ## Current maintenance rule
 
@@ -99,6 +106,8 @@ That is much more accurate than saying either:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)
+- [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
 - [`../string-gathering/index.md`](../string-gathering/index.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

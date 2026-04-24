@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
+  - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./json-and-magic-imports.md
+  - ./starshine-strategy.md
   - ../string-gathering/index.md
 ---
 
@@ -167,7 +170,7 @@ If teaching this pass to a new contributor, the cleanest proof split is:
 
 ## Current-main drift check
 
-A checked diff against current `main` found no visible changes in `src/passes/StringLowering.cpp` on the inspected file, and `main/src/passes/pass.cpp` still exposes the same public pass names.
+A 2026-04-24 checked diff against current `main` found no visible teaching-relevant changes in `src/passes/StringLowering.cpp` on the inspected surfaces, and `main/src/passes/pass.cpp` still exposes the same public pass names.
 
 So the working conclusion is:
 
@@ -175,6 +178,8 @@ So the working conclusion is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)
+- [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

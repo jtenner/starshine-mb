@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
+  - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-strategy.md
 ---
 
 # `string-lowering`: JSON custom sections and magic imports
@@ -44,7 +47,7 @@ and writes the literal payloads into a custom section named:
 
 whose contents are a JSON array.
 
-The manual `string-lowering.wast` file proves this explicitly.
+The manual `string-lowering.wast` file proves this explicitly, and the 2026-04-24 raw manifest pins the reviewed source/test locations.
 
 ## Why JSON exists here
 
@@ -113,6 +116,8 @@ If someone asks "how does Binaryen keep the actual string data after lowering?",
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)
+- [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-lowering.wast>

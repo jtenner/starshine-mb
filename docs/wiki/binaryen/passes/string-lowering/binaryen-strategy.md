@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
+  - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./json-and-magic-imports.md
+  - ./starshine-strategy.md
   - ../string-gathering/index.md
 ---
 
@@ -16,7 +19,8 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current tagged oracle for this folder.
+Use Binaryen `version_129` as the current tagged oracle for this folder, with the 2026-04-24 raw manifest as the provenance anchor.
+On 2026-04-24 the official GitHub `version_129` release page showed publish date **2026-04-01 14:31**.
 The main sources are:
 
 - `src/passes/StringLowering.cpp`
@@ -275,7 +279,7 @@ So `string-lowering` should be taught as one half of a bidirectional public fami
 
 ## Current-main drift check
 
-A checked source diff found no visible difference between `version_129` and current `main` for `src/passes/StringLowering.cpp` on the inspected file.
+A 2026-04-24 checked source diff found no visible difference between `version_129` and current `main` for `src/passes/StringLowering.cpp` on the inspected teaching-relevant surfaces.
 `main/src/passes/pass.cpp` still exposes the same pass names.
 
 The durable conclusion is:
@@ -284,6 +288,8 @@ The durable conclusion is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)
+- [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
