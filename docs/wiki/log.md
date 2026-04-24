@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] pass-fix | keep nonempty imported-table nullref elem segments in RUME
+
+- Ran the new `--keep-going-after-command-failures` RUME compare lane and found one fresh semantic mismatch at `.tmp/pass-fuzz-rume-keep-going-2026-04-24/failures/case-000186-wasm-smith`: Binaryen kept an imported `externref` table plus nonempty active expression elem segments whose initializers were all `ref.null`, while Starshine dropped the table and elem segments as effect-free.
+- Updated `src/passes/remove_unused_module_elements_test.mbt` TDD-first by changing the imported nullref active elem regression to expect the imported table and nonempty active elem segments to remain; the focused package-file test failed before the implementation change.
+- Updated `src/passes/remove_unused_module_elements.mbt` so expression-backed elem segments count as parent-retaining whenever their initializer list is nonempty, regardless of whether the expressions are all `ref.null`; empty expression lists and empty `funcs` lists still do not keep imported parents alive by themselves.
+- Verified the fix with the focused RUME test file and a keep-going `wasm-smith` rerun at `.tmp/pass-fuzz-rume-keep-going-2026-04-24-fix`, which reached `298 / 300` compared, `298` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, and `2` command failures.
+
 ## [2026-04-24] research | add `type-un-finalizing` primary-source capture and a Starshine status bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/raw/research/`, and the existing `docs/wiki/binaryen/passes/type-un-finalizing/` folder, then chose `type-un-finalizing` because the dossier already had overview / Binaryen strategy / implementation map / private-boundary / transformed-shape coverage but still lacked an immutable raw primary-source manifest and a dedicated Starshine status/port-strategy page.

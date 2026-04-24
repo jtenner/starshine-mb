@@ -50,6 +50,8 @@ related:
 - In that later rerun Starshine contributed no command failures; the remaining failure slots were Binaryen-side parser or canonicalization blockers: `binaryen-invalid-type-index`, `binaryen-rec-group-zero`, `binaryen-invalid-wasm-type-neg64`, and three later Binaryen parser failures at cases `000162`, `000167`, and `000185`.
 - Treat the direct pass as semantically signed off for the currently comparable corpus until a new semantic mismatch appears; the open work is parser-compatibility / coverage hardening, not another RUME keep/drop or remap bug.
 - For future coverage-only RUME sweeps, `pass-fuzz-compare` now has `--keep-going-after-command-failures`, which records classified Binaryen parser/canonicalization failures without letting those known command-failure families consume the `--max-failures` cutoff.
+- A `2026-04-24` keep-going rerun exposed one more real semantic mismatch at `.tmp/pass-fuzz-rume-keep-going-2026-04-24/failures/case-000186-wasm-smith`: Binaryen keeps imported tables and nonempty active expression elem segments even when every initializer is `ref.null`; Starshine had treated null-only expression elems as effect-free and dropped them.
+- That mismatch is now fixed. The follow-up rerun `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator wasm-smith --count 300 --seed 0x5eed --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-rume-keep-going-2026-04-24-fix` reported `298 / 300` compared, `298` normalized matches, `0` mismatches, `0` validation failures, `0` generator failures, and `2` command failures.
 
 ## Practical Rule
 

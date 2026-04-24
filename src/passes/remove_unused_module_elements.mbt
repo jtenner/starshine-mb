@@ -118,28 +118,11 @@ fn rume_imported_counts(mod_ : @lib.Module) -> (Int, Int, Int, Int, Int) {
 }
 
 ///|
-fn rume_expr_is_ref_null(expr : @lib.Expr) -> Bool {
-  match expr {
-    @lib.Expr([@lib.RefNull(_)]) => true
-    _ => false
-  }
-}
-
-///|
 fn rume_elem_init_has_effect(kind : @lib.ElemKind) -> Bool {
   match kind {
     @lib.FuncsElemKind(funcs) => funcs.length() > 0
-    @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) => {
-      if exprs.length() == 0 {
-        return false
-      }
-      for expr in exprs {
-        if !rume_expr_is_ref_null(expr) {
-          return true
-        }
-      }
-      false
-    }
+    @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+      exprs.length() > 0
   }
 }
 

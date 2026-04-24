@@ -623,7 +623,7 @@ fn rume_test_nullref_active_elem_import_fixture() -> @lib.Module {
       @lib.Elem::new(
         @lib.ElemMode::active(
           @lib.TableIdx::new(0U),
-          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(0L))]),
         ),
         @lib.ElemKind::typed_exprs(
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
@@ -639,7 +639,7 @@ fn rume_test_nullref_active_elem_import_fixture() -> @lib.Module {
       @lib.Elem::new(
         @lib.ElemMode::active(
           @lib.TableIdx::new(0U),
-          @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          @lib.Expr::new([@lib.Instruction::i64_const(@lib.I64(0L))]),
         ),
         @lib.ElemKind::typed_exprs(
           @lib.RefType::new(true, @lib.HeapType::abs(@lib.AbsHeapType::any())),
@@ -1418,7 +1418,7 @@ test "remove-unused-module-elements drops empty active data on imported memories
 }
 
 ///|
-test "remove-unused-module-elements drops no-op active nullref elem segments on imported tables" {
+test "remove-unused-module-elements keeps nonempty active nullref elem segments on imported tables" {
   let optimized = match
     run_hot_pipeline(
       rume_test_nullref_active_elem_import_fixture(),
@@ -1432,8 +1432,17 @@ test "remove-unused-module-elements drops no-op active nullref elem segments on 
       )
   }
 
-  assert_eq(optimized.import_sec, None)
-  assert_eq(optimized.elem_sec, None)
+  match optimized.import_sec {
+    Some(@lib.ImportSec(imports)) => assert_eq(imports.length(), 1)
+    None =>
+      fail(
+        "expected imported table with nonempty active nullref elems to remain",
+      )
+  }
+  match optimized.elem_sec {
+    Some(@lib.ElemSec(elems)) => assert_eq(elems.length(), 2)
+    None => fail("expected nonempty active nullref elem segments to remain")
+  }
   match @validate.validate_module(optimized) {
     Ok(_) => ()
     Err(err) =>
