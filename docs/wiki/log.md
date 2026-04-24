@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] health | repair local-reference findings from the wiki health check
+
+- Ran a repository-wide local markdown/frontmatter reference scan across `docs/wiki/` after the `optimize-added-constants` dossier commit; the scan checked 894 wiki markdown files and reported 12 missing local references.
+- Fixed the durable misses: two raw-research notes now point at `../binaryen/...` raw manifests, tooling pages now point at canonical `docs/README.md`, the `ssa` implementation/test map now links to the existing `ssa-nomerge` landing page instead of a nonexistent sibling implementation page, and the late-pipeline dispatch note now points at `../no-dwarf-default-optimize-path.md`.
+- Removed missing uncommitted `.tmp/.../result.json` artifact paths from the `simplify-locals` frontmatter source lists while preserving the historical run summaries in prose, so frontmatter sources stay limited to committed durable files.
+
 ## [2026-04-24] research | add `optimize-added-constants` primary-source capture and a Starshine status bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/raw/research/`, and the existing `docs/wiki/binaryen/passes/optimize-added-constants/` plus sibling `optimize-added-constants-propagate/` folders, then chose plain `optimize-added-constants` because the dossier already had overview / Binaryen strategy / implementation map / safety-matrix / transformed-shape coverage but still lacked an immutable raw primary-source manifest and a dedicated Starshine status/port-strategy page.

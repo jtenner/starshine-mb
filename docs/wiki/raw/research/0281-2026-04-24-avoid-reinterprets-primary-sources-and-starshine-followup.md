@@ -3,7 +3,7 @@ kind: research
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
+  - ../binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
   - ../../binaryen/passes/avoid-reinterprets/index.md
   - ../../binaryen/passes/avoid-reinterprets/binaryen-strategy.md
   - ../../binaryen/passes/avoid-reinterprets/wat-shapes.md

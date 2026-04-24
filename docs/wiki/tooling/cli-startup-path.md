@@ -10,7 +10,7 @@ sources:
   - ../../../src/passes/optimize.mbt
 related:
   - ./fuzz-runner.md
-  - ../README.md
+  - ../../README.md
 ---
 
 # CLI Startup Path

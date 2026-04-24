@@ -3,7 +3,7 @@ kind: research
 status: supported
 last_reviewed: 2026-04-24
 sources:
-  - ../../binaryen/2026-04-24-de-nan-primary-sources.md
+  - ../binaryen/2026-04-24-de-nan-primary-sources.md
   - ../../binaryen/passes/de-nan/index.md
   - ../../binaryen/passes/de-nan/binaryen-strategy.md
   - ../../binaryen/passes/de-nan/wat-shapes.md

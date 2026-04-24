@@ -13,7 +13,7 @@ related:
   - ./fuzz-runner.md
   - ./cli-startup-path.md
   - ../validate/fuzz-hardening.md
-  - ../README.md
+  - ../../README.md
 ---
 
 # Node Package Surface

@@ -22,7 +22,7 @@ sources:
   - https://docs.rs/wasm-opt/latest/wasm_opt/
 related:
   - ./index.md
-  - ../../no-dwarf-default-optimize-path.md
+  - ../no-dwarf-default-optimize-path.md
 ---
 
 # Late `-O4z` Pipeline Dispatch

@@ -19,7 +19,7 @@ related:
   - ./binaryen-strategy.md
   - ./merge-locals-entry-prepends-and-default-values.md
   - ./wat-shapes.md
-  - ../ssa-nomerge/implementation-structure-and-tests.md
+  - ../ssa-nomerge/index.md
 ---
 
 # `ssa` implementation structure and tests

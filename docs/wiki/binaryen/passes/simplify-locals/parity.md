@@ -9,8 +9,6 @@ sources:
   - ../../../../../src/passes/pass_manager_wbtest.mbt
   - ../../../../../src/passes/perf_test.mbt
   - ../../../../../src/passes_perf_long/simplify_locals_multivalue_perf_test.mbt
-  - ../../../../../.tmp/pass-fuzz-sl-current-2026-04-14/result.json
-  - ../../../../../.tmp/self-opt-sl-current-2026-04-14/result.json
 related:
   - ./index.md
   - ./wat-shapes.md
