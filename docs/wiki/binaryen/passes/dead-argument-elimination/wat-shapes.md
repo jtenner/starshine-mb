@@ -1,12 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
+  - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./starshine-strategy.md
   - ../dae-optimizing/index.md
 ---
 
@@ -14,7 +17,11 @@ related:
 
 This page is the beginner-friendly shape catalog for Binaryen's plain `dead-argument-elimination` / `dae` pass.
 
+For primary-source provenance, see [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md). For current local implementation status and future Starshine port planning, see [`./starshine-strategy.md`](./starshine-strategy.md).
+
 ## Read this page with one mental model
+
+Current Starshine does not implement these shapes yet. They are the future test checklist for the boundary-only local name `dead-argument-elimination`.
 
 Binaryen is not asking only:
 

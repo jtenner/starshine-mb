@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
+  - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
   - ../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -13,6 +15,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../dae-optimizing/index.md
   - ../signature-pruning/index.md
   - ../tracker.md
@@ -74,15 +77,20 @@ That last point is the big difference from `dae-optimizing`: **plain DAE does no
   Source-confirmed file/test map for `DeadArgumentElimination.cpp`, `pass.cpp`, `opt-utils.h`, `param-utils.h`, `lubs.h`, `type-updating.h`, `return-utils.h`, and the split plain-vs-optimizing-vs-`dae2` lit surface.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, bailout, preserved, and easy-to-misunderstand rewrite families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port strategy: boundary-only descriptive registry name, no exact upstream `dae` alias yet, no active owner file, no plain-DAE backlog slice, and the module-boundary code surfaces a future port should touch.
 
 ## Current maintenance rule
 
+- Treat [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md) as the immutable primary-source manifest for this folder.
 - Treat this folder as the canonical home for future `dead-argument-elimination` / `dae` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary pass for it.
 - Keep the relationship to [`../dae-optimizing/index.md`](../dae-optimizing/index.md) explicit instead of silently folding plain DAE facts into the optimizing dossier.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md)
+- [`../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md`](../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md`](../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md)
 - [`../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md`](../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

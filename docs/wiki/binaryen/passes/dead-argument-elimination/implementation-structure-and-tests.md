@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
+  - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
   - ../../../raw/research/0230-2026-04-21-dead-argument-elimination-implementation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadArgumentElimination.cpp
@@ -23,6 +25,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../dae-optimizing/index.md
   - ../dae2/index.md
 ---
@@ -30,6 +33,8 @@ related:
 # `dead-argument-elimination` implementation structure and tests
 
 This page is the compact owner-file and proof-surface map for Binaryen `version_129` plain `dead-argument-elimination` / `dae`.
+
+The current immutable source manifest is [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md). It records the 2026-04-24 official release-page recheck, the reviewed `version_129` source/test URLs, and a narrow current-`main` no-teaching-drift spot check.
 
 ## Biggest source-confirmation result
 
@@ -240,6 +245,8 @@ Wrong.
 `dae2` is a separately registered experimental pass and should stay in its own dossier.
 
 ## Porting takeaway
+
+For the exact current local registry, request-rejection, and future shared-core plan, read [`./starshine-strategy.md`](./starshine-strategy.md).
 
 If Starshine ever ports plain DAE, the clean source-backed implementation target is:
 
