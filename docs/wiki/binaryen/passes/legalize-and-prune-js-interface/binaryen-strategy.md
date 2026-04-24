@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md
+  - ../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LegalizeJSInterface.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -12,10 +14,13 @@ related:
   - ./implementation-structure-and-tests.md
   - ./prune-boundary-matrix.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../legalize-js-interface/index.md
 ---
 
 # Binaryen strategy for `legalize-and-prune-js-interface`
+
+Use this page with the 2026-04-24 raw primary-source capture in [`../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md). The raw capture records the official `version_129` release provenance and the narrow current-`main` spot check behind this strategy.
 
 ## One-sentence contract
 
@@ -84,7 +89,7 @@ This implementation detail creates a teaching-important distinction:
 - results may not be multivalue, because `sig.results` is checked as a whole
 - params may be multivalue in aggregate, because the code iterates param types one at a time instead of checking the parameter tuple as one value
 
-The source comment says this directly: params are allowed to be multivalue, but results are not.
+The source comment says this directly: params are allowed to be multivalue, but results are not. Keep this caveat visible because it is easy to overgeneralize the pass into “all multivalue boundaries are pruned.”
 
 ## Phase 4: prune illegal imported functions by synthesizing bodies
 
@@ -193,3 +198,5 @@ A compact way to remember the strategy is:
 3. **drop illegal exports**
 4. **refinalize**
 5. **drop illegal global exports**
+
+For the current local Starshine status and future-port map, see [`./starshine-strategy.md`](./starshine-strategy.md).

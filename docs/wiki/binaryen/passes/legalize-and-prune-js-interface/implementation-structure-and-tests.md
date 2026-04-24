@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md
+  - ../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LegalizeJSInterface.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -11,10 +13,13 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./prune-boundary-matrix.md
+  - ./starshine-strategy.md
   - ../legalize-js-interface/implementation-structure-and-tests.md
 ---
 
 # `legalize-and-prune-js-interface` implementation structure and tests
+
+Use this page with the 2026-04-24 raw primary-source capture in [`../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md). The capture records the official release page, shared owner file, registration source, and dedicated lit fixture reviewed for this dossier.
 
 ## Owner file map
 
@@ -105,9 +110,12 @@ The strongest direct source-backed conclusions are:
 
 ## Current-`main` drift check
 
-A direct spot check found no checked-surface drift between `version_129` and current `main` in:
+A direct 2026-04-24 spot check found no teaching-relevant checked-surface drift between `version_129` and current `main` in:
 
 - `src/passes/LegalizeJSInterface.cpp`
+- `src/passes/pass.cpp`
 - `test/lit/passes/legalize-and-prune-js-interface.wast`
 
-So the folder's structure and proof map remain current on the reviewed surfaces.
+So the folder's structure and proof map remain current on the reviewed surfaces. This is intentionally narrow; it is not a whole-repository drift proof.
+
+For the current in-tree Starshine status, see [`./starshine-strategy.md`](./starshine-strategy.md): there is no local owner file or registry entry for this sibling today.

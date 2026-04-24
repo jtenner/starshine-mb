@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md
+  - ../../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LegalizeJSInterface.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/legalize-and-prune-js-interface.wast
@@ -10,9 +12,12 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Prune boundary matrix
+
+Use this page with the 2026-04-24 raw primary-source capture in [`../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md). The matrix is sourced from Binaryen's shared `LegalizeJSInterface.cpp` owner file and the dedicated `legalize-and-prune-js-interface.wast` fixture.
 
 ## Why this page exists
 
@@ -87,3 +92,5 @@ A good short mnemonic is:
 - **exports lose visibility**
 - **globals only lose visibility**
 - **nondefaultable results trap**
+
+Current Starshine does none of these prune rewrites yet; see [`./starshine-strategy.md`](./starshine-strategy.md) for the exact unknown-pass status and future module-pass landing map.
