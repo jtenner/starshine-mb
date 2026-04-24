@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-24 Pass tests: repair non-RUME `src/passes` regressions
+
+- **restore a clean `moon test src/passes` after the RUME verification batch by narrowing `remove-unused-brs` dead root-tee cleanup, refreshing the root-loop `ssa-nomerge` expectation to the current no-entry-copy lowering, and making the large `br_table` perf fixtures validate with typed branch payload blocks** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/perf_test.mbt`](./src/passes/perf_test.mbt), [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt), and [`src/passes/ssa_nomerge_test.mbt`](./src/passes/ssa_nomerge_test.mbt).
+
 ## 2026-04-24 RUME: keep nonempty imported-table nullref elem segments
 
 - **fix the `remove-unused-module-elements` imported-table retention rule so nonempty active expression element segments keep their imported table parent even when every initializer is `ref.null`, matching Binaryen on the new `case-000186-wasm-smith` keep-going repro and preserving a clean `298/298` comparable `wasm-smith` RUME rerun with `0` mismatches** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/binaryen/passes/remove-unused-module-elements/parity.md`](./docs/wiki/binaryen/passes/remove-unused-module-elements/parity.md), [`src/passes/remove_unused_module_elements.mbt`](./src/passes/remove_unused_module_elements.mbt), and [`src/passes/remove_unused_module_elements_test.mbt`](./src/passes/remove_unused_module_elements_test.mbt).

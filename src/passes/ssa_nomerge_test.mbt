@@ -340,10 +340,10 @@ test "ssa-nomerge skips synthetic entry copies for root loop headers" {
           @lib.BlockType::void_(),
           [
             @lib.Instruction::local_get(@lib.LocalIdx::new(1U)),
-            @lib.Instruction::i32_const(@lib.I32(1)),
-            @lib.Instruction::i32_add(),
             @lib.Instruction::local_set(@lib.LocalIdx::new(2U)),
             @lib.Instruction::local_get(@lib.LocalIdx::new(2U)),
+            @lib.Instruction::i32_const(@lib.I32(1)),
+            @lib.Instruction::i32_add(),
             @lib.Instruction::local_set(@lib.LocalIdx::new(1U)),
             @lib.Instruction::br(@lib.LabelIdx::new(1U)),
           ],

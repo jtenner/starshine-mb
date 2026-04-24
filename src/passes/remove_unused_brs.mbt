@@ -659,6 +659,77 @@ fn remove_unused_brs_delete_unused_nodes(
 }
 
 ///|
+fn remove_unused_brs_simplify_dead_local_tees(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> Bool {
+  let local_reads = @bitset.BitSet::new(@ir.hot_local_count(func))
+  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalGet =>
+        if node.imm0 >= 0 && node.imm0 < local_reads.length() {
+          local_reads[node.imm0] = true
+        }
+      _ => ()
+    }
+  }
+
+  let candidates : Array[Int] = []
+  for root_idx = 0; root_idx < @ir.hot_root_count(func); root_idx = root_idx + 1 {
+    let root_id = @ir.hot_root_get(func, root_idx)
+    if !@ir.hot_node_is_live(func, root_id) {
+      continue
+    }
+    candidates.push(root_id)
+    let root = @ir.hot_node_get(func, root_id)
+    match root.op {
+      @ir.HotOp::Drop =>
+        if root.child_count == 1 {
+          candidates.push(@ir.hot_child_get(func, root_id, 0))
+        }
+      _ => ()
+    }
+  }
+
+  let detached : Array[Int] = []
+  let mut changed = false
+  for node_id in candidates {
+    if !@ir.hot_node_is_live(func, node_id) {
+      continue
+    }
+    let node = @ir.hot_node_get(func, node_id)
+    match node.op {
+      @ir.HotOp::LocalTee => {
+        let local_id = node.imm0
+        if local_id < 0 ||
+          local_id >= local_reads.length() ||
+          local_reads[local_id] ||
+          node.child_count != 1 {
+          continue
+        }
+        let child_id = @ir.hot_child_get(func, node_id, 0)
+        if child_id < 0 || !@ir.hot_node_is_live(func, child_id) {
+          continue
+        }
+        @ir.hot_replace_node(func, node_id, @ir.hot_node_get(func, child_id))
+        detached.push(child_id)
+        changed = true
+      }
+      _ => ()
+    }
+  }
+  if changed {
+    remove_unused_brs_mark_mutated(ctx, func, "simplify-dead-local-tees")
+    remove_unused_brs_delete_unused_nodes(ctx, func, detached)
+  }
+  changed
+}
+
+///|
 fn remove_unused_brs_mark_mutated(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -5651,6 +5722,7 @@ fn remove_unused_brs_run(
         reorder_cache,
       ) ||
       changed
+    changed = remove_unused_brs_simplify_dead_local_tees(ctx, func) || changed
     changed = remove_unused_brs_trim_trailing_nops(
         ctx,
         func,

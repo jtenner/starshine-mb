@@ -2885,9 +2885,10 @@ fn perf_test_make_large_br_table_return_ladder_hot_skip_module(
   while depth >= 0 {
     out.write_string("      block $b")
     out.write_string(depth.to_string())
-    out.write_string("\n")
+    out.write_string(" (result i32)\n")
     depth = depth - 1
   }
+  out.write_string("        i32.const 0\n")
   out.write_string("        local.get 1\n")
   out.write_string("        br_table")
   for case_idx = 0; case_idx < 6; case_idx = case_idx + 1 {
@@ -2935,9 +2936,10 @@ fn perf_test_make_large_typed_br_table_encoder_ladder_module(
   while level >= 0 {
     out.write_string("      block $b")
     out.write_string(level.to_string())
-    out.write_string("\n")
+    out.write_string(" (result i32)\n")
     level = level - 1
   }
+  out.write_string("        i32.const 0\n")
   out.write_string("        local.get 1\n")
   out.write_string("        br_table")
   for case_idx = 0; case_idx < depth; case_idx = case_idx + 1 {
@@ -3010,6 +3012,7 @@ fn perf_test_make_large_typed_br_table_encoder_ladder_module(
       out.write_string("          return\n")
       out.write_string("        end\n")
     }
+    out.write_string("      drop\n")
     out.write_string("      local.get 0\n")
     out.write_string("      call 0\n")
     out.write_string("      drop\n")
