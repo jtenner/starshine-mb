@@ -1,12 +1,13 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-11
+last_reviewed: 2026-04-24
 sources:
   - ../../../../../agent-todo.md
   - ../../../../../src/passes/remove_unused_module_elements.mbt
   - ../../../../../src/passes/remove_unused_module_elements_test.mbt
   - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
+  - ../../no-dwarf-default-optimize-path.md
 related:
   - ./index.md
   - ./retention-and-index-rewrites.md
@@ -43,13 +44,11 @@ related:
 ## Remaining Gap
 
 - The remaining post-fix compare noise is not currently a known RUME semantic mismatch.
-- The saved backlog now classifies the remaining failures as parser-compatibility and decoder or validator coverage work outside the pass's intended semantics.
-- A `2026-04-11` `--pass remove-unused-module-elements` smoke rerun (200 mixed cases, `seed 0x5eed`) reports:
-  - `199 / 200` compared
-  - `199` normalized matches
-  - `1` command failure (`binaryen-rec-group-zero`, `case-000029-wasm-smith`)
-  - `0` mismatches
-- The `2026-04-11` parity lane therefore has no semantic deltas relative to this direct comparator, and the remaining saved noise stays in parser-compatibility buckets.
+- The saved backlog classifies the remaining failures as parser-compatibility and decoder or validator coverage work outside the pass's intended semantics.
+- Historical direct-smoke evidence from `2026-04-11` still matters: `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --count 200 --seed 0x5eed ...` reported `199 / 200` compared, `199` normalized matches, `1` command failure (`binaryen-rec-group-zero`, `case-000029-wasm-smith`), and `0` mismatches.
+- The later RUME blocker record is stronger and more specific after the semantic cleanup: `.tmp/pass-fuzz-rume-live-nullfuncref-rerun` reached `165 / 165` comparable `wasm-smith` cases with `0` mismatches before the `20` command-failure cutoff.
+- In that later rerun Starshine contributed no command failures; the remaining failure slots were Binaryen-side parser or canonicalization blockers: `binaryen-invalid-type-index`, `binaryen-rec-group-zero`, `binaryen-invalid-wasm-type-neg64`, and three later Binaryen parser failures at cases `000162`, `000167`, and `000185`.
+- Treat the direct pass as semantically signed off for the currently comparable corpus until a new semantic mismatch appears; the open work is parser-compatibility / coverage hardening, not another RUME keep/drop or remap bug.
 
 ## Practical Rule
 

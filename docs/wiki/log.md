@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] pass-signoff | refresh RUME semantic blocker classification
+
+- Re-read the pass implementation skill, repo docs schema, active `agent-todo.md` RUME section, and the existing `docs/wiki/binaryen/passes/remove-unused-module-elements/` dossier before choosing a docs-only signoff iteration.
+- Refreshed `docs/wiki/binaryen/passes/remove-unused-module-elements/parity.md` to carry the latest backlog evidence: the post-cleanup `.tmp/pass-fuzz-rume-live-nullfuncref-rerun` lane reached `165 / 165` comparable `wasm-smith` cases with `0` mismatches, Starshine contributed no command failures in that slice, and the remaining cutoff slots are Binaryen parser or canonicalization families rather than RUME semantic keep/drop or remap bugs.
+- Updated `agent-todo.md` to point readers at the living RUME parity page and the moved archived optimize-path source note instead of the stale pre-wiki `docs/0066-...` path.
+- No new wiki catalog page was needed because this was a freshness/signoff update to the existing RUME parity page.
+
 ## [2026-04-24] research | add `gufa-cast-all` primary-source capture and a Starshine status bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/raw/research/`, and the existing `docs/wiki/binaryen/passes/gufa-cast-all/` folder, then chose `gufa-cast-all` because the dossier already had overview / Binaryen strategy / implementation map / cast-boundary / transformed-shape coverage but still lacked an immutable raw primary-source manifest and a dedicated Starshine status/port-strategy page.

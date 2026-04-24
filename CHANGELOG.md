@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-24 RUME: refresh signoff blocker classification
+
+- **refresh the `remove-unused-module-elements` signoff docs so the current keepable iteration points at the living RUME parity page, preserves the latest `165/165` comparable `wasm-smith` / `0` mismatch evidence, and keeps the remaining work classified as Binaryen parser-compatibility coverage instead of Starshine RUME semantics** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`docs/wiki/binaryen/passes/remove-unused-module-elements/parity.md`](./docs/wiki/binaryen/passes/remove-unused-module-elements/parity.md).
+
 ## 2026-04-24 Docs: add pass implementation skill signoff workflow
 
 - **add a repo-local Pi skill that consolidates Starshine pass creation, porting, parity-fix, registry-wiring, preset, and signoff guidance, and point the repo-wide pass rules at that detailed workflow while keeping `AGENTS.md` and `docs/README.md` in sync** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`AGENTS.md`](./AGENTS.md), [`docs/README.md`](./docs/README.md), and [`.pi/skills/starshine-pass-implementation/SKILL.md`](./.pi/skills/starshine-pass-implementation/SKILL.md).
