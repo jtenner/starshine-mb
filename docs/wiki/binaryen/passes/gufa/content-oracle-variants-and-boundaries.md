@@ -1,14 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
+  - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../gufa-optimizing/index.md
+  - ../gufa-cast-all/index.md
   - ../type-refining/normal-vs-gufa-and-fixups.md
 ---
 
@@ -22,6 +27,7 @@ The hard part is explaining three things at once:
 1. what `ContentOracle` actually knows
 2. why plain `gufa`, `gufa-optimizing`, and `gufa-cast-all` are different public contracts
 3. where the pass deliberately stops even when the oracle knows more than the current IR says
+4. why current Starshine cannot implement the pass without a module-wide oracle owner
 
 This page is the dedicated home for those details.
 
@@ -75,7 +81,7 @@ Those all depend on type-cone and set-intersection reasoning, not only literals.
 The helper comments in `possible-contents.h` explicitly say the analysis assumes a **closed world**.
 The main `gufa.wast` test also runs with `--closed-world` and explains why that matters.
 
-That means a future Starshine port must not quietly replace this with an open-world local pass and still call it GUFA.
+That means a future Starshine port must not quietly replace this with an open-world local pass and still call it GUFA. Today, Starshine exposes `closed_world` option plumbing in the command/pipeline configuration, but it has no GUFA owner that turns that option into a `ContentOracle`-style analysis; see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## What plain `gufa` does with oracle answers
 
@@ -142,8 +148,8 @@ on modified functions.
 
 So the real public split is:
 
-- plain `gufa` = prove and rewrite
-- `gufa-optimizing` = prove and rewrite, then immediately clean up the mess that proof-based rewriting can create
+- plain `gufa` = prove and rewrite, then refinalize / EH-repair
+- `gufa-optimizing` = prove and rewrite, refinalize / EH-repair, then immediately clean up the mess that proof-based rewriting can create
 
 ## Why `gufa-cast-all` is a separate public pass
 
@@ -220,6 +226,7 @@ Keep these pairs separate:
 - `gufa` vs `type-refining-gufa`
 - oracle knowledge vs materializable emitted replacements
 - whole-program inference vs default-preset membership
+- local boundary-only registry status vs an implemented Starshine pass
 
 If those distinctions blur, the pass becomes much harder to implement or teach honestly.
 
@@ -233,3 +240,10 @@ If you want the correct beginner-to-intermediate mental model, remember:
 - `gufa-optimizing` adds nested cleanup
 - `gufa-cast-all` adds new casts
 - type validation and feature rules still gate what the pass can emit
+- current Starshine has instruction/HOT surfaces for many GUFA rewrites, but the missing whole-program contents oracle is the blocker
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
+- [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)

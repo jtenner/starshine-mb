@@ -66,6 +66,6 @@ Local sources:
 - Refreshed the `gufa-cast-all` living dossier pages so they cite the raw manifest and local status bridge.
 - Updated `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, and `CHANGELOG.md`.
 
-## Open follow-up
+## Follow-up status
 
-The broader GUFA family now has raw-manifest and Starshine-status bridges for `gufa-optimizing` and `gufa-cast-all`. Plain `gufa` still has older source-backed coverage but may deserve the same immutable primary-source / Starshine status refresh if a future wiki-health run wants to finish the family uniformly.
+Superseded by [`0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md): the broader GUFA family now has raw-manifest and Starshine-status bridges for plain `gufa`, `gufa-optimizing`, and `gufa-cast-all`. Future wiki-health work should treat the former plain-`gufa` provenance gap as closed.

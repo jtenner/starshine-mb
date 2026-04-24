@@ -1,10 +1,14 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
+  - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/cmd/cmd.mbt
+  - ../../../../../src/passes/pass_manager.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../../../../../agent-todo.md
@@ -13,6 +17,9 @@ related:
   - ./implementation-structure-and-tests.md
   - ./content-oracle-variants-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../gufa-optimizing/index.md
+  - ../gufa-cast-all/index.md
   - ../type-refining/index.md
   - ../tracker.md
 ---
@@ -22,7 +29,7 @@ related:
 ## Role
 
 - `gufa` is an upstream Binaryen whole-program optimization pass.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); explicit CLI requests are rejected in [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt), and lower-level expansion rejects the boundary-only entry before dispatch.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` path and it does not appear in the saved generated-artifact `-O4z` skip queue.
 - This folder is therefore an explicit tracker expansion for a source-backed upstream-only registry pass.
 
@@ -33,6 +40,7 @@ related:
 - The existing `type-refining` dossier already depends on understanding GUFA as a distinct whole-program inference engine.
 - `agent-todo.md` currently has **no dedicated `gufa` slice**.
 - Without a dedicated page, beginners can easily blur GUFA into ordinary constant propagation or into the separate `type-refining-gufa` companion.
+- The 2026-04-24 refresh adds an immutable raw primary-source manifest plus a dedicated Starshine status page, bringing plain `gufa` in line with the already-refreshed `gufa-optimizing` and `gufa-cast-all` sibling dossiers.
 
 ## Beginner summary
 
@@ -55,6 +63,7 @@ So the pass is best read as:
 - The plain pass rewrite surface is intentionally narrow: constants, `global.get` / `ref.func`, `unreachable`, `ref.eq`, `ref.test`, and `ref.cast` refinement.
 - `gufa-optimizing` is the same analysis plus nested `dce` and `vacuum` reruns on changed functions.
 - `gufa-cast-all` is the same analysis plus explicit cast insertion where the oracle knows a narrower type.
+- Current Starshine has reusable low-level ref/global/HOT/validation surfaces, but no `ContentOracle`-equivalent whole-program analysis and no `src/passes/gufa*.mbt` owner.
 
 ## Page map
 
@@ -66,17 +75,24 @@ So the pass is best read as:
   Focused guide to the most easy-to-misread part of the pass family: `ContentOracle`, closed-world assumptions, plain-vs-optimizing-vs-cast-all behavior, and the main bailout boundaries.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, bailout, preserved, and easy-to-misread GUFA families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map: boundary-only registry, CLI and lower-level request rejection, no owner file / dispatch / preset / backlog slice, reusable local instruction and HOT surfaces, and the whole-program oracle gap a faithful port must close.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `gufa` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary/module pass for it.
+- Cite [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md) for source-backed Binaryen mechanics, and [`./starshine-strategy.md`](./starshine-strategy.md) for current local status.
 - Keep the relationship to [`../type-refining/index.md`](../type-refining/index.md) explicit instead of teaching GUFA only as a side note inside the `type-refining` folder.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
+- [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
+- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

@@ -1,14 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
+  - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./content-oracle-variants-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../gufa-optimizing/index.md
+  - ../gufa-cast-all/index.md
   - ../type-refining/index.md
 ---
 
@@ -16,16 +21,9 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the main source oracle for this page.
+Use Binaryen `version_129` as the main source oracle for this page, anchored by [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md).
 
-Primary sources:
-
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GUFA.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/possible-contents.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa-optimizing.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa-cast-all.wast>
+The 2026-04-24 refresh also spot-checked current `main` on the owner, registration, oracle, and dedicated lit-test surfaces and found no teaching-relevant drift from the tagged release.
 
 ## File map
 
@@ -63,8 +61,9 @@ The durable execution order is:
 3. query the oracle for each interesting location
 4. replace expressions only where Binaryen can emit a valid replacement
 5. repair types and EH nested pops after any change
-6. if `castAll`, run the second cast-adder walk and refinalize again
-7. if `optimizing`, run `dce` then `vacuum` on changed functions
+6. stop here for plain `gufa`
+7. if `castAll`, run the second cast-adder walk and refinalize again
+8. if `optimizing`, run `dce` then `vacuum` on changed functions
 
 That flow already explains most of the pass family.
 
@@ -130,6 +129,8 @@ It decides whether the public variant behaves like:
 - plain `gufa`
 - `gufa-cast-all`
 - `gufa-optimizing`
+
+For plain `gufa`, the important conclusion is negative as well as positive: changed functions are refinalized and EH-repaired, but they do not receive fresh casts and do not run the nested cleanup pair.
 
 The important sequence is:
 
@@ -213,7 +214,7 @@ I checked the following public surfaces on current `main` as a freshness guard:
 - `src/passes/pass.cpp`
 - `test/lit/passes/gufa.wast`
 
-On the lines and file sizes reviewed, current `main` matched `version_129` exactly.
+On the reviewed owner-file, registration, oracle, and dedicated lit-test surfaces, current `main` did not surface teaching-relevant drift from `version_129`.
 So the tagged release remains a stable teaching oracle for this dossier today.
 
 ## Porting checklist this page suggests
@@ -225,9 +226,12 @@ A future Starshine port needs answers to at least these questions:
 3. can rewrite workers preserve side effects the same way Binaryen does with dropped-child wrappers?
 4. how will refinalization and EH nested-pop repair be modeled after rewrites?
 5. will the project expose just plain `gufa`, or also the `gufa-optimizing` and `gufa-cast-all` public siblings?
+6. how will the local boundary-only registry, CLI parser, pass-manager dispatch, and preset omissions change when the pass becomes real? See [`./starshine-strategy.md`](./starshine-strategy.md) for current local status.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
+- [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GUFA.cpp>

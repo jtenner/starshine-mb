@@ -1,28 +1,35 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
+  - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./content-oracle-variants-and-boundaries.md
+  - ./starshine-strategy.md
+  - ../gufa-optimizing/index.md
+  - ../gufa-cast-all/index.md
 ---
 
 # `gufa` WAT shapes
 
 This page gives beginner-friendly before/after sketches for the main source-backed shapes in Binaryen `gufa`.
 They are simplified teaching examples, not exact copied lit-file excerpts.
+The source-backed provenance for these families is now captured in [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md).
 
 ## How to read these examples
 
-Think in three questions:
+Think in four questions:
 
 1. what contents can reach this location?
 2. can Binaryen emit a direct replacement node for those contents?
 3. if it can, does that replacement still validate at the original type?
+4. is this plain `gufa`, or one of the sibling-only shapes owned by `gufa-optimizing` / `gufa-cast-all`?
 
 If the answers line up, GUFA rewrites.
 If not, it often preserves the original code.
@@ -234,6 +241,7 @@ Why:
 - the cast-all variant makes that knowledge explicit for downstream passes
 
 Plain `gufa` would usually leave this alone if there were no existing cast to refine.
+In current Starshine this entire family is still a future-port surface: `RefCast` exists in the instruction/HOT layers, but no GUFA oracle decides where to insert or refine casts.
 
 ## Shape 9: plain `gufa` can leave ugly wrapper code behind
 
@@ -434,3 +442,10 @@ A future Starshine port should keep these shape rules explicit:
 - new casts belong to `gufa-cast-all`
 - nested cleanup belongs to `gufa-optimizing`
 - tuples and ordered atomics stay conservative
+- current Starshine has many emitted instruction forms but no GUFA-family contents oracle yet; see [`./starshine-strategy.md`](./starshine-strategy.md)
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
+- [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)

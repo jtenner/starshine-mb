@@ -1,14 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
+  - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./content-oracle-variants-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../gufa-optimizing/index.md
+  - ../gufa-cast-all/index.md
   - ../type-refining/index.md
 ---
 
@@ -17,19 +22,12 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass family.
+- The committed raw manifest [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md) is the provenance anchor for plain `gufa`.
 - The core implementation is `src/passes/GUFA.cpp`.
 - The core analysis helper is `src/ir/possible-contents.h`.
 - Public registration comes from `src/passes/pass.cpp`.
 - The shipped behavior examples are `test/lit/passes/gufa.wast`, `gufa-optimizing.wast`, and `gufa-cast-all.wast`.
-
-Primary source URLs:
-
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GUFA.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/possible-contents.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa-optimizing.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa-cast-all.wast>
+- A 2026-04-24 current-`main` spot check of the reviewed owner/registration/oracle/test surfaces did not surface teaching-relevant drift from `version_129`.
 
 ## The pass family in one sentence
 
@@ -39,7 +37,7 @@ Binaryen `gufa` is a closed-world whole-program contents-oracle pass that rewrit
 
 | Variant | What Binaryen does | Why it exists |
 | --- | --- | --- |
-| `gufa` | Run `ContentOracle`, rewrite impossible or uniquely known locations, simplify `ref.eq` / `ref.test` / `ref.cast`, then repair types | Base behavior |
+| `gufa` | Run `ContentOracle`, rewrite impossible or uniquely known locations, simplify `ref.eq` / `ref.test` / existing `ref.cast`, then repair types and EH nested pops | Base behavior |
 | `gufa-optimizing` | Do all of plain `gufa`, then rerun `dce` and `vacuum` on changed functions | Prevent wrapper/drop/unreachable growth and harvest the new opportunities GUFA creates |
 | `gufa-cast-all` | Do all of plain `gufa`, then insert fresh `ref.cast`s anywhere the oracle knows a narrower type | Expose more downstream GC/cast optimization opportunities |
 
@@ -55,10 +53,12 @@ A better model is:
 
 - **Grand Unified Flow Analysis** = whole-program contents reasoning over unreachable locations, constants, immutable-global / `ref.func` identities, and reference subtype cones.
 
-## Scheduler fact
+## Scheduler and Starshine fact
 
 This pass family is **registered publicly** in Binaryen `pass.cpp`, but it is **not scheduled** in the reviewed default no-DWARF `-O` / `-Os` pipeline.
 That means this dossier is a deliberate upstream-only registry expansion.
+
+Current Starshine also does not implement plain `gufa`: it is boundary-only in `src/passes/optimize.mbt`, CLI requests are rejected in `src/cmd/cmd.mbt`, and there is no `src/passes/gufa*.mbt` owner file. See [`./starshine-strategy.md`](./starshine-strategy.md) for the exact local follow-along map.
 
 ## Relationship to `type-refining-gufa`
 
@@ -79,7 +79,8 @@ The durable structure is:
 3. replace unreachable or uniquely-known locations where Binaryen can materialize a valid replacement
 4. apply dedicated logic for `ref.eq`, `ref.test`, and `ref.cast`
 5. refinalize and repair EH nested pops
-6. optionally add new casts or rerun local cleanup depending on the variant
+6. stop there for plain `gufa`
+7. optionally add new casts or rerun local cleanup only in the public siblings
 
 That is the real contract.
 It is larger than a peephole pass, but smaller than “rewrite everything the oracle knows.”
@@ -312,3 +313,9 @@ A much better sentence is:
 - “GUFA is Binaryen's whole-program contents oracle plus a narrow rewrite surface for unreachable, exact values, and reference-type checks.”
 
 That is the main durable teaching value of this dossier.
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
+- [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)
