@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
+  - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./params-results-publicity-and-intrinsics.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `signature-refining`: implementation structure and tests
@@ -215,6 +218,7 @@ The dedicated late-file tests show it matters for both param and result refineme
 
 ## Freshness note
 
+The 2026-04-24 raw manifest in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md) captures the official source and test URLs used for this dossier.
 I did a narrow current-`main` check on:
 
 - `src/passes/SignatureRefining.cpp`
@@ -256,7 +260,10 @@ That is exactly why this pass is easy to underestimate from the name alone.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
+- [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignatureRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

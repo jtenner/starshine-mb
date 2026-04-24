@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
+  - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `signature-refining`: params, results, publicity, and intrinsics
@@ -21,6 +24,7 @@ This page exists because the easiest way to misunderstand `signature-refining` i
 - handling `call.without.effects`
 
 Binaryen treats those as separate problems.
+The official source URLs and the 2026-04-24 freshness check are captured in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md), and the local Starshine status is tracked in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## The most important split: `canModify` vs `canModifyParams`
 
@@ -285,7 +289,10 @@ Once that split is clear, the pass becomes much easier to teach and to port.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
+- [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignatureRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/lubs.cpp>

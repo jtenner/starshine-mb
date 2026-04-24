@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
+  - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./params-results-publicity-and-intrinsics.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
   - ../index.md
   - ../signature-pruning/index.md
@@ -70,7 +73,8 @@ It is **heap-type-level subtype-tightening for nominal function signatures**.
 - Parameter refinement comes from **call operand LUBs**.
 - Result refinement comes from **returned-value LUBs**.
 - `call.without.effects` is part of the real contract, not a side note.
-- A narrow 2026-04-21 freshness check found the checked `version_129` and current-`main` pass file plus dedicated lit file identical on the reviewed surfaces.
+- The dossier is now anchored to the immutable raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md) and the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+- A narrow 2026-04-24 freshness check on the owner file, registration surface, helpers, and dedicated lit file did not find teaching-relevant drift from the reviewed `version_129` story; keep that claim narrow.
 
 ## Beginner warning: what the name hides
 
@@ -118,6 +122,8 @@ What it actually is in `version_129`:
   - Focused guide to the most easy-to-misread half of the pass: the split between full-type blockers and params-only blockers, the difference between param-LUB and result-LUB reasoning, and the special `call.without.effects` update contract.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT-shape catalog covering direct and `call_ref` positives, mixed-LUB outcomes, result refinement, body-fixup locals, intrinsic positives and negatives, and the main bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and future-port map: boundary-only registry entry, active request rejection, active-preset omission, no owner file, no active backlog slice, local `TypeIdx` / `FuncType` / `CallRef` / validator / binary surfaces, and the reason a faithful port must be module/type-graph work rather than a HOT peephole.
 
 ## Current maintenance rule
 
@@ -132,7 +138,10 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
+- [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
@@ -151,7 +160,4 @@ What it actually is in `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/intrinsics.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/intrinsics.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/signature-refining.wast>
-- Narrow freshness-check sources:
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignatureRefining.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/signature-refining.wast>
+- Narrow freshness-check sources are captured in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md).

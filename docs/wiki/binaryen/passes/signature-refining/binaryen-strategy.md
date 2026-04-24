@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
+  - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./params-results-publicity-and-intrinsics.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../signature-pruning/index.md
   - ../global-refining/index.md
   - ../../no-dwarf-default-optimize-path.md
@@ -18,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass.
+Use Binaryen `version_129` as the current source oracle for this pass, anchored by the committed raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md).
 
 Primary files:
 
@@ -34,6 +37,8 @@ Primary files:
 - `src/ir/intrinsics.h`
 - `src/ir/intrinsics.cpp`
 - `test/lit/passes/signature-refining.wast`
+
+This dossier also has a dedicated Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 I also did a narrow current-`main` check on the same surfaces.
 Durable result:
@@ -437,7 +442,10 @@ That is the strategy a future strict-parity port must preserve.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
+- [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignatureRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
