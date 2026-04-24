@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
+  - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/InstrumentLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-locals_all-features_disable-gc.wast
@@ -12,12 +14,14 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./unsupported-types-effects-and-import-roster.md
+  - ./starshine-strategy.md
 ---
 
 # `instrument-locals` WAT shapes
 
 This page is a beginner-friendly catalog of the main IR shapes Binaryen rewrites.
 The examples are schematic: they show the contract, not verbatim full lit output.
+The primary-source manifest for this shape catalog is [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md).
 
 ## 1. `local.get i32` -> wrapped `get_i32` call
 
@@ -225,10 +229,12 @@ and the inserted import call is now observable and effectful.
 
 ## Beginner rule of thumb
 
-If the shape is:
+If the Binaryen shape is:
 
 - supported `local.get` -> expect `call $get_* (... local.get ...)`
 - supported `local.set` / `local.tee` -> expect wrapped assigned value via `call $set_*`
 - ordinary `i64` local traffic -> expect no rewrite today
 - legacy-EH `pop` payload -> expect no rewrite
 - module after the pass -> expect a larger helper-import surface and more conservative later effect-based cleanup
+
+Current Starshine does not emit these shapes because `instrument-locals` is not implemented or reserved locally; see [`./starshine-strategy.md`](./starshine-strategy.md).

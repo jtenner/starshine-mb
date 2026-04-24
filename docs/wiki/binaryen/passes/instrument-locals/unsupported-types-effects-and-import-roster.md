@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
+  - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/InstrumentLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-locals_all-features_disable-gc.wast
@@ -12,12 +14,13 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-strategy.md
   - ../global-effects/index.md
 ---
 
 # `instrument-locals`: unsupported types, effect invalidation, and the helper-import roster
 
-This page covers the part of `instrument-locals` that is easiest to misread if you only skim the pass name.
+This page covers the part of `instrument-locals` that is easiest to misread if you only skim the pass name. The source set is now captured in [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md).
 
 ## 1. The helper roster is broader than the actual rewrite surface
 
@@ -121,7 +124,7 @@ That is why this folder should stay explicitly separated from:
 
 ## Practical rule of thumb
 
-If you see a transformed module with:
+If you see a Binaryen-transformed module with:
 
 - new `env` helper imports,
 - wrapped `local.get` and `local.set` values,
@@ -129,3 +132,5 @@ If you see a transformed module with:
 - and less-aggressive later `vacuum` cleanup,
 
 that is exactly what the reviewed Binaryen `instrument-locals` contract predicts.
+
+Current Starshine will not produce this shape because it does not implement or reserve the pass; see [`./starshine-strategy.md`](./starshine-strategy.md).

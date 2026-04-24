@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
+  - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/InstrumentLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -15,9 +17,12 @@ related:
   - ./binaryen-strategy.md
   - ./unsupported-types-effects-and-import-roster.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `instrument-locals` implementation structure and tests
+
+The immutable primary-source manifest for this owner/test map is [`../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md).
 
 ## Owner file map
 
@@ -107,11 +112,16 @@ Those would all overstate what `InstrumentLocals.cpp` actually does.
 
 ## Current-`main` drift check
 
-A 2026-04-21 spot check found these reviewed surfaces identical between `version_129` and current `main`:
+A 2026-04-24 spot check re-reviewed these surfaces between `version_129` and current `main`:
 
 - `src/passes/InstrumentLocals.cpp`
 - `test/lit/passes/instrument-locals_all-features_disable-gc.wast`
 - `test/lit/passes/instrument-locals_effects.wast`
 - `test/lit/passes/instrument-locals-eh-legacy.wast`
 
-So the dossier's source-confirmed owner/test map is not currently sitting on obvious checked-surface drift.
+No teaching-relevant contract drift was found on the inspected surfaces. This was a narrow source check, not a full upstream audit.
+
+## Starshine implementation map
+
+There is no local owner-file or test map yet because Starshine does not implement or reserve `instrument-locals` today.
+For exact local registry/status locations, see [`./starshine-strategy.md`](./starshine-strategy.md).
