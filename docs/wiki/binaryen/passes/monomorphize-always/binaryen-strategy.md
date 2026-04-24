@@ -1,19 +1,21 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md
+  - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
+  - ../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/cost.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/return-utils.h
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./usefulness-gate-and-sibling-split.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../monomorphize/index.md
 ---
 
@@ -21,186 +23,112 @@ related:
 
 ## What the pass really is
 
-The reviewed implementation makes `monomorphize-always` a **whole-module direct-call contextual-specialization pass** that shares the same engine as ordinary `monomorphize`.
+`monomorphize-always` is a **whole-module direct-call contextual-specialization pass** implemented by the same `Monomorphize.cpp` engine as ordinary [`../monomorphize/index.md`](../monomorphize/index.md).
 
-The best mental model is:
+The source-backed model is:
 
-- build the same callsite context
-- clone the same specialized callee
-- run the same nested optimization
-- but skip the final "was this helpful enough?" rejection policy
+- `monomorphize` constructs `Monomorphize(true)` and keeps clones only when they are helpful enough
+- `monomorphize-always` constructs `Monomorphize(false)` and skips that final usefulness rejection
+- both variants share the same candidate scan, context builder, clone construction, nested optimization, and safety gates
 
-So the pass is not:
+## Public surface
 
-- a separate algorithm
-- a broad all-calls cloner
-- or ordinary inlining under another name
+`src/passes/pass.cpp` registers `monomorphize-always` as a separate public pass name. The reviewed description says the sibling creates specialized function versions even when they are unhelpful.
 
-## Public surface and sibling split
+That public identity matters for Starshine because:
 
-`src/passes/pass.cpp` registers two related public passes:
+- users can request the sibling directly upstream
+- the local registry already tracks the name separately
+- future ports should keep two public entrypoints rather than hiding the sibling behind only a pass-arg recipe
 
-- `monomorphize`
-- `monomorphize-always`
+## Shared algorithm
 
-The durable split is:
+The shared engine still does the hard work:
 
-- `monomorphize` = usefulness-gated empirical pass
-- `monomorphize-always` = same specialization machinery, but keep legal nontrivial specializations even when the measured benefit is too small for the default pass
+1. Walk original defined functions and collect candidate direct calls.
+2. Reject calls to imports, self-recursive calls, unreachable calls, and unsuitable tail/dropped-result forms.
+3. Build a `CallContext` by reverse-inlining movable call operands into the future callee clone.
+4. Reject contexts that are trivial after analysis.
+5. Clone the target function.
+6. Rebuild the clone signature from surviving dynamic `local.get` inputs.
+7. Adjust result type to `none` for safe dropped-call cases.
+8. Repair locals and local names in the clone.
+9. Prepend context initialization statements to the clone body.
+10. Run the nested optimizer on the clone.
+11. Decide whether to keep the clone and retarget the original call.
 
-That is why this sibling deserves a dedicated folder.
-The pass boundary is not just folklore or a test hack.
+`monomorphize-always` changes only step 11's usefulness policy.
 
-## Default scheduler placement
+## What “always” removes
 
-A key negative fact also matters:
+Ordinary `monomorphize` measures the original and specialized forms and rejects a clone when the computed payoff is below `monomorphize-min-benefit`.
 
-- the repo's current no-DWARF `-O` / `-Os` page does **not** schedule `monomorphize-always`
-- the reviewed `pass.cpp` registration proves it is real public surface, but not part of that default pathway
+The always sibling removes that rejection. In beginner terms:
 
-So this dossier is a justified tracker expansion for a real local-registry pass outside the current parity queue.
+- ordinary mode asks: “legal, nontrivial, and helpful enough?”
+- always mode asks: “legal and nontrivial?”
 
-## The shared core algorithm still applies
+## What “always” does not remove
 
-Because both variants live in the same `Monomorphize.cpp` machinery, `monomorphize-always` still performs these same phases:
+The sibling is less profitability-conservative, not less correctness-conservative.
 
-1. scan original defined functions for candidate direct calls
-2. reject imported, recursive, unreachable, or tail-call-sensitive bad fits
-3. build a `CallContext` by reverse-inlining movable operand code into the future callee
-4. reject trivial contexts
-5. clone a specialized function and rebuild its signature from the surviving dynamic inputs
-6. adjust result type to `none` for dropped-call cases when that is safe
-7. remap locals and preserve names where possible
-8. run the nested optimization helper
-9. retarget the call to the specialized clone
-
-The only major policy difference comes after nested optimization.
-
-## The central policy difference
-
-In ordinary `monomorphize`, the pass computes a cost/benefit comparison and rejects weak wins.
-The neighboring dossier already captures that as the default `MinPercentBenefit` gate.
-
-`monomorphize-always` removes **that** rejection layer.
-
-The important teaching point is what it does **not** remove:
-
-- not the direct-call-only restriction
-- not the effect-order movement proof
-- not the trivial-context bailout
-- not the parameter-limit bailout
-- not the dropped-result safety rules
-
-This is why “always” is easy to misread.
-It means **always keep legal nontrivial specializations**, not **always specialize regardless of safety or shape**.
-
-## Why legality still matters
-
-`CallContext::buildFromCall(...)` is still the heart of the pass family.
-The builder tries to reverse-inline operand code from the caller into the specialized callee.
-That changes execution order, so Binaryen still has to prove movement legality using effect analysis.
-
-This shared proof still blocks contexts involving:
-
-- external control flow
-- local-sensitive motion
-- call-sensitive motion
-- unsupported tuple or control families
-- other cases where moving code inward would reorder visible effects
-
-So `monomorphize-always` is **less profitability-conservative**, not **less correctness-conservative**.
-
-## Dropped-call-result behavior stays the same
-
-The sibling also preserves one of the easiest parts of the family to underestimate:
-
-- if the original call result is immediately dropped
-- and the call is safe to specialize that way
-- Binaryen can produce a clone whose result type becomes `none`
-- then remove the outer `drop` when retargeting the callsite
-
-That rewrite surface is shared between the two variants.
-The only question the sibling changes is whether a weak-payoff version of that rewrite is still kept.
-
-## The nested optimizer still matters
-
-A future port must preserve that both variants still rely on nested optimization.
-The point is not only to make the clone prettier.
-The nested optimizer is part of the very definition of the pass family's usefulness story.
-
-Even in always mode, the nested optimization still matters because it:
-
-- exposes simplifications the specialized clone was created to unlock
-- shapes the final clone body that will be kept
-- determines how visible the sibling's extra aggressiveness is in printed WAT
-
-So omitting the nested optimizer would not merely reduce performance; it would change the sibling's visible contract.
-
-## Positive rewrite families that the sibling makes easier to observe
-
-## 1. Weak-benefit constant contexts
-
-A direct call may carry a real constant or movable constructor-like context that creates a valid specialized callee but only small body shrinkage.
-
-- ordinary `monomorphize` may reject it
-- `monomorphize-always` keeps it
-
-## 2. Refined-reference contexts with small immediate payoff
-
-A more specific reference argument may sharpen a specialized callee signature or unlock some local cleanup without clearing the default usefulness threshold.
-
-- ordinary `monomorphize` may reject it
-- the sibling keeps it
-
-This is one reason the type-oriented lit file matters so much.
-
-## 3. Dropped-result contexts with modest cleanup wins
-
-The dropped-result rewrite can still be structurally meaningful even when it does not satisfy the default measured-benefit policy.
-The sibling keeps those shapes visible.
-
-## Negative families that remain negative
-
-`monomorphize-always` still refuses:
+It still refuses:
 
 - imported callees
 - recursive self-calls
 - unreachable calls
 - trivial passthrough contexts
-- illegal context motion across effect/order barriers
-- unsupported context shapes
-- over-budget specialized signatures
+- context expressions that cannot be moved inward safely
+- unsupported tuple/control families
+- too many surviving dynamic parameters
 - unsafe dropped-result folds around return-call-sensitive code
 
-This is the most important beginner-friendly correction to the name.
+## Lit-test correction
+
+The 2026-04-24 source capture fixes one stale teaching shortcut:
+
+- `monomorphize-types.wast` directly runs `--monomorphize-always` and is the best direct lit proof for the sibling.
+- `monomorphize-benefit.wast` demonstrates threshold-sensitive ordinary `monomorphize` behavior; it supports the policy-axis explanation, but it does not itself run `--monomorphize-always`.
+
+So cite `monomorphize-types.wast` for direct sibling execution and cite `monomorphize-benefit.wast` only for the neighboring usefulness-threshold story.
+
+## Positive rewrite families
+
+### Weak-benefit refined references
+
+A callsite may pass a more specific reference type than the callee declares. The clone can expose the sharper type even when immediate code-size payoff is small. This is the clearest `monomorphize-always` teaching family.
+
+### Weak-benefit constants
+
+A constant argument can move into the clone and remove a parameter. If nested optimization does not shrink enough for ordinary mode, always mode still keeps the legal clone.
+
+### Dropped result context
+
+When the original call result is immediately dropped, the clone can safely become `none`-result in some cases and absorb the drop. Always mode keeps weak-payoff versions of that structure.
 
 ## Relationship to threshold tuning
 
 Inference from sources:
 
-The official lit files compare this sibling against threshold-tuned `monomorphize`, so Binaryen clearly treats both surfaces as related ways to expose the usefulness-policy dimension.
+`--monomorphize --pass-arg=monomorphize-min-benefit@0` is closely related to the sibling, and official tests compare these surfaces. But the wiki should still preserve the separate public pass name because Binaryen registers it separately and Starshine tracks it separately.
 
-But the durable docs rule to preserve is still:
+## What a Starshine port must preserve
 
-- `monomorphize-always` is a separate public pass name
-- it is not merely documentation shorthand for a pass-arg recipe
+A faithful port needs:
 
-That matters for registry design, CLI exposure, and future port completeness.
+1. one shared specialization engine
+2. separate public `monomorphize` and `monomorphize-always` entrypoints
+3. the full legality/triviality/limit gates in both variants
+4. nested optimization of the clone
+5. an ordinary usefulness policy for `monomorphize`
+6. no final usefulness rejection for `monomorphize-always`
 
-## What a future Starshine port must preserve
-
-1. Separate public identity for `monomorphize-always` in the registry and CLI.
-2. Shared specialization engine with ordinary `monomorphize`.
-3. The full legality/triviality/limit gates.
-4. The same dropped-result and local-remap repair behavior.
-5. The same nested-optimization dependency.
-6. The exact public policy split: always mode skips usefulness rejection, not safety rejection.
+See [`./starshine-strategy.md`](./starshine-strategy.md) for the current local boundary-only status.
 
 ## Sources
 
-- [`../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md`](../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md)
+- [`../../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md)
+- [`../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md`](../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/cost.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/return-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast>

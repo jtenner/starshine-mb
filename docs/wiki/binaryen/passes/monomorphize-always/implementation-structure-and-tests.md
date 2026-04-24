@@ -1,20 +1,21 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md
+  - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
+  - ../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-context.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-drop.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./usefulness-gate-and-sibling-split.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../monomorphize/index.md
 ---
 
@@ -22,131 +23,123 @@ related:
 
 ## Main implementation files
 
-## `src/passes/Monomorphize.cpp`
+### `src/passes/Monomorphize.cpp`
 
-This is still the real implementation file for the sibling.
-It owns almost all of the contract that matters here:
+This is the owner file for both `monomorphize` and `monomorphize-always`.
+
+For the sibling, it proves:
+
+- the implementation is shared with ordinary `monomorphize`
+- an `onlyWhenHelpful` policy flag controls the final usefulness rejection
+- the always pass is constructed with that flag disabled
+- all earlier legality, clone-construction, and nested-optimization logic remains shared
+
+Important mechanics owned here:
 
 - direct-call discovery
 - call-context building
 - effect-safe reverse-inlining of movable operands
-- specialized-function cloning and signature rebuilding
+- specialized-function cloning
+- signature rebuilding
 - dropped-result specialization
 - local-index and local-name repair
 - parameter-limit enforcement
-- the shared nested optimizer
-- the constructors for both `createMonomorphizePass()` and `createMonomorphizeAlwaysPass()`
+- nested optimization
+- final keep/reject policy
 
-That file structure proves the crucial point:
+### `src/passes/pass.cpp`
 
-- `monomorphize-always` is a sibling pass
-- but it is not a sibling implementation file
+This file proves the public registry/CLI surface.
 
-The two public passes are different policy surfaces built on one engine.
-
-## `src/passes/pass.cpp`
-
-This file proves the public CLI and registry surface.
 It registers both:
 
 - `monomorphize`
 - `monomorphize-always`
 
-That is the cleanest official proof that the sibling is deliberate public API surface, not a local repo invention.
+That registration is the clearest official proof that the sibling is deliberate public API surface, not just a local wiki name or hidden test flag.
 
 ## Helper files that still matter
 
-Even for the always sibling, these helpers matter because the same engine is shared:
+The always sibling inherits the helper surface from ordinary `monomorphize`:
 
-- `src/ir/cost.h`
-  - still relevant because the family is designed around usefulness measurement even when the sibling bypasses the final rejection policy
-- `src/ir/effects.h`
-  - core legality proof for moving operand code inward
-- `src/ir/find_all.h`
-  - used while rebuilding specialized signatures from surviving dynamic `local.get` inputs
-- `src/ir/manipulation.h`
-  - supports selective subtree copying
-- `src/ir/module-utils.h`
-  - whole-function cloning and defined-function iteration helpers
-- `src/ir/names.h`
-  - fresh function and local naming support
-- `src/ir/properties.h`
-  - structural movement boundaries
-- `src/ir/return-utils.h`
-  - return-call sensitivity plus dropped-result cleanup support
-- `src/ir/type-updating.h`
-  - relevant because specialized signatures and result types can change
-- `src/wasm-limits.h`
-  - broader param-limit context for the pass-local hard cap
+- `src/ir/cost.h` - cost model used by the usefulness story, even though always mode bypasses the final rejection
+- `src/ir/effects.h` - movement legality while pulling operand code inward
+- `src/ir/find_all.h` - dynamic input discovery while rebuilding signatures
+- `src/ir/manipulation.h` - selective subtree copying
+- `src/ir/module-utils.h` - defined-function iteration and cloning helpers
+- `src/ir/names.h` - fresh function/local naming
+- `src/ir/properties.h` - structural movement boundaries
+- `src/ir/return-utils.h` - return-call-sensitive dropped-result checks
+- `src/ir/type-updating.h` - changed signatures and result types
+- `src/wasm-limits.h` - parameter-limit context
 
-## Official lit files and what each one proves for the sibling
+A future Starshine port should read these through the parent [`../monomorphize/index.md`](../monomorphize/index.md) dossier and use this page only for the sibling-specific policy split.
 
-## `test/lit/passes/monomorphize-benefit.wast`
+## Official lit files
 
-This is the single most important file for `monomorphize-always`.
-It proves that the sibling exists to bypass the default usefulness policy.
+### `test/lit/passes/monomorphize-types.wast`
 
-The file shows:
+This is the direct `monomorphize-always` lit proof.
 
-- threshold-sensitive ordinary `monomorphize`
-- multiple `monomorphize-min-benefit` settings
-- and the sibling mode that keeps the legal specialization without that measured-benefit rejection
+It matters because it runs the sibling and compares it with ordinary `monomorphize` under threshold tuning on refined-reference/type-sensitive cases. Use this file when proving that the sibling's public behavior is real.
 
-Without this file, it would be too easy to describe the sibling as a vague convenience alias.
+### `test/lit/passes/monomorphize-benefit.wast`
 
-## `test/lit/passes/monomorphize-types.wast`
+This file proves the neighboring usefulness-threshold story for ordinary `monomorphize`.
 
-This is the best file for understanding why the sibling is pedagogically useful.
-It shows refined-reference contexts where specialization is real but the immediate payoff is not always dramatic.
+Important correction: it is not direct `--monomorphize-always` proof. Older wiki wording used it too broadly. It should now be cited as supporting evidence for the policy axis, not as a sibling execution test.
 
-That makes the split visible:
+### `test/lit/passes/monomorphize-context.wast`
 
-- careful `monomorphize` may reject
-- `monomorphize-always` keeps
+This file proves the inherited context-builder surface: the pass family is not free-form cloning. Context must be movable and meaningful.
 
-## `test/lit/passes/monomorphize-context.wast`
+### `test/lit/passes/monomorphize-drop.wast`
 
-This proves the sibling still depends on the same hard context-builder.
-It is not free-form cloning.
-The same movable-vs-nonmovable context distinction still applies.
+This file proves the inherited dropped-result specialization surface. Always mode changes whether weak-payoff versions survive, not the safety rule for absorbing a dropped result.
 
-## `test/lit/passes/monomorphize-drop.wast`
+### `test/lit/passes/monomorphize-consts.wast`
 
-This proves the sibling still shares the dropped-result specialization surface.
-The outer `drop` can still be absorbed into a specialized clone when safe.
-The sibling only changes whether weak-payoff versions of that shape survive.
+This file proves constant-context specialization shapes inherited by the sibling.
 
-## Practical source map for a future Starshine port
+### `test/lit/passes/monomorphize-limits.wast`
 
-If the goal is a faithful `monomorphize-always` port, the best reading order is:
+This file proves parameter-limit boundaries inherited by the sibling.
 
-1. `Monomorphize.cpp`
-   - understand the shared engine and find where the always-vs-careful policy split happens
-2. `pass.cpp`
-   - confirm public pass-name identity
-3. `monomorphize-benefit.wast`
-   - understand why the sibling exists at all
-4. `monomorphize-types.wast`
-   - understand the weak-benefit refined-type shapes the sibling keeps visible
-5. `monomorphize-context.wast`
-   - keep the legality surface honest
-6. `monomorphize-drop.wast`
-   - keep dropped-result specialization honest
+### `test/lit/passes/monomorphize-mvp.wast`
 
-## What this file map clarifies for beginners
+This file keeps the MVP-only feature boundary honest.
 
-Three things are easy to miss without the source map:
+### `test/lit/passes/no-inline-monomorphize-inlining.wast`
 
-1. The sibling is a real public pass name even though it reuses the same main implementation file.
-2. The difference is small in code structure but large in user-facing semantics.
-3. The official tests rely on the sibling to reveal weak-benefit specialization cases that the default pass intentionally hides.
+This file proves the neighboring interaction with inlining/no-inline metadata; it is shared family evidence rather than sibling-specific proof.
+
+## Practical reading order
+
+For a future Starshine port:
+
+1. `Monomorphize.cpp` - understand the shared engine and `onlyWhenHelpful` split.
+2. `pass.cpp` - confirm public pass identity.
+3. `monomorphize-types.wast` - study direct `--monomorphize-always` behavior.
+4. `monomorphize-benefit.wast` - study ordinary benefit-threshold policy.
+5. `monomorphize-context.wast` - keep movement legality honest.
+6. `monomorphize-drop.wast` - keep dropped-result specialization honest.
+7. Local [`./starshine-strategy.md`](./starshine-strategy.md) - map the future port into Starshine's current boundary-only surfaces.
+
+## What this map clarifies
+
+- The sibling is a real public pass even though it has no separate implementation file.
+- The code difference is small, but the user-visible semantics are large.
+- Direct sibling proof comes from `monomorphize-types.wast`; threshold-policy proof comes from `monomorphize-benefit.wast`.
+- Starshine must not treat existing `monomorphize_min_benefit` option storage as implementation of the sibling.
 
 ## Sources
 
-- [`../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md`](../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md)
+- [`../../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md)
+- [`../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md`](../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-context.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-drop.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-limits.wast>

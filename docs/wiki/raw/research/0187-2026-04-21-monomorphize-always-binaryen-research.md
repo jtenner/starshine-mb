@@ -1,7 +1,7 @@
 # Binaryen `monomorphize-always` research
 
 Date: 2026-04-21
-Status: supported
+Status: superseded-for-provenance-and-lit-surface by `0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md`; still useful for historical context
 Pass: `monomorphize-always`
 Local registry status: `boundary-only` in `src/passes/optimize.mbt`
 Neighbor dossier: `docs/wiki/binaryen/passes/monomorphize/`
@@ -235,11 +235,17 @@ The key scheduler/teaching boundary is:
 
 `monomorphize-always` means “do the same direct-call contextual specialization as `monomorphize`, but keep legal nontrivial clones even when Binaryen's normal cost/benefit gate would say the payoff is too small.”
 
+## Supersession note added 2026-04-24
+
+`docs/wiki/raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md` supersedes this note for provenance, local Starshine status, and direct lit-test attribution.
+
+The main correction is that `monomorphize-types.wast` is the direct `--monomorphize-always` lit proof, while `monomorphize-benefit.wast` should be cited only as supporting evidence for the threshold-policy axis of ordinary `monomorphize`.
+
 ## Open questions / uncertainty
 
 1. I did not re-derive every exact constructor argument or class-level flag name from `Monomorphize.cpp` in this note; the living pages should stay the canonical place for source-structure details.
 2. I am treating the public sibling split as semantically primary and the threshold-zero mode as a neighboring tuning surface. That is source-backed, but the exact equivalence or nonequivalence of those two user surfaces in every corner case should still be described carefully as an inference unless rechecked line-by-line in the implementation.
-3. I did not find a dedicated `monomorphize-always.wast` file. The sibling's contract is instead exposed across the broader `monomorphize*` lit family, especially the benefit and type files.
+3. I did not find a dedicated `monomorphize-always.wast` file. The sibling's contract is instead exposed across the broader `monomorphize*` lit family; use `monomorphize-types.wast` for direct sibling execution and `monomorphize-benefit.wast` only for neighboring threshold-policy context.
 
 ## Living pages added from this research
 

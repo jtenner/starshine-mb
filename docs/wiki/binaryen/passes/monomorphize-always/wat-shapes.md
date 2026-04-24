@@ -1,31 +1,67 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md
+  - ../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-context.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-drop.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-limits.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./usefulness-gate-and-sibling-split.md
-  - ../monomorphize/index.md
+  - ./starshine-strategy.md
+  - ../monomorphize/wat-shapes.md
 ---
 
 # `monomorphize-always` WAT and IR shapes
 
-This page is the beginner-friendly shape catalog for Binaryen `monomorphize-always`.
+This is the beginner-friendly shape catalog for Binaryen `monomorphize-always`.
 
-The easiest way to read the page is:
+Read each shape in two passes:
 
-- first ask whether the context is legal and nontrivial
-- then ask whether ordinary `monomorphize` might still reject it for weak payoff
-- if yes, that is exactly the kind of shape where `monomorphize-always` becomes easiest to see
+1. Is the context legal and nontrivial?
+2. Might ordinary `monomorphize` reject it for weak payoff?
 
-## Positive shape 1: constant argument produces a specialized clone even when the payoff is only modest
+If the answer to both is yes, the shape is exactly where `monomorphize-always` is easiest to see.
+
+## Positive shape 1: refined reference type survives as a specialized clone
+
+This is the most direct sibling-lit family; see `monomorphize-types.wast`.
+
+### Before
+
+```wat
+(type $Base (struct))
+(type $Sub (sub $Base (struct)))
+
+(func $use (param $r (ref null $Base)) (result (ref null $Base))
+  (local.get $r))
+
+(func $caller (param $s (ref null $Sub)) (result (ref null $Base))
+  (call $use
+    (local.get $s)))
+```
+
+### After under `monomorphize-always`, conceptually
+
+```wat
+(func $use$mono$0 (param $r (ref null $Sub)) (result (ref null $Base))
+  (local.get $r))
+
+(func $caller (param $s (ref null $Sub)) (result (ref null $Base))
+  (call $use$mono$0
+    (local.get $s)))
+```
+
+The clone can expose a sharper parameter type even when the immediate body shrink is small.
+
+## Positive shape 2: constant argument produces a clone even with modest payoff
 
 ### Before
 
@@ -35,7 +71,7 @@ The easiest way to read the page is:
     (local.get $x)
     (i32.const 1)))
 
-(func $caller (param $y i32) (result i32)
+(func $caller (result i32)
   (call $callee
     (i32.const 9)))
 ```
@@ -46,7 +82,7 @@ The easiest way to read the page is:
 (func $callee$mono$0 (result i32)
   (i32.const 10))
 
-(func $caller (param $y i32) (result i32)
+(func $caller (result i32)
   (call $callee$mono$0))
 ```
 
@@ -56,10 +92,9 @@ The exact printed form can vary, but the important shape is:
 - the specialized clone lost a parameter
 - the callsite retargeted to the clone
 
-If ordinary `monomorphize` thinks the payoff is too weak, it may keep the original generic call instead.
-The sibling keeps the specialized shape visible.
+Ordinary `monomorphize` may reject this if the computed benefit is too weak.
 
-## Positive shape 2: mixed context leaves one dynamic param and one inlined constant
+## Positive shape 3: mixed context leaves one dynamic param
 
 ### Before
 
@@ -85,39 +120,9 @@ The sibling keeps the specialized shape visible.
     (local.get $x)))
 ```
 
-This is the core contextual-specialization story:
+This is the core contextual-specialization story: some operand context moves inward, while dynamic data remains an actual parameter.
 
-- some operand context moves inward
-- some dynamic data remains an actual parameter
-
-## Positive shape 3: refined reference type becomes a visible specialized clone
-
-### Before
-
-```wat
-(func $use (param $r anyref) (result anyref)
-  (local.get $r))
-
-(func $caller (param $s (ref null $Sub)) (result anyref)
-  (call $use
-    (local.get $s)))
-```
-
-### After under `monomorphize-always`, conceptually
-
-```wat
-(func $use$mono$0 (param $r (ref null $Sub)) (result anyref)
-  (local.get $r))
-
-(func $caller (param $s (ref null $Sub)) (result anyref)
-  (call $use$mono$0
-    (local.get $s)))
-```
-
-This is exactly the sort of shape the sibling helps teach.
-The specialization is real even if the immediate cost win is small.
-
-## Positive shape 4: dropped result becomes a `none`-result specialized clone
+## Positive shape 4: dropped result becomes a `none`-result clone
 
 ### Before
 
@@ -142,10 +147,7 @@ The specialization is real even if the immediate cost win is small.
   (call $work$mono$0))
 ```
 
-The exact cleanup may simplify further, but the important shape is:
-
-- the outer `drop` got absorbed into the specialized clone
-- the specialized call no longer returns a live value
+The important shape is that the outer `drop` can be absorbed into the specialized clone when Binaryen proves it is safe.
 
 ## Negative shape 1: imported callee
 
@@ -160,7 +162,7 @@ The exact cleanup may simplify further, but the important shape is:
 
 ### After
 
-No change from either variant.
+No change.
 
 The pass family specializes defined callees, not imported ones.
 
@@ -178,7 +180,7 @@ The pass family specializes defined callees, not imported ones.
 
 ### After
 
-No change.
+No clone is kept.
 
 This is the classic trivial-context bailout:
 
@@ -188,7 +190,7 @@ This is the classic trivial-context bailout:
 - no moved subtree
 - just same-typed passthrough `local.get`
 
-`monomorphize-always` does **not** force specialization here.
+`monomorphize-always` does not force specialization here.
 
 ## Negative shape 3: illegal context movement across visible effects
 
@@ -207,8 +209,7 @@ This is the classic trivial-context bailout:
 
 ### After
 
-No illegal inward move.
-Potentially no specialization at all.
+No illegal inward move. Often no specialization is kept at all.
 
 The shared context builder still refuses movements that would reorder visible effects.
 
@@ -216,37 +217,37 @@ The shared context builder still refuses movements that would reorder visible ef
 
 ### Before
 
-A very large function whose context still leaves too many dynamic values as parameters after specialization.
+A large callsite where specialization still leaves too many dynamic values as clone parameters.
 
 ### After
 
-No clone is kept if the specialized signature still exceeds the hard cap.
+No clone is kept if the specialized signature exceeds the hard cap.
 
 This bailout is shared with ordinary `monomorphize`.
 
-## What beginners most often misread
+## Starshine shape caveat
 
-### Misread 1: "always" means no bailouts
+Current Starshine has no local before/after output for these shapes because [`./starshine-strategy.md`](./starshine-strategy.md) documents `monomorphize-always` as boundary-only. These examples are Binaryen strategy/port-planning shapes, not current Starshine behavior.
 
-Wrong.
-It only removes the usefulness rejection.
-It keeps the same legality and triviality bailouts.
+## Common misreads
+
+### Misread 1: “always” means no bailouts
+
+Wrong. It only removes the usefulness rejection. It keeps the same legality and triviality bailouts.
 
 ### Misread 2: this is just inlining
 
-Wrong.
-The callee is cloned and specialized.
-The caller is not rewritten into a direct copy of the callee body the way ordinary inlining works.
+Wrong. The callee is cloned and specialized. The caller is not rewritten into a direct copy of the callee body the way ordinary inlining works.
 
-### Misread 3: refined types only matter when a big optimization follows immediately
+### Misread 3: existing Starshine threshold plumbing implements it
 
-Wrong.
-The sibling exists partly so official tests can keep those smaller but still-real specialized clones visible.
+Wrong. `--monomorphize-min-benefit` option storage is adjacent configuration plumbing, not a clone-building pass.
 
 ## Sources
 
-- [`../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md`](../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-benefit.wast>
+- [`../../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-always-primary-sources.md)
+- [`../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md`](../../../raw/research/0318-2026-04-24-monomorphize-always-primary-sources-and-starshine-followup.md)
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-context.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-drop.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-types.wast>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/monomorphize-limits.wast>
