@@ -1,9 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
+  - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/ssa_nomerge.mbt
+  - ../../../../../src/ir/ssa_local.mbt
+  - ../../../../../src/ir/ssa_destroy.mbt
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h
@@ -19,6 +25,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./merge-locals-entry-prepends-and-default-values.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../ssa-nomerge/index.md
   - ../tracker.md
 ---
@@ -28,7 +35,7 @@ related:
 ## Role
 
 - `ssa` is a real public upstream Binaryen pass.
-- It is **not** currently part of the local Starshine pass registry.
+- It is **not** currently part of the local Starshine pass registry; there is no active, boundary-only, or removed `ssa` entry today.
 - It is still worth tracking here because the repo already has a deep dossier for the implemented sibling [`ssa-nomerge`](../ssa-nomerge/index.md), and that dossier repeatedly depends on a correct explanation of what full `ssa` would do differently.
 
 The beginner summary is:
@@ -107,19 +114,20 @@ That absence is intentional context for this folder: it is a documentation expan
   - Focused guide to the full-`ssa`-only behavior: merge locals, incoming `tee`s, parameter entry prepends, and default-value handling.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog, with direct `ssa.wast` positives clearly separated from source-derived merge-local families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and port map: no local `ssa` registry entry, active `ssa-nomerge` sibling only, reusable HOT SSA overlay/destruction infrastructure, and the exact code locations a future faithful port would need to bridge.
 
 ## Freshness note
 
-A narrow 2026-04-21 check found:
-
-- `SSAify.cpp` on current `main` matches `version_129`
-- `test/lit/passes/ssa.wast` on current `main` matches `version_129`
+A 2026-04-21 exactness check found `SSAify.cpp` and `test/lit/passes/ssa.wast` on current upstream `main` matched `version_129`. The 2026-04-24 source refresh re-opened the same current-`main` source/test surfaces for a narrow spot check and did not find a teaching-level drift; this is not a full trunk-equivalence audit.
 
 So this folder should keep treating Binaryen `version_129` as the released semantic oracle without an active trunk-drift caveat.
 
 ## Sources
 
-- [`../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md`](../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md)
+- [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md)
+- [`../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md`](../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md`](../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md) (historical; superseded for raw-source provenance and local Starshine status)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

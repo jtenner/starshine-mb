@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
+  - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h
@@ -13,6 +15,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../ssa-nomerge/merge-shapes-and-canonical-slots.md
 ---
 
@@ -34,7 +37,7 @@ This page explains the single easiest thing to miss when moving from `ssa-nomerg
 
 ## The source-backed core rule
 
-In `SSAify.cpp`, when a `local.get` has more than one reaching set and `allowMerges` is true, Binaryen:
+In `SSAify.cpp`, when a `local.get` has more than one reaching set and `allowMerges` is true, Binaryen does the source-backed work captured in [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md):
 
 1. allocates a fresh merge local
 2. retargets that get to the merge local
@@ -194,6 +197,10 @@ Source-derived from `SSAify.cpp` plus LocalGraph helper contracts:
 - ordinary-default-entry no-prepend behavior
 
 That distinction should stay visible so the dossier is confident without pretending the tiny lit file covers every interesting merge case directly.
+
+## Starshine status caveat
+
+Current Starshine's active `ssa-nomerge` path can lower HOT overlay phis through predecessor copies, but that is not this Binaryen full-`ssa` merge-local contract. Local follow-along and future-port requirements live in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Why `ssa-nomerge` is smaller
 

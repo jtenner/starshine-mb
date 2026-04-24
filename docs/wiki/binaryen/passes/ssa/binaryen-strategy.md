@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
+  - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -16,6 +18,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./merge-locals-entry-prepends-and-default-values.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../ssa-nomerge/binaryen-strategy.md
 ---
 
@@ -23,7 +26,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
+Use Binaryen `version_129` as the primary source oracle for this pass. The committed raw source manifest is [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md).
 
 Primary files:
 
@@ -245,6 +248,10 @@ Keep these non-goals explicit:
 - no local coalescing or cleanup of fresh locals
 - no scheduler guarantee that this pass runs in the default no-DWARF optimize path here
 - no debugger-perfect reachability precision inside unreachable code
+
+## Starshine mapping note
+
+Current Starshine does not expose this full `ssa` pass. The local active sibling is `ssa-nomerge`, and its implementation uses Starshine's HOT SSA overlay/destruction machinery rather than this exact Binaryen merge-local + incoming-`tee` rewrite. See [`./starshine-strategy.md`](./starshine-strategy.md) for the local code map and future-port requirements.
 
 ## Bottom line
 

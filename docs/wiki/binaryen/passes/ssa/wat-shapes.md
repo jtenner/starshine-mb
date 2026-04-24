@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
+  - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SSAify.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h
@@ -13,12 +15,13 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./merge-locals-entry-prepends-and-default-values.md
+  - ./starshine-strategy.md
   - ../ssa-nomerge/wat-shapes.md
 ---
 
 # `ssa` WAT shapes
 
-This page is the beginner-friendly shape catalog for full Binaryen `ssa`.
+This page is the beginner-friendly shape catalog for full Binaryen `ssa`. It is anchored by the committed primary-source manifest [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md).
 
 The most important rule to remember is:
 
@@ -236,6 +239,10 @@ Full `ssa`, conceptually:
 - do not materialize the join
 
 That is the main sibling difference this folder exists to keep visible.
+
+## Starshine shape caveat
+
+Current Starshine does not expose full `ssa`, so these are Binaryen shapes, not local output guarantees. Starshine's active sibling uses HOT SSA destruction and predecessor copies; see [`./starshine-strategy.md`](./starshine-strategy.md) and [`../ssa-nomerge/starshine-hot-ir-strategy.md`](../ssa-nomerge/starshine-hot-ir-strategy.md).
 
 ## Practical rules a future reader should keep
 

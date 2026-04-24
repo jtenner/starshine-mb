@@ -1,5 +1,9 @@
 # 0207 - 2026-04-21 - Binaryen `ssa` research
 
+## Supersession note
+
+- 2026-04-24: [`0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md`](0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md) and [`../binaryen/2026-04-24-ssa-primary-sources.md`](../binaryen/2026-04-24-ssa-primary-sources.md) supersede this note for immutable raw-source provenance and exact Starshine local-status mapping. The source-mechanics reading below remains useful historical context.
+
 ## Scope
 
 - Research the upstream Binaryen public pass `ssa` on `version_129`.
