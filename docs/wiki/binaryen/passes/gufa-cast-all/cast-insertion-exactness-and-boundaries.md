@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md
+  - ../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../gufa/index.md
   - ../gufa-optimizing/index.md
 ---
@@ -21,8 +24,7 @@ The easiest beginner mistake is saying:
 
 - “`gufa-cast-all` just makes GUFA more aggressive.”
 
-That is not precise enough.
-The real teaching question is:
+That is not precise enough. The real teaching question is:
 
 - **when does Binaryen insert a brand-new cast, and when does it still refuse?**
 
@@ -32,17 +34,18 @@ The real teaching question is:
 
 That new cast is still filtered by:
 
-- castability
-- legality
-- exactness support
-- emitability / feature limits
+- GC feature availability,
+- castability,
+- reference-type legality,
+- exactness support,
+- a real subtype-improvement check,
+- and the ordinary trapping behavior of `ref.cast`.
 
 So the pass is **not** “cast everything to the narrowest inferred type.”
 
 ## Why Binaryen needs a separate sibling at all
 
-Plain GUFA can know more than it can directly encode with simple replacement.
-For example:
+Plain GUFA can know more than it can directly encode with simple replacement. For example:
 
 - it may know a value always belongs to one subtype cone,
 - but it may not have one exact replacement expression to substitute.
@@ -59,8 +62,7 @@ Conceptually, before:
 (local.get $x) ;; broad static type
 ```
 
-The oracle may know that `$x`'s possible contents are always inside a narrower subtype cone.
-Then `gufa-cast-all` can produce, conceptually:
+The oracle may know that `$x`'s possible contents are always inside a narrower subtype cone. Then `gufa-cast-all` can produce, conceptually:
 
 ```wat
 (ref.cast (ref $Narrower)
@@ -75,8 +77,7 @@ Teaching point:
 
 ## Why exactness is tricky
 
-The reviewed GUFA-family sources and the dedicated `gufa-cast-all.wast` file show that exactness is feature-sensitive.
-When custom descriptors are unavailable, Binaryen may need to relax an exact inferred target to a non-exact one.
+The reviewed GUFA-family sources and the dedicated `gufa-cast-all.wast` file show that exactness is feature-sensitive. When custom descriptors are unavailable, Binaryen may need to relax an exact inferred target to a non-exact one.
 
 So a better beginner rule is:
 
@@ -102,8 +103,7 @@ This dossier exists largely to keep those two families separate in future teachi
 
 ## Preserved no-op cases matter
 
-The dedicated lit file is important not only for its positive examples, but also for the no-op cases it preserves.
-Those preserved cases teach that some expressions remain untouched even when the oracle appears to know more.
+The dedicated lit file is important not only for its positive examples, but also for the no-op cases it preserves. Those preserved cases teach that some expressions remain untouched even when the oracle appears to know more.
 
 That can happen because:
 
@@ -114,10 +114,21 @@ That can happen because:
 
 Those no-op cases are part of the public contract.
 
+## Why inserted casts must remain trap-aware
+
+`ref.cast` is not a harmless type annotation. If the proof is wrong, the inserted cast can trap. Binaryen's source gates therefore matter:
+
+- ask the whole-program oracle,
+- require the oracle result to be reference-typed,
+- require subtype compatibility,
+- and refinalize after insertion.
+
+The future Starshine port should preserve this as a correctness boundary, not only as a type-prettiness rule.
+
 ## Why this is not the cleanup-owning sibling
 
-If `gufa-cast-all` adds a new cast and that cast later makes more simplifications possible, that later cleanup does not belong to this pass itself.
-`gufa-cast-all` still keeps `optimizing = false`.
+If `gufa-cast-all` adds a new cast and that cast later makes more simplifications possible, that later cleanup does not belong to this pass itself. `gufa-cast-all` still keeps `optimizing = false`.
+
 So it does **not** own the changed-functions-only nested `dce` + `vacuum` rerun that `gufa-optimizing` owns.
 
 That means future ports should not silently merge these siblings just because both are “more visible” than plain `gufa`.
@@ -126,13 +137,14 @@ That means future ports should not silently merge these siblings just because bo
 
 Keep these rules explicit:
 
-1. shared `ContentOracle` analysis first
-2. shared plain-GUFA rewrites first
-3. `ReFinalize()` before new-cast insertion
-4. only insert casts for valid castable reference-typed sites
-5. preserve feature-sensitive exactness downgrades
-6. keep preserved no-op cases preserved
-7. do not silently add `gufa-optimizing`'s cleanup rerun here
+1. shared `ContentOracle` analysis first,
+2. shared plain-GUFA rewrites first,
+3. `ReFinalize()` or local validation before new-cast insertion,
+4. only insert casts for valid castable reference-typed sites,
+5. preserve feature-sensitive exactness downgrades,
+6. keep preserved no-op cases preserved,
+7. keep inserted casts marked as trapping instructions,
+8. do not silently add `gufa-optimizing`'s cleanup rerun here.
 
 ## One-sentence memory aid
 

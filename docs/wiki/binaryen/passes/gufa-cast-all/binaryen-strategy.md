@@ -1,36 +1,30 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md
+  - ../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./cast-insertion-exactness-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../gufa/index.md
   - ../gufa-optimizing/index.md
 ---
 
-# Binaryen `gufa-cast-all` Strategy
+# Binaryen `gufa-cast-all` strategy
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
-- The core implementation is the shared `src/passes/GUFA.cpp` engine.
-- The whole-program analysis helper is `src/ir/possible-contents.h`.
-- Public registration comes from `src/passes/pass.cpp`.
-- The shipped behavior example for this exact sibling is `test/lit/passes/gufa-cast-all.wast`.
+Use Binaryen `version_129` as the current source oracle for this pass, with the 2026-04-24 raw manifest as the durable reviewed-source set:
 
-Primary source URLs:
+- [`../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md)
 
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GUFA.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/possible-contents.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa-cast-all.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/gufa-optimizing.wast>
+The core implementation is the shared `src/passes/GUFA.cpp` engine. Public registration comes from `src/passes/pass.cpp`, whole-program facts come from `src/ir/possible-contents.h`, and the strongest dedicated behavior file is `test/lit/passes/gufa-cast-all.wast`.
 
 ## The pass in one sentence
 
@@ -58,32 +52,31 @@ A better model is:
 
 ## Scheduler fact
 
-This pass is **registered publicly** in Binaryen `pass.cpp`, but it is **not scheduled** in the reviewed default no-DWARF `-O` / `-Os` pipeline.
-That means this dossier is a deliberate upstream-only registry expansion.
+This pass is **registered publicly** in Binaryen `pass.cpp`, but it is **not scheduled** in the reviewed default no-DWARF `-O` / `-Os` pipeline. That means this dossier is a deliberate upstream-only registry expansion.
 
 ## What the implementation is really organized around
 
 The durable structure is:
 
-1. build one module-wide `ContentOracle`
-2. run the shared GUFA visitor on each function in parallel
-3. refinalize if the visitor changed anything
-4. if `castAll`, run `addNewCasts(func)`
-5. repair EH nested pops after real rewrites
-6. only if `optimizing` is true, run nested `dce` and `vacuum`
+1. build one module-wide `ContentOracle`,
+2. run the shared GUFA visitor on each function in parallel,
+3. refinalize if the visitor changed anything,
+4. if `castAll`, run `addNewCasts(func)`,
+5. if that inserted casts, refinalize again,
+6. repair EH nested pops after real rewrites,
+7. only if `optimizing` is true, run nested `dce` and `vacuum`.
 
-For `gufa-cast-all`, the identity is all about step 4.
+For `gufa-cast-all`, the identity is steps 4 and 5.
 
 ## Phase 1: the analysis is still plain GUFA analysis
 
-The whole-program oracle is `ContentOracle` in `possible-contents.h`.
-It still computes the same possible-content facts the broader `gufa` dossier already explains:
+The whole-program oracle is `ContentOracle` in `possible-contents.h`. It still computes the same possible-content facts the broader `gufa` dossier explains:
 
-- impossible contents / unreachable
-- one literal-like value
-- one materializable global or function identity
-- a tighter reference-type cone
-- too-many-values fallback
+- impossible contents / unreachable,
+- one literal-like value,
+- one materializable global or function identity,
+- a tighter reference-type cone,
+- too-many-values fallback.
 
 `gufa-cast-all` does **not** add any new analysis precision beyond that.
 
@@ -91,44 +84,47 @@ It still computes the same possible-content facts the broader `gufa` dossier alr
 
 The shared visitors in `GUFA.cpp` still do the same narrow family of rewrites first:
 
-- generic expression replacement when the oracle can prove one legal value
-- replacement with `unreachable` when the oracle proves no possible contents
-- `ref.eq` simplification using possible-content intersection
-- `ref.test` simplification using type-cone inclusion
-- existing `ref.cast` result-type sharpening
+- generic expression replacement when the oracle can prove one legal value,
+- replacement with `unreachable` when the oracle proves no possible contents,
+- `ref.eq` simplification using possible-content intersection,
+- `ref.test` simplification using type-cone inclusion,
+- existing `ref.cast` result-type sharpening.
 
 So if someone asks, “what IR shapes does this pass understand before the sibling-specific step?”, the answer starts with plain GUFA's shapes.
 
 ## Phase 3: refinalization happens before cast insertion
 
-In `visitFunction`, Binaryen first checks whether the shared rewrite phase changed anything.
-If it did, it runs `ReFinalize()`.
+In `visitFunction`, Binaryen first checks whether the shared rewrite phase changed anything. If it did, it runs `ReFinalize()` before calling `addNewCasts(func)`.
 
-That ordering matters.
-The new-cast insertion walk is not run on stale or partially-invalid IR.
-It runs only after Binaryen has already repaired function-local typing after the common GUFA rewrites.
+That ordering matters. The new-cast insertion walk is not run on stale or partially-invalid IR.
 
 ## Phase 4: `castAll` mode owns the new-cast insertion walk
 
-The core difference is a small branch in `visitFunction`:
+The decisive local branch is:
 
-- if `castAll`, call `addNewCasts(func)`
-- if `optimizing`, later run nested cleanup
+- if `castAll`, call `addNewCasts(func)`;
+- if `optimizing`, later run nested cleanup.
 
-This sibling is therefore not about cleanup.
-It is about **making already-proved type information explicit**.
+This sibling is therefore not about cleanup. It is about **making already-proved type information explicit**.
+
+The reviewed `addNewCasts` logic keeps several correctness gates visible:
+
+- bail out if the module does not have GC enabled,
+- skip expressions whose static type is not castable,
+- ask the oracle for a reference-typed possible-content type,
+- downgrade exactness when custom descriptors are unavailable,
+- skip if the improved type is equal to the static type,
+- require the improved type to be a subtype of the static type,
+- build an explicit `ref.cast`,
+- refinalize again if any casts were inserted.
 
 ## Why Binaryen does this at all
 
-The shared oracle can know more than the direct replacement surface can emit.
-For example, Binaryen may know that some expression is always in a narrower subtype cone, but plain GUFA may not have a direct exact-value replacement for it.
-`gufa-cast-all` exists to turn some of that latent type knowledge into explicit IR via `ref.cast`.
+The shared oracle can know more than the direct replacement surface can emit. For example, Binaryen may know that some expression is always in a narrower subtype cone, but plain GUFA may not have one exact expression to substitute. `gufa-cast-all` exists to turn some of that latent type knowledge into explicit IR via `ref.cast`.
 
-## Phase 5: exactness is feature-sensitive
+## Exactness is feature-sensitive
 
-This is one of the easiest parts to misunderstand.
-The reviewed family sources and lit file show that exact refinement is **not** unconditional.
-When descriptor/custom-descriptor support is unavailable, Binaryen may need to downgrade an exact inferred type to a non-exact cast target.
+This is one of the easiest parts to misunderstand. The reviewed family sources and lit file show that exact refinement is **not** unconditional. When descriptor/custom-descriptor support is unavailable, Binaryen may need to downgrade an exact inferred type to a non-exact cast target.
 
 So the pass is not:
 
@@ -138,35 +134,26 @@ It is:
 
 - “emit the most precise valid cast this module's feature surface can actually represent.”
 
-## Phase 6: EH nested-pop repair is still part of the real contract
+## EH nested-pop repair is still part of the real contract
 
-After any real rewrite, Binaryen still calls:
+After any real rewrite, Binaryen still calls the EH nested-pop repair helper from the outer `visitFunction` path. This happens for this sibling too.
 
-- `EHUtils::handleBlockNestedPops(func, *getModule())`
-
-This happens for this sibling too.
 So the public contract still includes:
 
-- GUFA rewrite
-- refinalize
-- optional cast insertion
-- EH nested-pop repair
-
-and only then an early return because `optimizing` is false.
+- GUFA rewrite,
+- refinalize,
+- optional cast insertion,
+- optional second refinalize,
+- EH nested-pop repair,
+- and then an early return because `optimizing` is false.
 
 ## Positive rewrite family 1: a new cast is inserted where plain GUFA would stop
 
-The dedicated `gufa-cast-all.wast` file shows the cleanest example family.
-A value has a broad static type, but the oracle can prove it actually lives in a narrower cone.
-Plain `gufa` may leave that value alone.
-`gufa-cast-all` can instead make the fact explicit with a new `ref.cast`.
-
-This is the most beginner-friendly way to understand the sibling.
+The dedicated `gufa-cast-all.wast` file shows the cleanest example family. A value has a broad static type, but the oracle can prove it actually lives in a narrower cone. Plain `gufa` may leave that value alone. `gufa-cast-all` can instead make the fact explicit with a new `ref.cast`.
 
 ## Positive rewrite family 2: existing-cast refinement and new-cast insertion are distinct
 
-The shared visitor can already sharpen an existing `ref.cast` based on proven contents.
-The cast-all sibling adds a second source-backed family:
+The shared visitor can already sharpen an existing `ref.cast` based on proven contents. The cast-all sibling adds a second source-backed family:
 
 - insert a brand-new cast where there was no cast before.
 
@@ -174,56 +161,39 @@ That distinction is important for teaching because otherwise readers can blur al
 
 ## Positive rewrite family 3: downstream GC/cast opportunities become visible
 
-The extra casts are not just cosmetic.
-They expose sharper reference types to later passes and to readers of the IR.
-That is the practical reason Binaryen publishes this as a separate public sibling.
+The extra casts are not just cosmetic. They expose sharper reference types to later passes and to readers of the IR. That is the practical reason Binaryen publishes this as a separate public sibling.
 
 ## Negative family 1: no `dce` / `vacuum` rerun
 
-Because this sibling keeps `optimizing = false`, it does **not** run the changed-functions-only nested `dce` and `vacuum` pass runner from `gufa-optimizing`.
-That is a separate public sibling with a separate contract.
+Because this sibling keeps `optimizing = false`, it does **not** run the changed-functions-only nested `dce` and `vacuum` pass runner from `gufa-optimizing`. That is a separate public sibling with a separate contract.
 
 ## Negative family 2: no broader inference than plain GUFA
 
 This pass still inherits all the shared GUFA boundaries:
 
-- the same `ContentOracle`
-- the same value/cone proof space
-- the same common-rewrite conservatism before cast insertion
+- the same `ContentOracle`,
+- the same value/cone proof space,
+- the same common-rewrite conservatism before cast insertion.
 
-So the cast-all sibling is not “plain GUFA plus more proof power.”
-It is “plain GUFA plus more explicit cast materialization.”
+So the cast-all sibling is not “plain GUFA plus more proof power.” It is “plain GUFA plus more explicit cast materialization.”
 
 ## Negative family 3: no arbitrary cast insertion everywhere the oracle knows more
 
-The insertion step is filtered by castability, legality, exactness support, and emitability.
-That is why the dedicated lit file includes preserved cases.
-Those no-op cases are part of the contract, not test clutter.
-
-## Important helper dependencies
-
-The most important helper dependencies are:
-
-- `ContentOracle` / `PossibleContents` in `possible-contents.h`
-- the shared GUFA visitor logic in `GUFA.cpp`
-- `ReFinalize`
-- `EHUtils::handleBlockNestedPops`
-- the sibling-specific `addNewCasts(func)` walk
-
-This pass is therefore best understood as a **whole-program analysis pass that intentionally hands off to a second type-materialization walk**, not as a standalone cast peephole.
+The insertion step is filtered by castability, legality, exactness support, and emitability. That is why the dedicated lit file includes preserved cases. Those no-op cases are part of the contract, not test clutter.
 
 ## What a future Starshine port must preserve
 
-A correct port should preserve eight boundaries:
+A correct port should preserve nine boundaries:
 
-1. the same whole-program `ContentOracle` analysis as plain `gufa`
-2. the same narrow direct rewrite surface as plain `gufa`
-3. function-level change tracking
-4. `ReFinalize()` before the cast-insertion walk
-5. feature-sensitive exactness downgrades
-6. EH nested-pop repair after real rewrites
-7. no nested `dce` + `vacuum` rerun here
-8. the explicit split from both plain `gufa` and `gufa-optimizing`
+1. the same whole-program `ContentOracle` analysis as plain `gufa`,
+2. the same narrow direct rewrite surface as plain `gufa`,
+3. function-level change tracking,
+4. `ReFinalize()` or local validation before the cast-insertion walk,
+5. feature-sensitive exactness downgrades,
+6. trapping behavior of inserted casts,
+7. EH nested-pop repair after real rewrites,
+8. no nested `dce` + `vacuum` rerun here,
+9. the explicit split from both plain `gufa` and `gufa-optimizing`.
 
 ## Most important beginner correction
 
@@ -236,5 +206,3 @@ that is not quite wrong, but it is much too blurry.
 A much better sentence is:
 
 - “`gufa-cast-all` is the public GUFA sibling that inserts new explicit `ref.cast` nodes after the shared rewrite phase when the oracle knows a narrower castable reference type.”
-
-That is the main durable teaching value of this dossier.
