@@ -1,21 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
+  - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/InstrumentMemory.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory-filter.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory-gc.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory64.wast
-  - https://github.com/WebAssembly/binaryen/blob/main/src/passes/InstrumentMemory.cpp
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./helper-import-roster-filters-and-unsupported-types.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../instrument-locals/index.md
 ---
 
@@ -325,17 +321,13 @@ Why it matters:
 
 This is the same basic instrumentation-story neighborhood as `instrument-locals`, which is why the sibling split belongs in the wiki tracker.
 
-## Current-main drift check
+## Release provenance and current-main spot check
 
-A raw-file diff check found no diff between `version_129` and current `main` for:
+The raw primary-source manifest anchors this page to Binaryen `version_129`.
+The official GitHub release page reviewed on 2026-04-24 showed publish date **2026-04-01 14:31**.
 
-- `InstrumentMemory.cpp`
-- `instrument-memory.wast`
-- `instrument-memory-filter.wast`
-- `instrument-memory-gc.wast`
-- `instrument-memory64.wast`
-
-So the tagged release remains a stable oracle for this dossier.
+A narrow current-`main` spot check of `InstrumentMemory.cpp` and the four dedicated lit files did not surface teaching-relevant contract drift beyond the tagged `version_129` claims.
+That spot check is intentionally narrower than a full upstream drift audit, so keep future source corrections explicit if Binaryen changes the pass.
 
 ## Nearby-pass relationship map
 
@@ -356,7 +348,8 @@ After instrumentation, many operations that previously looked removable will now
 
 ## What a future Starshine port must preserve
 
-A faithful port should preserve:
+Current Starshine has no implementation, registry spelling, or backlog slice for this pass; see [`./starshine-strategy.md`](./starshine-strategy.md) for the local code map.
+A faithful future port should preserve:
 
 - public pass identity separate from default optimization presets
 - postwalk wrapping order
@@ -379,11 +372,6 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)
+- [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/InstrumentMemory.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory-filter.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory-gc.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory64.wast>
-- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/InstrumentMemory.cpp>

@@ -1,19 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
+  - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/InstrumentMemory.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory-filter.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory-gc.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory64.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../instrument-locals/index.md
 ---
 
@@ -217,6 +215,7 @@ The true durable wording should be closer to:
 - intercept supported memory loads/stores, `memory.grow`, and selected scalar GC heap accesses through imported helper calls
 
 This same wording drift also exists for the sibling `instrument-locals`, which is why keeping the two folders separate matters.
+The 2026-04-24 source manifest preserves the exact primary-source URLs behind this correction, and [`./starshine-strategy.md`](./starshine-strategy.md) keeps the local non-adoption status separate from the upstream contract.
 
 ## Easy-to-miss teaching summary
 
@@ -226,9 +225,6 @@ If someone remembers only one sentence from this page, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)
+- [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/InstrumentMemory.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory-filter.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory-gc.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/instrument-memory64.wast>
