@@ -1,23 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
+  - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DataFlowOpts.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/graph.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/node.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/users.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/flat.h
 related:
   - ./implementation-structure-and-tests.md
   - ./flat-ir-dataflow-ir-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../flatten/binaryen-strategy.md
 ---
 
 # Binaryen strategy for `dataflow-optimization` / `dfo`
+
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md).
+On 2026-04-23 the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**, and a narrow current-`main` spot check did not surface a teaching-relevant contract drift beyond the strategy described here.
 
 ## One-sentence summary
 
@@ -380,10 +380,6 @@ The pass explicitly requires Flat IR.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md)
+- [`../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DataFlowOpts.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/graph.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/node.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/users.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/flat.h>

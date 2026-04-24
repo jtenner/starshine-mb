@@ -1,10 +1,14 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
+  - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../../../docs/0065-2026-03-24-ir2-execution-plan.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -13,9 +17,12 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flat-ir-dataflow-ir-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../flatten/index.md
   - ../simplify-locals-nostructure/index.md
+  - ../simplify-locals-nonesting/index.md
   - ../simplify-locals/index.md
+  - ../souperify/index.md
   - ../tracker.md
 ---
 
@@ -28,6 +35,7 @@ related:
 - It is currently **unimplemented** in Starshine's active optimizer.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `dataflow-optimization` / `dfo` slice**.
+- The reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01** on 2026-04-23, and a narrow current-`main` spot check did not surface a teaching-relevant contract drift beyond this dossier's refreshed claims.
 
 ## Why this pass matters
 
@@ -86,6 +94,8 @@ So this is best taught as:
   Focused guide to the real teaching problem: Flat IR versus DataFlow IR, integer-local scope, loop precision cutoff, nested `precompute`, and the important bailout families.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog covering the main positive, preserved, and bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Exact current Starshine status page: removed-registry tracking, explicit request rejection, the current batch-vs-execution-plan planning gap, and the nearest local code/dossier neighbors a future port would need to study.
 
 ## Current maintenance rule
 
@@ -96,8 +106,12 @@ So this is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md)
+- [`../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
