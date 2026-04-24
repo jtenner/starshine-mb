@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
+  - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_rereloop.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/opt_flatten.wast
@@ -12,6 +14,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./flat-cfg-builder-and-boundaries.md
+  - ./starshine-strategy.md
 ---
 
 # Beginner-friendly WAT shape catalog for `rereloop`
@@ -314,6 +317,8 @@ A future Starshine port should preserve these WAT-level expectations:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md)
+- [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_rereloop.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/opt_flatten.wast>

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
+  - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReReloop.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -18,6 +20,7 @@ related:
   - ./binaryen-strategy.md
   - ./flat-cfg-builder-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Upstream implementation structure and test map for `rereloop`
@@ -150,6 +153,8 @@ That is enough to teach the main visible contract, but it also means the source 
 
 ## Freshness check
 
+The 2026-04-24 raw source manifest in [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md) refreshed the official release provenance and the current-`main` spot-check URLs for this dossier.
+
 I compared:
 
 - `version_129` `src/passes/ReReloop.cpp`
@@ -176,6 +181,8 @@ That three-layer reading is the real implementation structure.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md)
+- [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReReloop.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

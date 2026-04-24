@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
+  - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReReloop.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flat-cfg-builder-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Binaryen strategy for `rereloop`
@@ -37,6 +40,8 @@ So the best mental model is:
 - not a generic one-pass AST simplifier
 
 ## Public surface and scheduler meaning
+
+The 2026-04-24 raw source manifest in [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md) anchors this page to the official `version_129` release and the opened current-`main` spot-check surfaces.
 
 `src/passes/pass.cpp` registers the pass publicly as:
 
@@ -341,6 +346,8 @@ That is the real Binaryen strategy for `rereloop`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md)
+- [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReReloop.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

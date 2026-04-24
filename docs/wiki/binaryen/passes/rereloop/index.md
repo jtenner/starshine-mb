@@ -1,10 +1,15 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
+  - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/cli/cli_test.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -14,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flat-cfg-builder-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../flatten/index.md
   - ../dataflow-optimization/index.md
 ---
@@ -82,7 +88,8 @@ So this pass is best taught as:
 - Dead-end CFG blocks are patched with explicit `return` or `unreachable` before rendering.
 - Rendering always allocates an `i32` helper local for the generic `RelooperBuilder` label variable.
 - If a result-typed function renders to an apparent `none` body, the pass appends `unreachable` and then runs `ReFinalize`.
-- A narrow current-main check found `ReReloop.cpp` and `flatten_rereloop.wast` unchanged from `version_129`.
+- A narrow 2026-04-24 current-main spot check did not surface teaching-relevant drift in the opened `ReReloop.cpp` and `flatten_rereloop.wast` surfaces.
+- Current Starshine tracks only the local `re-reloop` spelling as a removed pass name, parses the explicit `--re-reloop` CLI flag, rejects it before writing output, hides it from help, and has no owner file or active backlog slice.
 
 ## What this pass sounds like versus what it actually does
 
@@ -108,6 +115,8 @@ What it actually is in reviewed `version_129` sources:
   Focused guide to the easiest part to misread: the pass-local CFG builder, label-target handling, helper-label-local semantics, and the unsupported boundaries.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive restructuring families, the visible helper-block boilerplate, and the hard bailout cases.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map: removed-registry `re-reloop` tracking, CLI parse and command rejection coverage, help-output hiding, Batch 2 breadcrumb, no owner file, no active backlog slice, and the flat-IR CFG/rendering proof a faithful port would need.
 
 ## Current maintenance rule
 
@@ -118,8 +127,13 @@ What it actually is in reviewed `version_129` sources:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md)
+- [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
+- [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
@@ -132,6 +146,6 @@ What it actually is in reviewed `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/flat.h>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_rereloop.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/opt_flatten.wast>
-- Narrow freshness-check sources:
+- Narrow freshness-check sources captured in [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md):
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReReloop.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/flatten_rereloop.wast>
