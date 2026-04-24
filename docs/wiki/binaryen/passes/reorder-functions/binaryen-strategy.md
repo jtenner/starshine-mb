@@ -1,8 +1,10 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
+  - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - ../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderFunctions.cpp
@@ -13,6 +15,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./count-surfaces-ordering-and-omissions.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md
   - ../reorder-types/index.md
@@ -23,7 +26,7 @@ related:
 ## Why this pass is easy to misread
 
 The name sounds like a broad whole-module optimizer.
-The actual `version_129` implementation is tiny.
+The actual `version_129` implementation is tiny. The 2026-04-24 raw primary-source manifest for this page is [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md).
 
 It does **not** optimize function bodies.
 It does **not** compute dynamic hotness.
@@ -45,7 +48,7 @@ The descriptions already tell the honest story:
 
 That “access frequency” is still **static**, not profile-guided.
 
-For the most compact owner/boundary recap, see [`./count-surfaces-ordering-and-omissions.md`](./count-surfaces-ordering-and-omissions.md).
+For the most compact owner/boundary recap, see [`./count-surfaces-ordering-and-omissions.md`](./count-surfaces-ordering-and-omissions.md). For the current local non-implementation and future Starshine module-pass map, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Phase 1: seed every function with count `0`
 

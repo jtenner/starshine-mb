@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
+  - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - ../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderFunctions.cpp
@@ -13,12 +15,15 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
   - ../reorder-functions-by-name/index.md
 ---
 
 # `reorder-functions` count surfaces, ordering, and omissions
 
-This page focuses on the part of `reorder-functions` that is easiest to mis-teach:
+This page focuses on the part of `reorder-functions` that is easiest to mis-teach. It is now backed by the 2026-04-24 raw primary-source manifest: [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md).
+
+It covers:
 
 - what Binaryen actually counts,
 - how those counts are assembled,
@@ -180,6 +185,10 @@ The shared file does not make them the same pass.
   - Not in the real `version_129` pass; it explicitly says otherwise.
 - **Mistake:** “This is guaranteed to help compressed size.”
   - No. The source warns about possible gzip regressions.
+
+## Starshine-specific wrinkle
+
+Binaryen's source-level implementation can say this is declaration-only because calls and other references name logical functions. Starshine's lowered module model stores numeric `FuncIdx` operands, so a local port would still need to remap those indices after any declaration reorder. That representation repair is described in [`./starshine-strategy.md`](./starshine-strategy.md) and should not be mistaken for a semantic body optimization.
 
 ## Porting checklist
 

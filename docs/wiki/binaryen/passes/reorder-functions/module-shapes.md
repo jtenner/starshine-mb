@@ -1,8 +1,10 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
+  - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderFunctions.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-functions-by-name.wast
@@ -10,6 +12,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-strategy.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md
 ---
@@ -22,7 +25,7 @@ So the most honest examples here are tiny module-order families.
 
 ## How to read these examples
 
-Each example focuses on which functions get extra static-use counts from the real `version_129` source:
+Each example focuses on which functions get extra static-use counts from the real `version_129` source captured in [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md):
 
 - direct calls
 - start function
@@ -253,6 +256,10 @@ Even if a function is dynamically hot at runtime, that does not matter unless it
 `reorder-functions` just totals counts and sorts.
 
 That simplicity is a core part of its identity.
+
+## Starshine representation caveat
+
+These examples show logical module-order changes. In Binaryen's IR, body references still point at the same named functions after the list reorder. In Starshine's current lowered representation, function references are numeric `FuncIdx` values; a future port therefore needs the remap plan in [`./starshine-strategy.md`](./starshine-strategy.md) to keep calls, start/export/element references, and metadata pointed at the same logical functions.
 
 ## Condensed porting checklist
 

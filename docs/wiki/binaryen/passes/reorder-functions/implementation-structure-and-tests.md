@@ -1,8 +1,10 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
+  - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - ../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderFunctions.cpp
@@ -15,11 +17,14 @@ related:
   - ./binaryen-strategy.md
   - ./count-surfaces-ordering-and-omissions.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Upstream implementation structure and test map for `reorder-functions`
 
 ## Why this page exists
+
+This page is now anchored by the 2026-04-24 raw primary-source manifest: [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md).
 
 `reorder-functions` is small enough that it is easy to skip over.
 That makes it easy to misremember too.
@@ -118,6 +123,10 @@ Durable result:
 - no implementation drift was observed in the reviewed file
 
 So a future reader can safely treat the `version_129` source as current for the documented behavior here unless a later deliberate follow-up records new drift.
+
+## Starshine follow-along pointer
+
+The upstream file/test map does not imply a local implementation exists. Current Starshine keeps `reorder-functions` boundary-only; [`./starshine-strategy.md`](./starshine-strategy.md) maps that status to exact local files and explains why a future index-based port needs a module-wide `FuncIdx` permutation/remap layer.
 
 ## Most important maintenance lesson
 

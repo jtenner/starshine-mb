@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
+  - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
   - ../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./count-surfaces-ordering-and-omissions.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md
   - ../reorder-types/index.md
@@ -28,6 +31,7 @@ related:
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **boundary-only** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `reorder-functions` slice**.
+- [`./starshine-strategy.md`](./starshine-strategy.md) is the dedicated local status page: Starshine knows the name, rejects active requests as boundary-only, has no owner file or dispatcher case, and would need a module-level function-index permutation/remap pass for a future port.
 - Official Binaryen also exposes a sibling pass, `reorder-functions-by-name`, from the same source file.
 
 ## Why this pass matters
@@ -63,7 +67,7 @@ So this pass is best taught as:
 
 ## Most important durable takeaways
 
-- The implementation lives almost entirely in one tiny upstream file: `ReorderFunctions.cpp`.
+- The implementation lives almost entirely in one tiny upstream file: `ReorderFunctions.cpp`; the 2026-04-24 raw manifest now records the official `version_129` release/source/test URLs used by this dossier.
 - `reorder-functions` only changes function declaration order; it does not rewrite bodies, and the pass explicitly reports `requiresNonNullableLocalFixups() == false`.
 - The counted surfaces in `version_129` are:
   - direct `call` targets
@@ -88,16 +92,20 @@ So this pass is best taught as:
   Focused guide to the exact count surfaces, serial-vs-parallel assembly split, descending-name tie rule, explicit `ref.func` / declaration TODO omissions, and the declaration-only / no-local-fixup boundary.
 - [`./module-shapes.md`](./module-shapes.md)
   Beginner-friendly module-order shape catalog showing the positive, preserved, and surprising ordering families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine boundary-only status plus the future module-pass code map: registry, dispatcher gap, preset omission, numeric `FuncIdx` remap requirements, and reusable DFE remap surfaces.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `reorder-functions` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real module/boundary pass for it.
+- Keep it explicitly marked as **unimplemented** until Starshine grows a real module pass and dispatcher case for it.
 - Keep the split from [`../reorder-functions-by-name`](./implementation-structure-and-tests.md#the-sibling-pass-matters) explicit: the sibling is lexical/debug ordering, while the main pass is static-use-count ordering.
 - Keep the split from [`../reorder-globals/index.md`](../reorder-globals/index.md) and [`../reorder-types/index.md`](../reorder-types/index.md) explicit too: this pass has no dependency DAG or type-graph legality phase.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md)
+- [`../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md`](../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md`](../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md)
 - [`../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md`](../../../raw/research/0211-2026-04-21-reorder-functions-source-confirmation-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
