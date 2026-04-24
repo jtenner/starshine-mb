@@ -1,10 +1,15 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
+  - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/registry_test.mbt
   - ../i64-to-i32-lowering/index.md
+  - ../legalize-and-prune-js-interface/index.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../tracker.md
@@ -13,7 +18,9 @@ related:
   - ./implementation-structure-and-tests.md
   - ./temp-ret-helpers-and-pruning-split.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../i64-to-i32-lowering/index.md
+  - ../legalize-and-prune-js-interface/index.md
   - ../tracker.md
 ---
 
@@ -22,7 +29,7 @@ related:
 ## Role
 
 - `legalize-js-interface` is a real public Binaryen pass.
-- It is currently **upstream-only** in this repo's living pass map: it is **not** in Starshine's local optimizer registry in `src/passes/optimize.mbt`.
+- It is currently **upstream-only** in this repo's living pass map: it is **not** in Starshine's local optimizer registry in `src/passes/optimize.mbt`, so requests hit the unknown-pass path rather than a boundary-only or removed-pass rejection.
 - It is **not** part of the repo's canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `legalize-js-interface` slice**.
 
@@ -59,6 +66,7 @@ So this pass is best taught as:
 ## Most important durable takeaways
 
 - The entire reviewed `version_129` contract lives in one shared file, `LegalizeJSInterface.cpp`, with two public registrations in `pass.cpp`: plain `legalize-js-interface` and sibling `legalize-and-prune-js-interface`.
+- The 2026-04-24 raw primary-source capture anchors the folder to the official `version_129` release surface and exact source/test URLs reviewed in this follow-up.
 - Plain `legalize-js-interface` only treats function boundary signatures that contain `i64` params or an `i64` result.
 - Illegal exports get `legalstub$...` wrappers; illegal imports get `legalimport$...` legalized imports plus `legalfunc$...` wasm-facing wrappers.
 - Imported-call repair is not just for `call`; Binaryen also rewrites `ref.func` uses and scans module code in addition to ordinary function bodies.
@@ -66,7 +74,8 @@ So this pass is best taught as:
 - `--pass-arg=legalize-js-interface-export-originals` keeps extra `orig$...` exports for non-import, non-`dynCall_*` originals.
 - `--pass-arg=legalize-js-interface-exported-helpers` reuses already-exported `__set_temp_ret` / `__get_temp_ret` helpers instead of importing `setTempRet0` / `getTempRet0` from `env`.
 - The pruning sibling goes further: it removes exports and replaces imports that still expose unsupported JS-surface features such as SIMD, multivalue results, exception handling, or stack switching.
-- A current-`main` spot check found `LegalizeJSInterface.cpp` and the reviewed lit files unchanged from `version_129`.
+- A current-`main` spot check found `LegalizeJSInterface.cpp`, the reviewed helper headers, and the reviewed lit files unchanged in teaching-relevant ways from `version_129`.
+- The current Starshine strategy is honest non-adoption: no registry entry, no owner file, no backlog slice, but clear module/import/export/ref.func code surfaces for a future module pass.
 
 ## Page map
 
@@ -78,17 +87,23 @@ So this pass is best taught as:
   Focused guide to the non-obvious half of the family: temp-ret helper selection, `export-originals`, `exported-helpers`, and what the pruning sibling does beyond plain `i64` legalization.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for exported stubs, imported wrappers, `ref.func` repair, helper reuse, and prune-only removals.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future port bridge: exact registry omission, unknown-pass request path, no owner file, no backlog slice, and the local module/import/export/ref.func code surfaces a future implementation would need.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `legalize-js-interface` research.
 - Keep it explicitly marked as an **upstream-only** dossier unless Starshine later grows a real registry entry for this surface.
+- Cite [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md) for the current raw source manifest and [`./starshine-strategy.md`](./starshine-strategy.md) for the local follow-along path.
 - Keep the split from `i64-to-i32-lowering` explicit: `legalize-js-interface` changes the JS boundary ABI, while `i64-to-i32-lowering` changes internal module code.
 - Keep the sibling relationship explicit too: `legalize-and-prune-js-interface` is the same family plus extra pruning, not a wholly different algorithm.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md)
+- [`../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md`](../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md`](../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../i64-to-i32-lowering/index.md`](../i64-to-i32-lowering/index.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

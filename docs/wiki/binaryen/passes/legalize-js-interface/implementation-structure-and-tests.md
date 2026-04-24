@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
+  - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LegalizeJSInterface.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -15,6 +17,7 @@ related:
   - ./binaryen-strategy.md
   - ./temp-ret-helpers-and-pruning-split.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `legalize-js-interface` implementation structure and tests
@@ -130,7 +133,8 @@ The source makes those limits explicit, and the wiki should keep them explicit t
 
 ## Current-`main` drift check
 
-A direct spot check found these reviewed surfaces identical between `version_129` and current `main`:
+The immutable source URL set reviewed for this page is captured in [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md).
+A direct spot check found these reviewed surfaces identical or teaching-equivalent between `version_129` and current `main`:
 
 - `src/passes/LegalizeJSInterface.cpp`
 - `test/lit/passes/legalize-js-interface-exported-helpers.wast`
@@ -139,3 +143,4 @@ A direct spot check found these reviewed surfaces identical between `version_129
 - `test/lit/passes/legalize-and-prune-js-interface.wast`
 
 So the dossier's source-confirmed structure is not currently sitting on obvious checked-surface drift.
+For the current Starshine status and local code-map bridge, see [`./starshine-strategy.md`](./starshine-strategy.md).

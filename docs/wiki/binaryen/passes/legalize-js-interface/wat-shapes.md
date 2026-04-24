@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
+  - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/legalize-js-interface-exported-helpers.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/legalize-js-interface_all-features.wast
@@ -13,6 +15,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./temp-ret-helpers-and-pruning-split.md
+  - ./starshine-strategy.md
 ---
 
 # `legalize-js-interface` WAT shapes
@@ -228,3 +231,6 @@ If the shape is:
 - imported function with `i64` boundary -> expect `legalimport$...` plus `legalfunc$...`
 - imported call or `ref.func` to an illegal boundary import -> expect retargeting
 - unsupported JS-surface feature under the prune sibling -> expect export removal or trivial stub replacement
+
+The reviewed source/test URL set for these shapes is now captured in [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md).
+Current Starshine does not rewrite these shapes yet; see [`./starshine-strategy.md`](./starshine-strategy.md) for the exact local status and future code-map.
