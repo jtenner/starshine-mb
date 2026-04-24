@@ -1,13 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../dead-argument-elimination/implementation-structure-and-tests.md
   - ../local-cse/index.md
   - ../simplify-locals/index.md
   - ../code-folding/index.md
@@ -15,7 +19,13 @@ related:
 
 # `dae-optimizing`: signature updates and nested reruns
 
-This page focuses on the parts of Binaryen `dae-optimizing` that are easiest to misunderstand:
+This page focuses on the parts of Binaryen `dae-optimizing` that are easiest to misunderstand.
+It should be read with the 2026-04-24 source manifest and Starshine status bridge when planning local work:
+
+- [`../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+
+It covers:
 
 - when Binaryen decides a function boundary is still safe to rewrite
 - how it changes params and results
@@ -269,7 +279,13 @@ The practical takeaway is:
 
 That is a very Binaryen-style scheduler choice.
 
-## 11. Good mental model for future Starshine work
+## 11. Current local naming caveat
+
+Binaryen's public pass name is `dae-optimizing`, but current Starshine's boundary-only registry entry is `dead-argument-elimination-optimizing`.
+That means future port work must decide whether to add an exact alias, rename the local descriptive entry, or keep the mapping explicit.
+Do not treat the exact upstream spelling as already registered locally until `src/passes/optimize.mbt` changes.
+
+## 12. Good mental model for future Starshine work
 
 If you need one durable porting mental model, use this:
 

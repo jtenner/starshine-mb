@@ -1,13 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
 related:
   - ./index.md
   - ./signature-updates-and-nested-reruns.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../dead-argument-elimination/implementation-structure-and-tests.md
   - ../rse/index.md
   - ../local-cse/index.md
 ---
@@ -17,6 +21,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- The 2026-04-24 primary-source manifest is [`../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md); it records the official release page, tagged source URLs, current-`main` spot-check URLs, and dedicated lit files reviewed in the latest follow-up.
 - The core implementation is `src/passes/DeadArgumentElimination.cpp`.
 - CLI registration and top-level scheduler placement come from `src/passes/pass.cpp`.
 - The nested optimizing helper comes from `src/passes/opt-utils.h`.
@@ -55,6 +60,8 @@ Primary source URLs:
 
 Binaryen `dae-optimizing` is a **closed-world direct-call boundary cleanup pass** that can refine function signatures, delete dead parameters and returns, localize hard call operands when needed, and then rerun useful function optimizations on the functions it changed.
 
+The latest source refresh did not find a teaching-relevant drift in current `main`, but it did clarify one local Starshine caveat: current Starshine uses the descriptive boundary-only registry spelling `dead-argument-elimination-optimizing`, not the exact upstream spelling `dae-optimizing`; see [`./starshine-strategy.md`](./starshine-strategy.md).
+
 ## The pass in one table
 
 | Phase | What Binaryen does | Why it exists |
@@ -69,10 +76,12 @@ Binaryen `dae-optimizing` is a **closed-world direct-call boundary cleanup pass*
 
 ## Phase 1: pass shape and naming facts matter
 
-`pass.cpp` registers both:
+`pass.cpp` registers both upstream public siblings:
 
-- `dead-argument-elimination`
+- `dae`
 - `dae-optimizing`
+
+Starshine's neighboring local descriptive spelling `dead-argument-elimination` is documented in [`../dead-argument-elimination/index.md`](../dead-argument-elimination/index.md).
 
 The second one is not a separate core algorithm.
 It is the same DAE engine with `optimize = true`, which later enables the nested follow-up cleanup call to `OptUtils::optimizeAfterInlining(...)`.
@@ -431,6 +440,7 @@ A future Starshine port should preserve all of the following:
 - touched-function tracking for later cleanup
 - `precompute-propagate` + default function pipeline rerun in the optimizing variant
 - the low-payoff one-caller-chain stop heuristic
+- an explicit local naming decision for the upstream `dae-optimizing` spelling versus the current Starshine `dead-argument-elimination-optimizing` boundary-only entry
 
 ## Bottom line
 

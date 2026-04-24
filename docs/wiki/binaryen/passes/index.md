@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-24
 sources:
   - ../../../../src/passes/optimize.mbt
   - ../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
@@ -17,6 +17,8 @@ sources:
   - ../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
   - ../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md
   - ../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
+  - ../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
   - ../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
   - ../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
@@ -169,7 +171,7 @@ related:
 - [`local-cse/index.md`](local-cse/index.md) - Refreshed dossier for the upstream local tree-reuse pass that still remains removed in Starshine; the folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page that maps the removed-name registry entry, backlog slice `LCSE`, the honest blocked scheduler story around missing neighbors, and the exact neighboring MoonBit cleanup/rewrite/test files a future local port should read first.
 - [`simplify-locals-nostructure/index.md`](simplify-locals-nostructure/index.md) - Refreshed dossier for the upstream early no-structure locals pass that still remains removed in Starshine; the folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page that maps the current removed-name registry spelling, backlog slice `SLNS`, tuple exact-slot blocker helper plus regression, canonical early no-DWARF slot, and the practical MoonBit local-cleanup / local-index rewrite landing zone a future port would compose with.
 - [`rse/index.md`](rse/index.md) - Refreshed dossier for the upstream late local-redundancy pass that still remains removed in Starshine; the folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page that maps the current removed-name registry, backlog slice `RSE`, canonical no-DWARF slot, the locals-only-vs-broader-backlog wording mismatch, and the implemented neighboring cleanup passes a future local port should compose with.
-- [`dae-optimizing/index.md`](dae-optimizing/index.md) - Working dossier for the upstream late boundary-rewrite pass that still remains boundary-only in Starshine; the folder records the saved generated-artifact `-O4z` slot `48`, the relation between plain `dead-argument-elimination` and `dae-optimizing`, the closed-world direct-call and escape rules, the nested `optimizeAfterInlining` cleanup contract, and the main beginner-friendly WAT shapes a future port must preserve.
+- [`dae-optimizing/index.md`](dae-optimizing/index.md) - Refreshed dossier for the upstream late boundary-rewrite pass; the folder now has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page, records saved generated-artifact `-O4z` slot `48`, keeps the shared-engine split from plain `dead-argument-elimination` explicit, and corrects the local naming caveat: current Starshine registers the descriptive boundary-only spelling `dead-argument-elimination-optimizing`, not the exact upstream `dae-optimizing` alias.
 - [`inlining-optimizing/index.md`](inlining-optimizing/index.md) - Refreshed dossier for the upstream late boundary-and-callgraph rewrite pass that still remains boundary-only in Starshine; the folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page, keeps explicit that the reviewed official Binaryen `version_129` release page on 2026-04-23 showed publish date **2026-04-01**, corrects the older `call_ref` planner overread by centering the reviewed direct-call-based `version_129` chosen-action surface, and maps the whole-module planner plus nested `optimizeAfterInlining` contract into the exact local `INL` backlog and scheduler story.
 - [`duplicate-import-elimination/index.md`](duplicate-import-elimination/index.md) - Refreshed dossier for the upstream late import-alias cleanup pass that still remains boundary-only in Starshine; the folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page, keeps explicit that the reviewed official Binaryen `version_129` release page on 2026-04-23 showed publish date **2026-04-01**, and records the important local planning mismatch that the current `DIE` backlog wording is still broader than the reviewed function-import-only upstream contract.
 - [`simplify-globals-optimizing/index.md`](simplify-globals-optimizing/index.md) - Working dossier for the upstream late global cleanup pass that still remains boundary-only in Starshine; the folder records the saved generated-artifact `-O4z` slot `52`, the split between single-use global folding, dead/`read-only-to-write` set removal, startup-versus-runtime constant propagation, and the nested default-function rerun without prepended `precompute-propagate`.

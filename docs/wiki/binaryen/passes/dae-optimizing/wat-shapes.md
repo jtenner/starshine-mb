@@ -1,20 +1,25 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./signature-updates-and-nested-reruns.md
+  - ./starshine-strategy.md
+  - ../dead-argument-elimination/wat-shapes.md
   - ../local-cse/index.md
   - ../simplify-locals/index.md
 ---
 
 # `dae-optimizing` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen’s `dae-optimizing` pass.
+This page is the beginner-friendly shape catalog for Binaryen's `dae-optimizing` pass.
+The 2026-04-24 follow-up added a primary-source manifest and a Starshine status page; use [`./starshine-strategy.md`](./starshine-strategy.md) for the local code-map and naming caveat before turning any shape here into local tests.
 
 ## Read this page with one mental model
 

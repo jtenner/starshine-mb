@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-24
 sources:
   - ../../../../src/passes/optimize.mbt
   - ../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
   - ../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../no-dwarf-default-optimize-path.md
   - ../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
+  - ../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
   - ../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
   - ../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
@@ -193,7 +195,7 @@ This table is the main implementation queue tracker.
 | `local-cse` | both | removed | dossier | `LCSE` | Dedicated dossier exists: [`local-cse/index.md`](local-cse/index.md); the refreshed folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page that maps the removed-name registry, backlog slice `LCSE`, the honest blocked scheduler story around missing neighbors, and the exact neighboring MoonBit cleanup/rewrite/test files a future local port should read first. |
 | `code-folding` | both | removed | dossier | `CF` | Dedicated dossier exists: [`code-folding/index.md`](code-folding/index.md); the refreshed folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page that maps the current removed-name registry, CLI spelling coverage, backlog slice `CF`, canonical no-DWARF slot, and the implemented neighboring cleanup passes a future local port would compose with. |
 | `rse` / `redundant-set-elimination` | both | removed | dossier | `RSE` | Dedicated dossier exists: [`rse/index.md`](rse/index.md); the refreshed folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page that maps the current removed-name registry, backlog slice `RSE`, canonical no-DWARF slot, and the explicit locals-only-vs-broader-backlog wording mismatch instead of leaving the folder as upstream-only research. |
-| `dae-optimizing` | both | boundary-only | dossier | `DAE` | Dedicated dossier exists: [`dae-optimizing/index.md`](dae-optimizing/index.md); the folder also documents the relation between plain `dead-argument-elimination` and the optimizing nested-rerun variant. |
+| `dae-optimizing` / local `dead-argument-elimination-optimizing` | both | boundary-only naming caveat | dossier | `DAE` | Dedicated dossier exists: [`dae-optimizing/index.md`](dae-optimizing/index.md); the refreshed folder now has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page, documents the relation between plain `dead-argument-elimination` and the optimizing nested-rerun variant, and corrects the local spelling caveat: `src/passes/optimize.mbt` currently registers `dead-argument-elimination-optimizing`, while `dae-optimizing` is the upstream/audit/backlog spelling. |
 | `inlining-optimizing` | both | boundary-only | dossier | `INL` | Dedicated dossier exists: [`inlining-optimizing/index.md`](inlining-optimizing/index.md); the refreshed folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page, keeps explicit that the reviewed official Binaryen `version_129` release page on 2026-04-23 showed publish date **2026-04-01**, corrects the older `call_ref` planner overread by centering the reviewed direct-call-based chosen-action surface, and maps the local `INL` backlog plus shared post-inlining rerun dependency story instead of leaving the dossier as upstream-only research. |
 | `duplicate-import-elimination` | both | boundary-only | dossier | `DIE` | Dedicated dossier exists: [`duplicate-import-elimination/index.md`](duplicate-import-elimination/index.md); the refreshed folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page, keeps explicit that reviewed Binaryen `version_129` is still a duplicate imported-**function** pass keyed by `(module, base)` plus exact function-type equality, and records the important local planning mismatch that the current broader `DIE` backlog wording still overstates the reviewed upstream contract. |
 | `simplify-globals-optimizing` | both | boundary-only | dossier | `SGO` | Dedicated dossier exists: [`simplify-globals-optimizing/index.md`](simplify-globals-optimizing/index.md); the folder documents the single-use/global-write cleanup split, the `read-only-to-write` matcher, startup-vs-runtime propagation, and the nested default-function rerun without prepended `precompute-propagate`. |

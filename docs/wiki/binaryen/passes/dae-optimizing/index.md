@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-20
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
@@ -14,6 +16,8 @@ related:
   - ./binaryen-strategy.md
   - ./signature-updates-and-nested-reruns.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../dead-argument-elimination/index.md
   - ../rse/index.md
   - ../local-cse/index.md
   - ../../no-dwarf-default-optimize-path.md
@@ -25,8 +29,10 @@ related:
 ## Role
 
 - `dae-optimizing` is an upstream Binaryen late global optimizing pass.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- Binaryen also exposes the related plain pass name `dead-argument-elimination`.
+- It is currently **unimplemented** in Starshine.
+- The exact upstream spelling `dae-optimizing` appears in Binaryen, the saved generated-artifact audit, the canonical no-DWARF path, and backlog language.
+- The current local boundary-only registry entry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) is instead the descriptive spelling `dead-argument-elimination-optimizing`; see [`./starshine-strategy.md`](./starshine-strategy.md) for the local naming caveat.
+- Binaryen also exposes the related plain pass name `dae`, tracked locally and in the neighboring dossier as `dead-argument-elimination`.
 - The `dae-optimizing` variant is the same core dead-argument-elimination engine **plus** a nested cleanup helper that reruns useful function passes on the touched functions.
 
 ## Why it matters
@@ -39,7 +45,7 @@ related:
   - `24` nested `local-cse` executions
   - `12` nested `code-folding` executions
   - `36` nested `precompute-propagate` executions
-- The backlog already tracks this as slice `DAE` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- The backlog already tracks this as slice `DAE` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md), with explicit work for call-graph pruning / touched-function tracking and nested `optimizeAfterInlining` replay.
 - It is also the first missing pass in the current late boundary-only neighborhood:
   - `dae-optimizing`
   - `inlining-optimizing`
@@ -78,6 +84,7 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
 - A future Starshine port must preserve both halves:
   - the signature-rewrite algorithm
   - the nested rerun scheduler behavior
+- A future local naming decision is still open: add an exact `dae-optimizing` alias, rename the descriptive registry entry, or keep the mapping documented.
 
 ## Page map
 
@@ -87,15 +94,20 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
   Focused guide to the easiest parts of the pass to misunderstand: closed-world boundary checks, parameter and result rewrites, call localization, and why the optimizing helper is part of the contract.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, negative, bailout, and interaction families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and port-planning bridge: exact local registry spelling, request behavior, scheduler gap, backlog slices, code locations, and validation checklist.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `dae-optimizing` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary pass plus nested rerun scheduler support.
+- Do not describe `dae-optimizing` as an exact current Starshine registry spelling unless `src/passes/optimize.mbt` adds that alias.
 - New `dae-optimizing` findings should update both the strategy page and the signature/rerun page so the boundary algorithm and the scheduler story stay aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md)
+- [`../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md`](../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
