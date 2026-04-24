@@ -1,15 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md
-  - ../../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md
+  - ../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
+  - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./shared-engine-and-startup-boundaries.md
+  - ./starshine-strategy.md
   - ../simplify-globals/index.md
 ---
 
@@ -21,24 +22,22 @@ This page is the beginner-friendly shape catalog for Binaryen's `propagate-globa
 
 Binaryen is not asking:
 
-- "can I replace this global everywhere?"
+- “can I replace this global everywhere?”
 
-It is asking a smaller, more precise question:
+It is asking a smaller question:
 
-- "is this a startup-safe global expression, and do all of its `global.get` inputs already have known startup replacements?"
+- “is this top-level initializer or active offset still a constant expression after known immutable globals are substituted?”
 
-## Important note about the examples
+## Important note about examples
 
-The `after` snippets are **conceptual**.
-Real Binaryen output may preserve surrounding declaration structure or leave later folding to other utilities.
-What matters here is the value-flow boundary and rewrite scope.
+The `after` snippets are conceptual and intentionally compact. Real Binaryen output may preserve declarations that later passes remove or may print equivalent constant-expression forms differently. The important point is the rewrite boundary.
 
 ## Quick glossary
 
-- **startup-safe expression**: one of the curated expression families the pass accepts in startup/global positions
-- **known startup expression**: a startup-safe expression whose global inputs are already known and can therefore be substituted away
-- **active offset**: the offset of an active data or active element segment
-- **code use**: a `global.get` inside ordinary executable function code; this pass does not own that surface
+- **known global value**: literal values recorded from an immutable defined global initializer that Binaryen still sees as a constant expression
+- **startup-level expression**: a global initializer or active segment offset evaluated outside ordinary function execution
+- **active offset**: the offset expression in an active data or element segment
+- **code use**: a `global.get` inside an ordinary function body; this pass preserves it
 
 ## Shape 1: direct global-to-global propagation
 
@@ -58,10 +57,11 @@ After, conceptually:
 
 Why it rewrites:
 
-- the initializer is startup-safe
-- the `global.get` input is already known
+- `$a` has a known constant initializer
+- `$b` is a startup-level expression
+- replacing `global.get $a` keeps `$b` a constant expression
 
-## Shape 2: startup arithmetic over a known global
+## Shape 2: chained arithmetic over a known global
 
 Before:
 
@@ -74,45 +74,42 @@ After, conceptually:
 
 ```wat
 (global $base i32 (i32.const 8))
-(global $off i32 (i32.const 12))
+(global $off i32 (i32.add (i32.const 8) (i32.const 4)))
 ```
 
-or equivalently a rewritten startup expression with the `global.get` removed.
+A later fold may turn that into `i32.const 12`, but this pass's source-backed operation is substitution of the known global value.
 
-Why it matters:
+## Shape 3: multi-value / compound constant-expression propagation
 
-- the pass is not limited to direct aliasing
-- unary/binary startup expressions are part of the real contract
+The dedicated Binaryen lit file includes a GC/string constant-expression family using `string.const` inside a struct construction.
 
-## Shape 3: startup `select` over known inputs
-
-Before:
+Before, conceptually:
 
 ```wat
-(global $cond i32 (i32.const 1))
-(global $x i32 (i32.const 11))
-(global $y i32 (i32.const 22))
-(global $z i32 (select (global.get $x) (global.get $y) (global.get $cond)))
+(global $str stringref (string.const "abc"))
+(global $pair (ref $Pair)
+  (struct.new $Pair (global.get $str) (i32.const 1)))
 ```
 
 After, conceptually:
 
 ```wat
-(global $z i32 (i32.const 11))
+(global $pair (ref $Pair)
+  (struct.new $Pair (string.const "abc") (i32.const 1)))
 ```
-
-or at least a rebuilt `select` with known operands substituted.
 
 Why it matters:
 
-- `Select` is explicitly in the accepted startup-safe subset
-- this is a good example of the pass owning expression chains, not just aliases
+- the pass is not limited to scalar `i32` globals
+- the underlying source uses Binaryen's constant-expression predicate and literal storage
+- do not replace this with a closed wiki-maintained expression whitelist
 
 ## Shape 4: active data offset propagation
 
 Before:
 
 ```wat
+(memory 1)
 (global $off i32 (i32.const 8))
 (data (global.get $off) "abc")
 ```
@@ -120,11 +117,12 @@ Before:
 After, conceptually:
 
 ```wat
+(memory 1)
 (global $off i32 (i32.const 8))
 (data (i32.const 8) "abc")
 ```
 
-This is one of the most important shapes in the whole folder because it proves the pass is about startup expressions broadly, not only global declarations.
+This is one of the most important shapes in the folder because it proves the pass is about startup-level expressions, not only global declarations.
 
 ## Shape 5: active element offset propagation
 
@@ -148,34 +146,9 @@ After, conceptually:
 
 Why it rewrites:
 
-- active elem offsets are a first-class module-level rewrite target in the real implementation
+- active elem offsets are a first-class rewrite target in `propagateConstantsToGlobals()`
 
-## Shape 6: startup string-expression propagation
-
-Before:
-
-```wat
-(global $lhs (ref null string) (string.const "a"))
-(global $rhs (ref null string) (string.const "b"))
-(global $both (ref null string)
-  (string.concat (global.get $lhs) (global.get $rhs)))
-```
-
-After, conceptually:
-
-```wat
-(global $both (ref null string)
-  (string.concat (string.const "a") (string.const "b")))
-```
-
-and possibly later to an even simpler form.
-
-Why it matters:
-
-- the pass's startup-safe subset explicitly includes several `string.*` nodes
-- this explains why the pass is a meaningful neighbor of `string-gathering`
-
-## Shape 7: ordinary function-body use is preserved
+## Shape 6: ordinary function-body use is preserved
 
 Before:
 
@@ -187,7 +160,7 @@ Before:
 )
 ```
 
-After, conceptually:
+After `--propagate-globals-globally`, conceptually:
 
 ```wat
 (global $a i32 (i32.const 10))
@@ -199,84 +172,100 @@ After, conceptually:
 
 Why it stays:
 
-- this public pass stops before function-body propagation
-- that broader work belongs to `simplify-globals*`
+- this public pass does not call the broader function-body propagation routine
+- `simplify-globals` is the sibling that may rewrite this shape
 
-## Shape 8: non-startup-safe expressions bail out
-
-Before:
-
-```wat
-(global $g i32
-  ;; pretend the initializer uses a form outside the pass's startup-safe subset
-  (...complex non-global-safe expression...)
-)
-```
-
-After, conceptually:
-
-```wat
-;; preserved
-```
-
-Why it matters:
-
-- this pass owns a curated startup subset, not all possible initializer IR
-
-## Shape 9: runtime-write-sensitive families are out of scope
+## Shape 7: mutable global bailout
 
 Before:
 
 ```wat
 (global $a (mut i32) (i32.const 10))
-(func $set
-  (global.set $a (i32.const 20))
-)
-(func $use (result i32)
-  (global.get $a)
-)
+(global $b i32 (global.get $a))
 ```
 
 After, conceptually:
 
 ```wat
-;; function-body use preserved for this pass
+;; preserved or rejected by validation depending on the exact constant-expression context
 ```
 
-Why it matters:
+Why it is not a positive:
 
-- runtime current-value reasoning is not this pass's job
-- broader simplify-globals-family analysis owns that surface
+- runtime-mutated values are not startup constants
+- Starshine and Binaryen validation also treat mutable `global.get` in constant-expression contexts as a special rule boundary
 
-## Positive summary
+## Shape 8: non-constant expression bailout
 
-The pass is strongest on:
+Before, conceptually:
 
-- startup-safe global initializer chains
-- startup arithmetic / select / string expressions whose global inputs are known
-- active data offsets
-- active elem offsets
+```wat
+(global $g i32
+  ;; a startup expression shape that does not pass Binaryen's constant-expression predicate
+  (...non-constant expression...))
+```
 
-## Negative summary
+After:
 
-The pass deliberately stops short of:
+```wat
+;; preserved
+```
 
-- ordinary function-body `global.get` propagation
-- broad runtime dataflow
-- read-only-to-write cleanup
-- dead `global.set` cleanup
-- optimizing-family reruns
+Why it stays:
 
-## Beginner rule of thumb
+- the source-backed acceptance rule is `Properties::isConstantExpression(...)`
+- unsupported expression families must not be rewritten just because they contain a known `global.get`
 
-If the rewrite can be explained as:
+## Shape 9: passive/declarative segments are not offset targets
 
-- "during module startup, this global initializer or active offset can already substitute known global expressions"
+Before:
 
-then it is a good candidate for `propagate-globals-globally`.
+```wat
+(data "abc")
+(elem declare func $f)
+```
 
-If you need to say:
+After:
 
-- "during ordinary execution, this function body can now treat the global as constant"
+```wat
+;; no offset to rewrite
+```
 
-you are probably talking about `simplify-globals*`, not this pass.
+Why it stays:
+
+- passive/declarative segment payloads do not have active offset expressions
+- this pass is not segment DCE or payload normalization
+
+## Shape 10: imported or earlier immutable global caveat
+
+Wasm constant-expression rules can allow `global.get` of immutable imported or prior-defined globals. Binaryen's reviewed pass records values from defined globals whose initializers produce literals; it does not magically know arbitrary imported global values.
+
+Before:
+
+```wat
+(import "env" "x" (global $x i32))
+(global $y i32 (global.get $x))
+```
+
+After, conceptually:
+
+```wat
+;; no substitution unless Binaryen has recorded literal values for the referenced global
+```
+
+## Binaryen versus Starshine caveat
+
+Current Starshine does not implement this pass. The local registry rejects explicit requests before any module rewrite runs; see [`./starshine-strategy.md`](./starshine-strategy.md). These WAT examples are therefore future-port targets, not descriptions of current Starshine behavior.
+
+## Validation checklist for these shapes
+
+A future Starshine port should include tests for:
+
+- direct global chain positive
+- arithmetic or compound constant-expression positive
+- active data offset positive
+- active elem offset positive
+- function-body preservation negative
+- mutable-global / unknown-value negative
+- passive/declarative segment no-op
+- imported-global no-known-literal caveat

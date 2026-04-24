@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
+  - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
   - ../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-globals/index.md
   - ../simplify-globals-optimizing/index.md
 ---
@@ -17,123 +20,100 @@ related:
 
 This page explains the easiest part of the pass to misread:
 
-- how it shares an engine with `simplify-globals*`
-- where the startup-only boundary actually lives
-- which expressions Binaryen is willing to treat as startup-safe
+- it shares owner-file machinery with `simplify-globals*`
+- but its public pass boundary is a narrow subclass that only runs startup/global propagation
+- its accepted expression scope is whatever Binaryen's constant-expression predicate accepts, not a wiki-maintained whitelist
 
 ## The one-sentence rule
 
-`propagate-globals-globally` is the public **startup-only** mode of Binaryen's shared `PropagateGlobals` engine.
+`propagate-globals-globally` is Binaryen's public **startup/global-only** constant-propagation sibling of `simplify-globals`.
 
-## What "shared engine" means here
+## What “shared engine” means here
 
-Binaryen did not implement three unrelated passes.
-It implemented one engine in `SimplifyGlobals.cpp` and exposed three public constructor modes.
+Binaryen keeps this pass in `src/passes/SimplifyGlobals.cpp`, the same file as `simplify-globals` and `simplify-globals-optimizing`.
 
-So the family is:
+That does not mean the public pass runs the entire `simplify-globals` algorithm. The narrow pass uses the shared global-propagation routine, then stops.
 
-- `propagate-globals-globally`: same engine, stop after startup/module rewrites
-- `simplify-globals`: same engine, continue into broader code-level work
-- `simplify-globals-optimizing`: same broader engine mode, plus optimizing-family scheduling and reruns
+## The actual boundary: subclass, not just `optimize = false`
 
-That is why this pass must be taught as a sibling, not as an isolated side utility.
+The earlier wiki wording said the public pass boundary was `optimize = false`. That was too broad and misleading.
 
-## The actual boundary: `optimize = false`
+The reviewed `version_129` source shows the sharper boundary:
 
-The public registration for `propagate-globals-globally` constructs the shared engine with the optimize flag turned off.
+- `PropagateGlobalsGlobally::run(Module*)` calls `propagateConstantsToGlobals()` only
+- broader `SimplifyGlobals::iteration(...)` calls `propagateConstantsToGlobals()` and then `propagateConstantsToCode()`
+- the `optimize` flag controls cleanup behavior in the broader sibling after code-level propagation, but it is not the whole reason this public pass avoids function bodies
 
-That one choice explains the real behavioral split:
+Future docs and ports should preserve this distinction.
 
-- startup global and offset propagation still happens
-- function-body propagation and broader cleanup do not
+## What counts as startup-level here
 
-If a future port preserves that flag boundary, it will stay on the right side of the contract.
-If it starts propagating through arbitrary function bodies, it has silently turned into `simplify-globals` instead.
+The pass works on module expressions evaluated at instantiation/startup time:
 
-## What counts as startup-safe
+- defined global initializers
+- active element segment offsets
+- active data segment offsets
 
-The pass accepts a curated subset of expression kinds in startup positions.
+It does not walk ordinary function bodies.
 
-The reviewed source includes:
+## What counts as “known”
 
-- literals (`Const`)
-- `GlobalGet`
-- unary wrappers whose child is startup-safe
-- binary wrappers whose children are startup-safe
-- `Select` whose inputs are startup-safe
-- several startup-legal `string.*` forms
+Binaryen records a global when the rewritten initializer is still a constant expression according to `Properties::isConstantExpression(...)`.
 
-This is important because it shows two things at once:
+That is more robust than a hand-authored list. The lit file proves some important families, including:
 
-- the pass is more capable than direct-alias replacement
-- the pass is still much narrower than a generic evaluator for arbitrary IR
+- scalar constants
+- arithmetic over known global values
+- GC/string constant-expression construction
 
-## What the constant map actually stores
+But the living wiki should avoid claiming an exhaustive list unless it reviews the predicate directly.
 
-Another easy beginner mistake is imagining a map from global name to raw integer literal.
+## What the map stores
 
-That is too narrow.
-Binaryen stores replacement **expressions** that are already safe and known in startup context.
+The pass maps:
 
-So the map may hold things like:
+- global name -> literal values
 
-- `i32.const 8`
-- `i32.add (i32.const 8) (i32.const 4)`
-- a startup string expression with known inputs
-
-That is why the pass can remove `global.get` layers from more complex startup expressions.
-
-## Why active offsets matter so much
-
-The pass does not stop after rewriting globals.
-It also rewrites:
-
-- active data offsets
-- active element offsets
-
-This is the biggest visible consequence of the startup-only design.
-
-If you remember only one beginner rule, remember this one:
-
-- `propagate-globals-globally` is about **startup expressions**, not just global declarations
+During replacement, Binaryen rebuilds a constant expression from those literals. This matters for multi-value or compound constant-expression cases; the pass is not limited to one scalar integer literal.
 
 ## Positive versus negative scope
 
-## Positive scope
+### Positive scope
 
-- defined global initializers
-- active data offsets
-- active elem offsets
-- startup-safe arithmetic / select / string expressions using known globals
+- immutable defined global initializers that become constant expressions after substitution
+- later global initializers that read already-known globals
+- active data offsets that read already-known globals
+- active elem offsets that read already-known globals
 
-## Negative scope
+### Negative scope
 
+- mutable globals whose runtime values may change
 - ordinary function-body `global.get` uses
-- broad runtime current-value reasoning
-- read-only-to-write cleanup
-- dead `global.set` cleanup in code
-- optimizing-family reruns
+- passive/declarative segment payloads with no active offset expression to rewrite
+- dead global removal
+- runtime `global.set` cleanup
+- nested cleanup reruns
 
 ## Relationship to nearby folders
 
-## Compared with `simplify-globals`
+### Compared with `simplify-globals`
 
-Same engine, broader stop point.
+Same owner file and startup/global routine, broader sibling behavior. `simplify-globals` continues into code propagation.
 
-## Compared with `simplify-globals-optimizing`
+### Compared with `simplify-globals-optimizing`
 
-Same engine family again, plus the optimizing rerun story.
+Same broad sibling family again, with optimizing cleanup/rerun behavior documented in its own dossier.
 
-## Compared with `string-gathering`
+### Compared with `string-gathering`
 
-Different pass, but startup string expressions are a real place where this pass can simplify the module before string gathering happens later.
+Different pass, but the dedicated lit file proves that GC/string constant expressions can participate in this pass's startup-global propagation surface.
 
 ## Porting rule for Starshine
 
 A future Starshine port should preserve these three facts together:
 
-1. shared family identity with `simplify-globals*`
-2. startup-only stop point for this public pass
-3. active data/elem offsets as first-class rewrite targets
+1. module-level startup/global rewrite surface
+2. active data/elem offsets as first-class targets
+3. no function-body propagation in this public pass
 
-If any one of those three disappears, the port will teach the wrong pass.
+If the implementation starts rewriting ordinary code, it has crossed into `simplify-globals` territory and should not be documented or validated as faithful `propagate-globals-globally` behavior.

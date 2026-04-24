@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
+  - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
   - ../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md
   - ../../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md
 related:
@@ -10,166 +12,119 @@ related:
   - ./implementation-structure-and-tests.md
   - ./shared-engine-and-startup-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-globals/index.md
   - ../simplify-globals-optimizing/index.md
-  - ../string-gathering/index.md
 ---
 
 # Binaryen `propagate-globals-globally` Strategy
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
-- The core implementation is **inside `src/passes/SimplifyGlobals.cpp`**, not a standalone `PropagateGlobals.cpp`.
-- Public registration comes from `src/passes/pass.cpp`.
-- The shipped behavior example is `test/lit/passes/propagate-globals-globally.wast`.
+Use Binaryen `version_129` as the current source oracle for this pass. The 2026-04-24 raw manifest captures the official release page, `SimplifyGlobals.cpp`, `pass.cpp`, the dedicated lit file, helper surfaces, and a narrow current-`main` spot check: [`../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md`](../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md).
 
 Primary source URLs:
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyGlobals.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/propagate-globals-globally.wast>
+- <https://github.com/WebAssembly/binaryen/releases/tag/version_129>
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/SimplifyGlobals.cpp>
 
 ## The pass in one sentence
 
-Binaryen `propagate-globals-globally` is a late module pass that uses the shared `PropagateGlobals` engine in **startup-only mode**: it substitutes startup-known global expressions into other startup-safe global users and rewrites defined global initializers plus active data/elem offsets, but it stops before walking ordinary function bodies.
+Binaryen `propagate-globals-globally` substitutes known immutable-global constant values into other startup-level constant expressions, then rewrites defined global initializers and active element/data offsets, while deliberately leaving ordinary function bodies to `simplify-globals`.
 
-## The family in one table
+## Source-backed algorithm
 
-| Public pass | Shared engine | `optimize` | Main rewrite surface |
-| --- | --- | --- | --- |
-| `propagate-globals-globally` | `PropagateGlobals` in `SimplifyGlobals.cpp` | `false` | Defined globals + active data/elem offsets |
-| `simplify-globals` | same engine | `true` | Startup rewrites plus broader function-body global simplification |
-| `simplify-globals-optimizing` | same engine plus later scheduler behavior | `true` | Same broader rewrite surface plus optimizing-family cleanup behavior |
+### 1. Public registration
 
-## Biggest correction from the older folder state
+`pass.cpp` registers `propagate-globals-globally` as a separate public pass. The description says it propagates global values to other globals and frames it as useful for tests. That public entry is distinct from `simplify-globals` and `simplify-globals-optimizing`.
 
-The easiest mistake was thinking this pass had its own source file and therefore its own mostly separate algorithm.
+### 2. Owner file and subclass boundary
 
-The reviewed source shows something more useful:
+The implementation is in `src/passes/SimplifyGlobals.cpp`.
 
-- Binaryen built a **shared engine**
-- then exposed one public startup-only mode and two broader public simplify-globals modes
+The important source correction is that the narrow pass is a `PropagateGlobalsGlobally` subclass. Its `run(Module*)` method sets the module pointer and calls only:
 
-So the most accurate beginner sentence is:
+- `propagateConstantsToGlobals()`
 
-- `propagate-globals-globally` is the startup-only public mode of the shared `PropagateGlobals` engine
+It does **not** call the broader sibling's `propagateConstantsToCode()` step.
 
-## What the reviewed implementation is organized around
+### 3. Constant map construction
 
-The durable structure is:
+Inside `propagateConstantsToGlobals()`, Binaryen keeps a `globalValues` map from global name to `Literals`.
 
-1. define a small set of expressions that are safe to treat as startup/global expressions
-2. track which global names map to known startup expressions
-3. substitute those known expressions into later startup-safe users
-4. rewrite active data/elem offsets too, not just globals
-5. stop early when `optimize` is `false`
+For each defined global initializer:
 
-That early stop is the public-pass boundary.
+1. find `GlobalGet` nodes under the initializer
+2. when a referenced global already has known literals, replace that `global.get` with a copied constant expression via `Builder::makeConstantExpression(...)`
+3. after replacement, ask `Properties::isConstantExpression(...)` whether the initializer is still a constant expression
+4. if yes, extract and record its literal values for future replacements
 
-## Exact startup-safe scope matters
+That means the map stores **literal tuples**, not arbitrary expression trees and not just scalar `i32` constants.
 
-The pass does **not** accept arbitrary IR in global-ish positions.
+### 4. Scan order
 
-The reviewed `canHandleAsGlobal` helper keeps the accepted surface intentionally small and startup-shaped, including:
+The reviewed `version_129` source scans defined globals in declaration order while growing `globalValues`.
 
-- `Const`
-- `GlobalGet`
-- unary ops over startup-safe children
-- binary ops over startup-safe children
-- `Select` over startup-safe children
-- several `string.*` expressions used in startup contexts
+This supersedes the older wiki wording that said the pass scans in reverse. Future ports should either preserve the source order or explicitly prove why a different fixed point is equivalent.
 
-That means the pass is broader than just direct alias replacement, but narrower than generic expression evaluation.
+### 5. Active segment offsets
 
-## Known-value discovery is expression-shaped, not just const-shaped
+After global initializers, the same replacement helper is applied to:
 
-A second helper checks whether every `GlobalGet` inside one of those startup-safe expressions already points at a known constant/startup expression.
+- active element segment offsets
+- active data segment offsets
 
-That means the pass can learn facts like:
+Passive and declarative segments do not have startup offsets to rewrite in this pass.
 
-- `$g -> (i32.const 8)`
-- `$h -> (i32.add (i32.const 8) (i32.const 4))`
-- `$s -> (string.concat (string.const "a") (string.const "b"))`
+### 6. No function-body rewrite
 
-not only raw literal facts.
+The dedicated lit file demonstrates the negative boundary: after `--propagate-globals-globally`, function bodies can still contain `global.get` instructions that `--simplify-globals` would remove. That is the easiest user-visible way to distinguish the two passes.
 
-This is why the pass can simplify more than trivial global aliases.
+## Corrected family table
 
-## Rewriter shape
+| Public pass | Owner file | Startup/global propagation | Function-body propagation | Cleanup behavior |
+| --- | --- | --- | --- | --- |
+| `propagate-globals-globally` | `SimplifyGlobals.cpp` subclass | yes | no | no broader useful-pass cleanup |
+| `simplify-globals` | `SimplifyGlobals.cpp` | yes | yes | non-optimizing sibling behavior |
+| `simplify-globals-optimizing` | `SimplifyGlobals.cpp` plus scheduler context | yes | yes | optimizing-family cleanup / rerun behavior documented in its own folder |
 
-Binaryen then uses a tiny postwalk rewriter that replaces `global.get $x` with the stored replacement expression for `$x`.
+Important correction: do not describe `propagate-globals-globally` as merely `SimplifyGlobals(false)`. The pass boundary is the subclass that calls only the startup/global routine.
 
-The durable teaching point is:
+## What the pass transforms
 
-- substitution comes first
-- then Binaryen decides whether the rebuilt expression now counts as startup-known
+The core transformed shapes are covered in [`./wat-shapes.md`](./wat-shapes.md). The important source-backed families are:
 
-That is a much better mental model than imagining ad hoc special cases for each syntax family.
+- direct global chain: `$b = global.get $a` after `$a` is known
+- chained constant expression: `$c = i32.add (global.get $a) ...`
+- multi-value / GC constant-expression families proven by the dedicated lit file's `struct.new` / `string.const` example
+- active element offset using `global.get`
+- active data offset using `global.get`
 
-## Why reverse global scan matters
-
-The implementation scans defined globals in reverse declaration order while growing the constants map.
-
-The safest wiki-level statement is simply the source fact:
-
-- a future port should preserve the reverse-scan or prove an equivalent fixed point explicitly
-
-This note intentionally avoids overclaiming a formal semantic necessity beyond what the reviewed source proves.
-
-## Why offsets are first-class rewrite targets
-
-The pass walks active segment offsets after scanning globals.
-
-That means the public contract includes:
-
-- active data offsets
-- active element offsets
-
-This is one of the most important visible behaviors to preserve in beginner docs and future ports.
-
-## Relationship to `simplify-globals*`
-
-## With plain `simplify-globals`
-
-This pass shares the same engine but stops before the broader code-level work.
-
-## With `simplify-globals-optimizing`
-
-Same engine again, but the optimizing sibling later participates in the larger scheduling and rerun story documented in its own dossier.
-
-## What this pass deliberately does not own
+## What the pass deliberately does not own
 
 It does not own:
 
 - ordinary function-body `global.get` propagation
-- read-only-to-write cleanup
-- dead `global.set` cleanup in code
-- practical-immutability analysis over arbitrary code
-- nested useful-pass reruns
+- runtime value tracking for mutable globals
+- dead global removal
+- `global.set` cleanup
+- practical read-only-to-write analysis
+- nested `dce` / `vacuum` / `precompute` cleanup loops
 
-Those belong to the broader siblings.
+Those belong to neighboring passes or sibling modes.
 
-## Why this matters for Starshine
+## Current-main drift check
 
-A correct future Starshine port should likely share helper machinery with any later `simplify-globals*` work, but it must preserve the smaller public contract for this specific pass:
+The raw capture records a narrow 2026-04-24 current-`main` spot check. The same teaching-relevant surfaces remained in place: `pass.cpp` registration, `SimplifyGlobals.cpp` subclass boundary, and the dedicated lit-file contract. This is not an exhaustive semantic diff against trunk.
 
-- module pass
-- startup-safe expression subset
-- defined globals plus active offsets
-- no function-body walk in this mode
+## Relationship to Starshine
 
-## Most important beginner correction
+Starshine currently keeps this pass as boundary-only and rejects explicit requests before dispatch. The implementation path, if chosen later, should be a module pass over `GlobalSec`, active `ElemSec` offsets, and active `DataSec` offsets, not a HOT function pass. See [`./starshine-strategy.md`](./starshine-strategy.md).
 
-If someone says:
+## Superseded older claims
 
-- "Binaryen has a pass that globally propagates globals everywhere"
-
-that is wrong.
-
-A much better sentence is:
-
-- "Binaryen has a startup-only public mode of its global-propagation engine, and broader sibling passes that continue into ordinary function bodies."
-
-That is the main durable teaching value of this updated dossier.
+- [`../../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md`](../../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md) is superseded for the standalone `PropagateGlobals.cpp` source-layout claim.
+- [`../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md`](../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md) is superseded for helper-name, reverse-scan, and `optimize=false` boundary wording. Its main source-file correction remains useful historical context.

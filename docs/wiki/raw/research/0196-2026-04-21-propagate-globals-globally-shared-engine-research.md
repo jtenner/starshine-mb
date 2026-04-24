@@ -1,10 +1,12 @@
 # Binaryen `propagate-globals-globally` deepening research
 
 Date: 2026-04-21
-Status: source-backed major-gap follow-up
+Status: historical; partially superseded by `0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md`
 Pass: `propagate-globals-globally`
 Local registry status: `boundary-only` in `src/passes/optimize.mbt`
 Prior dossier note: `0162-2026-04-21-propagate-globals-globally-binaryen-research.md`
+
+> Supersession note (2026-04-24): this note remains useful for correcting the owner file to `SimplifyGlobals.cpp`, but it is superseded for helper names, scan order, and the public-pass boundary. The reviewed release uses `FindAllPointers<GlobalGet>`, `Builder::makeConstantExpression(...)`, `Literals`, and `Properties::isConstantExpression(...)`; defined globals are scanned in declaration order; and the public `propagate-globals-globally` stop point is the `PropagateGlobalsGlobally` subclass calling only `propagateConstantsToGlobals()`, not merely an `optimize = false` mode.
 
 ## 1. Why this pass was still an eligible campaign target
 

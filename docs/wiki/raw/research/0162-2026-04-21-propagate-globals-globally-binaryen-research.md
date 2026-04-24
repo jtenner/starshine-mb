@@ -1,10 +1,12 @@
 # Binaryen `propagate-globals-globally` research
 
 Date: 2026-04-21
-Status: source-backed upstream-only dossier expansion
+Status: historical; superseded for source-layout/mechanics by `0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md`
 Pass: `propagate-globals-globally`
 Local registry status: `boundary-only` in `src/passes/optimize.mbt`
 Campaign context: the original no-DWARF / saved-`-O4z` queue and the first widened upstream-only queue are already dossier-covered, so this note deliberately expands the tracker again using a source-backed registry candidate that is already named locally and already matters to nearby global-pass docs.
+
+> Supersession note (2026-04-24): keep this note as historical provenance, but do not use it as the current source map. It incorrectly claimed a standalone `src/passes/PropagateGlobals.cpp` owner file. The current living dossier and raw manifest point to `src/passes/SimplifyGlobals.cpp` and the `PropagateGlobalsGlobally` subclass boundary.
 
 ## 1. Why this pass is an eligible campaign target
 
