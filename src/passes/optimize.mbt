@@ -143,9 +143,9 @@ fn pass_registry_boundary_only_names() -> Array[String] {
 ///|
 fn pass_registry_removed_names() -> Array[String] {
   [
-    "avoid-reinterprets", "coalesce-locals", "code-folding", "const-hoisting",
-    "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
-    "merge-locals", "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
+    "avoid-reinterprets", "coalesce-locals", "code-folding", "const-hoisting", "dataflow-optimization",
+    "local-cse", "local-subtyping", "loop-invariant-code-motion", "merge-locals",
+    "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
     "precompute-propagate", "redundant-set-elimination", "optimize-casts", "de-nan",
     "simplify-locals-no-tee", "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure",
     "simplify-locals-no-nesting", "untee",

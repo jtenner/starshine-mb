@@ -147,7 +147,8 @@ fn code_pushing_has_single_local_write(
     func,
     @ir.HotRegionRef::root(),
     local_id,
-  ) == 1
+  ) ==
+  1
 }
 
 ///|

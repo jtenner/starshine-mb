@@ -118,10 +118,14 @@ test "code-pushing keeps const local.set when both if arms use it" {
   code_pushing_expect_op(func, then_drop, "drop")
   code_pushing_expect_op(func, else_drop, "drop")
   code_pushing_expect_op(
-    func, @ir.hot_child_get(func, then_drop, 0), "local.get",
+    func,
+    @ir.hot_child_get(func, then_drop, 0),
+    "local.get",
   )
   code_pushing_expect_op(
-    func, @ir.hot_child_get(func, else_drop, 0), "local.get",
+    func,
+    @ir.hot_child_get(func, else_drop, 0),
+    "local.get",
   )
 }
 
