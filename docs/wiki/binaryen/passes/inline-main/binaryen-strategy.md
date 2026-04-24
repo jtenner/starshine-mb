@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md
+  - ../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -11,10 +13,15 @@ related:
   - ./implementation-structure-and-tests.md
   - ./special-case-contract-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../inlining/binaryen-strategy.md
 ---
 
 # Binaryen strategy for `inline-main`
+
+## Source anchor
+
+Use Binaryen `version_129` as the current source oracle for this pass. The 2026-04-24 immutable source manifest is [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md), which also records the narrow current-main drift check and the exact official source/test URL set.
 
 ## One-sentence summary
 
@@ -236,6 +243,8 @@ That separate public identity should be preserved locally.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md)
+- [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Inlining.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

@@ -1,7 +1,7 @@
 # 0177 - Binaryen `inline-main` research
 
 Date: 2026-04-21
-Status: completed research ingest
+Status: completed research ingest; superseded for raw-source provenance and Starshine status by `0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`
 Pass: `inline-main`
 Local registry status: `boundary-only` in `src/passes/optimize.mbt`
 Related neighboring dossiers: `inlining`, `inlining-optimizing`, `monomorphize`
@@ -339,6 +339,10 @@ A faithful future port should preserve all of the following:
    - refinalization
    - nondefaultable-local handling
 8. no implication that this pass belongs in the repo's default no-DWARF optimize path
+
+## Supersession note
+
+The 2026-04-24 follow-up [`0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](./0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md) adds the immutable raw source manifest and exact Starshine status page this first note lacked. The core Binaryen source reading here remains useful historical research, but living pages should cite the newer manifest first.
 
 ## Open questions and uncertainty
 

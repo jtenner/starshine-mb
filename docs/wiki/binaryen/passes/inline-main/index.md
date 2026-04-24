@@ -1,10 +1,13 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md
+  - ../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/cmd/cmd.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -13,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./special-case-contract-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../inlining/index.md
   - ../monomorphize/index.md
   - ../tracker.md
@@ -27,6 +31,7 @@ related:
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `inline-main` slice**.
 - Official Binaryen implements it in the same source file as ordinary `inlining`, but as a distinct public pass with a much narrower contract.
+- The current source manifest is [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md), and the Starshine status bridge is [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Why this pass matters
 
@@ -83,6 +88,8 @@ So this pass is best taught as:
   Focused guide to the real teaching problem here: why `inline-main` is separate from plain `inlining`, what the exact-one-call rule means, and which parts of the rewrite are inherited from the shared helper.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, preserved, and bailout WAT families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Exact local code-map and future-port plan showing that current Starshine keeps `inline-main` as a boundary-only name with request rejection, no owner file, no active preset role, and no backlog slice.
 
 ## Current maintenance rule
 
@@ -93,8 +100,11 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md`](../../../raw/binaryen/2026-04-24-inline-main-primary-sources.md)
+- [`../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md`](../../../raw/research/0319-2026-04-24-inline-main-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md`](../../../raw/research/0177-2026-04-21-inline-main-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
