@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
+  - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AvoidReinterprets.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h
@@ -14,6 +16,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Single-load chains, fallthrough, and bailout boundaries in `avoid-reinterprets`
@@ -22,6 +25,7 @@ related:
 
 The hard part of `avoid-reinterprets` is not the final rewrite syntax.
 The hard part is proving when a reinterpreting value still comes from exactly one source load.
+The 2026-04-24 Starshine follow-up in [`./starshine-strategy.md`](./starshine-strategy.md) keeps this proof obligation explicit because the current local HOT analyses are not yet documented as a drop-in equivalent of Binaryen's `LocalGraph` behavior.
 
 That proof depends on three things working together:
 
@@ -175,9 +179,12 @@ Do not silently widen this pass into any of these stronger claims:
 
 Those may be tempting future extensions,
 but they are not the reviewed Binaryen `version_129` contract.
+They are also not current Starshine behavior: Starshine still tracks the pass only as a removed registry name, as mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)
+- [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AvoidReinterprets.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>

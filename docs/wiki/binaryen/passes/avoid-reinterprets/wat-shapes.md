@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
+  - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AvoidReinterprets.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/avoid-reinterprets.wast
@@ -12,6 +14,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./single-load-chains-and-bailouts.md
+  - ./starshine-strategy.md
 ---
 
 # WAT shape catalog for `avoid-reinterprets`
@@ -26,6 +29,8 @@ Read every example below as:
 - what Binaryen directly rewrites,
 - what Binaryen directly preserves,
 - and what a faithful port must not overgeneralize.
+
+For current local status, see [`./starshine-strategy.md`](./starshine-strategy.md): Starshine does not implement these shapes yet and still rejects `avoid-reinterprets` as a removed registry entry.
 
 ## Shape 1: direct full-width load flip
 
@@ -239,6 +244,9 @@ The dedicated `avoid-reinterprets64.wast` file exists to lock that down.
 
 ## What a future Starshine port must preserve
 
+The local implementation surface is still future work, but [`./starshine-strategy.md`](./starshine-strategy.md) maps the likely HOT builders, fresh-local allocation, and local-analysis questions.
+Any future port must preserve:
+
 - direct-load flip versus indirect-user helper-local split
 - one-helper-local sharing for many reinterpret users
 - mixed-use preservation
@@ -248,6 +256,8 @@ The dedicated `avoid-reinterprets64.wast` file exists to lock that down.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)
+- [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AvoidReinterprets.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/avoid-reinterprets.wast>

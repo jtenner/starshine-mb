@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
+  - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AvoidReinterprets.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./single-load-chains-and-bailouts.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Binaryen strategy for `avoid-reinterprets`
@@ -22,7 +25,8 @@ related:
 
 Upstream Binaryen publishes this pass as `avoid-reinterprets`.
 
-The reviewed implementation is a **small function-parallel AST pass** whose real job is:
+The 2026-04-24 primary-source capture is [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md).
+It confirms that the reviewed implementation is a **small function-parallel AST pass** whose real job is:
 
 - identify reinterpret users of a full-width load value,
 - prove that value still comes from one load through a simple local chain,
@@ -41,9 +45,10 @@ That means the best mental model is:
 
 The local repo makes three scheduler facts explicit:
 
-- it remains removed in `src/passes/optimize.mbt`
-- `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` still lists it as removed-until-hot-implementation work
+- it remains removed in [`src/passes/optimize.mbt#L144-L153`](../../../../../src/passes/optimize.mbt#L144-L153)
+- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43) still lists it as removed-until-hot-implementation work
 - it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
+- [`./starshine-strategy.md`](./starshine-strategy.md) now records the local request guard, missing backlog slice, and likely HOT-IR analysis questions
 
 So the scheduler truth is:
 
@@ -291,9 +296,10 @@ I compared:
 - `version_129` `src/passes/AvoidReinterprets.cpp`
 - current upstream `main` `src/passes/AvoidReinterprets.cpp`
 
-The files are identical in the review run for this dossier.
+The original dossier found the files identical on 2026-04-21.
+The 2026-04-24 source-capture follow-up did not surface teaching-relevant drift in the main pass file, registration surface, helper headers, or dedicated lit files.
 
-That does not prove every neighboring helper file is frozen, but it does mean the reviewed implementation summary still matches current upstream on the main pass file itself.
+That does not prove every neighboring helper file is frozen, but it does mean the reviewed implementation summary still matches the official sources checked for this dossier.
 
 ## Pass interactions
 
@@ -340,6 +346,8 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)
+- [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AvoidReinterprets.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

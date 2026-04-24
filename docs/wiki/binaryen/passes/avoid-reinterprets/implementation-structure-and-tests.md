@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
+  - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AvoidReinterprets.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -15,9 +17,13 @@ related:
   - ./binaryen-strategy.md
   - ./single-load-chains-and-bailouts.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Upstream implementation structure and tests for `avoid-reinterprets`
+
+The 2026-04-24 primary-source manifest is [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md).
+Use [`./starshine-strategy.md`](./starshine-strategy.md) for the local status and exact Starshine code-map bridge.
 
 ## Main reviewed files
 
@@ -156,6 +162,7 @@ If you only remember one source role per file, remember this:
 
 ## What a future Starshine port must preserve
 
+The local status and likely HOT-IR building blocks are now mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
 A future port should preserve:
 
 - the split between direct and indirect reinterpret users
@@ -166,6 +173,8 @@ A future port should preserve:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)
+- [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AvoidReinterprets.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
