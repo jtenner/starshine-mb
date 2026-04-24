@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-23] health | refresh remaining `string-gathering` support pages to cite the new primary-source manifest and status page
+
+- Ran a focused touched-area health check after the main `string-gathering` wiki-development commit, specifically looking for support pages inside the folder that still cited only the older research note and did not yet point readers at the new raw primary-source manifest or the new Starshine status/code-map bridge.
+- Refreshed `docs/wiki/binaryen/passes/string-gathering/reuse-naming-and-ordering.md` and `docs/wiki/binaryen/passes/string-gathering/wat-shapes.md` so they now cite the committed 2026-04-23 raw manifest, point readers at `starshine-strategy.md`, and no longer look like pre-provenance holdouts inside an otherwise refreshed folder.
+- Left older `string-gathering` history untouched because this log is append-only except for obvious formatting fixes, and this health pass only needed forward-looking touched-area cleanup.
+
 ## [2026-04-23] research | add `string-gathering` primary-source capture and a Starshine status/code-map bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/string-gathering/` folder, then chose `string-gathering` because the dossier already had the required upstream overview / Binaryen strategy / implementation map / transformed-shape coverage but still lacked an immutable raw primary-source manifest and the required dedicated Starshine strategy page that tied the mature upstream story back to the exact current local code and backlog surfaces.

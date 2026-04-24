@@ -1,16 +1,21 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
+  - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./reuse-naming-and-ordering.md
+  - ./starshine-strategy.md
   - ../../../strings/string-const-surface.md
   - ../../no-dwarf-default-optimize-path.md
 ---
+
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the local status/code-map bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 # `string-gathering` WAT Shapes
 
@@ -297,7 +302,9 @@ If you see one of those transformations, you are probably looking at a different
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md)
 - [`../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md`](../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md)
+- [`../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md`](../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-gathering.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-traversal.h>
