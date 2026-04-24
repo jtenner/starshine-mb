@@ -1,19 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
+  - ../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./ordering-cost-model-and-boundaries.md
+  - ./starshine-strategy.md
 ---
 
 # `reorder-types` WAT / IR shapes
 
 This page records the main source-backed module-shape families a future `reorder-types` port must preserve.
+It is anchored by the 2026-04-24 primary-source manifest [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md); use [`./starshine-strategy.md`](./starshine-strategy.md) for local code locations.
 
 ## Shape 1: unconstrained private types reorder by direct counts
 
@@ -263,6 +267,8 @@ A future port must keep the candidate/counting surface aligned with the rewriter
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)
+- [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-types.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderTypes.cpp>

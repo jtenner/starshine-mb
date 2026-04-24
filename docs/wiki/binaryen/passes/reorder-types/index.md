@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
+  - ../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md
   - ../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./ordering-cost-model-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
   - ../index.md
   - ../late-pipeline-dispatch.md
@@ -27,16 +30,17 @@ related:
 ## Role
 
 - `reorder-types` is an upstream Binaryen **module pass**.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); the exact local follow-along map is now in [`./starshine-strategy.md`](./starshine-strategy.md).
 - Upstream `version_129` registers it publicly as `reorder-types`, plus a hidden testing sibling `reorder-types-for-testing`.
 - It is **not** part of the repo's canonical no-DWARF default optimize path.
 - `agent-todo.md` currently has **no dedicated `reorder-types` slice**.
+- The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md).
 
 ## The real `version_129` contract in one paragraph
 
 Binaryen `version_129` `reorder-types` is a small **GC-only**, **closed-world-only** pass that reorders only **private** heap types to reduce cumulative encoded type-index cost. It gathers used-IR heap types plus visibility, builds a predecessor graph containing only private declared supertypes and private described types, tries 21 successor-weight propagation factors, picks the cheapest topologically valid order, then rebuilds the reordered private types through `GlobalTypeRewriter` and rewrites all affected type-bearing module surfaces.
 
-## Why this follow-up matters
+## Why this dossier is now complete enough to follow
 
 The earlier dossier was useful but explicitly provisional.
 It still left several source-backed questions open:
@@ -47,9 +51,9 @@ It still left several source-backed questions open:
 - what profitability model Binaryen used
 - which helper files and lit tests actually defined the behavior
 
-That major gap is now closed.
+That major gap was closed by the 2026-04-21 source-confirmation follow-up, and the 2026-04-24 follow-up closes the remaining provenance/local-status gap by adding an immutable primary-source manifest plus the dedicated Starshine strategy page.
 The living folder is no longer a working-contract guess.
-It now teaches the real `version_129` implementation structure.
+It now teaches the real `version_129` implementation structure and the exact current Starshine non-implementation status.
 
 ## Most important durable takeaways
 
@@ -104,6 +108,8 @@ It is a constrained whole-module type-remap pass.
   - Focused guide to the exact cost model, the legality edges, the private/public boundary, and the single-large-rec-group rebuild rule.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering unconstrained positives, supertype/described-type barriers, successor-weight tie breaks, regression coverage, and preserved public/no-GC/open-world cases.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and port map: boundary-only registry entry, active request rejection, dispatcher gap, no owner file, no active backlog slice, and the exact type-section/parser/validator/binary surfaces a future module pass would need.
 
 ## Current maintenance rule
 
@@ -120,6 +126,8 @@ It is a constrained whole-module type-remap pass.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)
+- [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md`](../../../raw/research/0157-2026-04-21-reorder-types-binaryen-research.md)
 - [`../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

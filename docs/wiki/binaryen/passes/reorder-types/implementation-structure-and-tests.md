@@ -1,19 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
+  - ../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./ordering-cost-model-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `reorder-types`: implementation structure and tests
 
 This page is the compact file/test map for the real Binaryen `version_129` `reorder-types` contract.
+The immutable 2026-04-24 primary-source manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md).
 
 ## Core implementation files
 
@@ -93,6 +97,7 @@ You still need the implementation files to understand:
 
 ## Current Starshine-facing port checklist
 
+The current local non-implementation and code map live in [`./starshine-strategy.md`](./starshine-strategy.md).
 If Starshine eventually implements `reorder-types`, the local port should preserve all of the following upstream-observable facts:
 
 - module pass, not hot pass
@@ -108,6 +113,8 @@ If Starshine eventually implements `reorder-types`, the local port should preser
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)
+- [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderTypes.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

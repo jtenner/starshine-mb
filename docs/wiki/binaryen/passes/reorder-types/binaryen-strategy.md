@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
+  - ../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./ordering-cost-model-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../reorder-globals/index.md
   - ../remove-unused-types/index.md
   - ../minimize-rec-groups/index.md
@@ -17,6 +20,9 @@ related:
 # `reorder-types`: Binaryen strategy
 
 ## Scheduler placement and activation
+
+The 2026-04-24 raw manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md).
+It anchors this page to the official Binaryen `version_129` release page, tagged owner files, helper files, dedicated lit file, and a narrow current-`main` drift spot check.
 
 Source-confirmed scheduler facts:
 
@@ -233,6 +239,9 @@ It rewrites code, declarations, locals, and type metadata across the whole modul
 
 ## Future Starshine port rules
 
+The local status and code-location map live in [`./starshine-strategy.md`](./starshine-strategy.md).
+A future port should:
+
 - Keep the pass module-scoped.
 - Gate it on GC, just like upstream.
 - Preserve the hard `--closed-world` requirement unless the contract is deliberately widened and re-proven.
@@ -246,6 +255,8 @@ It rewrites code, declarations, locals, and type metadata across the whole modul
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)
+- [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderTypes.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
