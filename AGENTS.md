@@ -38,6 +38,7 @@
 - Target `< 1s` or `>= 50%` of Binaryen wall time where possible.
 - Verify parity with `bun fuzz compare-pass ...` or `bun scripts/pass-fuzz-compare.ts ...` at `10000` comparisons.
 - Prefer `--pass <name>` with canonical pass names and treat the harness as pass-targeted before expanding to combined-pass runs.
+- Use `.pi/skills/starshine-pass-implementation/SKILL.md` as the detailed pass creation, porting, parity-fix, registry-wiring, and signoff workflow.
 
 ## Validation And Signoff
 
