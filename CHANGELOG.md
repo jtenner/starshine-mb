@@ -7,6 +7,7 @@
 ## 2026-04-24 Fuzz: restore portable `gen-valid` batches
 
 - **make `--emit-gen-valid-batch` use a portable coverage-forced generator profile that avoids custom-descriptor, GC-ref, and tag surfaces unsupported by the current external pass-compare toolchain, while keeping the broader in-process coverage-forced generator intact and fixing descriptor metadata to use absolute encodable type indexes** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti), [`src/fuzz/main.mbt`](./src/fuzz/main.mbt), and [`src/fuzz/main_wbtest.mbt`](./src/fuzz/main_wbtest.mbt).
+- **record the renewed direct `code-pushing` validation evidence: full `moon test` is green, gen-valid compare reaches `10000/10000`, the wasm-smith rerun still isolates the known non-local typed-unreachable mismatch at case 009332, debug artifact compare remains blocked by `wasm-tools validate`, and optimized artifact compare remains semantically green but over budget** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md).
 
 ## 2026-04-24 Docs: add `inline-main` primary-source capture and Starshine status bridge
 
