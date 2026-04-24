@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
+  - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
@@ -14,9 +16,12 @@ related:
   - ./binaryen-strategy.md
   - ./helper-functions-fallthrough-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Upstream implementation structure and tests for `de-nan` / `denan`
+
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md) and the current Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 This page answers a narrow question:
 
@@ -166,7 +171,7 @@ The warning path for nonconstant nonfunction contexts is visible in the implemen
 
 ## Current-main drift check
 
-A narrow 2026-04-21 freshness check found:
+A narrow 2026-04-24 freshness check found:
 
 - `src/passes/DeNaN.cpp`
   - same implementation as `version_129` except for a comment typo fix (`contant` -> `constant`)
@@ -193,6 +198,8 @@ If you want the minimum file-guided port checklist, preserve these things in thi
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)
+- [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
+  - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./helper-functions-fallthrough-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../precompute/index.md
   - ../global-effects/index.md
   - ../simplify-locals/index.md
@@ -73,7 +76,9 @@ So this pass is best taught as:
 - Non-imported functions get entry fixups for float/vector params.
 - The helper functions are added after the walk so they are not instrumented themselves.
 - The `v128` helper path is unusually careful: it extracts `f32x4` lanes and checks them individually instead of relying on vector equality, specifically to avoid self-interference on reruns.
+- The 2026-04-24 raw primary-source manifest records the official `version_129` release provenance, the source/test URLs reviewed for this pass, and the narrow current-`main` drift check.
 - A narrow current-`main` check found the registration unchanged, the lit file unchanged, and the implementation changed only by a comment typo fix, so `version_129` is a reliable oracle here.
+- The dedicated Starshine strategy page now records that current Starshine preserves `de-nan` only as a removed registry entry with explicit request rejection, category tests, no owner file, and no active backlog slice.
 
 ## What this pass sounds like versus what it actually does
 
@@ -99,6 +104,8 @@ What it actually is in `version_129`:
   Focused guide to the easiest parts to misread: why `local.get` and result-fallthrough nodes are skipped, how the helper functions work, and where module-context legality stops call-based repair.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, preserved, and bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and port-planning bridge: exact removed-registry / request-rejection / test code locations, no owner file, no active backlog slice, and why a faithful future port is probably module-owned instrumentation rather than an ordinary HOT peephole.
 
 ## Current maintenance rule
 
@@ -109,6 +116,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)
+- [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

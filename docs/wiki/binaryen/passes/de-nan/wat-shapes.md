@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
+  - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/properties.h
@@ -12,9 +14,12 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./helper-functions-fallthrough-and-boundaries.md
+  - ./starshine-strategy.md
 ---
 
 # `de-nan` / `denan` WAT shape catalog
+
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md) and the current Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 This page catalogs the main source-backed shapes that Binaryen `denan` rewrites, preserves, or refuses to express through helper calls.
 
@@ -381,6 +386,8 @@ This page catalogs the main source-backed shapes that Binaryen `denan` rewrites,
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)
+- [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/properties.h>
