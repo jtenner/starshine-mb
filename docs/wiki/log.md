@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] health | repair stale `simplify-locals-nonesting` links in the pass-folder catalog
+
+- Ran a touched-area markdown link check after the `avoid-reinterprets` wiki-development commit and found four pre-existing stale relative links in `docs/wiki/binaryen/passes/index.md` that incorrectly included the `binaryen/passes/` prefix while already living inside that directory.
+- Repaired the `simplify-locals-nonesting` Binaryen strategy, implementation/test map, flatness-boundary, and WAT-shape catalog links to use folder-local paths, restoring link validity without changing the page descriptions or pass semantics.
+- Re-ran the focused link check for `docs/wiki/binaryen/passes/index.md` and the touched `avoid-reinterprets` pages; no local markdown-link failures remained in that checked set.
+
 ## [2026-04-24] research | add `avoid-reinterprets` primary-source capture and a Starshine status bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/avoid-reinterprets/` folder, then chose `avoid-reinterprets` because the dossier already had the required overview / Binaryen strategy / transformed-shape coverage but still lacked an immutable raw primary-source manifest and the required dedicated Starshine strategy page.
