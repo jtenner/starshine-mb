@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
@@ -20,6 +21,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-limits.h
 related:
   - ./index.md
+  - ./starshine-strategy.md
   - ./implementation-structure-and-tests.md
   - ./call-context-benefit-and-boundaries.md
   - ./clone-construction-signature-rebuild-and-dropped-call-rewrites.md
@@ -30,6 +32,7 @@ related:
 
 ## What the pass really is
 
+The 2026-04-24 source refresh is captured in [`../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md).
 The reviewed implementation is a **whole-module contextual specialization pass**.
 It is not normal inlining and not just constant propagation.
 
@@ -325,6 +328,7 @@ That is the real Binaryen strategy for `monomorphize`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md)
 - [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
 - [`../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md`](../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>

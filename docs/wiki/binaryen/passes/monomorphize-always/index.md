@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -85,11 +86,13 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md)
 - [`../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md`](../../../raw/research/0187-2026-04-21-monomorphize-always-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../tracker.md`](../tracker.md)
 - [`../monomorphize/index.md`](../monomorphize/index.md)
+  - [`../monomorphize/starshine-strategy.md`](../monomorphize/starshine-strategy.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

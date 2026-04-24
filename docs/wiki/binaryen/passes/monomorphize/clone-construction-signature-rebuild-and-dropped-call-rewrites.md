@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
@@ -16,6 +17,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/Monomorphize.cpp
 related:
   - ./index.md
+  - ./starshine-strategy.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./call-context-benefit-and-boundaries.md
@@ -252,6 +254,7 @@ If someone remembers only one sentence from this page, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md)
 - [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
 - [`../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md`](../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp>

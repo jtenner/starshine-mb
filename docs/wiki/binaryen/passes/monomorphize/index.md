@@ -1,11 +1,15 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md
+  - ../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/cmd/cmd.mbt
+  - ../../../../../src/cli/cli.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -15,6 +19,10 @@ related:
   - ./call-context-benefit-and-boundaries.md
   - ./clone-construction-signature-rebuild-and-dropped-call-rewrites.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../monomorphize-always/index.md
+  - ../inlining/index.md
+  - ../inline-main/index.md
   - ../tracker.md
 ---
 
@@ -54,6 +62,29 @@ So this pass is best taught as:
 - not exact-type-only monomorphization
 - not simple constant propagation
 
+## Pass contract
+
+### Inputs and outputs
+
+- Input: a whole Binaryen module with defined functions and direct callsites that may expose extra callee context.
+- Output: the same module with some direct calls retargeted to newly cloned specialized functions, or no change when the context is unsafe, trivial, too wide, or not useful enough.
+- The pass may add specialized functions, reduce call operands, change a specialized clone's result to `none` for dropped-call contexts, and remove the caller-side `drop` wrapper only when the clone's result was deliberately killed.
+- It does not specialize imported targets, indirect calls, recursive self-calls, or newly created clones during the same run.
+
+### Core invariants and correctness constraints
+
+- Context extraction must preserve side-effect order; movable operand IR may cross nonmoved operand IR only when the `EffectAnalyzer` proof says the movement is safe.
+- Function signatures must be rebuilt from the dynamic inputs that survive in the context IR, not from the old parameter list by position alone.
+- Old params converted to locals, shifted local indexes, local names, explicit returns, and caller-side dropped-result rewrites must stay validation-correct after cloning.
+- Return-call-sensitive callees must not absorb an outer dropped-result context when that would break tail-call behavior.
+- The ordinary `monomorphize` pass must keep the empirical usefulness gate; `monomorphize-always` removes usefulness rejection but keeps the legality and triviality gates.
+
+### Validation expectations
+
+- Upstream validation starts from the official lit families listed in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md): constants, richer call contexts, dropped results, refined reference types, hard parameter limits, MVP usefulness, and `no-inline` interaction.
+- A future Starshine port should add reduced tests for each positive and bailout family in [`./wat-shapes.md`](./wat-shapes.md), then compare `--monomorphize` and `--monomorphize-always` against Binaryen before using wider artifact fuzzing.
+- Any local implementation must also validate the option bridge in [`./starshine-strategy.md`](./starshine-strategy.md): `--monomorphize-min-benefit` is currently parsed and stored, but does not run a transform until the pass exists.
+
 ## Most important durable takeaways
 
 - The reviewed implementation only handles **direct calls**.
@@ -72,6 +103,8 @@ So this pass is best taught as:
 
 ## Page map
 
+- [`../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md)
+  Immutable primary-source manifest for the exact official Binaryen release, source, helper-header, and lit-test URLs rechecked on 2026-04-24.
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen implementation, helper dependencies, algorithmic phases, and pass interactions.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
@@ -82,6 +115,8 @@ So this pass is best taught as:
   Focused guide to the exact clone-building bridge from `CallContext` to emitted WAT: signature derivation from surviving `LocalGet`s, param-to-local conversion, local-index remap, reverse-inlined prelude `local.set`s, dropped-result return removal, and caller-side `drop` rewrite.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, mixed, and bailout WAT families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future port map: exact boundary-only registry / request-guard locations, existing `monomorphize_min_benefit` option plumbing, missing owner-file/backlog-slice status, and the neighboring whole-module pass landing zone.
 
 ## Current maintenance rule
 
@@ -90,11 +125,15 @@ So this pass is best taught as:
 - Keep the split from `inlining` explicit: `monomorphize` clones the callee and pulls callsite context inward, while inlining clones the callee body into the caller.
 - Keep the split from `monomorphize-always` explicit too: the sibling is useful test surface, but the default public pass is the empirical usefulness-gated one.
 - Keep the clone-mechanics fact explicit too: the real contract is not just “specialize a callee,” but a source-backed signature-rebuild, param-to-local, local-remap, dropped-result, and caller-rewrite pipeline.
+- Keep the Starshine status explicit: current local support is boundary-only name tracking plus `--monomorphize-min-benefit` option plumbing, not an implemented transform.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md)
 - [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
 - [`../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md`](../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md)
+- [`../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
