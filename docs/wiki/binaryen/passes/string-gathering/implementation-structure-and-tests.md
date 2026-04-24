@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
   - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
+  - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -15,6 +17,7 @@ related:
 
 # `string-gathering`: implementation structure and tests
 
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md).
 This page is the compact source-confirmed map for how Binaryen `version_129` actually implements `string-gathering` and where the shipped tests pin that behavior down.
 
 ## Why this page exists
@@ -249,7 +252,7 @@ So the best source-backed teaching split is:
 
 ## Current-main drift check
 
-A spot check against current Binaryen `main` found no reviewed drift on the `StringGathering` surface that changes the `version_129` contract summarized here.
+A 2026-04-23 spot check against current Binaryen `main` found no reviewed drift on the `StringGathering` surface that changes the `version_129` contract summarized here.
 
 So this page is not only historical tag archaeology.
 It still matches the reviewed upstream implementation surface on the key behaviors covered here.

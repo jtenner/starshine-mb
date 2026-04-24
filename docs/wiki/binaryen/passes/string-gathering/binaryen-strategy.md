@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
   - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
+  - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -16,6 +18,9 @@ related:
 ---
 
 # Binaryen `string-gathering` strategy
+
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md).
+On 2026-04-23 the reviewed official Binaryen GitHub release page for `version_129` showed publish date **2026-04-01**, and a narrow current-`main` spot check did not surface a new teaching-relevant contract drift beyond the claims below.
 
 ## Upstream source rule
 
@@ -345,8 +350,10 @@ A future Starshine port should preserve all of these:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md)
 - [`../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md`](../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md)
 - [`../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md`](../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md)
+- [`../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md`](../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>

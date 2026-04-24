@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
   - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
+  - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
@@ -18,6 +20,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./reuse-naming-and-ordering.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-globals-optimizing/index.md
   - ../../../strings/string-const-surface.md
   - ../../no-dwarf-default-optimize-path.md
@@ -35,14 +38,13 @@ related:
 
 ## Why this dossier needed a follow-up
 
-The earlier folder already had a good working explanation of the pass, but it still lacked one compact source-confirmed page for:
+The earlier folder already had a good working explanation of the pass, but it still lacked three durable pieces:
 
-- the real owner-file map,
-- the exact implementation phases,
-- the narrow line between test-proven and source-derived module-code coverage,
-- and the dedicated lit surface that proves the current `version_129` contract.
+- an immutable raw primary-source manifest
+- a dedicated Starshine strategy page
+- and one compact source-confirmed page for the real owner-file map, implementation phases, and test-vs-source coverage boundary
 
-This follow-up closes that gap without overturning the basic earlier picture.
+This follow-up closes those gaps without overturning the basic earlier picture.
 
 ## Why it matters
 
@@ -96,10 +98,11 @@ That is much closer to the real pass than either:
 ## Current repo caveat
 
 - The tracker and backlog both clearly treat `string-gathering` as a real missing late-module pass.
-- But the literal name does **not** currently appear in `src/passes/optimize.mbt`’s `pass_registry_boundary_only_names()` array.
+- But the literal name currently appears in **neither** `src/passes/optimize.mbt`’s `pass_registry_boundary_only_names()` array nor `pass_registry_removed_names()`.
 - Treat that as current repo bookkeeping debt to resolve before implementation, not as evidence that the Binaryen pass is unimportant.
+- The new local-status bridge for that bookkeeping gap and the existing string-literal plumbing now lives in [`./starshine-strategy.md`](./starshine-strategy.md).
 
-That last sentence is an inference from the scheduler docs, backlog slice, and saved `-O4z` audit all agreeing that the pass matters.
+That “bookkeeping debt” conclusion is an inference from the scheduler docs, backlog slice, string-plumbing code, and saved `-O4z` audit all agreeing that the pass matters.
 
 ## Page map
 
@@ -111,6 +114,8 @@ That last sentence is an inference from the scheduler docs, backlog slice, and s
   Focused guide to reusable-global detection, first-match canonicalization, generated global names, stability across repeated runs, and the validity-first reorder before `reorder-globals`.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after WAT and module-shape catalog for the main positive, negative, bailout, and interaction families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Exact current Starshine status and code-map page: the still-missing registry entry, the active `SG` backlog slices, the existing `string.const` / `stringrefs` encode-decode plumbing, and the future late-module landing boundary with `reorder-globals`.
 
 ## Current maintenance rule
 
@@ -122,8 +127,10 @@ That last sentence is an inference from the scheduler docs, backlog slice, and s
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md)
 - [`../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md`](../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md)
 - [`../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md`](../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md)
+- [`../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md`](../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
