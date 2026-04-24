@@ -13,6 +13,7 @@ related:
   - ./json-and-magic-imports.md
   - ./starshine-strategy.md
   - ../string-gathering/index.md
+  - ../string-lifting/index.md
 ---
 
 # Binaryen `string-lowering` strategy
@@ -70,7 +71,7 @@ That matters because this family has three distinct teaching surfaces:
 
 - **gathering** = canonicalize literals into globals
 - **lowering** = replace the supported wasm-string surface with imports / externrefs
-- **lifting** = go the other direction for imported string operations
+- **lifting** = go the other direction for imported string operations (see [`string-lifting`](../string-lifting/index.md))
 
 ## Important ownership fact
 
@@ -272,7 +273,7 @@ That same division of labor matters conceptually here too:
 
 The changelog and public pass names make these sibling surfaces explicit:
 
-- `string-lifting` raises imported string operations and values back into wasm strings
+- [`string-lifting`](../string-lifting/index.md) raises imported string operations and values back into wasm strings
 - `string-lowering` lowers them down again
 
 So `string-lowering` should be taught as one half of a bidirectional public family, not as an isolated curiosity.

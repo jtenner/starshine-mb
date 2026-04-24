@@ -17,6 +17,7 @@ related:
   - ./json-and-magic-imports.md
   - ./starshine-strategy.md
   - ../string-gathering/index.md
+  - ../string-lifting/index.md
   - ../../../strings/string-const-surface.md
   - ../tracker.md
 ---
@@ -38,7 +39,7 @@ Without a dedicated `string-lowering` folder, it was too easy to blur together t
 
 - `string-gathering`
 - `string-lowering`
-- `string-lifting`
+- [`string-lifting`](../string-lifting/index.md)
 
 This dossier exists to make the actual `version_129` split explicit.
 
@@ -102,7 +103,7 @@ That is much more accurate than saying either:
 
 - Treat this folder as the canonical home for future `string-lowering` research.
 - Keep it explicitly marked as **upstream-only** unless Starshine grows a real module pass for this surface.
-- Keep the split from `string-gathering` and `string-lifting` explicit in future edits.
+- Keep the split from `string-gathering` and [`string-lifting`](../string-lifting/index.md) explicit in future edits.
 
 ## Sources
 

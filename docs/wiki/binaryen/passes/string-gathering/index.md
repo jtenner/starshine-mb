@@ -22,6 +22,8 @@ related:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../simplify-globals-optimizing/index.md
+  - ../string-lowering/index.md
+  - ../string-lifting/index.md
   - ../../../strings/string-const-surface.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -81,6 +83,7 @@ That is much closer to the real pass than either:
 - `string-gathering` is a **module-wide structural rewrite**, not a function-local peephole.
 - In `version_129`, the implementation lives inside `src/passes/StringLowering.cpp` as a standalone `StringGathering` pass struct.
 - `StringLowering` subclasses `StringGathering` and runs it first, so this pass is also the shared first phase of full string lowering.
+- [`string-lifting`](../string-lifting/index.md) is the opposite-direction sibling that raises known JS-string imports and helper calls back into wasm strings; it is related to the string family but does not replace this canonicalization pass.
 - The function-body scan is parallel, but module-level expression code is scanned separately through `walkModuleCode(...)`.
 - The dedicated lit file directly proves the global-initializer / reuse / reorder families, while some broader module-code coverage remains source-derived from the walker surface.
 - The pass only rewrites `StringConst` nodes; it does not rewrite preexisting `global.get` users.
