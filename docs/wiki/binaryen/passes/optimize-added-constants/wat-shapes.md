@@ -1,19 +1,24 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
+  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./low-memory-threshold-overflow-and-offset-merge-rules.md
+  - ./starshine-strategy.md
   - ../optimize-added-constants-propagate/index.md
 ---
 
 # `optimize-added-constants` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's plain `optimize-added-constants` pass.
+For the source manifest and Starshine port map, see [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md) and [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Read this page with one mental model
 
@@ -313,3 +318,7 @@ If you instead need to say:
 - “the address got stored in a local first, but we should still chase it”
 
 then you are probably talking about `optimize-added-constants-propagate`, not plain `optimize-added-constants`.
+
+## Starshine reading note
+
+Current Starshine has no local rewrite for any shape on this page. Treat the examples as future-port targets, and read [`./starshine-strategy.md`](./starshine-strategy.md) for the exact removed-registry status plus the HOT `Load` / `Store` and `MemArg` code surfaces a future implementation would use.

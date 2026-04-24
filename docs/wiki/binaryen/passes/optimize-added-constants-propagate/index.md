@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
+  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
@@ -25,6 +27,7 @@ related:
 - `optimize-added-constants-propagate` is an upstream Binaryen function pass.
 - It is currently **unimplemented** in Starshine and still lives in the removed-name registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It shares `version_129` implementation code with the plain sibling [`../optimize-added-constants/index.md`](../optimize-added-constants/index.md), but it enables the extra local-pair propagation mode.
+- The shared 2026-04-24 source manifest is [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` path because that path is not documented with `--low-memory-unused` enabled.
 
 ## Why this pass matters
@@ -71,6 +74,8 @@ So the pass is best read as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md)
+- [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
+  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0232-2026-04-21-optimize-added-constants-safety-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeAddedConstants.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -17,12 +19,16 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../optimize-added-constants-propagate/index.md
 ---
 
 # `optimize-added-constants` low-memory threshold, overflow, and offset-merge rules
 
-This page isolates the part of Binaryen's plain `optimize-added-constants` contract that is easiest to mis-port:
+This page isolates the part of Binaryen's plain `optimize-added-constants` contract that is easiest to mis-port.
+It is now anchored to the 2026-04-24 raw primary-source manifest: [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md).
+
+The safety questions are:
 
 - when the pass is allowed to fold an added constant into a memory offset,
 - when it is allowed to merge a constant pointer with an existing offset,
@@ -243,7 +249,7 @@ Proves:
 
 ## Why this page matters for future Starshine work
 
-If Starshine ports plain `optimize-added-constants`, the easiest wrong implementation would be something like:
+[`./starshine-strategy.md`](./starshine-strategy.md) records that current Starshine already has `low_memory_unused=false` / `low_memory_bound=1024` option plumbing but still no pass owner file. If Starshine ports plain `optimize-added-constants`, the easiest wrong implementation would be something like:
 
 - “if I see `add(base, const)`, move the const into `offset=`.”
 

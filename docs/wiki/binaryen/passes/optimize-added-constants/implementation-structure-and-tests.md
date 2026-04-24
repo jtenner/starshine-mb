@@ -1,19 +1,24 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
+  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./low-memory-threshold-overflow-and-offset-merge-rules.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../optimize-added-constants-propagate/index.md
 ---
 
 # `optimize-added-constants` implementation structure and tests
 
 This page is the file-and-test map for Binaryen `version_129` plain `optimize-added-constants`.
+The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md).
 
 ## Core source files
 
@@ -101,6 +106,8 @@ They prove what the plain pass does **not** own:
 | `test/lit/passes/optimize-added-constants-memory64.wast` | Overflow oracle | Constant-pointer normalization is overflow-aware |
 | `test/lit/passes/optimize-added-constants-nomemory.wast` | Empty-surface oracle | No-memory modules are valid no-op inputs |
 | `test/passes/optimize-added-constants-propagate_*` | Contrast oracle | The sibling's local-pair propagation is extra behavior, not part of plain mode |
+| `src/cmd/cmd.mbt` / `src/cli/cli.mbt` | Starshine option plumbing | Local `low_memory_unused` / `low_memory_bound` inputs already exist even though the pass is still removed |
+| `src/ir/hot_core.mbt` / `src/ir/hot_side_tables.mbt` / `src/ir/hot_builders.mbt` | Starshine IR landing zone | HOT `Load` / `Store` nodes already carry `MemArg` payloads through the side table and builders |
 
 ## What this source map says about helper dependencies
 
@@ -134,7 +141,7 @@ The tests also show the pass is not just a pretty-printer for offsets. It has re
 
 ## Porting takeaway
 
-If Starshine ever ports this pass, the source/test map suggests a clean design target:
+If Starshine ever ports this pass, the source/test map and [`./starshine-strategy.md`](./starshine-strategy.md) suggest a clean design target:
 
 - start with direct load/store-address folding only,
 - preserve the low-memory and overflow boundaries exactly,

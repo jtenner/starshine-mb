@@ -1,13 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
+  - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
+  - ./low-memory-threshold-overflow-and-offset-merge-rules.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../optimize-added-constants-propagate/index.md
 ---
 
@@ -16,6 +20,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- The immutable source manifest for this refresh is [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md).
 - The core implementation is `src/passes/OptimizeAddedConstants.cpp`.
 - Public registration comes from `src/passes/pass.cpp`.
 - The low-memory threshold comes from `src/pass.h`.
@@ -30,6 +35,8 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/optimize-added-constants_low-memory-unused.txt>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-added-constants-memory64.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-added-constants-nomemory.wast>
+
+Narrow freshness note: the 2026-04-24 current-`main` spot check recorded in the raw manifest did not surface a teaching-relevant contract drift on the owner / registration / option / test surfaces. Treat `version_129` as the stable oracle unless a later source ingest says otherwise.
 
 ## The pass in one sentence
 
@@ -207,7 +214,7 @@ The plain pass creates fewer leftovers than the propagate sibling, because it do
 
 ## What a future Starshine port must preserve
 
-A correct port should preserve six boundaries:
+[`./starshine-strategy.md`](./starshine-strategy.md) maps these requirements to exact current Starshine code surfaces. A correct port should preserve six boundaries:
 
 1. the hard `--low-memory-unused` gate,
 2. the `LowMemoryBound = 1024` threshold,
