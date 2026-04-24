@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
+  - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./dfa-partitions-casts-and-refinalization.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-types/index.md
   - ../type-refining/index.md
   - ../unsubtyping/index.md
@@ -78,7 +81,8 @@ So this pass is best taught as:
 - Descriptor chains are merged as **linked units**, not as independent nodes.
 - Binaryen first merges into identical **supertypes**, then iteratively merges identical **siblings**.
 - The pass may need **`ReFinalize`** afterwards because exact result types and LUBs can sharpen after merging.
-- A narrow current-`main` check found only a comment typo fix on the reviewed implementation surface, so `version_129` is a reliable oracle here.
+- The 2026-04-24 raw primary-source capture keeps the official `version_129` release provenance explicit: the reviewed GitHub release page showed publish date **2026-04-01 14:31**.
+- A narrow 2026-04-24 current-`main` spot check on the owner file, registration surface, helper headers, and dedicated lit file did not expose teaching-relevant contract drift, so `version_129` remains the source oracle for this dossier.
 
 ## What this pass sounds like versus what it actually does
 
@@ -107,6 +111,8 @@ What it actually is in `version_129`:
   Focused guide to the easiest part to misunderstand: why the pass is a partition-refinement problem, how cast observability blocks merges, and why `ReFinalize` is part of correctness.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, preserved, bailout, and known-limitation module families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future port map: boundary-only registry entry, honest active-request rejection, no owner file or backlog slice, reusable local type-section surfaces, and the shared type-graph infrastructure a future closed-world module pass would need.
 
 ## Current maintenance rule
 
@@ -117,6 +123,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)
+- [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

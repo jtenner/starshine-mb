@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
+  - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeMerging.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
@@ -19,9 +21,13 @@ related:
   - ./binaryen-strategy.md
   - ./dfa-partitions-casts-and-refinalization.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Upstream implementation structure and test map for `type-merging`
+
+Use this page with the 2026-04-24 raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md).
+The manifest is the immutable source list; this page is the teaching map.
 
 ## Why this page exists
 
@@ -52,7 +58,7 @@ The implementation file is what expands it into the real contract.
 
 ## Freshness check against current `main`
 
-I did a narrow current-`main` spot check.
+I did a narrow current-`main` spot check and recorded it in the 2026-04-24 raw primary-source manifest.
 
 ### `TypeMerging.cpp`
 
@@ -182,6 +188,8 @@ If you want the shortest high-confidence ownership map:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)
+- [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeMerging.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

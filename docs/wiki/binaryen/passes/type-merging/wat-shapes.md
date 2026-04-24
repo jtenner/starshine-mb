@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
+  - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeMerging.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/type-merging.wast
@@ -11,11 +13,13 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./dfa-partitions-casts-and-refinalization.md
+  - ./starshine-strategy.md
 ---
 
 # `type-merging` WAT and module shapes
 
 This page is the beginner-friendly shape catalog for Binaryen `type-merging`.
+It is anchored to the 2026-04-24 primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md) and cross-links the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 The pass is module-shaped, so many of the most important "shapes" are really **type-graph patterns**, not tiny one-expression peepholes.
 
@@ -374,6 +378,8 @@ If any of those fail, Binaryen usually preserves the type.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)
+- [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeMerging.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/type-merging.wast>
