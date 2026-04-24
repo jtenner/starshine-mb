@@ -234,6 +234,8 @@ export function runPassFuzzCompareListFailureClassesCommandTest(): void {
   }
   assert(result.stdout.includes("starshine-invalid-limits"), `expected starshine-invalid-limits in list output:\n${result.stdout}`);
   assert(result.stdout.includes("starshine-invalid-range-for-limits"), `expected starshine-invalid-range-for-limits in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("binaryen-rec-group-zero"), `expected binaryen-rec-group-zero in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("binaryen-invalid-wasm-type-neg64"), `expected binaryen-invalid-wasm-type-neg64 in list output:\n${result.stdout}`);
   assert(result.stdout.includes("binaryen-initializer-expression-not-constant"), `expected binaryen-initializer-expression-not-constant in list output:\n${result.stdout}`);
   assert(result.stdout.includes("binaryen-table-index-out-of-range"), `expected binaryen-table-index-out-of-range in list output:\n${result.stdout}`);
   assert(result.stdout.includes("binaryen-bad-section-size"), `expected binaryen-bad-section-size in list output:\n${result.stdout}`);
@@ -719,6 +721,130 @@ process.exit(0);
 
   const starshineLogs = fs.readFileSync(starshineLog, "utf8").trim().split("\n").filter(Boolean);
   assert(starshineLogs.length === 3, `expected 3 Starshine runs before cutoff, got ${starshineLogs.length}`);
+}
+
+export function runPassFuzzCompareKeepGoingAfterCommandFailuresTest(): void {
+  const repoRoot = path.resolve(import.meta.dir, "..", "..");
+  const tmpdir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-pass-fuzz-keep-going-command-failure-"));
+  const outDir = path.join(tmpdir, "out");
+  const moonLog = path.join(tmpdir, "moon.log");
+  const starshineLog = path.join(tmpdir, "starshine.log");
+  const wasmToolsLog = path.join(tmpdir, "wasm-tools.log");
+
+  const fakeMoon = makeExecutable(
+    path.join(tmpdir, "fake-moon"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_MOON_LOG, JSON.stringify(args) + "\\n");
+if (args[0] === "run" && args.includes("src/fuzz")) {
+  const outDir = args[args.indexOf("--out-dir") + 1];
+  fs.mkdirSync(outDir, { recursive: true });
+  for (let i = 1; i <= 3; i += 1) {
+    fs.writeFileSync(path.join(outDir, "gen-valid-" + String(i).padStart(6, "0") + ".wasm"), "gen-valid-" + i);
+  }
+}
+process.exit(0);
+`,
+  );
+
+  const fakeStarshine = makeExecutable(
+    path.join(tmpdir, "fake-starshine"),
+    `
+const fs = require("node:fs");
+const path = require("node:path");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_STARSHINE_LOG, JSON.stringify(args) + "\\n");
+const outIndex = args.indexOf("--out");
+fs.mkdirSync(path.dirname(args[outIndex + 1]), { recursive: true });
+fs.writeFileSync(args[outIndex + 1], "starshine");
+process.exit(0);
+`,
+  );
+
+  const fakeWasmOpt = makeExecutable(
+    path.join(tmpdir, "fake-wasm-opt"),
+    `
+process.stderr.write("[parse exception: invalid type index: 0 (at 0:13)]\\n");
+process.exit(1);
+`,
+  );
+
+  const fakeWasmTools = makeExecutable(
+    path.join(tmpdir, "fake-wasm-tools"),
+    `
+const fs = require("node:fs");
+const args = process.argv.slice(2);
+fs.appendFileSync(process.env.FAKE_WASM_TOOLS_LOG, JSON.stringify(args) + "\\n");
+process.exit(0);
+`,
+  );
+
+  const result = spawnSync(
+    "bun",
+    [
+      path.join(repoRoot, "scripts", "pass-fuzz-compare.ts"),
+      "--count",
+      "3",
+      "--generator",
+      "gen-valid",
+      "--max-failures",
+      "1",
+      "--keep-going-after-command-failures",
+      "--out-dir",
+      outDir,
+      "--moon",
+      fakeMoon,
+      "--starshine-bin",
+      fakeStarshine,
+      "--wasm-opt-bin",
+      fakeWasmOpt,
+      "--wasm-tools-bin",
+      fakeWasmTools,
+      "--pass",
+      "remove-unused-module-elements",
+    ],
+    {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        FAKE_MOON_LOG: moonLog,
+        FAKE_STARSHINE_LOG: starshineLog,
+        FAKE_WASM_TOOLS_LOG: wasmToolsLog,
+      },
+      encoding: "utf8",
+    },
+  );
+
+  if (result.error) {
+    throw result.error;
+  }
+  if (result.status !== 0) {
+    fail(`pass-fuzz-compare keep-going-after-command-failures failed:\n${result.stderr}`);
+  }
+
+  const summary = JSON.parse(fs.readFileSync(path.join(outDir, "result.json"), "utf8")) as {
+    requestedCount: number;
+    comparedCount: number;
+    commandFailureCount: number;
+    commandFailureClasses: Record<string, number>;
+    commandFailuresCountTowardMaxFailures: boolean;
+    maxFailuresHit: boolean;
+    failureDirs: string[];
+  };
+  assert(summary.requestedCount === 3, `unexpected requested count ${summary.requestedCount}`);
+  assert(summary.comparedCount === 0, `expected 0 compared cases, got ${summary.comparedCount}`);
+  assert(summary.commandFailureCount === 3, `expected 3 command failures, got ${summary.commandFailureCount}`);
+  assert(summary.commandFailureClasses["binaryen-invalid-type-index"] === 3, `expected 3 invalid-type-index failures, got ${JSON.stringify(summary.commandFailureClasses)}`);
+  assert(!summary.commandFailuresCountTowardMaxFailures, "expected command failures to be excluded from max-failures cutoff");
+  assert(!summary.maxFailuresHit, "did not expect maxFailuresHit when only command failures were recorded");
+  assert(summary.failureDirs.length === 3, `expected 3 failure dirs, got ${summary.failureDirs.length}`);
+
+  const cases = fs.readFileSync(path.join(outDir, "cases.jsonl"), "utf8").trim().split("\n").filter(Boolean);
+  assert(cases.length === 3, `expected 3 recorded cases, got ${cases.length}`);
+  const starshineLogs = fs.readFileSync(starshineLog, "utf8").trim().split("\n").filter(Boolean);
+  assert(starshineLogs.length === 3, `expected 3 Starshine runs when command failures do not stop the batch, got ${starshineLogs.length}`);
 }
 
 export function runPassFuzzCompareBinaryenFailureClassificationTest(): void {
@@ -2589,6 +2715,7 @@ if (import.meta.main) {
   runPassFuzzCompareTupleOptimizationPassAliasCommandTest();
   runPassFuzzCompareWasmSmithOnlyCommandTest();
   runPassFuzzCompareCommandFailureAccumulationTest();
+  runPassFuzzCompareKeepGoingAfterCommandFailuresTest();
   runPassFuzzCompareBinaryenFailureClassificationTest();
   runPassFuzzCompareBinaryenInitializerExpressionNotConstantClassificationTest();
   runPassFuzzCompareReplayBinaryenInitializerExpressionNotConstantFailureClassTest();

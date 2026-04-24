@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] pass-signoff | keep RUME compare coverage moving through known Binaryen parser failures
+
+- Added an explicit `--keep-going-after-command-failures` mode to `scripts/lib/pass-fuzz-compare-task.ts` so RUME-style coverage sweeps can keep collecting comparable cases after known Binaryen parser/canonicalization command failures while still recording those failures and preserving replay artifacts.
+- Covered the new mode in `scripts/test/pass-fuzz-compare-command.ts` with a fake Binaryen `invalid type index` run that would previously stop at the `--max-failures` cutoff, and tightened list coverage for the `binaryen-rec-group-zero` and `binaryen-invalid-wasm-type-neg64` classes that remain relevant to the RUME command-failure corpus.
+- Updated `agent-todo.md` and the RUME parity page to recommend the explicit keep-going mode for future coverage-only RUME sweeps; the pass's semantic blocker classification remains unchanged.
+
 ## [2026-04-24] research | add `gufa` primary-source capture and a Starshine status bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/raw/research/`, and the existing `docs/wiki/binaryen/passes/gufa/` folder, then chose plain `gufa` because the folder already had overview / Binaryen strategy / implementation map / oracle-boundary / transformed-shape coverage but still lacked the same immutable raw primary-source manifest and dedicated Starshine status/port-strategy page already added for `gufa-optimizing` and `gufa-cast-all`.

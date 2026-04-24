@@ -39,6 +39,7 @@ type PassFuzzCompareOptions = {
   wasmToolsBin: string;
   generator: GeneratorMode;
   maxFailures: number;
+  keepGoingAfterCommandFailures: boolean;
   passFlags: string[];
   replayFailuresFrom: string | null;
   failureClass: CommandFailureClass | null;
@@ -81,6 +82,7 @@ type PassFuzzCompareSummary = {
   generatorFailureCount: number;
   commandFailureCount: number;
   commandFailureClasses: Partial<Record<CommandFailureClass, number>>;
+  commandFailuresCountTowardMaxFailures: boolean;
   maxFailuresHit: boolean;
   seed: string;
   generator: GeneratorMode;
@@ -104,6 +106,7 @@ const RESERVED_OPTIONS = new Set([
   "--wasm-tools-bin",
   "--generator",
   "--max-failures",
+  "--keep-going-after-command-failures",
   "--pass",
   "--replay-failures-from",
   "--failure-class",
@@ -147,6 +150,8 @@ const HELP_TEXT = [
   "  --out-dir <dir>       Output directory for artifacts and failures",
   "  --generator <mode>    both | wasm-smith | gen-valid. Default: both",
   "  --max-failures <n>    Stop after this many mismatches/failures. Default: 20",
+  "  --keep-going-after-command-failures",
+  "                       Record command failures without counting them toward --max-failures",
   "  --pass <name>         Canonical pass name without leading --. May repeat",
   "  --replay-failures-from <dir>",
   "                       Replay saved command-failure inputs from a prior out dir",
@@ -541,6 +546,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
   let wasmToolsBin = process.env.WASM_TOOLS_BIN || "wasm-tools";
   let generator: GeneratorMode = "both";
   let maxFailures = 20;
+  let keepGoingAfterCommandFailures = false;
   const passFlags: string[] = [];
   let replayFailuresFrom: string | null = null;
   let failureClass: CommandFailureClass | null = null;
@@ -614,6 +620,10 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
         );
         i += 2;
         break;
+      case "--keep-going-after-command-failures":
+        keepGoingAfterCommandFailures = true;
+        i += 1;
+        break;
       case "--pass":
         passFlags.push(normalizePassNameToFlag(argv[i + 1] ?? fail("missing value for --pass")));
         i += 2;
@@ -680,6 +690,7 @@ export function parsePassFuzzCompareArgs(argv: string[]): ParseCommand {
       wasmToolsBin,
       generator,
       maxFailures,
+      keepGoingAfterCommandFailures,
       passFlags,
       replayFailuresFrom,
       failureClass,
@@ -766,6 +777,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
     generatorFailureCount: 0,
     commandFailureCount: 0,
     commandFailureClasses: {},
+    commandFailuresCountTowardMaxFailures: !options.keepGoingAfterCommandFailures,
     maxFailuresHit: false,
     seed: seedHex(options.seed),
     generator: options.generator,
@@ -880,7 +892,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         );
       } catch (error) {
         summary.commandFailureCount += 1;
-        failures += 1;
+        if (!options.keepGoingAfterCommandFailures) {
+          failures += 1;
+        }
         const detail = `Starshine command failed: ${commandFailureDetail(error)}`;
         const failureClass = classifyCommandFailure(detail);
         noteCommandFailureClass(summary, failureClass);
@@ -944,7 +958,9 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
         binaryenWat = normalizePrintWat(options.wasmOptBin, binaryenPath, binaryenWatPath, repoRoot);
       } catch (error) {
         summary.commandFailureCount += 1;
-        failures += 1;
+        if (!options.keepGoingAfterCommandFailures) {
+          failures += 1;
+        }
         const detail = `Binaryen/canonicalization command failed: ${commandFailureDetail(error)}`;
         const failureClass = classifyCommandFailure(detail);
         noteCommandFailureClass(summary, failureClass);

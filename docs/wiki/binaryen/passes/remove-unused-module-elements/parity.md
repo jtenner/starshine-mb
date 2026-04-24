@@ -49,6 +49,7 @@ related:
 - The later RUME blocker record is stronger and more specific after the semantic cleanup: `.tmp/pass-fuzz-rume-live-nullfuncref-rerun` reached `165 / 165` comparable `wasm-smith` cases with `0` mismatches before the `20` command-failure cutoff.
 - In that later rerun Starshine contributed no command failures; the remaining failure slots were Binaryen-side parser or canonicalization blockers: `binaryen-invalid-type-index`, `binaryen-rec-group-zero`, `binaryen-invalid-wasm-type-neg64`, and three later Binaryen parser failures at cases `000162`, `000167`, and `000185`.
 - Treat the direct pass as semantically signed off for the currently comparable corpus until a new semantic mismatch appears; the open work is parser-compatibility / coverage hardening, not another RUME keep/drop or remap bug.
+- For future coverage-only RUME sweeps, `pass-fuzz-compare` now has `--keep-going-after-command-failures`, which records classified Binaryen parser/canonicalization failures without letting those known command-failure families consume the `--max-failures` cutoff.
 
 ## Practical Rule
 
