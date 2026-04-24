@@ -1,28 +1,28 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-gufa-optimizing-primary-sources.md
+  - ../../../raw/research/0311-2026-04-24-gufa-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0189-2026-04-21-gufa-optimizing-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./cleanup-rerun-contract.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../gufa/index.md
+  - ../gufa-cast-all/index.md
 ---
 
-# Binaryen `gufa-optimizing` Strategy
+# Binaryen `gufa-optimizing` strategy
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
-- The core implementation is the shared `src/passes/GUFA.cpp` engine.
-- The whole-program analysis helper is `src/ir/possible-contents.h`.
-- Public registration comes from `src/passes/pass.cpp`.
-- The shipped behavior example for this exact sibling is `test/lit/passes/gufa-optimizing.wast`.
+Use Binaryen `version_129` as the stable source oracle for this pass. The 2026-04-24 raw manifest at [`../../../raw/binaryen/2026-04-24-gufa-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-optimizing-primary-sources.md) captures the exact sources reviewed and the current-`main` freshness check.
 
-Primary source URLs:
+Primary online sources:
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GUFA.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/possible-contents.h>
@@ -35,205 +35,102 @@ Primary source URLs:
 
 Binaryen `gufa-optimizing` is plain whole-program GUFA rewriting plus a nested `dce`-then-`vacuum` cleanup rerun on each function the rewrite phase actually changed.
 
-## The sibling split in one table
+## The sibling split
 
-| Variant | Flags in shared engine | What changes | Why it exists |
+| Variant | Shared-engine flags | What changes | Why it exists |
 | --- | --- | --- | --- |
-| `gufa` | `optimizing = false`, `castAll = false` | only the oracle-driven rewrites | base behavior |
+| `gufa` | `optimizing = false`, `castAll = false` | only oracle-driven rewrites | base behavior |
 | `gufa-optimizing` | `optimizing = true`, `castAll = false` | same rewrites, then nested cleanup on changed functions | harvest dead/unreachable/drop scaffolding GUFA introduces |
 | `gufa-cast-all` | `optimizing = false`, `castAll = true` | same rewrites, then insert new explicit casts | expose more downstream type information |
 
-## Biggest naming fact
+The important correction is that `gufa-optimizing` is **not** GUFA with a stronger oracle. It is the same proof engine plus a different post-rewrite cleanup contract.
 
-The easiest beginner mistake is reading this sibling as:
+## Source-level organization
 
-- “GUFA, but stronger.”
+The durable sequence in `GUFA.cpp` is:
 
-That is too vague to be useful.
+1. build one module-wide `ContentOracle`;
+2. run the shared GUFA visitor over each function;
+3. if the function changed, run `ReFinalize()`;
+4. if `castAll` is enabled, optionally insert new casts;
+5. if the function did not change, return;
+6. repair EH nested pops;
+7. if `optimizing` is enabled, run a nested pass runner with `dce` then `vacuum` on that function.
 
-A better model is:
+For this exact sibling, `castAll` is false and `optimizing` is true, so steps 6 and 7 are the public distinction.
 
-- **same proof engine, different post-rewrite cleanup contract**.
+## Shared analysis phase
 
-## Scheduler fact
+The analysis is still plain GUFA analysis. `ContentOracle` / `PossibleContents` can prove facts such as:
 
-This pass is **registered publicly** in Binaryen `pass.cpp`, but it is **not scheduled** in the reviewed default no-DWARF `-O` / `-Os` pipeline.
-That means this dossier is a deliberate upstream-only registry expansion.
+- no possible runtime contents,
+- one literal-like value,
+- one materializable global or function identity,
+- a tighter reference-type cone,
+- too many values to rewrite safely.
 
-## What the implementation is really organized around
+`gufa-optimizing` does not add cleanup-specific facts to the oracle.
 
-The durable structure is:
+## Shared rewrite phase
 
-1. build one module-wide `ContentOracle`
-2. run the shared GUFA visitor on each function in parallel
-3. refinalize if the visitor changed anything
-4. repair EH nested pops after real rewrites
-5. only if `optimizing` is true, run nested `dce` and `vacuum` on that changed function
+The inherited rewrite surface is the plain GUFA surface:
 
-That is the real contract.
-The sibling is all about step 5.
+- replace a site with a materializable known value when doing so preserves typing and effects;
+- replace impossible sites with `unreachable` while preserving needed side effects;
+- simplify `ref.eq` when possible-content sets cannot intersect;
+- simplify `ref.test` from type-cone knowledge;
+- refine existing `ref.cast` results when the oracle has sharper type information.
 
-## Phase 1: the analysis is still plain GUFA analysis
+So if someone asks what instruction shapes this pass transforms, start with [`../gufa/index.md`](../gufa/index.md) and then add this sibling's cleanup stage.
 
-The whole-program oracle is `ContentOracle` in `possible-contents.h`.
-It still computes the same possible-content facts the broader `gufa` dossier already explains:
+## Optimizing-only cleanup phase
 
-- impossible contents / unreachable
-- one literal-like value
-- one materializable global or function identity
-- a tighter reference-type cone
-- too-many-values fallback
+The actual sibling identity is the nested cleanup branch:
 
-`gufa-optimizing` does **not** add any new analysis precision beyond that.
+- it runs only after the function has changed;
+- it runs after refinalization;
+- it runs after EH nested-pop repair;
+- it adds `dce` first and `vacuum` second;
+- it runs on the changed function, not the entire module indiscriminately.
 
-## Phase 2: the rewrite surface is still plain GUFA rewrite surface
+That order matters because GUFA can create type-sensitive wrapper residue. Cleanup sees refinalized IR rather than a stale partially-rewritten function.
 
-The shared visitors in `GUFA.cpp` still do the same narrow family of rewrites:
+## Why Binaryen does this
 
-- generic expression replacement when the oracle can prove one legal value
-- replacement with `unreachable` when the oracle proves no possible contents
-- `ref.eq` simplification using possible-content intersection
-- `ref.test` simplification using type-cone inclusion
-- `ref.cast` result-type sharpening
+GUFA must preserve side effects while replacing values. That proof-first strategy can leave behind:
 
-So if someone asks, “what IR shapes does this pass understand?”, the answer starts with plain GUFA's shapes.
+- `drop` wrappers,
+- extra `block` wrappers,
+- dead suffixes after new `unreachable`,
+- known constants surrounded by old value scaffolding.
 
-## Phase 3: refinalization happens before optimizing cleanup
+`dce` harvests newly exposed deadness. `vacuum` trims trivial value and wrapper residue. The dedicated `gufa-optimizing.wast` file proves this distinction by comparing plain `gufa` residue against the cleaned optimizing output.
 
-In `visitFunction`, Binaryen first checks whether the shared rewrite phase changed anything.
-If it did, it runs `ReFinalize()`.
+## Boundaries and non-goals
 
-That ordering matters.
-The nested cleanup passes are not run on stale or partially-invalid IR.
-They are run after Binaryen has already repaired function-local typing.
+`gufa-optimizing` does **not**:
 
-## Phase 4: EH nested-pop repair is part of the real contract
-
-After any real rewrite, Binaryen calls:
-
-- `EHUtils::handleBlockNestedPops(func, *getModule())`
-
-This happens before the optimizing-only nested cleanup branch returns or proceeds.
-So the sibling's real contract includes:
-
-- GUFA rewrite
-- refinalize
-- EH nested-pop repair
-- only then `dce` / `vacuum`
-
-That is important for any future port that might otherwise be tempted to run cleanup too early.
-
-## Phase 5: `optimizing` mode owns the nested cleanup rerun
-
-The core difference is a small block in `visitFunction`:
-
-- if `!optimizing`, return
-- otherwise make a nested `PassRunner`
-- `runner.add("dce")`
-- `runner.add("vacuum")`
-- `runner.runOnFunction(func)`
-
-That is the exact sibling identity.
-
-## Why Binaryen does this at all
-
-The comments in `GUFA.cpp` explain the motivation clearly.
-When GUFA proves a nested expression equals one constant, or that a site is unreachable, it may preserve the old child work by wrapping it in new structure:
-
-- `drop`
-- `block`
-- repeated constants
-- explicit `unreachable`
-
-That is semantically correct, but it can increase code size if left alone.
-The optimizing sibling exists to pay off that cleanup debt immediately.
-
-## Positive rewrite family 1: nested block/result wrappers after constant proof
-
-The dedicated `gufa-optimizing.wast` file shows the cleanest example.
-A helper call returns `1` through nested result blocks.
-Plain `gufa` proves the value but leaves a chain of nested blocks and drops.
-The optimizing sibling runs cleanup and reaches a much simpler shape:
-
-- preserve the call for effects as `drop (call $foo)`
-- return the inferred constant `i32.const 1`
-
-This is the most beginner-friendly way to understand the sibling.
-
-## Positive rewrite family 2: explicit `unreachable` that exposes dead suffixes
-
-When GUFA proves that no contents can reach a site, it emits `unreachable` while preserving earlier side effects.
-That often creates later dead control or dead value traffic.
-`dce` is the exact nested pass that removes the newly exposed dead code.
-
-## Positive rewrite family 3: wrapper drops that `vacuum` can peel away
-
-When GUFA preserves an old child for effects but replaces the value itself, extra `drop`s and wrapper blocks can remain.
-`vacuum` is the exact nested pass that removes now-unused values and trivial wrappers from those shapes.
-
-## Negative family 1: no `castAll` insertion
-
-Because this sibling keeps `castAll = false`, it does **not** run the “insert fresh casts wherever we know a narrower type” phase from `gufa-cast-all`.
-That is a separate public sibling with a separate contract.
-
-## Negative family 2: no broader rewrite surface than plain GUFA
-
-This pass still inherits all the shared GUFA boundaries:
-
-- tuple-typed expressions are skipped
-- ordered memory operations are not rewritten
-- materializable value replacement still needs type-valid emitted IR
-- the pass only emits a narrow replacement family directly
-
-So the optimizing sibling is not “plain GUFA plus more rewrite patterns.”
-It is “plain GUFA plus cleanup.”
-
-## Negative family 3: unchanged functions do not rerun cleanup
-
-The nested runner is only created after the function has been marked `optimized`.
-That means:
-
-- unchanged functions do not pay the extra cost
-- the sibling's runtime cost is tied to actual successful GUFA rewrites
-
-That changed-functions-only scope is part of the real implementation behavior.
-
-## Important helper dependencies
-
-The most important helper dependencies are:
-
-- `ContentOracle` / `PossibleContents` in `possible-contents.h`
-- `ReFinalize`
-- `EHUtils::handleBlockNestedPops`
-- nested `PassRunner`
-- `dce`
-- `vacuum`
-
-This pass is therefore best understood as a **whole-program analysis pass that intentionally hands off to two local cleanup passes**, not as a standalone monolithic transformer.
+- widen the core rewrite surface beyond plain GUFA;
+- run cleanup on unchanged functions;
+- insert the fresh casts owned by `gufa-cast-all`;
+- become a generic local cleanup preset;
+- appear in the reviewed Starshine no-DWARF `-O` / `-Os` path.
 
 ## What a future Starshine port must preserve
 
-A correct port should preserve eight boundaries:
+A correct port should preserve these source-backed boundaries:
 
-1. the same whole-program `ContentOracle` analysis as plain `gufa`
-2. the same narrow direct rewrite surface as plain `gufa`
-3. function-level `optimized` tracking
-4. `ReFinalize()` before nested cleanup
-5. EH nested-pop repair before nested cleanup
-6. nested cleanup with exactly `dce` then `vacuum`
-7. changed-functions-only reruns
-8. the explicit split from `gufa-cast-all`
+1. the shared whole-program GUFA oracle;
+2. the same first-phase rewrites as plain `gufa`;
+3. per-function mutation tracking;
+4. refinalization or equivalent validation before cleanup;
+5. EH / control-stack repair before cleanup;
+6. nested cleanup in the order `dead-code-elimination` then `vacuum`;
+7. cleanup only on changed functions;
+8. no fresh-cast insertion in this sibling.
 
-## Most important beginner correction
+## Beginner correction
 
-If someone says:
+If someone says “`gufa-optimizing` is just aggressive GUFA,” replace it with:
 
-- “`gufa-optimizing` is just the aggressive form of GUFA”
-
-that is not quite wrong, but it is much too blurry.
-
-A much better sentence is:
-
-- “`gufa-optimizing` is the public GUFA sibling that runs `dce` and `vacuum` immediately on functions whose GUFA rewrite phase changed them.”
-
-That is the main durable teaching value of this dossier.
+> `gufa-optimizing` is the public GUFA sibling that runs `dce` and `vacuum` immediately on functions whose GUFA rewrite phase changed them.
