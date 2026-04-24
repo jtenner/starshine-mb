@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md
+  - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./copies-subtypes-ref-tests-and-atomics.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../global-type-optimization/index.md
   - ../global-struct-inference/index.md
 ---
@@ -19,7 +22,7 @@ related:
 
 Use Binaryen `version_129` as the current source oracle for this pass family.
 
-Primary files:
+Primary files captured in [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md):
 
 - `src/passes/ConstantFieldPropagation.cpp`
 - `src/passes/pass.cpp`
@@ -28,6 +31,7 @@ Primary files:
 - `src/ir/subtypes.h`
 - `src/ir/module-utils.h`
 - `test/lit/passes/cfp.wast`
+- `test/lit/passes/cfp-reftest.wast`
 - `test/lit/passes/gto_and_cfp_in_O.wast`
 
 I also did a narrow current-`main` check on the same surfaces.
@@ -406,7 +410,10 @@ That is why the pass matters and why it deserved a dedicated dossier.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md)
+- [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstantFieldPropagation.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
@@ -415,6 +422,7 @@ That is why the pass matters and why it deserved a dedicated dossier.
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/subtypes.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/module-utils.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/cfp.wast>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/cfp-reftest.wast>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/gto_and_cfp_in_O.wast>
 - Narrow freshness check:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/ConstantFieldPropagation.cpp>

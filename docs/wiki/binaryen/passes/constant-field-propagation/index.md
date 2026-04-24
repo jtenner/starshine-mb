@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md
+  - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
@@ -16,6 +18,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./copies-subtypes-ref-tests-and-atomics.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
   - ../index.md
   - ../global-type-optimization/index.md
@@ -28,7 +31,7 @@ related:
 ## Role
 
 - `constant-field-propagation` is an upstream Binaryen **module pass family**.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); see the exact local code map in [`./starshine-strategy.md`](./starshine-strategy.md).
 - Upstream Binaryen `pass.cpp` registers the public CLI aliases:
   - `cfp`
   - `cfp-reftest`
@@ -131,6 +134,8 @@ What it actually is in `version_129`:
   - Focused guide to the hardest half of the pass: exact versus inexact references, copy fixed points, why `cfp-reftest` is narrow, and why atomics split into “ordered-read bailout” versus “known-trap rewrite” cases.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT-shape catalog covering impossible reads, default/literal/global positives, subtype positives and bailouts, packed-field repairs, array-of-struct realistic shapes, atomic boundaries, and the main non-goals.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and port map: boundary-only registry entries for the parent `constant-field-propagation` name and the `constant-field-null-test-folding` sibling, active request rejection, preset omission, missing owner file/backlog slice, and the exact local GC/type/struct/descriptor code surfaces a future closed-world module pass would need to reuse.
 
 ## Current maintenance rule
 
@@ -146,7 +151,10 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md)
+- [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)

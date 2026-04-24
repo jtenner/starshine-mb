@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md
+  - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./copies-subtypes-ref-tests-and-atomics.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `constant-field-propagation`: implementation structure and tests
@@ -27,6 +30,7 @@ This page exists because `ConstantFieldPropagation.cpp` is readable, but it stil
 | `src/ir/module-utils.h` | Part of the shared module scanning infrastructure used underneath the walker/pass stack |
 | `src/ir/gc-type-utils.h` and `src/ir/bits.h` | Field metadata lookup plus packed-field masking/sign-extension repair |
 | `test/lit/passes/cfp.wast` | Main official contract surface for plain `cfp` |
+| `test/lit/passes/cfp-reftest.wast` | Dedicated public contract surface for the sibling `cfp-reftest` variant; the parent pass page cites it to keep the shared-engine split explicit |
 | `test/lit/passes/gto_and_cfp_in_O.wast` | Shows why scheduler placement after `gto` / cleanup matters in the closed-world `-O` pipeline |
 
 ## The real call graph
@@ -206,19 +210,19 @@ It demonstrates that in closed-world `-O`:
 
 That test is the cleanest official source for explaining why `cfp` is placed where it is.
 
-## There is no single “cfp-reftest.wast” in the sources I reviewed
+## `cfp-reftest.wast` is the sibling-variant proof surface
 
-The reviewed public test surface I used here was:
+The 2026-04-24 source manifest and the sibling [`../constant-field-null-test-folding/index.md`](../constant-field-null-test-folding/index.md) dossier now confirm a dedicated official lit file:
 
-- `cfp.wast`
-- `gto_and_cfp_in_O.wast`
+- `cfp-reftest.wast`
 
-The plain `cfp.wast` comments explicitly mention some shapes that plain `cfp` must not optimize even though `cfp-reftest` might.
+That corrects the older parent-CFP wording that treated the variant file as unreviewed.
 
 So for this dossier the safest teaching rule is:
 
-- treat `cfp.wast` as the primary contract file for the pass family’s normal behavior and key variant boundary,
-- and avoid claiming a separate reviewed dedicated `cfp-reftest` lit file unless a later thread verifies and documents one explicitly.
+- treat `cfp.wast` as the primary contract file for the parent pass family’s normal behavior,
+- treat `cfp-reftest.wast` as the dedicated contract file for the sibling `constant-field-null-test-folding` / upstream `cfp-reftest` variant,
+- use `gto_and_cfp_in_O.wast` to explain why the family belongs in the closed-world GC/type optimization neighborhood.
 
 ## Freshness note
 
@@ -259,7 +263,10 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md)
+- [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstantFieldPropagation.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
@@ -268,6 +275,7 @@ That is exactly why this pass is easy to underestimate.
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/subtypes.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/module-utils.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/cfp.wast>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/cfp-reftest.wast>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/gto_and_cfp_in_O.wast>
 - Narrow freshness check:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/ConstantFieldPropagation.cpp>
