@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
+  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
   - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
 related:
@@ -10,12 +12,13 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../precompute/propagation-partial-precompute-and-gc-identity.md
 ---
 
 # `precompute-propagate`: local worklist, fallthrough, and merge boundaries
 
-This page is the missing middle layer of the `precompute-propagate` dossier.
+This page is the middle layer of the `precompute-propagate` dossier. It now cites the 2026-04-24 raw primary-source manifest so the worklist contract stays tied to the exact reviewed Binaryen URLs.
 
 The landing page and strategy page already explain the big idea:
 
@@ -334,4 +337,4 @@ then `precompute-propagate` means:
 
 - “solve a small local get/set consensus problem, feed the proven `local.get`s back into the same evaluator, and try one more full walk.”
 
-That is the real Binaryen `version_129` contract future Starshine work should preserve.
+That is the real Binaryen `version_129` contract future Starshine work should preserve. Current Starshine has no implementation of this local-flow phase yet; see [`./starshine-strategy.md`](./starshine-strategy.md) before treating any local `precompute` code as sibling coverage.

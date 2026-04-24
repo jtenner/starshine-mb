@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
+  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
   - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
 related:
@@ -10,6 +12,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./local-worklist-fallthrough-and-merge-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../precompute/index.md
   - ../dae-optimizing/index.md
   - ../inlining-optimizing/index.md
@@ -21,6 +24,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- Use [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md) as the immutable raw-source manifest for the exact official URLs and the 2026-04-24 current-`main` spot check.
 - The core implementation is `src/passes/Precompute.cpp`.
 - Public registration comes from `src/passes/pass.cpp`.
 - The most important scheduler neighbor for this variant is `src/passes/opt-utils.h`, because that file shows where Binaryen prepends `precompute-propagate` during nested post-inlining cleanup.
@@ -262,6 +266,10 @@ Top-level no-DWARF `-O` / `-Os` is a good reminder that Binaryen does not always
 ### With `simplify-globals-optimizing`
 
 This neighboring dossier is a deliberate contrast case: it reruns the default function pipeline on changed functions, but it intentionally does **not** prepend `precompute-propagate`.
+
+## Starshine status cross-link
+
+Current Starshine does **not** implement this sibling yet. It keeps `precompute-propagate` as a removed registry name while implementing only plain `precompute` as an active hot pass. For the exact local code map and future port shape, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## What a future Starshine port must preserve
 

@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
+  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
   - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./local-worklist-fallthrough-and-merge-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../precompute/index.md
   - ../dae-optimizing/index.md
   - ../inlining-optimizing/index.md
@@ -27,7 +30,7 @@ related:
 ## Role
 
 - `precompute-propagate` is an upstream Binaryen function pass.
-- It is currently **unimplemented** in Starshine and still lives in the removed-name registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently **unimplemented** in Starshine and still lives in the removed-name registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); see [`./starshine-strategy.md`](./starshine-strategy.md) for the exact local status / port map.
 - It shares its core implementation file with [`../precompute/index.md`](../precompute/index.md), but it is still a real separate public pass name in Binaryen `version_129`.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` top-level path, which still uses plain `precompute`.
 - It **does** matter to the broader optimize story because aggressive top-level settings and `optimizeAfterInlining(...)` reruns use this more aggressive variant.
@@ -39,7 +42,8 @@ related:
 - The pass is already important in neighboring docs:
   - `dae-optimizing` and `inlining-optimizing` both depend on the `precompute-propagate` nested-rerun rule.
   - `simplify-globals-optimizing` is easier to teach once the contrast is explicit: it reruns the default function pipeline **without** prepending `precompute-propagate`.
-- This follow-up closes the dossier's biggest remaining teaching gap: the folder now has a dedicated page for the exact `propagateLocals(...)` worklist contract, including fallthrough-value analysis, all-reaching-sets consensus, default-value entry handling, and the one-extra-rerun stopping rule.
+- The earlier worklist follow-up closed the dossier's biggest algorithm teaching gap with a dedicated page for the exact `propagateLocals(...)` contract.
+- The 2026-04-24 follow-up closes the remaining provenance and local-follow-along gap: the folder now has an immutable raw primary-source manifest and a dedicated Starshine status / port-strategy page.
 
 ## Beginner summary
 
@@ -83,6 +87,8 @@ So the pass is best taught as:
   Focused guide to the exact `propagateLocals(...)` contract: `LazyLocalGraph` worklist edges, fallthrough-value analysis, get-merge consensus, defaultable-versus-param entry behavior, nondefaultable-local bailout, and the one-extra-rerun stopping rule.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, bailout, and easy-to-misread `precompute-propagate` families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future port map: removed registry name, no active sibling descriptor, plain `precompute` as the nearest landing zone, missing HOT get/set propagation, and the nested-rerun scheduler dependency.
 
 ## Current maintenance rule
 
@@ -93,13 +99,21 @@ So the pass is best taught as:
   - different public pass name
   - different scheduler usage
   - different reachable fixed points because of the extra propagation phase
+- Treat [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md) as the immutable provenance anchor for this sibling pass.
 - Keep the exact local-worklist contract explicit too:
   - not generic SCCP
   - not an unbounded fixed-point loop
   - not a bypass around emitability or GC-identity rules
+- Keep the exact Starshine status explicit too:
+  - removed registry name today
+  - no active `precompute-propagate` owner file or descriptor
+  - no nested optimizing-rerun scheduler yet
+  - current plain `precompute` is a useful landing zone but not an implementation of this sibling
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md)
+- [`../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md`](../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md)
 - [`../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md`](../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

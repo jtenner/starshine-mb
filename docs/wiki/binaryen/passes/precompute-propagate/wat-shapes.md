@@ -1,19 +1,24 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
+  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
+  - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./local-worklist-fallthrough-and-merge-boundaries.md
+  - ./starshine-strategy.md
   - ../precompute/index.md
 ---
 
 # `precompute-propagate` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `precompute-propagate` pass.
+This page is the beginner-friendly shape catalog for Binaryen's `precompute-propagate` pass. The source provenance for the dedicated upstream tests is now captured in [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md).
 
 ## Read this page with one mental model
 
@@ -271,6 +276,10 @@ Why it matters:
 - bounded loop/depth cases
 - GC-identity-sensitive heap shapes
 - any documentation that silently claims no-DWARF top-level `-O` / `-Os` uses this variant
+
+## Starshine status note
+
+Current Starshine does not implement these `precompute-propagate` shapes under the sibling name. Plain [`../precompute/index.md`](../precompute/index.md) implements a narrower scalar/control HOT subset, while [`./starshine-strategy.md`](./starshine-strategy.md) records the missing get/set propagation and nested-rerun scheduler work.
 
 ## Best beginner summary
 

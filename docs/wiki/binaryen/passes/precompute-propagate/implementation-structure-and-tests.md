@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
+  - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
   - ../../../raw/research/0198-2026-04-21-precompute-propagate-worklist-followup.md
 related:
@@ -10,16 +12,17 @@ related:
   - ./binaryen-strategy.md
   - ./local-worklist-fallthrough-and-merge-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../precompute/index.md
 ---
 
 # `precompute-propagate`: implementation structure and tests
 
-This page is the file-and-test map for Binaryen `version_129` `precompute-propagate`.
+This page is the file-and-test map for Binaryen `version_129` `precompute-propagate`. The committed raw manifest for the reviewed official URLs is [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md).
 
 ## Core source files
 
-## `src/passes/Precompute.cpp`
+### `src/passes/Precompute.cpp`
 
 This is the real implementation for **both** public names:
 
@@ -37,7 +40,7 @@ For the chosen pass, the most important durable facts visible in the reviewed fi
 - function-entry values are treated differently for params, defaultable vars, and nondefaultable vars
 - the same child-retention, emitability, GC-identity, and refinalization rules still apply
 
-## `src/passes/pass.cpp`
+### `src/passes/pass.cpp`
 
 This file matters because it proves:
 
@@ -46,7 +49,7 @@ This file matters because it proves:
 - the top-level higher-aggression scheduler uses `precompute-propagate` in the early and late propagation slots where lower-aggression no-DWARF `-O` / `-Os` uses plain `precompute`
 - the public split from plain `precompute` is intentional and user-visible
 
-## `src/passes/opt-utils.h`
+### `src/passes/opt-utils.h`
 
 This file matters because it proves the nested scheduler meaning of the pass:
 
@@ -55,7 +58,7 @@ This file matters because it proves the nested scheduler meaning of the pass:
 
 Without this file, it would be easy to document the pass as only an aggressive top-level variant and miss the nested-rerun contract.
 
-## `src/ir/local-graph.h`
+### `src/ir/local-graph.h`
 
 This is the key helper dependency for the chosen variant.
 
@@ -65,7 +68,7 @@ It matters because it explains the real meaning of â€œpropagate through localsâ€
 - it relies on the existing get/set influence graph machinery
 - the extra phase is a local worklist over set-to-get and get-to-set influences, not a broad new CFG solver
 
-## `src/wasm-interpreter.h`
+### `src/wasm-interpreter.h`
 
 This file matters because the pass family's semantic model comes from `ConstantExpressionRunner` and `Flow`.
 
@@ -73,7 +76,7 @@ That is what makes `precompute-propagate` more than a bag of peepholes.
 
 ## Official tests and what they prove
 
-## `test/lit/passes/precompute-propagate-partial.wast`
+### `test/lit/passes/precompute-propagate-partial.wast`
 
 This is the most useful propagate-specific bug-boundary file.
 
@@ -84,7 +87,7 @@ It proves that the propagate variant has a real extra public surface, especially
 - temporary heap-value-cache isolation during speculative arm evaluation
 - concrete parent expressions that only collapse once the second pass sees more local facts
 
-## `test/lit/passes/precompute-propagate_all-features.wast`
+### `test/lit/passes/precompute-propagate_all-features.wast`
 
 This is the clearest broad behavior oracle for the local worklist itself.
 
@@ -161,6 +164,10 @@ If Starshine ever ports this pass, the source/test map suggests a clean design t
 4. rerun the main evaluator once when propagation changed facts
 5. preserve the existing write-retention, emitability, and GC-identity rules
 6. test both the standalone pass surface and the nested `optimizeAfterInlining(...)` scheduler role
+
+## Starshine status pointer
+
+Current Starshine keeps this pass as a removed registry name and implements only the narrower active plain `precompute` pass today. See [`./starshine-strategy.md`](./starshine-strategy.md) for the exact MoonBit code map and missing local-flow / nested-rerun surfaces.
 
 ## Recommended local teaching rule
 
