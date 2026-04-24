@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-23] health | refresh remaining `untee` support pages to cite the new primary-source manifest
+
+- Ran a focused touched-area health check after the main `untee` wiki-development commit, specifically looking for stale provenance, missing backlinks, and folder-internal inconsistencies across the remaining support pages.
+- Refreshed `docs/wiki/binaryen/passes/untee/flattening-code-pushing-and-tee-boundaries.md` and `docs/wiki/binaryen/passes/untee/wat-shapes.md` so they now cite the committed raw primary-source manifest, point readers at the new `starshine-strategy.md` page, and no longer look like pre-manifest holdouts inside an otherwise refreshed folder.
+- Left older duplicated historical `docs/wiki/log.md` `untee` entries untouched because the log is append-only except for obvious formatting fixes, and this run's health pass did not justify rewriting prior audit history.
+
 ## [2026-04-23] research | add `untee` primary-source capture and a Starshine status/port bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `docs/wiki/binaryen/passes/untee/` folder, then chose `untee` because the dossier already had the required upstream overview / Binaryen strategy / implementation map / transformed-shape coverage but still lacked an immutable raw primary-source manifest and the required dedicated Starshine strategy page.
