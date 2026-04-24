@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
+  - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `unsubtyping`: descriptor squares, casts, and JS boundaries
@@ -20,6 +23,8 @@ It is the interaction between:
 - descriptor/described relations
 - JS exposure through `any` and `extern.convert_any`
 - allocation fixups that preserve traps when descriptor edges disappear
+
+The source provenance for these claims is now captured in [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md), and the Starshine-specific port boundary is summarized in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 If you understand this page, you understand the real pass much better.
 

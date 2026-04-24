@@ -1,19 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
+  - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./descriptor-squares-casts-and-js-boundaries.md
+  - ./starshine-strategy.md
 ---
 
 # `unsubtyping` WAT shapes
 
 This page is the beginner-friendly shape catalog for Binaryen `unsubtyping`.
+Use it with the reviewed source manifest in [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md) and the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Read this page with one mental model
 

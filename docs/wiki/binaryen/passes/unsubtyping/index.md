@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
+  - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./descriptor-squares-casts-and-js-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
   - ../index.md
   - ../global-struct-inference/index.md
@@ -63,6 +66,7 @@ It is **closed-world subtype/descriptor graph minimization**.
 
 ## Most important durable takeaways
 
+- The 2026-04-24 source-follow-up added an immutable primary-source manifest at [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md) and a local status/port-planning bridge at [`./starshine-strategy.md`](./starshine-strategy.md).
 - `unsubtyping` is **not** part of the repo's main open-world no-DWARF `-O` / `-Os` path.
 - The default scheduler places it only in the **closed-world GC/type cluster** after `gsi` and optional `abstract-type-refining`.
 - The pass body itself checks:
@@ -78,7 +82,7 @@ It is **closed-world subtype/descriptor graph minimization**.
 - Exact casts impose a smaller relation surface than ordinary casts.
 - Public types are frozen.
 - Descriptor-bearing allocations may need explicit fixups or synthetic globals when descriptor edges disappear.
-- A narrow 2026-04-21 freshness check found only tiny non-semantic current-`main` drift in the reviewed pass file and no reviewed lit drift.
+- A narrow 2026-04-24 freshness check found no teaching-relevant current-`main` drift in the reviewed owner, registration, helper, or dedicated lit surfaces beyond the existing `version_129` dossier claims.
 
 ## Beginner warning: what the name hides
 
@@ -122,6 +126,8 @@ What it actually is in `version_129`:
   - Focused guide to the hardest half of the pass: descriptor squares, ordinary-vs-exact casts, JS boundary flow through `any`, and the allocation fixups that preserve traps.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT-shape catalog covering positive validation families, cast positives and negatives, descriptor keepalive/removal cases, JS-interaction cases, and stack-switching/continuation bailouts.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and future port map: boundary-only registry entry, active request rejection, no owner file, no active backlog slice, no open-world no-DWARF role, and the exact type-section / descriptor WAT surfaces a future module pass would need to build on.
 
 ## Current maintenance rule
 
@@ -137,6 +143,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md)
+- [`../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md`](../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md`](../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
