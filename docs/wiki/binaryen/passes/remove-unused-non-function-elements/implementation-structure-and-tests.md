@@ -1,8 +1,10 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
+  - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -16,12 +18,15 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-module-elements/implementation-structure-and-tests.md
 ---
 
 # Upstream implementation structure and test map for `remove-unused-nonfunction-module-elements`
 
 ## Why this page exists
+
+The 2026-04-24 raw source manifest for this page is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md).
 
 This pass is tiny at the registration level, which makes it easy to hand-wave.
 That is exactly why it needs a compact file map.
@@ -175,8 +180,7 @@ That order preserves the difference between:
 ## Current-main drift note
 
 This dossier is intentionally anchored to `version_129`.
-I did not need a separate current-main drift claim to justify the pass identity, because the public registration plus dedicated test file already make the sibling contract clear enough for this campaign step.
-If a future thread wants to claim drift, it should do a fresh explicit comparison instead of assuming it.
+A narrow 2026-04-24 current-`main` spot check confirmed that the pass identity, factory split, and dedicated test path remain present. The owner file has helper/container drift after `version_129`, so this page does **not** claim whole-file current-main equivalence. If a future thread wants to claim detailed drift or no-drift, it should do a fresh explicit comparison.
 
 ## Most important maintenance lesson
 

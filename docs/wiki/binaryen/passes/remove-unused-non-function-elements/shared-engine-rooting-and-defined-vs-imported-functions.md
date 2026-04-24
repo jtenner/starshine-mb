@@ -1,8 +1,10 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
+  - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-nonfunction-module-elements_all-features.wast
@@ -11,6 +13,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-module-elements/index.md
   - ../remove-unused-module-elements/roots-reference-only-and-nullification.md
 ---
@@ -18,6 +21,8 @@ related:
 # Shared engine, rooting policy, and the defined-vs-imported function boundary
 
 ## Why this page exists
+
+This page is now anchored by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md).
 
 This is the easiest part of the sibling to misread.
 The pass name suggests one thing:
@@ -175,6 +180,10 @@ That is exactly the boundary the sibling introduces.
 
 Wrong.
 The root policy changes, but the cleanup logic remains shared.
+
+## Starshine implication
+
+Current Starshine does not expose this sibling yet. A future implementation should reuse the existing full-RUME module pass and add the defined-function root policy described here; see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Bottom line
 

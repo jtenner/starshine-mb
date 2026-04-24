@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
+  - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./shared-engine-rooting-and-defined-vs-imported-functions.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-module-elements/index.md
 ---
 
@@ -24,7 +27,8 @@ related:
 
 - `remove-unused-nonfunction-module-elements` is a real public Binaryen pass.
 - Starshine currently tracks the same concept under the local boundary-only alias `remove-unused-non-function-elements`.
-- It is currently **unimplemented** in Starshine's active optimizer.
+- It is currently **unimplemented** in Starshine's active optimizer; the current local status and future landing zone are mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
+- The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-pass audit.
 - `agent-todo.md` currently has **no dedicated `remove-unused-non-function-elements` slice**.
@@ -34,7 +38,7 @@ So this folder is another explicit, source-backed upstream-only registry expansi
 ## Why this pass matters
 
 - The main parity queues and the first tracker-expansion wave are already dossier-covered.
-- The local boundary-only registry still names `remove-unused-non-function-elements`, but before this thread there was no dedicated living folder explaining what the upstream sibling actually does.
+- The local boundary-only registry still names `remove-unused-non-function-elements`; the original 0194 dossier made the upstream sibling understandable, and this 2026-04-24 refresh adds immutable provenance plus a Starshine follow-along map.
 - It sits directly beside the already-documented `remove-unused-module-elements` engine and is easy to mis-teach as either:
   - just another spelling for full RUME, or
   - a pass that literally never changes anything related to functions.
@@ -84,6 +88,8 @@ So this pass is best taught as:
   Focused guide to the easiest part to misread: same shared engine as RUME, but with defined-functions-only rooting rather than a blanket “keep every function thing forever” policy.
 - [`./module-shapes.md`](./module-shapes.md)
   Beginner-friendly module-shape catalog for the main positive, preserved, and surprising families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map, including exact registry / dispatcher / reusable full-RUME code locations.
 
 ## Current maintenance rule
 
@@ -99,6 +105,8 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md)
+- [`../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md`](../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md`](../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

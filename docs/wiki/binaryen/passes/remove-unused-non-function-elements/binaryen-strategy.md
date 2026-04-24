@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
+  - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -17,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./shared-engine-rooting-and-defined-vs-imported-functions.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-module-elements/index.md
   - ../remove-unused-module-elements/binaryen-strategy.md
 ---
@@ -25,7 +28,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass.
+Use Binaryen `version_129` as the source oracle for this pass. The 2026-04-24 immutable raw manifest is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md).
 The core sources are:
 
 - `src/passes/RemoveUnusedModuleElements.cpp`
@@ -288,6 +291,10 @@ A faithful port must also preserve these non-rewrites:
 - active imported-parent segments stay when visible
 - startup-trapping segments stay unless TNH says otherwise
 - imported functions do not get special sibling protection just because they are functions
+
+## Starshine mapping
+
+Current Starshine keeps the local spelling `remove-unused-non-function-elements` as a boundary-only registry name, not an active module pass. Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code locations and the future landing-zone map.
 
 ## What a future Starshine port must preserve
 

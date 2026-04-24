@@ -1,8 +1,10 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
+  - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/remove-unused-nonfunction-module-elements_all-features.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedModuleElements.cpp
@@ -11,12 +13,15 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./shared-engine-rooting-and-defined-vs-imported-functions.md
+  - ./starshine-strategy.md
   - ../remove-unused-module-elements/wat-shapes.md
 ---
 
 # `remove-unused-nonfunction-module-elements` module-shape catalog
 
 This pass is not mainly about inner expression rewrites.
+The 2026-04-24 raw source manifest is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md).
+
 It is about **whole-module retention and cleanup**.
 So the most honest examples are module-shape examples, not tiny isolated arithmetic snippets.
 
@@ -340,6 +345,10 @@ If your mental model is “all functions stay,” you will predict the wrong out
 ## Negative family 3: do not expect function-type duplication to remain forever
 
 Type compaction is still part of the ordinary shared cleanup story.
+
+## Starshine-specific caveat
+
+Current Starshine only implements full [`remove-unused-module-elements`](../remove-unused-module-elements/index.md), which may delete dead defined functions. The sibling shapes on this page are future-port requirements for the boundary-only local `remove-unused-non-function-elements` name; see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Bottom line
 

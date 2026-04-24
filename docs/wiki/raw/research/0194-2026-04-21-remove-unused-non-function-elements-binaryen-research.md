@@ -2,7 +2,7 @@
 
 Date: 2026-04-21
 Author: OpenAI Codex
-Status: archived research feeding living wiki pages
+Status: archived research feeding living wiki pages; superseded for raw-source provenance and Starshine local-status mapping by `0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md`, while still useful as the original source-confirmation note
 
 ## Scope and selection note
 
