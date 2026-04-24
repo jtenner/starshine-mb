@@ -1,94 +1,113 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
+  - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../alignment-lowering/index.md
-  - ../../../../../agent-todo.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./align-one-rewrite-surface-and-alignment-lowering-split.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../alignment-lowering/index.md
   - ../tracker.md
+supersedes:
+  - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
 ---
 
 # `dealign`
 
 ## Role
 
-- `dealign` is a real public Binaryen pass.
-- It is currently **upstream-only** in this repo's living pass map: it is **not** in Starshine's local optimizer registry in `src/passes/optimize.mbt`.
-- It is **not** part of the repo's canonical no-DWARF `-O` / `-Os` optimize path.
-- `agent-todo.md` currently has **no dedicated `dealign` slice**.
+`dealign` is a public Binaryen pass that deliberately weakens selected memory-access alignment metadata to `1`.
+
+In Starshine today it is **upstream-only**:
+
+- it is not an active HotPass or ModulePass
+- it is not boundary-only or removed in `src/passes/optimize.mbt`
+- explicit requests therefore fail as an unknown pass name
+- it is not part of the canonical no-DWARF `-O` / `-Os` path
+- `agent-todo.md` has no dedicated `dealign` slice
 
 ## Why this dossier exists
 
-The tracker currently has no obvious remaining pass entries with wiki status `none`.
-That means a new dossier needs explicit justification.
+The neighboring [`alignment-lowering`](../alignment-lowering/index.md) dossier needs a precise sibling contrast.
+Without a `dealign` page, it is easy to blur two different jobs:
 
-`dealign` is justified because the refreshed `alignment-lowering` dossier already depended on teaching its opposite-direction sibling precisely, but the wiki had no canonical home explaining what `dealign` actually does.
-
-Without this folder, it was too easy to blur together:
-
-- `alignment-lowering`, which legalizes weakly aligned scalar loads and stores by splitting them into smaller aligned scalar accesses, and
-- `dealign`, which simply weakens selected alignment immediates to `1`.
+- `alignment-lowering` legalizes weakly aligned scalar loads/stores by splitting them into smaller aligned accesses
+- `dealign` keeps the same access node and only weakens its alignment immediate
 
 ## Beginner summary
 
-A good beginner mental model is:
+A beginner-safe prediction rule is:
 
-- walk over a module's defined functions
-- find visited loads and stores that currently claim stronger alignment than `1`
-- rewrite only the alignment metadata to `1`
-- leave everything else alone
+- visit function-body memory access nodes covered by the pass
+- if the node is a `Load`, `Store`, or `SIMDLoad`, set its alignment field to `1`
+- leave offsets, widths, signedness, children, value flow, control flow, and memory contents unchanged
 
-So this pass is best taught as:
+So this pass is best taught as **alignment-metadata normalization to `align=1`**, not as a legality pass or a generic memory optimizer.
 
-- **alignment-metadata pessimization / normalization to `align=1`**
-- not a legality pass
-- not a chunk-splitting pass
-- not a generic memory optimizer
+## Corrected source-backed takeaways
 
-## Most important durable takeaways
+Fresh 2026-04-24 source review corrected the older 2026-04-21 dossier text:
 
-- The entire reviewed `version_129` contract is concentrated in `DeAlign.cpp`, `pass.cpp`, and one dedicated lit file.
-- The pass is a tiny module pass with an early `module->memory.exists()` bailout.
-- It visits only `Load`, `Store`, `SIMDLoad`, and `SIMDStore`.
-- The core rewrite rule is literally: if `align > 1`, set `align = 1`.
-- It preserves offset, width, signedness, opcode family, pointer/value children, and trapping semantics.
-- It is the conceptual opposite-direction sibling of `alignment-lowering`, but not the same kind of pass.
-- The dedicated lit file proves the scalar rewrite surface directly; SIMD support is source-confirmed from `DeAlign.cpp` more than from a visibly dedicated lit case.
+- The reviewed Binaryen `version_129` implementation is a function-parallel `WalkerPass<PostWalker<DeAlign>>`, not a manual module pass with an explicit `module->memory.exists()` bailout.
+- It defines visitors for `Load`, `Store`, and `SIMDLoad`.
+- The reviewed file does **not** define `visitSIMDStore`.
+- Each visitor unconditionally assigns `curr->align = 1`; already-`align=1` accesses are unchanged only because the assignment is idempotent.
+- The dedicated lit file visibly proves small scalar `i32.load` / `i32.store` examples with default, explicit `align=1`, and explicit `align=2` forms. SIMD support is source-confirmed but not separately isolated by that lit file.
+- A narrow current-`main` spot check did not surface teaching-relevant drift from the tagged `version_129` behavior.
+
+## Important constraints
+
+`dealign` preserves:
+
+- opcode family
+- access width
+- scalar load signedness
+- offset
+- pointer child
+- stored value child
+- result type
+- trapping behavior of the access itself
+- surrounding control flow
+
+It does not directly rewrite:
+
+- atomics
+- bulk-memory instructions
+- `memory.copy`, `memory.fill`, `memory.init`, or `data.drop`
+- tables
+- GC instructions
+- address computations outside the access node
+- scalar chunks or helper locals
 
 ## Page map
 
-- [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Main implementation walkthrough: the tiny module-pass structure, exact visitor surface, scope boundaries, and why this is an alignment-metadata pass rather than a legality pass.
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  Compact owner-file and proof-surface map for `DeAlign.cpp`, `pass.cpp`, and `dealign.wast`.
-- [`./align-one-rewrite-surface-and-alignment-lowering-split.md`](./align-one-rewrite-surface-and-alignment-lowering-split.md)
-  Focused guide to the exact rewrite surface, the scalar-vs-SIMD split, and the important contrast with `alignment-lowering`.
-- [`./wat-shapes.md`](./wat-shapes.md)
-  Beginner-friendly before/after shape catalog for the direct `align -> 1` rewrites, no-op families, preserved fields, and main non-goals.
+- [`./binaryen-strategy.md`](./binaryen-strategy.md) - Corrected Binaryen strategy: public registration, `WalkerPass` shape, exact visitor surface, and assignment-only semantics.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - Source/test map for `DeAlign.cpp`, `pass.cpp`, and `dealign.wast`, including the lit-vs-source proof split.
+- [`./align-one-rewrite-surface-and-alignment-lowering-split.md`](./align-one-rewrite-surface-and-alignment-lowering-split.md) - Focused guide to the `align=1` rewrite surface and the corrected split from `alignment-lowering`.
+- [`./wat-shapes.md`](./wat-shapes.md) - Beginner-friendly before/after catalog for scalar and source-confirmed SIMDLoad shapes plus no-op and non-goal families.
+- [`./starshine-strategy.md`](./starshine-strategy.md) - Current Starshine status bridge: no registry spelling, unknown-pass rejection, no backlog slice, and future-port implications.
 
-## Current maintenance rule
+## Maintenance rule
 
-- Treat this folder as the canonical home for future `dealign` research.
-- Keep it explicitly marked as an **upstream-only** dossier unless Starshine later grows a local registry entry.
-- Keep the split from `alignment-lowering` explicit: `dealign` weakens alignment metadata, while `alignment-lowering` rewrites weakly aligned scalar accesses into smaller aligned ones.
-- Keep the smallness of the contract explicit too: this is one of those passes where the real source-backed behavior is much narrower than the public name may suggest.
+Treat this folder as the canonical home for future `dealign` research. Treat [`../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md`](../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md) as historical and superseded for mechanics where it mentions a no-memory bailout, `SIMDStore`, an `align > 1` branch, or broad lit-backed scalar type coverage.
 
 ## Sources
 
-- [`../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md`](../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md)
-- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-- [`../tracker.md`](../tracker.md)
-- [`../alignment-lowering/index.md`](../alignment-lowering/index.md)
-- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+- [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md)
+- [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md`](../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md) - historical; superseded for the corrected mechanics above
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

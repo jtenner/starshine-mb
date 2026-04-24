@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
+  - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
+  - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dealign.wast
   - ../alignment-lowering/binaryen-strategy.md
@@ -12,60 +13,58 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../alignment-lowering/index.md
+supersedes:
+  - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
 ---
 
 # `dealign`: exact rewrite surface and the split from `alignment-lowering`
 
 ## Why this page exists
 
-The easiest mistake with `dealign` is to assume it is just a smaller or cruder version of `alignment-lowering`.
-That is not true.
+The easiest mistake with `dealign` is to treat it as a smaller or cruder `alignment-lowering`.
+It is not.
 
-This page exists to keep the sibling split explicit.
+This page keeps the sibling split explicit and corrects the older over-broad visitor story.
 
 ## The exact rewrite surface
 
-In reviewed Binaryen `version_129`, `dealign` directly rewrites only these node families:
+In reviewed Binaryen `version_129`, `dealign` directly rewrites these node families:
 
 - `Load`
 - `Store`
 - `SIMDLoad`
-- `SIMDStore`
 
-For each visited node, the rewrite rule is:
+For each visited node, the source-level rewrite is direct assignment:
 
-- if `align > 1`, rewrite it to `1`
-- else leave it alone
+- set the alignment immediate to `1`
 
-That means the pass changes exactly one field:
-
-- the alignment immediate
+That is the only field the pass intends to change.
 
 ## What it preserves
 
-`dealign` preserves all of these things:
+`dealign` preserves:
 
 - access width
-- scalar-vs-SIMD opcode family
+- scalar-vs-SIMD load opcode family
 - signedness on scalar loads
 - offset
 - pointer child
-- stored value child
+- stored value child for stores
 - result type
 - surrounding control flow
 
-So if a future port changes anything else, it is already doing more than the reviewed Binaryen pass.
+If a future port changes any of those, it is already doing more than reviewed Binaryen `dealign`.
 
-## Scalar versus SIMD scope
-
-One subtle but important fact is that `dealign` includes explicit SIMD visitors.
-That matters because the neighboring `alignment-lowering` dossier is intentionally narrower.
+## Corrected scalar versus SIMD scope
 
 ### `dealign`
 
-- scalar load/store alignment metadata rewrite
-- SIMD load/store alignment metadata rewrite
+- scalar `Load` alignment metadata rewrite
+- scalar `Store` alignment metadata rewrite
+- `SIMDLoad` alignment metadata rewrite
+- no reviewed `SIMDStore` visitor
 
 ### `alignment-lowering`
 
@@ -73,8 +72,7 @@ That matters because the neighboring `alignment-lowering` dossier is intentional
 - no SIMD lowering surface in the reviewed `version_129` file
 - extra locals, shifts, ors, reinterprets, and split accesses
 
-So the sibling distinction is not just opposite direction.
-It is also different scope.
+So the sibling distinction is not just opposite direction. The exact node scopes are also different.
 
 ## The real split from `alignment-lowering`
 
@@ -94,20 +92,21 @@ It is also different scope.
 - changes the number of memory accesses
 - rebuilds or splits bits explicitly
 
-That is why it is wrong to teach `dealign` as “the front half of alignment-lowering” or to teach `alignment-lowering` as “just fixing what `dealign` breaks.”
-They are neighboring but distinct passes.
+That is why it is wrong to teach `dealign` as “the front half of `alignment-lowering`” or to teach `alignment-lowering` as “fixing what `dealign` breaks.”
 
 ## Lit-backed proof versus source-confirmed proof
 
-The dedicated `dealign.wast` file directly proves the scalar alignment-immediate rewrite surface.
-The implementation file directly proves that the same rule also applies to `SIMDLoad` and `SIMDStore`.
+The dedicated `dealign.wast` file directly proves a small scalar `i32.load` / `i32.store` surface.
+The implementation file proves that the same direct alignment assignment applies to the generic `Load` and `Store` AST node families and to `SIMDLoad`.
 
-So the honest source-strength summary is:
+The honest source-strength summary is:
 
-- scalar surface: directly lit-backed
-- SIMD surface: source-confirmed from the implementation, but not isolated by a visibly dedicated lit family in the reviewed test file
+- scalar `i32` load/store examples: directly lit-backed
+- broader scalar load/store family: source-confirmed through generic `Load` / `Store` visitors
+- `SIMDLoad`: source-confirmed from the implementation
+- `SIMDStore`: not part of reviewed `version_129` source
 
-That is a good example of the wiki rule to record uncertainty instead of smoothing it away.
+That is a useful example of the wiki rule to record proof strength instead of smoothing it away.
 
 ## What this pass is not
 
@@ -119,19 +118,19 @@ That is a good example of the wiki rule to record uncertainty instead of smoothi
 - an address simplifier
 - a bulk-memory pass
 - an atomic pass
+- a SIMD-store pass in reviewed `version_129`
 
-Its real contract is far smaller than all of those.
+Its contract is far smaller than all of those.
 
 ## Shortest correct comparison
 
-If someone needs the one-line split:
-
-- `dealign` says “pretend the access is only byte-aligned”
-- `alignment-lowering` says “implement a weakly aligned scalar access using smaller aligned accesses”
+- `dealign` says: “mark these covered accesses as byte-aligned.”
+- `alignment-lowering` says: “implement a weakly aligned scalar access using smaller aligned accesses.”
 
 ## Sources
 
-- [`../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md`](../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md)
+- [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md)
+- [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dealign.wast>
 - [`../alignment-lowering/binaryen-strategy.md`](../alignment-lowering/binaryen-strategy.md)

@@ -1,5 +1,7 @@
 # Binaryen `dealign` research
 
+> Supersession note (2026-04-24): this note is historical and is superseded for mechanics by [`0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md) plus [`../binaryen/2026-04-24-dealign-primary-sources.md`](../binaryen/2026-04-24-dealign-primary-sources.md). The later source review corrected this note's overread of an early no-memory bailout, a `SIMDStore` visitor, a helper `align > 1` branch, and broad lit-backed scalar type coverage. Keep this file as the original 2026-04-21 investigation, not the current contract.
+
 - Date: 2026-04-21
 - Researcher: OpenAI Codex
 - Scope: justify and document Binaryen's public `dealign` pass as a new upstream-only living dossier after the tracker ran out of obvious `none` targets.

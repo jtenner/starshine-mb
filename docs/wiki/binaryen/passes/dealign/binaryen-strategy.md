@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
-  - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
+  - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
+  - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dealign.wast
@@ -12,33 +13,29 @@ related:
   - ./implementation-structure-and-tests.md
   - ./align-one-rewrite-surface-and-alignment-lowering-split.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../alignment-lowering/index.md
+supersedes:
+  - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
 ---
 
 # Binaryen `dealign` strategy
 
+Use this page with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md).
+
 ## What the pass really is
 
-Binaryen `dealign` is a **tiny module pass that weakens selected memory-access alignment metadata to `1`**.
+Binaryen `dealign` is a tiny function-walking pass that sets selected memory-access alignment fields to `1`.
 
-That sounds trivial, and it is.
-But the exact smallness matters.
-The reviewed `version_129` pass does **not**:
+It does **not**:
 
 - split loads or stores into smaller accesses
 - rewrite address arithmetic
-- legalize misaligned accesses through extra locals and shifts
-- touch every memory instruction family
-- chase profitability or runtime speed
+- legalize weak alignment with helper locals
+- optimize for throughput
+- rewrite every memory instruction family
 
-Instead, it does one small thing:
-
-- if a visited memory access currently has `align > 1`, set its alignment immediate to `1`
-
-So the right mental model is:
-
-- **alignment-metadata pessimization / normalization**
-- not a general memory optimization pass
+The right mental model is: **alignment-metadata pessimization / normalization**.
 
 ## Public surface
 
@@ -46,177 +43,144 @@ So the right mental model is:
 
 - `dealign`
 
-with the short description:
+with a short description saying it forces loads and stores to `align=1`.
+That description is directionally right, but the exact implementation surface must be read from `DeAlign.cpp`.
 
-- `force all loads and stores to have align=1`
+## Correct implementation shape
 
-That public summary is close, but the implementation is a little more exact than the wording suggests.
-The real visitor surface includes:
+The reviewed `version_129` implementation is:
 
-- `Load`
-- `Store`
-- `SIMDLoad`
-- `SIMDStore`
+- `struct DeAlign : public WalkerPass<PostWalker<DeAlign>>`
+- `isFunctionParallel()` returns `true`
+- there is no custom module iteration loop in the source file
+- there is no explicit `module->memory.exists()` bailout in the source file
 
-and does not directly include other memory-oriented instruction families.
+This corrects the older 2026-04-21 local dossier text, which described a manual module pass wrapper and no-memory bailout that are not present in reviewed `DeAlign.cpp`.
 
-## Module-pass shape
+## Exact visitor surface
 
-The implementation is not a function pass class registered directly against the pass runner.
-Instead it is a tiny module pass wrapper around a per-function postwalk.
+Reviewed `DeAlign.cpp` defines three visitor methods:
 
-Important consequences:
+- `visitLoad(Load* curr)`
+- `visitStore(Store* curr)`
+- `visitSIMDLoad(SIMDLoad* curr)`
 
-- the pass first checks whether the module even has a memory
-- if there is no memory, it exits immediately
-- otherwise it iterates defined functions and runs the small walker on each one
+Each one assigns the node alignment field to `1`.
 
-This is a useful teaching detail because it shows how narrow the real surface is: `dealign` is about function-body memory accesses, not global initializers, data segments, or module-level memory metadata.
+Important correction: the reviewed file does **not** define `visitSIMDStore`.
+If future Binaryen versions add one, update this page and cite the changed source explicitly.
 
 ## Exact rewrite rule
 
-The helper logic is tiny:
+The implementation rule is direct assignment:
 
-- take a mutable `Address align`
-- if `align > 1`, assign `align = 1`
-- otherwise do nothing
+```text
+curr->align = 1
+```
 
-That yields several durable consequences.
+That means the previous local shorthand “if `align > 1`, set it to `1`” is only a semantic description, not the source shape.
+Already-`align=1` nodes remain unchanged in output because assignment to the same value is idempotent.
 
-### What changes
+## What changes
 
-- only the alignment immediate
+Only the alignment immediate changes.
 
-### What does not change
+## What does not change
+
+The pass preserves:
 
 - opcode kind
 - width
-- signedness
+- scalar load signedness
 - offset
-- pointer expression
-- value expression
+- pointer child
+- stored value child
 - result type
 - control flow
-- explicit trap structure
+- the memory access's ordinary trap behavior
 
-That is why this pass is best taught as a metadata rewrite.
+There are no helper locals, no address recomputation, and no multi-access expansion.
 
 ## Positive rewrite surface
 
-In reviewed `version_129`, `dealign` directly rewrites only these AST node families:
+Source-backed positive families are:
 
 - scalar loads
 - scalar stores
 - SIMD loads
-- SIMD stores
 
-If a node in those families already has `align=1`, it stays unchanged.
-If it has any stronger alignment, the pass rewrites that alignment to `1`.
+The dedicated lit file directly proves scalar `i32.load` and `i32.store` cases. The `SIMDLoad` family is source-confirmed from `DeAlign.cpp`, but not visibly isolated by the reviewed `dealign.wast` file.
 
 ## Negative surface
 
-The pass does **not** directly visit or rewrite:
+The reviewed pass does not directly visit:
 
+- `SIMDStore`
 - atomics
-- bulk-memory instructions
-- `memory.copy`, `memory.fill`, `memory.init`, `data.drop`
+- bulk-memory operations
+- `memory.copy`, `memory.fill`, `memory.init`, or `data.drop`
 - tables
 - GC instructions
 - control nodes
-- address computations outside the current access node
+- address expressions outside the access node
 
-That negative surface matters because the public pass name is broad enough that readers may otherwise assume “all memory ops” are in scope.
+That negative list matters because the public name is broad enough to invite over-teaching.
 
-## Why the pass exists conceptually
+## Relation to `alignment-lowering`
 
-The best way to understand `dealign` is by contrast with `alignment-lowering`.
-
-### `alignment-lowering`
-
-- starts from already-weak alignment
-- preserves semantics by splitting ordinary scalar loads/stores into smaller aligned accesses
-- uses fresh locals, bit assembly, and special unreachable handling
+`dealign` and `alignment-lowering` are conceptual siblings, not two halves of one transform.
 
 ### `dealign`
 
-- starts from ordinary accesses that may claim stronger alignment
-- weakens the alignment promise to `1`
-- preserves everything else unchanged
+- weakens alignment metadata to `1`
+- keeps one access as one access
+- never adds locals or bit assembly
+- covers scalar `Load` / `Store` plus `SIMDLoad` in reviewed source
 
-So although the two passes sit near the same conceptual area, they do very different work.
+### `alignment-lowering`
 
-A useful beginner summary is:
+- starts from weakly aligned scalar accesses
+- emits smaller aligned scalar accesses to preserve semantics
+- may add locals, shifts, ors, reinterprets, and explicit unreachable repairs
+- does not share `dealign`'s simple metadata-only implementation shape
 
-- `dealign` changes what the IR *claims* about alignment
-- `alignment-lowering` changes how the IR *implements* weak alignment
-
-## SIMD versus scalar scope
-
-One subtle but important difference from `alignment-lowering` is that reviewed `dealign` includes explicit `SIMDLoad` and `SIMDStore` visitors.
-
-That means the sibling split is not just “same scope, opposite direction.”
-It is also:
-
-- `dealign`: scalar + SIMD alignment metadata rewrite
-- `alignment-lowering`: ordinary scalar `Load` / `Store` legalization only
-
-The dedicated lit file visibly proves the scalar surface.
-SIMD coverage is source-confirmed from `DeAlign.cpp`; it is not the strongest separately isolated lit-backed family in the reviewed file.
-That uncertainty should stay explicit in the docs.
+A future Starshine port should keep those jobs separate.
 
 ## Test-backed visible behavior
 
-The dedicated `dealign.wast` file proves several core facts.
+The dedicated `dealign.wast` file is intentionally small. It proves:
 
-### Scalar loads and stores become `align=1`
+- default `i32.load` / `i32.store` accesses print with `align=1` after the pass
+- explicit `align=2` `i32.load` / `i32.store` accesses become `align=1`
+- explicit `align=1` accesses remain `align=1`
+- offsets and children are not rewritten by the pass
 
-The file includes ordinary scalar load/store examples for:
+It does not visibly prove broad scalar type coverage or SIMD coverage. Those broader statements should stay source-confirmed, not lit-overstated.
 
-- `i32`
-- `i64`
-- `f32`
-- `f64`
+## Freshness note
 
-with larger alignments that become `align=1` in the golden output.
-
-### Already-`align=1` accesses stay unchanged
-
-The same test also includes accesses already at `align=1`.
-Those remain unchanged, confirming the pass is not rebuilding nodes pointlessly.
-
-### Offsets stay intact
-
-The printed output changes the alignment immediate, not the offset or address child.
-So the pass is not performing address canonicalization.
+A narrow 2026-04-24 current-`main` spot check on `DeAlign.cpp` and `dealign.wast` did not surface teaching-relevant drift from the tagged `version_129` behavior summarized here.
 
 ## What a faithful port must preserve
 
-A future Starshine port should preserve all of these source-backed properties:
+A future Starshine port should preserve:
 
-- explicit public pass identity: `dealign`
-- early no-memory bailout
-- per-defined-function walk rather than a broad module rewrite
-- narrow visitor surface: `Load`, `Store`, `SIMDLoad`, `SIMDStore`
-- exact rule: only mutate when `align > 1`
-- preserve offsets, types, widths, and child expressions unchanged
-- keep the conceptual split from `alignment-lowering` explicit
-
-## What this pass does not promise
-
-`dealign` does not promise better performance, better compression, or legality repair by itself.
-If anything, the pass is easier to think of as making alignment information less informative.
-
-That is part of why the neighboring `alignment-lowering` docs needed this dossier: the sibling passes solve different problems, and confusing them leads to the wrong implementation plan.
+- public pass identity if the local registry decides to track it: `dealign`
+- exact visited surface unless intentionally widened: `Load`, `Store`, `SIMDLoad`
+- direct alignment-field rewrite to `1`
+- preserved offsets, widths, signedness, child expressions, and control flow
+- no chunk-splitting or helper locals
+- explicit distinction from `alignment-lowering`
+- tests that do not overstate the upstream lit proof surface
 
 ## Shortest correct summary
 
-If someone remembers only one sentence, it should be this:
-
-> Binaryen `dealign` is a tiny module pass that walks defined functions and rewrites visited scalar/SIMD load/store alignment immediates down to `1`, without changing any other part of the memory access.
+Binaryen `dealign` is a public function-parallel walker that sets `Load`, `Store`, and `SIMDLoad` alignment fields to `1`; it does not split memory accesses or otherwise rewrite their semantics.
 
 ## Sources
 
-- [`../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md`](../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md)
+- [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md)
+- [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dealign.wast>
