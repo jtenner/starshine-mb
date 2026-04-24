@@ -1,20 +1,24 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
+  - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LoopInvariantCodeMotion.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/find_all.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/parents.h
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h
+  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/licm.wast
   - https://github.com/WebAssembly/binaryen/blob/main/src/passes/LoopInvariantCodeMotion.cpp
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./effects-loops-and-hoisting-rules.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Binaryen strategy for `loop-invariant-code-motion`
@@ -24,270 +28,261 @@ related:
 Upstream Binaryen publishes this pass as `licm`.
 The local Starshine registry still tracks it under the descriptive name `loop-invariant-code-motion`.
 
-The reviewed implementation is a **whole-function fixed-point loop optimizer** whose real job is:
+The reviewed `version_129` implementation is a **conservative loop-preheader statement mover**.
+Its real job is:
 
-- collect loops,
-- summarize what happens inside each loop,
-- prove that some value-producing expressions are invariant and safe to evaluate before the loop,
-- hoist those expressions into temp locals,
-- and iterate until no new hoists appear.
+- find loops in each function,
+- compute conservative loop-body effect and local-write summaries,
+- scan the loop body's unconditional entry statements,
+- move eligible none-typed statements before the loop,
+- leave `nop`s in the old loop-body slots,
+- and rebuild the local tree as a block of moved statements followed by the loop.
 
 That means the best mental model is:
 
-- **conservative loop-header hoisting with helper locals**
-- not generic code motion
-- not constant folding
-- not local CSE
-- and not the inverse of `code-pushing` in any simplistic sense
+- **whole-statement motion out of loop entrances**,
+- not arbitrary expression hoisting,
+- not fixed-point temp-local value caching,
+- not local CSE,
+- and not the inverse of `code-pushing`.
+
+## Important 2026-04-24 correction
+
+Earlier living wording described LICM as if it created fresh temp locals for arbitrary invariant value expressions and replaced in-loop uses with `local.get`s.
+That is not what reviewed Binaryen `version_129` does.
+
+The source-backed correction is:
+
+- `interestingToMove(...)` only considers expressions whose type is `none`.
+- The main rewrite pushes the original none-typed expression pointer into a moved list.
+- The old loop-body slot becomes `nop`.
+- At the end, Binaryen builds a new block containing moved statements followed by the original loop.
+- No fresh helper-local cache is synthesized by LICM for a value expression.
+
+This is a major porting constraint: a future Starshine implementation should start from none-result statement motion, not a generic value-preheader cache.
 
 ## Scheduler placement
 
-`src/passes/pass.cpp` registers the upstream public pass name `licm` as a normal public pass.
+`src/passes/pass.cpp` registers the upstream public pass name `licm` as a normal public Binaryen pass.
 
 The local repo makes four scheduler facts explicit:
 
-- it remains removed in `src/passes/optimize.mbt`
-- `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` still lists `loop-invariant-code-motion` as Batch 3 removed-until-hot-implementation work
-- it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
-- it is absent from the saved generated-artifact `-O4z` skipped-slot queue
+- it remains removed in `src/passes/optimize.mbt`,
+- `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` still lists `loop-invariant-code-motion` as Batch 3 removed-until-hot-implementation work,
+- `docs/0065-2026-03-24-ir2-execution-plan.md` also places it in Batch 3 dataflow-sensitive work,
+- it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md` and the saved generated-artifact `-O4z` skipped-slot queue.
 
 So the scheduler truth is:
 
-- real public pass: yes
-- current local active pass: no
-- default no-DWARF `-O` / `-Os` pass: no
-- justified tracker-expansion dossier target: yes
+- real public upstream pass: yes,
+- current local active pass: no,
+- default no-DWARF `-O` / `-Os` pass: no,
+- justified living dossier target: yes, because Starshine still preserves the removed name and the old pass-port maps still mention it.
 
 ## Implementation shape
 
 Nearly everything important lives in `src/passes/LoopInvariantCodeMotion.cpp`.
 
-The pass tracks per-function state for:
+The main state and helpers are:
 
-- discovered loops
-- which expressions live inside which loops
-- a per-loop conservative set of side-effecting expressions
-- memoized hoistability results
-- explicit moved and unmoved sets
+- `LazyLocalGraph`, created per function, for local dependency checks,
+- `FindAll<Loop>` for loop discovery,
+- `EffectAnalyzer` for side-effect and trap-safety reasoning,
+- `FindAll<LocalSet>` for loop-local set counts,
+- `Builder` for the final block/nop construction,
+- `interestingToMove(...)` for candidate filtering,
+- `hasGetDependingOnLoopSet(...)` for local dependency rejection.
 
-Important consequences:
-
-- this is loop-aware rather than just subtree-aware
-- this is effect-aware rather than just purity-aware
-- this is iterative rather than one-shot
-- this is conservative by construction
+This file layout says the pass is loop-aware and effect-aware, but the rewrite target is narrower than a textbook LICM pass: Binaryen moves eligible none-result statements from the loop entrance.
 
 ## Core implementation phases
 
-## Phase 1: discover loops and loop-contained expressions
+## Phase 1: prepare per-function local dependency analysis
 
-The pass begins by finding loops and building parent information.
-For each loop, it scans the loop body and records:
+`doWalkFunction(...)` creates a `LazyLocalGraph` for the function before walking.
+That local graph is used later to ask whether a `local.get` depends on a `local.set` that remains in the loop.
 
-- which expressions are syntactically contained by that loop
-- which of those expressions have effects that matter for motion safety
+This is the first difference from a naive syntactic-invariance pass: a local read is only safe if its reaching local sets do not come from inside the loop being exited.
 
-That is why `FindAll<Loop>` and `Parents` show up in the reviewed source surface.
-Without them, LICM cannot answer “is this node really inside the loop?” or rewrite safely later.
+## Phase 2: discover loops and summarize loop body hazards
 
-## Phase 2: decide whether a node is even worth considering
+For each loop, `visitLoop(...)` obtains all nested loops and expressions in the loop body.
+It summarizes broad hazards, including:
 
-Binaryen does not attempt to hoist every pure subtree.
-The pass first filters to expressions that are interesting enough to move.
+- global-state effects,
+- exception effects,
+- control-flow transfer,
+- local gets and sets,
+- and generic mutable-state effects.
 
-The practical meaning is:
+It also counts local sets in the loop body.
+That count matters because moving one `local.set` out is unsafe if another `local.set` to the same index still remains in the loop.
 
-- some trivial or non-reusable nodes are ignored
-- structural control nodes are not the target
-- clearly effectful nodes are not interesting hoist candidates
-- the pass is aimed at reusable value expressions whose earlier computation could plausibly help
+## Phase 3: scan only unconditional loop-entry statements
 
-This is a major beginner correction:
+Binaryen walks the immediate loop body statements in order.
+It stops when it reaches an expression with control-transfer effects.
 
-- LICM is not “move every invariant thing”
-- it is “consider only a restricted reusable-value subset, then prove safety”
+That gives the real placement rule:
 
-## Phase 3: prove a candidate can move out of one loop
+- the pass does not search every statement anywhere in the loop,
+- it starts from statements that always execute on loop entry,
+- and it avoids moving work across a branch, return, throw, or other control-transfer boundary.
 
-This is the heart of the pass.
+Flattening can help because it can turn nested structure into more explicit statements at this entrance surface, but LICM itself is not a flattening pass.
 
-A candidate expression is only movable out of a specific loop when all of these broad requirements line up:
+## Phase 4: filter candidates with `interestingToMove(...)`
 
-- the expression is actually inside that loop
-- its own effects are compatible with the loop's effects
-- moving it earlier cannot change trap timing in an observable way
-- every needed child value is either already outside the loop or also hoistable
-- the expression is not one of the explicitly disallowed structural forms
+A candidate must first be none-typed.
+Then Binaryen rejects several shapes, including:
 
-That means the real legality test is:
+- `nop`,
+- `unreachable`,
+- control-flow and scope-shaping expressions,
+- `local.get` / `global.get`,
+- calls,
+- stores,
+- and other forms that are trivial, structural, or not intended as movement targets.
 
-- **loop-invariant + effect-safe + child-hoistable**
+The practical beginner rule is:
 
-not merely:
+- LICM moves useful **statements**,
+- not arbitrary value subtrees.
 
-- “the node looks pure”
+## Phase 5: prove motion safety
 
-## Phase 4: materialize the hoist with a helper local
+For a candidate entrance statement, the pass rejects motion when the statement:
 
-When Binaryen decides to hoist, it does not duplicate the computation at each use.
-Instead it:
+- conflicts with loop global-state effects,
+- may throw while the loop has exception effects,
+- has control-flow transfer,
+- reads a local whose dependency comes from a loop-local set,
+- sets a local while another set to that local remains in the loop,
+- may trap while the loop has mutable-state effects,
+- or has mutable-state effects of its own.
 
-1. creates a fresh temp local of the expression type
-2. inserts `local.set temp, expr` before the loop
-3. replaces the original in-loop expression with `local.get temp`
+The exact effect model is conservative.
+If the pass cannot prove that earlier evaluation is behavior-preserving, the statement stays in the loop.
 
-This is the central rewrite contract a future Starshine port must preserve.
-A faithful LICM port is a temp-local hoister, not an expression duplicator.
+## Phase 6: emit moved statements and `nop` placeholders
 
-## Phase 5: rerun to a fixed point
+When a statement moves:
 
-The pass repeats until nothing new moves.
-This matters because hoisting one child can expose a new parent hoist in the next round.
+1. Binaryen remembers the original statement in a moved list.
+2. It replaces the original loop-body statement with `nop`.
+3. After the entrance scan, it builds a block containing all moved statements followed by the original loop.
+4. The new block is set as the replacement for the loop.
 
-A small teaching example:
-
-- round 1 hoists an invariant child like `i32.add(x, 1)`
-- round 2 can now hoist its parent `i32.mul(temp, y)` if `y` is invariant too
-
-So the pass should be taught as a **fixed-point hoister**, not a single sweep.
-
-## Effect and safety model
-
-`EffectAnalyzer` is one of the main things that keeps Binaryen LICM honest.
-The pass reasons about observable behavior, not just algebraic equivalence.
-
-Practical consequences:
-
-- loop-side memory writes can block hoisting loads
-- calls and indirect calls are conservative barriers unless proven otherwise
-- trap-capable nodes cannot move if that would make the trap happen earlier or on different executions
-- allocation-heavy or observably effectful GC expressions are conservative blockers
-- control-dependent structure is not treated as ordinary movable value computation
-
-That is why the pass feels narrower than textbook LICM on paper.
-It is tuned for Binaryen's real IR semantics and effect model.
-
-## Positive rewrite families
-
-## 1. Repeated arithmetic on loop-invariant locals
-
-If a loop repeatedly recomputes an arithmetic value from locals that are defined outside the loop and not modified inside it, LICM can hoist that arithmetic into a temp local before the loop.
-
-## 2. Nested value trees that become movable in stages
-
-A parent may not move during the first round because one of its children still lives inside the loop.
-After that child is hoisted, the parent may become movable in a later round.
-This staged behavior is part of the real algorithm, not an incidental implementation detail.
-
-## 3. Shared expensive invariant subexpressions
-
-A value used multiple times inside the loop body is a natural positive family because the temp local makes the reuse explicit.
-
-## Negative and bailout families
-
-## 1. Loop-carried local traffic
-
-If the candidate depends on a local that the loop writes, the value is not invariant for that loop.
-That is a direct bailout.
-
-## 2. Memory-sensitive loads
-
-Even if a load's pointer expression is invariant, the loaded memory contents may not be.
-Loop-side writes or unknown memory effects therefore block the hoist.
-
-## 3. Trap-timing changes
-
-A node that can trap may not move if evaluating it before the loop would make the trap happen at a different time or on a path that would not otherwise reach it.
-
-## 4. Calls, allocations, and other observable side effects
-
-These are conservative blockers in the general case.
-A future port should assume that Binaryen's implementation is intentionally risk-averse here.
-
-## 5. Structural control nodes
-
-LICM is not a general block/branch/return mover.
-It hoists reusable values, not arbitrary control structure.
-
-## Helper dependencies
-
-## `EffectAnalyzer`
-
-This is the main semantic safety dependency.
-It answers whether evaluating a node earlier could change memory, call, trap, or other observable behavior.
-
-## `FindAll<Loop>`
-
-This is how the pass gets its initial loop roster.
-Without explicit loop discovery, there is no LICM.
-
-## `Parents`
-
-Used to understand structural placement and to repair the tree during rewrites.
-
-## `Builder`
-
-Used to create fresh locals and `local.set` / `local.get` rewrites.
-
-## Current-main drift check
-
-A current-main spot check found the same public registration name (`licm`) and materially the same main helper structure in `LoopInvariantCodeMotion.cpp` as in `version_129`.
-
-That is a narrow but useful claim:
-
-- it does not prove every helper header is identical today
-- it does support keeping `version_129` as the main oracle for this dossier
+This is not a temp-local rewrite.
+It is a tree-restructuring rewrite that makes a pre-loop prelude explicit.
 
 ## Pass interactions
 
-A few nearby-pass contrasts matter a lot for teaching.
+### Versus `flatten`
+
+The source comment says flattening can help by breaking code into separately movable pieces.
+That is a data-shape interaction, not a requirement that LICM itself constructs flat IR.
 
 ### Versus `code-pushing`
 
-- `code-pushing` sinks code deeper into branch structure
-- LICM hoists some loop-invariant values upward before a loop
+- `code-pushing` sinks work deeper into control-flow arms.
+- LICM lifts safe loop-entry statements outward before the loop.
 
-They are both motion passes, but their directions and safety stories are different.
+Both are motion passes, but their direction, placement proof, and rewrite shapes differ.
 
 ### Versus `precompute`
 
-- `precompute` folds compile-time-known expressions
-- LICM moves runtime expressions whose value is stable across loop iterations
+- `precompute` folds values when compile-time semantics are known.
+- LICM does not fold; it changes when a runtime statement executes.
 
-### Versus `local-cse`
+### Versus `local-cse` and `simplify-locals`
 
-- `local-cse` reuses equivalent work in a small local window
-- LICM changes placement across loop boundaries
+- `local-cse` reuses equivalent local work.
+- `simplify-locals` cleans local traffic.
+- LICM's own contract is the loop-safe statement move and `nop` replacement.
 
-### Versus `simplify-locals`
+## Positive rewrite families
 
-- `simplify-locals` may clean up the helper-local traffic afterward
-- but LICM's own contract is the loop-safe hoist, not the later local cleanup
+### 1. Pure dropped computation at loop entry
+
+A `drop` whose child is safe, loop-invariant, and none-result as a full statement can move before the loop.
+The original slot becomes `nop`.
+
+### 2. Invariant `local.set` at loop entry
+
+A `local.set` may move before the loop when its RHS does not depend on loop-local sets and no other set to that local remains in the loop.
+
+### 3. Nested-loop exposure
+
+If a statement first moves out of an inner loop, it may become visible to an outer loop traversal.
+The source notes this nested-loop behavior explicitly; it is not the same as a fixed-point temp-local hoist over arbitrary child expressions.
+
+### 4. Flattening-enabled motion
+
+After a separate flattening-style pass separates statements, LICM may have more eligible none-typed entrance statements to move.
+
+## Negative and bailout families
+
+### 1. Non-entrance statements
+
+If a statement is not on the unconditional loop-entry surface, LICM does not move it.
+
+### 2. Control-transfer boundaries
+
+The entrance scan stops at control transfer.
+Statements after a branch/return/throw-like boundary are not moved by this pass.
+
+### 3. Local dependency hazards
+
+If a candidate reads a local whose reaching set is inside the loop, it stays.
+If a candidate sets a local that still has another in-loop set, it stays.
+
+### 4. Global / exception / mutable-state hazards
+
+Global-state effects, exception effects, mutable-state effects, and trap timing can all block motion.
+
+### 5. Stores, calls, and structural nodes
+
+The interesting-candidate filter excludes these from the normal movement surface.
+
+## Current-main drift check
+
+A narrow 2026-04-24 current-`main` spot check on `LoopInvariantCodeMotion.cpp`, `pass.cpp`, and `licm.wast` did not surface teaching-relevant drift from the refreshed `version_129` contract.
+
+That is a narrow claim:
+
+- it does not prove every helper header is identical,
+- it does support keeping `version_129` as the main oracle for this dossier's behavior claims.
 
 ## What a future Starshine port must preserve
 
 A faithful port should preserve:
 
-- the upstream/local naming split (`licm` vs `loop-invariant-code-motion`)
-- loop-scoped effect summaries
-- child-hoistability as part of parent-hoistability
-- temp-local materialization before the loop
-- in-loop replacement with `local.get`
-- fixed-point reruns
-- conservative bailouts on loop-carried locals, memory-side effects, calls, traps, and structural control hazards
+- the upstream/local naming split (`licm` vs `loop-invariant-code-motion`),
+- loop discovery and loop-body effect summaries,
+- unconditional-entry-only movement,
+- none-typed statement candidate filtering,
+- local dependency checks equivalent to Binaryen's `LazyLocalGraph` use,
+- local-set count checks for moved `local.set`s,
+- conservative rejection of global, exception, control-transfer, trap, and mutable-state hazards,
+- pre-loop statement emission,
+- and `nop` / cleanup-safe handling of the original loop-body slots.
 
 ## Easy-to-miss teaching summary
 
 If someone remembers only one sentence, it should be this:
 
-> Binaryen `licm` is a conservative fixed-point loop-header hoister: it only moves expressions that stay invariant across the loop, remain effect-safe when evaluated earlier, and can be represented as temp-local preheader values.
+> Binaryen `licm` moves eligible none-typed loop-entry statements before the loop; it is not a generic temp-local hoister for arbitrary invariant value expressions.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
+- [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LoopInvariantCodeMotion.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/find_all.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/parents.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/licm.wast>
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/LoopInvariantCodeMotion.cpp>

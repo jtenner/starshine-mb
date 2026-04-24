@@ -1,12 +1,15 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
+  - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../agent-todo.md
+  - ../../../../../src/passes/registry_test.mbt
   - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../../../docs/0065-2026-03-24-ir2-execution-plan.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 related:
@@ -14,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./effects-loops-and-hoisting-rules.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
 ---
 
@@ -23,74 +27,91 @@ related:
 
 - `loop-invariant-code-motion` is a real Binaryen pass, but the upstream public pass name is the shorter alias **`licm`**.
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **removed** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- It is also still listed in the local Batch 3 pass-port map in [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md).
+- It is also still listed beside `local-subtyping` in the local Batch 3 dataflow-sensitive pass-port plans in [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md) and [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 
 ## Why this pass matters
 
-- The original parity queue and the first tracker-expansion wave are already dossier-covered, so this folder is an explicit source-backed expansion for another real local removed-registry entry.
-- `agent-todo.md` currently has **no dedicated `loop-invariant-code-motion` or `licm` slice**.
-- The local full name hides the upstream public alias, which makes the pass harder to find in official Binaryen docs and tests.
-- The pass sits close to already-documented neighbors like `code-pushing`, `precompute`, `local-cse`, and `simplify-locals`, so a future port will benefit from having its movement rules taught separately instead of smearing them across those folders.
+- The folder previously had an important stale overread: it taught LICM as arbitrary value-expression caching through fresh temp locals.
+- The reviewed Binaryen `version_129` source says the narrower contract is **whole none-typed loop-entry statement motion**.
+- That correction matters for a future Starshine port because the implementation should start from loop-entry statement motion and local/effect dependency proofs, not from a generic CSE-like helper-local cache.
+- The local full name still hides the upstream public `licm` alias, so source and test searches should use both spellings.
 
 ## Beginner summary
 
 A good beginner mental model is:
 
-- if a loop keeps recomputing a value
-- and that value depends only on inputs that do not change across iterations
-- and computing it earlier would not change effects or trap timing
-- Binaryen may compute it once before the loop and store it in a temp local
+- if the first statements in a loop always run when the loop is entered,
+- and one of those statements has no result value of its own,
+- and running it just before the loop would not change global state, mutable state, exceptions, traps, or local dependencies,
+- Binaryen may move that whole statement before the loop and leave a `nop` in the original loop slot.
 
 So this pass is best taught as:
 
-- **conservative loop-header hoisting with helper locals**
-- not generic code motion
-- not constant folding
-- and not generic local CSE
+- **conservative loop-preheader statement motion**,
+- not generic code motion,
+- not arbitrary expression hoisting,
+- not local CSE,
+- and not temp-local caching of every invariant subtree.
 
-## Most important durable takeaways
+## Corrected durable takeaways
 
-- The reviewed implementation is a whole-function fixed-point pass centered on loops.
-- The upstream public name is `licm`, while the local registry keeps the full descriptive name `loop-invariant-code-motion`.
-- The real safety contract is **loop invariant + effect-safe + child-hoistable**, not just “pure expression.”
-- Hoisted expressions are materialized with fresh temp locals before the loop.
-- The pass reruns because hoisting one child can make its parent hoistable later.
-- Calls, memory-sensitive loads, trap-timing changes, and control-structure nodes are important bailout families.
-- A current-main spot check found the same public pass registration and materially the same implementation structure as `version_129` on the main pass file.
+- Upstream public name: `licm`; local removed-registry name: `loop-invariant-code-motion`.
+- The main implementation lives in upstream `src/passes/LoopInvariantCodeMotion.cpp`.
+- The core loop visitor walks each loop body's **unconditional entrance** statements and stops when control-transfer effects appear.
+- `interestingToMove(...)` only considers **none-typed** expressions and rejects several structural / store-like cases.
+- Moving a statement is explicit: Binaryen records the statement, replaces its old loop-body slot with `nop`, and later emits a block containing moved statements followed by the loop.
+- It uses effect analysis to reject global-state, exception, control-transfer, trap, and mutable-state hazards.
+- It uses `LazyLocalGraph` plus local-set counting to reject statements that read locals changed by the loop or set locals that still have another in-loop set.
+- Flattening can expose more independent none-typed statements, but LICM itself is not `flatten`.
+- Current Starshine has no active LICM pass, owner file, or dedicated backlog slice.
+
+## Explicit correction to older material
+
+The archived 2026-04-21 research note remains useful history, but its temp-local phrasing is stale.
+Use the 2026-04-24 raw source capture and follow-up as the corrected interpretation:
+
+- [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
+- [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
+
+Do **not** teach Binaryen `version_129` LICM as creating fresh temps for arbitrary value expressions.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Deep dive into the actual Binaryen implementation, algorithmic phases, helper dependencies, and pass interactions.
+  Source-backed Binaryen algorithm: loop discovery, entrance-statement scan, effect/local dependency guards, move emission, and current-main spot check.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   File-by-file and test-by-test map of the upstream sources that define the pass contract.
 - [`./effects-loops-and-hoisting-rules.md`](./effects-loops-and-hoisting-rules.md)
-  Focused guide to the real proof obligation: loop membership, effect safety, trap timing, child hoistability, and helper-local insertion.
+  Focused guide to the real proof obligation: unconditional loop-entry placement, none-typed statement eligibility, effect safety, and local dependency guards.
 - [`./wat-shapes.md`](./wat-shapes.md)
-  Beginner-friendly shape catalog showing the main positive, mixed, and bailout WAT families.
+  Beginner-friendly shape catalog showing positive, mixed, and bailout WAT families with whole-statement moves.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future porting map, with exact local code and planning locations.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `loop-invariant-code-motion` / `licm` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real active pass for it.
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is outside the current no-DWARF default optimize path.
-- Keep the naming fact explicit too: upstream docs and tests say `licm`, while the local registry currently says `loop-invariant-code-motion`.
+- Keep the correction visible: reviewed Binaryen `version_129` LICM moves eligible none-typed entrance statements, not arbitrary value subtrees through newly synthesized temps.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
+- [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+- [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
 - [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
+- [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
-- Binaryen `version_129` and current-main sources:
+- Binaryen primary sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LoopInvariantCodeMotion.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.h>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/find_all.h>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/parents.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/licm.wast>
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/LoopInvariantCodeMotion.cpp>
