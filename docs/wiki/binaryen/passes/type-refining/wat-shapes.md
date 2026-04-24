@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
+  - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./normal-vs-gufa-and-fixups.md
+  - ./starshine-strategy.md
 ---
 
 # `type-refining` WAT shapes
@@ -38,6 +41,7 @@ Real Binaryen output may:
 - refine surrounding control-flow result types after `ReFinalize`
 
 So read the shapes as semantic before/after families, not exact pretty-print templates.
+For current Starshine implementation status and local fixture caveats, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Shape 1: direct subtype write refines a private field
 
@@ -567,7 +571,10 @@ That is the real `type-refining` shape logic.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md)
+- [`../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/struct-utils.h>

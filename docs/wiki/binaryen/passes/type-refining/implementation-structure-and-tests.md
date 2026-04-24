@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
+  - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./normal-vs-gufa-and-fixups.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `type-refining`: implementation structure and tests
@@ -181,7 +184,8 @@ That is a narrow freshness note, not a proof that every neighboring helper file 
 
 ## Porting checklist
 
-A future Starshine port would need to mirror at least these file-level responsibilities:
+A future Starshine port should start from the current local code map in [`./starshine-strategy.md`](./starshine-strategy.md).
+It would need to mirror at least these file-level responsibilities:
 
 - a boundary-only module-pass entry point, not a hot pass
 - closed-world and GC gating
@@ -206,7 +210,10 @@ That is exactly why this pass is easy to underestimate from the name alone.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md)
+- [`../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

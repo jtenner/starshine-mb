@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
+  - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `type-refining`: normal vs GUFA and why fixups are mandatory
@@ -26,7 +29,7 @@ Upstream `pass.cpp` registers both:
 - `type-refining`
 - `type-refining-gufa`
 
-The local Starshine registry only tracks the base name `type-refining` today.
+The local Starshine registry only tracks the base name `type-refining` today; see [`./starshine-strategy.md`](./starshine-strategy.md) for the exact local status and the open naming question.
 But the official Binaryen behavior around this topic is incomplete if you ignore the GUFA companion.
 
 ## The simplest mental model
@@ -285,7 +288,10 @@ The only big difference is how much each variant can see before that shared repa
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md)
+- [`../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/TypeRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/struct-utils.h>

@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
+  - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./normal-vs-gufa-and-fixups.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
   - ../index.md
   - ../global-refining/index.md
@@ -26,6 +29,7 @@ related:
 
 - `type-refining` is an upstream Binaryen **module pass**.
 - It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- The exact local status and future port map now live in [`./starshine-strategy.md`](./starshine-strategy.md): no owner file, no active preset role, no active backlog slice, and no separately registered `type-refining-gufa` sibling today.
 - In Binaryen `version_129`, the public pass summary in `pass.cpp` is:
   - `apply more specific subtypes to type fields where possible`
 
@@ -45,7 +49,7 @@ It is **closed-world private struct-field refinement plus read/write repair**.
 - The main no-DWARF / saved-`-O4z` parity queue is now fully dossier-covered, so this campaign needs another eligible pass from the tracker's upstream-only registry table.
 - `type-refining` is already named in the local boundary-only registry, so this is a real Starshine-facing pass name.
 - The current `global-refining` dossier already records it as the first closed-world GC/type-tightening neighbor before `signature-pruning`, `signature-refining`, and `global-refining`.
-- The pass had no dedicated living folder before this thread.
+- The pass already had a living dossier, but it still lacked a raw primary-source manifest and a Starshine status/port-strategy bridge.
 - The official implementation hides several teaching traps that deserve a stable wiki home:
   - upstream ships both `type-refining` and `type-refining-gufa`
   - the pass body itself requires `--closed-world`
@@ -114,6 +118,8 @@ What it actually is in `version_129`:
   - Focused guide to the most easy-to-misread parts of the pass: normal vs GUFA inference, tee-vs-block fallthrough behavior, exactness and continuation restrictions, and why read/write fixups are mandatory.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT-shape catalog covering direct subtype positives, nullability and copy families, tee-vs-block bailouts, public-type freezes, unreachable replacements, and GUFA-only wins.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and port map: boundary-only registry entry, honest request rejection, no owner file, no active backlog slice, local type/validation/binary surfaces, and the open `type-refining-gufa` naming question.
 
 ## Current maintenance rule
 
@@ -127,7 +133,10 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md)
+- [`../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md`](../../../raw/research/0150-2026-04-21-type-refining-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
