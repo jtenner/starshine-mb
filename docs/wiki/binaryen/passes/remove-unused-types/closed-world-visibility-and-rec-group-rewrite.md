@@ -1,214 +1,209 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
+  - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../global-refining/index.md
   - ../global-struct-inference/index.md
 ---
 
-# `remove-unused-types`: closed-world visibility and rec-group rewrite rules
+# `remove-unused-types`: closed-world visibility and private-group rewrite rules
 
 This page covers the part of `remove-unused-types` that is easiest to misunderstand.
 
 The pass is not mainly asking:
 
-- is this heap type referenced anywhere locally?
+- did one old rec-group member survive, so should the whole old rec group stay?
 
-It is asking two stricter questions:
+The corrected source-backed question is:
 
-1. is this heap type **public** and therefore part of the external boundary?
-2. if a private type stays, what **whole rec group** and rewritten group structure must stay with it?
-
-Those two questions explain both the closed-world gate and the `GlobalTypeRewriter` helper.
+1. which type groups are **public** and must anchor the boundary?
+2. which private heap types are still **used by the IR**?
+3. how should Binaryen rebuild the surviving private types around public anchors and private dependency edges?
 
 ## The biggest beginner misunderstanding
 
-The easy wrong model is:
+The old easy model was:
 
-- find unreferenced types and delete them one by one
+- find used private types and keep their whole old rec groups.
 
-The real model is:
+The corrected model is:
 
-- keep public types first,
-- find used private heap types,
-- keep whole rec groups for those private types,
-- then rebuild the module's type graph without needlessly perturbing public groups.
+- keep public groups as anchors,
+- drop unused private heap types,
+- rebuild surviving private heap types in dependency order,
+- and remap the module to the new graph.
 
-## Part 1: public types are not the same thing as locally used types
+That correction matters because old private rec-group boundaries are not automatically preservation boundaries.
 
-`remove-unused-types` starts by collecting `publicTypes` with `ModuleUtils::getPublicHeapTypes(*module)`.
+## Part 1: closed world is a hard proof boundary
 
-That means a type can survive for reasons other than local use.
+`RemoveUnusedTypes.cpp` treats open-world execution as unsupported.
+The reason is not just profitability.
 
-### Positive public-type family
+In open world, public type identity and public subtype/group shape can be observed outside the module.
+A private type-section rewrite that is safe in a closed-world module may be invalid or at least unproven when outside code can depend on the old graph.
+
+A future Starshine port should keep that rule explicit:
+
+- no GC: unchanged,
+- open world: rejected or not scheduled,
+- closed-world GC: eligible.
+
+## Part 2: public groups are anchors
+
+`GlobalTypeRewriter` identifies public type groups and preserves them as anchoring structure.
+
+A public type can survive for reasons other than local profitability.
+Conceptually:
+
+```wat
+(module
+  (type $pub (sub (struct)))
+  (export "T" (type $pub))
+  (func (result i32)
+    (i32.const 0)))
+```
+
+The internal code may not need `$pub`, but the type is externally visible.
+That external visibility is enough to keep the public group anchored.
+
+## Part 3: used private types are the cleanup candidates that survive
+
+Private types do not survive merely because they used to sit near a public group or inside a larger private group.
+They survive when they are still used by the module's IR-facing type graph.
+
+That includes more than obvious function-body operands:
+
+- function signatures,
+- locals,
+- globals,
+- tables and element segments,
+- tags,
+- heap-type fields,
+- expression result types.
+
+## Part 4: old private rec groups are not automatically retained whole
+
+This is the main corrected rule.
+
+If a private old rec group contains two members and only one remains relevant, Binaryen's corrected `GlobalTypeRewriter` story is not “keep the whole old group because one member is live.”
+It can rebuild only the surviving private type(s), subject to real dependency edges.
+
+Conceptual old input:
+
+```wat
+(rec
+  (type $live (struct))
+  (type $dead (struct)))
+(func (result (ref null $live))
+  (ref.null $live))
+```
+
+Correct mental output:
+
+```wat
+;; $live survives under a rewritten private type identity.
+;; $dead can disappear if no surviving type or declaration references it.
+```
+
+The old rec-group boundary is not the keep unit.
+The used private heap-type set and dependency graph are.
+
+## Part 5: private dependency edges still matter
+
+Binaryen cannot reorder surviving private types arbitrarily.
+The helper derives predecessor constraints from private dependencies such as:
+
+- private supertypes,
+- described-type relationships.
+
+If a surviving private type refers to another surviving private type as a supertype or descriptor-related dependency, the rebuilt order must respect that relationship.
+
+Beginner translation:
+
+- Binaryen deletes unused private types,
+- but it still keeps enough ordering structure for the remaining private type definitions to be valid.
+
+## Part 6: public supertypes do not keep the whole private subtype forest alive
+
+A public type being live does not mean every private subtype group under it must survive.
 
 Conceptually:
 
 ```wat
-(type $pub (sub (struct)))
-(export "T" (type $pub))
+(module
+  (type $pub (sub (struct)))
+  (export "T" (type $pub))
+  (type $private-sub (sub $pub (struct)))
+  (func (result i32)
+    (i32.const 0)))
 ```
 
-Even if the remaining internal code never mentions `$pub` again, the type still stays because it is public.
+The public supertype stays.
+The private subtype can disappear if it is not used.
 
-### Why this matters
+That is why the pass is different from a public-root reachability closure over every private subtype.
 
-If Binaryen deleted that type just because it was not used inside function bodies, it would break the external closed-world boundary the pass is still trying to preserve.
+## Part 7: used private subtypes of public types can survive without moving the public group
 
-So the pass treats:
+If a private subtype of a public type is still used, the private type can be rebuilt as part of the new private group while still referring to the public supertype.
 
-- **public**
-- **used private**
+The public group remains the anchor.
+The private survivor is rebuilt around it.
 
-as two different reasons to keep a type.
+That is the key shape behind “public boundary stable, private graph smaller.”
 
-## Part 2: only private used types enter the rebuild set
+## Part 8: descriptor / described links are not ordinary dead text
 
-After collecting `usedTypes`, Binaryen erases all public types from that set.
+The helper gives descriptor/described relationships ordering significance.
+That means future Starshine work must be careful with pages that discuss custom descriptors, exact refs, `ref.get_desc`, or `struct.new_desc`.
 
-That leaves:
+A private described type or descriptor type may impose a predecessor edge even when the visible WAT looks like a simple type deletion.
 
-- private types that are actually still used
+## Part 9: this is why the pass is not just a smaller RUME
 
-This is a deliberate split.
-Public types stay because of visibility.
-Private types stay only if the module still needs them internally.
+[`../remove-unused-module-elements/index.md`](../remove-unused-module-elements/index.md) decides which module elements survive.
 
-A good short rule is:
+`remove-unused-types` runs in a different space:
 
-- public types are preserved
-- private types must still earn their place by use
+- after declarations and code have been cleaned up,
+- which heap types are still needed,
+- and how should the module's type graph be rebuilt?
 
-## Part 3: rec groups are the real retention unit
-
-This is the most important structural rule in the pass.
-
-When a private used type survives, Binaryen copies that type's **whole old rec group** into the new private builder.
-
-That means a shape like this is misleading if read one type at a time:
-
-```wat
-(rec
-  (type $A (struct (field (ref null $B))))
-  (type $B (struct (field i32))))
-```
-
-If `$A` is still used privately, Binaryen does not try to keep only `$A` and throw away `$B` casually.
-It keeps the whole recursive group.
-
-### Positive family
-
-- one used private member in a private rec group
-- result: the whole private group stays
-
-### Negative family
-
-- no member of a private rec group is used privately
-- result: the whole private group can disappear
-
-This is why the pass is rec-group-aware type GC, not isolated node deletion.
-
-## Part 4: public groups must not be perturbed unnecessarily
-
-`GlobalTypeRewriter` has the subtle job of threading rewritten private groups around public groups.
-
-The important source-backed rule is:
-
-- if the current old group is public, keep that public group structure as the anchor
-- only add rewritten private pieces into that public group when the rewritten type relationship actually requires it
-- do not drag unrelated private groups into a live public group for no reason
-
-The dedicated lit file explicitly checks this family.
-
-### Conceptual family
-
-Before:
-
-```wat
-(rec
-  (type $Pub ...))
-(rec
-  (type $PrivateUnused ...)
-  (type $PrivateUsed ...))
-```
-
-If only `$PrivateUsed` matters, Binaryen does **not** treat the public group as a free dumping ground for every later private type that happened to exist nearby in the old numbering.
-
-That is a major correctness and readability rule.
-
-## Part 5: closed world is required because public type identity is not trivial
-
-The helper comments in `type-updating.h` make the closed-world dependency explicit.
-
-In beginner terms:
-
-- once public type identity and subtype relations can escape the module,
-- Binaryen cannot freely decide that a rewritten internal subtype arrangement is still externally safe.
-
-That is why `remove-unused-types` exits immediately when `!module->closedWorld`.
-
-The correct lesson is:
-
-- closed world is part of the proof, not just a heuristic
-
-## Part 6: public supertypes do not automatically keep every private subtype group alive
-
-This is another easy trap.
-
-A public type being live does **not** mean every private subtype group somewhere below it must also stay.
-
-What matters is whether those private types are actually used.
-
-So the mental model is not:
-
-- public root implies keep whole private subtype forest
-
-The mental model is:
-
-- keep public boundary structure stable,
-- then keep only the private subgraph that is still used
-
-That distinction is one reason the dedicated test file is worth reading together with `GlobalTypeRewriter`.
-
-## Part 7: this is why the pass is not just a smaller RUME
-
-`remove-unused-module-elements` works at the declaration graph level.
-It decides whether functions, globals, tags, tables, memories, elem segments, and data segments survive.
-
-`remove-unused-types` runs after that kind of cleanup and asks a different question:
-
-- now that the surviving declaration and code graph is smaller, which private heap types are still needed and how do we rewrite the type section safely?
-
-So the two passes are adjacent, but they are not duplicates.
+The two passes are adjacent, but not duplicates.
 
 ## Future Starshine port rules
 
 A future port must preserve at least these rules:
 
-- public heap types are a separate keep-set from used private types
-- rec groups are the retention unit for private survivors
-- open-world modules must not silently enter this pass's rewrite logic
-- public groups should not absorb unrelated private groups unnecessarily
-- the final output must be a fully rewritten module heap-type graph, not just a filtered type list
+- closed-world and GC gates are required,
+- public groups are a separate boundary from private survivor selection,
+- old private rec groups are not automatically preserved whole,
+- private supertype and descriptor/described dependencies must constrain the rebuild order,
+- public supertypes do not keep all private subtype groups alive,
+- the final output must be a valid rewritten module heap-type graph.
 
 ## Bottom line
 
-The best one-sentence explanation of `remove-unused-types` is:
+The best one-sentence explanation of the corrected `remove-unused-types` contract is:
 
-- **keep the public boundary stable, keep the live private rec groups, then rewrite the module around that split**
-
-That is the real contract hidden behind the tiny pass file.
+- **preserve public group anchors, rebuild only the used private heap-type graph, then rewrite the module around that new graph**.
 
 ## Sources
 
-- [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
+- [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)
+- [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
+- Historical, superseded for the whole-old-rec-group model: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/RemoveUnusedTypes.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/type-updating.h>

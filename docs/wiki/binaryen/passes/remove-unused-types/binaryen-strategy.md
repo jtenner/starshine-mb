@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
+  - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./closed-world-visibility-and-rec-group-rewrite.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../global-refining/index.md
   - ../global-struct-inference/index.md
 ---
@@ -17,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass.
+Use Binaryen `version_129` as the current source oracle for this pass, anchored by [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md).
 
 Primary files:
 
@@ -27,253 +30,203 @@ Primary files:
 - `src/ir/module-utils.h`
 - `test/lit/passes/remove-unused-types.wast`
 
-I also did a narrow current-`main` check on the same surfaces.
-Durable result:
+A narrow current-`main` spot check on the same owner / registration / helper / test surfaces did not surface teaching-relevant drift from the corrected `version_129` story.
+That is not a whole-repo equivalence proof.
 
-- the checked `main` pass file still matches the reviewed `version_129` logic on the important gates and rewrite structure
-- the checked dedicated lit file still matches on the reviewed surfaces
+## Correction from the older dossier
 
-So this dossier treats `version_129` as the normative algorithm oracle.
+The older 0149 research note said the pass file performed a pass-local optimization-level gate, collected public and used types itself, copied whole live private rec groups into a local builder, and handed that builder to `GlobalTypeRewriter`.
+That is now superseded.
+
+The actual `version_129` pass body is much smaller:
+
+1. return immediately if the module has no GC features
+2. fatally reject open-world execution
+3. call `GlobalTypeRewriter(*module).update()`
+
+Most of the algorithm lives in `type-updating.h`.
 
 ## High-level intent
 
-Binaryen uses `remove-unused-types` to shrink the heap-type graph of a **closed-world GC module** after earlier module cleanup and refinement passes have made some private types unnecessary.
+Binaryen uses `remove-unused-types` to shrink and rebuild the heap-type graph of a **closed-world GC module** after earlier cleanup/refinement has made private heap types unnecessary.
 
-That is more precise than either of these summaries:
+A precise summary is:
 
-- remove dead types
-- type-section DCE
-
-The real pass is closer to:
-
-- **keep public heap types stable, keep used private rec groups, then rewrite the whole module to the new type graph**
+- preserve public type groups as external-boundary anchors,
+- collect heap types that are still used in IR,
+- remove private heap types that are not used,
+- rebuild surviving private types in dependency order,
+- then update all module type uses through the new mapping.
 
 ## The pass in one table
 
 | Phase | What Binaryen does | Why it exists |
 | --- | --- | --- |
-| Gate on mode/features | Require `optimizeLevel >= 2`, `closedWorld`, and GC | Open-world ABI visibility and non-GC modules are outside the pass contract |
-| Seed public types | `ModuleUtils::getPublicHeapTypes(*module)` | Externally visible heap types must not disappear or be silently tightened away |
-| Scan uses | `ModuleUtils::iterModuleCode(*module, scanner)` | Find heap types still referenced by declarations, initializers, and code |
-| Separate public from private | `usedTypes.erase(publicTypes...)` | Only private used types need to be copied into the new private builder |
-| Build live private groups | Copy each used private type's whole old rec group once | Rec groups are the real retention unit, not isolated heap types |
-| Rewrite module | `GlobalTypeRewriter(...).update()` | Rebuild the type section and rewrite every remaining heap-type use consistently |
+| Pass-file gate | `RemoveUnusedTypes.cpp` returns on no-GC modules and fatally rejects `!closedWorld` | The transform is only meaningful for GC type graphs and is only correct under closed-world assumptions |
+| Scheduler placement | `pass.cpp` adds the pass in the closed-world GC/type optimization neighborhood under the broader optimization-level checks | The standalone pass file does not own the optimization-level policy; the default pass runner does |
+| Collect type metadata | `GlobalTypeRewriter` gathers used IR heap types and public/private visibility data | Establish which old types can disappear and which groups are externally anchored |
+| Public group anchoring | Public groups are remembered separately | Public type identity / grouping must not be casually reshaped away |
+| Private predecessor graph | Private supertypes and described-type dependencies become ordering edges | Rebuilt private types must still reference already-available private dependencies |
+| Sort private survivors | Private used types are topologically sorted with original index tie-breaking | Keeps the rebuild deterministic and dependency-safe |
+| Rebuild private types | Surviving private heap types are copied through a mapper into a fresh private group | Drops unused private types and rewires private references to new heap types |
+| Rewrite module | Functions, locals, globals, tables, elems, tags, and instruction types are remapped | The output must be a valid whole-module type graph, not just a pruned type list |
 
-## Phase 0: strict gatekeeping is part of the meaning
+## Phase 0: GC and closed-world are part of correctness
 
-`RemoveUnusedTypes::run(Module* module)` returns immediately when any of these are true:
+`RemoveUnusedTypes::run(Module* module)` first checks GC features.
+No-GC modules have no relevant GC heap-type graph to shrink, so the pass returns.
 
-- `optimizeLevel < 2`
-- `!module->closedWorld`
-- `!module->features.hasGC()`
+The same pass body then treats open-world execution as an error, not a quiet no-op.
+That matters for teaching:
 
-Those early exits are not incidental.
-They tell us the intended scope:
+- default Binaryen scheduling should only reach the pass in closed-world mode,
+- explicit user invocation in open world is rejected,
+- a Starshine port should not silently run this rewrite in an open-world module.
 
-- this is an optimization pass, not always-on canonical cleanup
-- it is fundamentally a **closed-world** pass
-- it only matters for modules with GC heap types
+## Phase 1: default scheduling still supplies optimization context
 
-That is why the repo's main open-world no-DWARF page does not include it.
+The corrected pass body does not have a direct `optimizeLevel >= 2` check.
+The optimization-level story comes from `pass.cpp`, where Binaryen schedules `remove-unused-types` in the closed-world GC/type optimization cluster.
 
-## Phase 1: Binaryen protects public heap types first
+So the accurate split is:
 
-The first substantive line is:
+- **pass file**: GC + closed-world correctness gate and transform dispatch
+- **pass runner / scheduler**: when optimization presets choose to run it
 
-- `auto publicTypes = ModuleUtils::getPublicHeapTypes(*module);`
+## Phase 2: `GlobalTypeRewriter` collects the real keep/drop facts
 
-`module-utils.h` shows that `getPublicHeapTypes` is built on `collectHeapTypeInfo(...)` and returns the heap types whose visibility is `public_`.
+`GlobalTypeRewriter` begins by collecting heap-type information with used-IR inclusion and visibility metadata.
+That replaces the older mistaken model of a pass-local `UsedTypeScanner`.
 
-The key beginner point is:
+The important categories are:
 
-- `remove-unused-types` does not begin by asking what is unused
-- it begins by asking what must remain externally stable
+- public types / groups that anchor the external boundary,
+- private types that still appear in used IR-facing type positions,
+- private types that are not used and can disappear.
 
-That means public visibility is a **correctness boundary**, not just a profitability hint.
+The scanner/helper surface is broad because heap-type uses can appear in more places than instruction operands alone:
 
-## Phase 2: `ModuleUtils::CodeScanner` makes the use scan broader than it first appears
+- function signatures and locals,
+- globals and initializers,
+- tables and element segments,
+- tags,
+- heap-type fields,
+- expressions and expression result types.
 
-The pass defines a tiny scanner:
+## Phase 3: public groups are anchors, not ordinary private candidates
 
-- `struct UsedTypeScanner : public ModuleUtils::CodeScanner`
+The helper tracks public groups separately.
+A public type can survive even if it does not look profitable internally.
 
-The override is small:
+That rule exists because public type identity and subtype/group structure can be observable across the boundary.
+A closed-world optimizer can still make more assumptions than an open-world optimizer, but it must preserve the public anchor surface it has chosen to expose.
 
-- when a `Type` is a ref type, insert `type.getHeapType()` into `usedTypes`
+## Phase 4: surviving private types are dependency-sorted
 
-The important thing is what the inherited scanner already visits.
-`module-utils.h` shows that `CodeScanner` covers things such as:
+`GlobalTypeRewriter` builds predecessor constraints among private types.
+The important predecessor families are:
 
-- function signatures
-- global declaration types and global init expressions
-- tag types
-- table types, addresses, and tuple entries
-- element segment items and offsets
-- expression result types while walking code
-- field types inside heap-type definitions
+- private supertype dependencies,
+- descriptor/described dependencies for private described types.
 
-So `usedTypes` means more than:
+Those edges are then topologically sorted, with original type-index order used as a deterministic tie-breaker.
 
-- heap types mentioned by instructions in function bodies
+Beginner translation:
 
-It also includes declaration-level and initializer-level type uses that still matter to the module.
+- Binaryen does not just keep surviving private types in arbitrary hash-table order.
+- It creates a new private type order that still lets type definitions refer to their needed private predecessors.
 
-## Phase 3: public types are removed from the private worklist
+## Phase 5: surviving private types are rebuilt into a fresh private group
 
-After scanning, the pass does:
+The corrected source reading does **not** say that each used private member keeps its whole old rec group.
+Instead, `GlobalTypeRewriter` rebuilds the surviving private types through a mapper into a new group.
 
-- `usedTypes.erase(publicTypes.begin(), publicTypes.end());`
+This has two important consequences:
 
-That one line is easy to skim past, but it is central.
+- a private type in the same old rec group as a used type can still disappear if it is not used by the surviving graph,
+- old private rec-group boundaries are not the preservation unit.
 
-After it runs:
+The preservation units are better described as:
 
-- `publicTypes` = externally visible heap types that stay because of visibility
-- `usedTypes` = heap types that are still used **and private**
+- public groups that anchor the boundary,
+- plus used private heap types rebuilt under dependency constraints.
 
-So the pass is not trying to rebuild every used type.
-It is trying to rebuild only the used **private** portion of the heap-type graph while preserving public types separately.
+## Phase 6: module-wide remapping is the real output contract
 
-## Phase 4: used private types keep whole rec groups
+After constructing the new type mapping, Binaryen updates all relevant type uses throughout the module.
+This includes declaration-level and code-level surfaces.
 
-The next block constructs:
+A future port that only filters the type vector would be wrong.
+The pass output is valid only if every surviving type reference points at the new heap-type graph.
 
-- `Builder newTypeBuilder(*module);`
-- `std::unordered_set<HeapType> seen;`
+## Scheduler placement explains the neighboring docs
 
-Then Binaryen iterates the old module type order.
-For each old heap type:
-
-- if it is not in `usedTypes`, skip it
-- if it is already in `seen`, skip it
-- otherwise iterate `type.getRecGroup()` and copy every member of that old rec group into `newTypeBuilder`
-
-This is the pass's most important structural rule.
-
-A live private type does **not** keep only itself.
-It keeps its whole recursive group.
-
-That is why the pass is rec-group-aware type GC, not isolated node deletion.
-
-## Phase 5: `GlobalTypeRewriter` carries the real rewrite contract
-
-The final line of the pass body is:
-
-- `GlobalTypeRewriter(*module, usedTypes, std::move(newTypeBuilder), publicTypes).update();`
-
-That is where most of the real work lives.
-
-### What the helper receives
-
-`GlobalTypeRewriter` gets:
-
-- the original module
-- the set of used private types
-- the builder containing the copied live private rec groups
-- the set of public types
-
-### What `update()` then does
-
-Reading `type-updating.h`, the helper:
-
-1. walks the old type section in original order
-2. preserves public groups as anchors
-3. injects rewritten private groups only when they are actually needed
-4. avoids copying unrelated private groups into live public groups unnecessarily
-5. builds the old-to-new heap-type mapping
-6. rewrites heap-type uses throughout the module to the new mapping
-7. installs the rewritten type section
-
-So the pass is accurately described as a **whole-module type-section rewrite**.
-
-## Phase 6: public-group handling is deliberately conservative
-
-The key source comment in `type-updating.h` says, in effect:
-
-- if the current old group is public, keep that public structure intact
-- if the current rewritten private type belongs in that public group, add it there
-- otherwise do not drag extra private groups into the public group for no reason
-
-This explains why the pass stays closed-world-only.
-
-A beginner-friendly summary is:
-
-- Binaryen will tighten the private type graph around public groups,
-- but it will not freely reshape public group structure just because some internal types disappeared
-
-## Phase 7: the closed-world requirement is explained by the helper comments too
-
-`GlobalTypeRewriter` contains TODO comments about public type handling that are very revealing.
-The helper explicitly warns that in open world:
-
-- it cannot assume that making public subtype relations more specific is okay
-- public/private subtype-group placement has to respect external visibility guarantees
-
-So the `!module->closedWorld` early exit is not arbitrary.
-It is the honest boundary of the current correctness proof.
-
-## Scheduler placement explains why this pass exists
-
-The repo's main no-DWARF page is open-world, so it does not mention `remove-unused-types`.
-
-But neighboring living docs already record the closed-world cluster where it belongs.
-In the closed-world Binaryen module pipeline around the repo's existing GC/type dossiers, Binaryen can run a neighborhood like:
-
-- before `global-refining`:
-  - `type-refining`
-  - `signature-pruning`
-  - `signature-refining`
-- after `global-refining`:
-  - optional `global-type-optimization`
-  - `remove-unused-module-elements`
-  - optional `remove-unused-types`
-  - optional `cfp` / `cfp-reftest`
-  - `gsi`
-  - optional `abstract-type-refining`
-  - optional `unsubtyping`
-
-That placement makes sense once the pass is understood correctly.
-It is not generic late cleanup.
-It is part of a **closed-world GC/type tightening cluster**.
+The repo's current no-DWARF open-world page does not include `remove-unused-types`.
+That is expected.
+
+The pass belongs to Binaryen's closed-world GC/type cluster around pages such as:
+
+- [`../type-refining/index.md`](../type-refining/index.md)
+- [`../signature-pruning/index.md`](../signature-pruning/index.md)
+- [`../signature-refining/index.md`](../signature-refining/index.md)
+- [`../global-refining/index.md`](../global-refining/index.md)
+- [`../remove-unused-module-elements/index.md`](../remove-unused-module-elements/index.md)
+- [`../global-struct-inference/index.md`](../global-struct-inference/index.md)
+- [`../type-merging/index.md`](../type-merging/index.md)
+- [`../unsubtyping/index.md`](../unsubtyping/index.md)
+
+That placement also explains why the pass is module-owned and type-graph-owned, not a HOT expression peephole.
 
 ## What the pass sounds like versus what it actually is
 
 What it sounds like:
 
-- a tiny dead-type sweep
+- a dead-type sweep.
 
 What it actually is:
 
-- a closed-world, GC-aware module rewrite with:
-  - public/private heap-type visibility handling
-  - declaration-level and code-level use scanning
-  - rec-group retention rules
-  - full-module heap-type remapping
+- a closed-world GC type-graph rewrite with:
+  - public-group anchoring,
+  - used-private-type collection,
+  - dependency-sorted private rebuilds,
+  - descriptor/supertype ordering constraints,
+  - and full-module remapping.
 
-That is the behavior a future Starshine port would need to preserve.
+## Validation implications
+
+A faithful implementation should validate with:
+
+- no-GC no-op cases,
+- open-world rejection/no-run behavior matching the chosen API,
+- private unused singleton removal,
+- private unused member removal even inside a larger old group when it is not referenced,
+- used private type retention,
+- public type/group retention,
+- descriptor and private-supertype dependency ordering,
+- final module validation after type remapping,
+- parity against `wasm-opt --closed-world --remove-unused-types` for targeted fixtures.
 
 ## Bottom line
 
-Binaryen `remove-unused-types` in `version_129` is a small file wrapped around a larger helper contract:
+Binaryen `remove-unused-types` in `version_129` is a tiny pass-file wrapper around `GlobalTypeRewriter`.
+Teach it as:
 
-- keep public types
-- find used private types
-- keep their rec groups
-- rewrite the module's remaining heap-type graph consistently
+- **closed-world public-group-preserving private heap-type cleanup plus whole-module type remapping**.
 
-The name makes it sound smaller and flatter than it really is.
-The source says otherwise.
+Do not teach it as:
+
+- a pass-local used-type scanner,
+- a whole-old-rec-group retention rule,
+- or a per-type delete loop.
 
 ## Sources
 
-- [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
+- [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)
+- [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
+- Historical, superseded for the corrected phase map: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/RemoveUnusedTypes.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/type-updating.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/module-utils.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/remove-unused-types.wast>
-- Narrow freshness check:
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/RemoveUnusedTypes.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/remove-unused-types.wast>

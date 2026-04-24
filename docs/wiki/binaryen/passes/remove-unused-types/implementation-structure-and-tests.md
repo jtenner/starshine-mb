@@ -1,169 +1,176 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
+  - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./closed-world-visibility-and-rec-group-rewrite.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `remove-unused-types`: implementation structure and tests
 
 This page exists because `RemoveUnusedTypes.cpp` is much smaller than the real pass contract.
-If you only read the pass file, you will miss most of the behavior.
+The corrected implementation map is:
+
+- tiny pass file,
+- scheduler-side placement,
+- shared type-info collection,
+- shared global type rewriter,
+- one focused lit file.
 
 ## File map
 
 | File | Why it matters |
 | --- | --- |
-| `src/passes/RemoveUnusedTypes.cpp` | Thin orchestrator: gates the pass, collects public and used types, copies used private rec groups, and calls `GlobalTypeRewriter` |
+| `src/passes/RemoveUnusedTypes.cpp` | Tiny coordinator: requires GC, rejects open-world execution, and dispatches to `GlobalTypeRewriter(*module).update()` |
 | `src/passes/pass.cpp` | Registers the CLI pass name `remove-unused-types` and places it in the broader closed-world GC/type optimization neighborhood |
-| `src/ir/module-utils.h` | Provides `ModuleUtils::getPublicHeapTypes`, `ModuleUtils::CodeScanner`, and `ModuleUtils::iterModuleCode`, which define what counts as public visibility and what module uses are scanned |
-| `src/ir/type-updating.h` | Holds `GlobalTypeRewriter`, which performs the real heap-type graph rewrite and full-module remapping |
-| `test/lit/passes/remove-unused-types.wast` | Dedicated lit surface for positive and negative module-shape cases |
+| `src/ir/type-updating.h` | Owns `GlobalTypeRewriter`, the real algorithm for collecting used/private/public type facts, rebuilding private types, preserving public groups, and remapping the module |
+| `src/ir/module-utils.h` | Supplies shared heap-type information and visibility analysis used by the type-rewriting helper |
+| `test/lit/passes/remove-unused-types.wast` | Dedicated lit surface for private removal, public retention, group-rewrite, and closed-world contract cases |
 
-## The real call graph
-
-The core flow in `version_129` is short but layered.
+## Corrected call graph
 
 ### 1. `RemoveUnusedTypes::run(Module* module)`
 
-This pass method does five things:
+The pass method does three things:
 
-1. check `optimizeLevel >= 2`
-2. require `closedWorld`
-3. require GC features
-4. collect `publicTypes`
-5. collect `usedTypes`, filter out public types, build a new private type builder, and hand off to `GlobalTypeRewriter`
+1. return if the module has no GC features,
+2. fatally reject `!module->closedWorld`,
+3. run `GlobalTypeRewriter(*module).update()`.
 
-### 2. `ModuleUtils::getPublicHeapTypes(*module)`
+The older dossier's custom scanner / private builder / whole-rec-group loop does not exist in the pass file.
 
-This helper answers:
+### 2. `pass.cpp` registration and scheduling
 
-- which heap types are externally visible and must therefore remain stable?
+`pass.cpp` registers the public pass name `remove-unused-types` with the short summary `remove unused types`.
 
-That means the pass does not invent its own visibility rules.
-It reuses Binaryen's shared visibility analysis.
+The same file also supplies the default scheduling context.
+That is where the broader optimization-level and closed-world GC-cluster placement lives.
+So when teaching this pass, keep the layers separate:
 
-### 3. `ModuleUtils::iterModuleCode(*module, scanner)`
+- standalone pass body: correctness gates and helper dispatch,
+- pass runner: whether an optimization preset includes the pass.
 
-This shared scanner is the reason `usedTypes` is broader than “heap types mentioned in function instructions.”
-The scanner covers declaration-level and initializer-level sites too.
+### 3. `GlobalTypeRewriter::update()`
 
-### 4. private builder loop in `RemoveUnusedTypes.cpp`
+This is the core implementation surface.
+Its responsibilities include:
 
-The pass copies whole rec groups of used private types into `Builder newTypeBuilder(*module)` in original order.
-This is the exact place where the pass turns “used private type” into “keep that whole private group.”
+- collecting heap-type info with used-IR inclusion,
+- identifying public groups,
+- deriving private predecessor constraints,
+- sorting surviving private types,
+- rebuilding those private types through a mapper,
+- preserving public groups as anchors,
+- remapping type names and type indices,
+- rewriting all surviving module type uses.
 
-### 5. `GlobalTypeRewriter(...).update()`
+### 4. `module-utils.h`
 
-This helper rewrites the module's heap-type graph and updates all surviving uses.
-It is the real reason the pass is safe and whole-module in scope.
+The helper reading still matters, but not in the older pass-local way.
+`module-utils.h` provides the shared type-info and visibility machinery that lets `GlobalTypeRewriter` know which heap types are used by IR and which type groups are public.
 
-## Why `RemoveUnusedTypes.cpp` is deceptively small
+## Why the owner file is deceptively small
 
-If you skim the pass file, it looks almost trivial.
-That is misleading.
+`RemoveUnusedTypes.cpp` looks almost trivial because Binaryen has factored the hard work into reusable type-rewriting infrastructure.
 
-The source is tiny because Binaryen has already pushed the hard parts into reusable helpers:
+That is important for future Starshine work:
 
-- visibility analysis in `module-utils.h`
-- module-code type scanning in `ModuleUtils::CodeScanner`
-- heap-type remapping in `GlobalTypeRewriter`
-
-So the correct teaching model is:
-
-- `RemoveUnusedTypes.cpp` defines policy and sequence
-- the helpers define most of the mechanics
+- implementing only a small pass wrapper would not be enough,
+- a faithful port needs a reusable module-wide type-graph rewrite surface.
 
 ## What the dedicated lit file proves
 
-`test/lit/passes/remove-unused-types.wast` is the main shipped contract surface.
+`test/lit/passes/remove-unused-types.wast` is the shipped contract surface.
 The file exercises several important families.
 
-## 1. Unused private types can disappear
+### 1. Private unused types can disappear
 
-The simplest cases show that private heap types with no remaining uses are dropped from the rewritten type graph.
+Private heap types with no remaining use in the module can be dropped from the rewritten type graph.
 
-## 2. Public types stay even if they look locally unused
+### 2. Used private types stay and are remapped
 
-The test file includes explicit `export type` cases.
-Those prove the visibility rule is real, not inferred.
+A private heap type that still appears in an IR-facing type position survives, but it may move into the new private group layout.
+The important proof is semantic use preservation, not old type-index or old-rec-group preservation.
 
-## 3. Used private types keep their whole rec groups
+### 3. Public groups stay anchored
 
-Recursive and subtype-oriented examples show that Binaryen does not peel out only one used member and discard the rest of that rec group carelessly.
+The test surface includes public/exported type cases.
+Those prove public visibility is a real boundary.
 
-## 4. Public groups are not polluted unnecessarily
+### 4. Old private group boundaries can change
 
-The file also checks the subtler helper rule that a live public group should not absorb unrelated rewritten private groups unless that is actually needed.
+The corrected helper behavior means the pass may rebuild private survivors into a fresh group rather than preserving old private rec-group boundaries wholesale.
+The lit file is the best compact proof that `remove-unused-types` is a type-graph rewrite pass, not just a text deletion pass.
 
-That case is one of the best reasons to read `type-updating.h` together with the test file.
+### 5. Closed-world usage matters
 
-## 5. The pass is a no-op when only public structure remains relevant
-
-Some cases are really about what the pass refuses to do.
-That negative surface is just as important as the positive deletions.
+Open-world execution is not the supported context for this pass.
+Default scheduling reaches it only in a closed-world GC/type optimization neighborhood, and explicit pass execution must respect that constraint.
 
 ## There is only one dedicated lit file, so helper reading matters
 
-Unlike some larger passes, `remove-unused-types` does not have a huge lit family roster.
-That means the dedicated test file is important, but it does not teach the whole story by itself.
+Unlike larger passes, `remove-unused-types` does not have a large lit family roster.
+That means the dedicated test file is important, but it cannot teach the entire implementation alone.
 
 The missing context comes from:
 
-- `module-utils.h` for visibility and scanning
-- `type-updating.h` for the actual rewrite shape
-- neighboring closed-world GC/type pass docs for scheduler meaning
+- `type-updating.h` for `GlobalTypeRewriter`,
+- `module-utils.h` for type-info / visibility collection,
+- neighboring closed-world GC/type pass docs for scheduler meaning.
 
 ## Freshness note
 
-I did a narrow current-`main` check on:
+A narrow 2026-04-24 current-`main` check on:
 
-- `src/passes/RemoveUnusedTypes.cpp`
-- `src/passes/pass.cpp`
-- `test/lit/passes/remove-unused-types.wast`
+- `src/passes/RemoveUnusedTypes.cpp`,
+- `src/passes/pass.cpp`,
+- `src/ir/type-updating.h`,
+- `src/ir/module-utils.h`,
+- `test/lit/passes/remove-unused-types.wast`,
 
-Durable result:
-
-- the checked core pass structure and dedicated lit surface still match `version_129` on the important reviewed surfaces
-
-That is a narrow freshness note, not a proof that every helper file is identical.
+found no teaching-relevant drift from the corrected `version_129` story.
+This is intentionally narrow.
 
 ## Porting checklist
 
 A future Starshine port would need to mirror at least these file-level responsibilities:
 
-- a boundary-only module pass entry point, not a HOT pass
-- visibility analysis for public heap types
-- declaration-level plus code-level heap-type use scanning
-- rec-group-aware private type retention
-- whole-module heap-type rewriting and remapping
+- boundary-only-to-module-pass registry transition,
+- closed-world and GC feature gates,
+- public type/group discovery,
+- used private heap-type discovery across declarations and code,
+- private predecessor graph from private supertypes and described-type dependencies,
+- deterministic private survivor ordering,
+- fresh private type-group rebuilding,
+- module-wide type-use remapping,
+- post-rewrite validation.
 
-Any port that implements only the small orchestration file without helper-equivalent machinery will not match Binaryen's real behavior.
+Any port that implements only the tiny `RemoveUnusedTypes.cpp` wrapper without `GlobalTypeRewriter`-equivalent machinery will not match Binaryen.
 
 ## Bottom line
 
 For `remove-unused-types`, the real implementation structure is:
 
-- **small pass file + shared visibility scanner + shared type rewriter + one focused lit file**
+- **tiny pass file + scheduler placement + shared type-info collection + `GlobalTypeRewriter` + one focused lit file**.
 
 That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
-- [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
+- [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)
+- [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
+- Historical, superseded for the corrected file map: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/RemoveUnusedTypes.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/module-utils.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/type-updating.h>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/module-utils.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/remove-unused-types.wast>
-- Narrow freshness check:
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/RemoveUnusedTypes.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
-  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/remove-unused-types.wast>
