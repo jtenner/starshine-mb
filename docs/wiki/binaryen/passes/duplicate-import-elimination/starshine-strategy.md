@@ -58,7 +58,7 @@ The fastest read-along path through the current Starshine status is:
   - [`agent-todo.md#L518-L526`](../../../../../agent-todo.md#L518-L526)
     - `DIE - Duplicate Import Elimination`
 - canonical scheduler context
-  - [`../no-dwarf-default-optimize-path.md#L35`](../no-dwarf-default-optimize-path.md#L35)
+  - [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
     - the canonical late-tail slot where `duplicate-import-elimination` follows `duplicate-function-elimination` and precedes `simplify-globals-optimizing`
 - neighboring living dossiers a future port must line up with
   - [`../duplicate-function-elimination/index.md`](../duplicate-function-elimination/index.md)
@@ -232,7 +232,7 @@ Current Starshine `duplicate-import-elimination` strategy is honest boundary-onl
 - the pass name is intentionally preserved in [`src/passes/optimize.mbt#L127-L131`](../../../../../src/passes/optimize.mbt#L127-L131)
 - the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
 - [`agent-todo.md#L518-L526`](../../../../../agent-todo.md#L518-L526) already treats it as a real late parity slice under `DIE`, while this page now makes the reviewed Binaryen-vs-backlog scope mismatch explicit
-- the canonical slot is already documented in [`../no-dwarf-default-optimize-path.md#L35`](../no-dwarf-default-optimize-path.md#L35)
+- the canonical slot is already documented in [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
 - the surrounding [`duplicate-function-elimination`](../duplicate-function-elimination/index.md), [`simplify-globals-optimizing`](../simplify-globals-optimizing/index.md), and [`remove-unused-module-elements`](../remove-unused-module-elements/index.md) dossiers already define the practical landing zone for a future port
 
 So the right mental model today is not “nothing exists locally.”

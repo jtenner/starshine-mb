@@ -60,7 +60,7 @@ The fastest read-along path through the current Starshine status is:
     - `[RG]001 - Global Cost Model and Reindexing`
     - `[RG]002 - Late-Postpass Validation and Artifact Compare`
 - canonical scheduler context
-  - [`../no-dwarf-default-optimize-path.md#L35`](../no-dwarf-default-optimize-path.md#L35)
+  - [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
     - the canonical late-tail slot `string-gathering -> reorder-globals -> directize`
 - neighboring living dossiers a future port must line up with
   - [`../string-gathering/index.md`](../string-gathering/index.md)
@@ -242,7 +242,7 @@ Current Starshine `reorder-globals` strategy is honest boundary-only tracking an
 - the pass name is intentionally preserved in [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
 - the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
 - [`agent-todo.md#L661-L669`](../../../../../agent-todo.md#L661-L669) already treats it as a real late parity slice under `RG`
-- the canonical slot is already documented in [`../no-dwarf-default-optimize-path.md#L35`](../no-dwarf-default-optimize-path.md#L35)
+- the canonical slot is already documented in [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
 - the surrounding [`string-gathering`](../string-gathering/index.md), [`reorder-globals-always`](../reorder-globals-always/index.md), and [`directize`](../directize/index.md) dossiers already define the practical landing zone for a future port
 
 So the right mental model today is not “nothing exists locally.”

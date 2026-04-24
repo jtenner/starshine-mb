@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] health | repair local-reference findings after `monomorphize`
+
+- Ran a repository-wide local markdown/frontmatter reference scan across `docs/wiki/` after the `monomorphize` provenance commit; the scan checked 900 wiki markdown files and reported 15 remaining local-reference misses.
+- Fixed the durable misses by retargeting `alignment-lowering`, `duplicate-import-elimination`, `inlining-optimizing`, `reorder-globals`, and `type-ssa` Starshine status pages to the correct `../../no-dwarf-default-optimize-path.md` location, correcting the archived no-DWARF planning note link in `inlining-optimizing`, fixing the neighboring DAE research-note link in the `dae2` raw research note, and shortening two over-escaped repo-root paths in the `legalize-and-prune-js-interface` raw research note.
+- Re-ran the same repository-wide scan and it passed with no missing local references across 900 wiki markdown files.
+
 ## [2026-04-24] research | add `monomorphize` primary-source capture and a Starshine status bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/raw/research/`, and the existing `docs/wiki/binaryen/passes/monomorphize/` plus sibling `monomorphize-always/` folder, then chose `monomorphize` because the dossier already had the required overview / Binaryen strategy / implementation map / transformed-shape / clone-mechanics coverage but still lacked an immutable raw primary-source manifest and the required dedicated Starshine status/port-strategy page.

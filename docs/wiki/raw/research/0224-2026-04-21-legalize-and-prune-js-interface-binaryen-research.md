@@ -288,5 +288,5 @@ Create or maintain these living pages under `docs/wiki/binaryen/passes/legalize-
   - [`../../binaryen/passes/index.md`](../../binaryen/passes/index.md)
   - [`../../binaryen/no-dwarf-default-optimize-path.md`](../../binaryen/no-dwarf-default-optimize-path.md)
   - [`../../binaryen/passes/legalize-js-interface/index.md`](../../binaryen/passes/legalize-js-interface/index.md)
-  - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-  - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+  - [`../../../../agent-todo.md`](../../../../agent-todo.md)
+  - [`../../../../src/passes/optimize.mbt`](../../../../src/passes/optimize.mbt)

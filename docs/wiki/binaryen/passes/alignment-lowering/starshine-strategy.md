@@ -60,7 +60,7 @@ The fastest read-along path through the current Starshine status is:
   - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61)
     - `alignment-lowering` sits under the `Whole-module or layout transforms` planning group
 - canonical scheduler context by omission
-  - [`../no-dwarf-default-optimize-path.md`](../no-dwarf-default-optimize-path.md)
+  - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
     - the current canonical no-DWARF path page does not place `alignment-lowering` in the active default route
 - backlog context by omission
   - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
@@ -253,7 +253,7 @@ Current Starshine `alignment-lowering` strategy is honest boundary-only tracking
 - the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
 - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61) still keeps the pass only in a broad planning bucket
 - [`agent-todo.md`](../../../../../agent-todo.md) still has no dedicated slice for it
-- [`../no-dwarf-default-optimize-path.md`](../no-dwarf-default-optimize-path.md) still omits it from the active canonical default route
+- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) still omits it from the active canonical default route
 - the neighboring [`dealign`](../dealign/index.md), [`avoid-reinterprets`](../avoid-reinterprets/index.md), and [`i64-to-i32-lowering`](../i64-to-i32-lowering/index.md) dossiers now define the practical boundary map future work should preserve
 
 So the right mental model today is not “nothing exists locally.”

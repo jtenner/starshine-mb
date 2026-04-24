@@ -442,7 +442,7 @@ That is a materially different design, even before considering that `dae2` is st
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/eh-utils.h>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-type-shape.h>
 - Neighboring local context:
-  - [`../0159-2026-04-21-dead-argument-elimination-binaryen-research.md`](../0159-2026-04-21-dead-argument-elimination-binaryen-research.md)
+  - [`0159-2026-04-21-dead-argument-elimination-binaryen-research.md`](0159-2026-04-21-dead-argument-elimination-binaryen-research.md)
   - [`../../binaryen/passes/dead-argument-elimination/index.md`](../../binaryen/passes/dead-argument-elimination/index.md)
   - [`../../binaryen/passes/tracker.md`](../../binaryen/passes/tracker.md)
   - [`../../binaryen/passes/index.md`](../../binaryen/passes/index.md)

@@ -63,7 +63,7 @@ The fastest read-along path through the current Starshine status is:
   - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L7-L68`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L7-L68)
     - the active hot/module sets, removed batches, and boundary-only groups do not include `type-ssa`
 - canonical parity queue by omission
-  - [`../no-dwarf-default-optimize-path.md`](../no-dwarf-default-optimize-path.md)
+  - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
     - the current canonical no-DWARF path page does not place `type-ssa` in the active Binaryen-parity route
 - backlog context by omission
   - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
@@ -230,7 +230,7 @@ Current Starshine `type-ssa` strategy is honest non-adoption plus explicit neigh
 - [`src/passes/optimize.mbt#L156-L259`](../../../../../src/passes/optimize.mbt#L156-L259) shows there is no active `type-ssa` entry either
 - [`src/passes/optimize.mbt#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461) shows the current expansion logic only handles tracked names, which means `type-ssa` has no local compatibility path today
 - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L7-L68`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L7-L68) likewise omits the pass from active, removed, and boundary-only planning buckets
-- [`../no-dwarf-default-optimize-path.md`](../no-dwarf-default-optimize-path.md) omits it from the active canonical parity route
+- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) omits it from the active canonical parity route
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md) still has no dedicated slice for it
 - the nearest concrete local neighbors are [`src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt), [`src/passes/global_refining.mbt`](../../../../../src/passes/global_refining.mbt), and [`src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt), but none of them implement `type-ssa`
 

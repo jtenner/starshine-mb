@@ -63,10 +63,10 @@ The fastest read-along path through the current Starshine status is:
   - [`agent-todo.md#L501-L509`](../../../../../agent-todo.md#L501-L509)
     - `INL - Inlining Optimizing`
 - canonical scheduler context
-  - [`../no-dwarf-default-optimize-path.md#L35-L40`](../no-dwarf-default-optimize-path.md#L35-L40)
+  - [`../../no-dwarf-default-optimize-path.md#L35-L40`](../../no-dwarf-default-optimize-path.md#L35-L40)
     - the canonical late-tail slot where `inlining-optimizing` follows `dae-optimizing`, precedes `duplicate-function-elimination`, and shares the nested post-inlining rerun rule
 - archived planning detail behind the same slot
-  - [`../../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L289-L293`](../../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L289-L293)
+  - [`../../../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L289-L293`](../../../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L289-L293)
     - the older slot note already recorded the same future implementation shape: apply Binaryen-like inlining heuristics, rewrite callsites, delete dead functions, and rerun the nested post-inlining cleanup pipeline
 - neighboring living dossiers a future port must line up with
   - [`../dae-optimizing/index.md`](../dae-optimizing/index.md)
@@ -146,7 +146,7 @@ That is a much tighter and safer future plan than the older vague mental model â
 See:
 
 - [`../dae-optimizing/index.md`](../dae-optimizing/index.md)
-- [`../no-dwarf-default-optimize-path.md`](../no-dwarf-default-optimize-path.md)
+- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 
 Why it matters locally:
 
@@ -242,7 +242,7 @@ Current Starshine `inlining-optimizing` strategy is honest boundary-only trackin
 - the pass name is intentionally preserved in [`src/passes/optimize.mbt#L127-L141`](../../../../../src/passes/optimize.mbt#L127-L141)
 - the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L281-L291`](../../../../../src/passes/optimize.mbt#L281-L291)
 - [`agent-todo.md#L501-L509`](../../../../../agent-todo.md#L501-L509) already treats it as a real late parity slice under `INL`
-- the canonical slot and shared nested-rerun rule are already documented in [`../no-dwarf-default-optimize-path.md#L35-L40`](../no-dwarf-default-optimize-path.md#L35-L40)
+- the canonical slot and shared nested-rerun rule are already documented in [`../../no-dwarf-default-optimize-path.md#L35-L40`](../../no-dwarf-default-optimize-path.md#L35-L40)
 - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60) already places it in the boundary/module planning bucket
 - the surrounding [`dae-optimizing`](../dae-optimizing/index.md), [`precompute-propagate`](../precompute-propagate/index.md), [`duplicate-function-elimination`](../duplicate-function-elimination/index.md), and plain [`inlining`](../inlining/index.md) dossiers already define the practical landing zone for a future port
 
