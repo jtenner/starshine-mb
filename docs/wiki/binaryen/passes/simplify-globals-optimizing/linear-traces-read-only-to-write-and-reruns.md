@@ -1,20 +1,25 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
+  - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../dae-optimizing/index.md
   - ../inlining-optimizing/index.md
 ---
 
 # `simplify-globals-optimizing`: linear traces, `read-only-to-write`, and reruns
 
-This page focuses on the parts of Binaryen `simplify-globals-optimizing` that are easiest to misunderstand:
+This page focuses on the parts of Binaryen `simplify-globals-optimizing` that are easiest to misunderstand.
+It is now anchored to the committed primary-source manifest in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md):
 
 - why startup-time propagation is broader than runtime code propagation
 - what `read-only-to-write` really means in the source
@@ -373,3 +378,9 @@ If you need one durable porting mental model, use this:
 - and the optimizing variant expects ordinary function cleanup to run immediately afterward.
 
 That is what the implementation really preserves.
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
+- [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)

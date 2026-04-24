@@ -1,19 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
+  - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./linear-traces-read-only-to-write-and-reruns.md
+  - ./starshine-strategy.md
   - ../remove-unused-module-elements/index.md
 ---
 
 # `simplify-globals-optimizing` WAT and IR shape guide
 
-This page is the beginner-friendly shape catalog for Binaryen `simplify-globals-optimizing`.
+This page is the beginner-friendly shape catalog for Binaryen `simplify-globals-optimizing`, anchored to the primary-source manifest in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md).
 
 The main question to keep asking is:
 
@@ -639,3 +643,9 @@ When deciding whether a shape should rewrite, ask:
 6. Is later cleanup expected to finish the story?
 
 That checklist matches the actual `version_129` source much better than “constant globals good, mutable globals bad.”
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
+- [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)

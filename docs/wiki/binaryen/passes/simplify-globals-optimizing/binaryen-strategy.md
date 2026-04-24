@@ -1,13 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
+  - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./linear-traces-read-only-to-write-and-reruns.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../simplify-globals/index.md
+  - ../propagate-globals-globally/index.md
   - ../remove-unused-module-elements/index.md
   - ../../no-dwarf-default-optimize-path.md
 ---
@@ -17,6 +23,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- The immutable source manifest for this dossier is [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md), which records the official release page, reviewed `version_129` and current-`main` source URLs, helper headers, and lit-test roster.
 - The core implementation is `src/passes/SimplifyGlobals.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - The nested-runner behavior also depends on `src/pass.h`.
@@ -469,3 +476,9 @@ Provides the optimizing variant’s nested rerun contract directly, without usin
 - Preserve `drop(value)` replacement for removed writes.
 - Preserve the optimizing variant’s nested default-function rerun and its lack of extra `precompute-propagate`.
 - Preserve the intended follow-up relationship with `remove-unused-module-elements`.
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
+- [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)

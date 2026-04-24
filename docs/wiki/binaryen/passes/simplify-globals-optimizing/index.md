@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-20
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
+  - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
@@ -12,8 +14,12 @@ sources:
   - ../../../../../.artifacts/o4z-wasm-opt-debug.log
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./linear-traces-read-only-to-write-and-reruns.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
+  - ../simplify-globals/index.md
+  - ../propagate-globals-globally/index.md
   - ../inlining-optimizing/index.md
   - ../remove-unused-module-elements/index.md
   - ../../no-dwarf-default-optimize-path.md
@@ -25,7 +31,7 @@ related:
 ## Role
 
 - `simplify-globals-optimizing` is an upstream Binaryen late global optimizing pass.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt). The exact local status and future-port map now live in [`./starshine-strategy.md`](./starshine-strategy.md).
 - Binaryen also exposes the related plain pass name `simplify-globals`.
 - The `simplify-globals-optimizing` variant is the same core global pass **plus** a nested rerun of the default function optimization pipeline on changed functions.
 
@@ -62,6 +68,7 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
 
 ## Current durable takeaways
 
+- The reviewed official Binaryen `version_129` release page on 2026-04-24 showed publish date **2026-04-01**, and the new raw manifest in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md) records the exact source and lit-test URLs checked for this folder.
 - `simplify-globals-optimizing` is a **module / boundary** pass, not a function-local peephole.
 - The pass has several distinct algorithm families, not one:
   - practical-immutability discovery
@@ -79,15 +86,20 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
 - A future Starshine port must preserve both halves:
   - the multi-phase global rewrite algorithm
   - the no-extra-`precompute-propagate` nested rerun behavior of the optimizing variant
+- Current Starshine tracks the pass as boundary-only, rejects explicit requests honestly, and has `SGO` backlog slices, but it has no owner file, no global-use fact table, and no nested-rerun scheduler yet.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: phases, helper dependencies, scheduler placement, safety rules, and nested-rerun behavior.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  Source-confirmed owner-file, helper, and lit-test map for the shared `SimplifyGlobals.cpp` family and the optimizing-specific nested-rerun wrapper.
 - [`./linear-traces-read-only-to-write-and-reruns.md`](./linear-traces-read-only-to-write-and-reruns.md)
   Focused guide to the easiest parts of the pass to misunderstand: startup versus runtime propagation, the exact `read-only-to-write` matcher, actual-node versus effect-summary conservatism, and the optimizing rerun contract.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, negative, bailout, and interaction families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map: boundary-only registry tracking, honest request rejection, missing owner code, `SGO` backlog slices, and the exact neighboring late-tail pass dossiers to compose with.
 
 ## Current maintenance rule
 
@@ -97,6 +109,8 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
+- [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
