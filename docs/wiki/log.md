@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] health | repair stale `type-generalizing` index summary
+
+- Ran a focused stale-reference grep after the `type-finalizing` dossier commit and found one remaining stale summary in `docs/wiki/index.md` still describing `type-generalizing` as a closed-world `ContentOracle` / `call_ref` / optimizing-casts family.
+- Updated that catalog entry to match the corrected 2026-04-24 source story: upstream `experimental-type-generalizing` is a hidden function-local local-set/local-tee evidence pass with subtype/LUB retagging, `local.get` drop-plus-zero fallback, defaultability barriers, and no `ContentOracle` / `call_ref` / optimizing-casts sibling surface.
+
 ## [2026-04-24] research | add `type-finalizing` primary-source capture and a Starshine status bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/raw/research/`, and the existing `docs/wiki/binaryen/passes/type-finalizing/` folder, then chose `type-finalizing` because the dossier had overview / Binaryen strategy / implementation map / boundary / transformed-shape coverage but still lacked an immutable raw primary-source manifest and a dedicated Starshine status/port-strategy page.
