@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] health | link `precompute` relaxed-SIMD boundary to removal dossier
+
+- Ran a focused touched-area reference check after adding the `remove-relaxed-simd` dossier and found the existing `precompute` relaxed-SIMD negative still described the nondeterminism boundary without linking to the now-canonical removal-pass page.
+- Updated `docs/wiki/binaryen/passes/precompute/wat-shapes.md` and `docs/wiki/binaryen/passes/precompute/implementation-structure-and-tests.md` to cross-link `remove-relaxed-simd`, making the distinction explicit: `precompute` preserves relaxed SIMD to avoid erasing nondeterminism, while `remove-relaxed-simd` removes the feature by trapping at each relaxed operation.
+
 ## [2026-04-24] research | add `remove-relaxed-simd` primary-source capture and Starshine status bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose `remove-relaxed-simd` because the late-pass catalog already named it as a newer upstream-only Binaryen pass but the wiki had no dedicated dossier, immutable source manifest, transformed-shape page, or Starshine status page.

@@ -196,6 +196,8 @@ This file proves one of the easiest-to-forget negatives:
 - deterministic SIMD ops may fold
 - relaxed SIMD operations stay preserved because the pass will not erase their nondeterminism
 
+For the neighboring pass that removes relaxed SIMD by replacing those operations with traps, see [`../remove-relaxed-simd/index.md`](../remove-relaxed-simd/index.md).
+
 ## `test/lit/passes/precompute-stack-switching.wast`
 
 This file proves that stack-switching instructions stay outside the ordinary plain `precompute` fold surface, even when children look simple.

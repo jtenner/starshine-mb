@@ -695,7 +695,8 @@ After:
 
 Why:
 
-- relaxed SIMD carries nondeterminism that this pass deliberately avoids precomputing away
+- relaxed SIMD carries nondeterminism that this pass deliberately avoids precomputing away.
+- For the sibling policy that intentionally removes relaxed SIMD by trapping instead of folding or choosing one deterministic value, see [`../remove-relaxed-simd/index.md`](../remove-relaxed-simd/index.md).
 
 For contrast, ordinary deterministic SIMD ops *can* fold.
 
