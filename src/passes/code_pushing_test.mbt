@@ -15,24 +15,61 @@ fn code_pushing_test_run_hot(text : String) -> @ir.HotFunc {
 }
 
 ///|
+fn code_pushing_expect_op(
+  func : @ir.HotFunc,
+  node_id : Int,
+  expected : String,
+) -> Unit {
+  let op = @ir.hot_node_get(func, node_id).op
+  match expected {
+    "nop" =>
+      match op {
+        @ir.HotOp::Nop => ()
+        _ => abort("expected nop")
+      }
+    "if" =>
+      match op {
+        @ir.HotOp::If => ()
+        _ => abort("expected if")
+      }
+    "local.set" =>
+      match op {
+        @ir.HotOp::LocalSet => ()
+        _ => abort("expected local.set")
+      }
+    "local.get" =>
+      match op {
+        @ir.HotOp::LocalGet => ()
+        _ => abort("expected local.get")
+      }
+    "drop" =>
+      match op {
+        @ir.HotOp::Drop => ()
+        _ => abort("expected drop")
+      }
+    _ => abort("unknown expected hot op")
+  }
+}
+
+///|
 test "code-pushing sinks const local.set into the only using if arm" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop end))",
   )
 
   assert_eq(@ir.hot_root_count(func), 2)
-  assert_eq(@ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op, @ir.HotOp::Nop)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
   let if_id = @ir.hot_root_get(func, 1)
-  assert_eq(@ir.hot_node_get(func, if_id).op, @ir.HotOp::If)
+  code_pushing_expect_op(func, if_id, "if")
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
   let pushed_set = @ir.hot_region_get(func, then_ref, 0)
-  assert_eq(@ir.hot_node_get(func, pushed_set).op, @ir.HotOp::LocalSet)
+  code_pushing_expect_op(func, pushed_set, "local.set")
   assert_eq(@ir.hot_node_get(func, pushed_set).imm0, 1)
   let kept_use = @ir.hot_region_get(func, then_ref, 1)
-  assert_eq(@ir.hot_node_get(func, kept_use).op, @ir.HotOp::Drop)
+  code_pushing_expect_op(func, kept_use, "drop")
   let kept_get = @ir.hot_child_get(func, kept_use, 0)
-  assert_eq(@ir.hot_node_get(func, kept_get).op, @ir.HotOp::LocalGet)
+  code_pushing_expect_op(func, kept_get, "local.get")
   assert_eq(@ir.hot_node_get(func, kept_get).imm0, 1)
 }
 
@@ -43,20 +80,20 @@ test "code-pushing sinks const local.set into the only using else arm" {
   )
 
   assert_eq(@ir.hot_root_count(func), 2)
-  assert_eq(@ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op, @ir.HotOp::Nop)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "nop")
   let if_id = @ir.hot_root_get(func, 1)
-  assert_eq(@ir.hot_node_get(func, if_id).op, @ir.HotOp::If)
+  code_pushing_expect_op(func, if_id, "if")
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
   let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
   assert_eq(@ir.hot_region_root_count(func, else_ref), 2)
   let pushed_set = @ir.hot_region_get(func, else_ref, 0)
-  assert_eq(@ir.hot_node_get(func, pushed_set).op, @ir.HotOp::LocalSet)
+  code_pushing_expect_op(func, pushed_set, "local.set")
   assert_eq(@ir.hot_node_get(func, pushed_set).imm0, 1)
   let kept_use = @ir.hot_region_get(func, else_ref, 1)
-  assert_eq(@ir.hot_node_get(func, kept_use).op, @ir.HotOp::Drop)
+  code_pushing_expect_op(func, kept_use, "drop")
   let kept_get = @ir.hot_child_get(func, kept_use, 0)
-  assert_eq(@ir.hot_node_get(func, kept_get).op, @ir.HotOp::LocalGet)
+  code_pushing_expect_op(func, kept_get, "local.get")
   assert_eq(@ir.hot_node_get(func, kept_get).imm0, 1)
 }
 
@@ -68,25 +105,23 @@ test "code-pushing keeps const local.set when both if arms use it" {
 
   assert_eq(@ir.hot_root_count(func), 2)
   let kept_set = @ir.hot_root_get(func, 0)
-  assert_eq(@ir.hot_node_get(func, kept_set).op, @ir.HotOp::LocalSet)
+  code_pushing_expect_op(func, kept_set, "local.set")
   assert_eq(@ir.hot_node_get(func, kept_set).imm0, 1)
   let if_id = @ir.hot_root_get(func, 1)
-  assert_eq(@ir.hot_node_get(func, if_id).op, @ir.HotOp::If)
+  code_pushing_expect_op(func, if_id, "if")
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
   assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
   assert_eq(@ir.hot_region_root_count(func, else_ref), 1)
   let then_drop = @ir.hot_region_get(func, then_ref, 0)
   let else_drop = @ir.hot_region_get(func, else_ref, 0)
-  assert_eq(@ir.hot_node_get(func, then_drop).op, @ir.HotOp::Drop)
-  assert_eq(@ir.hot_node_get(func, else_drop).op, @ir.HotOp::Drop)
-  assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, then_drop, 0)).op,
-    @ir.HotOp::LocalGet,
+  code_pushing_expect_op(func, then_drop, "drop")
+  code_pushing_expect_op(func, else_drop, "drop")
+  code_pushing_expect_op(
+    func, @ir.hot_child_get(func, then_drop, 0), "local.get",
   )
-  assert_eq(
-    @ir.hot_node_get(func, @ir.hot_child_get(func, else_drop, 0)).op,
-    @ir.HotOp::LocalGet,
+  code_pushing_expect_op(
+    func, @ir.hot_child_get(func, else_drop, 0), "local.get",
   )
 }
 
