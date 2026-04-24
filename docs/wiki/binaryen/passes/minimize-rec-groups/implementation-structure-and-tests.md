@@ -1,20 +1,24 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
+  - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./permutations-brands-and-public-conflicts.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `minimize-rec-groups`: implementation structure and tests
 
 This page exists because `MinimizeRecGroups.cpp` is not a self-contained “just run SCCs” file.
 If you read only the top-level pass name, you will miss why Binaryen needs shape comparison, permutation search, and synthetic brand types.
+The source URLs reviewed for this page are now captured in [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md), and the local Starshine status is mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## File map
 
@@ -258,6 +262,8 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md)
+- [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/MinimizeRecGroups.cpp>

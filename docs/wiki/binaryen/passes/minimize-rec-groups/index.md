@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md
+  - ../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../tracker.md
@@ -13,6 +15,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./permutations-brands-and-public-conflicts.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
   - ../index.md
   - ../late-pipeline-dispatch.md
@@ -24,7 +27,7 @@ related:
 ## Role
 
 - `minimize-rec-groups` is an upstream Binaryen **module pass**.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt#L127-L139`](../../../../../src/passes/optimize.mbt#L127-L139).
 - Upstream Binaryen `pass.cpp` registers the public CLI name:
   - `minimize-rec-groups`
 - In Binaryen `version_129`, the public pass summary in `pass.cpp` is:
@@ -123,6 +126,8 @@ What it actually is in `version_129`:
   - Focused guide to the hardest half of the pass: why SCC splitting is not enough, how canonicalization and valid topological permutations work, when brands become necessary, how public groups constrain private output, and why exactness is feature-sensitive.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT-shape catalog covering independent-type splits, chain-vs-cycle boundaries, permutation wins, automorphism and subtype-order bailouts, descriptor/described ordering, exactness-feature toggles, public conflicts, and brand-heavy fallback families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine status and port map: boundary-only registry entry, honest active-request rejection, active-preset omission, no owner file, no dedicated backlog slice, and the exact local rec-group/type-section code surfaces a future module pass would need to build on.
 
 ## Current maintenance rule
 
@@ -140,6 +145,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md`](../../../raw/binaryen/2026-04-24-minimize-rec-groups-primary-sources.md)
+- [`../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md`](../../../raw/research/0290-2026-04-24-minimize-rec-groups-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md`](../../../raw/research/0156-2026-04-21-minimize-rec-groups-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
