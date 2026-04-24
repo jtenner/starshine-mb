@@ -44,6 +44,52 @@ test "code-pushing sinks const local.set into the only using if arm" {
 }
 
 ///|
+test "code-pushing sinks const local.set into the only using else arm" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if nop else local.get 1 drop end))",
+  )
+
+  assert_eq(@ir.hot_root_count(func), 1)
+  let if_id = @ir.hot_root_get(func, 0)
+  assert_eq(@ir.hot_node_get(func, if_id).op, @ir.HotOp::If)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
+  let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
+  assert_eq(@ir.hot_region_root_count(func, else_ref), 1)
+  let kept_use = @ir.hot_region_get(func, else_ref, 0)
+  assert_eq(@ir.hot_node_get(func, kept_use).op, @ir.HotOp::Drop)
+  let pushed_value = @ir.hot_child_get(func, kept_use, 0)
+  assert_eq(@ir.hot_node_get(func, pushed_value).op, @ir.HotOp::Const)
+}
+
+///|
+test "code-pushing duplicates const local.set value into both if arms" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop else local.get 1 drop end))",
+  )
+
+  assert_eq(@ir.hot_root_count(func), 1)
+  let if_id = @ir.hot_root_get(func, 0)
+  assert_eq(@ir.hot_node_get(func, if_id).op, @ir.HotOp::If)
+  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
+  assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
+  assert_eq(@ir.hot_region_root_count(func, else_ref), 1)
+  let then_drop = @ir.hot_region_get(func, then_ref, 0)
+  let else_drop = @ir.hot_region_get(func, else_ref, 0)
+  assert_eq(@ir.hot_node_get(func, then_drop).op, @ir.HotOp::Drop)
+  assert_eq(@ir.hot_node_get(func, else_drop).op, @ir.HotOp::Drop)
+  assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, then_drop, 0)).op,
+    @ir.HotOp::Const,
+  )
+  assert_eq(
+    @ir.hot_node_get(func, @ir.hot_child_get(func, else_drop, 0)).op,
+    @ir.HotOp::Const,
+  )
+}
+
+///|
 test "code-pushing keeps local.set before if when the local is used after the if" {
   let trace : Array[String] = []
   let optimized = match

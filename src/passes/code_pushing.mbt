@@ -111,7 +111,26 @@ fn code_pushing_count_local_writes_in_region(
 }
 
 ///|
-fn code_pushing_all_gets_are_in_then_arm(
+fn code_pushing_count_local_gets_in_if_arms(
+  func : @ir.HotFunc,
+  if_id : Int,
+  local_id : Int,
+) -> (Int, Int) {
+  let then_gets = code_pushing_count_local_gets_in_region(
+    func,
+    @ir.hot_region_then_ref(func, if_id),
+    local_id,
+  )
+  let else_gets = match @ir.hot_region_else_ref(func, if_id) {
+    Some(else_ref) =>
+      code_pushing_count_local_gets_in_region(func, else_ref, local_id)
+    None => 0
+  }
+  (then_gets, else_gets)
+}
+
+///|
+fn code_pushing_all_gets_are_in_if_arms(
   func : @ir.HotFunc,
   if_id : Int,
   local_id : Int,
@@ -124,19 +143,10 @@ fn code_pushing_all_gets_are_in_then_arm(
   if total_gets == 0 {
     return false
   }
-  let then_gets = code_pushing_count_local_gets_in_region(
-    func,
-    @ir.hot_region_then_ref(func, if_id),
-    local_id,
+  let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
+    func, if_id, local_id,
   )
-  if then_gets != total_gets {
-    return false
-  }
-  match @ir.hot_region_else_ref(func, if_id) {
-    Some(else_ref) =>
-      code_pushing_count_local_gets_in_region(func, else_ref, local_id) == 0
-    None => true
-  }
+  then_gets + else_gets == total_gets
 }
 
 ///|
@@ -246,15 +256,36 @@ fn code_pushing_try_sink_set_into_if_then(
   }
   let local_id = set_node.imm0
   if !code_pushing_has_single_local_write(func, local_id) ||
-    !code_pushing_all_gets_are_in_then_arm(func, if_id, local_id) {
+    !code_pushing_all_gets_are_in_if_arms(func, if_id, local_id) {
     return false
   }
 
-  let then_ref = @ir.hot_region_then_ref(func, if_id)
+  let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
+    func, if_id, local_id,
+  )
   let replacement = @ir.hot_node_get(func, value_id)
-  if !code_pushing_inline_local_gets_in_region(
-      ctx, func, then_ref, local_id, replacement,
-    ) {
+  let mut inlined = false
+  if then_gets > 0 {
+    inlined = code_pushing_inline_local_gets_in_region(
+      ctx,
+      func,
+      @ir.hot_region_then_ref(func, if_id),
+      local_id,
+      replacement,
+    ) ||
+    inlined
+  }
+  if else_gets > 0 {
+    match @ir.hot_region_else_ref(func, if_id) {
+      Some(else_ref) =>
+        inlined = code_pushing_inline_local_gets_in_region(
+          ctx, func, else_ref, local_id, replacement,
+        ) ||
+        inlined
+      None => ()
+    }
+  }
+  if !inlined {
     return false
   }
   ignore(pass_splice_region(ctx, func, region_ref, set_idx, 1, []))
