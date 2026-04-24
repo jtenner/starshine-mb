@@ -3881,6 +3881,44 @@ test "run_cmd_with_adapter accepts remove-unused-brs" {
 }
 
 ///|
+test "run_cmd_with_adapter accepts code-pushing" {
+  let input_mod = @passes.pass_test_module_from_wat(
+    "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop end))",
+  )
+  let input_wasm = encode_module_bytes(input_mod)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(input_wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+
+  let summary = match
+    run_cmd_with_adapter(["--code-pushing", "--out", "out.wasm", "a.wasm"], io) {
+    Ok(summary) => summary
+    Err(err) => fail("expected code-pushing cli success, got \{err}")
+  }
+  assert_eq(summary.resolved_passes, ["code-pushing"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, "out.wasm")
+  let optimized = decode_module_bytes(writes[0].1)
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected code-pushing output to validate, got \{err}")
+  }
+}
+
+///|
 #cfg(target="native")
 test "run_cmd_with_adapter dumps lowered remove-unused-brs carried guard wrappers without br_if" {
   let source =

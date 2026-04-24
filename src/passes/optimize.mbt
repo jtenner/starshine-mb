@@ -143,7 +143,7 @@ fn pass_registry_boundary_only_names() -> Array[String] {
 ///|
 fn pass_registry_removed_names() -> Array[String] {
   [
-    "avoid-reinterprets", "coalesce-locals", "code-folding", "code-pushing", "const-hoisting",
+    "avoid-reinterprets", "coalesce-locals", "code-folding", "const-hoisting",
     "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
     "merge-locals", "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
     "precompute-propagate", "redundant-set-elimination", "optimize-casts", "de-nan",
@@ -209,14 +209,19 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       pick_load_signs_descriptor(),
     ),
     pass_registry_entry_hot(
-      "tuple-optimization",
-      tuple_optimization_summary(),
-      tuple_optimization_descriptor(),
-    ),
-    pass_registry_entry_hot(
       "precompute",
       precompute_summary(),
       precompute_descriptor(),
+    ),
+    pass_registry_entry_hot(
+      "code-pushing",
+      code_pushing_summary(),
+      code_pushing_descriptor(),
+    ),
+    pass_registry_entry_hot(
+      "tuple-optimization",
+      tuple_optimization_summary(),
+      tuple_optimization_descriptor(),
     ),
     pass_registry_entry_hot(
       "simplify-locals",
