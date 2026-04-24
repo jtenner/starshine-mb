@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
   - ../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md
+  - ../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./created-exact-types-control-values-and-signature-rewrites.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Upstream implementation structure and test map for `type-ssa`
@@ -22,6 +25,7 @@ This page answers a different question:
 
 For `type-ssa`, the answer is pleasantly small.
 The real contract is mostly one implementation file, one registration file, one direct lit file, and one explicit refinalization dependency.
+The exact reviewed official source URLs and release provenance for this map are captured immutably in [`../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md).
 
 ## Main upstream files
 
@@ -123,6 +127,7 @@ That matches the source's explicit conservatism around loops and mismatched join
 
 ## Current-main drift check
 
+The 2026-04-23 raw manifest also records the checked official release provenance: the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 I did a narrow current-main spot check on:
 
 - `src/passes/TypeSSA.cpp`

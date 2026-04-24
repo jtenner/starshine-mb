@@ -1,11 +1,15 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
   - ../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md
+  - ../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md
   - ../tracker.md
   - ../index.md
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../type-merging/binaryen-strategy.md
 related:
@@ -13,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./created-exact-types-control-values-and-signature-rewrites.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../type-merging/index.md
   - ../type-refining/index.md
   - ../ssa/index.md
@@ -37,7 +42,7 @@ So this folder is an explicit tracker expansion, not a hidden implementation bac
 `type-ssa` deserved its own dossier for one concrete reason:
 
 - the existing [`../type-merging/index.md`](../type-merging/index.md) dossier already depends on contrasting against it,
-- but the tracker and pass map did not yet give it a canonical page of its own.
+- but until this follow-up the folder still lacked an immutable raw primary-source manifest and a dedicated Starshine status page.
 
 That made it easy to keep saying “`type-ssa` creates distinctions” without teaching what the pass actually does.
 
@@ -85,6 +90,8 @@ It is a small GC type-precision pass built around **created exact types**.
   Focused guide to the hardest part to misread: what counts as a created exact type, how `block` / `if` / `try` values propagate it, and where the pass pushes that precision into call and return signatures.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, preserved, and bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Exact current Starshine status page covering the repo's deliberate non-adoption today, the omission from local registry and backlog/planning surfaces, and the nearest concrete local code locations a future port would need to study first.
 
 ## Current maintenance rule
 
@@ -98,9 +105,13 @@ It is a small GC type-precision pass built around **created exact types**.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md)
 - [`../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md`](../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md)
+- [`../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md`](../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
+- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../type-merging/binaryen-strategy.md`](../type-merging/binaryen-strategy.md)
 - Binaryen `version_129` sources:

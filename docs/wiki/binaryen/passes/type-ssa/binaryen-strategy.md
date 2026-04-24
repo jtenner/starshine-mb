@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
   - ../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md
+  - ../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./created-exact-types-control-values-and-signature-rewrites.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../type-merging/index.md
   - ../ssa/index.md
 ---
@@ -18,6 +21,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the source oracle for this pass.
+The immutable primary-source manifest for this dossier is [`../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md).
 The core sources are:
 
 - `src/passes/TypeSSA.cpp`
@@ -238,6 +242,7 @@ A faithful port would need to preserve at least these boundaries:
 
 ## Current-main drift check
 
+The 2026-04-23 raw manifest records the checked official release provenance explicitly: the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 I did a narrow current-main spot check on:
 
 - `src/passes/TypeSSA.cpp`
