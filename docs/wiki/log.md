@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] research | add `asyncify` primary-source capture and Starshine status bridge
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose upstream `asyncify` because the widened pass wiki still had no dossier for Binaryen's public whole-module pause/resume transformation despite official Emscripten documentation and substantial Starshine prerequisite surfaces.
+- Added `docs/wiki/raw/binaryen/2026-04-24-asyncify-primary-sources.md`, capturing the official Binaryen `version_129` release, `Asyncify.cpp`, `pass.cpp`, `passes.h`, `asyncify.wast`, current-`main` spot-check URLs, and Emscripten's official Asyncify docs. The capture records the source-backed contract: public `asyncify`, callgraph/import/indirect-call analysis, state/data globals, runtime helper exports including `asyncify_get_state`, staged flow and local instrumentation, Asyncify memory selection/creation, memory32-vs-memory64 pointer width, and the reviewed tail-call unsupported boundary.
+- Added `docs/wiki/raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md` plus a new living dossier under `docs/wiki/binaryen/passes/asyncify/`, including overview, Binaryen strategy, implementation/test-map, transformed-shape catalog, and Starshine status pages.
+- Grounded the local status in exact repo surfaces: `src/passes/optimize.mbt` has no `asyncify` registry entry; `src/lib/types.mbt`, `src/wast/`, `src/binary/encode.mbt`, `src/binary/decode.mbt`, and `src/validate/typecheck.mbt` already cover many prerequisite module, call, global, memory, and validation primitives, but Starshine has no Asyncify analysis, instrumentation, runtime API synthesis, or host integration harness today.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md` so the formerly absent upstream-only pass now has a stable home and future runs do not treat it as an open dossier gap.
+
 ## [2026-04-24] health | link `precompute` relaxed-SIMD boundary to removal dossier
 
 - Ran a focused touched-area reference check after adding the `remove-relaxed-simd` dossier and found the existing `precompute` relaxed-SIMD negative still described the nondeterminism boundary without linking to the now-canonical removal-pass page.
