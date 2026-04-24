@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
+  - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/I64ToI32Lowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_i64-to-i32-lowering.wast
@@ -11,12 +13,15 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./flatness-helpers-and-boundaries.md
+  - ./abi-surface-and-opcode-coverage.md
+  - ./starshine-strategy.md
 ---
 
 # Beginner-friendly WAT shape catalog for `i64-to-i32-lowering`
 
 This page focuses on what kinds of WAT or IR shapes Binaryen actually rewrites.
 The examples are schematic, not exact checked output dumps.
+For the current Starshine non-implementation status and future local code map, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Core mental model
 

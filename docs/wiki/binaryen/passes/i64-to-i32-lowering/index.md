@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
+  - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
   - ../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -16,6 +18,7 @@ related:
   - ./flatness-helpers-and-boundaries.md
   - ./abi-surface-and-opcode-coverage.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
 ---
 
@@ -25,6 +28,7 @@ related:
 
 - `i64-to-i32-lowering` is a real public Binaryen pass.
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **boundary-only** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It has no owner file or dispatcher case today; [`./starshine-strategy.md`](./starshine-strategy.md) maps the exact local code surfaces a future module pass would need.
 - It is also still listed in the local whole-module transform roster in [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 
@@ -62,7 +66,8 @@ So this pass is best taught as:
 - It rewrites direct and indirect calls, `ref.func` signatures, locals, globals, loads, stores, many unary ops, many binary ops, `select`, `drop`, and `return`.
 - Some families still require helper imports or prior cleanup: reinterpret uses wasm2js scratch-memory helpers, some atomic families use wasm2js runtime helpers, and ops like `mul` / `div` / `rem` / `rot` / `popcnt` are expected to be gone already.
 - The refreshed dossier now also has a dedicated ABI/opcode coverage ledger so future readers can see, in one place, which families are directly pair-lowered, helper-backed, fallback-only, or still explicitly unsupported.
-- A current-main spot check found the same implementation as `version_129` aside from one comment typo fix.
+- The folder is now anchored by an immutable 2026-04-24 raw primary-source manifest, and a narrow current-main source revisit did not add a new teaching-relevant contract beyond the `version_129` story.
+- The dedicated Starshine strategy page records the exact current local truth: boundary-only registry name, request rejection, no module-pass dispatcher case, no owner file, no active preset role, and no active backlog slice.
 
 ## Page map
 
@@ -76,17 +81,22 @@ So this pass is best taught as:
   Compact ledger for the real coverage surface: module ABI rewrites, directly pair-lowered opcode families, helper-backed families, fallback-only logic, and explicit unsupported shapes.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, mixed, and bailout WAT families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future port map: exact registry / dispatcher / type / WAT / binary / validation code surfaces, plus the reasons a faithful port must be a boundary/module pass rather than a HOT-only rewrite.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `i64-to-i32-lowering` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real active pass for it.
+- Cite [`../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md) when restating upstream source-backed claims, and cite [`./starshine-strategy.md`](./starshine-strategy.md) when restating local implementation status.
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is outside the current no-DWARF default optimize path.
 - Keep the structural fact explicit too: the reviewed upstream pass expects flattened input and does not by itself cover every remaining `i64` opcode family.
 - When future docs summarize the pass quickly, link the ABI/opcode coverage page instead of implying this is a universal arbitrary-`i64` legalizer.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md)
+- [`../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md`](../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md)
 - [`../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md`](../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
@@ -94,6 +104,7 @@ So this pass is best taught as:
 - [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129` and current-main sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/I64ToI32Lowering.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

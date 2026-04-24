@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
+  - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/I64ToI32Lowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -21,6 +23,7 @@ related:
   - ./binaryen-strategy.md
   - ./flatness-helpers-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Upstream implementation structure and tests for `i64-to-i32-lowering`
@@ -166,13 +169,11 @@ It does not mean the pass supports every imaginable `i64` feature combination.
 The source file itself still contains explicit fatal or unreachable boundaries for several families.
 So the source file remains the primary truth for unsupported shapes.
 
-## Current-main drift check
+## Current-main freshness note
 
-A direct `version_129` vs `main` comparison on `src/passes/I64ToI32Lowering.cpp` found just one change:
-
-- a comment typo fix (`instrinsic` -> `intrinsic`)
-
-That means the reviewed file/test surface is still materially current.
+The immutable 2026-04-24 raw manifest now records the `version_129` owner, helper, test, and current-`main` URLs used by the dossier.
+The older 2026-04-21 comparison found only a comment typo fix on the checked owner-file surface; this run did not discover a new teaching-relevant contract to add beyond that `version_129` story.
+Treat this as a narrow freshness note, not a whole-repository equivalence proof.
 
 ## Practical reading order for future port work
 
@@ -190,6 +191,11 @@ If you need to re-study this pass later, use this order:
    - understand helper-import assumptions
 6. `src/ir/module-utils.h` and `src/ir/names.h`
    - understand how local rebuilding and naming work
+
+## Starshine follow-along map
+
+For the local code surfaces a future port must read after this upstream file/test map, see [`./starshine-strategy.md`](./starshine-strategy.md).
+That page records the current boundary-only registry status and the exact Starshine files that own pass dispatch, type/index structures, WAT lowering, binary codec support, and validation.
 
 ## Short source-backed summary
 

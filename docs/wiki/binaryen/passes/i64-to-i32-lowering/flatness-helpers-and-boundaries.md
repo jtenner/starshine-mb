@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
+  - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/I64ToI32Lowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/abi/js.h
@@ -17,6 +19,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Flatness, helpers, and hard boundaries in `i64-to-i32-lowering`
@@ -201,7 +204,8 @@ So the right lesson is:
 
 ## 9. What future Starshine work must preserve exactly
 
-If Starshine ever ports this pass, the minimum faithful boundary set is:
+If Starshine ever ports this pass, the minimum faithful boundary set is also mapped to exact local files in [`./starshine-strategy.md`](./starshine-strategy.md).
+At the semantic level, the minimum faithful boundary set is:
 
 1. require or synthesize a flat-input equivalent
 2. keep the low-visible/high-hidden value model

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
+  - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/I64ToI32Lowering.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/abi/js.h
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flatness-helpers-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `i64-to-i32-lowering`: ABI surface and opcode coverage
@@ -36,6 +39,7 @@ The reviewed Binaryen `version_129` source says something more precise:
 - some families are still explicitly unsupported
 
 So this page is the compact ledger for what the pass really covers.
+For the current Starshine implementation status and future local landing map, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## 1. ABI surface matrix
 
@@ -213,6 +217,8 @@ If you need one compact sentence, use this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md)
+- [`../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md`](../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/I64ToI32Lowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/abi/js.h>
