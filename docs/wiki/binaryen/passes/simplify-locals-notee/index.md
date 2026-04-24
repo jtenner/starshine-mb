@@ -1,22 +1,25 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
+  - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/cmd/cmd.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/simplify_locals.mbt
   - ../simplify-locals/index.md
   - ../simplify-locals/variant-matrix-and-scheduler.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee.txt
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./variant-boundaries-and-registry-aliases.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
   - ../simplify-locals/variant-matrix-and-scheduler.md
   - ../simplify-locals-notee-nostructure/index.md
@@ -30,7 +33,8 @@ related:
 
 - `simplify-locals-notee` is an upstream Binaryen public pass.
 - It is currently **unimplemented** in Starshine.
-- The current local registry placeholder in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) is spelled `simplify-locals-no-tee`.
+- The current local removed-registry placeholder in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) is spelled `simplify-locals-no-tee`; the exact upstream spelling is not registered locally today.
+- The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md).
 - In Binaryen `version_129`, this pass is **not** part of the canonical no-DWARF `-O` / `-Os` path tracked in [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md).
 - It is still a fair wiki target because it is:
   - a real upstream public pass name in `pass.cpp`
@@ -91,10 +95,14 @@ So `-notee` is **not**:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Actual Binaryen `version_129` implementation shape, helper dependencies, scheduler facts, and the real tee-vs-structure split.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Source/test map for `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, helper files, the dedicated sibling fixtures, and neighboring comparison fixtures.
 - [`./variant-boundaries-and-registry-aliases.md`](./variant-boundaries-and-registry-aliases.md)
   - Why the upstream/local spelling mismatch matters, plus the exact contrast against full, `-nostructure`, `-notee-nostructure`, and `-nonesting` siblings.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly positive, negative, and bailout shape catalog.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Exact current Starshine status: upstream spelling absent, local alias removed, CLI/request rejection, active full-pass reuse surface, and future no-tee HOT-mode landing zone.
 
 ## Current maintenance rule
 
@@ -104,9 +112,12 @@ So `-notee` is **not**:
   - `-notee` still forms structure
   - `-notee` only forbids new tee creation
 - If Starshine ever ports this pass, preserve the distinction from both `-nostructure` and `-notee-nostructure`.
+- Treat the 2026-04-24 raw manifest and `0329` follow-up as the current provenance and local-status anchors; keep `0166` as historical source-confirmation research.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md)
+- [`../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`](../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md`](../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../simplify-locals/index.md`](../simplify-locals/index.md)

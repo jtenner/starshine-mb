@@ -1,15 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
+  - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
+  - ./starshine-strategy.md
   - ../simplify-locals/variant-matrix-and-scheduler.md
   - ../simplify-locals-notee-nostructure/index.md
   - ../simplify-locals-nostructure/index.md
@@ -36,7 +38,7 @@ This page keeps that mapping explicit.
 
 | Meaning | Upstream Binaryen public name | Current local registry spelling |
 | --- | --- | --- |
-| no tees, structure still enabled | `simplify-locals-notee` | `simplify-locals-no-tee` |
+| no tees, structure still enabled | `simplify-locals-notee` | `simplify-locals-no-tee` (removed); exact upstream spelling is not registered locally |
 | no tees and no structure | `simplify-locals-notee-nostructure` | `simplify-locals-no-tee-no-structure` |
 | no structure, tees still allowed | `simplify-locals-nostructure` | `simplify-locals-no-structure` |
 | no nesting at all | `simplify-locals-nonesting` | `simplify-locals-no-nesting` |
@@ -107,6 +109,8 @@ That is what makes it different from both nearby reduced variants:
 A future port or scheduler surface should either:
 
 - use the upstream public names directly, or
-- document the local alias map explicitly at the registry boundary
+- document the local alias map explicitly at the registry boundary, or
+- support both names with one canonical implementation entry
 
 What should not happen is silent conflation, because that makes the wrong variant easy to implement.
+The 2026-04-24 Starshine follow-up in [`./starshine-strategy.md`](./starshine-strategy.md) records the current exact status: upstream `simplify-locals-notee` is absent from the local registry, while local `simplify-locals-no-tee` is present only as a removed name.

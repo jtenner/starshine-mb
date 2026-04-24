@@ -1,15 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
+  - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee.txt
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
+  - ./starshine-strategy.md
   - ../simplify-locals/wat-shapes.md
   - ../simplify-locals-notee-nostructure/wat-shapes.md
 ---
@@ -17,6 +18,7 @@ related:
 # `simplify-locals-notee` WAT shapes
 
 This page focuses on the shapes beginners are most likely to misread.
+It is now anchored by the 2026-04-24 raw primary-source manifest [`../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md).
 
 ## Reading rule
 
@@ -147,7 +149,7 @@ Full `simplify-locals` may eventually consider:
 ```
 
 `-notee` will not.
-That is its signature no-rewrite family.
+That is its signature no-rewrite family and the future Starshine policy that must be tested separately from active full `simplify-locals`.
 
 ## 2. Effect-order barriers
 

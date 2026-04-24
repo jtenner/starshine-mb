@@ -1,19 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
+  - ../../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0166-2026-04-21-simplify-locals-notee-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/linear-execution.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/equivalent_sets.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-utils.h
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./variant-boundaries-and-registry-aliases.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
   - ../simplify-locals/variant-matrix-and-scheduler.md
 ---
@@ -23,6 +21,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the current source oracle.
+The 2026-04-24 immutable raw manifest for this page is [`../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md).
 
 Primary files:
 
@@ -54,7 +53,7 @@ and `SimplifyLocals.cpp` implements that public pass with:
 - `createSimplifyLocalsNoTeePass()`
 - `new SimplifyLocals<false, true>()`
 
-So the real identity is:
+So the real identity is `SimplifyLocals<false, true>` in source syntax, or `SimplifyLocals<false, true, true>` when the default `allowNesting = true` template parameter is made explicit for teaching:
 
 | Template switch | Value | Meaning |
 | --- | --- | --- |
@@ -238,6 +237,12 @@ It still does the main sink-and-structure walk first.
 
 Wrong.
 In this repo it also matters because the local registry names it, the spelling differs from upstream, and the existing family docs were not enough on their own.
+
+## Starshine mapping note
+
+The current Starshine implementation is not a sibling mode yet.
+`src/passes/simplify_locals.mbt` implements active full `simplify-locals`, while `src/passes/optimize.mbt` tracks the local alias `simplify-locals-no-tee` only as a removed name and does not register the upstream spelling `simplify-locals-notee`.
+See [`./starshine-strategy.md`](./starshine-strategy.md) for the exact code map and future HOT-mode landing zone.
 
 ## Bottom line
 

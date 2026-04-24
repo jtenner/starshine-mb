@@ -1,8 +1,8 @@
 ---
 title: Binaryen simplify-locals-notee research
 kind: research
-status: supported
-last_reviewed: 2026-04-21
+status: archived research feeding living wiki pages; superseded for raw-source provenance and exact Starshine local-status mapping by `0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md`, while still useful as the original source-confirmation note
+last_reviewed: 2026-04-24
 sources:
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
