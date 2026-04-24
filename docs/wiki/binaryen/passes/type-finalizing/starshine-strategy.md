@@ -125,7 +125,7 @@ If a future port lands, use the repo's standard signoff:
 
 - The local representation of private/public heap-type visibility may not exactly mirror Binaryen's `ModuleUtils::getPrivateHeapTypes(...)`; a future port must define and test the Starshine equivalent before flipping the registry category.
 - The best local type-remap helper does not exist yet as a named `GlobalTypeRewriter` equivalent. A faithful port may first need shared type-section rewrite infrastructure used by other boundary-only GC/type passes.
-- The sibling `type-un-finalizing` has its own folder but has not yet received the same 2026-04-24 raw-manifest refresh. It shares the upstream owner file, but this page is scoped to the finalizing direction.
+- The sibling `type-un-finalizing` now has its own 2026-04-24 raw-manifest refresh and Starshine status page. It shares the upstream owner file, but this page remains scoped to the finalizing direction.
 
 ## Source chain
 

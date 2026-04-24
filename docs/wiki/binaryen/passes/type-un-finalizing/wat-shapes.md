@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
+  - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./private-boundaries-sibling-split-and-no-leaf-rule.md
+  - ./starshine-strategy.md
 ---
 
 # `type-unfinalizing` WAT shapes
@@ -20,6 +23,7 @@ So the examples here focus on type declarations and the places that mention them
 
 The examples are beginner-friendly sketches of the shapes Binaryen's official lit file proves.
 They are meant to teach the contract, not reproduce the full test file verbatim.
+For local status and future-port code locations, read [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Positive shape 1: private final leaf becomes open
 
@@ -203,6 +207,10 @@ After `--type-unfinalizing`:
 - the subtype edge itself is still there
 
 That is `unsubtyping`, not `type-unfinalizing`.
+
+## Starshine implementation caveat
+
+Current Starshine does not perform any of these rewrites. The local registry keeps only the boundary-only alias `type-un-finalizing`, and direct requests reject before any HOT or module pass can run. Treat these WAT shapes as the Binaryen oracle and future-port target, not as current Starshine output.
 
 ## Best beginner summary
 

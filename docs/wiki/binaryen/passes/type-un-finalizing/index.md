@@ -1,10 +1,13 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
+  - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/lib/types.mbt
   - ../../../../../agent-todo.md
   - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../no-dwarf-default-optimize-path.md
@@ -15,6 +18,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./private-boundaries-sibling-split-and-no-leaf-rule.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../type-finalizing/index.md
   - ../remove-unused-types/index.md
   - ../type-merging/index.md
@@ -31,7 +35,7 @@ related:
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-pass audit.
 - `agent-todo.md` currently has **no dedicated `type-un-finalizing` slice**.
 
-So this folder is another explicit, source-backed upstream-only registry expansion.
+So this folder is another explicit, source-backed upstream-only registry expansion. As of the 2026-04-24 refresh, it is anchored by an immutable raw primary-source manifest and a dedicated Starshine status / future-port map rather than only the older 0193 research note.
 
 ## Why this pass matters
 
@@ -86,6 +90,8 @@ So this pass is best taught as:
   Focused guide to the easiest part to misread: private-vs-public visibility, why the sibling drops the leaf-only rule, and how it differs from `type-finalizing`.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly module/WAT shape catalog for the main positive, preserved, and bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map: local boundary-only registry entry, active request rejection, no owner file, no preset role, no backlog slice, and the exact type-section / parser / validator / binary surfaces a future port must reuse.
 
 ## Current maintenance rule
 
@@ -103,6 +109,8 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md)
+- [`../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md`](../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
@@ -110,6 +118,7 @@ So this pass is best taught as:
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TypeFinalizing.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

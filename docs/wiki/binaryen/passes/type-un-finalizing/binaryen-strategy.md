@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
+  - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./private-boundaries-sibling-split-and-no-leaf-rule.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../type-finalizing/index.md
   - ../remove-unused-types/index.md
 ---
@@ -17,7 +20,8 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass.
+Use Binaryen `version_129` as the source oracle for this pass, anchored by the committed raw manifest [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md). The older 0193 research note remains historical background, but new summaries should cite the raw manifest and this living page first.
+
 The core sources are:
 
 - `src/passes/TypeFinalizing.cpp`
@@ -268,6 +272,10 @@ So this pass is best understood as:
 - **private-type selection plus one global open-bit rewrite**
 
 not as a complicated optimizer.
+
+## Starshine status bridge
+
+Starshine currently preserves the local spelling `type-un-finalizing` only as a boundary-only registry name. It rejects direct requests before hot/module dispatch, has no owner file, and does not schedule the pass in `optimize` or `shrink` presets. The exact local follow-along map is [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## What a future Starshine port must preserve
 

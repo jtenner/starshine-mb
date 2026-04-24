@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
+  - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./private-boundaries-sibling-split-and-no-leaf-rule.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../type-finalizing/implementation-structure-and-tests.md
   - ../remove-unused-types/implementation-structure-and-tests.md
 ---
@@ -16,6 +19,8 @@ related:
 # `type-unfinalizing` implementation structure and tests
 
 ## Main upstream files
+
+Primary online source provenance is captured in [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md). The older 0193 research note is still useful historical context, but this page now treats the raw manifest as the source anchor.
 
 | File | Kind | Why it matters |
 | --- | --- | --- |
@@ -168,6 +173,10 @@ It captures almost every real rule relevant here:
 - open vs final
 - sibling split between finalizing and unfinalizing
 - struct types and function types
+
+## Starshine local structure note
+
+Current Starshine has no matching owner file or tests for this sibling. The local structure readers should inspect today is [`./starshine-strategy.md`](./starshine-strategy.md): `src/passes/optimize.mbt` keeps `type-un-finalizing` boundary-only and rejects active requests, while the future implementation would need type-section, WAT, validator, and binary roundtrip support.
 
 ## Source URLs
 

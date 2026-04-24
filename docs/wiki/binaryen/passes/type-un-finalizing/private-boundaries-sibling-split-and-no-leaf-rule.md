@@ -1,20 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
+  - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../type-finalizing/leaf-types-public-boundaries-and-sibling-split.md
 ---
 
 # `type-unfinalizing`: private boundaries, sibling split, and the no-leaf rule
 
-This page covers the easiest part of `type-unfinalizing` to misread.
+This page covers the easiest part of `type-unfinalizing` to misread. It is source-backed by the 2026-04-24 raw manifest and should be read with the current Starshine status page, [`./starshine-strategy.md`](./starshine-strategy.md), when planning local work.
 
 ## The three rules that matter most
 
@@ -124,6 +127,10 @@ That makes it very different from neighbors like:
 - `type-merging`
 - `type-generalizing`
 - `unsubtyping`
+
+## Starshine status reminder
+
+Starshine currently has no port to audit for these rules. The only local behavior is boundary-only registry rejection for `type-un-finalizing`; any future implementation must prove these three rules before changing that category.
 
 ## Porting rule of thumb
 
