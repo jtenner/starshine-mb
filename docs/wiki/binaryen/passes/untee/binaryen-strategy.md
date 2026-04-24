@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
@@ -13,9 +14,13 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flattening-code-pushing-and-tee-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Binaryen strategy for `untee`
+
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md).
+The reviewed official Binaryen `version_129` release page rechecked on 2026-04-23 showed publish date **2026-04-01**, and a narrow same-day `main` spot check on `Untee.cpp`, `pass.cpp`, `passes.h`, `SimplifyLocals.cpp`, and `untee.wast` did not surface a new teaching-relevant drift beyond this dossier's claims.
 
 ## What the pass really is
 
@@ -300,6 +305,7 @@ So `version_129` is a reliable oracle here today.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

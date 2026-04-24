@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
@@ -15,9 +16,13 @@ related:
   - ./binaryen-strategy.md
   - ./flattening-code-pushing-and-tee-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `untee` implementation structure and tests
+
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md).
+That manifest records the exact reviewed official release, source, and test URLs plus the 2026-04-23 release-page provenance showing Binaryen `version_129` publish date **2026-04-01**.
 
 This page is the file-by-file map for Binaryen `untee`.
 
@@ -192,6 +197,7 @@ When this pass is eventually ported, these are the source-backed obligations to 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

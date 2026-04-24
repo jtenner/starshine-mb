@@ -1,10 +1,13 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-23
 sources:
+  - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
+  - ../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -14,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flattening-code-pushing-and-tee-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../code-pushing/index.md
   - ../simplify-locals/index.md
   - ../simplify-locals-notee/index.md
@@ -71,6 +75,7 @@ So this pass is best taught as:
 - If the tee's value is already `unreachable`, the tee wrapper is deleted instead of expanded.
 - Nested tees expand inside-out because the walk is postorder.
 - The source comment explicitly says this flatter form can help passes like `code-pushing`.
+- The 2026-04-23 raw primary-source manifest now records the exact official release, source, and test URLs reviewed for this dossier, and the checked official Binaryen `version_129` release page showed publish date **2026-04-01**.
 - A narrow current-`main` check found the implementation, registration, and dedicated lit file unchanged from `version_129`, so the tagged release is a reliable oracle here.
 
 ## What this pass sounds like versus what it actually does
@@ -97,6 +102,8 @@ What it actually is in `version_129`:
   Focused guide to the easiest parts to misread: why `untee` helps make side effects flatter, why it is not `simplify-locals-notee`, and why the unreachable fast path matters.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, nested, preserved, and bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Exact current Starshine status page mapping the removed-registry entry, honest request rejection, missing backlog slice, and the nearest local `simplify-locals` / `code-pushing` landing zone for a future port.
 
 ## Current maintenance rule
 
@@ -107,7 +114,9 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
+- [`../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md`](../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
