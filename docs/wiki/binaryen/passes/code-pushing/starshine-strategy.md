@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-24
 sources:
   - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
   - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
+  - ../../../../../src/passes/code_pushing.mbt
+  - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/passes/registry_test.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../precompute/index.md
@@ -25,37 +27,42 @@ related:
 # Starshine Strategy For `code-pushing`
 
 Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the concrete neighboring implementation areas the remaining port work must hook into.
 
 ## The honest current status
 
-`code-pushing` is still **unimplemented** in Starshine.
-There is no `src/passes/code_pushing.mbt` owner file today.
+`code-pushing` now has an initial explicit HOT implementation in Starshine.
+The owner file is `src/passes/code_pushing.mbt`.
 
-That does **not** mean there is no Starshine strategy surface.
-The current local strategy is registry and slot planning:
+The current implementation is deliberately a conservative subset, not a full Binaryen `CodePushing.cpp` port:
 
-- keep the pass spelling tracked in the registry surface
+- it replaces a const-like `local.set` root immediately before a void `if` with `nop`
+- it only moves a cloned `local.set` into a then/else arm when that single arm contains every read of the local
+- it refuses later local reads, multiple writes, condition/else reads, non-void `if`s, and non-const/trapping values
+- it is wired for direct pass execution, registry classification, hot dispatch, and CLI flag acceptance
+- it is **not** scheduled in the public optimize/shrink presets yet
+
+The remaining local strategy is parity and slot planning:
+
 - keep the canonical no-DWARF slot documented
-- keep the tuple-opt exact-slot gate honest until `code-pushing` and `simplify-locals-nostructure` are both real active neighbors
-- keep the backlog slice focused on motion safety and rewrite validation
-- teach the surrounding implemented and near-neighbor dossiers a future port would need to compose with
-
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+- keep the tuple-opt exact-slot gate honest until `simplify-locals-nostructure` exists and `code-pushing` has stronger Binaryen parity evidence
+- keep the backlog slice focused on broader motion safety, segment sinking, profitability, and artifact validation
+- teach the surrounding implemented and near-neighbor dossiers what this first subset does and does not promise
 
 ## Exact local code map today
 
 The fastest read-along path through the current Starshine status is:
 
-- tracked but removed pass-name status
+- active pass owner and focused tests
+  - `src/passes/code_pushing.mbt`
+  - `src/passes/code_pushing_test.mbt`
+- active registry and exact-slot gate
   - `src/passes/optimize.mbt`
-    - `pass_registry_removed_names()` includes `"code-pushing"`
-- exact-slot gate for the already-implemented tuple pass
-  - `src/passes/optimize.mbt`
-    - `tuple_optimization_exact_slot_prereqs_ready()` requires both `code-pushing` and `simplify-locals-no-structure` to be active hot passes before tuple-opt can claim its Binaryen slot in public presets
-- regression proof that the gate is still intentionally closed
-  - `src/passes/optimize_test.mbt`
-    - `tuple-optimization exact preset slot remains unavailable while its neighbors are removed`
+    - `pass_registry_entries()` now includes `"code-pushing"` as a hot pass
+    - `tuple_optimization_exact_slot_prereqs_ready()` still requires both `code-pushing` and `simplify-locals-no-structure` to be active hot passes before tuple-opt can claim its Binaryen slot in public presets
+- registry and command-surface proof
+  - `src/passes/registry_test.mbt`
+  - `src/cmd/cmd_wbtest.mbt`
 - backlog and delivery plan
   - `agent-todo.md`
     - `CP` slice under the Binaryen no-DWARF default optimize pathway parity section
@@ -67,60 +74,47 @@ The fastest read-along path through the current Starshine status is:
   - `docs/wiki/binaryen/passes/tuple-optimization/index.md`
   - `docs/wiki/binaryen/passes/simplify-locals-nostructure/index.md`
 
-That code-and-doc map is the practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and future landing zone.
+That code-and-doc map lets readers jump directly from the upstream algorithm to the exact local owner file, tests, and remaining parity work.
 
 ## What Starshine currently does for this pass name
 
-Today Starshine's behavior for `code-pushing` is deliberately limited.
+Today Starshine's behavior for `code-pushing` is active but deliberately limited.
 
-### 1. The name is tracked, not forgotten
+### 1. The name is an active hot pass
 
-`src/passes/optimize.mbt` keeps `code-pushing` in `pass_registry_removed_names()`.
-That means:
+`src/passes/optimize.mbt` now registers `code-pushing` as a `HotPass` rather than a removed compatibility name.
+That means direct requests such as `--code-pushing` are accepted and route through the standard hot pipeline.
 
-- the project still treats `code-pushing` as a real known pass
-- the spelling is preserved in the registry-level compatibility surface
-- the pass remains visible in tracker and backlog work instead of silently falling out of planning
+### 2. The implemented motion family is intentionally narrow
 
-That is the right current behavior for an unimplemented parity pass.
+The first implementation handles one safe `optimizeIntoIf`-style shape:
 
-### 2. The tuple-opt preset gate intentionally depends on this pass still being missing
+- a root `local.set` immediately precedes a void `if`
+- the set value is const-like (`const`, `ref.null`, or `ref.func`)
+- the target local has exactly one write
+- every read of that local is in exactly one `if` arm
+- the pass replaces the existing `local.set` with `nop` and inserts a cloned `local.set` before the arm-local uses
 
-The strongest local implementation-facing clue lives in `tuple_optimization_exact_slot_prereqs_ready()`.
-That function explicitly checks whether:
+The pass bails out instead of guessing for later local reads, multiple writes, condition or else reads, result-typed `if`s, and non-const or potentially trapping computations.
 
-- `code-pushing`
-- `simplify-locals-no-structure`
+### 3. The tuple-opt preset gate is still honest
 
-have both graduated to `HotPass` registry entries.
+`tuple_optimization_exact_slot_prereqs_ready()` now sees `code-pushing` as active, but it still requires `simplify-locals-no-structure` before tuple-opt can claim its Binaryen slot in public presets.
+The public `optimize` and `shrink` presets remain intentionally narrower until that missing neighbor and stronger `code-pushing` parity proof exist.
 
-Because `code-pushing` is still removed today, the function stays false, and `optimize_preset_passes()` / `shrink_preset_passes()` deliberately keep tuple-opt out of the public presets.
+### 4. The remaining work is still planned as a parity slice
 
-That means `code-pushing` is already part of an active local strategy story even without an implementation file:
-Starshine uses its absence to keep a neighboring implemented pass from claiming an inexact Binaryen slot.
+`agent-todo.md` keeps `code-pushing` under slice `CP` for the broader upstream concerns:
 
-### 3. The current tests preserve that honesty boundary
+- generic contiguous segment sinking
+- profitability heuristics
+- trap and side-effect boundaries beyond const-like values
+- branchy and one-arm-unreachable fixtures
+- artifact and compare-pass validation against Binaryen
 
-`src/passes/optimize_test.mbt` locks the gate behavior in place with a regression asserting tuple-opt remains unavailable while its exact neighboring slots are still removed.
+## The right remaining Starshine implementation shape
 
-That matters because a future `code-pushing` port is not just “one more pass.”
-Landing it changes when Starshine can truthfully expose the tuple-opt neighborhood in public presets.
-
-### 4. The work is planned as a parity slice, not an orphan idea
-
-`agent-todo.md` already gives `code-pushing` a real backlog slice under `CP`.
-The current deliverables are framed around the right upstream concerns:
-
-- motion safety rules
-- trap and side-effect boundaries
-- rewrite coverage on branchy fixtures
-- artifact validation against Binaryen
-
-That backlog framing already matches the upstream dossier better than a vague “sink pure code” summary would.
-
-## The right future Starshine implementation shape
-
-The current docs and neighboring passes strongly suggest that a future local `code-pushing` port should be taught as an **early-cluster HOT rewrite family**, not as an isolated generic optimizer.
+The current docs and neighboring passes strongly suggest that the remaining `code-pushing` port work should be taught as an **early-cluster HOT rewrite family**, not as an isolated generic optimizer.
 
 Why:
 
@@ -129,9 +123,9 @@ Why:
 - the next intended neighbor is `simplify-locals-nostructure`
 - Starshine already has explicit `precompute` and `tuple-optimization` dossiers explaining what those neighbors expect from the surrounding shape
 
-So the local strategy should be thought of as:
+So the local strategy beyond the first const-local-set subset should be thought of as:
 
-1. identify a HOT-level representation of Binaryen's two upstream motion families
+1. extend the HOT-level representation of Binaryen's two upstream motion families
    - generic structured-segment sinking
    - stricter direct-`if` sinking
 2. prove the same movement-safety boundaries locally
@@ -139,7 +133,7 @@ So the local strategy should be thought of as:
    - effect and trap barriers
    - one-arm-unreachable versus two-arm-reachable split
 3. keep the scheduler story honest
-   - land the real pass before claiming tuple-opt's exact public preset slot
+   - do not claim tuple-opt's exact public preset slot until the remaining neighbor and parity proof are real
 4. preserve the handoff to later local cleanup neighbors
    - especially the still-missing `simplify-locals-nostructure` slot
 
@@ -147,15 +141,15 @@ In other words, the future port should slot into a local early optimization ecos
 
 ## The most important local dependency map
 
-### Upstream `code-pushing` is the missing left neighbor of local `tuple-optimization`
+### Upstream `code-pushing` is now a partial left neighbor of local `tuple-optimization`
 
 See [`../tuple-optimization/index.md`](../tuple-optimization/index.md).
 
 Why it matters locally:
 
 - Starshine already implements tuple optimization as an explicit hot pass
-- the tuple dossier repeatedly says its exact Binaryen preset slot is blocked until `code-pushing` and `simplify-locals-nostructure` exist in-tree
-- a future `code-pushing` port therefore unlocks truthful preset placement work, not just one isolated explicit pass flag
+- the tuple dossier's exact Binaryen preset slot was blocked on both `code-pushing` and `simplify-locals-nostructure`; after this first `code-pushing` slice, the remaining blockers are `simplify-locals-nostructure` plus stronger code-pushing parity proof
+- continued `code-pushing` work therefore unlocks truthful preset placement work, not just one isolated explicit pass flag
 
 ### Upstream `code-pushing` is also downstream of local `precompute`
 
@@ -165,7 +159,7 @@ Why:
 
 - Binaryen expects `code-pushing` to see a body already simplified by precompute-level folding
 - Starshine already has the explicit upstream-aligned `precompute` surface
-- a future local port should therefore validate not only `--code-pushing` in isolation, but also the real `precompute -> code-pushing` neighborhood
+- remaining local port work should therefore validate not only `--code-pushing` in isolation, but also the real `precompute -> code-pushing` neighborhood
 
 ### The right immediate consumer after it is still the missing `simplify-locals-nostructure` slot
 
@@ -175,31 +169,31 @@ Why:
 
 - Binaryen uses `code-pushing` to make branch-local work more local before the early no-structure locals cleanup runs
 - Starshine still tracks that right neighbor as removed, under the local spelling `simplify-locals-no-structure`
-- a future `code-pushing` port should therefore keep its interaction with that later locals cleanup explicit instead of trying to absorb all downstream cleanup itself
+- remaining `code-pushing` work should therefore keep its interaction with that later locals cleanup explicit instead of trying to absorb all downstream cleanup itself
 
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.
 Starshine does **not** currently have:
 
-- a `code-pushing` MoonBit implementation file
 - HOT-region candidate collection for contiguous movable suffixes
-- local effect and use tracking specifically for this pass
-- a direct-`if` rewrite engine that matches Binaryen's one-arm versus two-arm split for this pass
-- pass-specific reduced tests or CLI execution coverage beyond the tracked removed-name and slot-gating surfaces
+- local effect and use tracking broad enough for Binaryen's full segment sinking
+- a direct-`if` rewrite engine that matches Binaryen's complete one-arm versus two-arm split for this pass
+- pass-fuzz or debug-artifact parity evidence for the direct pass
+- public-preset scheduling for the Binaryen slot
 
 So the current repo status is best summarized as:
 
-- name tracked
-- tuple-slot dependency tracked
-- backlog tracked
-- scheduler slot documented
-- transform itself not yet landed
+- active explicit hot pass
+- conservative const-like single-consuming-arm local-set movement subset
+- tuple-slot dependency still tracked
+- backlog still tracks broader parity work
+- scheduler slot still documented but not public-preset active
 
-## Validation plan for the eventual port
+## Validation plan for the remaining port
 
 The existing backlog plus neighboring pass docs imply the right validation ladder.
-A future real implementation should validate in this order:
+The remaining implementation should validate in this order:
 
 1. reduced shape tests for the two upstream families
    - generic structured-segment suffix sinks

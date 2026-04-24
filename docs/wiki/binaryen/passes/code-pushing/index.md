@@ -1,12 +1,14 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-24
 sources:
   - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
   - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/code_pushing.mbt
+  - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -25,7 +27,7 @@ related:
 ## Role
 
 - `code-pushing` is an upstream Binaryen early function-optimization pass.
-- It is currently **unimplemented** in Starshine and still appears under the removed pass names in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It now has an initial explicit HOT implementation in Starshine and is no longer a removed registry name in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - Its real job is narrower than the name suggests: Binaryen uses it to sink a movable **suffix of block-local work** into later control-dependent regions when that is safe and worth the duplication.
 
 ## Why it matters
@@ -34,8 +36,8 @@ related:
 - The saved generated-artifact `-O4z` audit records it as a real skipped top-level upstream slot:
   - top-level slot `20`
 - The saved Binaryen debug log also shows many repeated nested reruns of `precompute-propagate -> code-pushing -> tuple-optimization`, so this pass is not just a one-off top-level detail.
-- The repo backlog already treats it as a real parity blocker under slice `CP` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
-- It is also one of the missing scheduler neighbors that still block fully honest public-preset placement for the already-implemented `tuple-optimization` pass.
+- The repo backlog still treats the broader Binaryen-compatible implementation and parity proof as real follow-up work under slice `CP` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- It was one of the missing scheduler neighbors for the already-implemented `tuple-optimization` pass; after this initial activation, `simplify-locals-nostructure` and broader `code-pushing` parity proof remain the honest preset blockers.
 - The dossier now also has an immutable raw primary-source manifest recording that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**, plus a dedicated Starshine status/port-map page tying the upstream story directly to the current local registry, tuple-slot gate, and backlog surfaces.
 
 ## Beginner summary
@@ -56,6 +58,7 @@ But two corrections matter immediately:
 
 ## Current durable takeaways
 
+- Starshine now exposes `code-pushing` as an active explicit HOT pass, but the implemented rewrite is a conservative first slice: it replaces a const-like `local.set` root with `nop` and moves a cloned set into the single consuming `if` arm, and bails out on later local reads, multiple writes, else/condition reads, non-void `if`s, and trapping/non-const values.
 - Binaryen `version_129` implements `code-pushing` as a function-parallel **post-walk** pass.
 - The pass has two related but different rewrite families:
   1. generic control-flow segment sinking through the `optimizeSegment(...)` path
@@ -86,12 +89,12 @@ But two corrections matter immediately:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future landing-zone map: removed-name registry tracking, tuple exact-slot gating, backlog slice `CP`, and the neighboring local pass dossiers a future port must compose with.
+  Current Starshine implementation/status map: active HOT owner file, conservative single-consuming-arm local-set movement subset, tuple exact-slot gating, backlog slice `CP`, and the neighboring local pass dossiers the remaining port work must compose with.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `code-pushing` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
+- Keep the page explicit that the current Starshine pass is an initial conservative subset, not the full Binaryen `CodePushing.cpp` port.
 - New `code-pushing` findings should update both the strategy page and the shape/barrier pages so the algorithm explanation and the example catalog stay aligned.
 
 ## Sources
@@ -100,6 +103,8 @@ But two corrections matter immediately:
 - [`../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md`](../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md`](../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)
+- [`../../../../../src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt)
 - [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
