@@ -1,16 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
+  - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalEffects.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-global-effects.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./metadata-naming-and-consumers.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
 ---
@@ -129,15 +129,15 @@ The real pass deliberately pushes the facts backward through the chain.
 **What the pass does:**
 
 - starts from shallow summaries
-- keeps requeueing callers when a callee summary changes
-- eventually stabilizes the recursive group's global-effect facts
+- treats recursive call chains conservatively rather than as acyclic wrapper calls
+- in current `main`, expresses this through SCC component aggregation
 
 **Why this matters later:**
 
 The deferred fixed point is not accidental bookkeeping.
 It is how Binaryen handles recursive precision honestly.
 
-## Shape 5: imported or opaque boundary
+## Shape 5: indirect, imported, or opaque boundary
 
 **Pattern:** a local function calls an import.
 
@@ -149,10 +149,13 @@ It is how Binaryen handles recursive precision honestly.
     (call $ext)))
 ```
 
+A similar boundary exists for unresolved indirect-call or `call_ref`-style targets.
+
 **What to expect:**
 
-- the pass cannot inspect an external body the same way it inspects a local defined function
+- the pass cannot inspect an external or unknown body the same way it inspects a local defined function
 - later precision is therefore limited around that boundary
+- `version_129` records unknown effects conservatively instead of assuming purity
 
 **Why this matters:**
 
@@ -175,7 +178,7 @@ This is the most important “shape” to remember for this pass.
 
 ## Shape 7: consumer payoff in `vacuum`
 
-The reviewed upstream test `vacuum-global-effects.wast` demonstrates the downstream payoff shape.
+The reviewed upstream test `vacuum-global-effects.wast` demonstrates one downstream payoff shape.
 
 Conceptually, the family looks like this:
 
@@ -192,7 +195,18 @@ So the story is:
 2. later `vacuum` sees a more precise call-effect summary
 3. then the visible WAT rewrite happens
 
-## Shape 8: no direct code motion by this pass
+## Shape 8: consumer payoff in `simplify-locals`
+
+The reviewed upstream test `global-effects_simplify-locals.wast` demonstrates the second major downstream family.
+
+Conceptually, this is the case where generated summaries let a later local simplification distinguish:
+
+- a call that only reads a global, versus
+- a call that writes a global or has unknown global effects.
+
+The visible before/after belongs to `simplify-locals`, but the enabling fact belongs to `generate-global-effects`.
+
+## Shape 9: no direct code motion by this pass
 
 A common beginner mistake is to expect this pass itself to move or delete expressions around calls.
 It does not.
@@ -212,7 +226,7 @@ that later rewrite belongs to the consumer pass, not to `generate-global-effects
 | direct local reader/writer callee | positive metadata update |
 | transitive wrapper chain | positive metadata update |
 | recursive call group | positive after fixed point stabilizes |
-| imported or opaque target | conservative / limited precision |
+| imported, indirect, or opaque target | conservative / limited precision |
 | running the pass alone and printing WAT | often visible no-op |
 | later `vacuum` after generated summaries | downstream positive rewrite |
 | later `simplify-locals` after generated summaries | downstream positive motion opportunity |
@@ -221,12 +235,11 @@ that later rewrite belongs to the consumer pass, not to `generate-global-effects
 
 - no direct body rewrites should be falsely attributed to this pass
 - transitive and recursive call precision should come from a real fixed point, not a one-hop shortcut
-- opaque/imported targets should stay conservative
+- opaque/imported/indirect targets should stay conservative
 - later consumer behavior should be explained as a second step, not merged into the pass itself
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
+- [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalEffects.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-global-effects.wast>

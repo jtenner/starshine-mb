@@ -1,17 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
+  - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-global-effects.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
 ---
@@ -35,8 +34,10 @@ If the wiki collapses those together, later implementation or CLI work will get 
 
 This is the single most important teaching point.
 
-`wasm.h` shows that a `Function` can store an optional `effects` summary.
+`wasm.h` shows that a `Function` can store optional `effects` metadata.
 `generate-global-effects` writes that field.
+
+One source wording caveat is now explicit in the raw manifest: the `GlobalEffects.cpp` header still says the pass stores effects on `PassOptions`, but the reviewed implementation and `wasm.h` model show `Function.effects` writeback. Treat the `PassOptions` wording as stale unless upstream changes the actual data model.
 
 So the pass may leave the visible WAT unchanged while still changing later optimizer decisions.
 
@@ -72,16 +73,12 @@ This is why neighboring optimizer pages already care about the pass.
 
 ## Consumer family 1: `simplify-locals`
 
-The neighboring simplify-locals docs explain the most intuitive example:
+The dedicated upstream `global-effects_simplify-locals.wast` test compares `simplify-locals` alone with `generate-global-effects` followed by `simplify-locals`.
+That proves the intuitive consumer example:
 
 - some motion is unsafe across a call that writes globals
 - some motion is safe across a call that only reads globals
-- `generate-global-effects` can supply exactly that distinction
-
-In this thread I did not reopen the upstream simplify-locals-specific test directly, so treat that exact consumer example as an inference grounded in:
-
-- the reviewed `effects.h` handoff
-- the neighboring reviewed simplify-locals docs already present in the repo
+- `generate-global-effects` can supply exactly that distinction to later effect reasoning
 
 ## Consumer family 2: `vacuum`
 
@@ -129,8 +126,6 @@ Skipping any one of those will drift away from Binaryen's real contract.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
+- [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-global-effects.wast>

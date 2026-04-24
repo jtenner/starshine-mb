@@ -1,17 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
+  - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalEffects.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h
 related:
   - ./index.md
   - ./metadata-naming-and-consumers.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
 ---
@@ -54,62 +53,61 @@ For Starshine's wiki tracker, that puts it in the expanded upstream-only registr
 
 ## Phase 1: shallow per-function effect summaries
 
-`GlobalEffects.cpp` begins with a parallel analysis over functions using `ModuleUtils::ParallelFunctionAnalysis<EffectAnalyzer>`.
-For each function it constructs a `ShallowEffectAnalyzer(func, module)`.
+`GlobalEffects.cpp` begins with a parallel analysis over defined functions.
+For each function, the pass builds a `FuncInfo` record from a shallow `EffectAnalyzer`.
 
 This first phase deliberately stays shallow.
-It records the function body's own obvious effect surface, such as:
+It records the function body's own obvious effect surface, then separates direct static callees from ordinary call effects.
+The reviewed `version_129` source also tracks an `unknownEffects` flag for call forms it cannot fully resolve through a defined callee.
 
-- direct global reads
-- direct global writes
-- direct call targets
-- ordinary effect facts already tracked by `EffectAnalyzer`
+That split is important:
 
-The pass asserts that these shallow summaries have no branch or local effects.
-That is a strong clue about the pass boundary:
+- direct global reads and writes become local summary facts
+- direct function calls become call-graph edges for later propagation
+- imported, indirect, or otherwise unknown call surfaces remain conservative
+- the pass is not trying to summarize all control/dataflow facts; it wants a clean global/call summary that can be propagated interprocedurally
 
-- this pass is not trying to summarize all control/dataflow facts
-- it wants a clean global/call summary that can be propagated interprocedurally
+## Phase 2: build static call reachability and conservative boundaries
 
-## Phase 2: build reverse call dependencies
+After the shallow scan, the `version_129` pass computes static call reachability from each caller to the defined functions it can reach.
+The beginner-friendly shape is still “callee facts flow back to callers,” but the source-backed implementation detail is more concrete:
 
-After the shallow scan, the pass builds a reverse dependency map from callees back to callers.
+- direct calls seed the reachable-callee set
+- transitive static callees are added with a deferred queue
+- unknown effects remain attached to callers that cross opaque call boundaries
+- recursive call chains are detected and treated conservatively by marking affected summaries as trapping
 
-That gives Binaryen two useful structures:
-
-- “who does this function call?”
-- “which callers depend on this function's summary?”
-
-The reverse direction matters because whenever a callee summary becomes more precise, every caller that depends on it may need recomputation.
+The conservative recursion/unknown-effect behavior is part of the real contract, not incidental bookkeeping.
 
 ## Phase 3: fixed-point propagation over defined functions
 
-The pass seeds a `UniqueDeferredQueue<Function*>` with defined functions and repeatedly:
+Once callee reachability is known, the `version_129` pass constructs each full summary from:
 
-1. removes one function from the queue
-2. recomputes its full summary from its shallow summary plus all currently known callee summaries
-3. compares the new summary against the old stored summary
-4. if the summary changed, requeues that function's callers
+1. the shallow local effects,
+2. any conservative unknown-call effects,
+3. the summaries of reachable defined callees, and
+4. the extra trap marking needed for recursive call chains.
 
 This is the real algorithmic heart of the pass.
 
 It means the pass is:
 
 - interprocedural
-- iterative
-- monotone/fixed-point in style
-- naturally capable of handling wrapper chains and recursive SCCs
+- fixed-point-like in the beginner model
+- conservative around recursion and opaque calls
+- naturally capable of teaching later passes about wrapper chains
 
-A beginner-friendly summary is:
+A beginner-friendly summary is still:
 
 - start local
-- then keep learning from callees until nothing changes
+- separate known static calls from unknown calls
+- then keep learning from known callees until the function summaries are safe to store
 
 ## Phase 4: store summaries in `Function.effects`
 
-The reviewed `wasm.h` source shows that each `Function` can hold an optional `std::unique_ptr<EffectAnalyzer>` named `effects`.
+The reviewed `wasm.h` source shows that each `Function` can hold optional `EffectAnalyzer` metadata named `effects`.
 
-`GlobalEffects.cpp` writes the computed summaries into that field.
+`GlobalEffects.cpp` writes the computed summaries into that field. The owner-file header still says effects are stored on `PassOptions`, but the reviewed implementation and data model both point to `Function.effects`; this wiki treats the header phrase as stale wording unless upstream later changes the implementation contract.
 
 This is why the pass itself often leaves the printed WAT unchanged:
 
@@ -132,6 +130,17 @@ So the generated summaries make later questions more precise, such as:
 
 Without this pass, later passes must be more conservative around calls.
 
+## Current-`main` drift
+
+The 2026-04-24 primary-source capture also spot-checked current Binaryen `main`.
+The visible teaching drift is in implementation structure, not in the high-level contract:
+
+- `version_129` uses a deferred reachability propagation style over function infos.
+- current `main` builds an explicit call graph, computes SCCs, processes components in reverse topological order, aggregates component effects, and applies component summaries back to functions.
+- both reviewed versions keep the durable story: shallow scan, conservative unknown effects, recursive-cycle conservatism, per-function effect metadata, and a discard sibling.
+
+When matching `version_129` oracle behavior, teach and test against the tagged release first. When reading upstream `main`, expect the SCC-shaped implementation.
+
 ## Key helper dependencies
 
 A future Starshine port must preserve the role of these helpers and data structures:
@@ -142,8 +151,8 @@ A future Starshine port must preserve the role of these helpers and data structu
   - strips the problem down to the immediate per-function global/call surface
 - `EffectAnalyzer`
   - owns the actual effect-summary representation later passes consume
-- `UniqueDeferredQueue`
-  - drives the caller-requeue fixed point without duplicate spam
+- `UniqueDeferredQueue` / current-main SCC graph processing
+  - drives the transitive-call propagation story in the reviewed release / current source shapes
 - `Function.effects` in `wasm.h`
   - stores the resulting summary as explicit function metadata
 
@@ -170,7 +179,7 @@ If one function calls another wrapper which eventually calls a global reader/wri
 
 ### 4. Recursive call groups
 
-Because the pass uses a deferred work queue and requeues callers on change, recursive groups can stabilize to summaries that include their transitive effects.
+Because the release pass detects recursive call chains and current `main` uses SCCs, recursive groups are handled conservatively instead of being treated as one-shot acyclic wrapper chains.
 
 ## Important bailout / conservative families
 
@@ -227,8 +236,6 @@ If Starshine ever ports this and accidentally turns it into a direct code-rewrit
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
+- [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GlobalEffects.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm.h>

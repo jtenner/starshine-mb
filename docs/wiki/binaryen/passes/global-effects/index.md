@@ -1,10 +1,16 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
+  - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/cli/cli_test.mbt
+  - ../../../../../src/ir/effects.mbt
+  - ../../../../../src/ir/analysis_cache.mbt
+  - ../../../../../src/passes/pass_common.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../simplify-locals/index.md
@@ -15,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./metadata-naming-and-consumers.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
   - ../tracker.md
@@ -28,6 +35,7 @@ related:
 - It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It is a real public upstream pass in Binaryen `version_129`, but it is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` default top-level path.
 - Its job is to compute per-function global-effect summaries that later passes can consult across calls.
+- The 2026-04-24 source capture adds an immutable primary-source manifest, records a current-`main` propagation refactor, and makes the stale upstream comment-vs-implementation wording explicit: the implementation writes per-function `Function.effects`, even though an owner-file header phrase still says `PassOptions`.
 
 ## Why this pass matters
 
@@ -56,7 +64,8 @@ So the pass is best taught as:
 - The official upstream public name is `generate-global-effects`.
 - The local Starshine registry currently shortens that to `global-effects`.
 - Binaryen `version_129` does **not** schedule this in the default optimize pipeline.
-- The pass computes shallow per-function summaries first, then runs a reverse-call-graph fixed point.
+- In `version_129`, the pass computes shallow per-function summaries first, records direct callees plus unknown-call effects, propagates static callees, marks recursive chains as trapping, merges callee summaries, and writes each function's summary.
+- Current Binaryen `main` keeps the same source-backed contract but refactors propagation through explicit SCC component aggregation.
 - The result is stored in `Function.effects` metadata.
 - Later `EffectAnalyzer` queries on `Call` can consult those stored summaries.
 - The pass therefore changes later optimizer precision without directly rewriting the current function's WAT.
@@ -71,6 +80,8 @@ So the pass is best taught as:
   Focused guide to the easy-to-misread part: local-vs-upstream naming, metadata-only behavior, invalidation, and downstream consumers.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing which call/global patterns gain precision, which stay conservative, and why the WAT often stays textually unchanged.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map: boundary-only registry entry, CLI parse coverage, local HOT effect-mask ingredients, missing module-level summary storage, and the reason a faithful port must be a module/call-graph metadata pass rather than a HOT peephole.
 
 ## Current maintenance rule
 
@@ -83,8 +94,14 @@ So the pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
+- [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
+- [`../../../../../src/ir/effects.mbt`](../../../../../src/ir/effects.mbt)
+- [`../../../../../src/ir/analysis_cache.mbt`](../../../../../src/ir/analysis_cache.mbt)
+- [`../../../../../src/passes/pass_common.mbt`](../../../../../src/passes/pass_common.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../simplify-locals/index.md`](../simplify-locals/index.md)
