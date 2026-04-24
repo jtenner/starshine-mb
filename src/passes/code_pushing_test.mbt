@@ -20,27 +20,20 @@ test "code-pushing sinks const local.set into the only using if arm" {
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop end))",
   )
 
-  assert_eq(@ir.hot_root_count(func), 1)
-  let if_id = @ir.hot_root_get(func, 0)
+  assert_eq(@ir.hot_root_count(func), 2)
+  assert_eq(@ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op, @ir.HotOp::Nop)
+  let if_id = @ir.hot_root_get(func, 1)
   assert_eq(@ir.hot_node_get(func, if_id).op, @ir.HotOp::If)
   let then_ref = @ir.hot_region_then_ref(func, if_id)
-  assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
-  let kept_use = @ir.hot_region_get(func, then_ref, 0)
+  assert_eq(@ir.hot_region_root_count(func, then_ref), 2)
+  let pushed_set = @ir.hot_region_get(func, then_ref, 0)
+  assert_eq(@ir.hot_node_get(func, pushed_set).op, @ir.HotOp::LocalSet)
+  assert_eq(@ir.hot_node_get(func, pushed_set).imm0, 1)
+  let kept_use = @ir.hot_region_get(func, then_ref, 1)
   assert_eq(@ir.hot_node_get(func, kept_use).op, @ir.HotOp::Drop)
-  let pushed_value = @ir.hot_child_get(func, kept_use, 0)
-  assert_eq(@ir.hot_node_get(func, pushed_value).op, @ir.HotOp::Const)
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if @ir.hot_node_is_live(func, node_id) {
-      let node = @ir.hot_node_get(func, node_id)
-      match node.op {
-        @ir.HotOp::LocalSet if node.imm0 == 1 =>
-          fail("expected code-pushing to remove sunk local.set")
-        @ir.HotOp::LocalGet if node.imm0 == 1 =>
-          fail("expected code-pushing to inline sunk local.get")
-        _ => ()
-      }
-    }
-  }
+  let kept_get = @ir.hot_child_get(func, kept_use, 0)
+  assert_eq(@ir.hot_node_get(func, kept_get).op, @ir.HotOp::LocalGet)
+  assert_eq(@ir.hot_node_get(func, kept_get).imm0, 1)
 }
 
 ///|
@@ -49,27 +42,35 @@ test "code-pushing sinks const local.set into the only using else arm" {
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if nop else local.get 1 drop end))",
   )
 
-  assert_eq(@ir.hot_root_count(func), 1)
-  let if_id = @ir.hot_root_get(func, 0)
+  assert_eq(@ir.hot_root_count(func), 2)
+  assert_eq(@ir.hot_node_get(func, @ir.hot_root_get(func, 0)).op, @ir.HotOp::Nop)
+  let if_id = @ir.hot_root_get(func, 1)
   assert_eq(@ir.hot_node_get(func, if_id).op, @ir.HotOp::If)
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   assert_eq(@ir.hot_region_root_count(func, then_ref), 1)
   let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
-  assert_eq(@ir.hot_region_root_count(func, else_ref), 1)
-  let kept_use = @ir.hot_region_get(func, else_ref, 0)
+  assert_eq(@ir.hot_region_root_count(func, else_ref), 2)
+  let pushed_set = @ir.hot_region_get(func, else_ref, 0)
+  assert_eq(@ir.hot_node_get(func, pushed_set).op, @ir.HotOp::LocalSet)
+  assert_eq(@ir.hot_node_get(func, pushed_set).imm0, 1)
+  let kept_use = @ir.hot_region_get(func, else_ref, 1)
   assert_eq(@ir.hot_node_get(func, kept_use).op, @ir.HotOp::Drop)
-  let pushed_value = @ir.hot_child_get(func, kept_use, 0)
-  assert_eq(@ir.hot_node_get(func, pushed_value).op, @ir.HotOp::Const)
+  let kept_get = @ir.hot_child_get(func, kept_use, 0)
+  assert_eq(@ir.hot_node_get(func, kept_get).op, @ir.HotOp::LocalGet)
+  assert_eq(@ir.hot_node_get(func, kept_get).imm0, 1)
 }
 
 ///|
-test "code-pushing duplicates const local.set value into both if arms" {
+test "code-pushing keeps const local.set when both if arms use it" {
   let func = code_pushing_test_run_hot(
     "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if local.get 1 drop else local.get 1 drop end))",
   )
 
-  assert_eq(@ir.hot_root_count(func), 1)
-  let if_id = @ir.hot_root_get(func, 0)
+  assert_eq(@ir.hot_root_count(func), 2)
+  let kept_set = @ir.hot_root_get(func, 0)
+  assert_eq(@ir.hot_node_get(func, kept_set).op, @ir.HotOp::LocalSet)
+  assert_eq(@ir.hot_node_get(func, kept_set).imm0, 1)
+  let if_id = @ir.hot_root_get(func, 1)
   assert_eq(@ir.hot_node_get(func, if_id).op, @ir.HotOp::If)
   let then_ref = @ir.hot_region_then_ref(func, if_id)
   let else_ref = @ir.hot_region_else_ref(func, if_id).unwrap()
@@ -81,11 +82,11 @@ test "code-pushing duplicates const local.set value into both if arms" {
   assert_eq(@ir.hot_node_get(func, else_drop).op, @ir.HotOp::Drop)
   assert_eq(
     @ir.hot_node_get(func, @ir.hot_child_get(func, then_drop, 0)).op,
-    @ir.HotOp::Const,
+    @ir.HotOp::LocalGet,
   )
   assert_eq(
     @ir.hot_node_get(func, @ir.hot_child_get(func, else_drop, 0)).op,
-    @ir.HotOp::Const,
+    @ir.HotOp::LocalGet,
   )
 }
 

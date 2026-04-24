@@ -130,23 +130,12 @@ fn code_pushing_count_local_gets_in_if_arms(
 }
 
 ///|
-fn code_pushing_all_gets_are_in_if_arms(
-  func : @ir.HotFunc,
-  if_id : Int,
-  local_id : Int,
-) -> Bool {
-  let total_gets = code_pushing_count_local_gets_in_region(
+fn code_pushing_total_local_gets(func : @ir.HotFunc, local_id : Int) -> Int {
+  code_pushing_count_local_gets_in_region(
     func,
     @ir.HotRegionRef::root(),
     local_id,
   )
-  if total_gets == 0 {
-    return false
-  }
-  let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
-    func, if_id, local_id,
-  )
-  then_gets + else_gets == total_gets
 }
 
 ///|
@@ -162,58 +151,12 @@ fn code_pushing_has_single_local_write(
 }
 
 ///|
-fn code_pushing_inline_local_gets_in_node(
-  ctx : HotPassContext,
+fn code_pushing_make_local_set_clone(
   func : @ir.HotFunc,
-  node_id : Int,
   local_id : Int,
-  replacement : @ir.HotNode,
-) -> Bool {
-  if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return false
-  }
-  let node = @ir.hot_node_get(func, node_id)
-  match node.op {
-    @ir.HotOp::LocalGet if node.imm0 == local_id => {
-      pass_replace_node(ctx, func, node_id, replacement)
-      return true
-    }
-    _ => ()
-  }
-  let mut changed = false
-  for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    changed = code_pushing_inline_local_gets_in_node(
-        ctx,
-        func,
-        @ir.hot_child_get(func, node_id, slot),
-        local_id,
-        replacement,
-      ) ||
-      changed
-  }
-  changed
-}
-
-///|
-fn code_pushing_inline_local_gets_in_region(
-  ctx : HotPassContext,
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-  local_id : Int,
-  replacement : @ir.HotNode,
-) -> Bool {
-  let mut changed = false
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    changed = code_pushing_inline_local_gets_in_node(
-        ctx,
-        func,
-        @ir.hot_region_get(func, region_ref, idx),
-        local_id,
-        replacement,
-      ) ||
-      changed
-  }
-  changed
+  value_id : Int,
+) -> Int {
+  @ir.hot_build_local_set(func, local_id, value_id)
 }
 
 ///|
@@ -255,41 +198,36 @@ fn code_pushing_try_sink_set_into_if_then(
     return false
   }
   let local_id = set_node.imm0
-  if !code_pushing_has_single_local_write(func, local_id) ||
-    !code_pushing_all_gets_are_in_if_arms(func, if_id, local_id) {
+  if !code_pushing_has_single_local_write(func, local_id) {
     return false
   }
 
+  let total_gets = code_pushing_total_local_gets(func, local_id)
   let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
     func, if_id, local_id,
   )
-  let replacement = @ir.hot_node_get(func, value_id)
-  let mut inlined = false
-  if then_gets > 0 {
-    inlined = code_pushing_inline_local_gets_in_region(
-      ctx,
-      func,
-      @ir.hot_region_then_ref(func, if_id),
-      local_id,
-      replacement,
-    ) ||
-    inlined
-  }
-  if else_gets > 0 {
-    match @ir.hot_region_else_ref(func, if_id) {
-      Some(else_ref) =>
-        inlined = code_pushing_inline_local_gets_in_region(
-          ctx, func, else_ref, local_id, replacement,
-        ) ||
-        inlined
-      None => ()
-    }
-  }
-  if !inlined {
+  if total_gets == 0 || then_gets + else_gets != total_gets {
     return false
   }
-  ignore(pass_splice_region(ctx, func, region_ref, set_idx, 1, []))
-  true
+  let target_ref = if then_gets > 0 && else_gets == 0 {
+    Some(@ir.hot_region_then_ref(func, if_id))
+  } else if else_gets > 0 && then_gets == 0 {
+    @ir.hot_region_else_ref(func, if_id)
+  } else {
+    None
+  }
+  match target_ref {
+    Some(target_ref) => {
+      let pushed_set = code_pushing_make_local_set_clone(
+        func, local_id, value_id,
+      )
+      ignore(pass_splice_region(ctx, func, target_ref, 0, 0, [pushed_set]))
+      let nop = @ir.hot_build_nop(func)
+      pass_replace_node(ctx, func, set_id, @ir.hot_node_get(func, nop))
+      true
+    }
+    None => false
+  }
 }
 
 ///|
