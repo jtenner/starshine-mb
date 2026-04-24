@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md
+  - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./constant-actuals-localization-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../type-refining/index.md
   - ../global-refining/index.md
   - ../../no-dwarf-default-optimize-path.md
@@ -18,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass.
+Use Binaryen `version_129` as the current source oracle for this pass, anchored by the committed primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md).
 
 Primary files:
 
@@ -42,10 +45,9 @@ I also did a narrow current-`main` check on the same surfaces.
 Durable result:
 
 - the checked `main` pass logic still matches the reviewed `version_129` algorithm on the important gates, phase split, and helper usage
-- the only diff in `SignaturePruning.cpp` was a comment typo fix
-- the checked dedicated lit file still matches the reviewed `version_129` surface
+- no teaching-relevant drift surfaced in the reviewed current-`main` owner, registration, helper, or dedicated lit surfaces
 
-So this dossier treats `version_129` as the normative algorithm oracle.
+So this dossier treats `version_129` as the normative algorithm oracle and records future upstream drift explicitly instead of silently rewriting the story.
 
 ## High-level intent
 
@@ -432,7 +434,10 @@ That is the strategy a future strict-parity port must preserve.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md)
+- [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignaturePruning.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

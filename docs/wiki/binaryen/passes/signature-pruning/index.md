@@ -1,10 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md
+  - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/registry_test.mbt
   - ../tracker.md
   - ../index.md
   - ../type-refining/binaryen-strategy.md
@@ -14,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./constant-actuals-localization-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tracker.md
   - ../index.md
   - ../type-refining/index.md
@@ -59,6 +63,7 @@ It is **heap-type-level dead-argument elimination for nominal function signature
 
 ## Most important durable takeaways
 
+- The dossier is now anchored to the immutable raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md) and the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 - `signature-pruning` is **not** part of the repo's main open-world no-DWARF `-O` / `-Os` path.
 - The default scheduler places it only in the **closed-world GC/type cluster** after `type-refining` and before `signature-refining` / `global-refining`.
 - The pass body itself checks:
@@ -70,7 +75,7 @@ It is **heap-type-level dead-argument elimination for nominal function signature
 - Binaryen decides per **function heap type**, so one live or blocked sibling can stop pruning for the entire type family.
 - Constant-actual rewriting is part of the real contract, not optional polish.
 - Side-effect localization plus one extra cycle is part of the real contract too.
-- A narrow 2026-04-21 freshness check found only a comment typo fix in current-`main` `SignaturePruning.cpp`, unrelated typo cleanup elsewhere in `pass.cpp`, and an identical dedicated lit file.
+- A narrow 2026-04-24 freshness check on the owner file, registration surface, helpers, and dedicated lit file did not find teaching-relevant drift from the reviewed `version_129` story; keep that claim narrow.
 
 ## Beginner warning: what the name hides
 
@@ -116,6 +121,8 @@ What it actually is in `version_129`:
   - Focused guide to the most easy-to-misread half of the pass: constant-actual promotion, delayed localization, public-rec-group boundaries, and the tag / continuation / table / `call.without.effects` no-op rules.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly WAT-shape catalog covering direct and `call_ref` positives, all-param removal, overwritten-param liveness, constant/ref/null actuals, localization-driven wins, and the main bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Exact Starshine status and future-port map: boundary-only registry entry, active request rejection, active-preset omission, no owner file, no active backlog slice, and the local type/call/validation/binary surfaces a future heap-type-level signature rewrite would need.
 
 ## Current maintenance rule
 
@@ -129,7 +136,10 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md)
+- [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)

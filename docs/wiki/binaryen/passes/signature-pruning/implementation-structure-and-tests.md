@@ -1,20 +1,25 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md
+  - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./constant-actuals-localization-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `signature-pruning`: implementation structure and tests
 
 This page exists because `SignaturePruning.cpp` is not a self-contained pass.
 If you read only that one file, you will miss where most of the real behavior comes from.
+For the exact 2026-04-24 source capture, use [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md).
+For the current Starshine status and future-port code map, use [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## File map
 
@@ -206,14 +211,18 @@ I did a narrow current-`main` check on:
 
 - `src/passes/SignaturePruning.cpp`
 - `src/passes/pass.cpp`
+- `src/passes/param-utils.*`
+- `src/ir/module-utils.*`
+- `src/ir/type-updating.h`
+- `src/ir/intrinsics.*`
+- `src/ir/possible-constant.h`
+- `src/ir/localize.h`
 - `test/lit/passes/signature-pruning.wast`
 
 Durable result:
 
 - the checked core pass structure still matches `version_129` on the important reviewed surfaces
-- `SignaturePruning.cpp` differs only by a comment typo fix
-- `pass.cpp` changed only in unrelated typo cleanup on the reviewed surface
-- the dedicated lit file still matches exactly on the reviewed surface
+- no teaching-relevant drift surfaced in the reviewed owner, registration, helper, or dedicated lit surfaces
 
 That is a narrow freshness note, not a proof that every neighboring helper file is identical.
 
@@ -244,7 +253,10 @@ That is exactly why this pass is easy to underestimate from the name alone.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md)
+- [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/SignaturePruning.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
