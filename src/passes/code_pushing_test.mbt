@@ -189,6 +189,61 @@ test "code-pushing flattens dead typed block before unreachable" {
 }
 
 ///|
+test "code-pushing keeps unreachable block without dead parent context" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (block unreachable) nop))",
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded code-pushing success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("block"), msg=pretty)
+  assert_true(pretty.contains("unreachable"), msg=pretty)
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
+test "code-pushing keeps dead block with branch before unreachable" {
+  let func = code_pushing_test_run_hot(
+    "(module (func (block br 0 unreachable) unreachable))",
+  )
+
+  assert_eq(@ir.hot_root_count(func), 2)
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 0), "block")
+  code_pushing_expect_op(func, @ir.hot_root_get(func, 1), "unreachable")
+}
+
+///|
+test "code-pushing keeps const local.set when only nested later code uses it" {
+  let trace : Array[String] = []
+  let optimized = match
+    pass_test_run_pipeline(
+      "(module (func (param i32) (local i32) i32.const 7 local.set 1 local.get 0 if nop end (block local.get 1 drop)))",
+      ["code-pushing"],
+      options=HotPipelineOptions::new(trace=Some(fn(line) { trace.push(line) })),
+    ) {
+    Ok(mod_) => mod_
+    Err(err) => fail("expected guarded code-pushing success, got \{err}")
+  }
+
+  let pretty = optimized.pretty_print_func(@lib.FuncIdx::new(0U))
+  assert_true(pretty.contains("local.set (Local 1)"), msg=pretty)
+  assert_true(pretty.contains("local.get (Local 1)"), msg=pretty)
+  assert_false(
+    trace.any(fn(line) { line.contains("pass[code-pushing]:mutated") }),
+    msg=trace.to_string(),
+  )
+}
+
+///|
 test "code-pushing does not sink trapping computations" {
   let trace : Array[String] = []
   let optimized = match

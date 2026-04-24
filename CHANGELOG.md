@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-24 Code-pushing: tighten internal performance guards
+
+- **cut `code-pushing` no-op candidate overhead by checking typed-dead-block parent context before scanning block bodies, avoiding duplicate structured-region branch walks, screening local-set sinking with arm-use counts before whole-function local scans, and replacing separate full get/write rescans with one bounded counter while preserving focused guards for unreachable blocks, branchy dead blocks, nested later local reads, and trapping values** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/code_pushing.mbt`](./src/passes/code_pushing.mbt), and [`src/passes/code_pushing_test.mbt`](./src/passes/code_pushing_test.mbt).
+
 ## 2026-04-24 Docs: mark `asyncify` tracker gap closed
 
 - **repair the pass tracker maintenance section after the `asyncify` dossier addition by adding the explicit gap-closed sentence used for neighboring source-captured upstream-only passes, so future wiki runs do not rediscover `asyncify` as an absent pass-wiki target even though the covered-summary line already included it** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md).

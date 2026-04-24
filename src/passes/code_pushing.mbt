@@ -52,28 +52,44 @@ fn code_pushing_count_local_gets_in_node(
 }
 
 ///|
-fn code_pushing_count_local_writes_in_node(
+fn code_pushing_count_local_gets_writes_in_node_bounded(
   func : @ir.HotFunc,
   node_id : Int,
   local_id : Int,
-) -> Int {
+  max_gets : Int,
+  max_writes : Int,
+) -> (Int, Int) {
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
-    return 0
+    return (0, 0)
   }
   let node = @ir.hot_node_get(func, node_id)
-  let mut count = match node.op {
+  let mut gets = match node.op {
+    @ir.HotOp::LocalGet if node.imm0 == local_id => 1
+    _ => 0
+  }
+  let mut writes = match node.op {
     @ir.HotOp::LocalSet if node.imm0 == local_id => 1
     @ir.HotOp::LocalTee if node.imm0 == local_id => 1
     _ => 0
   }
+  if gets > max_gets || writes > max_writes {
+    return (gets, writes)
+  }
   for slot = 0; slot < @ir.hot_child_count(func, node_id); slot = slot + 1 {
-    count += code_pushing_count_local_writes_in_node(
+    let (child_gets, child_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
       func,
       @ir.hot_child_get(func, node_id, slot),
       local_id,
+      max_gets - gets,
+      max_writes - writes,
     )
+    gets += child_gets
+    writes += child_writes
+    if gets > max_gets || writes > max_writes {
+      break
+    }
   }
-  count
+  (gets, writes)
 }
 
 ///|
@@ -94,20 +110,30 @@ fn code_pushing_count_local_gets_in_region(
 }
 
 ///|
-fn code_pushing_count_local_writes_in_region(
+fn code_pushing_count_local_gets_writes_in_region_bounded(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
   local_id : Int,
-) -> Int {
-  let mut count = 0
+  max_gets : Int,
+  max_writes : Int,
+) -> (Int, Int) {
+  let mut gets = 0
+  let mut writes = 0
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    count += code_pushing_count_local_writes_in_node(
+    let (root_gets, root_writes) = code_pushing_count_local_gets_writes_in_node_bounded(
       func,
       @ir.hot_region_get(func, region_ref, idx),
       local_id,
+      max_gets - gets,
+      max_writes - writes,
     )
+    gets += root_gets
+    writes += root_writes
+    if gets > max_gets || writes > max_writes {
+      break
+    }
   }
-  count
+  (gets, writes)
 }
 
 ///|
@@ -130,25 +156,19 @@ fn code_pushing_count_local_gets_in_if_arms(
 }
 
 ///|
-fn code_pushing_total_local_gets(func : @ir.HotFunc, local_id : Int) -> Int {
-  code_pushing_count_local_gets_in_region(
-    func,
-    @ir.HotRegionRef::root(),
-    local_id,
-  )
-}
-
-///|
-fn code_pushing_has_single_local_write(
+fn code_pushing_count_total_local_gets_writes_bounded(
   func : @ir.HotFunc,
   local_id : Int,
-) -> Bool {
-  code_pushing_count_local_writes_in_region(
+  max_gets : Int,
+  max_writes : Int,
+) -> (Int, Int) {
+  code_pushing_count_local_gets_writes_in_region_bounded(
     func,
     @ir.HotRegionRef::root(),
     local_id,
-  ) ==
-  1
+    max_gets,
+    max_writes,
+  )
 }
 
 ///|
@@ -181,50 +201,6 @@ fn code_pushing_node_has_branch(func : @ir.HotFunc, node_id : Int) -> Bool {
     if code_pushing_node_has_branch(
         func,
         @ir.hot_child_get(func, node_id, slot),
-      ) {
-      return true
-    }
-  }
-  match node.op {
-    @ir.HotOp::Block | @ir.HotOp::Loop | @ir.HotOp::Try =>
-      code_pushing_region_has_branch(
-        func,
-        @ir.hot_region_body_ref(func, node_id),
-      )
-    @ir.HotOp::If => {
-      if code_pushing_region_has_branch(
-          func,
-          @ir.hot_region_then_ref(func, node_id),
-        ) {
-        return true
-      }
-      match @ir.hot_region_else_ref(func, node_id) {
-        Some(else_ref) => code_pushing_region_has_branch(func, else_ref)
-        None => false
-      }
-    }
-    @ir.HotOp::TryTable =>
-      code_pushing_region_has_branch(
-        func,
-        @ir.hot_region_body_ref(func, node_id),
-      ) ||
-      code_pushing_region_has_branch(
-        func,
-        @ir.hot_region_catch_list_ref(func, node_id),
-      )
-    _ => false
-  }
-}
-
-///|
-fn code_pushing_region_has_branch(
-  func : @ir.HotFunc,
-  region_ref : @ir.HotRegionRef,
-) -> Bool {
-  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
-    if code_pushing_node_has_branch(
-        func,
-        @ir.hot_region_get(func, region_ref, idx),
       ) {
       return true
     }
@@ -266,6 +242,26 @@ fn code_pushing_try_flatten_dead_block_before_unreachable(
     @ir.HotOp::Block => ()
     _ => return false
   }
+  let root_count = @ir.hot_region_root_count(func, region_ref)
+  let block_has_neighboring_unreachable = if block_idx + 1 < root_count {
+    let next_id = @ir.hot_region_get(func, region_ref, block_idx + 1)
+    if next_id >= 0 && @ir.hot_node_is_live(func, next_id) {
+      match @ir.hot_node_get(func, next_id).op {
+        @ir.HotOp::Unreachable => true
+        _ => false
+      }
+    } else {
+      false
+    }
+  } else {
+    false
+  }
+  if !block_has_neighboring_unreachable &&
+    !code_pushing_region_has_leading_unreachable_before(
+      func, region_ref, block_idx,
+    ) {
+    return false
+  }
   let body_ref = @ir.hot_region_body_ref(func, block_id)
   let body_count = @ir.hot_region_root_count(func, body_ref)
   if body_count == 0 {
@@ -287,27 +283,7 @@ fn code_pushing_try_flatten_dead_block_before_unreachable(
   if unreachable_idx != 0 && unreachable_idx != body_count - 1 {
     return false
   }
-  let root_count = @ir.hot_region_root_count(func, region_ref)
-  let block_has_neighboring_unreachable = if block_idx + 1 < root_count {
-    let next_id = @ir.hot_region_get(func, region_ref, block_idx + 1)
-    if next_id >= 0 && @ir.hot_node_is_live(func, next_id) {
-      match @ir.hot_node_get(func, next_id).op {
-        @ir.HotOp::Unreachable => true
-        _ => false
-      }
-    } else {
-      false
-    }
-  } else {
-    false
-  }
-  if !block_has_neighboring_unreachable &&
-    !code_pushing_region_has_leading_unreachable_before(
-      func, region_ref, block_idx,
-    ) {
-    return false
-  }
-  let replacement : Array[Int] = []
+  let replacement : Array[Int] = Array::new(capacity=body_count)
   let append_body_root = fn(idx : Int) -> Bool {
     let root_id = @ir.hot_region_get(func, body_ref, idx)
     if code_pushing_node_has_branch(func, root_id) {
@@ -379,23 +355,23 @@ fn code_pushing_try_sink_set_into_if_then(
     return false
   }
   let local_id = set_node.imm0
-  if !code_pushing_has_single_local_write(func, local_id) {
-    return false
-  }
-
-  let total_gets = code_pushing_total_local_gets(func, local_id)
   let (then_gets, else_gets) = code_pushing_count_local_gets_in_if_arms(
     func, if_id, local_id,
   )
-  if total_gets == 0 || then_gets + else_gets != total_gets {
+  let arm_gets = then_gets + else_gets
+  if arm_gets == 0 || (then_gets > 0 && else_gets > 0) {
     return false
   }
-  let target_ref = if then_gets > 0 && else_gets == 0 {
+  let (total_gets, total_writes) = code_pushing_count_total_local_gets_writes_bounded(
+    func, local_id, arm_gets, 1,
+  )
+  if total_writes != 1 || total_gets != arm_gets {
+    return false
+  }
+  let target_ref = if then_gets > 0 {
     Some(@ir.hot_region_then_ref(func, if_id))
-  } else if else_gets > 0 && then_gets == 0 {
-    @ir.hot_region_else_ref(func, if_id)
   } else {
-    None
+    @ir.hot_region_else_ref(func, if_id)
   }
   match target_ref {
     Some(target_ref) => {
