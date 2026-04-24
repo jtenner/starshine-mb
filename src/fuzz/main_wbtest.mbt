@@ -162,18 +162,25 @@ test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files"
 }
 
 ///|
-test "emit_gen_valid_batch_artifacts matches the pinned coverage-forced generator config" {
+test "emit_gen_valid_batch_artifacts matches the pinned portable coverage-forced generator config" {
+  let config = emit_gen_valid_batch_config()
+  assert_eq(config.max_tags, 0)
+  assert_false(config.features.allow_ref_types)
+  assert_false(config.features.allow_tags)
   let artifacts = match emit_gen_valid_batch_artifacts(1, 0x5eedUL) {
     Ok(v) => v
     Err(e) => fail("expected gen-valid artifact success, got \{e}")
   }
   let direct = gen_valid_module_with_config(
     @splitmix.new(seed=0x5eedUL),
-    GenValidConfig::coverage_forced_default(),
+    config,
   )
   let encoded = match encode_module(direct) {
     Ok(v) => v
-    Err(e) => fail("expected direct coverage-forced module to encode, got \{e}")
+    Err(e) =>
+      fail(
+        "expected direct portable coverage-forced module to encode, got \{e}",
+      )
   }
   assert_eq(artifacts[0].1, encoded)
 }
@@ -202,7 +209,7 @@ test "fuzz usage text distinguishes active and reserved suites" {
     ),
   )
   assert_true(usage.contains("reserved suite ids: (none)"))
-  assert_true(usage.contains("coverage-forced batch"))
+  assert_true(usage.contains("portable coverage-forced batch"))
   assert_true(usage.contains("--emit-invalid-repro"))
 }
 

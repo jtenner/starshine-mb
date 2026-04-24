@@ -252,6 +252,20 @@ pub fn GenValidConfig::coverage_forced_default() -> GenValidConfig {
 }
 
 ///|
+pub fn GenValidConfig::portable_coverage_forced_default() -> GenValidConfig {
+  let base = GenValidConfig::coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_tags: 0,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_ref_types: false,
+      allow_tags: false,
+    },
+  }
+}
+
+///|
 pub fn default_gen_valid_config() -> GenValidConfig {
   GenValidConfig::natural_default()
 }
@@ -795,11 +809,11 @@ fn gen_valid_gc_type_defs(
       RecType::group([
         SubType::comp_type(
           CompType::struct_([]),
-          metadata=TypeMetadata::new(descriptor=Some(TypeIdx::rec(1))),
+          metadata=TypeMetadata::new(descriptor=Some(descriptor_idx)),
         ),
         SubType::comp_type(
           CompType::struct_([]),
-          metadata=TypeMetadata::new(describes=Some(TypeIdx::rec(0))),
+          metadata=TypeMetadata::new(describes=Some(described_idx)),
         ),
       ]),
     )
@@ -2179,7 +2193,9 @@ fn gen_valid_append_gc_prelude(
   ctx : GenValidContext,
   env : GenValidBodyEnv,
 ) -> Unit {
-  ignore(ctx)
+  if !ctx.config.features.allow_ref_types {
+    return
+  }
   if !env.gc_type_plan.struct_type_idxs.is_empty() {
     let struct_idx = env.gc_type_plan.struct_type_idxs[0]
     out.push(Instruction::struct_new_default(struct_idx))
@@ -2843,32 +2859,67 @@ fn gen_valid_module_once_with_config(
     tag_count: 0,
   }
   let mut remaining_imports = import_budget
-  if ctx.config.mode == CoverageForced && remaining_imports >= 5 {
-    import_plan = {
-      func_count: 1,
-      table_count: 1,
-      mem_count: 1,
-      global_count: 1,
-      tag_count: 1,
+  if ctx.config.mode == CoverageForced {
+    if remaining_imports > 0 {
+      import_plan = { ..import_plan, func_count: 1 }
+      remaining_imports -= 1
     }
-    remaining_imports -= 5
+    if config.features.allow_tables && remaining_imports > 0 {
+      import_plan = { ..import_plan, table_count: 1 }
+      remaining_imports -= 1
+    }
+    if config.features.allow_mems && remaining_imports > 0 {
+      import_plan = { ..import_plan, mem_count: 1 }
+      remaining_imports -= 1
+    }
+    if config.features.allow_globals && remaining_imports > 0 {
+      import_plan = { ..import_plan, global_count: 1 }
+      remaining_imports -= 1
+    }
+    if config.features.allow_tags && remaining_imports > 0 {
+      import_plan = { ..import_plan, tag_count: 1 }
+      remaining_imports -= 1
+    }
   }
+  let import_choice_count = 1 +
+    gen_valid_bool_count(config.features.allow_tables) +
+    gen_valid_bool_count(config.features.allow_mems) +
+    gen_valid_bool_count(config.features.allow_globals) +
+    gen_valid_bool_count(config.features.allow_tags)
   while remaining_imports > 0 {
-    match ctx.random_int(5) {
-      0 =>
-        import_plan = { ..import_plan, func_count: import_plan.func_count + 1 }
-      1 =>
+    let mut choice = ctx.random_int(import_choice_count)
+    if choice == 0 {
+      import_plan = { ..import_plan, func_count: import_plan.func_count + 1 }
+    } else {
+      choice -= 1
+      if config.features.allow_tables && choice == 0 {
         import_plan = {
           ..import_plan,
           table_count: import_plan.table_count + 1,
         }
-      2 => import_plan = { ..import_plan, mem_count: import_plan.mem_count + 1 }
-      3 =>
-        import_plan = {
-          ..import_plan,
-          global_count: import_plan.global_count + 1,
+      } else {
+        if config.features.allow_tables {
+          choice -= 1
         }
-      _ => import_plan = { ..import_plan, tag_count: import_plan.tag_count + 1 }
+        if config.features.allow_mems && choice == 0 {
+          import_plan = { ..import_plan, mem_count: import_plan.mem_count + 1 }
+        } else {
+          if config.features.allow_mems {
+            choice -= 1
+          }
+          if config.features.allow_globals && choice == 0 {
+            import_plan = {
+              ..import_plan,
+              global_count: import_plan.global_count + 1,
+            }
+          } else {
+            import_plan = {
+              ..import_plan,
+              tag_count: import_plan.tag_count + 1,
+            }
+          }
+        }
+      }
     }
     remaining_imports -= 1
   }
@@ -3029,7 +3080,7 @@ fn gen_valid_module_once_with_config(
   let imported_tables : Array[TableType] = []
   for i = 0; i < import_table_count; i = i + 1 {
     let max = (1 + ctx.random_int(4)).reinterpret_as_uint()
-    let table_ref_type = if i == 0 {
+    let table_ref_type = if i == 0 || !ctx.config.features.allow_ref_types {
       RefType::new(true, HeapType::abs(AbsHeapType::func()))
     } else if !gc_type_plan.concrete_ref_types.is_empty() &&
       (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
@@ -3156,7 +3207,8 @@ fn gen_valid_module_once_with_config(
   for i = 0; i < defined_table_count; i = i + 1 {
     let max = (1 + ctx.random_int(4)).reinterpret_as_uint()
     let total_table_idx = import_table_count + i
-    let table_ref_type = if total_table_idx == 0 {
+    let table_ref_type = if total_table_idx == 0 ||
+      !ctx.config.features.allow_ref_types {
       RefType::new(true, HeapType::abs(AbsHeapType::func()))
     } else if !gc_type_plan.concrete_ref_types.is_empty() &&
       (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {

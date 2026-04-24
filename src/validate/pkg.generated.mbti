@@ -274,6 +274,7 @@ pub struct GenValidConfig {
 } derive(Eq, @debug.Debug)
 pub fn GenValidConfig::coverage_forced_default() -> Self
 pub fn GenValidConfig::natural_default() -> Self
+pub fn GenValidConfig::portable_coverage_forced_default() -> Self
 pub impl Show for GenValidConfig
 
 type GenValidContext

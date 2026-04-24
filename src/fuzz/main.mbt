@@ -138,7 +138,7 @@ pub fn fuzz_usage_text() -> String {
     fuzz_join(reserved, ", ")
   }
   let profiles = fuzz_join(fuzz_profile_names(), ", ")
-  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> (coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>]\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
+  "usage: moon run src/fuzz -- [suite] [profile] [seed] [--seed <int64>|--seed=<int64>] [--output text|jsonl|--jsonl]\ncommands: --help|-h | --list-suites | --list-profiles | --emit-gen-valid-batch --count <n> --seed <uint64> --out-dir <dir> (portable coverage-forced batch) | --emit-invalid-repro --suite <suite|ast|binary|text|spec-seed> --strategy <stable-id> --seed <uint64> --attempt <n> --out-dir <dir> [--profile <name>]\nactive suites: \{active_suites}\nreserved suite ids: \{reserved_suites}\nprofiles: \{profiles}"
 }
 
 ///|
@@ -936,6 +936,11 @@ fn fuzz_join_path(dir : String, name : String) -> String {
 }
 
 ///|
+fn emit_gen_valid_batch_config() -> GenValidConfig {
+  GenValidConfig::portable_coverage_forced_default()
+}
+
+///|
 pub fn emit_gen_valid_batch_artifacts(
   count : Int,
   seed : UInt64,
@@ -944,13 +949,11 @@ pub fn emit_gen_valid_batch_artifacts(
     return Err("count must be non-negative")
   }
   let rnd = @splitmix.new(seed~)
+  let config = emit_gen_valid_batch_config()
   let artifacts : Array[(String, Bytes)] = []
   let mut i = 0
   while i < count {
-    let mod = gen_valid_module_with_config(
-      rnd,
-      GenValidConfig::coverage_forced_default(),
-    )
+    let mod = gen_valid_module_with_config(rnd, config)
     match validate_module(mod) {
       Ok(_) => ()
       Err(err) =>
