@@ -1,20 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
+  - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-types/closed-world-visibility-and-rec-group-rewrite.md
 ---
 
 # `type-finalizing`: leaf types, public boundaries, and the sibling split
 
-This page covers the easiest part of `type-finalizing` to misread.
+This page covers the easiest part of `type-finalizing` to misread. It is source-confirmed by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md).
 
 ## The three rules that matter most
 
@@ -125,6 +128,8 @@ That makes it very different from neighbors like:
 - `unsubtyping`
 
 ## Porting rule of thumb
+
+For the current Starshine port map and exact local code surfaces, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 A good future-port rule of thumb is:
 

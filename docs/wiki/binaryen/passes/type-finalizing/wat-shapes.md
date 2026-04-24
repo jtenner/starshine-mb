@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
+  - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./leaf-types-public-boundaries-and-sibling-split.md
+  - ./starshine-strategy.md
 ---
 
 # `type-finalizing` WAT shapes
@@ -19,7 +22,7 @@ So the examples here focus on type declarations and the places that mention them
 ## Reading note
 
 The examples are beginner-friendly sketches of the shapes Binaryen's official lit file proves.
-They are meant to teach the contract, not reproduce the full test file verbatim.
+They are meant to teach the contract, not reproduce the full test file verbatim. For source provenance, see [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md); for Starshine status and future local code locations, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Positive shape 1: private open leaf becomes final
 

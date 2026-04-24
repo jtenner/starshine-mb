@@ -1,19 +1,24 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
+  - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./leaf-types-public-boundaries-and-sibling-split.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-types/implementation-structure-and-tests.md
   - ../type-merging/implementation-structure-and-tests.md
 ---
 
 # `type-finalizing` implementation structure and tests
+
+This page is source-confirmed by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md). For the current Starshine non-implementation and future-port code map, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Main upstream files
 
@@ -192,6 +197,7 @@ That is unusually good coverage for such a small pass.
 
 ## Source URLs
 
+- [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TypeFinalizing.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/type-finalizing.wast>

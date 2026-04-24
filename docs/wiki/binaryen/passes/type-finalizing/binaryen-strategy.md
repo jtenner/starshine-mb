@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
+  - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./leaf-types-public-boundaries-and-sibling-split.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-types/index.md
   - ../type-merging/index.md
 ---
@@ -17,7 +20,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass.
+Use Binaryen `version_129` as the source oracle for this pass, anchored by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md).
 The core sources are:
 
 - `src/passes/TypeFinalizing.cpp`
@@ -267,7 +270,7 @@ not as a complicated optimizer.
 
 ## What a future Starshine port must preserve
 
-A faithful port should preserve at least nine things:
+For exact current local status and code locations, see [`./starshine-strategy.md`](./starshine-strategy.md). A faithful port should preserve at least nine things:
 
 1. the GC-only gate
 2. the private-type visibility boundary

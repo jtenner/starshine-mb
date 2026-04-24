@@ -1,10 +1,18 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-24
 sources:
+  - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
+  - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/lib/types.mbt
+  - ../../../../../src/wast/lower_to_lib.mbt
+  - ../../../../../src/validate/typecheck.mbt
+  - ../../../../../src/binary/encode.mbt
+  - ../../../../../src/binary/decode.mbt
   - ../../../../../agent-todo.md
   - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../no-dwarf-default-optimize-path.md
@@ -15,6 +23,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./leaf-types-public-boundaries-and-sibling-split.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-types/index.md
   - ../type-merging/index.md
   - ../unsubtyping/index.md
@@ -30,6 +39,7 @@ related:
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-pass audit.
 - `agent-todo.md` currently has **no dedicated `type-finalizing` slice**.
+- The 2026-04-24 source refresh found no current Starshine owner file and no preset role.
 - It has a close local-registry sibling:
   - local `type-un-finalizing`
   - upstream public `type-unfinalizing`
@@ -42,6 +52,7 @@ So this folder is another explicit, source-backed upstream-only registry expansi
 - The local boundary-only registry still names `type-finalizing`, but before this thread there was no dedicated living folder explaining what the pass actually does.
 - The pass sits directly beside already-documented GC/type neighbors like `remove-unused-types`, `type-merging`, and `unsubtyping`.
 - It is easy to misread from the name alone as a broad type optimizer.
+- The folder now has an immutable 2026-04-24 primary-source manifest and a dedicated Starshine status/port-strategy page.
 - The real `version_129` contract is much smaller and more specific:
   - rewrite only **private** heap types
   - only finalize **leaf** private types
@@ -88,6 +99,8 @@ So this pass is best taught as:
   Focused guide to the easiest part to misread: private-vs-public visibility, why only leaf types may become final, and how the `type-unfinalizing` sibling differs.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly module/WAT shape catalog for the main positive, preserved, and bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map, with exact local registry, request-rejection, type-model, WAT, validator, and binary-code locations.
 
 ## Current maintenance rule
 
@@ -104,6 +117,8 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md)
+- [`../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md`](../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
