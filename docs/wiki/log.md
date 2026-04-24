@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-24] health | mark `asyncify` tracker gap closed
+
+- Ran a focused reference-hygiene check after adding the `asyncify` dossier and found the tracker's long “gap closed” maintenance section listed `asyncify` in the covered summary but lacked the matching explicit sentence used for neighboring recent dossier additions.
+- Updated `docs/wiki/binaryen/passes/tracker.md` to state directly that `asyncify` now has an immutable raw primary-source manifest plus a dedicated Starshine status page, so future wiki runs do not rediscover it as an absent pass-wiki gap.
+
 ## [2026-04-24] research | add `asyncify` primary-source capture and Starshine status bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose upstream `asyncify` because the widened pass wiki still had no dossier for Binaryen's public whole-module pause/resume transformation despite official Emscripten documentation and substantial Starshine prerequisite surfaces.
