@@ -14,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./terminating-tails.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -381,6 +382,8 @@ When you look at a possible `code-folding` candidate, ask these questions in ord
 5. Is the size win worth the helper structure?
 
 If any answer is “no,” expect Binaryen to keep the duplicate code.
+
+Future Starshine tests should introduce these families in the source-backed order captured in [`./starshine-port-readiness-and-validation.md#validation-ladder`](./starshine-port-readiness-and-validation.md#validation-ladder), starting with reduced expression-exit positives and source-backed negative gates before terminating-tail helper-label rewrites.
 
 ## Source strength note
 

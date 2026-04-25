@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | add `code-folding` port-readiness bridge
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/code-folding/` folder, and `docs/wiki/raw/research/`, then chose removed `code-folding` because the folder had the standard source/shape/status pages but still lacked a direct implementation-readiness bridge tying Binaryen's source-backed contract to concrete Starshine HOT prerequisites and first-slice validation.
+- Added `docs/wiki/raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` sources for `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`; no teaching-relevant current-main drift was found beyond the existing dossier contract.
+- Added `docs/wiki/raw/research/0373-2026-04-25-code-folding-port-readiness.md` and `docs/wiki/binaryen/passes/code-folding/starshine-port-readiness-and-validation.md`; refreshed the landing, strategy, shape, terminating-tail, implementation/test-map, Starshine status, catalog, and tracker pages so the pass now has a source-backed minimum viable Starshine slice order, HOT builder / region / label / branch-verification code map, official-test-family-first validation ladder, neighborhood replay plan, and open design questions.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; the touched-area health check promoted `code-folding` from `dossier` to `deep` in the tracker and closed the stale local-readiness gap while keeping the pass explicitly unimplemented.
+
 ## [2026-04-25] health | refresh `coalesce-locals` local code-map anchors
 
 - Ran a focused touched-area reference-hygiene pass after the `coalesce-locals` port-readiness commit and found the existing implementation/test-map page still pointed to older `agent-todo.md` and `simplify_locals.mbt` line anchors.

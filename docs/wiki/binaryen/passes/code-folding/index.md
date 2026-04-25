@@ -3,6 +3,8 @@ kind: entity
 status: working
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
+  - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
@@ -18,6 +20,7 @@ related:
   - ./terminating-tails.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../late-pipeline-dispatch.md
   - ../../no-dwarf-default-optimize-path.md
 ---
@@ -71,13 +74,15 @@ That split is important. The pass is not one generic “merge any duplicate regi
 - After successful rewrites Binaryen may need EH-specific repair through `EHUtils::handleBlockNestedPops(...)`.
 - The pass runs to a per-function **fixpoint** because one fold can expose another.
 - The folder now has a dedicated implementation/test-map page that points beginners and future porters to Binaryen's owner file, helper surfaces, lit proof families, scheduler location, and exact local Starshine status/code surfaces.
-- Current Starshine still has **no implementation**, but the dossier now also maps the exact local status and future landing zone: removed-name registry tracking, CLI spelling coverage, backlog slice `CF`, canonical scheduler placement, and the neighboring implemented cleanup passes a future port would compose with.
+- The folder also has a Starshine port-readiness page that turns the upstream contract into a staged local implementation and validation ladder: narrow expression-exit positives first, source-backed negative gates second, terminating-tail helper-label sharing later, and EH movement only after focused proof.
+- Current Starshine still has **no implementation**, but the dossier now maps the exact local status and future landing zone: removed-name registry tracking, CLI spelling coverage, backlog slice `CF`, canonical scheduler placement, HOT builder/region/label/verification prerequisites, and the neighboring implemented cleanup passes a future port would compose with.
 
 ## Freshness and provenance
 
-- The dossier now has an immutable raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md).
+- The dossier has an immutable tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md).
 - On 2026-04-22 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 - A 2026-04-25 focused current-`main` recheck in [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md) did not surface teaching-relevant drift beyond the existing Binaryen pages. The current-main bridge specifically rechecked `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`.
+- A second 2026-04-25 port-readiness manifest in [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md) reuses those official primary sources to anchor the local first-slice and validation plan without changing the upstream semantic contract.
 
 ## Page map
 
@@ -91,15 +96,19 @@ That split is important. The pass is not one generic “merge any duplicate regi
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Exact current Starshine status and port-planning bridge: removed-name registry tracking, CLI spelling coverage, backlog slice `CF`, canonical scheduler slot, and the implemented neighboring cleanup passes a future local port would need to compose with.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Practical implementation-readiness bridge: minimum viable local slice order, HOT builder / region / label / branch-verification prerequisites, official-test-family-first validation ladder, neighborhood replay plan, and open design questions to answer before moving `code-folding` out of removed status.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `code-folding` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
-- New `code-folding` findings should update the Binaryen strategy page, the shape pages, and the Starshine status page together so the upstream algorithm, concrete examples, and local port story stay aligned.
+- New `code-folding` findings should update the Binaryen strategy page, the shape pages, the Starshine status page, and the Starshine port-readiness page together so the upstream algorithm, concrete examples, and local implementation plan stay aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md)
+- [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
 - [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)

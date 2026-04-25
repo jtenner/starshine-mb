@@ -14,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen `code-folding` terminating tails
@@ -244,7 +245,7 @@ The next passes are exactly the passes you would want to clean that up.
 
 ## What a future Starshine port must preserve
 
-For this subsystem specifically, preserve these facts first:
+The broader staged local plan is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). For this subsystem specifically, preserve these facts first:
 
 1. subset search, not “all tails or nothing”
 2. deeper common suffixes are explored before shallower ones

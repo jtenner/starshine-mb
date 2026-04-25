@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-25 Docs: add `code-folding` port-readiness bridge
+
+- **ingest a focused Binaryen primary-source port-readiness manifest for removed `code-folding`, add a dedicated Starshine implementation-readiness and validation page, and refresh the dossier/catalogs so the source-backed minimum viable slice order, HOT builder / region / label / branch-verification prerequisites, official-test-family-first validation ladder, neighborhood replay plan, and tracker promotion to deep coverage are discoverable while the pass remains explicitly unimplemented** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](./docs/wiki/raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md), [`docs/wiki/raw/research/0373-2026-04-25-code-folding-port-readiness.md`](./docs/wiki/raw/research/0373-2026-04-25-code-folding-port-readiness.md), and [`docs/wiki/binaryen/passes/code-folding/`](./docs/wiki/binaryen/passes/code-folding/).
+
 ## 2026-04-25 Docs: refresh `coalesce-locals` code-map anchors
 
 - **repair touched-area reference hygiene in the `coalesce-locals` implementation/test-map page so the current Starshine file map points to the live `CL` backlog range and current `simplify_locals.mbt` cleanup phase anchors** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`docs/wiki/binaryen/passes/coalesce-locals/implementation-structure-and-tests.md`](./docs/wiki/binaryen/passes/coalesce-locals/implementation-structure-and-tests.md).

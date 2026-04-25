@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
+  - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
@@ -21,6 +23,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./terminating-tails.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../merge-blocks/index.md
   - ../remove-unused-brs/index.md
   - ../remove-unused-names/index.md
@@ -29,7 +32,7 @@ related:
 
 # Starshine Strategy For `code-folding`
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md), the 2026-04-25 current-main bridge in [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md), and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md), the 2026-04-25 current-main bridge in [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md), the focused port-readiness source manifest in [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md), the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness ladder in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -45,7 +48,7 @@ The current local strategy is boundary and port planning:
 - keep the pass in the canonical no-DWARF parity/backlog documents
 - teach the surrounding late-cluster Starshine passes a future port would need to compose with
 
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+So this page is intentionally a **status-and-port-map** page rather than a fake implementation page. For concrete first-slice scope, HOT prerequisites, source-backed negative gates, and validation ordering, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Exact local code map today
 
@@ -210,6 +213,9 @@ So the current repo status is best summarized as:
 
 ## Validation plan for the eventual port
 
+The dedicated port-readiness page now owns the detailed test-first ladder: [`./starshine-port-readiness-and-validation.md#validation-ladder`](./starshine-port-readiness-and-validation.md#validation-ladder).
+The short version is still:
+
 The existing backlog plus neighboring pass docs imply the right validation ladder.
 A future real implementation should validate in this order:
 
@@ -251,6 +257,8 @@ It is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md)
+- [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
 - [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)

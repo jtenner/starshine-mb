@@ -14,6 +14,7 @@ related:
   - ./terminating-tails.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -354,6 +355,8 @@ If Starshine ports `code-folding`, preserve these facts first:
 7. the pass is allowed to add helper blocks when the heuristic says it is worth it
 8. the pass is intentionally iterative and non-overlapping within one iteration
 9. late scheduler placement is part of why the transform pays off
+
+For the staged local implementation order, HOT prerequisites, and validation ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 Those are the durable upstream-level truths.
 

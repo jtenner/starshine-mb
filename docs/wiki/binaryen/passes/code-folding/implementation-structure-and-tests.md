@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
+  - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
@@ -17,6 +19,7 @@ related:
   - ./terminating-tails.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -39,7 +42,7 @@ Binaryen implements `code-folding` as a function-parallel pass in `src/passes/Co
 | Binaryen `src/passes/opt-utils.h` | Neighboring optimize helper context | Shows how late cleanup helpers compose around inlining and repeated optimization clusters. |
 | Binaryen `test/lit/passes/code-folding.wast` | Dedicated behavior proof | Exercises the positive, negative, and movement-safety shapes that should seed any Starshine port tests. |
 
-Primary current-main URLs are captured in [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md). The tagged `version_129` source anchor remains [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md).
+Primary current-main URLs are captured in [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md). The tagged `version_129` source anchor remains [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md). The implementation-readiness recheck and Starshine test ladder now live in [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Binaryen implementation structure
 
@@ -119,12 +122,12 @@ Starshine does not implement the transform yet, but the status is still represen
 | CLI pass-token parsing | `src/cli/cli_test.mbt:159-165` | `--code-folding` remains parseable as a kebab-case pass token. |
 | CLI ordering preservation | `src/cli/cli_test.mbt:297-309` | Explicit pass order with `code-folding` is preserved even though execution later rejects removed names. |
 | Missing dispatcher owner | `src/passes/pass_manager.mbt` has no `code-folding` match | There is no active HOT/module dispatch path today. |
-| Backlog slice | `agent-todo.md:443-448` | The future work is tracked as `CF`, with motion-safety and artifact-compare deliverables. |
+| Backlog slice | `agent-todo.md:445-460` | The future work is tracked as `CF`, with motion-safety and artifact-compare deliverables. |
 | Canonical scheduler context | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | The intended late slot sits before the final `merge-blocks` cleanup cluster. |
 
 ## What a faithful Starshine test ladder should start with
 
-A future implementation should use the upstream lit families as the first local tests:
+The detailed local slice order and HOT prerequisite map now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). In short, a future implementation should use the upstream lit families as the first local tests:
 
 1. unnamed `if` arm duplicate-tail positives
 2. named block branch-value positives
@@ -150,6 +153,8 @@ The source-backed contract is narrower: duplicate *tails* that already share an 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md)
+- [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
 - [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
