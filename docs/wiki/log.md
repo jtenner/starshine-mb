@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `coalesce-locals` port-readiness coverage
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/coalesce-locals/` folder, and `docs/wiki/raw/research/`, then chose removed local `coalesce-locals` because it had the standard strategy/shape/source-map pages but still lacked one beginner-to-advanced implementation-readiness bridge and the tracker still marked it as `dossier` rather than `deep`.
+- Added `docs/wiki/raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md`, reusing the official Binaryen `version_129` and current-main source manifests already committed for `CoalesceLocals.cpp`, `pass.cpp`, and `coalesce-locals.wast`. The health check found no new teaching-level Binaryen drift; the remaining uncertainty is local architecture: direct module/function analysis versus HOT-assisted facts plus module-level declaration/name repair.
+- Added `docs/wiki/binaryen/passes/coalesce-locals/starshine-port-readiness-and-validation.md`; refreshed the coalesce-locals landing page and Starshine strategy page so future implementers can follow current registry/dispatcher/preset/backlog state, reusable `reorder-locals` and `simplify-locals` substrates, minimum viable port shape, first required reduced tests, neighborhood replay, and parity signoff ladder.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; the touched-area health check promoted `coalesce-locals` to a deep dossier and kept all edits isolated from unrelated local source changes already present in the worktree.
+
 ## [2026-04-25] research | refresh `asyncify` EH/options and source map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/asyncify/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `asyncify` because the dossier was useful but still under-taught exception/catch unwind options and sent readers toward a separate `AsyncifyLocals` owner that the reviewed source does not expose as a standalone navigation target.

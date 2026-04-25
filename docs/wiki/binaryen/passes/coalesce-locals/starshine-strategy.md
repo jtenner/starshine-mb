@@ -7,6 +7,7 @@ sources:
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
   - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/reorder_locals.mbt
@@ -24,6 +25,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./interference-and-ordering.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../local-subtyping/index.md
   - ../local-cse/index.md
   - ../reorder-locals/index.md
@@ -49,6 +51,8 @@ The current local strategy is boundary and port planning:
 - point future work at the exact local index-rewrite, local-name-rewrite, and cleanup code that already solves the nearest MoonBit-side problems
 
 So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+
+See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the condensed readiness matrix and validation ladder.
 
 ## Exact local code map today
 
@@ -146,6 +150,8 @@ Current Starshine already has the declaration/index rewrite neighbor (`reorder-l
 That is why current preset placement should stay honest.
 
 ## The right future Starshine implementation shape
+
+For a checklist-style implementation and validation ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The current docs and neighboring code strongly suggest that a future local `coalesce-locals` port should be taught as a **late local-slot sharing pass that composes with existing declaration rewrite and cleanup machinery**, not as an isolated textbook register allocator.
 

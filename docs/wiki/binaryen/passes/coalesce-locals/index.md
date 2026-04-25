@@ -19,6 +19,7 @@ related:
   - ./interference-and-ordering.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../local-subtyping/index.md
   - ../local-cse/index.md
   - ../reorder-locals/index.md
@@ -82,6 +83,8 @@ That is narrower than “merge any locals that look unused.”
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future port map: removed-name registry tracking, backlog slice `CL`, honest scheduler/preset story, and the exact neighboring MoonBit declaration-rewrite and cleanup files a future local port would need to compose with.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness and validation matrix for a future port: current registry/dispatcher/preset/backlog state, reusable Starshine local-index and cleanup substrates, minimum viable pass shape, first required tests, and parity signoff ladder.
 
 ## Current maintenance rule
 
@@ -89,7 +92,7 @@ That is narrower than “merge any locals that look unused.”
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
 - Treat [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md) as the immutable provenance anchor for the official release/source/test surfaces reviewed on 2026-04-22.
 - Treat [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md) as the narrow current-`main` freshness bridge added on 2026-04-25.
-- New `coalesce-locals` findings should update the Binaryen strategy page, the implementation/test map, the interference/order page, and the Starshine strategy page together so the algorithm explanation, example catalog, source map, and local status story stay aligned.
+- New `coalesce-locals` findings should update the Binaryen strategy page, the implementation/test map, the interference/order page, the Starshine strategy page, and the port-readiness matrix together so the algorithm explanation, example catalog, source map, local status story, and future validation ladder stay aligned.
 
 ## Sources
 
@@ -98,6 +101,7 @@ That is narrower than “merge any locals that look unused.”
 - [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
 - [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md`](../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md)
+- [`../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md`](../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
