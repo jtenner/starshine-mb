@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
+  - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
@@ -14,6 +16,7 @@ sources:
   - ../../../../../.artifacts/o4z-wasm-opt-debug.log
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./signature-updates-and-nested-reruns.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -84,12 +87,15 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
 - A future Starshine port must preserve both halves:
   - the signature-rewrite algorithm
   - the nested rerun scheduler behavior
+- The 2026-04-25 current-main recheck found no teaching-relevant drift from the `version_129` contract and closed the local wiki's missing implementation/test-map gap.
 - A future local naming decision is still open: add an exact `dae-optimizing` alias, rename the descriptive registry entry, or keep the mapping documented.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: data structures, phases, helper dependencies, safety checks, and scheduler placement.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  Source-confirmed owner-file and proof-surface map for `DeadArgumentElimination.cpp`, `pass.cpp`, `opt-utils.h`, DAE helper headers, and the distributed optimizing/shared lit-test family.
 - [`./signature-updates-and-nested-reruns.md`](./signature-updates-and-nested-reruns.md)
   Focused guide to the easiest parts of the pass to misunderstand: closed-world boundary checks, parameter and result rewrites, call localization, and why the optimizing helper is part of the contract.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -102,10 +108,12 @@ That is much closer to the real Binaryen pass than “just remove unused argumen
 - Treat this folder as the canonical home for future `dae-optimizing` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary pass plus nested rerun scheduler support.
 - Do not describe `dae-optimizing` as an exact current Starshine registry spelling unless `src/passes/optimize.mbt` adds that alias.
-- New `dae-optimizing` findings should update both the strategy page and the signature/rerun page so the boundary algorithm and the scheduler story stay aligned.
+- New `dae-optimizing` findings should update the strategy page, implementation/test-map page, and signature/rerun page so the source ownership, boundary algorithm, and scheduler story stay aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md)
+- [`../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md`](../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md)
 - [`../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md`](../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md)

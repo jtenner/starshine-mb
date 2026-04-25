@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `dae-optimizing` implementation/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/dae-optimizing/` folder, the neighboring plain-DAE implementation/test-map page, and `docs/wiki/raw/research/`, then chose boundary-only `dae-optimizing` because its dossier still lacked the now-standard owner/helper/lit-test map page.
+- Added `docs/wiki/raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md`, capturing official Binaryen current-main and tagged `version_129` sources for `DeadArgumentElimination.cpp`, `pass.cpp`, `opt-utils.h`, `param-utils.h`, `return-utils.h`, `lubs.h`, `type-updating.h`, helper `utils.h`, the distributed DAE lit family, and upstream PR `#8072` context for the unprofitable single-call-chain stop rule. The focused recheck found no teaching-relevant drift: `dae-optimizing` remains the shared DAE boundary engine plus the optimizing-only `optimizeAfterInlining(...)` nested cleanup suffix.
+- Added `docs/wiki/raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md` and `docs/wiki/binaryen/passes/dae-optimizing/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, signature/rerun guide, WAT-shape catalog, and Starshine status page so readers can map transformed shapes, upstream owner/test surfaces, current descriptive boundary-only local spelling, DAE backlog slices, and the still-missing module-boundary plus nested-rerun scheduler implementation.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked `dae-optimizing` as a deep unimplemented dossier now that the implementation/test-map gap is closed.
+
 ## [2026-04-25] research | deepen `heap2local` implementation/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/heap2local/` folder, and `docs/wiki/raw/research/`, then chose active `heap2local` because the dossier was useful but still lacked the now-standard implementation/test-map page and exact current local line ranges.

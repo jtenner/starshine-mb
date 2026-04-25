@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
+  - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./signature-updates-and-nested-reruns.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -21,7 +24,8 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
-- The 2026-04-24 primary-source manifest is [`../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md); it records the official release page, tagged source URLs, current-`main` spot-check URLs, and dedicated lit files reviewed in the latest follow-up.
+- The 2026-04-24 primary-source manifest is [`../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md); it records the official release page, tagged source URLs, current-`main` spot-check URLs, and dedicated lit files reviewed in the original follow-up.
+- The 2026-04-25 implementation/test-map bridge is [`../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md); it rechecked current `main` and found no teaching-relevant drift while adding a compact owner-file / lit-proof map.
 - The core implementation is `src/passes/DeadArgumentElimination.cpp`.
 - CLI registration and top-level scheduler placement come from `src/passes/pass.cpp`.
 - The nested optimizing helper comes from `src/passes/opt-utils.h`.
@@ -60,7 +64,7 @@ Primary source URLs:
 
 Binaryen `dae-optimizing` is a **closed-world direct-call boundary cleanup pass** that can refine function signatures, delete dead parameters and returns, localize hard call operands when needed, and then rerun useful function optimizations on the functions it changed.
 
-The latest source refresh did not find a teaching-relevant drift in current `main`, but it did clarify one local Starshine caveat: current Starshine uses the descriptive boundary-only registry spelling `dead-argument-elimination-optimizing`, not the exact upstream spelling `dae-optimizing`; see [`./starshine-strategy.md`](./starshine-strategy.md).
+The latest source refresh did not find a teaching-relevant drift in current `main`, but it did close a local wiki gap: [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) now maps the upstream owner files and distributed lit-test proof surface. The local Starshine caveat remains unchanged: current Starshine uses the descriptive boundary-only registry spelling `dead-argument-elimination-optimizing`, not the exact upstream spelling `dae-optimizing`; see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## The pass in one table
 

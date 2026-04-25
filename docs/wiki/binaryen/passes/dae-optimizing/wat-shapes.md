@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
+  - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./signature-updates-and-nested-reruns.md
   - ./starshine-strategy.md
   - ../dead-argument-elimination/wat-shapes.md
@@ -19,7 +22,7 @@ related:
 # `dae-optimizing` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's `dae-optimizing` pass.
-The 2026-04-24 follow-up added a primary-source manifest and a Starshine status page; use [`./starshine-strategy.md`](./starshine-strategy.md) for the local code-map and naming caveat before turning any shape here into local tests.
+The 2026-04-25 follow-up added a current-main implementation/test-map bridge and a dedicated owner/test page. Use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for upstream file/test provenance and [`./starshine-strategy.md`](./starshine-strategy.md) for the local code-map and naming caveat before turning any shape here into local tests.
 
 ## Read this page with one mental model
 

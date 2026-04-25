@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
+  - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -14,6 +16,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./signature-updates-and-nested-reruns.md
   - ./wat-shapes.md
   - ../dead-argument-elimination/index.md
@@ -109,6 +112,7 @@ Minimum required pieces:
 Use the Binaryen dossier as the behavior checklist:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) for phase order, data ownership, and nested cleanup behavior.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the upstream owner-file, helper, and lit-proof map.
 - [`./signature-updates-and-nested-reruns.md`](./signature-updates-and-nested-reruns.md) for boundary safety, localization, result removal, and rerun caveats.
 - [`./wat-shapes.md`](./wat-shapes.md) for beginner-friendly positive and negative shapes to convert into focused tests.
 - [`../dead-argument-elimination/implementation-structure-and-tests.md`](../dead-argument-elimination/implementation-structure-and-tests.md) for the shared upstream owner-file and proof-surface map.
