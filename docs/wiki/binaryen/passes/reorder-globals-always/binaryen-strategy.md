@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
+  - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
   - ../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./small-module-threshold-scoring-and-proof.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../reorder-globals/index.md
 ---
 
@@ -172,16 +175,23 @@ This is the most important beginner correction to the word `always`.
 
 ## What a future Starshine port must preserve
 
-1. Separate public identity for `reorder-globals-always` in the registry and CLI.
+See [`./starshine-strategy.md`](./starshine-strategy.md) for the exact current local status and code map. The short version is that Starshine tracks the name as boundary-only, rejects active requests, omits it from presets, and has no owner file or sibling-specific backlog slice today.
+
+A future implementation must preserve:
+
+1. Separate public identity for `reorder-globals-always` in the registry and CLI if the project chooses to expose the sibling.
 2. Shared engine with ordinary `reorder-globals`.
 3. The removed `< 128` early return in always mode.
 4. The smooth synthetic scoring model in always mode.
 5. The same imports-first and dependency-preserving comparator logic.
 6. The same earliest-best tie behavior.
-7. The same nested-use role from `GlobalStructInference`.
+7. The same nested-use role from `GlobalStructInference` if Starshine grows an internal helper-global repair path.
+8. Starshine-specific repair for numeric `GlobalIdx` users in exports, `GlobalGet`, `GlobalSet`, and global initializers.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md)
+- [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
 - [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)
 - [`../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md`](../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>

@@ -2,6 +2,8 @@
 
 Date: 2026-04-21
 Status: source-confirmed follow-up for an existing upstream-only dossier
+
+Supersession note, 2026-04-25: this note remains useful for the original exact-cutoff / smooth-score proof page, but it is superseded for immutable raw source provenance and Starshine local-status coverage by [`../binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../binaryen/2026-04-25-reorder-globals-always-primary-sources.md), [`0336-2026-04-25-reorder-globals-always-source-bridge.md`](0336-2026-04-25-reorder-globals-always-source-bridge.md), and [`../../binaryen/passes/reorder-globals-always/starshine-strategy.md`](../../binaryen/passes/reorder-globals-always/starshine-strategy.md).
 Pass: `reorder-globals-always`
 Local registry status: `boundary-only` in `src/passes/optimize.mbt`
 Binaryen release reviewed: `version_129`

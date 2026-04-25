@@ -2,6 +2,8 @@
 
 Date: 2026-04-21
 
+Supersession note, 2026-04-25: this note remains useful as the original folder-creation and mechanics research, but it is superseded for raw primary-source provenance and Starshine local-status coverage by [`../binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../binaryen/2026-04-25-reorder-globals-always-primary-sources.md), [`0336-2026-04-25-reorder-globals-always-source-bridge.md`](0336-2026-04-25-reorder-globals-always-source-bridge.md), and [`../../binaryen/passes/reorder-globals-always/starshine-strategy.md`](../../binaryen/passes/reorder-globals-always/starshine-strategy.md).
+
 ## Scope and why this pass is eligible now
 
 This thread had to pick exactly one Binaryen pass that still needed more wiki information.

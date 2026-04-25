@@ -1,11 +1,14 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
+  - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
   - ../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/lib/types.mbt
   - ../../../../../agent-todo.md
   - ../tracker.md
   - ../reorder-globals/index.md
@@ -14,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./small-module-threshold-scoring-and-proof.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../reorder-globals/index.md
   - ../global-struct-inference/index.md
   - ../tracker.md
@@ -27,6 +31,7 @@ related:
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **boundary-only** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `reorder-globals-always` slice**.
+- The folder now has a sibling-specific immutable raw primary-source manifest and a dedicated Starshine status/port-strategy page.
 - It shares the same implementation engine as `reorder-globals`, but changes the exact policy for small modules and for candidate scoring.
 
 ## Why this pass matters
@@ -78,6 +83,7 @@ So this pass is best taught as:
   - no reviewed current-`main` drift on `ReorderGlobals.cpp`
 - The strongest source-backed internal interaction is:
   - `GlobalStructInference` runs nested `reorder-globals-always` after adding helper globals.
+- Current Starshine keeps the pass boundary-only, rejects active requests, omits it from presets, has no owner file or sibling-specific backlog slice, and would need a whole-module `GlobalIdx` remap layer before it could run.
 
 ## Page map
 
@@ -89,6 +95,8 @@ So this pass is best taught as:
   Focused source-confirmed guide to the exact `< 128` cutoff removal, exact `1.0 + (i / 128.0)` scoring formula, strongest lit-backed proof families, nested `GlobalStructInference` caller, and current-`main` no-drift result.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly module/WAT shape catalog showing tiny-module positives, dependency-preserving reorders, internal-fixup shapes, and main bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map: boundary-only registry entry, request rejection, preset omission, no owner file, no sibling backlog slice, and the numeric `GlobalIdx` repair surface a faithful port would need.
 
 ## Current maintenance rule
 
@@ -99,9 +107,12 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md)
+- [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
 - [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)
 - [`../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md`](../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../tracker.md`](../tracker.md)
 - [`../reorder-globals/index.md`](../reorder-globals/index.md)

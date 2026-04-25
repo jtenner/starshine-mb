@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
+  - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals-real.wast
@@ -11,6 +13,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-strategy.md
   - ../reorder-globals/index.md
 ---
 
@@ -203,8 +206,14 @@ Wrong.
 The canonical production late-tail pass is still ordinary `reorder-globals`.
 The sibling is the small-module/test/internal-fixup variant.
 
+## Starshine-local caveat
+
+These WAT shapes describe Binaryen behavior. In Starshine, the pass name is currently boundary-only and explicit requests are rejected. A future local implementation must also repair numeric `GlobalIdx` references after reordering; see [`./starshine-strategy.md`](./starshine-strategy.md).
+
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md)
+- [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
 - [`../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md`](../../../raw/research/0188-2026-04-21-reorder-globals-always-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-globals-real.wast>

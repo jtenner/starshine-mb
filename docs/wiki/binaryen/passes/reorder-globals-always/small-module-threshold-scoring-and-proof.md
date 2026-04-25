@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md
+  - ../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md
   - ../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ReorderGlobals.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
@@ -16,6 +18,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../reorder-globals/size-model-and-dependency-order.md
   - ../global-struct-inference/closed-world-analysis-and-unnesting.md
 ---
@@ -126,16 +129,21 @@ That is why the wiki should teach the sibling as a real pass, not as an unnamed 
 
 ## Current-main drift result
 
-Reviewed on 2026-04-21:
+Reviewed again on 2026-04-25 using the source set captured in [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md):
 
 - `version_129` `src/passes/ReorderGlobals.cpp`
 - current `main` `src/passes/ReorderGlobals.cpp`
+- the neighboring registration, constructor, internal-caller, and lit-test files listed in the raw manifest
 
 Result:
 
-- no drift on the reviewed surface; the file contents match exactly
+- no teaching-relevant drift on the reviewed surface
 
-So the `version_129` explanation on this page is still current today for the reviewed behavior.
+So the `version_129` explanation on this page is still current for the reviewed behavior. This remains a narrow spot check, not a promise that every future Binaryen global-layout helper is unchanged.
+
+## Starshine-local implication
+
+The source proof above is upstream-only until Starshine grows a shared global-reorder module pass. [`./starshine-strategy.md`](./starshine-strategy.md) records the current local truth: the name is boundary-only, active requests are rejected, presets omit it, and any future port must repair numeric `GlobalIdx` users rather than relying on Binaryen-style name-based references.
 
 ## Beginner-safe summary
 
@@ -146,6 +154,8 @@ If you only remember one thing, remember this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md`](../../../raw/binaryen/2026-04-25-reorder-globals-always-primary-sources.md)
+- [`../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md`](../../../raw/research/0336-2026-04-25-reorder-globals-always-source-bridge.md)
 - [`../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md`](../../../raw/research/0214-2026-04-21-reorder-globals-always-source-confirmation-followup.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ReorderGlobals.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
