@@ -111,7 +111,7 @@ Exact local code map:
 | `src/passes/optimize.mbt:232-234` | Active hot-pass registry entry for `merge-blocks`. |
 | `src/passes/optimize.mbt:255-268` | Public preset expansions schedule `merge-blocks` twice in the late cleanup cluster. |
 | `src/passes/optimize.mbt:394-408` | Static preset arrays keep the same repeated placement. |
-| `src/passes/pass_manager.mbt:7813` | Trace / descriptor integration surface for `merge-blocks`. |
+| `src/passes/pass_manager.mbt:7813` | HOT lower/writeback option surface for `merge-blocks`. |
 | `src/passes/pass_manager.mbt:8704` | Dispatcher calls `merge_blocks_run(ctx, func)`. |
 
 ## Starshine direct tests

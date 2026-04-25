@@ -69,7 +69,7 @@ The fastest read-along path through the current Starshine implementation is:
 | `src/passes/merge_blocks.mbt:369-386` | `merge_blocks_run(...)` | Entry point, use-def construction, mutation marking, changed/unchanged result. |
 | `src/passes/optimize.mbt:232-234` | registry entry | Active hot-pass registration. |
 | `src/passes/optimize.mbt:255-268` and `394-408` | preset arrays | Repeated late `merge-blocks` placement in `optimize` and `shrink`. |
-| `src/passes/pass_manager.mbt:7813` and `8704` | manager/dispatcher | Trace integration and call to `merge_blocks_run(ctx, func)`. |
+| `src/passes/pass_manager.mbt:7813` and `8704` | manager/dispatcher | HOT lower/writeback options and call to `merge_blocks_run(ctx, func)`. |
 
 ## What Starshine is optimizing
 

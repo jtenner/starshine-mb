@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] health | fix `merge-blocks` pass-manager wording
+
+- Ran a focused reference-hygiene check after the `merge-blocks` source-correction commit and found the new implementation/test-map and Starshine strategy pages described `src/passes/pass_manager.mbt:7813` as trace integration.
+- Corrected that wording to the actual code surface: HOT lower/writeback options for `merge-blocks`, with the dispatcher call still at `src/passes/pass_manager.mbt:8704`.
+
 ## [2026-04-25] research | correct `merge-blocks` source strategy and code map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/merge-blocks/`, and `docs/wiki/raw/research/`, then chose active `merge-blocks` because its dossier was complete-looking but still taught the stale Binaryen model of tail-child-only unnamed/same-name block flattening and lacked the now-standard implementation/test-map page.
