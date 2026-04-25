@@ -1,5 +1,14 @@
 # 0186 - Binaryen `simplify-locals-nonesting` research
 
+## Supersession note
+
+Superseded on 2026-04-25 for raw-source provenance and Starshine local-status mapping by:
+
+- [`../binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md`](../binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md)
+- [`0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
+
+This note remains useful for the first-pass mechanics reading and the original rationale for creating the folder.
+
 ## Scope and intent
 
 - Continue the recursive Binaryen pass wiki-ing campaign after the upstream-only `untee` dossier.

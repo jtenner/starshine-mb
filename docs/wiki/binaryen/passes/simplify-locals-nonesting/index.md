@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md
+  - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -19,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flatness-variant-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../simplify-locals/index.md
   - ../simplify-locals-notee/index.md
   - ../simplify-locals-notee-nostructure/index.md
@@ -36,6 +39,7 @@ related:
 - It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **removed** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) under the alias `simplify-locals-no-nesting`.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `simplify-locals-nonesting` or `simplify-locals-no-nesting` slice**.
+- A 2026-04-25 refresh added an immutable Binaryen primary-source manifest and a dedicated Starshine status page; older note `0186` remains useful for mechanics but is superseded for raw-source provenance and local status.
 - Official Binaryen `pass.cpp` describes it as a locals pass with **no nesting at all** that **preserves flatness**.
 
 ## Why this pass matters
@@ -117,6 +121,8 @@ A dedicated folder was still justified because:
   Focused guide to the hardest part to misread: what “preserves flatness” really means, how this differs from `-notee-nostructure`, and why it is not the same thing as `flatten`.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, preserved, and bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map: removed local alias, upstream spelling gap, CLI/request rejection, no owner/backlog slice, active full-`simplify-locals` reuse surface, and the policy-mode boundaries a faithful port must preserve.
 
 ## Current maintenance rule
 
@@ -130,6 +136,8 @@ A dedicated folder was still justified because:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md)
+- [`../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md`](../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
