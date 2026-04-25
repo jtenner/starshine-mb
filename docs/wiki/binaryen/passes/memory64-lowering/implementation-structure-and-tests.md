@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
+  - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
 related:
@@ -26,8 +28,8 @@ This is the owner file for both public siblings:
 The important implementation pieces are:
 
 - declaration lowering helpers for memory/table limits;
-- address/index wrapping helpers that insert `i32.wrap_i64`;
-- result repair helpers that insert `i64.extend_i32_u`;
+- address/index helpers that insert `i32.wrap_i64` for dynamic operands but produce `i32.const` or `unreachable` for constant operands depending on range;
+- result repair helpers that zero-extend size results and repair grow failure sentinels;
 - visitors for ordinary memory ops, SIMD memory ops, atomics, bulk memory operations, data offsets, table operations, element offsets, and module declarations.
 
 The file should be read as a whole-module feature-lowering pass, not as a local peephole optimizer.
@@ -49,11 +51,11 @@ This is the primary memory-focused proof file.
 It covers the visible families a future Starshine port should mirror first:
 
 - memory declaration lowering;
-- active data offset lowering;
+- active data offset lowering, including high constants that become `unreachable`;
 - scalar loads/stores;
 - SIMD loads/stores;
 - atomic memory operations;
-- `memory.size` and `memory.grow` result/operand repair;
+- `memory.size` zero-extension and `memory.grow` operand plus failure-sentinel repair;
 - bulk memory instructions such as `memory.init`, `memory.copy`, and `memory.fill`.
 
 ### `test/lit/passes/table64-lowering.wast`
@@ -73,32 +75,34 @@ It covers:
 | --- | --- |
 | Where are public pass names defined? | Binaryen `src/passes/pass.cpp` registrations for `memory64-lowering` and `table64-lowering` |
 | What file owns the transform? | Binaryen `src/passes/Memory64Lowering.cpp` |
-| How are source-level `i64` address operands repaired? | `Memory64Lowering.cpp` address/index wrapping helpers and the memory/table visitors that call them |
-| How are `memory.size` / `table.size` results repaired? | `Memory64Lowering.cpp` result-extension helpers plus size/grow visitors |
+| How are source-level `i64` address operands repaired? | `Memory64Lowering.cpp` address/index helpers and the memory/table visitors that call them; dynamic operands wrap, in-range constants narrow, and out-of-range constants become `unreachable` |
+| How are `memory.size` / `table.size` results repaired? | `Memory64Lowering.cpp` result-extension helpers plus size visitors |
+| How are `memory.grow` / `table.grow` results repaired? | `Memory64Lowering.cpp` grow helper; high constant deltas become the 64-bit failure sentinel and dynamic results get failure-aware repair |
 | How do active data/element offsets get rewritten? | module/segment visitors in `Memory64Lowering.cpp` |
 | What lit file proves memory lowering? | `test/lit/passes/memory64-lowering.wast` |
 | What lit file proves table lowering? | `test/lit/passes/table64-lowering.wast` |
 
 ## Tests that are especially important for a port
 
-1. `memory.size` and `memory.grow` must preserve apparent `i64` results by adding `i64.extend_i32_u`.
-2. Load/store address wrappers must not disturb payload types.
-3. SIMD and atomic instructions need the same address repair as scalar loads/stores.
-4. Bulk memory/table operations must pick widths by operand position, not by one global pass flag.
-5. Segment offsets must be rewritten outside function bodies.
-6. Mixed table32/table64 and memory32/memory64 copies need explicit regression coverage.
+1. `memory.size` and `table.size` must preserve apparent `i64` results by adding `i64.extend_i32_u`.
+2. `memory.grow` and `table.grow` must preserve wasm64 failure semantics, not only successful result width.
+3. Dynamic load/store address wrappers must not disturb payload types.
+4. In-range constants, high constants, and active offsets need separate tests because Binaryen does not treat them all as dynamic wraps.
+5. SIMD and atomic instructions need the same address repair as scalar loads/stores.
+6. Bulk memory/table operations must pick widths by operand position, not by one global pass flag.
+7. Segment offsets must be rewritten outside function bodies.
+8. Mixed table32/table64 and memory32/memory64 copies need explicit regression coverage.
 
 ## Caveat: out-of-range limits and offsets
 
-The reviewed tests prove the ordinary lowering surface. They should not be overread as a complete policy document for every impossible-to-fit 64-bit limit or offset.
-Before Starshine implements the pass, source-confirm the exact Binaryen behavior for:
+The 2026-04-25 recheck resolved the most important constant/offset behavior: statically out-of-range address and active-offset constants become `unreachable`, while max limits above the 32-bit maximum are clamped. What remains uncertain is the user-facing policy for impossible minimum limits: the reviewed source asserts that lowered minimums fit after max clamping, but the dossier does not claim a polished diagnostic contract.
 
-- memory/table minimums or maximums that exceed 32-bit output limits;
-- active data or element offsets that do not fit in the lowered address space;
-- any diagnostics or assertions around those cases.
+Before Starshine implements the pass, decide and test whether local impossible-minimum behavior should mirror Binaryen's internal assertion, reject at request time, or report a validation/lowering error.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
+- [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
+  - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
 related:
@@ -39,22 +41,23 @@ After this step, ordinary wasm typing says the same operation now wants `i32` in
 
 ### 2. Wrap former `i64` inputs
 
-Any operand that was typed as an address/index/count because of a memory64/table64 declaration must be converted before feeding the lowered instruction:
+Any dynamic operand that was typed as an address/index/count because of a memory64/table64 declaration must be converted before feeding the lowered instruction:
 
 ```wat
 ;; before: memory64 load expects i64 address
-(i32.load (i64.const 40))
+(i32.load (local.get $addr64))
 
 ;; after: lowered memory32 load expects i32 address
-(i32.load (i32.wrap_i64 (i64.const 40)))
+(i32.load (i32.wrap_i64 (local.get $addr64)))
 ```
 
-This same pattern applies to scalar memory ops, SIMD memory ops, atomics, bulk memory/table operations, and table operations whose index/delta/count operand used to be `i64`.
+This same pattern applies to scalar memory ops, SIMD memory ops, atomics, bulk memory/table operations, and table operations whose index/delta/count operand used to be `i64`. A 2026-04-25 source recheck refined the constant case: known constant address operands and active offsets that are at least `2^32` become `unreachable` instead of wrapping, while in-range constants become `i32.const` values.
 
-### 3. Extend former `i64` results
+### 3. Repair former `i64` results
 
 Some operations return the address type. After lowering, the operation itself returns `i32`, but the surrounding source-level expression may still require `i64`.
-Binaryen repairs that with unsigned extension:
+
+For `memory.size` and `table.size`, Binaryen repairs that with unsigned extension:
 
 ```wat
 ;; before
@@ -64,19 +67,14 @@ Binaryen repairs that with unsigned extension:
 (i64.extend_i32_u (memory.size 0))
 ```
 
-The same result repair applies to:
+For `memory.grow` and `table.grow`, the repair is failure-aware rather than a blind zero-extension. A successful lowered `i32` result is zero-extended, but an `i32 -1` grow failure must become the 64-bit failure sentinel expected by wasm64 callers. Constant grow deltas above the 32-bit maximum become the 64-bit failure sentinel directly.
 
-- `memory.size`
-- `memory.grow`
-- `table.size`
-- `table.grow`
-
-Unsigned extension is important: memory and table indexes are unsigned quantities.
+Unsigned extension is still important for successful sizes and grows: memory and table indexes are unsigned quantities.
 
 ### 4. Rewrite segment offsets
 
 Active data and element segment offsets are part of module initialization, so lowering is not complete if only function bodies are rewritten.
-The pass also repairs offset expressions such as an `i64.const` data offset into 32-bit form.
+The pass also repairs offset expressions such as an `i64.const` data offset into 32-bit form. In-range constants become `i32.const`; statically out-of-range constants become `unreachable` to preserve the guaranteed out-of-bounds behavior in the lowered module.
 
 ### 5. Handle mixed-width bulk operations positionally
 
@@ -86,7 +84,7 @@ For copy operations, the reviewed Binaryen code treats length as 64-bit only whe
 
 ## What Binaryen does not try to do here
 
-- It does not prove pointer values are in range at runtime. `i32.wrap_i64` is a modulo-style narrowing operation.
+- It does not prove dynamic pointer values are in range at runtime. Dynamic operands use `i32.wrap_i64`, while statically known out-of-range constants are handled separately as `unreachable`.
 - It does not optimize address arithmetic.
 - It does not replace neighboring memory-packing, optimize-added-constants, or instrumentation passes.
 - It does not make memory64/table64 semantics available in an engine that cannot otherwise allocate the requested 64-bit range.
@@ -98,11 +96,12 @@ That is a useful external motivation for the pass, but the mechanics on this pag
 
 ## Current-main freshness
 
-A narrow 2026-04-24 current-`main` spot check of the owner source and the lit filenames did not reveal teaching-level drift from the `version_129` claims captured here.
-If a future port depends on exact out-of-range limit behavior, re-open the current source and confirm that detail before implementing.
+A 2026-04-25 current-`main` recheck of the owner source and paired lit files did not reveal teaching-level drift from the `version_129` contract. That recheck closed the earlier broad out-of-range uncertainty for constants and active offsets: high constants lower to `unreachable`, high grow constants lower to the 64-bit failure sentinel, max limits clamp to the 32-bit maximum, and min-limit behavior is still best described as source-level assertion rather than a user-facing diagnostic contract.
 
 ## Sources
 
+- Current-main recheck: [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
+- Follow-up note: [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - Raw manifest: [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - Research note: [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>

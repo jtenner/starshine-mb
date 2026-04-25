@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | recheck `memory64-lowering` out-of-range behavior
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose `memory64-lowering` because the dossier was complete enough to be useful but still carried an explicit stale uncertainty around out-of-range constants, active offsets, grow deltas, and limit behavior.
+- Added `docs/wiki/raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`, capturing a focused primary-source recheck of Binaryen `version_129` and current `main` `Memory64Lowering.cpp`, `memory64-lowering.wast`, and `table64-lowering.wast`. The recheck found no teaching-relevant current-main drift, but refined the prior dossier: dynamic address operands wrap with `i32.wrap_i64`, in-range constants narrow to `i32.const`, constants and active offsets at or above `2^32` become `unreachable`, high constant grow deltas become the 64-bit failure sentinel, dynamic grow results need failure-sentinel repair, max limits clamp to the 32-bit maximum, and impossible min-limit behavior remains an internal-assertion caveat rather than a user-facing diagnostic contract.
+- Added `docs/wiki/raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md` and refreshed the living `memory64-lowering` overview, Binaryen strategy, implementation/test-map, WAT-shape catalog, and Starshine strategy pages. The Starshine page now points to exact registry, limit-model, memory/table typecheck, and validation code locations in `src/passes/optimize.mbt`, `src/lib/types.mbt`, `src/validate/typecheck.mbt`, and `src/validate/validate.mbt`.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`, and marked older note `0315` superseded for out-of-range constants, grow-failure repair, and max/min limit policy while preserving its original source-bridge findings.
+
 ## [2026-04-25] research | recheck `duplicate-import-elimination` source and code map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then continued with `duplicate-import-elimination` because the working tree already carried related local wiki updates and the dossier could be made healthier without inventing a duplicate pass page.

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
+  - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
 related:
@@ -51,8 +53,8 @@ After:
 )
 ```
 
-Only the address changes. The load result type remains `i32`.
-The same address rule applies to other scalar loads, stores, SIMD memory ops, and atomic memory ops.
+Only the dynamic address changes. The load result type remains `i32`.
+The same dynamic-address rule applies to other scalar loads, stores, SIMD memory ops, and atomic memory ops. Constant addresses have their own range split below.
 
 ## 3. Store address repair
 
@@ -74,7 +76,35 @@ After:
 
 The payload value is not narrowed. Only the memory address is narrowed.
 
-## 4. `memory.size` result repair
+## 4. Constant address range split
+
+Before, an in-range memory64 constant address:
+
+```wat
+(i32.load (i64.const 40))
+```
+
+After:
+
+```wat
+(i32.load (i32.const 40))
+```
+
+Before, a statically out-of-range address at or above `2^32`:
+
+```wat
+(i32.load (i64.const 4294967296))
+```
+
+After, Binaryen preserves the guaranteed trap-like behavior with `unreachable` rather than modulo-wrapping the constant:
+
+```wat
+(i32.load (unreachable))
+```
+
+This distinction is the main 2026-04-25 correction to the earlier dossier: dynamic operands wrap, but known high constants do not.
+
+## 5. `memory.size` result repair
 
 Before:
 
@@ -94,7 +124,7 @@ After:
 
 The lowered memory32 operation produces `i32`, so Binaryen extends it back to the apparent source-level `i64` result.
 
-## 5. `memory.grow` operand and result repair
+## 6. `memory.grow` operand and result repair
 
 Before:
 
@@ -104,18 +134,28 @@ Before:
 )
 ```
 
-After:
+After, schematically:
 
 ```wat
 (func (param $delta i64) (result i64)
-  (i64.extend_i32_u
+  (local $old-size32 i32)
+  ;; Binaryen wraps the dynamic delta for the lowered memory32 grow,
+  ;; remembers the single grow result, then maps i32 grow failure back
+  ;; to the wasm64 failure sentinel.
+  (local.set $old-size32
     (memory.grow (i32.wrap_i64 (local.get $delta))))
+  (select
+    (i64.const -1)
+    (i64.extend_i32_u (local.get $old-size32))
+    (i32.eq (local.get $old-size32) (i32.const -1)))
 )
 ```
 
-This is the easiest size/grow shape to remember: narrow the delta before the operation, then zero-extend the result after it.
+The exact printed AST may use Binaryen temporaries differently; the teaching point is the failure-aware result repair. It is **not** just `i64.extend_i32_u(memory.grow(...))`, because wasm32 grow failure is `i32 -1` and wasm64 callers expect the 64-bit failure sentinel.
 
-## 6. Active data offset repair
+A constant grow delta above the 32-bit maximum lowers directly to the 64-bit failure sentinel.
+
+## 7. Active data offset repair
 
 Before:
 
@@ -132,7 +172,9 @@ After:
 Segment offsets are module-initialization code, so they must be lowered too.
 Do not implement this pass as a function-body-only walk.
 
-## 7. Bulk memory init/fill/copy
+If the active offset is a known constant at or above `2^32`, Binaryen lowers it to `unreachable` rather than wrapping it to a small `i32.const`.
+
+## 8. Bulk memory init/fill/copy
 
 Before:
 
@@ -155,7 +197,7 @@ After, for the positions whose source type was `i64`:
 
 The exact length operand width is position- and operation-dependent. The source-backed rule to carry forward is: do not assume all operands in a bulk op have the same address width.
 
-## 8. Mixed memory copy
+## 9. Mixed memory copy
 
 Before, copying from memory64 to memory32 or the reverse can have mixed operand widths:
 
@@ -177,7 +219,7 @@ After:
 
 When only one side is memory64, the reviewed Binaryen contract keeps the length on the smaller common index width rather than blindly making it `i64`.
 
-## 9. Table declaration lowering
+## 10. Table declaration lowering
 
 Before:
 
@@ -193,7 +235,7 @@ After:
 
 This shape belongs to the sibling public pass `table64-lowering`, not the memory-only pass name.
 
-## 10. Table get/set index repair
+## 11. Table get/set index repair
 
 Before:
 
@@ -213,7 +255,7 @@ After:
 
 `table.set` has the same index repair while preserving the reference payload.
 
-## 11. Table size/grow result repair
+## 12. Table size/grow result repair
 
 Before:
 
@@ -232,9 +274,9 @@ After:
 )
 ```
 
-As with memory grow, the operand is narrowed and the result is zero-extended.
+As with memory grow, the dynamic operand is narrowed and the result is repaired with the same grow-failure-sentinel rule. The simple `i64.extend_i32_u(...)` shape is sufficient for `table.size`, but not for failed `table.grow`.
 
-## 12. Active element offset repair
+## 13. Active element offset repair
 
 Before:
 
@@ -248,9 +290,9 @@ After:
 (elem (i32.const 3) func $f)
 ```
 
-This is the table sibling of active data offset repair.
+This is the table sibling of active data offset repair. A known out-of-range `i64.const` offset becomes `unreachable` rather than a wrapped `i32.const`.
 
-## 13. Table copy mixed-width rules
+## 14. Table copy mixed-width rules
 
 Before:
 
@@ -277,11 +319,13 @@ That detail is important for mixed table32/table64 cases.
 
 - This pass is not memory packing.
 - This pass is not address arithmetic simplification.
-- This pass is not pointer-range validation.
+- This pass is not dynamic pointer-range validation; it still does source-confirmed constant high-address repair.
 - This pass is not a Starshine feature today.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
+- [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - Binaryen `memory64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/memory64-lowering.wast>
 - Binaryen `table64-lowering.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/table64-lowering.wast>

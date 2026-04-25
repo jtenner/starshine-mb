@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
+  - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -34,8 +36,10 @@ The beginner version:
 The advanced version:
 
 - declarations change from 64-bit limits to 32-bit limits;
-- former `i64` address-like operands become `i32.wrap_i64(...)` operands;
-- former `i64` size/grow results become `i64.extend_i32_u(...)` around the lowered operation;
+- dynamic former `i64` address-like operands become `i32.wrap_i64(...)` operands;
+- known constant addresses and active offsets at or above `2^32` become `unreachable` rather than wrapping;
+- former `i64` size results become `i64.extend_i32_u(...)` around the lowered operation;
+- former `i64` grow results need failure-sentinel repair: successful lowered `i32` results are zero-extended, while failed grows map back to the 64-bit failure sentinel;
 - bulk memory/table operations have destination/source/length width rules that depend on both participating memories or tables;
 - active data and element offsets are part of the transform, not a function-body-only detail.
 
@@ -55,23 +59,26 @@ The input module may contain:
 The output module has:
 
 - 32-bit memory/table limits for the lowered memories/tables;
-- explicit `i32.wrap_i64` repairs around lowered address, delta, and length operands that used to be `i64`;
-- explicit `i64.extend_i32_u` repairs around lowered `memory.size`, `memory.grow`, `table.size`, and `table.grow` results when the surrounding expression still expects `i64`;
+- explicit `i32.wrap_i64` repairs around dynamic lowered address, delta, and length operands that used to be `i64`;
+- `unreachable` replacements for statically known out-of-range address and active-offset constants;
+- explicit unsigned-extension repairs around lowered `memory.size` and `table.size` results when the surrounding expression still expects `i64`;
+- failure-aware repairs around lowered `memory.grow` and `table.grow` results so the wasm32 `-1` sentinel becomes the wasm64 failure sentinel;
 - active offsets rewritten to 32-bit expression form.
 
 ## Correctness constraints
 
 - **Type preservation:** every rewritten instruction must match the wasm32 operation signature after declarations are lowered.
-- **Unsigned result repair:** size/grow results must use zero-extension, not sign-extension.
+- **Unsigned result repair:** size results and successful grow results must use zero-extension, not sign-extension.
+- **Grow failure repair:** wasm32 grow returns `i32 -1` on failure, but wasm64 callers expect the 64-bit failure sentinel; lowered grows need explicit sentinel repair.
 - **Bulk-operation width selection:** `copy`/`init`/`fill` operands are not all the same width. Destination, source, and length positions must be handled independently.
-- **Segment offset repair:** active data and element offsets are observable initialization behavior and cannot be left at the old address type.
-- **Out-of-range caveat:** this dossier does not claim Binaryen preserves semantics for 64-bit limits or offsets that cannot be represented in 32-bit output; the exact policy should be source-confirmed before porting.
+- **Segment offset repair:** active data and element offsets are observable initialization behavior and cannot be left at the old address type; statically out-of-range offsets become `unreachable`.
+- **Limit caveat:** max limits above the 32-bit maximum are clamped, but the reviewed source asserts that min limits fit after lowering instead of exposing a polished user-facing diagnostic contract.
 
 ## Notable edge cases
 
 - Mixed memory32/memory64 or table32/table64 copies.
 - `memory.size` / `table.size` in contexts that still use the source-level `i64` result.
-- `memory.grow` / `table.grow`, which have both operand and result repair.
+- `memory.grow` / `table.grow`, which have operand wrapping plus failure-sentinel result repair, not just blind zero-extension.
 - SIMD and atomic memory instructions, which have normal address operands even though their payload/result types are unrelated to address width.
 - Active data/element offsets outside function bodies.
 - Table64 support in Starshine is currently uneven: `src/validate/typecheck.mbt` derives address widths for some table operations but still hard-codes `i32` for `table.get`, `table.set`, `table.size`, and `table.grow`.
@@ -86,13 +93,15 @@ For Binaryen parity research, use the official lit files:
 For a future Starshine port, add tests in this order:
 
 1. declarations only: memory64/table64 limit records become 32-bit;
-2. active data/element offset rewrites;
-3. one scalar load/store positive;
-4. `memory.size` / `memory.grow` result and operand repairs;
-5. `memory.copy` mixed-width cases;
-6. table64 `table.get` / `table.set` / `table.size` / `table.grow` after local typechecking is made coherent;
-7. table copy/fill/init mixed-width cases;
-8. SIMD and atomic address wrapping.
+2. active data/element offset rewrites, including in-range constants and statically out-of-range `unreachable` cases;
+3. one dynamic scalar load/store positive with `i32.wrap_i64`;
+4. one in-range constant load/store positive that narrows directly to `i32.const`;
+5. `memory.size` unsigned result repair;
+6. `memory.grow` operand and failure-sentinel repairs, including high constant deltas;
+7. `memory.copy` mixed-width cases;
+8. table64 `table.get` / `table.set` / `table.size` / `table.grow` after local typechecking is made coherent;
+9. table copy/fill/init mixed-width cases;
+10. SIMD and atomic address wrapping.
 
 ## Page map
 
@@ -103,6 +112,8 @@ For a future Starshine port, add tests in this order:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
+- [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
 - Binaryen `Memory64Lowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Memory64Lowering.cpp>

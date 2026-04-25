@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
+  - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
   - ../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -38,18 +40,19 @@ So today's correct user-facing description is:
 
 ### Registry and request behavior
 
-- `src/passes/optimize.mbt`
-  - source of truth for registered pass names;
-  - no `memory64-lowering` or `table64-lowering` entry was found.
+- `src/passes/optimize.mbt:127` starts `pass_registry_boundary_only_names()`; neither `memory64-lowering` nor `table64-lowering` appears in that list.
+- `src/passes/optimize.mbt:144` starts `pass_registry_removed_names()`; neither pass appears there either.
+- `src/passes/optimize.mbt:156` starts `pass_registry_entries()`; the active hot/module/preset entries do not include either pass.
+
+Together these exact locations make current request behavior an unknown-pass case, not an honest boundary-only rejection.
 
 ### Shared IR model
 
-- `src/lib/types.mbt`
-  - `Limits` has both `I32Limits` and `I64Limits` variants;
-  - `MemType` stores a `Limits` plus sharedness;
-  - `TableType` stores a reference type plus `Limits`;
-  - `Limits::addr_valtype(...)` maps limit width to `i32` or `i64` address value type;
-  - `min_addr_valtype(...)` / `min_addr(...)` provide the mixed-width helper shape a future copy lowering would need.
+- `src/lib/types.mbt:162` defines `Limits::I32Limits` and `Limits::I64Limits`.
+- `src/lib/types.mbt:174` defines `MemType` as the memory-level carrier of `Limits` plus sharedness.
+- `src/lib/types.mbt:177` defines `TableType` as the table-level carrier of element reference type plus `Limits`.
+- `src/lib/types.mbt:1263` defines `Limits::addr_valtype(...)`, mapping `I32Limits` to `i32` and `I64Limits` to `i64`.
+- `src/lib/types.mbt:1366` defines `min_addr_valtype(...)`, the mixed-width helper shape a future memory/table copy lowering would need.
 
 ### Binary format
 
@@ -63,15 +66,14 @@ So today's correct user-facing description is:
 
 ### Validation and typechecking
 
-- `src/validate/validate.mbt`
-  - validates `MemType` with a much larger page cap for `I64Limits` than for `I32Limits`;
-  - validates active data offsets against each memory's `addr_valtype()`.
-- `src/validate/typecheck.mbt`
-  - derives `memory.size` and `memory.grow` types from `mem_at_of(...)`;
-  - checks load/store/SIMD/atomic memory addresses through `memarg_check(...)` and each memory's limits;
-  - derives `memory.copy` destination/source/length widths from the participating memories;
-  - uses table limits for `table.copy`, `table.init`, and `table.fill`;
-  - still hard-codes `i32` for `table.get`, `table.set`, `table.size`, and `table.grow`, so table64 support is not coherent enough to advertise a faithful `table64-lowering` port yet.
+- `src/validate/validate.mbt:895` validates `MemType`; lines `902`-`905` select `65536` pages for `I32Limits` and the much larger `UInt64` page cap for `I64Limits`.
+- `src/validate/typecheck.mbt:371` defines `TcState::mem_at_of(...)`, which derives memory address/result value type from each memory's `Limits`.
+- `src/validate/typecheck.mbt:1538` defines `memarg_check(...)`; lines `1570`-`1577` reject a static memarg offset at or above `2^32` for i32 memories.
+- `src/validate/typecheck.mbt:1591` / `1610` feed `memarg_check(...)` into scalar load/store address typing; the same pattern appears for atomics and SIMD memory helpers.
+- `src/validate/typecheck.mbt:2408` and `2417` derive `memory.size` and `memory.grow` types from `mem_at_of(...)`.
+- `src/validate/typecheck.mbt:2468` derives `memory.copy` destination, source, and length widths from the participating memories.
+- `src/validate/typecheck.mbt:1437`, `1470`, and `1501` use table limits for `table.copy`, `table.init`, and `table.fill`.
+- `src/validate/typecheck.mbt:587`, `602`, `625`, and `635` still hard-code `i32` for `table.get`, `table.set`, `table.size`, and `table.grow`, so table64 support is not coherent enough to advertise a faithful `table64-lowering` port yet.
 
 ## Future implementation shape
 
@@ -84,13 +86,17 @@ Recommended implementation phases:
    - If Starshine keeps one implementation, expose aliases or document why one sibling is intentionally omitted.
 2. **Module declaration rewrite**
    - Rewrite memory/table `I64Limits` to `I32Limits`.
-   - Source-confirm Binaryen's exact out-of-range behavior before choosing whether to assert, reject, clamp, or wrap impossible limits.
+   - Match Binaryen's source-confirmed max-limit clamp.
+   - Decide a local user-facing policy for impossible min limits, because the reviewed Binaryen source asserts that lowered minimums fit rather than documenting a friendly diagnostic.
 3. **Segment rewrite**
    - Lower active data offsets.
    - Lower active element offsets for table64.
+   - Preserve Binaryen's high-constant behavior: in-range constants become `i32.const`, while offsets at or above `2^32` become `unreachable`.
 4. **Function-body rewrite**
-   - Insert `i32.wrap_i64` around former memory/table address operands.
-   - Insert `i64.extend_i32_u` around former size/grow results.
+   - Insert `i32.wrap_i64` around dynamic former memory/table address operands.
+   - Narrow in-range constants directly and turn statically out-of-range constants into `unreachable`.
+   - Insert `i64.extend_i32_u` around former size results.
+   - Add failure-aware repair for `memory.grow` / `table.grow` so wasm32 `-1` maps back to the wasm64 failure sentinel.
    - Handle scalar, SIMD, atomic, bulk-memory, and table instructions.
 5. **Mixed-width copy/fill/init tests**
    - Copy operations need independent destination, source, and length rules.
@@ -113,9 +119,11 @@ That makes the pass closer to `memory-packing`, `reorder-locals`, or other modul
 
 - `memory64-lowering` request is accepted only once the pass is real.
 - Memory declarations are converted to 32-bit limits.
-- Active data offsets become `i32` expressions.
-- Load/store/SIMD/atomic address operands receive `i32.wrap_i64` exactly where needed.
-- `memory.size` and `memory.grow` receive unsigned result repair.
+- Active data offsets become `i32` expressions or `unreachable` when statically out of range.
+- Dynamic load/store/SIMD/atomic address operands receive `i32.wrap_i64` exactly where needed.
+- In-range constants narrow directly and high constants become `unreachable`.
+- `memory.size` receives unsigned result repair.
+- `memory.grow` receives failure-sentinel-aware result repair.
 - `memory.copy` mixed-width cases match Binaryen.
 - `table64-lowering` is either implemented or explicitly rejected with a clear sibling-status message.
 - Table64 typechecking is made coherent before table lowering is advertised.
@@ -123,11 +131,13 @@ That makes the pass closer to `memory-packing`, `reorder-locals`, or other modul
 
 ## Current uncertainty
 
-- The exact Binaryen policy for 64-bit limits or active offsets that cannot fit the lowered 32-bit output was not fully proved from the reviewed tests.
+- The 2026-04-25 Binaryen recheck resolved constant address, active-offset, grow-delta, and max-limit behavior, but impossible min-limit behavior is still a source-level assertion rather than a documented user-facing diagnostic contract.
 - Starshine's table64 model exists at the `TableType` level, but table instruction typechecking is partly hard-coded to `i32`, so a table64-lowering port has a prerequisite validation cleanup.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
+- [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)
 - [`../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0315-2026-04-24-memory64-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

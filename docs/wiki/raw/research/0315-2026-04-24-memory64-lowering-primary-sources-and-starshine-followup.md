@@ -1,7 +1,7 @@
 # `memory64-lowering` primary sources and Starshine follow-up
 
 _Date:_ 2026-04-24  
-_Status:_ filed back into living wiki pages  
+_Status:_ filed back into living wiki pages; superseded for out-of-range constants, grow-failure repair, and max/min limit policy by `docs/wiki/raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`  
 _Sources:_ `docs/wiki/raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`, `docs/wiki/binaryen/passes/memory64-lowering/`, `src/lib/types.mbt`, `src/binary/decode.mbt`, `src/binary/encode.mbt`, `src/validate/validate.mbt`, `src/validate/typecheck.mbt`, `src/passes/optimize.mbt`
 
 ## Question
@@ -52,5 +52,5 @@ A useful next target still needed to satisfy two constraints:
 ## Follow-ups
 
 - If Starshine adds a wasm64-to-wasm32 lowering pass, decide whether to register both upstream public names or one shared local implementation with aliases.
-- Source-confirm Binaryen's exact out-of-range behavior for 64-bit limits and active offsets before porting; this run intentionally recorded it as an uncertainty rather than guessing.
+- Superseded on 2026-04-25 for out-of-range constants and active offsets: see `docs/wiki/raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`. The remaining open piece is a future Starshine policy decision around impossible min limits, because the reviewed Binaryen source uses an internal assertion rather than a clear user-facing diagnostic.
 - Audit table64 validation separately. The local table type model can represent `I64Limits`, but several table instruction typecheckers still use `i32` directly.
