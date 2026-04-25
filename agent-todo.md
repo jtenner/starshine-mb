@@ -20,6 +20,9 @@
   - `.tmp/self-opt-sl-current-2026-04-14` reports `normalizedWatEqual=true`
   - `canonicalFuncPrettyEqual=true`
   - no differing function indices
+- `scripts/self-optimize-compare.ts` no longer forces full in-memory reads of normalized WAT before parity checks.
+  - Large debug-artifact lanes like `ssa-nomerge` now keep normalized WAT on disk, compare it chunkwise, and stream canonical-function splitting from file content instead of failing early with `ENOMEM`.
+  - Fresh direct replay evidence: `.tmp/o4z-cron-ssa-nomerge-20260425-fix` now completes with `normalizedWatEqual=true` and `canonicalFuncPrettyEqual=true`.
 - The active simplify-locals debt is no longer the old `Func 71` canonical mismatch bucket. The remaining live work is:
   - runtime budget: Starshine is still far slower than Binaryen on the debug artifact (`5316.608ms` total / `2190.921ms` in-pass vs `519.714ms` / `264.709ms`)
   - raw artifact equality: `wasmEqual=false` and `normalizedWatTextEqual=false` still show writeback/text-form drift even though the canonical function compare is green

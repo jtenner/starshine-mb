@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-25 Fix: stream large normalized WAT compares in `self-optimize-compare`
+
+- **unblock large O4z debug-artifact lanes like `ssa-nomerge` by keeping normalized WAT on disk, comparing it chunkwise, and splitting canonical-function fallback from file streams instead of forcing full in-memory reads that could fail with `ENOMEM` before Binaryen parity was even checked** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`scripts/lib/self-optimize-compare-task.ts`](./scripts/lib/self-optimize-compare-task.ts), and [`scripts/test/self-optimize-compare-large-wat-command.ts`](./scripts/test/self-optimize-compare-large-wat-command.ts).
+
 ## 2026-04-25 Docs: refresh `local-cse` source map
 
 - **ingest a focused Binaryen current-main source bridge for unimplemented `local-cse`, add the missing implementation/test-map page, and refresh the dossier so the scan/check/apply whole-tree temp-local reuse contract is tied to current primary sources while exact Starshine removed-registry, request-rejection, dispatcher-gap, local-cleanup, local-index rewrite, backlog, and scheduler surfaces are discoverable for a future port** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](./docs/wiki/raw/binaryen/2026-04-25-local-cse-current-main-code-map.md), [`docs/wiki/raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md`](./docs/wiki/raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md), and [`docs/wiki/binaryen/passes/local-cse/`](./docs/wiki/binaryen/passes/local-cse/).

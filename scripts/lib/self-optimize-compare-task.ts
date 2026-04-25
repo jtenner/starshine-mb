@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import readline from "node:readline";
 
 import { fail, resolveMoonBin, resolveRepoPath, resolveWorkspaceRoot, runOrThrow } from "./task-runtime";
 
@@ -148,20 +149,50 @@ function compileStarshineBeforeCompare(repoRoot: string, moonBin: string): void 
   );
 }
 
-function normalizePrintWat(wasmOptBin: string, wasmPath: string, repoRoot: string): string {
-  // Run wasm-opt in text mode and read the canonicalized WAT from disk so
-  // very large modules do not overflow spawnSync stdout buffers.
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "starshine-compare-wat-"));
-  const watPath = path.join(tempDir, "normalized.wat");
+function printNormalizedWat(
+  wasmOptBin: string,
+  wasmPath: string,
+  repoRoot: string,
+  outPath: string,
+): void {
+  // Run wasm-opt in text mode and keep the canonicalized WAT on disk so very
+  // large modules can be compared without forcing a full in-memory UTF-8 read.
+  runOrThrow(
+    wasmOptBin,
+    [wasmPath, "--all-features", "--strip-debug", "-S", "-o", outPath],
+    { cwd: repoRoot, stdio: "pipe" },
+  );
+}
+
+function filesEqual(leftPath: string, rightPath: string): boolean {
+  const leftSize = fs.statSync(leftPath).size;
+  const rightSize = fs.statSync(rightPath).size;
+  if (leftSize !== rightSize) {
+    return false;
+  }
+  const chunkSize = 64 * 1024;
+  const leftFd = fs.openSync(leftPath, "r");
+  const rightFd = fs.openSync(rightPath, "r");
+  const leftBuf = Buffer.allocUnsafe(chunkSize);
+  const rightBuf = Buffer.allocUnsafe(chunkSize);
   try {
-    runOrThrow(
-      wasmOptBin,
-      [wasmPath, "--all-features", "--strip-debug", "-S", "-o", watPath],
-      { cwd: repoRoot, stdio: "pipe" },
-    );
-    return fs.readFileSync(watPath, "utf8");
+    let offset = 0;
+    while (offset < leftSize) {
+      const remaining = Math.min(chunkSize, leftSize - offset);
+      const leftRead = fs.readSync(leftFd, leftBuf, 0, remaining, offset);
+      const rightRead = fs.readSync(rightFd, rightBuf, 0, remaining, offset);
+      if (leftRead !== rightRead) {
+        return false;
+      }
+      if (!leftBuf.subarray(0, leftRead).equals(rightBuf.subarray(0, rightRead))) {
+        return false;
+      }
+      offset += leftRead;
+    }
+    return true;
   } finally {
-    fs.rmSync(tempDir, { recursive: true, force: true });
+    fs.closeSync(leftFd);
+    fs.closeSync(rightFd);
   }
 }
 
@@ -177,27 +208,33 @@ function lineParenDelta(line: string): number {
   return delta;
 }
 
-function splitDefinedFuncs(wat: string): SplitDefinedFuncs {
+async function splitDefinedFuncsFromFile(watPath: string): Promise<SplitDefinedFuncs> {
   const funcs: DefinedFuncChunk[] = [];
   let importFuncCount = 0;
   let depth = 0;
   let current: string[] | null = null;
-  const lines = wat.replace(/\r\n/g, "\n").split("\n");
-  for (const line of lines) {
-    const atTopLevel = depth === 1;
-    if (atTopLevel && line.startsWith(" (import ") && line.includes("(func ")) {
-      importFuncCount += 1;
+  const stream = fs.createReadStream(watPath, { encoding: "utf8" });
+  const lineReader = readline.createInterface({ input: stream, crlfDelay: Infinity });
+  try {
+    for await (const line of lineReader) {
+      const atTopLevel = depth === 1;
+      if (atTopLevel && line.startsWith(" (import ") && line.includes("(func ")) {
+        importFuncCount += 1;
+      }
+      if (atTopLevel && line.startsWith(" (func ")) {
+        current = [line];
+      } else if (current !== null) {
+        current.push(line);
+      }
+      depth += lineParenDelta(line);
+      if (current !== null && depth === 1) {
+        funcs.push({ definedIndex: funcs.length, text: current.join("\n") });
+        current = null;
+      }
     }
-    if (atTopLevel && line.startsWith(" (func ")) {
-      current = [line];
-    } else if (current !== null) {
-      current.push(line);
-    }
-    depth += lineParenDelta(line);
-    if (current !== null && depth === 1) {
-      funcs.push({ definedIndex: funcs.length, text: current.join("\n") });
-      current = null;
-    }
+  } finally {
+    lineReader.close();
+    stream.close();
   }
   return { importFuncCount, funcs };
 }
@@ -372,16 +409,16 @@ function printCanonicalFuncPretty(
   return canonicalizeFuncPretty(extractPrintedFuncPretty(printed.stderr));
 }
 
-function compareNormalizedWatByCanonicalFuncs(
-  starshineWat: string,
-  binaryenWat: string,
+async function compareNormalizedWatByCanonicalFuncs(
+  starshineWatPath: string,
+  binaryenWatPath: string,
   starshineInvocation: StarshineInvocation,
   starshineWasmPath: string,
   binaryenWasmPath: string,
   repoRoot: string,
-): CanonicalFuncCompareResult {
-  const starshineSplit = splitDefinedFuncs(starshineWat);
-  const binaryenSplit = splitDefinedFuncs(binaryenWat);
+): Promise<CanonicalFuncCompareResult> {
+  const starshineSplit = await splitDefinedFuncsFromFile(starshineWatPath);
+  const binaryenSplit = await splitDefinedFuncsFromFile(binaryenWatPath);
   if (starshineSplit.importFuncCount !== binaryenSplit.importFuncCount) {
     return {
       equal: false,
@@ -838,18 +875,16 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   // Binaryen bytes?" instead of "did both survive another rewrite step?".
   fs.copyFileSync(binaryenRawOutputPath, binaryenOutputPath);
 
-  const starshineWat = normalizePrintWat(options.wasmOptBin, starshineOutputPath, repoRoot);
-  const binaryenWat = normalizePrintWat(options.wasmOptBin, binaryenOutputPath, repoRoot);
-  fs.writeFileSync(starshineWatPath, starshineWat);
-  fs.writeFileSync(binaryenWatPath, binaryenWat);
+  printNormalizedWat(options.wasmOptBin, starshineOutputPath, repoRoot, starshineWatPath);
+  printNormalizedWat(options.wasmOptBin, binaryenOutputPath, repoRoot, binaryenWatPath);
   const wasmEqual =
     fs.readFileSync(starshineOutputPath).equals(fs.readFileSync(binaryenOutputPath));
-  const normalizedWatTextEqual = starshineWat === binaryenWat;
+  const normalizedWatTextEqual = filesEqual(starshineWatPath, binaryenWatPath);
   const canonicalFuncCompare = normalizedWatTextEqual
     ? null
-    : compareNormalizedWatByCanonicalFuncs(
-        starshineWat,
-        binaryenWat,
+    : await compareNormalizedWatByCanonicalFuncs(
+        starshineWatPath,
+        binaryenWatPath,
         starshineInvocation,
         starshineOutputPath,
         binaryenOutputPath,
