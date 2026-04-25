@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
+  - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./fixed-point-forwarding-type-trees-and-expression-removal.md
+  - ./starshine-strategy.md
   - ../dead-argument-elimination/index.md
 ---
 
@@ -30,7 +33,7 @@ This page keeps the source roles explicit so future work does not blur:
 
 | File | What it contributes | Why it matters for a port |
 | --- | --- | --- |
-| `src/passes/DeadArgumentElimination2.cpp` | The entire `dae2` engine: analysis data structures, graph-building walk, reverse-graph prep, fixed point, optimizer, type updater, replacement-type generation, and stats hooks | This is the real oracle for `dae2` semantics |
+| `src/passes/DeadArgumentElimination2.cpp` | The entire `dae2` engine: analysis data structures, graph-building walk, reverse-graph prep, fixed point, optimizer, type updater, replacement-type generation, and stats hooks | This is the real oracle for `dae2` semantics; see the 2026-04-25 manifest for reviewed owner locations |
 | `src/passes/pass.cpp` | Registers `dae2` as a public pass next to `dae` and `dae-optimizing` | Proves the sibling is public and separate, not hidden |
 | `test/lit/passes/dae2.wast` | The canonical proof surface for trivial positives, forwarding cycles, indirect/reference cases, public-type boundaries, replacement-type regressions, control/effect preservation, and nondefaultable-local ordering | The file is big because the pass surface is big |
 | `src/ir/local-graph.h` | Backing machinery for deciding whether a `local.get` still reads the incoming param value | Explains why slot reuse does not confuse the analysis |
@@ -232,3 +235,13 @@ It needs to preserve:
 - global referenced-function type repair,
 - replacement types for unreferenced siblings,
 - and the current non-goals around results/constants/type propagation.
+
+## Source bridge update
+
+The 2026-04-25 source bridge adds an immutable source manifest and Starshine status page:
+
+- [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md)
+- [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+
+The source map above remains the same; the new files close the provenance and local-follow-along gap rather than changing the upstream algorithm.

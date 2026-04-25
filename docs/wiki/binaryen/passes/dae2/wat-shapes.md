@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
+  - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./fixed-point-forwarding-type-trees-and-expression-removal.md
+  - ./starshine-strategy.md
   - ../dead-argument-elimination/index.md
 ---
 
@@ -456,3 +459,11 @@ When you see a possible `dae2` opportunity, ask:
 The most important beginner correction is:
 
 > `dae2` is not a plain delete-unused-params pass. It is a backward forwarding-graph optimizer with optional referenced function-type-tree rewriting, and its visible rewrites are shaped just as much by blocker boundaries and effect-preserving expression removal as by the final dead-param result.
+
+## Sources
+
+- Raw source manifest: [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md)
+- Source bridge: [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
+- Original research note: [`../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md`](../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md)
+- Binaryen `dae2.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae2.wast>
+- Starshine status bridge: [`./starshine-strategy.md`](./starshine-strategy.md)

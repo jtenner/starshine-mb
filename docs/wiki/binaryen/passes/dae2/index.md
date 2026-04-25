@@ -1,9 +1,13 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
+  - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../agent-todo.md
   - ../tracker.md
 related:
@@ -11,6 +15,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./fixed-point-forwarding-type-trees-and-expression-removal.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../dead-argument-elimination/index.md
   - ../dae-optimizing/index.md
   - ../tracker.md
@@ -27,6 +32,7 @@ related:
   - not in the saved generated-artifact `-O4z` skipped-slot queue,
   - and not named in the local Starshine pass registry.
 - Upstream describes it as an **experimental reimplementation of DAE**.
+- As of the 2026-04-25 source bridge, this folder is anchored to an immutable raw primary-source manifest and a dedicated Starshine status page: [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md), [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Why this folder exists
 
@@ -109,6 +115,8 @@ So this folder should stay separate instead of being collapsed into the plain-`d
   Focused guide to the hardest part of the pass: forwarding edges, reverse-graph propagation, referenced function-type trees, replacement types, and removal boundaries.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, bailout, and corner-case IR families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map: unknown-pass registry behavior, no owner/dispatcher/backlog status, prerequisite function/type/call/reference surfaces, and why full parity requires module/type-graph infrastructure.
 
 ## Current maintenance rule
 
@@ -118,7 +126,10 @@ So this folder should stay separate instead of being collapsed into the plain-`d
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md)
+- [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
 - [`../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md`](../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` sources:

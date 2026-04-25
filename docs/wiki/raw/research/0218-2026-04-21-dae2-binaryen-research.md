@@ -3,6 +3,7 @@
 - Date: 2026-04-21
 - Researcher: OpenAI Codex
 - Scope: official Binaryen `version_129` `dae2` pass, why it deserves its own wiki dossier, how it is actually implemented, what IR families it rewrites, and how it differs from plain `dae` / `dae-optimizing`.
+- Supersession: the 2026-04-25 source bridge [`0337-2026-04-25-dae2-source-bridge.md`](0337-2026-04-25-dae2-source-bridge.md) and immutable manifest [`../binaryen/2026-04-25-dae2-primary-sources.md`](../binaryen/2026-04-25-dae2-primary-sources.md) supersede this note for raw-source provenance and Starshine local status. Keep this note as the original dossier-building research.
 
 ## Why this note exists
 

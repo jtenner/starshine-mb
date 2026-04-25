@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
+  - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./fixed-point-forwarding-type-trees-and-expression-removal.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../dead-argument-elimination/index.md
   - ../dae-optimizing/index.md
 ---
@@ -18,6 +21,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for `dae2`.
+- The 2026-04-25 immutable manifest is [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md).
 - The core implementation is `src/passes/DeadArgumentElimination2.cpp`.
 - Public registration lives in `src/passes/pass.cpp`.
 - The reviewed official test surface is `test/lit/passes/dae2.wast`.
@@ -281,3 +285,12 @@ Binaryen `dae2` is best taught as:
 - backward liveness over parameter-forwarding graphs,
 - plus optional function-type-tree rewriting,
 - not as a small scheduling variant of plain `dae`.
+
+## Sources
+
+- Raw source manifest: [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md)
+- Source bridge: [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
+- Original research note: [`../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md`](../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md)
+- Binaryen `DeadArgumentElimination2.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadArgumentElimination2.cpp>
+- Binaryen `pass.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- Binaryen `dae2.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae2.wast>
