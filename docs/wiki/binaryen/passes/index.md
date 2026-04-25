@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
   - ../../../../src/passes/optimize.mbt
   - ../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
@@ -31,6 +31,8 @@ sources:
   - ../../raw/research/0126-2026-04-20-directize-binaryen-research.md
   - ../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
   - ../../raw/research/0128-2026-04-20-merge-locals-binaryen-research.md
+  - ../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
+  - ../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
   - ../../raw/research/0129-2026-04-20-simplify-locals-notee-nostructure-binaryen-research.md
   - ../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
   - ../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
@@ -227,7 +229,7 @@ related:
 ## Tracked Unimplemented `-O4z` / no-DWARF Pass Research
 
 - [`flatten/index.md`](flatten/index.md) - Refreshed dossier for the upstream aggressive flat-IR preparation pass that still remains removed in Starshine; the folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page that maps the removed-name registry entry, preserved `--flatten` CLI spelling, Batch 2 planning docs, the still-missing active backlog slice, and the downstream flatness-sensitive dossier cluster a future local port would need to serve.
-- [`simplify-locals-notee-nostructure/index.md`](simplify-locals-notee-nostructure/index.md) - Working dossier for the upstream aggressive no-tee/no-structure locals pass that still remains removed in Starshine; the folder records the saved generated-artifact `-O4z` slot `10`, the exact `SimplifyLocals<false, false, true>` variant surface, the shared direct-single-use-sink plus late-cleanup story, and the fact that this post-`flatten` slot still allows ordinary nesting even though it refuses new tees and new control-flow result structure.
+- [`simplify-locals-notee-nostructure/index.md`](simplify-locals-notee-nostructure/index.md) - Refreshed dossier for the upstream aggressive no-tee/no-structure locals pass that still remains removed in Starshine; the folder now also has an immutable raw primary-source manifest plus implementation/test-map and Starshine status/port-strategy pages, records the saved generated-artifact `-O4z` slot `10`, exact `SimplifyLocals<false, false, true>` variant surface, shared direct-single-use-sink plus late-cleanup story, local removed alias `simplify-locals-no-tee-no-structure`, absent exact upstream spelling, no-owner/no-backlog status, and the fact that this post-`flatten` slot still allows ordinary nesting even though it refuses new tees and new control-flow result structure.
 - [`merge-locals/index.md`](merge-locals/index.md) - Refreshed dossier for the currently unimplemented upstream higher-aggression alias-local cleanup pass; the folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page, keeps the 2026-04-23 release/source provenance explicit, and corrects the older one-set-plus-fresh-temp overread by centering the reviewed simple-root-set plus equivalent-copy-wrapper contract instead.
 - [`code-folding/index.md`](code-folding/index.md) - Refreshed dossier for the upstream late tail-sharing pass that still remains removed in Starshine; the folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page that maps the current removed-name registry, CLI spelling coverage, backlog slice `CF`, canonical no-DWARF slot, and the implemented neighboring cleanup passes a future local port would compose with.
 - [`optimize-casts/index.md`](optimize-casts/index.md) - Refreshed dossier for the upstream mid-function GC cast-reuse pass that still remains removed in Starshine; the folder now also has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page that maps the current removed-name registry entry, backlog slice `OC`, canonical `heap2local -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` cluster, and the explicit reviewed Binaryen-vs-backlog scope mismatch around `ref.test`.

@@ -5,6 +5,7 @@
 - Date: 2026-04-20
 - Type: One-off raw investigation
 - Scope: document one currently unimplemented Binaryen local-cleanup pass in Starshine, using Binaryen `version_129` plus the saved generated-artifact audit to explain what `simplify-locals-notee-nostructure` actually does, which helper utilities it depends on, which IR / WAT shapes it rewrites or preserves, and what a future Starshine port must keep exact.
+- Superseded for raw-source provenance and Starshine local status by [`0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md`](0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md) and [`../binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md). The mechanics reading below remains useful historical source work.
 
 ## Why this pass
 
