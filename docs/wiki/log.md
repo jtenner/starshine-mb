@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] health | fix `const-hoisting` WAT-shape heading numbering
+
+- Ran a focused reference-hygiene check after the `const-hoisting` source-bridge commit and found the WAT-shape page still had two `Bailout family 4` headings after the earlier `v128.const` heading correction.
+- Updated `docs/wiki/binaryen/passes/const-hoisting/wat-shapes.md` so the cross-function repeat bailout is numbered `Bailout family 5`, keeping the shape catalog easier to scan and link.
+
 ## [2026-04-25] research | refresh `const-hoisting` current-main and Starshine code map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose removed local pass `const-hoisting` because its dossier was complete but still had older freshness wording and a high-level Starshine page that did not point to the concrete HOT/local/binary primitives a future port would reuse.

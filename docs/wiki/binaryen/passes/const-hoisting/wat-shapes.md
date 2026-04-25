@@ -272,7 +272,7 @@ Why:
 - the pass only groups `Const` nodes
 - it does not value-number nonliteral expressions
 
-## Bailout family 4: cross-function repeats
+## Bailout family 5: cross-function repeats
 
 ```wat
 (func $a

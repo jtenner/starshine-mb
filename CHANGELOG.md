@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-25 Docs: fix `const-hoisting` WAT-shape heading numbering
+
+- **repair a touched `const-hoisting` WAT-shape catalog hygiene issue so the cross-function repeat bailout heading is numbered after the nonliteral-computation bailout instead of duplicating `Bailout family 4`** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`docs/wiki/binaryen/passes/const-hoisting/wat-shapes.md`](./docs/wiki/binaryen/passes/const-hoisting/wat-shapes.md).
+
 ## 2026-04-25 Docs: refresh `const-hoisting` current-main and code map
 
 - **ingest a focused Binaryen current-main recheck for upstream `const-hoisting` and refresh the dossier so the repeated-literal byte-size contract remains anchored to current primary sources while the Starshine page now points to exact removed-registry, request-rejection, HOT scalar-constant, local-builder, fresh-local, lowerer, and signed-LEB encode prerequisites for a future port** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md), [`docs/wiki/raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md`](./docs/wiki/raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md), and [`docs/wiki/binaryen/passes/const-hoisting/`](./docs/wiki/binaryen/passes/const-hoisting/).
