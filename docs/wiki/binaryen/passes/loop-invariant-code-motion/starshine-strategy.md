@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
+  - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -18,6 +20,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./effects-loops-and-hoisting-rules.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../local-subtyping/index.md
   - ../flatten/index.md
   - ../code-pushing/index.md
@@ -27,16 +30,18 @@ related:
 
 # Starshine strategy for `loop-invariant-code-motion`
 
+For the implementation-readiness sequence and reduced-test ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This page stays focused on current in-tree status and local code locations.
+
 ## Current status
 
 Starshine currently has **no active `loop-invariant-code-motion` implementation**.
 The durable local status is preserved-name bookkeeping and honest rejection:
 
-- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) keeps `"loop-invariant-code-motion"` in `pass_registry_removed_names()`.
-- The same file builds removed entries with category `HotPassRegistryCategory::removed()` and no descriptor.
-- `run_hot_pipeline(...)` rejects removed entries with the message shape `pass flag ... is removed from the active hot pipeline registry`.
-- [`../../../../../src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) tests the generic removed-name rejection path with `de-nan`; it does not contain a LICM-specific behavior regression because there is no local transform yet.
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md) and [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md) both keep `loop-invariant-code-motion` beside `local-subtyping` in Batch 3 dataflow-sensitive work.
+- [`../../../../../src/passes/optimize.mbt:144-151`](../../../../../src/passes/optimize.mbt) keeps `"loop-invariant-code-motion"` in `pass_registry_removed_names()`.
+- [`../../../../../src/passes/optimize.mbt:98-106`](../../../../../src/passes/optimize.mbt) builds removed entries with category `HotPassRegistryCategory::removed()`, no descriptor, and no expansion.
+- [`../../../../../src/passes/optimize.mbt:469-472`](../../../../../src/passes/optimize.mbt) rejects removed entries with the message shape `pass flag ... is removed from the active hot pipeline registry`.
+- [`../../../../../src/passes/registry_test.mbt:171-179`](../../../../../src/passes/registry_test.mbt) tests the generic removed-name rejection path with `de-nan`; it does not contain a LICM-specific behavior regression because there is no local transform yet.
+- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md:49-52`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md) and [`../../../../../docs/0065-2026-03-24-ir2-execution-plan.md:37-43`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md) both keep `loop-invariant-code-motion` beside `local-subtyping` in Batch 3 dataflow-sensitive work.
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md) currently has no dedicated `loop-invariant-code-motion` or `licm` backlog slice.
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) does not list LICM in the current canonical no-DWARF optimize path.
 
@@ -45,23 +50,23 @@ The durable local status is preserved-name bookkeeping and honest rejection:
 ### Registry and request handling
 
 - `src/passes/optimize.mbt`
-  - `pass_registry_removed_names()` contains `loop-invariant-code-motion`.
-  - `pass_registry_entry_removed(...)` assigns removed entries category `Removed`, no descriptor, and no expansion.
+  - `pass_registry_removed_names()` contains `loop-invariant-code-motion` at lines 144-151.
+  - `pass_registry_entry_removed(...)` assigns removed entries category `Removed`, no descriptor, and no expansion at lines 98-106.
   - `pass_registry_entries()` appends removed entries after active and boundary-only names.
-  - `run_hot_pipeline(...)` rejects `Removed` before dispatching any active pass.
+  - `run_hot_pipeline_expand_passes(...)` rejects `Removed` before dispatching any active pass at lines 469-472.
 
 ### Tests proving current behavior shape
 
 - `src/passes/registry_test.mbt`
   - `pass registry classifies active, boundary-only, and removed names` proves removed-name classification through an existing removed-name sample.
-  - `run_hot_pipeline rejects removed registry names` proves active request rejection for removed entries.
+  - `run_hot_pipeline rejects removed registry names` proves active request rejection for removed entries at lines 171-179.
 
 ### Planning references
 
 - `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`
-  - Batch 3 lists `local-subtyping` and `loop-invariant-code-motion` as removed until hot implementation lands.
+  - Batch 3 lists `local-subtyping` and `loop-invariant-code-motion` as removed until hot implementation lands at lines 49-52.
 - `docs/0065-2026-03-24-ir2-execution-plan.md`
-  - Batch 3 dataflow-sensitive passes include `local-subtyping` and `loop-invariant-code-motion`.
+  - Batch 3 dataflow-sensitive passes include `local-subtyping` and `loop-invariant-code-motion` at lines 37-43.
 - `agent-todo.md`
   - No active LICM slice was found in this run.
 
@@ -151,6 +156,8 @@ The current in-tree behavior is removed-name tracking and request rejection only
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
+- [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

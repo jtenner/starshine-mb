@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
@@ -19,6 +20,7 @@ related:
   - ./effects-loops-and-hoisting-rules.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen strategy for `loop-invariant-code-motion`
@@ -46,7 +48,7 @@ That means the best mental model is:
 - not local CSE,
 - and not the inverse of `code-pushing`.
 
-## Important 2026-04-24 correction
+## Important 2026-04-24 correction and 2026-04-25 recheck
 
 Earlier living wording described LICM as if it created fresh temp locals for arbitrary invariant value expressions and replaced in-loop uses with `local.get`s.
 That is not what reviewed Binaryen `version_129` does.
@@ -60,6 +62,8 @@ The source-backed correction is:
 - No fresh helper-local cache is synthesized by LICM for a value expression.
 
 This is a major porting constraint: a future Starshine implementation should start from none-result statement motion, not a generic value-preheader cache.
+
+The 2026-04-25 current-main / port-readiness bridge in [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md) found no teaching-relevant drift from this corrected contract.
 
 ## Scheduler placement
 
@@ -247,12 +251,13 @@ The interesting-candidate filter excludes these from the normal movement surface
 
 ## Current-main drift check
 
-A narrow 2026-04-24 current-`main` spot check on `LoopInvariantCodeMotion.cpp`, `pass.cpp`, and `licm.wast` did not surface teaching-relevant drift from the refreshed `version_129` contract.
+A focused 2026-04-25 current-`main` / port-readiness bridge on `LoopInvariantCodeMotion.cpp`, `pass.cpp`, `pass.h`, `effects.h`, `find_all.h`, `local-graph.h`, `wasm-builder.h`, and `licm.wast` did not surface teaching-relevant drift from the refreshed `version_129` contract.
 
 That is a narrow claim:
 
-- it does not prove every helper header is identical,
-- it does support keeping `version_129` as the main oracle for this dossier's behavior claims.
+- it does not prove every Binaryen history point after `version_129`,
+- it does support keeping `version_129` as the main oracle for this dossier's behavior claims,
+- and it supports using the same corrected contract as the first Starshine slice's acceptance bar.
 
 ## What a future Starshine port must preserve
 
@@ -276,6 +281,7 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)

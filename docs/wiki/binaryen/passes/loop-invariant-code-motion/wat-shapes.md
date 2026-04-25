@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
@@ -14,12 +15,14 @@ related:
   - ./implementation-structure-and-tests.md
   - ./effects-loops-and-hoisting-rules.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # WAT shape catalog for `loop-invariant-code-motion`
 
 This page catalogs the main shape families beginners should look for when reading Binaryen LICM output.
 The 2026-04-24 source recheck corrected the older page: reviewed Binaryen `version_129` LICM moves eligible **none-typed statements** before the loop and leaves `nop`s behind; it does not synthesize fresh temp locals for arbitrary value subtrees.
+The 2026-04-25 current-main / port-readiness bridge found no teaching-relevant drift and uses the same families as the first Starshine reduced-test ladder.
 
 ## Positive family 1: simple dropped work at loop entry
 
@@ -251,6 +254,7 @@ If the answer to any of those becomes “no,” expect a bailout.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)

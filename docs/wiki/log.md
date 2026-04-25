@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `loop-invariant-code-motion` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/loop-invariant-code-motion/` folder, and `docs/wiki/raw/research/`, then chose removed Batch 3 `loop-invariant-code-motion` / upstream `licm` because the dossier had the corrected Binaryen strategy but still lacked a dedicated first-slice / validation ladder and exact refreshed local line anchors.
+- Added `docs/wiki/raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`, rechecking official Binaryen current-main and tagged `version_129` sources for `LoopInvariantCodeMotion.cpp`, `pass.cpp`, `pass.h`, `effects.h`, `find_all.h`, `local-graph.h`, `wasm-builder.h`, and `licm.wast`; the focused recheck found no teaching-relevant drift from the none-typed unconditional loop-entry statement-motion contract.
+- Added `docs/wiki/raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md` and `docs/wiki/binaryen/passes/loop-invariant-code-motion/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, proof guide, WAT-shape catalog, and Starshine strategy page so transformed shapes, upstream strategy, alias-policy work, current removed-registry status, candidate safety proof, cleanup-safe rewrite, and Binaryen `--licm` validation ladder are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; promoted `loop-invariant-code-motion` from `dossier` to `deep` while keeping the pass explicitly unimplemented and outside the current no-DWARF / saved-`-O4z` queue.
+
 ## [2026-04-25] research | deepen `string-gathering` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/string-gathering/` folder, and `docs/wiki/raw/research/`, then chose unimplemented no-DWARF late-tail `string-gathering` because the dossier was useful but still had 2026-04-23 freshness wording, stale local line anchors, and no dedicated first-slice / validation ladder.

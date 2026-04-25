@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md
+  - ../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md
   - ../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md
   - ../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md
@@ -18,6 +20,7 @@ related:
   - ./effects-loops-and-hoisting-rules.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
 ---
 
@@ -65,12 +68,15 @@ So this pass is best taught as:
 - It uses `LazyLocalGraph` plus local-set counting to reject statements that read locals changed by the loop or set locals that still have another in-loop set.
 - Flattening can expose more independent none-typed statements, but LICM itself is not `flatten`.
 - Current Starshine has no active LICM pass, owner file, or dedicated backlog slice.
+- A 2026-04-25 current-main / port-readiness bridge found no teaching-relevant upstream drift and narrows the first Starshine slice to alias-policy, loop-entry candidate discovery, effect/local-dependency proof, cleanup-safe placeholders, reduced tests, and only then Binaryen oracle comparison.
 
 ## Explicit correction to older material
 
 The archived 2026-04-21 research note remains useful history, but its temp-local phrasing is stale.
-Use the 2026-04-24 raw source capture and follow-up as the corrected interpretation:
+Use the 2026-04-24 raw source capture and follow-up as the corrected interpretation, plus the 2026-04-25 bridge as the current-main freshness and Starshine port-readiness source:
 
+- [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
+- [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 
@@ -79,7 +85,7 @@ Do **not** teach Binaryen `version_129` LICM as creating fresh temps for arbitra
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Source-backed Binaryen algorithm: loop discovery, entrance-statement scan, effect/local dependency guards, move emission, and current-main spot check.
+  Source-backed Binaryen algorithm: loop discovery, entrance-statement scan, effect/local dependency guards, move emission, and 2026-04-25 current-main no-drift check.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   File-by-file and test-by-test map of the upstream sources that define the pass contract.
 - [`./effects-loops-and-hoisting-rules.md`](./effects-loops-and-hoisting-rules.md)
@@ -88,6 +94,8 @@ Do **not** teach Binaryen `version_129` LICM as creating fresh temps for arbitra
   Beginner-friendly shape catalog showing positive, mixed, and bailout WAT families with whole-statement moves.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future porting map, with exact local code and planning locations.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  First-slice and validation ladder for a future Starshine port: spelling/alias policy, loop-entry candidate discovery, safety summaries, rewrite repair, registry tests, and Binaryen `--licm` oracle comparison.
 
 ## Current maintenance rule
 
@@ -98,6 +106,8 @@ Do **not** teach Binaryen `version_129` LICM as creating fresh temps for arbitra
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-25-loop-invariant-code-motion-current-main-port-readiness.md)
+- [`../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md`](../../../raw/research/0378-2026-04-25-loop-invariant-code-motion-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md`](../../../raw/binaryen/2026-04-24-loop-invariant-code-motion-primary-sources.md)
 - [`../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md`](../../../raw/research/0282-2026-04-24-loop-invariant-code-motion-primary-sources-and-source-correction-followup.md)
 - [`../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md`](../../../raw/research/0173-2026-04-21-loop-invariant-code-motion-binaryen-research.md)
