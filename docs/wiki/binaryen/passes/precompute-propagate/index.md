@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-24
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
+  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
   - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
@@ -43,7 +45,8 @@ related:
   - `dae-optimizing` and `inlining-optimizing` both depend on the `precompute-propagate` nested-rerun rule.
   - `simplify-globals-optimizing` is easier to teach once the contrast is explicit: it reruns the default function pipeline **without** prepending `precompute-propagate`.
 - The earlier worklist follow-up closed the dossier's biggest algorithm teaching gap with a dedicated page for the exact `propagateLocals(...)` contract.
-- The 2026-04-24 follow-up closes the remaining provenance and local-follow-along gap: the folder now has an immutable raw primary-source manifest and a dedicated Starshine status / port-strategy page.
+- The 2026-04-24 follow-up closed the original provenance and local-follow-along gap with an immutable raw primary-source manifest and a dedicated Starshine status / port-strategy page.
+- The 2026-04-25 refresh adds a current-main no-drift/code-map manifest and exact Starshine line ranges, so this folder should be treated as a deep dossier rather than only a landing dossier.
 
 ## Beginner summary
 
@@ -99,7 +102,7 @@ So the pass is best taught as:
   - different public pass name
   - different scheduler usage
   - different reachable fixed points because of the extra propagation phase
-- Treat [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md) as the immutable provenance anchor for this sibling pass.
+- Treat [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md) as the tagged-source provenance anchor and [`../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md) as the current-main / local-code-map refresh anchor.
 - Keep the exact local-worklist contract explicit too:
   - not generic SCCP
   - not an unbounded fixed-point loop
@@ -112,6 +115,8 @@ So the pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md)
+- [`../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md`](../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md)
 - [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md)
 - [`../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md`](../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md)

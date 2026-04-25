@@ -1678,6 +1678,21 @@ test "optimize-instructions flips if i32.eqz conditions with live else arms" {
 }
 
 ///|
+test "optimize-instructions keeps i64.eq zero if conditions in compare form" {
+  let func = optimize_instructions_test_run_hot(
+    "(module (func (param i64 i64 i32) (result i32) local.get 2 if (result i32) local.get 0 i64.const 0 i64.eq if (result i32) i32.const 1 else local.get 0 local.get 1 i64.gt_u end else i32.const 1 end))",
+  )
+  let outer_if = @ir.hot_root_get(func, 0)
+  let then_region = @ir.hot_region_then_ref(func, outer_if)
+  let inner_if = @ir.hot_region_get(func, then_region, 0)
+  let inner_cond = @ir.hot_child_get(func, inner_if, 0)
+  assert_eq(
+    @ir.hot_node_exact_instr(func, inner_cond),
+    Some(@lib.Instruction::i64_eq()),
+  )
+}
+
+///|
 test "optimize-instructions wraps boolean value ifs in eqz at unique child uses" {
   let func = optimize_instructions_test_run_hot(
     "(module (func (param i32 i32) (result i32) (local i32) local.get 0 if (result i32) local.get 1 i32.eqz else i32.const 0 end local.set 2 local.get 2))",

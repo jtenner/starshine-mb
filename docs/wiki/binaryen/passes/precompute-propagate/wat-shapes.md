@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
+  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
   - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
@@ -18,7 +20,7 @@ related:
 
 # `precompute-propagate` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `precompute-propagate` pass. The source provenance for the dedicated upstream tests is now captured in [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md).
+This page is the beginner-friendly shape catalog for Binaryen's `precompute-propagate` pass. The source provenance for the dedicated upstream tests is captured in [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md), with a 2026-04-25 current-main no-drift/code-map refresh in [`../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md).
 
 ## Read this page with one mental model
 

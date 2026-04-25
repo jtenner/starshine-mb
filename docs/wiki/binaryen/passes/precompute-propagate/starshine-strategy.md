@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
+  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
   - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
@@ -57,16 +59,18 @@ The registry source of truth is [`src/passes/optimize.mbt`](../../../../../src/p
 
 Read these locations first:
 
-- `pass_registry_removed_names()`
-  - includes `"precompute-propagate"`
+- `src/passes/optimize.mbt:144-151`
+  - `pass_registry_removed_names()` includes `"precompute-propagate"`
   - this is the current user-visible implementation status
-- `pass_registry_entries()`
-  - registers active plain `"precompute"` through `precompute_descriptor()`
-  - does **not** register a `precompute-propagate` hot descriptor
-- `optimize_preset_passes(...)`
-- `shrink_preset_passes(...)`
-  - replay plain `"precompute"` in the modeled top-level PC slots
-  - do not schedule `"precompute-propagate"`
+- `src/passes/optimize.mbt:211-215`
+  - `pass_registry_entries()` registers active plain `"precompute"` through `precompute_descriptor()`
+  - it does **not** register a `precompute-propagate` hot descriptor
+- `src/passes/optimize.mbt:250-269`
+  - the modeled `optimize` / `shrink` preset entries replay plain `"precompute"` in the PC slots
+  - they do not schedule `"precompute-propagate"`
+- `src/passes/optimize.mbt:463-472`
+  - removed-name and boundary-only requests fail before dispatch
+  - an explicit `--pass precompute-propagate` request therefore reports removal rather than reaching `hot_pass_run(...)`
 
 This is the strongest local status fact: the sibling name exists, but only in the removed-name table.
 
@@ -74,31 +78,21 @@ This is the strongest local status fact: the sibling name exists, but only in th
 
 The active local implementation is [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt).
 
-Useful read-along functions:
+Useful read-along line ranges:
 
-- `precompute_descriptor()`
-  - declares only the active pass name `"precompute"`
-- `precompute_summary()`
-  - intentionally describes a narrower scalar top-level slot pass
-- `precompute_global_const(...)`
-- `precompute_i32_exact_const(...)`
-- `precompute_i64_exact_const(...)`
-  - define the current local constant-source model
-- `precompute_try_fold_global_get(...)`
-- `precompute_try_fold_unary(...)`
-- `precompute_try_fold_binary(...)`
-  - own current scalar/global folds
-- `precompute_try_fold_constant_if(...)`
-  - owns current constant-`if` arm picking
-- `precompute_is_discardable_value(...)`
-- `precompute_try_eliminate_dead_drop(...)`
-- `precompute_simplify_region_roots(...)`
-- `precompute_trim_region_nops(...)`
-- `precompute_coalesce_all_root_nops(...)`
-- `precompute_trim_root_nops_before_trailing_const(...)`
-  - own local HOT/writeback hygiene cleanup
-- `precompute_run(...)`
-  - runs an iterative local HOT fixpoint over the above helpers
+- `src/passes/precompute.mbt:2-16`
+  - `precompute_descriptor()` declares only the active pass name `"precompute"`
+  - `precompute_summary()` intentionally describes a narrower scalar top-level slot pass
+- `src/passes/precompute.mbt:20-138`
+  - `precompute_global_const(...)`, `precompute_i32_exact_const(...)`, and `precompute_i64_exact_const(...)` define the current local constant-source model
+- `src/passes/precompute.mbt:138-655`
+  - `precompute_try_fold_global_get(...)`, `precompute_try_fold_unary(...)`, and `precompute_try_fold_binary(...)` own the current scalar/global fold surface
+- `src/passes/precompute.mbt:656-720`
+  - `precompute_try_fold_constant_if(...)` owns current constant-`if` arm picking
+- `src/passes/precompute.mbt:722-1063`
+  - dead-drop and root/region cleanup helpers preserve current HOT/writeback hygiene
+- `src/passes/precompute.mbt:1095-1166`
+  - `precompute_run(...)` runs an iterative local HOT fixpoint over the above helpers
 
 Those helpers are real future infrastructure, but they are not enough to call the sibling implemented. They do not model Binaryen's `propagateLocals(...)` get/set worklist.
 
@@ -108,13 +102,12 @@ The active dispatcher is [`src/passes/pass_manager.mbt`](../../../../../src/pass
 
 Important locations:
 
-- `hot_pass_run(...)`
-  - dispatches `"precompute" => precompute_run(ctx, func)`
-  - has no `"precompute-propagate"` arm
-- `run_hot_pipeline_precompute_writeback_validation_error(...)`
-- `run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(...)`
-- neighboring `run_hot_pipeline_precompute_*` helpers
+- `src/passes/pass_manager.mbt:8670-8704`
+  - `hot_pass_run(...)` dispatches `"precompute" => precompute_run(ctx, func)`
+  - there is no `"precompute-propagate"` arm
+- neighboring `run_hot_pipeline_precompute_*` helpers in the same file
   - preserve the artifact-driven writeback safety environment built around plain `precompute`
+  - these are lowering / validation guard rails, not evidence of a local-propagation algorithm
 
 That writeback work is important for a future sibling port, but it should not be misread as evidence that the Binaryen `precompute-propagate` algorithm is already present.
 
@@ -124,12 +117,11 @@ That writeback work is important for a future sibling port, but it should not be
 
 [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) proves the active and unavailable surfaces:
 
-- `batch 1 descriptors expose the active first hot ports`
-  - checks `precompute_descriptor().name == "precompute"`
-- `preset expansion stays on implemented active pass names`
-  - checks the current modeled `optimize` / `shrink` expansion uses active names only and includes plain `precompute`
-- `run_hot_pipeline rejects removed registry names`
-  - proves the generic removed-name request path rejects unavailable passes
+- `src/passes/registry_test.mbt:105-122`
+  - `batch 1 descriptors expose the active first hot ports` checks `precompute_descriptor().name == "precompute"`
+- `src/passes/registry_test.mbt:146-160`
+  - `preset expansion stays on implemented active pass names` checks the current modeled `optimize` / `shrink` expansion uses active names only and includes plain `precompute`
+- the same file's removed-name request coverage proves the generic removed-name path rejects unavailable passes
 
 The test currently uses `de-nan` as the explicit removed-name example, not `precompute-propagate`; the registry list in `optimize.mbt` is the exact source for this pass's removed status.
 
@@ -137,8 +129,8 @@ The test currently uses `de-nan` as the explicit removed-name example, not `prec
 
 [`src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt) locks the local scheduler story:
 
-- `optimize preset replays precompute in both PC slots`
-- `shrink preset replays precompute in both PC slots`
+- `src/passes/optimize_test.mbt:290-313` proves `optimize` replays plain `precompute` in both PC slots
+- `src/passes/optimize_test.mbt:315-335` proves `shrink` replays plain `precompute` in both PC slots
 
 Those tests deliberately prove two plain-`precompute` top-level slots, not the Binaryen aggressive sibling.
 

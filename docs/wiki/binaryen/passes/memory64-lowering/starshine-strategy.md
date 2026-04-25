@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
+  - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
   - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
@@ -17,6 +19,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./static-offsets-dynamic-operands-and-grow-repair.md
   - ./wat-shapes.md
 ---
 
@@ -89,12 +92,12 @@ Recommended implementation phases:
    - Match Binaryen's source-confirmed max-limit clamp.
    - Decide a local user-facing policy for impossible min limits, because the reviewed Binaryen source asserts that lowered minimums fit rather than documenting a friendly diagnostic.
 3. **Segment rewrite**
-   - Lower active data offsets.
-   - Lower active element offsets for table64.
-   - Preserve Binaryen's high-constant behavior: in-range constants become `i32.const`, while offsets at or above `2^32` become `unreachable`.
+   - Lower active data offsets to the new address type.
+   - Lower active element offsets for table64 to the new address type.
+   - Keep active offsets separate from static memory-access `offset=` immediates; the reviewed source does not prove a high-active-offset `unreachable` special case.
 4. **Function-body rewrite**
-   - Insert `i32.wrap_i64` around dynamic former memory/table address operands.
-   - Narrow in-range constants directly and turn statically out-of-range constants into `unreachable`.
+   - Insert `i32.wrap_i64` around dynamic former memory/table address operands, including operand expressions that are syntactically `i64.const`.
+   - Turn statically out-of-range `MemArg.offset` immediates into `unreachable` while preserving children/effects.
    - Insert `i64.extend_i32_u` around former size results.
    - Add failure-aware repair for `memory.grow` / `table.grow` so wasm32 `-1` maps back to the wasm64 failure sentinel.
    - Handle scalar, SIMD, atomic, bulk-memory, and table instructions.
@@ -119,11 +122,11 @@ That makes the pass closer to `memory-packing`, `reorder-locals`, or other modul
 
 - `memory64-lowering` request is accepted only once the pass is real.
 - Memory declarations are converted to 32-bit limits.
-- Active data offsets become `i32` expressions or `unreachable` when statically out of range.
-- Dynamic load/store/SIMD/atomic address operands receive `i32.wrap_i64` exactly where needed.
-- In-range constants narrow directly and high constants become `unreachable`.
+- Active data offsets become lowered address-type expressions.
+- Dynamic load/store/SIMD/atomic address operands receive `i32.wrap_i64` exactly where needed, including syntactic `i64.const` operands.
+- Static high `offset=` immediates become `unreachable` with child/effect preservation.
 - `memory.size` receives unsigned result repair.
-- `memory.grow` receives failure-sentinel-aware result repair.
+- `memory.grow` receives delta lowering plus failure-sentinel-aware result repair.
 - `memory.copy` mixed-width cases match Binaryen.
 - `table64-lowering` is either implemented or explicitly rejected with a clear sibling-status message.
 - Table64 typechecking is made coherent before table lowering is advertised.
@@ -131,11 +134,13 @@ That makes the pass closer to `memory-packing`, `reorder-locals`, or other modul
 
 ## Current uncertainty
 
-- The 2026-04-25 Binaryen recheck resolved constant address, active-offset, grow-delta, and max-limit behavior, but impossible min-limit behavior is still a source-level assertion rather than a documented user-facing diagnostic contract.
+- The 2026-04-25 static-offset correction narrowed earlier wording: static high `offset=` immediates are the clear high-offset `unreachable` family, while dynamic operand constants wrap, active offsets lower as expressions, and grow deltas are handled through lowered-grow result repair. Impossible min-limit behavior is still a source-level assertion rather than a documented user-facing diagnostic contract.
 - Starshine's table64 model exists at the `TableType` level, but table instruction typechecking is partly hard-coded to `i32`, so a table64-lowering port has a prerequisite validation cleanup.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
+- [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
 - [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)

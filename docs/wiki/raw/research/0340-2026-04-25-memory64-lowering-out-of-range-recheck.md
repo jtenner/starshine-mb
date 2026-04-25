@@ -1,7 +1,7 @@
 # `memory64-lowering` out-of-range recheck
 
 _Date:_ 2026-04-25  
-_Status:_ filed back into living wiki pages  
+_Status:_ partially superseded for high-constant wording by `docs/wiki/raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`; still valid for declaration lowering, size/grow result repair, mixed widths, max-limit clamping, local registry absence, and table64 validation prerequisites  
 _Sources:_ `docs/wiki/raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`, `docs/wiki/raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`, `docs/wiki/binaryen/passes/memory64-lowering/`, `src/passes/optimize.mbt`, `src/lib/types.mbt`, `src/validate/typecheck.mbt`, `src/validate/validate.mbt`
 
 ## Question
@@ -10,17 +10,19 @@ The 2026-04-24 `memory64-lowering` dossier was complete enough for a first pass,
 
 That uncertainty made the shape catalog easier to misread as “everything just wraps with `i32.wrap_i64`,” which is incorrect for known-constant out-of-range operands.
 
+## Supersession note
+
+A later same-day source correction narrowed the wording below. Read `docs/wiki/raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md` and `docs/wiki/raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md` for the corrected split between dynamic operand constants, static `MemArg.offset` immediates, active offset expressions, and grow deltas.
+
 ## Source-backed findings
 
 - Rechecked Binaryen `version_129` and current `main` `Memory64Lowering.cpp`, plus the paired memory and table lit files.
 - Dynamic address/index operands still lower by wrapping with `i32.wrap_i64(...)`.
-- Known constant address/index operands and active data/element offsets at or above `2^32` lower to `unreachable` rather than wrapping.
-- In-range constant address/index operands and active offsets become `i32.const` forms.
+- Superseded wording: this note originally over-broadened the high-offset rule to known constant address/index operands and active data/element offsets. The corrected rule is that dynamic operand constants wrap; high static memory-access `offset=` immediates become `unreachable`; active offset expressions lower to the new address type without a reviewed high-active-offset trap special case.
 - `memory.size` and `table.size` are still the simple lowered-`i32` result plus unsigned extension back to the apparent `i64` result.
 - `memory.grow` and `table.grow` are more subtle than the old docs implied:
-  - constant deltas that cannot fit in 32 bits become the 64-bit failure sentinel directly;
-  - dynamic deltas are wrapped into the lowered operation;
-  - lowered grow results need failure-sentinel repair, not only blind zero-extension.
+  - superseded wording: this note originally claimed high constant deltas become the 64-bit failure sentinel directly;
+  - corrected wording: grow deltas are lowered into the wasm32 grow and the lowered grow result needs failure-sentinel repair, not only blind zero-extension.
 - Max limits above the 32-bit maximum are clamped to the 32-bit maximum.
 - Min limits are asserted to fit after max clamping; this is a source-level observation, not a polished user-facing diagnostic contract.
 - No teaching-relevant current-main drift was found on the reviewed surfaces.

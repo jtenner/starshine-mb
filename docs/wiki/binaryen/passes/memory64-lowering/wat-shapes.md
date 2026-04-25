@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
+  - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
   - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
@@ -11,6 +13,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./static-offsets-dynamic-operands-and-grow-repair.md
   - ./starshine-strategy.md
 ---
 
@@ -54,7 +57,7 @@ After:
 ```
 
 Only the dynamic address changes. The load result type remains `i32`.
-The same dynamic-address rule applies to other scalar loads, stores, SIMD memory ops, and atomic memory ops. Constant addresses have their own range split below.
+The same dynamic-address rule applies to other scalar loads, stores, SIMD memory ops, and atomic memory ops. The 2026-04-25 static-offset correction narrowed the older wording: an `i64.const` address expression still follows this operand-wrap path; static `offset=` immediates have their own range split below.
 
 ## 3. Store address repair
 
@@ -76,33 +79,33 @@ After:
 
 The payload value is not narrowed. Only the memory address is narrowed.
 
-## 4. Constant address range split
+## 4. Static `offset=` range split, not arbitrary constant operands
 
-Before, an in-range memory64 constant address:
-
-```wat
-(i32.load (i64.const 40))
-```
-
-After:
-
-```wat
-(i32.load (i32.const 40))
-```
-
-Before, a statically out-of-range address at or above `2^32`:
+Before, a dynamic memory64 address operand that is syntactically constant:
 
 ```wat
 (i32.load (i64.const 4294967296))
 ```
 
-After, Binaryen preserves the guaranteed trap-like behavior with `unreachable` rather than modulo-wrapping the constant:
+After, the corrected source-backed shape is still operand wrapping:
 
 ```wat
-(i32.load (unreachable))
+(i32.load (i32.wrap_i64 (i64.const 4294967296)))
 ```
 
-This distinction is the main 2026-04-25 correction to the earlier dossier: dynamic operands wrap, but known high constants do not.
+Before, a static memory-access immediate offset at or above `2^32`:
+
+```wat
+(i32.load offset=4294967296 (local.get $p))
+```
+
+After, Binaryen preserves the known bad access with `unreachable` rather than modulo-wrapping the static immediate:
+
+```wat
+(unreachable)
+```
+
+If the address child has side effects, those effects are preserved before the `unreachable` shape. This distinction is the main 2026-04-25 static-offset correction: dynamic operands, including `i64.const` operands, wrap; high static `offset=` immediates do not.
 
 ## 5. `memory.size` result repair
 
@@ -153,7 +156,7 @@ After, schematically:
 
 The exact printed AST may use Binaryen temporaries differently; the teaching point is the failure-aware result repair. It is **not** just `i64.extend_i32_u(memory.grow(...))`, because wasm32 grow failure is `i32 -1` and wasm64 callers expect the 64-bit failure sentinel.
 
-A constant grow delta above the 32-bit maximum lowers directly to the 64-bit failure sentinel.
+The 2026-04-25 correction did not find a separate constant-delta preclassification rule. Teach this as delta lowering plus failure-sentinel result repair.
 
 ## 7. Active data offset repair
 
@@ -172,7 +175,7 @@ After:
 Segment offsets are module-initialization code, so they must be lowered too.
 Do not implement this pass as a function-body-only walk.
 
-If the active offset is a known constant at or above `2^32`, Binaryen lowers it to `unreachable` rather than wrapping it to a small `i32.const`.
+The reviewed source lowers active offset expressions to the new address type. Do not apply the static `MemArg.offset` high-offset trap rule to active segments unless a newer source or oracle run proves that behavior.
 
 ## 8. Bulk memory init/fill/copy
 
@@ -290,7 +293,7 @@ After:
 (elem (i32.const 3) func $f)
 ```
 
-This is the table sibling of active data offset repair. A known out-of-range `i64.const` offset becomes `unreachable` rather than a wrapped `i32.const`.
+This is the table sibling of active data offset repair. Keep it separate from static memory-access `offset=` immediates; the reviewed source lowers active offset expressions to the new address type rather than documenting a high-active-offset `unreachable` special case.
 
 ## 14. Table copy mixed-width rules
 
@@ -319,11 +322,13 @@ That detail is important for mixed table32/table64 cases.
 
 - This pass is not memory packing.
 - This pass is not address arithmetic simplification.
-- This pass is not dynamic pointer-range validation; it still does source-confirmed constant high-address repair.
+- This pass is not dynamic pointer-range validation; its source-confirmed high-address repair is for static memory-access `offset=` immediates, not arbitrary dynamic operand constants.
 - This pass is not a Starshine feature today.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
+- [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
 - [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)

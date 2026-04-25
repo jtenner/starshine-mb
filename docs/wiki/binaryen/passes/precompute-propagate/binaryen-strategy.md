@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
+  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
   - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
@@ -23,8 +25,9 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
-- Use [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md) as the immutable raw-source manifest for the exact official URLs and the 2026-04-24 current-`main` spot check.
+- Use Binaryen `version_129` as the tagged source oracle for this pass.
+- Use [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md) as the tagged-source manifest for the exact official URLs and original 2026-04-24 spot check.
+- Use [`../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md) for the 2026-04-25 current-`main` no-teaching-drift recheck and exact Starshine code-map anchors.
 - The core implementation is `src/passes/Precompute.cpp`.
 - Public registration comes from `src/passes/pass.cpp`.
 - The most important scheduler neighbor for this variant is `src/passes/opt-utils.h`, because that file shows where Binaryen prepends `precompute-propagate` during nested post-inlining cleanup.
@@ -41,6 +44,9 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-interpreter.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-propagate-partial.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/precompute-propagate_all-features.wast>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Precompute.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/opt-utils.h>
 
 ## The pass in one sentence
 

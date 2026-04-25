@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
+  - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
   - ../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md
   - ../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md
@@ -10,6 +12,7 @@ sources:
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
+  - ./static-offsets-dynamic-operands-and-grow-repair.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
 ---
@@ -51,7 +54,7 @@ Any dynamic operand that was typed as an address/index/count because of a memory
 (i32.load (i32.wrap_i64 (local.get $addr64)))
 ```
 
-This same pattern applies to scalar memory ops, SIMD memory ops, atomics, bulk memory/table operations, and table operations whose index/delta/count operand used to be `i64`. A 2026-04-25 source recheck refined the constant case: known constant address operands and active offsets that are at least `2^32` become `unreachable` instead of wrapping, while in-range constants become `i32.const` values.
+This same pattern applies to scalar memory ops, SIMD memory ops, atomics, bulk memory/table operations, and table operations whose index/delta/count operand used to be `i64`. A 2026-04-25 source correction narrowed the earlier “high constant” wording: an operand expression that happens to be `i64.const` still lowers through this wrap path; the high-offset-to-`unreachable` family is the static `MemArg.offset` immediate on memory operations.
 
 ### 3. Repair former `i64` results
 
@@ -67,14 +70,14 @@ For `memory.size` and `table.size`, Binaryen repairs that with unsigned extensio
 (i64.extend_i32_u (memory.size 0))
 ```
 
-For `memory.grow` and `table.grow`, the repair is failure-aware rather than a blind zero-extension. A successful lowered `i32` result is zero-extended, but an `i32 -1` grow failure must become the 64-bit failure sentinel expected by wasm64 callers. Constant grow deltas above the 32-bit maximum become the 64-bit failure sentinel directly.
+For `memory.grow` and `table.grow`, the repair is failure-aware rather than a blind zero-extension. A successful lowered `i32` result is zero-extended, but an `i32 -1` grow failure must become the 64-bit failure sentinel expected by wasm64 callers. The reviewed source supports wrapping the delta before the lowered grow and repairing the result; it does not support teaching a separate high-constant-delta preclassification rule.
 
 Unsigned extension is still important for successful sizes and grows: memory and table indexes are unsigned quantities.
 
 ### 4. Rewrite segment offsets
 
 Active data and element segment offsets are part of module initialization, so lowering is not complete if only function bodies are rewritten.
-The pass also repairs offset expressions such as an `i64.const` data offset into 32-bit form. In-range constants become `i32.const`; statically out-of-range constants become `unreachable` to preserve the guaranteed out-of-bounds behavior in the lowered module.
+The pass also repairs offset expressions such as an `i64.const` data offset into 32-bit form. The focused source correction did not find a high-active-offset-to-`unreachable` special case comparable to static memory-access `offset=` immediates, so teach active offsets as expression-width repair unless a newer oracle proves otherwise.
 
 ### 5. Handle mixed-width bulk operations positionally
 
@@ -84,7 +87,7 @@ For copy operations, the reviewed Binaryen code treats length as 64-bit only whe
 
 ## What Binaryen does not try to do here
 
-- It does not prove dynamic pointer values are in range at runtime. Dynamic operands use `i32.wrap_i64`, while statically known out-of-range constants are handled separately as `unreachable`.
+- It does not prove dynamic pointer values are in range at runtime. Dynamic operands use `i32.wrap_i64`; static memory-access `offset=` immediates have the separate high-offset `unreachable` rule.
 - It does not optimize address arithmetic.
 - It does not replace neighboring memory-packing, optimize-added-constants, or instrumentation passes.
 - It does not make memory64/table64 semantics available in an engine that cannot otherwise allocate the requested 64-bit range.
@@ -96,10 +99,12 @@ That is a useful external motivation for the pass, but the mechanics on this pag
 
 ## Current-main freshness
 
-A 2026-04-25 current-`main` recheck of the owner source and paired lit files did not reveal teaching-level drift from the `version_129` contract. That recheck closed the earlier broad out-of-range uncertainty for constants and active offsets: high constants lower to `unreachable`, high grow constants lower to the 64-bit failure sentinel, max limits clamp to the 32-bit maximum, and min-limit behavior is still best described as source-level assertion rather than a user-facing diagnostic contract.
+A 2026-04-25 current-`main` recheck of the owner source and paired lit files did not reveal teaching-level drift from the `version_129` contract. A later same-day source correction narrowed the high-constant wording: dynamic operand constants wrap, static memory-access `offset=` immediates at or above `2^32` become `unreachable`, grow deltas are repaired through the lowered grow result, max limits clamp to the 32-bit maximum, and min-limit behavior is still best described as source-level assertion rather than a user-facing diagnostic contract.
 
 ## Sources
 
+- Static-offset correction: [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
+- Correction note: [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - Current-main recheck: [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
 - Follow-up note: [`../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md`](../../../raw/research/0340-2026-04-25-memory64-lowering-out-of-range-recheck.md)
 - Raw manifest: [`../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-memory64-lowering-primary-sources.md)

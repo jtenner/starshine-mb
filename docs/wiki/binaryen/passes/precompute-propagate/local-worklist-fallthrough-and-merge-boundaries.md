@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
+  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
   - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
@@ -18,7 +20,7 @@ related:
 
 # `precompute-propagate`: local worklist, fallthrough, and merge boundaries
 
-This page is the middle layer of the `precompute-propagate` dossier. It now cites the 2026-04-24 raw primary-source manifest so the worklist contract stays tied to the exact reviewed Binaryen URLs.
+This page is the middle layer of the `precompute-propagate` dossier. It cites the 2026-04-24 raw primary-source manifest for the tagged `version_129` contract and the 2026-04-25 current-main/code-map manifest for the fresh no-drift recheck.
 
 The landing page and strategy page already explain the big idea:
 
@@ -45,7 +47,7 @@ That is the real `version_129` contract.
 
 ## Where this logic lives
 
-The key function is `propagateLocals(Function* func)` in Binaryen `version_129` `src/passes/Precompute.cpp`.
+The key function is `propagateLocals(Function* func)` in Binaryen `version_129` and current-`main` `src/passes/Precompute.cpp`.
 
 It depends most directly on:
 

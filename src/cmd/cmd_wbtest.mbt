@@ -5828,6 +5828,60 @@ test "run_cmd reports dead-code-elimination native default-io blocker on debug a
 
 ///|
 #cfg(target="native")
+test "run_cmd native child process validates extracted optimize-instructions debug-artifact func523 replay" {
+  let fixture_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let input_path = native_tmp_file("oi-f523-native-child-input")
+  let output_path = native_tmp_file("oi-f523-native-child-output")
+  let invalid_dump_path = "/tmp/starshine-invalid-final.wasm"
+  let invalid_func_dump_path = "/tmp/starshine-invalid-final-func.txt"
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+  native_remove_if_exists(invalid_dump_path)
+  native_remove_if_exists(invalid_func_dump_path)
+
+  let wasm = match native_read_bytes(fixture_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{fixture_path}")
+  }
+  assert_true(native_write_bytes(input_path, wasm))
+
+  let (signaled, status) = native_run_cmd_exit_status([
+    "--extract-functions=523", "--optimize-instructions", "--out", output_path,
+    input_path,
+  ])
+  if signaled {
+    native_remove_if_exists(input_path)
+    native_remove_if_exists(output_path)
+    native_remove_if_exists(invalid_dump_path)
+    native_remove_if_exists(invalid_func_dump_path)
+    fail("expected child to exit normally, got signal \{status}")
+  }
+  assert_eq(status, 0)
+  match native_read_bytes(output_path) {
+    Some(bytes) => ignore(decode_module_bytes(bytes))
+    None => fail("expected optimized output at \{output_path}")
+  }
+  match native_read_bytes(invalid_dump_path) {
+    Some(_) =>
+      fail("did not expect invalid final-module dump at \{invalid_dump_path}")
+    None => ()
+  }
+  match native_read_bytes(invalid_func_dump_path) {
+    Some(_) =>
+      fail(
+        "did not expect invalid final-function dump at \{invalid_func_dump_path}",
+      )
+    None => ()
+  }
+
+  native_remove_if_exists(input_path)
+  native_remove_if_exists(output_path)
+  native_remove_if_exists(invalid_dump_path)
+  native_remove_if_exists(invalid_func_dump_path)
+}
+
+///|
+#cfg(target="native")
 test "run_cmd validates early remove-unused-brs optimize-prefix on debug artifact" {
   let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
   let output_path = native_tmp_file("rub-prefix-native-default-io-output")

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
+  - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
   - ../../../raw/research/0296-2026-04-24-precompute-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0167-2026-04-21-precompute-propagate-binaryen-research.md
@@ -18,7 +20,7 @@ related:
 
 # `precompute-propagate`: implementation structure and tests
 
-This page is the file-and-test map for Binaryen `version_129` `precompute-propagate`. The committed raw manifest for the reviewed official URLs is [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md).
+This page is the file-and-test map for Binaryen `version_129` `precompute-propagate`. The committed tagged-source manifest for the reviewed official URLs is [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md), and the 2026-04-25 current-main/code-map refresh is [`../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md).
 
 ## Core source files
 
@@ -132,6 +134,10 @@ Those tests matter here because the propagate variant is not allowed to violate 
 | `test/lit/passes/precompute-propagate-partial.wast` | Bug-boundary oracle | The propagate variant changes real reachable rewrites and needs temporary heap-cache isolation during partial precompute |
 | `test/lit/passes/precompute-propagate_all-features.wast` | Behavioral oracle | The exact get/set consensus, fallthrough, join, zero-init, tee, and bailout surfaces are source-backed |
 | neighboring `precompute*` lit files | Shared-family oracle | Emitability, effects, GC identity, and other family boundaries still apply in propagate mode |
+
+## Current-main recheck result
+
+The 2026-04-25 primary-source recheck found no teaching-relevant drift in the current `main` surfaces that matter for this pass: `Precompute.cpp`, `pass.cpp`, `opt-utils.h`, `local-graph.h`, `properties.h`, `wasm-interpreter.h`, and the two dedicated propagate lit files still support the same contract described here. Keep `version_129` as the tagged oracle, but cite the 2026-04-25 manifest when readers need the freshest official source and exact local Starshine code-map anchors.
 
 ## What this source map says about the real contract
 

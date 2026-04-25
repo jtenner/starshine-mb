@@ -165,6 +165,17 @@ fn optimize_instructions_replace_with_exact_compare(
 }
 
 ///|
+fn optimize_instructions_node_is_i32_value(
+  func : @ir.HotFunc,
+  node_id : Int,
+) -> Bool {
+  match @ir.hot_type_get(func, @ir.hot_node_get(func, node_id).ty) {
+    @ir.HotTypeInfo::Value(val_type) => val_type == @lib.ValType::i32()
+    _ => false
+  }
+}
+
+///|
 fn optimize_instructions_node_block_type(
   func : @ir.HotFunc,
   node_id : Int,
@@ -1971,6 +1982,16 @@ fn optimize_instructions_try_optimize_if_condition(
   let then_region = func.children[node.child_base + 1]
   let else_region = func.children[node.child_base + 2]
   let flip_if = fn(next_cond : Int) {
+    match optimize_instructions_i32_const(func, dead, next_cond) {
+      Some(@lib.I32(raw)) if raw == 0 =>
+        abort("debug-optimize-instructions: flip_if with const-zero condition")
+      _ => ()
+    }
+    match optimize_instructions_i64_const(func, dead, next_cond) {
+      Some(@lib.I64(raw)) if raw == 0L =>
+        abort("debug-optimize-instructions: flip_if with i64-zero condition")
+      _ => ()
+    }
     ignore(
       @ir.hot_replace_child_span(func, node_id, [
         next_cond, else_region, then_region,
@@ -1999,7 +2020,8 @@ fn optimize_instructions_try_optimize_if_condition(
       let lhs_id = @ir.hot_child_get(func, cond_id, 0)
       let rhs_id = @ir.hot_child_get(func, cond_id, 1)
       match optimize_instructions_i32_const(func, dead, rhs_id) {
-        Some(@lib.I32(raw)) if raw == 0 => {
+        Some(@lib.I32(raw)) if raw == 0 &&
+          optimize_instructions_node_is_i32_value(func, lhs_id) => {
           @ir.hot_child_set(func, node_id, 0, lhs_id)
           pass_mark_mutated(ctx, func)
           true
@@ -2023,7 +2045,8 @@ fn optimize_instructions_try_optimize_if_condition(
         _ => None
       }
       match operand_id {
-        Some(operand_id) =>
+        Some(operand_id) if
+          optimize_instructions_node_is_i32_value(func, operand_id) =>
           if @ir.hot_node_is_live(func, else_region) {
             flip_if(operand_id)
             true
@@ -2037,6 +2060,7 @@ fn optimize_instructions_try_optimize_if_condition(
             )
             true
           }
+        Some(_) => false
         None => false
       }
     }
@@ -2045,7 +2069,11 @@ fn optimize_instructions_try_optimize_if_condition(
         @ir.hot_child_count(func, cond_id) != 1 {
         return false
       }
-      flip_if(@ir.hot_child_get(func, cond_id, 0))
+      let operand_id = @ir.hot_child_get(func, cond_id, 0)
+      if !optimize_instructions_node_is_i32_value(func, operand_id) {
+        return false
+      }
+      flip_if(operand_id)
       true
     }
     _ => false
