@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `simplify-locals-nostructure` implementation/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/simplify-locals-nostructure/` folder, neighboring simplify-locals family pages, and `docs/wiki/raw/research/`, then chose removed `simplify-locals-nostructure` because its dossier still lacked the now-standard owner/helper/lit-test implementation map and exact refreshed Starshine dispatcher-gap/code-line map.
+- Added `docs/wiki/raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`, capturing official Binaryen current-main and tagged `version_129` sources for `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `pass.h`, `opt-utils.h`, helper headers, and the dedicated no-structure test pair. The focused recheck found no teaching-relevant drift: upstream remains the shared locals-family engine instantiated as `SimplifyLocals<true, false, true>`, with teeing and existing-consumer nesting enabled, structure-building disabled, late cleanup still active, and pass-runner local fixups still part of the validation contract.
+- Added `docs/wiki/raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md` and `docs/wiki/binaryen/passes/simplify-locals-nostructure/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, variant guide, WAT-shape catalog, and Starshine status page so readers can map transformed shapes, upstream owner/test surfaces, `pass.h` nondefaultable-local repair, exact removed-registry and tuple-slot guard line ranges, current dispatcher absence, and the future MoonBit `SLNS` landing zone.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked `simplify-locals-nostructure` as a deep removed-pass dossier now that the implementation/test-map and local-line-map gap is closed.
+
 ## [2026-04-25] research | deepen `reorder-globals` implementation/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/reorder-globals/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `reorder-globals` because its dossier still lacked the now-standard owner/helper/lit-test implementation map and exact local numeric-`GlobalIdx` prerequisite map.

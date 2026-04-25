@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
+  - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./variant-surface.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -29,7 +32,7 @@ related:
   - `src/ir/linear-execution.h`
   - `src/ir/properties.h`
 - The shipped behavior examples come from the dedicated no-structure and nearby-variant tests under `test/passes/`.
-- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and a narrow same-day `main` spot check on `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `opt-utils.h`, and the dedicated no-structure test files did not surface a new teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md).
+- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**. A focused 2026-04-25 current-`main` check on `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `pass.h`, `opt-utils.h`, and the dedicated no-structure test files found no teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md).
 
 Primary source URLs:
 
@@ -37,6 +40,7 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-utils.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/equivalent_sets.h>
@@ -49,6 +53,8 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.txt>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals.txt>
+
+For the source/file/test responsibility split, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## High-level intent
 
@@ -100,7 +106,7 @@ Those three facts are more informative than the CLI name by itself.
 | Skip structure rewrites | Do not call the block / `if` / loop return helpers | Leave new structured return values for the later full pass |
 | Late equivalent-get cleanup | Canonicalize `local.get`s toward a better equivalent local | Improve type precision and reduce future get counts without deleting structured copy carriers |
 | Final dead-set cleanup | Run `UnneededSetRemover` | Remove now-dead or same-value sets even outside neat SSA regions |
-| Repair | Run `ReFinalize` when needed | Restore correct outer expression types after refined values become visible |
+| Repair | Run `ReFinalize` when needed, with pass-runner nondefaultable-local fixups still in scope through `pass.h` | Restore correct expression types and local-validity postconditions after refined values become visible |
 
 ## Phase 1: get counting drives the whole pass
 
@@ -398,7 +404,9 @@ Those are the durable upstream-level truths.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md)
+- [`../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
 - [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>

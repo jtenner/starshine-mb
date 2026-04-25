@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
+  - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -13,6 +15,7 @@ sources:
   - ../../../../../agent-todo.md
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./variant-surface.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -40,7 +43,7 @@ related:
   - top-level slot `22`
 - The repo backlog already treats it as a real parity blocker under slice `SLNS` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
 - The current Starshine tuple-slot gate also treats it as a real missing neighbor: `tuple_optimization_exact_slot_prereqs_ready()` stays false until both `code-pushing` and `simplify-locals-no-structure` stop being removed placeholders.
-- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and a narrow same-day `main` spot check did not surface a new teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md).
+- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**. A focused 2026-04-25 current-`main` implementation/test-map bridge found no teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md).
 
 ## Beginner summary
 
@@ -69,12 +72,14 @@ That is narrower than “full simplify-locals.”
   - one-armed `if` speculative else-side `local.get` insertion
 - The first fixpoint cycle is still stricter than later ones: it only sinks easy single-use locals.
 - The main analysis is deliberately linear-trace based and uses directional effect invalidation instead of whole-function CFG reasoning.
-- Current Starshine still has **no transform** for this pass, but it now has a dedicated status / port-map page that ties together the removed-name registry, tuple-slot blocker, backlog slice, scheduler note, and neighboring MoonBit implementation files.
+- Current Starshine still has **no transform** for this pass, but the dossier now has a dedicated implementation/test-map page plus status / port-map page tying together upstream proof files, removed-name registry, tuple-slot blocker, backlog slice, scheduler note, dispatcher gap, and neighboring MoonBit implementation files.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: template identity, first-cycle versus later-cycle behavior, linear-trace sink state, effect barriers, late equivalent-get canonicalization, final dead-set cleanup, and scheduler placement.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  Source-confirmed owner/helper/test map for the no-structure variant, including the current-main no-drift bridge, `pass.h` nondefaultable-local fixup postcondition, and exact Starshine registry / slot-blocker / dispatcher-gap line ranges.
 - [`./variant-surface.md`](./variant-surface.md)
   Focused guide to the easiest part of the pass to misunderstand: what “no structure” actually toggles, what it surprisingly leaves on, and how it differs from `simplify-locals`, `simplify-locals-notee-nostructure`, and `simplify-locals-nonesting`.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -86,11 +91,13 @@ That is narrower than “full simplify-locals.”
 
 - Treat this folder as the canonical home for future `simplify-locals-nostructure` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
-- New `simplify-locals-nostructure` findings should update the strategy, variant-surface, and Starshine pages together so the upstream algorithm, the variant boundary, and the local port story stay aligned.
+- New `simplify-locals-nostructure` findings should update the strategy, implementation/test-map, variant-surface, and Starshine pages together so the upstream algorithm, source proof surface, variant boundary, and local port story stay aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md)
+- [`../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
 - [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

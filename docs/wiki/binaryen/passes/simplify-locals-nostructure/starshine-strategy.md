@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
+  - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -20,6 +22,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./variant-surface.md
   - ./wat-shapes.md
   - ../tuple-optimization/index.md
@@ -30,7 +33,7 @@ related:
 
 # Starshine Strategy For `simplify-locals-nostructure`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md).
+Use this page together with the current source bridge in [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md) and the earlier raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -54,12 +57,15 @@ So this page is intentionally a **status-and-port-map** page rather than a fake 
 The fastest read-along path through the current Starshine status is:
 
 - tracked but removed pass-name status and exact-slot blocker helper
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:143-151`
     - `pass_registry_removed_names()` includes `"simplify-locals-no-structure"`
+  - `src/passes/optimize.mbt:377-381`
     - `tuple_optimization_exact_slot_prereqs_ready()` stays false until both `code-pushing` and `simplify-locals-no-structure` stop being removed placeholders
+  - `src/passes/optimize.mbt:385-407`
+    - optimize/shrink presets deliberately avoid claiming the exact tuple slot while this neighbor is missing
 - direct regression proving the slot is still blocked
-  - `src/passes/optimize_test.mbt`
-    - `test "tuple-optimization exact preset slot remains unavailable while its neighbors are removed"`
+  - `src/passes/optimize_test.mbt:202-209`
+    - `test "tuple-optimization exact preset slot remains unavailable while no-structure neighbor is missing"`
 - backlog and delivery plan
   - `agent-todo.md`
     - `#### SLNS - Simplify Locals No-Structure`
@@ -69,14 +75,16 @@ The fastest read-along path through the current Starshine status is:
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
     - the early local-cleanup slot where `simplify-locals-nostructure` belongs after `tuple-optimization` and before `vacuum -> reorder-locals`
 - exact neighboring implementation files already worth reading
-  - `src/passes/simplify_locals.mbt`
-    - `simplify_locals_descriptor()`
-    - `simplify_locals_new_sinkables(...)`
-    - `simplify_locals_sinkables_may_conflict(...)`
+  - `src/passes/pass_manager.mbt:8701-8704`
+    - dispatches active neighboring hot passes but has no dispatcher case for `simplify-locals-no-structure`
+  - `src/passes/simplify_locals.mbt:2-16`
+    - full `simplify-locals` descriptor and summary; useful context but not a no-structure owner file
+  - `src/passes/simplify_locals.mbt:70-227`
+    - sinkable/effect-conflict data structures a future no-structure port would likely narrow and reuse
+  - `src/passes/simplify_locals.mbt:995-1012`, `src/passes/simplify_locals.mbt:2416-2508`, and `src/passes/simplify_locals.mbt:4132-4162`
+    - current full-pass conflict invalidation, structured-control boundary handling, and main-cycle setup
   - `src/passes/reorder_locals.mbt`
-    - `rl_scan_instruction(...)`
-    - `rl_rewrite_instrs_in_place(...)`
-    - `reorder_locals_run_module_pass(...)`
+    - `rl_scan_instruction(...)`, `rl_rewrite_instrs_in_place(...)`, and `reorder_locals_run_module_pass(...)` remain future local-index rewrite context
 - exact current regression and replay surfaces worth following
   - `src/passes/pass_manager_wbtest.mbt`
     - `test "raw simplify-locals adjacent local tees preserve writes read inside later if bodies"`
@@ -91,7 +99,7 @@ The fastest read-along path through the current Starshine status is:
   - [`../reorder-locals/index.md`](../reorder-locals/index.md)
   - [`../coalesce-locals/index.md`](../coalesce-locals/index.md)
 
-That code-and-doc map is the main practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and the future landing zone.
+That code-and-doc map is refreshed by the 2026-04-25 implementation/test-map follow-up: readers can now jump directly from the upstream algorithm to exact local status, the current dispatcher gap, and the future landing zone.
 
 ## What Starshine currently does for this pass name
 
@@ -118,9 +126,9 @@ That helper requires both:
 
 to become active before Starshine will claim the exact Binaryen tuple slot publicly.
 
-`src/passes/optimize_test.mbt` then locks that honesty rule in place with:
+`src/passes/optimize_test.mbt:202-209` then locks that honesty rule in place with:
 
-- `test "tuple-optimization exact preset slot remains unavailable while its neighbors are removed"`
+- `test "tuple-optimization exact preset slot remains unavailable while no-structure neighbor is missing"`
 
 So the repo already treats `simplify-locals-nostructure` as a real scheduling blocker, not just as a name on a wish list.
 
