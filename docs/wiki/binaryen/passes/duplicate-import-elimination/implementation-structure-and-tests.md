@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
@@ -182,7 +183,7 @@ The pass does **not** use:
 - global/table/memory replacement helpers
 - nested reruns like `optimizeAfterInlining(...)`
 
-That means a faithful Starshine port should stay small and structural.
+That means the faithful Starshine implementation should stay small and structural.
 
 ## Nonnullable-local-fixup note
 
@@ -249,7 +250,7 @@ It is another reason the earlier broad dossier needed correction.
 
 ## Current-main drift check
 
-A spot check against current Binaryen `main` re-confirmed on **2026-04-23** found no reviewed drift in `DuplicateImportElimination.cpp` relative to `version_129`.
+A spot check against current Binaryen `main` re-confirmed on **2026-04-25** found no teaching-relevant drift in the reviewed implementation, helper, registration, or dedicated-test surfaces relative to the `version_129` contract. The recheck is captured in [`../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md).
 
 So the corrected story on this page is not just tag-specific historical trivia.
 It still describes the current upstream implementation on the reviewed surface.

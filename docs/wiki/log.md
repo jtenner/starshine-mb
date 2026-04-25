@@ -2,6 +2,20 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | recheck `duplicate-import-elimination` source and code map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then continued with `duplicate-import-elimination` because the working tree already carried related local wiki updates and the dossier could be made healthier without inventing a duplicate pass page.
+- Added `docs/wiki/raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md`, capturing a fresh primary-source recheck of Binaryen `main` for `DuplicateImportElimination.cpp`, `pass.cpp`, `opt-utils.h`, `import-utils.h`, and the dedicated WAT / expected-output pair. The recheck found no teaching-relevant drift from the reviewed `version_129` contract: imported functions only, `(module, base)` buckets, exact function-type equality, first-import-wins canonicalization, function-name replacement, duplicate imported-function removal, and continued non-function-import TODO.
+- Refreshed the living `duplicate-import-elimination` pages to cite the new raw manifest, update `last_reviewed`, replace stale future-port wording with active-maintenance wording, and point the Starshine strategy to exact remap, rewrite, registry, dispatcher, focused-test, registry-test, and native-CMD code locations.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the current-main no-drift source bridge and exact local code map are discoverable. Health check fixed stale wording that still described an already-landed Starshine implementation as a future port and marked older note `0269` superseded for current local status while preserving its original provenance findings.
+
+## [2026-04-25] implementation | sign off `duplicate-import-elimination`
+
+- Read the existing local `duplicate-import-elimination` dossier and used the source-confirmed Binaryen `version_129` correction: implement only duplicate imported functions, keyed by `(module, base)`, with first-import-wins canonicalization and exact resolved function-type equality.
+- Landed `src/passes/duplicate_import_elimination.mbt`, registry/dispatcher/CLI/compare-harness wiring, focused pass regressions, registry coverage, and native `run_cmd_with_adapter` coverage.
+- Recorded direct evidence: `moon test src/passes`, `moon test src/cmd`, `.tmp/pass-fuzz-die-genvalid-10000` (`10000/10000`, `0` mismatches), `.tmp/pass-fuzz-die-10000-keep-going` (`9975/9975`, `0` mismatches, `25` Binaryen/parser command failures), and `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-1962434` (canonical wasm and normalized WAT equal on the debug artifact).
+- Refreshed `agent-todo.md`, `CHANGELOG.md`, and the living `duplicate-import-elimination` pages to mark the direct pass active while keeping full late-tail preset replay and future non-function-import drift as follow-up.
+
 ## [2026-04-25] research | add `remove-unused` source bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/raw/research/`, and the existing `docs/wiki/binaryen/passes/remove-unused/` folder, then chose local boundary-only `remove-unused` because the dossier already had useful lineage, Binaryen strategy, implementation-map, and module-shape pages but still lacked an immutable raw primary-source manifest and a dedicated Starshine status/port-strategy page.

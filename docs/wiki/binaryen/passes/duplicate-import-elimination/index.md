@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
@@ -32,9 +33,10 @@ related:
 ## Role
 
 - `duplicate-import-elimination` is an upstream Binaryen late module / boundary cleanup pass.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- Binaryen runs it in the late post-pass cluster after the second `duplicate-function-elimination` and before `simplify-globals-optimizing`.
+- As of 2026-04-25, it is implemented in Starshine as an active module pass in [`../../../../../src/passes/duplicate_import_elimination.mbt`](../../../../../src/passes/duplicate_import_elimination.mbt), registered in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), and dispatched by [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
+- Binaryen runs it in the late post-pass cluster after the second `duplicate-function-elimination` and before `simplify-globals-optimizing`; Starshine exposes the direct pass but has not yet widened the public `optimize` preset to that full late-tail shape.
 - The reviewed official Binaryen GitHub `version_129` release page was rechecked on **2026-04-23** through the raw primary-source manifest at [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md), and GitHub showed the release publish date as **2026-04-01**.
+- The upstream `main` implementation, helper, registration, and dedicated test surfaces were rechecked on **2026-04-25** through [`../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md); no teaching-relevant drift was found from the function-import-only `version_129` contract.
 
 ## Why this dossier needed a follow-up
 
@@ -64,7 +66,7 @@ So this folder should now be read as a corrected, source-confirmed dossier rathe
   - top-level slot `51`
 - The saved Binaryen debug log shows the pass is tiny but real:
   - `2.133e-05` seconds in the captured generated-artifact run
-- `agent-todo.md` already has a dedicated slice for the pass under `DIE`.
+- `agent-todo.md` keeps the remaining late-tail / future-upstream drift follow-up under `DIE`.
 
 ## Correct beginner summary
 
@@ -112,18 +114,19 @@ That is much closer to the real pass than either:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after WAT and module-shape catalog for the real positive function-import families, the preserved different-signature family, and the explicit current non-goals.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Dedicated Starshine status/port-map page covering the exact in-repo boundary-only registry and request-guard locations, the `DIE` backlog slice, the canonical late-tail slot, and the important reviewed mismatch between current backlog wording and Binaryen `version_129`'s function-import-only contract.
+  Dedicated Starshine status/port-map page covering the active in-repo module-pass implementation, registry and dispatcher locations, the `DIE` follow-up slice, the canonical late-tail slot, and the source-confirmed Binaryen `version_129` function-import-only contract.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `duplicate-import-elimination` research and port planning.
 - Treat the older broad all-import story as superseded by the 2026-04-21 source-confirmation follow-up.
 - Treat the current broader `agent-todo.md` wording as a local planning mismatch that still needs to be narrowed for strict Binaryen `version_129` parity; do not silently smooth that contradiction away.
-- Keep the folder explicitly marked as **unimplemented** until Starshine grows a real late module pass with the same function-import-only contract as Binaryen `version_129`, or until a deliberate divergence is documented.
+- Keep the folder explicitly scoped to the implemented Starshine module pass and the source-confirmed Binaryen `version_129` function-import-only contract.
 - If future upstream Binaryen expands the pass beyond functions, record that as new drift instead of silently widening this `version_129` contract.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md)
 - [`../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md`](../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md)
 - [`../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md`](../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md)

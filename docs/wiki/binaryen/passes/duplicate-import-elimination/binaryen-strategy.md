@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
@@ -30,7 +31,7 @@ related:
   - `test/passes/duplicate-import-elimination.wast`
   - `test/passes/duplicate-import-elimination.txt`
 
-Primary source URLs captured again on 2026-04-23:
+Primary source URLs captured on 2026-04-23 and rechecked against current `main` on 2026-04-25:
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateImportElimination.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
@@ -39,7 +40,7 @@ Primary source URLs captured again on 2026-04-23:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.txt>
 
-A narrow 2026-04-23 spot check of current Binaryen `main` did not surface a teaching-relevant drift on the reviewed implementation, helper, or dedicated-test surfaces.
+A narrow 2026-04-25 spot check of current Binaryen `main`, captured in [`../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md), did not surface teaching-relevant drift on the reviewed implementation, helper, registration, or dedicated-test surfaces.
 
 ## Main correction
 
@@ -158,7 +159,7 @@ If the function matches, Binaryen records:
 
 So the canonical representative is just the first imported function seen for the bucket.
 
-This is deterministic and worth preserving in any future port.
+This is deterministic and worth preserving in Starshine's active implementation.
 
 ## 5. Rewrite function-name users via `replaceFunctions(...)`
 
@@ -202,7 +203,7 @@ It does **not** use:
 - non-function replacement helpers
 - nested reruns
 
-A faithful port should stay correspondingly small.
+A faithful implementation should stay correspondingly small.
 
 ## Shipped test contract
 
@@ -249,10 +250,12 @@ Because the pass uses only `replaceFunctions(...)`, the real rewrite surface is 
 `duplicate-import-elimination` sounds like it handles every import kind.
 The source-confirmed reality in `version_129` is smaller.
 
-## Future Starshine port checklist
+## Starshine parity checklist
+
+Starshine now has an active module-pass implementation, so read this as the ongoing parity/maintenance checklist rather than future-port scaffolding.
 
 - Keep this a late module pass.
-- Implement only duplicate imported-function elimination for Binaryen `version_129` parity.
+- Keep duplicate imported-function elimination as the Binaryen `version_129` parity scope.
 - Bucket candidates by `(module, base)`.
 - Require exact function-type equality before merging.
 - Preserve first-import-wins canonicalization.

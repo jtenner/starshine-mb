@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
@@ -55,7 +56,7 @@ Instead:
 - each later matching imported function is retargeted to that first name,
 - the later declaration is then removed.
 
-That means a future port should preserve:
+That means Starshine's active implementation and any future maintenance should preserve:
 
 - deterministic canonical choice,
 - stable repeated runs,
@@ -217,7 +218,7 @@ The same is true for imported globals, tables, and memories.
 
 ## Practical porting checklist
 
-When implementing Binaryen `version_129` parity for this pass in Starshine, verify all of these are true:
+When maintaining Binaryen `version_129` parity for this pass in Starshine, verify all of these are true:
 
 1. Only imported functions are considered.
 2. Duplicate buckets are keyed by `(module, base)`.

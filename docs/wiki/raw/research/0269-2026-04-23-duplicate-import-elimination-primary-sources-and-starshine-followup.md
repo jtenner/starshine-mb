@@ -1,8 +1,9 @@
 ---
 kind: research
-status: supported
-last_reviewed: 2026-04-23
+status: superseded
+last_reviewed: 2026-04-25
 sources:
+  - ../binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md
   - ../binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../binaryen/passes/duplicate-import-elimination/index.md
   - ../../binaryen/passes/duplicate-import-elimination/binaryen-strategy.md
@@ -19,6 +20,8 @@ sources:
 ---
 
 # `duplicate-import-elimination` primary-source and Starshine follow-up
+
+> Supersession note, 2026-04-25: this note remains useful for the original raw-source provenance and the then-current boundary-only local status. Its Starshine status claims are now stale because `duplicate-import-elimination` is an active module pass in `src/passes/duplicate_import_elimination.mbt`, registered in `src/passes/optimize.mbt`, and dispatched in `src/passes/pass_manager.mbt`. Use [`../binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md`](../binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md) plus the living dossier pages for current status.
 
 ## Why this follow-up exists
 
