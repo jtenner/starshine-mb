@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `signext-lowering` implementation/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/signext-lowering/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `signext-lowering` because its dossier was useful but still lacked the now-standard implementation/test-map page and carried an over-broad lit-proof wording around feature metadata.
+- Added `docs/wiki/raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md`, capturing official Binaryen `version_129` and current-main owner/registration/test sources. The source correction keeps the pass contract unchanged but narrows the evidence: `SignExtLowering.cpp` proves `FeatureSet::SignExt` clearing, while `test/lit/passes/signext-lowering.wast` directly proves the five instruction-shape rewrites rather than target-feature custom-section output.
+- Added `docs/wiki/raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md` and `docs/wiki/binaryen/passes/signext-lowering/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, WAT-shape catalog, and Starshine status page with exact local parser, lib IR, encoder, validator, HOT-lift, `pick-load-signs`, unknown-registry, dispatcher-gap, and pretty-printer caveat line ranges.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; health-check edits in the touched folder replaced stale “lit proves feature removal” wording with source-proven feature-clearing wording and marked the dossier `deep` in the tracker.
+
 ## [2026-04-25] research | refresh `local-cse` current-main and test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/local-cse/` folder, and `docs/wiki/raw/research/`, then chose unimplemented `local-cse` because its dossier was useful but still lacked the now-standard implementation/test-map page and current local code-map precision.

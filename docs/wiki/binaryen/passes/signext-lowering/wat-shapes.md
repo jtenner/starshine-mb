@@ -3,10 +3,13 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
   - ../optimize-instructions/wat-shapes.md
   - ../pick-load-signs/wat-shapes.md
@@ -165,9 +168,11 @@ After, before any later cleanup:
 
 `signext-lowering` may create redundant-looking shift pairs. Removing or simplifying them belongs to other passes, not to this one.
 
-## Feature annotation shape
+## Feature-state side effect
 
-The dedicated Binaryen test also proves that the pass removes the sign-extension feature from output. In practical WAT terms, a module-level sign-extension target-feature marker should not survive as a claim that sign-extension opcodes are still required after all those opcodes are lowered.
+Binaryen's owner source disables `FeatureSet::SignExt` after rewriting the direct opcodes. In practical terms, the module should no longer claim that sign-extension opcodes are required after all those opcodes are lowered.
+
+Evidence boundary: the dedicated Binaryen lit test directly checks the instruction output shapes above, but this run did not find an explicit target-feature custom-section assertion in that fixture. Treat feature clearing as source-proven by the implementation, not as independently asserted by the WAT-shape fixture.
 
 Starshine currently has opaque custom-section preservation, not a Binaryen-identical `FeatureSet::SignExt` model. See [`starshine-strategy.md`](starshine-strategy.md) for the local caveat.
 

@@ -3,13 +3,16 @@ kind: pass
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
+  - ../../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
   - ../../../raw/research/0349-2026-04-25-signext-lowering-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/wast/types.mbt
   - ../../../../../src/validate/typecheck.mbt
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../optimize-instructions/index.md
@@ -38,7 +41,7 @@ Starshine does **not** currently expose `signext-lowering` as a public pass name
 - It has no dispatcher or owner file in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - Starshine does have prerequisite sign-extension instruction support in WAT parsing, library IR, validation, binary encoding, HOT lifting, and neighboring optimization logic. The exact local code map is in [`starshine-strategy.md`](starshine-strategy.md).
 
-That means this folder is a source-backed upstream-only dossier plus a future-port map, not a claim that Starshine already implements the pass.
+That means this folder is a source-backed upstream-only dossier plus a future-port map, not a claim that Starshine already implements the pass. The exact upstream owner/test files and local prerequisite code map are in [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md).
 
 ## Invariants
 
@@ -100,7 +103,8 @@ For a future Starshine port:
 
 ## Related pages
 
-- [`binaryen-strategy.md`](binaryen-strategy.md) - upstream implementation and test strategy.
+- [`binaryen-strategy.md`](binaryen-strategy.md) - upstream implementation strategy and proof boundaries.
+- [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md) - upstream owner/test map plus exact local prerequisite code surfaces.
 - [`wat-shapes.md`](wat-shapes.md) - concrete before/after instruction shapes.
 - [`starshine-strategy.md`](starshine-strategy.md) - exact local code-location map and future port notes.
 - [`../optimize-instructions/index.md`](../optimize-instructions/index.md) - neighboring optimization pass that reasons about sign-extension patterns.

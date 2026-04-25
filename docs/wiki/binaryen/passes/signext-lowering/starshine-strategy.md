@@ -3,7 +3,9 @@ kind: strategy
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
+  - ../../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
   - ../../../raw/research/0349-2026-04-25-signext-lowering-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -16,9 +18,11 @@ sources:
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/ir/hot_lift.mbt
   - ../../../../../src/passes/pick_load_signs.mbt
+  - ../../../../../src/lib/show.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ../pick-load-signs/starshine-hot-ir-strategy.md
   - ../optimize-instructions/starshine-hot-ir-strategy.md
@@ -45,21 +49,21 @@ These files are prerequisites a future pass can reuse:
 
 | Surface | Current code location | Why it matters |
 | --- | --- | --- |
-| WAT opcode enum | [`src/wast/types.mbt`](../../../../../src/wast/types.mbt) | Declares `I32Extend8S`, `I32Extend16S`, `I64Extend8S`, `I64Extend16S`, and `I64Extend32S`. |
-| WAT keywords | [`src/wast/keywords.mbt`](../../../../../src/wast/keywords.mbt) | Maps textual mnemonics such as `i32.extend8_s` to opcode enum cases. |
-| Parser coverage | [`src/wast/parser.mbt`](../../../../../src/wast/parser.mbt) | Has a focused `parse sign extension` test for all five opcodes. |
-| WAT-to-lib lowering | [`src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt) | Converts WAT opcode cases to `@lib.Instruction` constructors. |
-| Library IR | [`src/lib/types.mbt`](../../../../../src/lib/types.mbt) | Provides instruction cases and constructor helpers like `Instruction::i32_extend8s()`. |
-| Binary encoding | [`src/binary/encode.mbt`](../../../../../src/binary/encode.mbt) | Emits sign-extension opcode bytes `0xC0` through `0xC4`. |
-| Type checking | [`src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt) | Treats sign-extension as unary same-type operations: `i32 -> i32` and `i64 -> i64`. |
-| HOT lifting | [`src/ir/hot_lift.mbt`](../../../../../src/ir/hot_lift.mbt) | Classifies all five sign-extension instructions as unary HOT ops. |
-| Neighboring pass logic | [`src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt) | Recognizes sign-extension consumers when deciding whether narrow loads should become signed loads. |
+| WAT opcode enum | [`src/wast/types.mbt:454-458`](../../../../../src/wast/types.mbt) | Declares `I32Extend8S`, `I32Extend16S`, `I64Extend8S`, `I64Extend16S`, and `I64Extend32S`. |
+| WAT keywords | [`src/wast/keywords.mbt:328-332`](../../../../../src/wast/keywords.mbt) | Maps textual mnemonics such as `i32.extend8_s` to opcode enum cases. |
+| Parser coverage | [`src/wast/parser.mbt:4987-4994`](../../../../../src/wast/parser.mbt) | Has a focused `parse sign extension` test for all five opcodes. |
+| WAT-to-lib lowering | [`src/wast/lower_to_lib.mbt:1284-1288`](../../../../../src/wast/lower_to_lib.mbt) | Converts WAT opcode cases to `@lib.Instruction` constructors. |
+| Library IR | [`src/lib/types.mbt:715-719`](../../../../../src/lib/types.mbt), [`src/lib/types.mbt:3940-3961`](../../../../../src/lib/types.mbt), [`src/lib/types.mbt:5882-5903`](../../../../../src/lib/types.mbt) | Provides instruction cases, unary-op cases, and constructor helpers like `Instruction::i32_extend8s()`. |
+| Binary encoding | [`src/binary/encode.mbt:2561-2565`](../../../../../src/binary/encode.mbt) | Emits sign-extension opcode bytes `0xC0` through `0xC4`. |
+| Type checking | [`src/validate/typecheck.mbt:3464-3468`](../../../../../src/validate/typecheck.mbt), [`src/validate/typecheck.mbt:5482-5521`](../../../../../src/validate/typecheck.mbt) | Treats and tests sign-extension as unary same-type operations: `i32 -> i32` and `i64 -> i64`. |
+| HOT lifting | [`src/ir/hot_lift.mbt:847-851`](../../../../../src/ir/hot_lift.mbt) | Classifies all five sign-extension instructions as unary HOT ops. |
+| Neighboring pass logic | [`src/passes/pick_load_signs.mbt:437-441`](../../../../../src/passes/pick_load_signs.mbt) | Recognizes sign-extension consumers when deciding whether narrow loads should become signed loads. |
 
 These surfaces are necessary but not sufficient. None of them rewrites sign-extension opcodes into shifts or clears a target-feature requirement.
 
 ## Local caveats found during source mapping
 
-- [`src/lib/show.mbt`](../../../../../src/lib/show.mbt) currently prints sign-extension mnemonics without underscores, such as `i32.extend8s`. Binaryen and WAT syntax use `i32.extend8_s`. Treat this as WAT-output hygiene to verify before writing any roundtrip-oriented `signext-lowering` tests.
+- [`src/lib/show.mbt:1317-1321`](../../../../../src/lib/show.mbt) currently prints sign-extension mnemonics without underscores, such as `i32.extend8s`. Binaryen and WAT syntax use `i32.extend8_s`. Treat this as WAT-output hygiene to verify before writing any roundtrip-oriented `signext-lowering` tests.
 - The repository search did not find a Binaryen-like `FeatureSet::SignExt` model. Starshine preserves opaque custom sections in the binary layer, so a faithful port must decide whether feature removal means deleting or rewriting a `target_features` custom section, adding a feature model, or documenting instruction-only lowering as an intentional divergence.
 
 ## Future implementation shape

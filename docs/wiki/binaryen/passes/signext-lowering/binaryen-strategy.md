@@ -3,17 +3,20 @@ kind: strategy
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
+  - ../../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
   - ../../../raw/research/0349-2026-04-25-signext-lowering-source-dossier.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
 ---
 
 # Binaryen strategy for `signext-lowering`
 
-Binaryen implements `signext-lowering` as a small feature-lowering pass, not as a broad optimizer. The reviewed `version_129` implementation lives in `src/passes/SignExtLowering.cpp`; registration and factory plumbing live in `src/passes/pass.cpp` and `src/passes/passes.h`; the dedicated proof is `test/lit/passes/signext-lowering.wast`. The primary-source manifest is [`../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md).
+Binaryen implements `signext-lowering` as a small feature-lowering pass, not as a broad optimizer. The reviewed `version_129` implementation lives in `src/passes/SignExtLowering.cpp`; registration and factory plumbing live in `src/passes/pass.cpp` and `src/passes/passes.h`; the dedicated instruction-shape proof is `test/lit/passes/signext-lowering.wast`. The primary-source manifests are [`../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md`](../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md).
 
 ## Execution shape
 
@@ -69,12 +72,13 @@ This matters because a pass that only replaces instructions but leaves target-fe
 
 ## Dedicated test proof
 
-The dedicated lit file checks all five opcodes. Its expected output proves:
+The dedicated lit file checks all five opcodes. Its expected output directly proves:
 
-- every sign-extension opcode is gone;
+- every sign-extension opcode is gone from the checked function body;
 - each replacement uses the correct shift count;
-- i32 opcodes lower to i32 shifts and i64 opcodes lower to i64 shifts;
-- the pass removes the sign-extension feature annotation from the output module.
+- i32 opcodes lower to i32 shifts and i64 opcodes lower to i64 shifts.
+
+The owner source proves the `FeatureSet::SignExt` clearing side effect. This follow-up did not find a direct target-feature custom-section or printed feature-annotation assertion in the dedicated lit fixture, so cite the source for feature clearing and the lit file for instruction output shape.
 
 The test is intentionally narrow. It does not cover:
 
@@ -88,7 +92,7 @@ Those belong to neighboring Binaryen passes such as `optimize-instructions` and 
 
 ## Current-main freshness
 
-A focused 2026-04-25 check of Binaryen `main` found no teaching-relevant drift from `version_129`: the owner file and dedicated lit proof still use the same five-opcode, shift-pair, feature-disable strategy. This is not a guarantee that no small formatting or infrastructure change happened elsewhere; it only supports using the `version_129` behavior as the stable teaching contract for this dossier.
+A focused 2026-04-25 check of Binaryen `main` found no teaching-relevant drift from `version_129`: the owner file still uses the same five-opcode, shift-pair, feature-disable strategy, and the dedicated lit proof still checks the same output instruction families. This is not a guarantee that no small formatting or infrastructure change happened elsewhere; it only supports using the `version_129` behavior as the stable teaching contract for this dossier.
 
 ## Non-goals
 
