@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
+  - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
   - ../../../../../src/passes/global_struct_inference.mbt
@@ -21,6 +23,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/gsi.wast
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./closed-world-analysis-and-unnesting.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
@@ -126,6 +129,8 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the real `GlobalStructInference.cpp` structure, helper dependencies, scheduler placement, open-world versus closed-world layers, and the actual algorithm.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Source-confirmed owner-file, helper, lit-test, and Starshine code-map page, including the exact local line-number surfaces and the current local-vs-Binaryen matrix.
 - [`./closed-world-analysis-and-unnesting.md`](./closed-world-analysis-and-unnesting.md)
   - Focused guide to the hardest parts to misunderstand: the type-global map, subtype poisoning and upward propagation, the one-vs-two-unique-values rule, un-nesting into fresh globals, and the nearby descriptor-facing helper surface.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -137,10 +142,10 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-A narrow 2026-04-20 direct source comparison found **no semantic post-`version_129` drift** in the owning official surfaces used for this dossier.
+A focused 2026-04-25 primary-source recheck found **no teaching-relevant post-`version_129` drift** in the owning official surfaces used for this dossier.
 
-- `src/passes/GlobalStructInference.cpp` differs on current `main` only by comment typo fixes
-- `test/lit/passes/gsi.wast` is identical on current `main` and `version_129`
+- current `main` still shows the same `run` mode split, open-world optimizer call, closed-world `typeGlobals` gate, un-nesting repair, and plain/sibling factory split
+- current `main` `test/lit/passes/gsi.wast` remains the relevant dedicated plain-pass proof surface in the reviewed source bridge
 
 So the durable rule is:
 
@@ -156,6 +161,8 @@ So the durable rule is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md)
+- [`../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md`](../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md`](../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md)
 - [`../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md`](../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md)
 - [`../../../../../src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt)

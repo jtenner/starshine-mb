@@ -2,6 +2,7 @@
 
 _Date:_ 2026-04-21  
 _Status:_ absorbed into the living `docs/wiki/binaryen/passes/global-struct-inference/` dossier in this same change  
+_Supersession note:_ the 2026-04-25 follow-up [`0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md`](0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md) plus raw manifest [`../binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../binaryen/2026-04-25-global-struct-inference-primary-sources.md) supersede this note for immutable source provenance and implementation/test-map completeness while preserving this note as the original Starshine strategy filing.  
 _Related living pages:_
 - `docs/wiki/binaryen/passes/global-struct-inference/index.md`
 - `docs/wiki/binaryen/passes/global-struct-inference/binaryen-strategy.md`

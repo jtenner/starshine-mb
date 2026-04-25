@@ -1,11 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
+  - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./closed-world-analysis-and-unnesting.md
   - ./wat-shapes.md
   - ./parity.md
@@ -16,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
+Use Binaryen `version_129` as the released primary source oracle for this pass, with the immutable source capture in [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md) as the repo-local manifest.
 
 Primary files:
 
@@ -37,6 +40,8 @@ Most important helper dependencies visible in the implementation:
 The shipped lit surface is also part of the contract:
 
 - `test/lit/passes/gsi.wast`
+
+For source locations, helper ownership, and Starshine's local line-number code map, read [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) after this page.
 
 ## High-level intent
 
@@ -412,12 +417,14 @@ That is much broader than the current local MoonBit test surface.
 
 ## Current freshness note
 
-A narrow 2026-04-20 check found no semantic drift here:
+A focused 2026-04-25 primary-source recheck found no teaching-relevant drift here on the reviewed owner, registration, helper, and dedicated-lit surfaces:
 
-- current `main` `GlobalStructInference.cpp` differs from `version_129` only by comment typo fixes
-- current `main` `gsi.wast` is identical to `version_129`
+- current `main` still shows the same mode split: optional closed-world analysis followed by `optimize(module)` in all modes
+- current `main` still shows un-nesting plus nested `reorder-globals-always`
+- current `main` still shows the plain `gsi` / sibling `gsi-desc-cast` factory split
+- current `main` `gsi.wast` remains the dedicated plain-pass proof surface reviewed for this dossier
 
-So the current wiki should continue treating `version_129` as the semantic oracle without an active trunk-drift caveat.
+So the current wiki should continue treating `version_129` as the released semantic oracle without an active trunk-drift caveat. The 2026-04-25 check was a focused source bridge, not a full post-`version_129` trunk audit.
 
 ## What a future port or parity pass must preserve
 

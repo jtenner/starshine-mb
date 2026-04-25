@@ -1,5 +1,7 @@
 # 0140 - Binaryen `global-struct-inference` research
 
+Supersession note, 2026-04-25: [`0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md`](0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md) and [`../binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../binaryen/2026-04-25-global-struct-inference-primary-sources.md) supersede this note for raw-source provenance, current-main spot-check framing, and Starshine code-map completeness. Keep this note as the original Binaryen contract audit.
+
 ## Scope
 
 - Continue the Binaryen pass wiki-ing campaign after the `global-refining` dossier.

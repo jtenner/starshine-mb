@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | add `global-struct-inference` source manifest and code map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose active `global-struct-inference` because the living dossier already taught the core pass but still lacked an immutable plain-GSI raw primary-source manifest and the implementation/test-map page now standard for neighboring pass folders.
+- Added `docs/wiki/raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`, capturing the official Binaryen `version_129` release, `GlobalStructInference.cpp`, `pass.cpp`, `passes.h`, helper headers for possible constants / subtypes / packed fields / module analysis / name generation, `ReorderGlobals.cpp`, the dedicated `gsi.wast` proof surface, and a focused current-main no-teaching-drift spot check.
+- Added `docs/wiki/raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md` and `docs/wiki/binaryen/passes/global-struct-inference/implementation-structure-and-tests.md`, grounding the source-backed contract in exact Starshine code locations: `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, `src/passes/global_struct_inference.mbt`, and `src/passes/global_struct_inference_test.mbt`.
+- Refreshed the `global-struct-inference` overview, Binaryen strategy, WAT-shape catalog, closed-world/un-nesting guide, Starshine strategy, and parity page so readers can follow the full chain from transformed shapes to Binaryen strategy to current Starshine's narrower closed-world direct-global subset.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked older notes `0140` and `0234` superseded for raw-source provenance / code-map completeness while preserving them as the original Binaryen and Starshine strategy investigations.
+
 ## [2026-04-25] research | add `minify-imports` source correction dossier
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose `minify-imports` because the newly added import/export minification folder still hid a separate upstream public pass and carried a stale `WasmBinaryBuilder::getSymbolMap(...)` attribution.

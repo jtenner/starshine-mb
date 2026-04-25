@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
+  - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
   - ../../../raw/research/0068-2026-03-25-global-struct-inference.md
@@ -14,6 +16,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./closed-world-analysis-and-unnesting.md
   - ./wat-shapes.md
   - ./parity.md
@@ -22,7 +25,7 @@ related:
 
 # Starshine `global-struct-inference` module-pass strategy
 
-This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `GlobalStructInference.cpp` contract.
+This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `GlobalStructInference.cpp` contract. For the side-by-side owner-file, helper, test, and line-number map, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Current local surface
 
@@ -215,7 +218,9 @@ The focused tests in `src/passes/global_struct_inference_test.mbt` currently pro
 - the pass leaves non-global reference producers unchanged even in closed world
 
 That is a good local floor.
-It is much smaller than the official Binaryen `gsi.wast` proof surface, which is why the local parity page keeps the missing select/subtype/un-nesting/descriptor families explicit.
+It is much smaller than the official Binaryen `gsi.wast` proof surface, which is why the local parity page keeps the missing select/subtype/un-nesting/atomic/descriptor families explicit.
+
+The 2026-04-25 source ingest did not change the local status. It made the documentation healthier by anchoring the exact local subset to a raw Binaryen manifest and a durable implementation/test-map page.
 
 ## Practical maintenance rule
 

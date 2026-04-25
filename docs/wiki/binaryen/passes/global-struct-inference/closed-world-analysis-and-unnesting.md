@@ -1,19 +1,24 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
+  - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0140-2026-04-20-global-struct-inference-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./parity.md
 ---
 
 # `global-struct-inference`: closed-world analysis and un-nesting
 
-This page covers the half of Binaryen `gsi` that is easiest to misunderstand:
+This page covers the half of Binaryen `gsi` that is easiest to misunderstand. The raw source manifest is [`../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md`](../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md); owner-file and test locations are mapped in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+
+This page covers:
 
 - what closed world actually adds
 - how subtype reasoning works
@@ -285,4 +290,4 @@ A future parity-focused port must keep all of these rules explicit:
 - new globals created by un-nesting must be reordered before uses
 - nearby descriptor/cast surfaces reuse the same trusted-global infrastructure
 
-If local code intentionally keeps a smaller subset, the wiki should continue calling that out as a local limitation, not as the Binaryen contract.
+If local code intentionally keeps a smaller subset, the wiki should continue calling that out as a local limitation, not as the Binaryen contract. Today that local subset is still exactly the closed-world direct-global folder described in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md), not the full `typeGlobals` plus un-nesting engine described here.
