@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
+  - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
   - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./reuse-naming-and-ordering.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-globals-optimizing/index.md
   - ../../../strings/string-const-surface.md
   - ../../no-dwarf-default-optimize-path.md
@@ -19,12 +22,12 @@ related:
 
 # Binaryen `string-gathering` strategy
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md).
-On 2026-04-23 the reviewed official Binaryen GitHub release page for `version_129` showed publish date **2026-04-01**, and a narrow current-`main` spot check did not surface a new teaching-relevant contract drift beyond the claims below.
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the current-main / port-readiness bridge in [`../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`](../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md).
+On 2026-04-23 the reviewed official Binaryen GitHub release page for `version_129` showed publish date **2026-04-01**. A focused 2026-04-25 current-`main` check did not surface a teaching-relevant contract drift beyond the claims below.
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
+- Use Binaryen `version_129` as the tagged source oracle for this pass, with the 2026-04-25 current-main bridge as a freshness check.
 - The core implementation lives in `src/passes/StringLowering.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.
@@ -36,6 +39,7 @@ On 2026-04-23 the reviewed official Binaryen GitHub release page for `version_12
 
 Primary source URLs:
 
+- Current-main bridge: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
@@ -45,6 +49,7 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-traversal.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-gathering.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/propagate-globals-globally.wast>
+- Current-main test bridge: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/string-gathering.wast>
 
 For the compact owner-file and shipped-test map that goes with this strategy page, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
@@ -350,6 +355,8 @@ A future Starshine port should preserve all of these:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`](../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md)
+- [`../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md`](../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md)
 - [`../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md`](../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md)
 - [`../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md`](../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md)

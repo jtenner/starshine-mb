@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
+  - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -11,7 +13,7 @@ sources:
   - ../../../../../src/binary/tests.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../strings/string-const-surface.md
-  - ../../../../../docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
+  - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../reorder-globals/index.md
 related:
@@ -20,14 +22,15 @@ related:
   - ./implementation-structure-and-tests.md
   - ./reuse-naming-and-ordering.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-globals/index.md
   - ../../../strings/string-const-surface.md
 ---
 
 # Starshine Strategy For `string-gathering`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already matter, and the practical landing zone for a future port.
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the current-main / port-readiness bridge in [`../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`](../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md).
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already matter, and the practical landing zone for a future port. For the first-slice implementation and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
 
@@ -36,8 +39,8 @@ There is no `src/passes/string_gathering.mbt` owner file today.
 
 There is also one important local wrinkle that was easy to miss before this follow-up:
 
-- `src/passes/optimize.mbt:127` `pass_registry_boundary_only_names()` does **not** include `"string-gathering"`
-- `src/passes/optimize.mbt:144` `pass_registry_removed_names()` also does **not** include `"string-gathering"`
+- [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140) `pass_registry_boundary_only_names()` does **not** include `"string-gathering"`
+- [`src/passes/optimize.mbt#L144-L151`](../../../../../src/passes/optimize.mbt#L144-L151) `pass_registry_removed_names()` also does **not** include `"string-gathering"`
 
 So the current local story is not “the pass name is preserved and honestly rejected.”
 It is:
@@ -55,37 +58,37 @@ The fastest read-along path through the current Starshine status is:
 
 ### Scheduler and backlog truth
 
-- `docs/wiki/raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md`
+- [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md#L34-L35`](../../no-dwarf-default-optimize-path.md#L34-L35)
   - the late no-DWARF post-pass sequence still records `string-gathering` between `remove-unused-module-elements` and `reorder-globals`
-- `agent-todo.md:556`
+- [`agent-todo.md#L563-L569`](../../../../../agent-todo.md#L563-L569)
   - `[SG]001 - String Collection and Canonicalization Rules`
-- `agent-todo.md:559`
+- [`agent-todo.md#L570-L577`](../../../../../agent-todo.md#L570-L577)
   - `[SG]002 - Feature Gate, Global Order, and Artifact Parity`
 
 ### Current registry truth
 
-- `src/passes/optimize.mbt:127`
+- [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
   - `pass_registry_boundary_only_names()`
-- `src/passes/optimize.mbt:144`
+- [`src/passes/optimize.mbt#L144-L151`](../../../../../src/passes/optimize.mbt#L144-L151)
   - `pass_registry_removed_names()`
 
 Those two functions are worth reading directly because they make the current bookkeeping gap concrete: the pass is planned, but its spelling is not yet tracked in the registry surface.
 
 ### Current string-literal implementation surfaces that a future port would build on
 
-- `src/binary/encode.mbt:72`
-  - `with_binary_encode_stringrefs_context(...)`
-- `src/binary/encode.mbt:87`
-  - `encode_string_const_index(...)`
-- `src/binary/encode.mbt:1580`
+- [`src/binary/encode.mbt#L72-L103`](../../../../../src/binary/encode.mbt#L72-L103)
+  - `with_binary_encode_stringrefs_context(...)` and `encode_string_const_index(...)`
+- [`src/binary/encode.mbt#L1578-L1645`](../../../../../src/binary/encode.mbt#L1578-L1645)
   - `encode_module_stringrefs(...)`
-- `src/binary/decode.mbt:148`
-  - `with_binary_decode_stringrefs_context(...)`
-- `src/binary/decode.mbt:160`
-  - `decode_string_const_literal(...)`
-- `src/binary/tests.mbt:1817`
+- [`src/binary/decode.mbt#L148-L171`](../../../../../src/binary/decode.mbt#L148-L171)
+  - `with_binary_decode_stringrefs_context(...)` and `decode_string_const_literal(...)`
+- [`src/binary/decode.mbt#L3078-L3082`](../../../../../src/binary/decode.mbt#L3078-L3082)
+  - binary opcode decode back to `Instruction::string_const(literal)`
+- [`src/binary/tests.mbt#L1817-L1854`](../../../../../src/binary/tests.mbt#L1817-L1854)
   - `module roundtrip preserves string.const literals and stringrefs section`
-- `src/wast/lower_to_lib.mbt:7238`
+- [`src/wast/lower_to_lib.mbt#L2389`](../../../../../src/wast/lower_to_lib.mbt#L2389)
+  - WAT string literal lowering to `Instruction::string_const(bytes)`
+- [`src/wast/lower_to_lib.mbt#L7238-L7262`](../../../../../src/wast/lower_to_lib.mbt#L7238-L7262)
   - `wast_to_binary_module lowers string.const literals`
 - [`../../../strings/string-const-surface.md`](../../../strings/string-const-surface.md)
   - the durable local wiki page for the current `string.const` surface
@@ -107,11 +110,11 @@ The encoder and decoder already preserve literal identity through the real binar
 
 The key code points are:
 
-- `src/binary/encode.mbt:1580` `encode_module_stringrefs(mod_)`
+- [`src/binary/encode.mbt#L1578-L1645`](../../../../../src/binary/encode.mbt#L1578-L1645) `encode_module_stringrefs(mod_)`
   - collects unique `string.const` payloads deterministically across module globals and code
-- `src/binary/encode.mbt:87` `encode_string_const_index(...)`
+- [`src/binary/encode.mbt#L87-L103`](../../../../../src/binary/encode.mbt#L87-L103) `encode_string_const_index(...)`
   - maps a literal payload back to its section index while encoding instructions
-- `src/binary/decode.mbt:160` `decode_string_const_literal(...)`
+- [`src/binary/decode.mbt#L160-L171`](../../../../../src/binary/decode.mbt#L160-L171) `decode_string_const_literal(...)`
   - resolves encoded indices back to literal bytes on decode
 
 This is not `string-gathering` yet.
@@ -121,9 +124,9 @@ But it is the exact local infrastructure that makes a future `string-gathering` 
 
 The repo already has focused tests proving that string literals survive the current front-end and binary surfaces:
 
-- `src/wast/lower_to_lib.mbt:7238`
+- [`src/wast/lower_to_lib.mbt#L7238-L7262`](../../../../../src/wast/lower_to_lib.mbt#L7238-L7262)
   - WAST lowering keeps `string.const` literals intact
-- `src/binary/tests.mbt:1817`
+- [`src/binary/tests.mbt#L1817-L1854`](../../../../../src/binary/tests.mbt#L1817-L1854)
   - binary encode/decode roundtrip preserves `string.const` literals and the stringrefs section
 
 Those tests matter for a future pass because Binaryen `string-gathering` deduplicates by literal payload.
@@ -166,7 +169,7 @@ The current docs and code strongly suggest that a future local `string-gathering
 
 A good local design ladder is:
 
-1. add the upstream spelling to the registry surface in `src/passes/optimize.mbt`
+1. add the upstream spelling to the registry surface in `src/passes/optimize.mbt` as the registry-honesty slice described in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 2. add a dedicated module-pass owner file
 3. scan the whole module for direct `string.const` uses
 4. preserve exact literal identity using the already-landed binary/lib plumbing
@@ -184,10 +187,11 @@ A local port that fuses them too early would be harder to compare and harder to 
 
 See [`../../../strings/string-const-surface.md`](../../../strings/string-const-surface.md) plus:
 
-- `src/binary/encode.mbt:72`, `:87`, `:1580`
-- `src/binary/decode.mbt:148`, `:160`
-- `src/binary/tests.mbt:1817`
-- `src/wast/lower_to_lib.mbt:7238`
+- [`src/binary/encode.mbt#L72-L103`](../../../../../src/binary/encode.mbt#L72-L103), [`#L1578-L1645`](../../../../../src/binary/encode.mbt#L1578-L1645)
+- [`src/binary/decode.mbt#L148-L171`](../../../../../src/binary/decode.mbt#L148-L171), [`#L3078-L3082`](../../../../../src/binary/decode.mbt#L3078-L3082)
+- [`src/binary/tests.mbt#L1817-L1854`](../../../../../src/binary/tests.mbt#L1817-L1854)
+- [`src/wast/lower_to_lib.mbt#L2389`](../../../../../src/wast/lower_to_lib.mbt#L2389), [`#L7238-L7262`](../../../../../src/wast/lower_to_lib.mbt#L7238-L7262)
+- [`src/ir/hot_builders.mbt#L285-L293`](../../../../../src/ir/hot_builders.mbt#L285-L293), [`src/ir/hot_lift.mbt#L1291-L1294`](../../../../../src/ir/hot_lift.mbt#L1291-L1294), and [`src/ir/hot_lower.mbt#L196-L197`](../../../../../src/ir/hot_lower.mbt#L196-L197)
 
 Why it matters:
 

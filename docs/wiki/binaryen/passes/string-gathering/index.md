@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
+  - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
   - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
@@ -21,6 +23,7 @@ related:
   - ./reuse-naming-and-ordering.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-globals-optimizing/index.md
   - ../string-lowering/index.md
   - ../string-lifting/index.md
@@ -46,7 +49,7 @@ The earlier folder already had a good working explanation of the pass, but it st
 - a dedicated Starshine strategy page
 - and one compact source-confirmed page for the real owner-file map, implementation phases, and test-vs-source coverage boundary
 
-This follow-up closes those gaps without overturning the basic earlier picture.
+That follow-up closed those gaps without overturning the basic earlier picture. The 2026-04-25 refresh adds a current-main no-drift / port-readiness bridge and a dedicated Starshine validation ladder so future work can move from registry honesty to module-pass implementation without redoing the Binaryen research.
 
 ## Why it matters
 
@@ -94,6 +97,7 @@ That is much closer to the real pass than either:
   - direct `string.const` initializer
 - Nullable, mutable, or nested users are **not** reused as canonical defining globals.
 - The pass remembers exact expression-pointer locations, so replacement is a direct AST-slot rewrite rather than a second search.
+- A focused 2026-04-25 current-main bridge found no teaching-relevant drift from the tagged `version_129` contract in the checked source and test surfaces.
 - It scans function bodies in parallel and also scans module-level code, including defined global initializers and other module expression slots reached by `walkModuleCode(...)`.
 - Its internal global reorder is only a validity repair: defining string globals first.
 - Final global layout is intentionally left to the following `reorder-globals` pass.
@@ -103,7 +107,8 @@ That is much closer to the real pass than either:
 - The tracker and backlog both clearly treat `string-gathering` as a real missing late-module pass.
 - But the literal name currently appears in **neither** `src/passes/optimize.mbt`’s `pass_registry_boundary_only_names()` array nor `pass_registry_removed_names()`.
 - Treat that as current repo bookkeeping debt to resolve before implementation, not as evidence that the Binaryen pass is unimportant.
-- The new local-status bridge for that bookkeeping gap and the existing string-literal plumbing now lives in [`./starshine-strategy.md`](./starshine-strategy.md).
+- The local-status bridge for that bookkeeping gap and the existing string-literal plumbing lives in [`./starshine-strategy.md`](./starshine-strategy.md).
+- The implementation-readiness ladder lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), with registry honesty as Slice 0.
 
 That “bookkeeping debt” conclusion is an inference from the scheduler docs, backlog slice, string-plumbing code, and saved `-O4z` audit all agreeing that the pass matters.
 
@@ -119,6 +124,8 @@ That “bookkeeping debt” conclusion is an inference from the scheduler docs, 
   Beginner-friendly before/after WAT and module-shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Exact current Starshine status and code-map page: the still-missing registry entry, the active `SG` backlog slices, the existing `string.const` / `stringrefs` encode-decode plumbing, and the future late-module landing boundary with `reorder-globals`.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Dedicated future-port ladder: registry honesty first, then exact `string.const` site collection, canonical defining-global selection, non-defining-site rewrites, validity-first reorder, feature-gated scheduler integration, and Binaryen oracle comparison.
 
 ## Current maintenance rule
 
@@ -130,6 +137,8 @@ That “bookkeeping debt” conclusion is an inference from the scheduler docs, 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`](../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md)
+- [`../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md`](../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md)
 - [`../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md`](../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md)
 - [`../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md`](../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md)

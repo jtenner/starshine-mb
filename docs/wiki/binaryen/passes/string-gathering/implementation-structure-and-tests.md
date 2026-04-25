@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
+  - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
   - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
@@ -12,12 +14,13 @@ related:
   - ./binaryen-strategy.md
   - ./reuse-naming-and-ordering.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
 # `string-gathering`: implementation structure and tests
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the current-main / port-readiness bridge in [`../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`](../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md).
 This page is the compact source-confirmed map for how Binaryen `version_129` actually implements `string-gathering` and where the shipped tests pin that behavior down.
 
 ## Why this page exists
@@ -252,7 +255,7 @@ So the best source-backed teaching split is:
 
 ## Current-main drift check
 
-A 2026-04-23 spot check against current Binaryen `main` found no reviewed drift on the `StringGathering` surface that changes the `version_129` contract summarized here.
+A 2026-04-23 spot check and a focused 2026-04-25 current-main / port-readiness bridge found no reviewed drift on the `StringGathering` surface that changes the `version_129` contract summarized here.
 
 So this page is not only historical tag archaeology.
-It still matches the reviewed upstream implementation surface on the key behaviors covered here.
+It still matches the reviewed upstream implementation surface on the key behaviors covered here. For Starshine implementation sequencing and exact local prerequisite anchors, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

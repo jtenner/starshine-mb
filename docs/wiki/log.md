@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `string-gathering` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/string-gathering/` folder, and `docs/wiki/raw/research/`, then chose unimplemented no-DWARF late-tail `string-gathering` because the dossier was useful but still had 2026-04-23 freshness wording, stale local line anchors, and no dedicated first-slice / validation ladder.
+- Added `docs/wiki/raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`, rechecking official Binaryen current-main and tagged `version_129` sources for `StringLowering.cpp`, `pass.cpp`, `passes.h`, `string-utils.*`, `module-utils.h`, `wasm-traversal.h`, `string-gathering.wast`, and neighboring `propagate-globals-globally.wast`; the focused recheck found no teaching-relevant drift from the tagged exact-`StringConst` scan, canonical immutable global, direct slot rewrite, and validity-first reorder contract.
+- Added `docs/wiki/raw/research/0377-2026-04-25-string-gathering-port-readiness.md` and `docs/wiki/binaryen/passes/string-gathering/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, reuse/order guide, WAT-shape catalog, and Starshine strategy page so transformed shapes, upstream strategy, exact local registry gap, current string literal / HOT prerequisite anchors, first registry-honesty slice, module-pass rewrite sequence, and Binaryen oracle comparison ladder are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; promoted `string-gathering` from `dossier` to `deep` while preserving the explicit implementation debt that the public pass spelling is still absent from Starshine's registry arrays.
+
 ## [2026-04-25] research | deepen `simplify-globals-optimizing` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/simplify-globals-optimizing/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `simplify-globals-optimizing` because the dossier had source/shape/status coverage but still left future implementers to infer the safe first Starshine slice and validation ladder.
