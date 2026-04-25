@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | refresh `local-cse` current-main and test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/local-cse/` folder, and `docs/wiki/raw/research/`, then chose unimplemented `local-cse` because its dossier was useful but still lacked the now-standard implementation/test-map page and current local code-map precision.
+- Added `docs/wiki/raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`, capturing official Binaryen `version_129` and current-main sources for `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, `linear-execution.h`, `effects.h`, `properties.*`, `intrinsics.h`, `cost.h`, and `local-cse.wast`. The recheck found no teaching-relevant drift: upstream remains a scan/check/apply temp-local reuse pass for repeated whole expression trees in limited linear windows.
+- Added `docs/wiki/raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md` and `docs/wiki/binaryen/passes/local-cse/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, window/barrier guide, WAT-shape catalog, and Starshine status page so the folder now maps transformed shapes, Binaryen owner/test surfaces, and exact local removed-registry, request-rejection, dispatcher-gap, local-cleanup, local-index rewrite, backlog, and scheduler code locations.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; the tracker now marks `local-cse` as a deep unimplemented dossier rather than a less-specific dossier-only entry. Focused touched-area hygiene found no stale 2026-04-22-only current-main wording left in the `local-cse` folder and tightened the folder maintenance rule so future findings update the strategy, implementation/test-map, and windows/barriers pages together.
+
 ## [2026-04-25] health | fix `merge-blocks` pass-manager wording
 
 - Ran a focused reference-hygiene check after the `merge-blocks` source-correction commit and found the new implementation/test-map and Starshine strategy pages described `src/passes/pass_manager.mbt:7813` as trace integration.

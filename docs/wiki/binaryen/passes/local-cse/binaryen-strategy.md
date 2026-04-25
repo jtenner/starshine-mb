@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
 related:
   - ./index.md
   - ./basic-block-windows-and-barriers.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../coalesce-locals/index.md
@@ -19,9 +22,9 @@ related:
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
-- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**; the exact release/source/test URLs from this refresh are captured immutably in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md).
-- A narrow 2026-04-22 current-`main` spot check on `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, and `local-cse.wast` did not surface a new teaching-relevant contract drift beyond the current living claims.
+- Use Binaryen `version_129` as the tagged source oracle for this pass.
+- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**; the exact release/source/test URLs from that refresh are captured immutably in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md).
+- A focused 2026-04-25 current-`main` bridge on `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, helper files, and `local-cse.wast` found no teaching-relevant contract drift and is captured at [`../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md).
 - The core implementation is `src/passes/LocalCSE.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contracts come from:
@@ -59,6 +62,8 @@ It is:
 - “did we already compute this exact whole tree in the current linear execution window, and is it still safe and worthwhile to replace the later copy with a temp-local read?”
 
 That is why the implementation is small, local, and temp-local based.
+
+For the source/test-file map behind this strategy, read [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## The pass in one table
 

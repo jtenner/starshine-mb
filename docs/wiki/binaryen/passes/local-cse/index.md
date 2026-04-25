@@ -1,11 +1,13 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-22
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -13,6 +15,7 @@ sources:
 related:
   - ./binaryen-strategy.md
   - ./basic-block-windows-and-barriers.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../coalesce-locals/index.md
@@ -64,8 +67,8 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 
 ## Current durable takeaways
 
-- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and the dossier now has an immutable raw primary-source manifest at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md).
-- A narrow 2026-04-22 current-`main` spot check on `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, and `local-cse.wast` did not surface a new teaching-relevant drift beyond the existing living Binaryen pages.
+- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and the dossier has an immutable raw primary-source manifest at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md).
+- A focused 2026-04-25 current-`main` bridge at [`../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md) rechecked `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, helper files, and `local-cse.wast`; it found no teaching-relevant drift and added a clearer upstream/test plus Starshine code map.
 - The pass really is a three-stage algorithm:
   - `scan`
   - `check`
@@ -85,6 +88,8 @@ That is smaller and more local than “Binaryen does generic CSE here.”
   Deep dive into the actual Binaryen `version_129` implementation: data structures, scan/check/apply phases, helper dependencies, profitability rules, and scheduler placement.
 - [`./basic-block-windows-and-barriers.md`](./basic-block-windows-and-barriers.md)
   Focused guide to the easiest parts of the pass to misunderstand: what “inside basic blocks” really means here, which control-flow boundaries reset the window, and why effects, traps, generativity, and idempotent calls matter.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  Source-confirmed owner-file, helper, lit-test, scheduler, and Starshine status map for readers who need to follow the pass from upstream code into the local port plan.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
@@ -94,13 +99,15 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 
 - Treat this folder as the canonical home for future `local-cse` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
-- New `local-cse` findings should update both the strategy page and the windows/barriers page so the algorithm explanation and the control-flow safety story stay aligned.
+- New `local-cse` findings should update the strategy page, implementation/test-map page, and windows/barriers page together so the algorithm explanation, proof-surface map, and control-flow safety story stay aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md)
 - [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md)
 - [`../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md`](../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md)
 - [`../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md`](../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md`](../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

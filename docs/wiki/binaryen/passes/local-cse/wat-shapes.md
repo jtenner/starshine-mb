@@ -1,15 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./basic-block-windows-and-barriers.md
+  - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
   - ../coalesce-locals/index.md
   - ../simplify-locals/index.md
@@ -18,7 +21,7 @@ related:
 # `local-cse` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen’s `local-cse` pass.
-It was rechecked against the 2026-04-22 raw primary-source capture at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), which also records the reviewed official Binaryen `version_129` release-page date (**2026-04-01**).
+It was rechecked against the 2026-04-22 raw primary-source capture at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), which records the reviewed official Binaryen `version_129` release-page date (**2026-04-01**), and the 2026-04-25 current-main bridge at [`../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md), which found no teaching-relevant drift.
 
 ## Read this page with one mental model
 
@@ -450,7 +453,7 @@ Why Binaryen can allow it:
 
 Important honesty note:
 
-- this claim is direct source reading, not a separate current lit fixture I saw in this thread
+- this claim is direct source reading from `LocalCSE.cpp` and the idempotent-annotation helpers, not a separate dedicated lit fixture identified in the 2026-04-25 source bridge
 
 ## Shape 15: fresh GC allocation roots do not fold
 
@@ -467,7 +470,7 @@ Why Binaryen keeps both:
 - `properties.cpp` marks roots like `struct.new` and `array.new*` as generative
 - reusing the first fresh result would be wrong
 
-This is another source-derived rule that matters for a future port even though the shipped lit test I read does not isolate it separately.
+This is another source-derived rule that matters for a future port even though the 2026-04-25 source bridge did not identify a dedicated standalone lit fixture that isolates it separately.
 
 ## Shape 16: repeated switch / `br_table` children can fold
 

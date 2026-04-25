@@ -1,11 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -21,6 +24,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./basic-block-windows-and-barriers.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ../flatten/index.md
   - ../simplify-locals-notee-nostructure/index.md
@@ -31,7 +35,7 @@ related:
 
 # Starshine Strategy For `local-cse`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), the 2026-04-25 current-main bridge in [`../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md), and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -54,8 +58,14 @@ So this page is intentionally a **status-and-port-map** page rather than a fake 
 The fastest read-along path through the current Starshine status is:
 
 - tracked but removed pass-name status
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:144-151`
     - `pass_registry_removed_names()` includes `"local-cse"`
+- active request behavior
+  - `src/passes/optimize.mbt:455-473`
+    - removed pass flags are rejected before dispatch
+- dispatcher absence
+  - `src/passes/pass_manager.mbt:8629-8648`
+    - no module-pass case or HOT owner path exists for `local-cse`
 - backlog and delivery plan
   - `agent-todo.md`
     - `#### LCSE - Local CSE`
@@ -65,14 +75,10 @@ The fastest read-along path through the current Starshine status is:
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
     - the late-cluster slot where `local-cse` belongs after `coalesce-locals` and before full `simplify-locals`
 - exact neighboring local implementation files already worth reading
-  - `src/passes/simplify_locals.mbt`
-    - `simplify_locals_descriptor()`
-    - `simplify_locals_new_sinkables(...)`
-    - `simplify_locals_sinkables_may_conflict(...)`
-  - `src/passes/reorder_locals.mbt`
-    - `rl_scan_instruction(...)`
-    - `rl_rewrite_instrs_in_place(...)`
-    - `reorder_locals_run_module_pass(...)`
+  - `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:176`, `src/passes/simplify_locals.mbt:4132`
+    - sinkable-local state, sinkable/effect conflict checks, and the active full `simplify-locals` entry point
+  - `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544`
+    - local-use scanning, in-place local-index rewriting, and module-pass entry logic
 - exact current regression and replay surfaces worth following
   - `src/passes/pass_manager_wbtest.mbt`
     - `test "raw simplify-locals adjacent local tees preserve writes read inside later if bodies"`
@@ -88,7 +94,7 @@ The fastest read-along path through the current Starshine status is:
   - [`../simplify-locals/index.md`](../simplify-locals/index.md)
   - [`../reorder-locals/index.md`](../reorder-locals/index.md)
 
-That code-and-doc map is the main practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and the future landing zone.
+That code-and-doc map is the main practical addition in this dossier: readers can now jump directly from the upstream algorithm to the exact local status, proof-surface map, and future landing zone.
 
 ## What Starshine currently does for this pass name
 
@@ -96,7 +102,7 @@ Today Starshine's behavior for `local-cse` is deliberately limited.
 
 ### 1. The name is tracked, not forgotten
 
-`src/passes/optimize.mbt` keeps the upstream spelling `local-cse` in `pass_registry_removed_names()`.
+`src/passes/optimize.mbt:144-151` keeps the upstream spelling `local-cse` in `pass_registry_removed_names()`.
 That means:
 
 - the project still treats `local-cse` as a real known pass
@@ -224,6 +230,7 @@ A future contributor should be careful not to overread the current local surface
 Starshine does **not** currently have:
 
 - a MoonBit implementation file for `local-cse`
+- a dispatcher entry for `local-cse` in `src/passes/pass_manager.mbt`
 - HOT candidate collection for repeated whole trees
 - a local expression hasher/equality engine for this pass
 - temp-local insertion and repeat-rewrite machinery specifically for this pass

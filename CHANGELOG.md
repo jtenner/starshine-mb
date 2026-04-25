@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-25 Docs: refresh `local-cse` source map
+
+- **ingest a focused Binaryen current-main source bridge for unimplemented `local-cse`, add the missing implementation/test-map page, and refresh the dossier so the scan/check/apply whole-tree temp-local reuse contract is tied to current primary sources while exact Starshine removed-registry, request-rejection, dispatcher-gap, local-cleanup, local-index rewrite, backlog, and scheduler surfaces are discoverable for a future port** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](./docs/wiki/raw/binaryen/2026-04-25-local-cse-current-main-code-map.md), [`docs/wiki/raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md`](./docs/wiki/raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md), and [`docs/wiki/binaryen/passes/local-cse/`](./docs/wiki/binaryen/passes/local-cse/).
+
 ## 2026-04-25 Docs: fix `merge-blocks` pass-manager wording
 
 - **repair a touched `merge-blocks` code-map wording issue so `src/passes/pass_manager.mbt:7813` is identified as HOT lower/writeback options rather than trace integration, while keeping `src/passes/pass_manager.mbt:8704` as the dispatcher call surface** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/binaryen/passes/merge-blocks/implementation-structure-and-tests.md`](./docs/wiki/binaryen/passes/merge-blocks/implementation-structure-and-tests.md), and [`docs/wiki/binaryen/passes/merge-blocks/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/merge-blocks/starshine-hot-ir-strategy.md).
