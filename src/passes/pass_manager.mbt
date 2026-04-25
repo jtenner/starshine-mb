@@ -8644,6 +8644,7 @@ fn run_hot_pipeline_apply_module_pass(
     "global-struct-inference" =>
       global_struct_inference_run_module_pass(mod_, options.closed_world)
     "reorder-locals" => reorder_locals_run_module_pass(mod_)
+    "duplicate-import-elimination" => die_run_module_pass(mod_)
     _ => return Err("unsupported module pass \{entry.name}")
   }
   perf_stop_timer_opt(options.perf, "pass:\{entry.name}", pass_timer_start)

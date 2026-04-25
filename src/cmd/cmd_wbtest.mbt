@@ -4081,6 +4081,50 @@ test "run_cmd_with_adapter applies duplicate-function-elimination to wasm inputs
 }
 
 ///|
+test "run_cmd_with_adapter applies duplicate-import-elimination to wasm inputs" {
+  let source =
+    #|(module
+    #|  (type $v (func))
+    #|  (import "env" "waka" (func $foo (type $v)))
+    #|  (import "env" "waka" (func $bar (type $v)))
+    #|  (func (call $bar))
+    #|)
+    #|,
+  let wasm = encode_module_bytes(@passes.pass_test_module_from_wat(source))
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["die.wasm"] },
+    file_exists=fn(path) { path == "die.wasm" },
+    read_file=fn(path) {
+      if path == "die.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--duplicate-import-elimination", "--out", "out.wasm", "die.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["duplicate-import-elimination"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.import_sec {
+    Some(ImportSec([Import(_, _, FuncExternType(_))])) => ()
+    other => fail("expected one surviving function import, got \{other}")
+  }
+}
+
+///|
 test "run_cmd_with_adapter applies remove-unused-module-elements to wasm inputs" {
   let wasm = encode_module_bytes(fixture_remove_unused_module_elements_module())
   let writes : Array[(String, Bytes)] = []

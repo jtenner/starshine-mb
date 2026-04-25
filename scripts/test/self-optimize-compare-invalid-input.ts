@@ -60,7 +60,8 @@ process.exit(0);
     `
 const fs = require("node:fs");
 fs.appendFileSync(process.env.FAKE_BINARYEN_LOG, JSON.stringify(process.argv.slice(2)) + "\\n");
-process.exit(0);
+process.stderr.write("binaryen parse failed: bad baseline\\n");
+process.exit(1);
 `,
   );
 
@@ -113,9 +114,13 @@ process.exit(1);
     result.stderr.includes("validation failed: bad baseline"),
     `expected wasm-tools validation details, got:\n${result.stderr}`,
   );
+  assert(
+    result.stderr.includes("binaryen parse failed: bad baseline"),
+    `expected Binaryen rejection details, got:\n${result.stderr}`,
+  );
   assert(fs.existsSync(moonLog), "expected compare harness to compile before validation");
   assert(!fs.existsSync(starshineLog), "expected Starshine not to run on invalid input");
-  assert(!fs.existsSync(binaryenLog), "expected Binaryen not to run on invalid input");
+  assert(fs.existsSync(binaryenLog), "expected Binaryen acceptance check to run on invalid input");
 }
 
 if (import.meta.main) {

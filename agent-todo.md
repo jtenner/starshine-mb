@@ -523,21 +523,17 @@ Observed unique-pass order
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
 
 #### DIE - Duplicate Import Elimination
-1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L293](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L293)
-2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [DIE]001 - Import Identity and Merge Safety - Define the exact module/name/type identity checks required before duplicate imports can be merged.
-     - Deliverables: compare import module, field, and external type exactly; preserve externally observable ordering where required; build a replacement map for merged import indices.
-     - Doc: [0066#L293](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L293)
-   - [DIE]002 - Index Rewrite and Artifact Validation - Rewrite all users of merged imports and validate the late post-pass cleanup result against Binaryen.
-     - Deliverables: patch function/table/global/memory import users consistently; add regressions for import-boundary corner cases; compare `--duplicate-import-elimination` output on the artifact.
-     - Doc: [0066#L293](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L293)
-3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
-4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
+1. Canonical direct pass is now active and artifact-comparable.
+   - `duplicate-import-elimination` is registered as a module pass, dispatched through the module-pass path, exposed through the native `cmd` surface, and accepted by the pass-fuzz harness.
+   - The pass currently merges duplicate imported functions when module/name/type identity match, rewrites function call / `return_call` / `ref.func` users plus start/export/elem/name-section references, and preserves non-function or mismatched-signature imports.
+   - Focused regressions now cover duplicate import collapse, mixed import preservation, the first-import bucket rule, and native `run_cmd_with_adapter` execution on wasm bytes.
+   - Fresh evidence: `.tmp/pass-fuzz-die-genvalid-100-postfix` is `100/100` normalized matches with `0` mismatches / validation failures / command failures, and `.tmp/o4z-cron-duplicate-import-elimination-20260425-011845` reports `normalizedWatEqual=true` on `tests/node/dist/starshine-debug-wasi.wasm`.
+2. Compare harness blocker is now closed for this artifact lane.
+   - `scripts/self-optimize-compare.ts` no longer rejects a baseline solely because `wasm-tools validate` fails when Binaryen itself can still read and round-trip the module. The checked-in debug artifact currently needs that fallback because `wasm-tools validate` rejects it for a local-count limit while `wasm-opt` still accepts it and serves as the oracle for this lane.
+   - Script coverage now includes both sides of the rule: malformed baselines still fail when Binaryen also rejects them, while Binaryen-accepted / wasm-tools-rejected baselines continue through the compare flow.
+3. Remaining work.
+   - Extend duplicate-import elimination beyond imported functions if Binaryen evidence shows tables/globals/memories/tags are merged in later cases.
+   - Keep replaying the late O4z slot with the checked-in debug artifact while later post-pass slots land.
 
 #### SGO - Simplify Globals Optimizing
 1. Research exact functionality in document.

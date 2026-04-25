@@ -20,6 +20,10 @@ pub fn dfe_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn dfe_summary() -> String
 
+pub fn die_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn die_summary() -> String
+
 pub fn global_refining_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn global_refining_summary() -> String

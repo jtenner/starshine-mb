@@ -484,17 +484,43 @@ function parseBinaryenPassElapsedMs(stdout: string, stderr: string): number {
   return Number(last[1]) * 1000;
 }
 
-function validateInputBaseline(wasmToolsBin: string, inputPath: string, repoRoot: string): void {
-  // Fail fast if baseline input is malformed, because compare results are not
-  // meaningful when either input or reference decoder rejects it first.
+function validateInputBaseline(
+  wasmToolsBin: string,
+  wasmOptBin: string,
+  inputPath: string,
+  acceptancePath: string,
+  repoRoot: string,
+): void {
+  // Prefer Binaryen as the acceptance oracle for compare viability. Some
+  // checked-in artifacts are rejected by wasm-tools validation but still round-
+  // trip through wasm-opt, and those are still meaningful compare inputs for
+  // this harness.
   try {
     runOrThrow(wasmToolsBin, ["validate", inputPath], {
       cwd: repoRoot,
       stdio: "pipe",
     });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    fail(`input baseline is invalid and cannot be compared: ${inputPath}\n${message}`);
+    return;
+  } catch (wasmToolsError) {
+    try {
+      runOrThrow(wasmOptBin, [inputPath, "--all-features", "-o", acceptancePath], {
+        cwd: repoRoot,
+        stdio: "pipe",
+      });
+      return;
+    } catch (binaryenError) {
+      const wasmToolsMessage = wasmToolsError instanceof Error
+        ? wasmToolsError.message
+        : String(wasmToolsError);
+      const binaryenMessage = binaryenError instanceof Error
+        ? binaryenError.message
+        : String(binaryenError);
+      fail(
+        `input baseline is invalid and cannot be compared: ${inputPath}\n` +
+        `wasm-tools rejected the baseline:\n${wasmToolsMessage}\n` +
+        `Binaryen also rejected the baseline:\n${binaryenMessage}`,
+      );
+    }
   }
 }
 
@@ -713,7 +739,13 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   }
 
   fs.mkdirSync(outDir, { recursive: true });
-  validateInputBaseline(options.wasmToolsBin, inputPath, repoRoot);
+  validateInputBaseline(
+    options.wasmToolsBin,
+    options.wasmOptBin,
+    inputPath,
+    path.join(outDir, "binaryen.acceptance.wasm"),
+    repoRoot,
+  );
   const binaryenNopPrep = options.binaryenNopUntilStableMaxRoundtrips !== null
     ? applyBinaryenNoPassUntilStable(
         options.wasmOptBin,
@@ -730,7 +762,13 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
         repoRoot,
       );
   const { effectiveInputPath, commands: binaryenNopCommands } = binaryenNopPrep;
-  validateInputBaseline(options.wasmToolsBin, effectiveInputPath, repoRoot);
+  validateInputBaseline(
+    options.wasmToolsBin,
+    options.wasmOptBin,
+    effectiveInputPath,
+    path.join(outDir, "binaryen.acceptance.effective.wasm"),
+    repoRoot,
+  );
   if (options.requireBinaryenNopConverged && binaryenNopPrep.converged === false) {
     fail(
       `Binaryen no-pass writeback did not converge within ${binaryenNopPrep.untilStableMaxRoundtrips} roundtrips: ${effectiveInputPath}`,
