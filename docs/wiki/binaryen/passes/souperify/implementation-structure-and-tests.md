@@ -1,17 +1,22 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-souperify-primary-sources.md
+  - ../../../raw/research/0338-2026-04-25-souperify-source-bridge.md
   - ../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./flat-dataflow-traces-and-single-use-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Binaryen `souperify` implementation structure and tests
+
+The source map below is now anchored to the committed raw manifest [`../../../raw/binaryen/2026-04-25-souperify-primary-sources.md`](../../../raw/binaryen/2026-04-25-souperify-primary-sources.md), so future pages should cite that manifest before falling back to direct online URLs.
 
 ## Core file map
 
@@ -157,7 +162,7 @@ Reviewed current-main status:
 - `src/passes/Souperify.cpp` differs from `version_129` only by a typo fix in one unreachable-string literal
 - both reviewed lit files match `version_129` on the relevant surfaces
 
-So the owner-file and test-map story documented here is still current on the reviewed surfaces.
+So the owner-file and test-map story documented here is still current on the reviewed surfaces as of 2026-04-25. The local Starshine follow-along map is separate in [`./starshine-strategy.md`](./starshine-strategy.md) because current Starshine has no `souperify` registry entry, owner file, or trace-output lane.
 
 ## Practical reading order
 

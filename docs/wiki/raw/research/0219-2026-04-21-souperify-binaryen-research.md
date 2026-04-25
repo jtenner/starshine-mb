@@ -3,6 +3,7 @@
 - Date: 2026-04-21
 - Researcher: OpenAI Codex
 - Scope: official Binaryen `version_129` `souperify` / `souperify-single-use`, why the tracker expansion is justified, how the pass is really implemented, what shapes it emits, and how it relates to the existing `flatten`, `simplify-locals-nonesting`, and `dataflow-optimization` dossiers.
+- Supersession note (2026-04-25): source provenance and Starshine status are now superseded by `docs/wiki/raw/binaryen/2026-04-25-souperify-primary-sources.md` and `docs/wiki/raw/research/0338-2026-04-25-souperify-source-bridge.md`. Keep this note as the original dossier-building research.
 
 ## Why this note exists
 

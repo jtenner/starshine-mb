@@ -1,9 +1,14 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-souperify-primary-sources.md
+  - ../../../raw/research/0338-2026-04-25-souperify-source-bridge.md
   - ../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md
+  - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/cmd/cmd.mbt
   - ../tracker.md
   - ../index.md
   - ../../../../../agent-todo.md
@@ -15,6 +20,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flat-dataflow-traces-and-single-use-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../flatten/index.md
   - ../simplify-locals-nonesting/index.md
   - ../dataflow-optimization/index.md
@@ -27,7 +33,8 @@ related:
 - `souperify` is a real public upstream Binaryen pass in `version_129`.
 - It has a public sibling, `souperify-single-use`.
 - In this repo it is currently **upstream-only**.
-- It is **not** in the local Starshine pass registry.
+- It is **not** in the local Starshine pass registry, not even as a boundary-only or removed name.
+- In current Starshine an explicit request is therefore an **unknown pass**.
 - It is **not** part of the current canonical no-DWARF `-O` / `-Os` path.
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-slot queue.
 - `agent-todo.md` currently has **no dedicated `souperify` slice**.
@@ -44,6 +51,8 @@ So this dossier is an explicit tracker expansion.
 - the existing [`../flatten/index.md`](../flatten/index.md), [`../simplify-locals-nonesting/index.md`](../simplify-locals-nonesting/index.md), and [`../dataflow-optimization/index.md`](../dataflow-optimization/index.md) folders already depend on teaching where Souper extraction fits,
 - but the tracker and pass map did not yet give `souperify` its own canonical page,
 - and the real `version_129` contract is different enough from ordinary optimization passes that leaving it as a side mention makes neighboring docs harder to trust.
+
+The 2026-04-25 source bridge added an immutable raw Binaryen manifest and a Starshine status page, so the folder now has the full source-to-local chain rather than only the earlier direct-URL research note.
 
 ## Beginner summary
 
@@ -108,6 +117,8 @@ This dossier keeps four splits explicit:
   Focused guide to the hard part to misread: flatness, DataFlow nodes, bounded trace growth, use discovery, path conditions, and the exact sibling split.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after input-shape catalog for the main positive, preserved, and bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and future-port map: unknown-pass local behavior, exact registry / dispatcher / CLI / HOT-analysis prerequisite code locations, and the output-contract work a faithful trace-emission port would need.
 
 ## Current maintenance rule
 
@@ -120,7 +131,10 @@ This dossier keeps four splits explicit:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-souperify-primary-sources.md`](../../../raw/binaryen/2026-04-25-souperify-primary-sources.md)
+- [`../../../raw/research/0338-2026-04-25-souperify-source-bridge.md`](../../../raw/research/0338-2026-04-25-souperify-source-bridge.md)
 - [`../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md`](../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)

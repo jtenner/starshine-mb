@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-souperify-primary-sources.md
+  - ../../../raw/research/0338-2026-04-25-souperify-source-bridge.md
   - ../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./flat-dataflow-traces-and-single-use-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../flatten/index.md
   - ../simplify-locals-nonesting/index.md
   - ../dataflow-optimization/index.md
@@ -18,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass family.
+Use Binaryen `version_129` as the source oracle for this pass family, anchored by the 2026-04-25 committed raw manifest [`../../../raw/binaryen/2026-04-25-souperify-primary-sources.md`](../../../raw/binaryen/2026-04-25-souperify-primary-sources.md).
 The core sources are:
 
 - `src/passes/Souperify.cpp`
@@ -85,7 +88,7 @@ For this repo, both are currently upstream-only:
 - not in the no-DWARF default optimize path,
 - and not in the saved generated-artifact `-O4z` skipped-slot queue.
 
-So this dossier is a justified upstream-only expansion rather than a missing preset-parity pass.
+So this dossier is a justified upstream-only expansion rather than a missing preset-parity pass. Current Starshine status is tracked separately in [`./starshine-strategy.md`](./starshine-strategy.md): the local registry does not know either `souperify` spelling today, so explicit local requests are unknown-pass failures rather than boundary-only diagnostics.
 
 ## Hard precondition: flat IR
 
@@ -317,13 +320,13 @@ A faithful port would need to preserve at least these boundaries:
 
 ## Current-main drift check
 
-I compared current upstream `main` against `version_129` for the reviewed core file and the two official lit tests.
-On those surfaces:
+The current-main spot check is now captured in the raw source manifest.
+On those reviewed surfaces:
 
 - the tests are unchanged,
 - and the implementation only differs by a typo fix in one unreachable diagnostic string.
 
-So the documented contract here does not sit on a known semantic drift.
+So the documented contract here does not sit on a known semantic drift as of 2026-04-25. Future updates should still re-check upstream before broadening the path-condition or Souper RHS story.
 
 ## Most important beginner correction
 

@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-souperify-primary-sources.md
+  - ../../../raw/research/0338-2026-04-25-souperify-source-bridge.md
   - ../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../flatten/index.md
   - ../dataflow-optimization/index.md
 ---
@@ -25,7 +28,7 @@ It is the extraction boundary:
 - why it stops growing a trace,
 - and what exactly changes in `souperify-single-use`.
 
-That boundary is the real contract a future port or neighboring doc must preserve.
+That boundary is the real contract a future port or neighboring doc must preserve. The exact Starshine gap and reusable local helper surfaces are mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Step 1: flatness is mandatory
 
@@ -182,3 +185,7 @@ If you want to predict what `souperify` will print, ask these questions in order
 7. does a loop force part of the slice back to unknown `Var`s?
 
 That mental checklist matches the real extraction boundary much better than just looking at the input WAT and guessing.
+
+## Starshine port caveat
+
+Current Starshine has useful HOT use-def and local-SSA helpers, but no Binaryen-style DataFlow trace graph or Souper printer. A future port should preserve the boundaries above rather than treating existing HOT SSA as if it already were `souperify`'s `Var` / `Expr` / `Phi` / `Cond` / `Block` / `Zext` / `Bad` graph.

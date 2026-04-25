@@ -1,20 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-souperify-primary-sources.md
+  - ../../../raw/research/0338-2026-04-25-souperify-source-bridge.md
   - ../../../raw/research/0219-2026-04-21-souperify-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./flat-dataflow-traces-and-single-use-boundaries.md
+  - ./starshine-strategy.md
 ---
 
 # `souperify` input / output shape catalog
 
 This page is deliberately phrased as an **input / output** catalog, not a normal rewrite catalog.
-`Souperify` prints traces; it does not optimize the function body.
+`Souperify` prints traces; it does not optimize the function body. The current Starshine status page [`./starshine-strategy.md`](./starshine-strategy.md) explains why that output contract is a separate local design problem rather than a normal HOT rewrite.
 
 ## Shape 1: straight-line integer slice
 
@@ -240,6 +243,22 @@ A branch merge where the carried values cannot be represented cleanly by the tra
 ### Why it matters
 
 This is the general bailout family behind the official `bad-phi-*` examples.
+
+## Shape 11: Starshine unknown-pass behavior
+
+### Input shape
+
+Any module plus a local command request equivalent to `--souperify` or `--souperify-single-use`.
+
+### What current Starshine does
+
+- does not find either name in the pass registry
+- reports an unknown pass instead of running a no-op or boundary-only placeholder
+- emits no Souper text because no extractor/output lane exists
+
+### Why it matters
+
+This is not an upstream WAT transform shape, but it is the most important local shape for users: current Starshine does not implement the pass family at all. Future support must add both extraction semantics and an output contract.
 
 ## Quick checklist
 
