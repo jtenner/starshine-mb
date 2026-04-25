@@ -1,7 +1,11 @@
 # Binaryen `merge-similar-functions` research
 
 Date: 2026-04-21
-Status: archived research backing a new living pass dossier
+Status: archived research backing a new living pass dossier; superseded for raw-source provenance and Starshine status by `0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md`
+
+## Supersession note
+
+The core source reading in this note remains useful historical research. For the durable raw primary-source manifest and current Starshine boundary-only status/code map, use `0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md` and `../binaryen/2026-04-25-merge-similar-functions-primary-sources.md` instead.
 
 ## Scope and selection note
 
@@ -77,7 +81,7 @@ Inference: it is a better fit for future shrink / `-Oz` / `-O4z` parity work tha
 
 - `src/passes/MergeSimilarFunctions.cpp`
 - `src/passes/pass.cpp`
-- `src/passes/pass.h`
+- `src/pass.h`
 
 ### Important helper headers surfaced directly by the pass
 
@@ -419,7 +423,7 @@ Inference: for Starshine planning, this pass should currently be taught as a **s
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeSimilarFunctions.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/hashed.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/manipulation.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.h>

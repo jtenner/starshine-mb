@@ -1,7 +1,11 @@
 # Binaryen `merge-similar-functions` mechanics follow-up
 
 Date: 2026-04-21
-Status: archived research backing a living-dossier follow-up
+Status: archived research backing a living-dossier follow-up; superseded for raw-source provenance and Starshine status by `0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md`
+
+## Supersession note
+
+The mechanics corrections in this note remain useful and are still preserved in the living dossier. For the durable raw primary-source manifest and current Starshine boundary-only status/code map, use `0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md` and `../binaryen/2026-04-25-merge-similar-functions-primary-sources.md` instead.
 
 ## Scope and why this follow-up was justified
 

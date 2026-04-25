@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md
+  - ../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0174-2026-04-21-merge-similar-functions-binaryen-research.md
   - ../../../raw/research/0201-2026-04-21-merge-similar-functions-mechanics-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeSimilarFunctions.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.h
+  - https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/hashed.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/manipulation.h
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.h
@@ -23,6 +25,7 @@ related:
   - ./equivalence-classes-param-derivation-and-thunk-rewrites.md
   - ./profitability-indirection-and-type-barriers.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # Implementation structure and test map for `merge-similar-functions`
@@ -55,7 +58,7 @@ This file proves two separate facts:
 
 That scheduler fact is important enough that it should not be hidden inside the main implementation page.
 
-## `src/passes/pass.h`
+## `src/pass.h`
 
 This is supporting pass-framework context.
 It matters less than the `.cpp`, but it helps anchor that this is a normal module-level pass in Binaryen's pass infrastructure.
@@ -187,6 +190,8 @@ The newer dedicated mechanics page is:
 
 Use that page when the question is not just “what files matter?” but “what exact algorithm does Binaryen run inside `MergeSimilarFunctions.cpp`?”
 
+For the current local implementation status and exact Starshine code-map, see [`./starshine-strategy.md`](./starshine-strategy.md).
+
 It isolates the source-confirmed details that are easiest to mis-port:
 
 - same-hash versus same-class
@@ -213,11 +218,13 @@ If any one of those is missing, the port is not really implementing the Binaryen
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md`](../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md)
+- [`../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md`](../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0174-2026-04-21-merge-similar-functions-binaryen-research.md`](../../../raw/research/0174-2026-04-21-merge-similar-functions-binaryen-research.md)
 - [`../../../raw/research/0201-2026-04-21-merge-similar-functions-mechanics-followup.md`](../../../raw/research/0201-2026-04-21-merge-similar-functions-mechanics-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeSimilarFunctions.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/pass.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/hashed.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/manipulation.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.h>
