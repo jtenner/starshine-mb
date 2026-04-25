@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md
+  - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
@@ -94,7 +96,7 @@ where the payload comes from entry `0` of the JSON array.
 ### Caveats
 
 - Binaryen requires the expected helper signature.
-- Wrong-signature imports remain calls.
+- A recognized helper name with the wrong expected signature is a fatal pass error, not an unchanged call.
 
 ## Shape 4: code point helper
 
@@ -246,7 +248,7 @@ A name match alone is insufficient.
 No rewrite.
 Binaryen may warn for unknown helper names in the helper module, but it does not invent a string instruction.
 
-## Shape 12: wrong helper signature negative
+## Shape 12: wrong helper signature fatal
 
 ### Before
 
@@ -256,11 +258,12 @@ Binaryen may warn for unknown helper names in the helper module, but it does not
 
 ### After
 
-No rewrite.
+Binaryen reports a fatal pass error for the recognized helper name with the wrong type.
+There is no successful rewritten module.
 
 ### Why
 
-The helper roster is not only name-based; signatures are checked to avoid changing unrelated host APIs that happen to reuse the same names.
+The helper roster is not only name-based; recognized names must have exactly the expected imported function type. This differs from wrong modules and unknown helper names, which are preserved. The dedicated lit file directly proves wrong-module / wrong-name preservation, while this wrong-signature fatal behavior is source-confirmed from `StringLifting.cpp`.
 
 ## Mapping summary
 
@@ -278,11 +281,15 @@ The helper roster is not only name-based; signatures are checked to avoid changi
 | `length` call | `string.measure_wtf16` | source + lit |
 | `charCodeAt` call | string-view get | source + lit |
 | `substring` call | string-view slice | source + lit |
-| wrong module/name/signature | unchanged | source + lit negatives |
+| wrong module | unchanged | source + lit negatives |
+| unknown helper name in `wasm:js-string` | warning plus unchanged | source + lit negatives |
+| recognized helper name with wrong signature | fatal pass error | source-confirmed |
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md)
+- [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md`](../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLifting.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-lifting.wast>

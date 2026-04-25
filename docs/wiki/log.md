@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | correct `string-lifting` wrong-signature behavior
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose upstream-only `string-lifting` because the dossier was complete but carried a stale behavior claim: recognized `wasm:js-string` helper names with wrong signatures were described as unchanged-call bailouts.
+- Added `docs/wiki/raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md` and `docs/wiki/raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`, capturing the source-backed correction that Binaryen treats recognized helper names with wrong expected types as fatal pass errors, while wrong modules remain unchanged and unknown helper names warn / remain unchanged.
+- Refreshed the `string-lifting` overview, Binaryen strategy, import/call shape catalog, implementation/test-map, and Starshine strategy page so transformed shapes, validation guidance, and future local parity planning no longer teach the wrong-signature case as a bailout.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked research note `0327` partially superseded only for the wrong-signature behavior while preserving it as the original pass-dossier provenance.
+
 ## [2026-04-25] research | correct `code-pushing` source strategy and local status
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose active `code-pushing` because the dossier still contained stale `BranchSeeker` / `Pusher` / `benefit > cost` / two-live-arm duplication claims and the Starshine page still ended with obsolete “no transform yet” wording despite the active HOT pass.

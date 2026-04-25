@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md
+  - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -56,19 +58,21 @@ These are prerequisites, not a pass implementation.
 
 | Local file | Current relevance |
 | --- | --- |
-| `src/passes/optimize.mbt` | Registry source of truth; currently omits `string-lifting` from active, boundary-only, and removed names |
-| `src/lib/types.mbt` | Defines `Instruction::StringConst` and several string new/encode instruction constructors |
-| `src/wast/types.mbt` | Textual opcode enum includes current string-constant and string new/encode names |
-| `src/wast/keywords.mbt` | Maps WAT tokens such as `string.const`, `string.new_wtf16_array`, and `string.encode_wtf16_array` |
-| `src/wast/parser.mbt` | Parses string instruction tokens and `string.const` literals |
-| `src/wast/lower_to_lib.mbt` | Lowers parsed WAT string opcodes into `@lib.Instruction` values |
+| `src/passes/optimize.mbt:127-154` | Registry source of truth; the boundary-only and removed name arrays currently omit `string-lifting` |
+| `src/passes/optimize.mbt:156-278` | Active pass and preset registration; no active/module/preset `string-lifting` entry exists |
+| `src/lib/types.mbt:725-735` | Defines `Instruction::StringConst` and the currently modeled string new/encode instruction constructors |
+| `src/lib/types.mbt:1240-1242` | Defines the local `stringref` value type helper used by validation/type surfaces |
+| `src/wast/types.mbt:234-242` | Textual opcode enum includes current string-constant and string new/encode names |
+| `src/wast/keywords.mbt:101-109` | Maps WAT tokens such as `string.const`, `string.new_wtf16_array`, and `string.encode_wtf16_array` |
+| `src/wast/parser.mbt:2180-2191` | Parses `string.const` literals plus the current string new/encode opcode family |
+| `src/wast/lower_to_lib.mbt:1299-1309` and `src/wast/lower_to_lib.mbt:2389-2399` | Lowers parsed WAT string opcodes into `@lib.Instruction` values |
 | `src/validate/typecheck.mbt` | Typechecks current local string operations |
 | `src/validate/validate.mbt` | Tracks string surfaces in validation feature facts |
 | `src/binary/encode.mbt` | Encodes `string.const` through the module stringrefs pool |
 | `src/binary/decode.mbt` | Decodes `string.const` indices back to literal payloads |
-| `src/ir/hot_lift.mbt` | Lifts local `StringConst` and current string ops into HOT form |
-| `src/ir/hot_lower.mbt` | Lowers HOT string constants/ops back to `@lib.Instruction` |
-| `src/ir/hot_side_tables.mbt` | Stores `StringConst` payloads for HOT constants |
+| `src/ir/hot_lift.mbt:768-775` and `src/ir/hot_lift.mbt:1291-1293` | Lifts current local string ops and `StringConst` payloads into HOT form |
+| `src/ir/hot_lower.mbt:185-197` | Lowers HOT string constants back to `@lib.Instruction::string_const(...)` |
+| `src/ir/hot_side_tables.mbt:37-39` | Stores `StringConst` payloads for HOT constants |
 
 ## Major missing local pieces
 
@@ -96,7 +100,7 @@ The grep-backed local scan found direct support for `StringConst`, `StringNewUtf
 - `string.measure_wtf16`
 - string-view get/slice operations
 
-A pass port must not assume those are already complete just because `string.const` roundtrips today.
+A pass port must not assume those are already complete just because `string.const` roundtrips today. It also must not silently preserve a recognized `wasm:js-string` helper with the wrong signature unless Starshine intentionally diverges from Binaryen: the 2026-04-25 source correction confirms that Binaryen treats that case as fatal.
 
 ## Suggested future implementation order
 
@@ -119,7 +123,7 @@ Minimum local tests should cover:
 - magic string constant lifting;
 - JSON `string.consts` lifting;
 - every supported helper-call family;
-- wrong-module, wrong-name, and wrong-signature bailouts;
+- wrong-module and unknown-helper bailouts plus a recognized-helper wrong-signature error/fatal fixture;
 - module-code expression rewriting;
 - Strings feature enablement;
 - type repair / cast behavior;
@@ -132,7 +136,9 @@ The best current Starshine strategy is documentation and explicit tracking, not 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md)
+- [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md`](../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)

@@ -1,7 +1,7 @@
 ---
 kind: research
-status: supported
-last_reviewed: 2026-04-24
+status: partially-superseded
+last_reviewed: 2026-04-25
 sources:
   - ../binaryen/2026-04-24-string-lifting-primary-sources.md
   - ../../binaryen/passes/string-lifting/index.md
@@ -15,6 +15,8 @@ sources:
   - ../../../../src/validate/typecheck.mbt
   - ../../../../src/binary/encode.mbt
   - ../../../../src/binary/decode.mbt
+superseded_by:
+  - ./0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
 related:
   - ../../binaryen/passes/string-gathering/index.md
   - ../../binaryen/passes/string-lowering/index.md
@@ -22,6 +24,8 @@ related:
 ---
 
 # `string-lifting` primary sources and Starshine follow-up
+
+> Supersession note (2026-04-25): this note remains the primary dossier-building provenance for `string-lifting`, but it is superseded for wrong-helper-signature behavior by [`0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](./0346-2026-04-25-string-lifting-signature-fatal-source-correction.md). Recognized `wasm:js-string` helper names with wrong expected types are fatal in Binaryen, not unchanged-call bailouts.
 
 ## Question
 

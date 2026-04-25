@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md
+  - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
@@ -23,7 +25,7 @@ This page maps the source ownership and proof surface so readers know which clai
 
 | File | What it proves |
 | --- | --- |
-| `src/passes/StringLifting.cpp` | Main pass: imported string-global discovery, `string.consts` JSON parsing, helper import roster and signature checks, global-get/call rewrites, per-function refinalization, module-code walk, Strings feature enable, and `createStringLiftingPass()` |
+| `src/passes/StringLifting.cpp` | Main pass: imported string-global discovery, `string.consts` JSON parsing, helper import roster and signature checks, wrong-signature fatal behavior for recognized helpers, global-get/call rewrites, per-function refinalization, module-code walk, Strings feature enable, and `createStringLiftingPass()` |
 | `src/passes/pass.cpp` | Public pass registration for `string-lifting` beside `string-gathering` and `string-lowering*` siblings |
 | `src/passes/passes.h` | Pass factory declaration surface |
 | `src/passes/string-utils.h` | Shared module-name constants such as `wasm:js-string`, default string constants module, and `string.consts` section naming |
@@ -53,7 +55,7 @@ Before rewriting function bodies, the pass discovers all relevant imports:
 - numbered `string.const` globals paired with the `string.consts` JSON custom section;
 - known `wasm:js-string` helper functions with exact expected signatures.
 
-This pre-scan is a correctness requirement because function rewrites need stable global/helper maps.
+This pre-scan is a correctness requirement because function rewrites need stable global/helper maps. The recognized-helper signature check is not a soft bailout: source review on 2026-04-25 confirmed that a known helper base with the wrong expected type is fatal.
 
 ### 3. `StringApplier` rewrite walk
 
@@ -80,7 +82,7 @@ The dedicated lit file is the strongest direct proof for these families:
 - repeated uses of the same imported constant lift repeatedly;
 - the supported `wasm:js-string` helpers lower to their wasm string instruction counterparts;
 - wrong module names do not lift;
-- unknown or mismatched helper names do not lift.
+- unknown helper names do not lift; recognized helper names with mismatched signatures are source-confirmed fatal errors, not preserved-call negatives.
 
 The file is also useful because it shows the actual printed operation names for Binaryen `version_129`, including the proposal-era `stringview_wtf16.*` spelling used for view-based operations.
 
@@ -92,12 +94,12 @@ Treat the JSON path as supported by source review, not as a heavily exercised de
 
 ## Current-main check
 
-A 2026-04-24 spot check of:
+A 2026-04-25 focused spot check of:
 
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLifting.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/string-lifting.wast>
 
-found no teaching-relevant drift from the tagged `version_129` surfaces reviewed for this page.
+found no teaching-relevant drift from the tagged `version_129` surfaces reviewed for this page, including the recognized-helper wrong-signature fatal behavior.
 
 ## Validation matrix for future work
 
@@ -109,14 +111,16 @@ A future Starshine implementation should have at least:
 | JSON imported global | numbered `string.const` import plus `string.consts` section becomes exact `string.const` |
 | helper call positives | every supported helper maps to the expected string instruction |
 | wrong module | call/global remains unchanged |
-| wrong signature | call remains unchanged |
+| wrong signature for recognized helper | pass reports an error / fatal fixture matches Binaryen behavior |
 | module-code expression | global initializer or other module expression is also rewritten |
 | feature repair | output module records Strings feature |
 | cast TODO boundary | port either preserves upstream limitation honestly or explicitly repairs it with tests |
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md)
+- [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md`](../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLifting.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

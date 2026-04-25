@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md
+  - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md
   - ../string-lowering/index.md
   - ../string-gathering/index.md
@@ -59,7 +61,7 @@ The pass looks for two main input families:
 - imported string globals:
   - magic imports from the configured string-constants module;
   - numbered imports from module `string.const` plus a `string.consts` JSON custom section.
-- imported helper functions under module `wasm:js-string` with exact expected signatures.
+- imported helper functions under module `wasm:js-string` with exact expected signatures; a recognized helper name with the wrong expected type is a fatal Binaryen pass error, not a preserved-call bailout.
 
 ## Outputs
 
@@ -79,7 +81,7 @@ Binaryen also removes the consumed `string.consts` custom section and enables th
 
 ## Correctness constraints
 
-- Import identity matters. Wrong modules, wrong bases, and wrong signatures must not be lifted.
+- Import identity matters. Wrong modules and unknown helper bases must not be lifted; recognized helper bases with wrong expected signatures must fail rather than silently preserve a call.
 - Literal bytes matter. Magic-import string bases and JSON `string.consts` payloads must map to the exact replacement `string.const` bytes.
 - Function refinalization is required after lifting because helper-call types are `externref`-shaped while lifted instructions produce or consume string types.
 - Module-code expressions matter too; the pass is not only a function-body walk.
@@ -87,7 +89,7 @@ Binaryen also removes the consumed `string.consts` custom section and enables th
 
 ## Notable edge cases
 
-- A helper import with the right base but the wrong signature is intentionally not lifted.
+- A helper import with the right base but the wrong signature is a fatal Binaryen pass error.
 - Unknown `wasm:js-string` helper names produce a warning in Binaryen rather than a rewrite.
 - Imports from the wrong module stay untouched.
 - The JSON `string.consts` path is source-confirmed, but the direct `string-lifting.wast` lit proof is stronger for magic imports and helper calls.
@@ -98,7 +100,7 @@ Binaryen also removes the consumed `string.consts` custom section and enables th
 For Binaryen parity research:
 
 - run `wasm-opt --string-lifting --enable-all -S` on cases with magic string imports and `wasm:js-string` helper calls;
-- verify nonmatching helper signatures remain imports/calls;
+- verify wrong-module and unknown-helper cases remain imports/calls, but recognized helper names with wrong signatures fail the pass;
 - verify lifted functions refinalize and the module has the Strings feature enabled;
 - if testing JSON constants, include a `string.consts` custom section paired with numbered `string.const` imports.
 
@@ -121,7 +123,9 @@ For Starshine work:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md)
+- [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md`](../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLifting.cpp>

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md
+  - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
@@ -108,9 +110,10 @@ Supported helpers:
 - `charCodeAt`
 - `substring`
 
-A wrong signature is a bailout.
+A recognized helper base with the wrong expected signature is a fatal Binaryen pass error.
 A wrong module is ignored.
 An unknown helper base under `wasm:js-string` is reported as a warning by Binaryen rather than transformed.
+This distinction is easy to miss because the dedicated lit file directly shows wrong-module / wrong-name non-lifting, while the wrong-signature fatal behavior is source-confirmed from `StringLifting.cpp`.
 
 ## Phase 4: rewrite global gets
 
@@ -187,7 +190,7 @@ The durable rule for readers and future ports is:
 
 ## Current-main drift check
 
-A 2026-04-24 spot check against current `main` for `StringLifting.cpp` and `string-lifting.wast` did not reveal teaching-relevant drift from the `version_129` source contract described here.
+A 2026-04-25 focused spot check against current `main` for `StringLifting.cpp` and `string-lifting.wast` did not reveal teaching-relevant drift from the `version_129` source contract described here, including the recognized-helper wrong-signature fatal behavior.
 Treat that as a narrow freshness check, not a proof that every helper edge case is unchanged forever.
 
 ## What this pass is not
@@ -203,7 +206,9 @@ It is not:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md)
+- [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md`](../../../raw/research/0327-2026-04-24-string-lifting-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StringLifting.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
