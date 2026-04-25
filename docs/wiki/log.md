@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] health | link minify dossier from pass-addition caveat
+
+- Ran a focused reference-hygiene check after adding the `minify-imports-and-exports` dossier and found the pass-index tail note still mentioned only `strip-target-features` as source-confirmed in `version_129` without a clean changelog-addition line.
+- Updated `docs/wiki/binaryen/passes/index.md` to link the new `minify-imports-and-exports` dossier from that caveat too, keeping the pass-addition chronology honest about source-confirmed-but-not-changelog-confirmed upstream names.
+
 ## [2026-04-25] research | add `minify-imports-and-exports` source dossier
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose upstream-only `minify-imports-and-exports` because the main pass queues were dossier-covered but this public Binaryen module pass still had no Starshine wiki home even though it mutates ABI-visible import/export strings.
