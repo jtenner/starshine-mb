@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
+  - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./state-machine-memory-and-eh-boundaries.md
   - ./starshine-strategy.md
 ---
 
@@ -72,8 +75,8 @@ Binaryen uses helper intrinsics and the runtime state global to make those branc
 
 ### 4. Save and restore locals
 
-`AsyncifyLocals` tracks locals live across relevant call sites and emits stack traffic around unwind/rewind points.
-Only locals needed after a pausing call must be stored and loaded.
+Local liveness and save/restore logic lives inside the `Asyncify.cpp` mini-pipeline; the 2026-04-25 source bridge corrected the older wiki wording that sent readers looking for a separate `AsyncifyLocals` owner.
+Only locals needed after a pausing call must be stored and loaded through the Asyncify data area.
 This is the central correctness and size boundary: saving too little is wrong, saving everything is usually too expensive.
 
 ## Runtime API shape
@@ -100,10 +103,14 @@ Then it chooses the pointer type from the selected memory:
 
 That makes `asyncify` adjacent to feature-lowering pages such as [`../memory64-lowering/index.md`](../memory64-lowering/index.md), but it is not itself a memory64 lowering pass.
 
-## Tail-call boundary
+## Exception/catch and tail-call boundaries
 
-The reviewed `version_129` source explicitly rejects tail calls in the Asyncify path.
-This is a correctness boundary, not a missing small case: tail calls remove the ordinary "return here after the call" shape that Asyncify instrumentation relies on.
+The 2026-04-25 current-main/source bridge makes two boundaries explicit:
+
+- exception/catch paths have source-backed Asyncify behavior and option controls, so EH should have its own parity fixture rather than being hidden under generic validation;
+- the reviewed `version_129` source explicitly rejects tail calls in the Asyncify path.
+
+The tail-call boundary is not a missing small case: tail calls remove the ordinary "return here after the call" shape that Asyncify instrumentation relies on.
 
 ## Non-goals
 
@@ -120,19 +127,23 @@ A runtime and configuration still decide which host operations actually suspend.
 
 ## Current-main check
 
-The current-`main` files reviewed on 2026-04-24 still present the same teaching-level contract as `version_129`:
+The current-`main` files reviewed on 2026-04-25 still present the same teaching-level contract as `version_129`:
 
 - the main owner remains `Asyncify.cpp`;
 - the public pass spelling remains `asyncify`;
 - the central lit file remains `asyncify.wast`;
-- the source still frames Asyncify as whole-module state-machine instrumentation.
+- the source still frames Asyncify as whole-module state-machine instrumentation;
+- catch/unwind options and helper-pass separation are still part of the source surface.
 
-Treat this as a narrow no-drift check, not as an implementation signoff for a future Starshine port.
+Treat this as a narrow no-drift check plus source-navigation correction, not as an implementation signoff for a future Starshine port.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md`](../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md)
+- [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md`](../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md)
 - Binaryen `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Asyncify.cpp>
+- Binaryen current `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp>
 - Binaryen `pass.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - Emscripten Asyncify docs: <https://emscripten.org/docs/porting/asyncify.html>

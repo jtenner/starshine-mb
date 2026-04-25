@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
+  - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./state-machine-memory-and-eh-boundaries.md
   - ./starshine-strategy.md
 ---
 
@@ -190,7 +193,33 @@ A port must not hard-code `i32` just because most older examples use memory32.
 The reviewed Binaryen source rejects tail calls in the Asyncify path.
 A future Starshine implementation should make that unsupported family explicit rather than silently lowering it as if it were an ordinary call.
 
-## Shape 9: runtime API exports
+## Shape 9: exception/catch unwind option boundary
+
+### Before
+
+```wat
+(func $f
+  (try
+    (do
+      (call $may_unwind))
+    (catch_all
+      ;; cleanup or fallback path
+      ...)))
+```
+
+### After, conceptually
+
+Exception/catch paths are not just generic EH syntax to validate after the pass.
+The reviewed Binaryen source and lit surface expose option-sensitive Asyncify behavior for unwinding from catch-like paths.
+
+A future Starshine implementation has two honest choices for an initial subset:
+
+- support and test the same catch-unwind behavior; or
+- reject EH/catch input under `asyncify` with a clear diagnostic until that family is ported.
+
+It should not silently instrument only ordinary calls and leave catch paths half-modeled.
+
+## Shape 10: runtime API exports
 
 The final module must expose runtime-control functions.
 These are not arbitrary helper names; they are the host/runtime contract:
@@ -207,12 +236,17 @@ A compiler-only fixture can verify the exports and helper bodies exist, but a co
 
 - These shapes intentionally omit many helper locals, blocks, labels, and stack-pointer updates that Binaryen emits.
 - `mod-asyncify-*` helper passes can simplify known state checks after Asyncify, but they are not the main transform covered here.
+- The detailed state-machine, memory, indirect-call, EH, and tail-call boundaries are collected in [`state-machine-memory-and-eh-boundaries.md`](state-machine-memory-and-eh-boundaries.md).
 - Emscripten driver settings and JavaScript runtime glue are part of the user-facing feature, but this page only describes the Binaryen pass shape.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md`](../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md)
+- [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md`](../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md)
 - Binaryen `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Asyncify.cpp>
+- Binaryen current `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp>
 - Binaryen `asyncify.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/asyncify.wast>
+- Binaryen current `asyncify.wast`: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/asyncify.wast>
 - Emscripten Asyncify docs: <https://emscripten.org/docs/porting/asyncify.html>

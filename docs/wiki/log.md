@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | refresh `asyncify` EH/options and source map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/asyncify/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `asyncify` because the dossier was useful but still under-taught exception/catch unwind options and sent readers toward a separate `AsyncifyLocals` owner that the reviewed source does not expose as a standalone navigation target.
+- Added `docs/wiki/raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`, capturing official Binaryen current-main and tagged `version_129` `Asyncify.cpp`, `pass.cpp`, `passes.h`, `asyncify.wast`, and official Emscripten Asyncify documentation. The focused recheck found no teaching-level drift from the tagged contract, but made the EH/catch option boundary and `Asyncify.cpp` mini-pipeline source map explicit.
+- Added `docs/wiki/raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md` and `docs/wiki/binaryen/passes/asyncify/state-machine-memory-and-eh-boundaries.md`; refreshed the overview, Binaryen strategy, implementation/test-map, WAT-shape catalog, and Starshine status page so readers can map transformed shapes, state-machine/runtime helper behavior, memory/pointer-width requirements, indirect-call bookkeeping, EH/catch handling, tail-call rejection, and current local unknown-pass status.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; the touched-area health check retired the stale `AsyncifyLocals` owner wording while preserving local save/restore as a core correctness requirement.
+
 ## [2026-04-25] research | add `multi-memory-lowering` source dossier
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose upstream-only `multi-memory-lowering` because the widened tracker had no easy `none` target but Starshine already has memory-index representation, binary, validation, and memory-pass surfaces while no pass page explained Binaryen's many-memories-to-one compatibility lowering.

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
+  - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -18,6 +20,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./state-machine-memory-and-eh-boundaries.md
   - ../i64-to-i32-lowering/index.md
   - ../legalize-js-interface/index.md
   - ../memory64-lowering/index.md
@@ -44,9 +47,12 @@ So today's correct user-facing description is:
 
 ### Registry and request behavior
 
-- `src/passes/optimize.mbt`
-  - source of truth for registered pass names;
-  - no `asyncify` entry was found in `pass_registry_boundary_only_names`, `pass_registry_removed_names`, or active pass entries.
+- `src/passes/optimize.mbt:128-154`
+  - boundary-only and removed-name lists do not include `asyncify`.
+- `src/passes/optimize.mbt:158-252`
+  - active `HotPass`, `ModulePass`, and preset entries do not include `asyncify`.
+- `src/passes/optimize.mbt:455-459`
+  - an unregistered explicit `--pass asyncify` request follows the generic `unknown pass flag asyncify` path.
 
 ### Module model
 
@@ -102,12 +108,13 @@ It needs to:
 2. model Asyncify pass options and user lists;
 3. build a module callgraph that includes direct calls, indirect-call conservatism, imports, exports, and forced add/remove/only decisions;
 4. reject or explicitly handle tail-call inputs;
-5. choose or create Asyncify memory and pointer width;
-6. add state/data globals and exported runtime API functions;
-7. instrument relevant call sites with normal/unwind/rewind state checks;
-8. save and restore live locals across relevant calls;
-9. run validation and targeted cleanup;
-10. add a host-level integration test for real pause/resume behavior.
+5. support or deliberately reject exception/catch unwind behavior;
+6. choose or create Asyncify memory and pointer width;
+7. add state/data globals and exported runtime API functions;
+8. instrument relevant call sites with normal/unwind/rewind state checks;
+9. save and restore live locals across relevant calls;
+10. run validation and targeted cleanup;
+11. add a host-level integration test for real pause/resume behavior.
 
 ## Why this should not be squeezed into existing passes
 
@@ -133,6 +140,7 @@ Asyncify needs a dedicated owner because the correctness story spans callgraph a
 - Reference and multivalue local cases are added after scalar proof.
 - No-memory input receives a valid memory when configured that way.
 - Memory64 input uses `i64` pointers.
+- EH/catch input either matches Binaryen's source-backed option behavior or is rejected as an explicit first-port subset.
 - Tail calls are rejected with a clear diagnostic.
 - A host integration fixture proves one unwind/rewind round trip.
 
@@ -144,7 +152,9 @@ Asyncify needs a dedicated owner because the correctness story spans callgraph a
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md`](../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md)
+- [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md`](../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt)

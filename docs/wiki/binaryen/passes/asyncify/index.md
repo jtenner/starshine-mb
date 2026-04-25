@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
+  - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -12,6 +14,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./state-machine-memory-and-eh-boundaries.md
   - ./starshine-strategy.md
   - ../i64-to-i32-lowering/index.md
   - ../legalize-js-interface/index.md
@@ -39,6 +42,7 @@ The advanced version:
 - it inserts state checks around relevant calls and call-indirect sites;
 - it saves and restores only locals that are live across relevant call sites;
 - it creates or selects an Asyncify memory and chooses pointer width from that memory;
+- it has an explicit exception/catch unwind option boundary that must be tested separately from ordinary call instrumentation;
 - it rejects unsupported tail-call surfaces in the reviewed source path.
 
 ## Inputs and outputs
@@ -81,6 +85,7 @@ The output is still a WebAssembly module, but it has extra control/data plumbing
 - Functions with no async-reachable call sites should not gain the heavy save/restore scaffolding.
 - Modules without a memory may receive one for Asyncify support.
 - Modules with memory64 need address-width-aware helper code.
+- Exception/catch paths have source-backed Asyncify behavior and option boundaries; they should not be hand-waved as generic EH validation.
 - Tail calls and return calls are not a small extension of the direct-call path; Binaryen's reviewed path rejects them.
 
 ## Validation strategy
@@ -99,20 +104,26 @@ For a future Starshine port, add tests in this order:
 6. live locals are saved and restored across a call;
 7. modules with no memory get a valid Asyncify memory;
 8. memory64 modules use `i64` pointer traffic;
-9. tail-call input is rejected or explicitly unsupported;
-10. an integration harness proves a real unwind/rewind round trip.
+9. an EH/catch fixture proves the chosen catch-unwind behavior or an explicit subset rejection;
+10. tail-call input is rejected or explicitly unsupported;
+11. an integration harness proves a real unwind/rewind round trip.
 
 ## Page map
 
 - [`binaryen-strategy.md`](binaryen-strategy.md) - source-backed Binaryen strategy.
-- [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md) - owner files, helper classes, and official test surface.
+- [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md) - owner files, source-navigation handles, and official test surface.
 - [`wat-shapes.md`](wat-shapes.md) - transformed module/function shape catalog.
+- [`state-machine-memory-and-eh-boundaries.md`](state-machine-memory-and-eh-boundaries.md) - focused guide to state values, memory/pointer width, indirect-call bookkeeping, catch unwinding, tail-call rejection, and helper-pass boundaries.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md`](../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md)
+- [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md`](../../../raw/research/0323-2026-04-24-asyncify-primary-sources-and-starshine-followup.md)
 - Binaryen `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Asyncify.cpp>
+- Binaryen current `Asyncify.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Asyncify.cpp>
 - Binaryen lit file: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/asyncify.wast>
+- Binaryen current lit file: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/asyncify.wast>
 - Emscripten Asyncify docs: <https://emscripten.org/docs/porting/asyncify.html>
