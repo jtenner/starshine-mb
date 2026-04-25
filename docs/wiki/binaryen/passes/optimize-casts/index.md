@@ -1,16 +1,19 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-22
+status: supported
+last_reviewed: 2026-04-25
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
+  - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md
   - ../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../late-pipeline-dispatch.md
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./two-phase-dataflow.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -25,7 +28,7 @@ related:
 - `optimize-casts` is an upstream Binaryen GC/local cleanup pass.
 - It is currently **unimplemented** in Starshine and still appears under the removed pass names in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - Despite the broad CLI name, Binaryen `version_129` uses it for a much narrower job: improve how nearby `ref.cast` and `ref.as_non_null` values are reused through locals.
-- The dossier now also has an immutable raw primary-source manifest recording that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**, plus a dedicated Starshine status/port-map page tying the upstream story directly to the current local registry, backlog, scheduler, and GC/local-neighbor surfaces.
+- The dossier now also has immutable raw primary-source manifests recording the reviewed `version_129` release provenance and a 2026-04-25 current-main implementation/test-map bridge, plus dedicated implementation/test-map and Starshine status pages tying upstream owner/helper/test surfaces to current local registry, backlog, scheduler, and GC/local-neighbor code locations.
 
 ## Why it matters
 
@@ -59,11 +62,14 @@ That is narrower than “optimize all casts.”
 - The pass adds new locals and `local.tee`s; it does not try to delete every redundant old cast immediately.
 - `ReFinalize` runs after both rewrite phases because the new locals and gets become more refined than before.
 - The implementation comment explicitly positions `optimize-casts` next to `simplify-locals`, `rse`, and `local-cse` as related work, but not the same work.
+- The 2026-04-25 current-main recheck found no teaching-relevant drift from the `version_129` contract, and the new implementation/test-map page is the canonical owner/helper/lit proof-surface map.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: GC gate, early cast motion, later cast reuse, effect barriers, helper utilities, and scheduler placement.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  Source-location map for `OptimizeCasts.cpp`, scheduler/helper surfaces, the official `optimize-casts.wast` proof families, and exact current Starshine prerequisite code locations.
 - [`./two-phase-dataflow.md`](./two-phase-dataflow.md)
   Dedicated guide to the easiest part of the pass to misunderstand: why moving a cast earlier is stricter than reusing it later, and why Binaryen therefore splits the pass into two internal dataflow phases.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -75,13 +81,15 @@ That is narrower than “optimize all casts.”
 
 - Treat this folder as the canonical home for future `optimize-casts` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
-- New `optimize-casts` findings should update the Binaryen strategy page, the shape pages, and the Starshine status page together so the upstream algorithm, concrete examples, and local port story stay aligned.
+- New `optimize-casts` findings should update the Binaryen strategy page, implementation/test-map page, shape pages, and Starshine status page together so the upstream algorithm, concrete examples, source proof, and local port story stay aligned.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md)
+- [`../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md)
 - [`../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md`](../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md)
 - [`../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md`](../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeCasts.cpp>

@@ -1,11 +1,22 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
+  - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/lib/types.mbt
+  - ../../../../../src/ir/hot_core.mbt
+  - ../../../../../src/ir/hot_flags.mbt
+  - ../../../../../src/ir/hot_lift.mbt
+  - ../../../../../src/ir/hot_lower.mbt
+  - ../../../../../src/binary/encode.mbt
+  - ../../../../../src/binary/decode.mbt
+  - ../../../../../src/validate/typecheck.mbt
+  - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../heap2local/index.md
@@ -15,6 +26,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./two-phase-dataflow.md
   - ./wat-shapes.md
   - ../heap2local/index.md
@@ -25,7 +37,7 @@ related:
 
 # Starshine Strategy For `optimize-casts`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md) and the current-main implementation/test bridge in [`../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -49,10 +61,13 @@ So this page is intentionally a **status-and-port-map** page rather than a fake 
 The fastest read-along path through the current Starshine status is:
 
 - tracked but removed pass-name status
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:145-152`
     - `pass_registry_removed_names()` includes `"optimize-casts"`
+- no active dispatcher
+  - `src/passes/pass_manager.mbt`
+    - no `optimize-casts` case exists today
 - backlog and delivery plan
-  - `agent-todo.md`
+  - `agent-todo.md:355-364`
     - `#### OC - Optimize Casts`
     - `[OC]001 - Cast Tightening Rules`
     - `[OC]002 - GC Regression Matrix and Artifact Compare`
@@ -64,6 +79,8 @@ The fastest read-along path through the current Starshine status is:
   - `docs/wiki/binaryen/passes/local-subtyping/index.md`
   - `docs/wiki/binaryen/passes/coalesce-locals/index.md`
   - `docs/wiki/binaryen/passes/local-cse/index.md`
+
+The implementation/test-map page adds the exact reusable local primitive map for a future port: `src/lib/types.mbt:723-764`, `src/lib/types.mbt:3995-3996`, `src/lib/types.mbt:4170-4171`, `src/wast/lower_to_lib.mbt:1297-1298`, `src/binary/encode.mbt:2580`, `src/binary/encode.mbt:2897-2912`, `src/binary/decode.mbt:3116-3124`, `src/validate/typecheck.mbt:3228`, `src/validate/typecheck.mbt:3265`, `src/ir/hot_core.mbt:70-73`, `src/ir/hot_flags.mbt:81`, `src/ir/hot_lift.mbt:612-625`, `src/ir/hot_lift.mbt:764-818`, and `src/ir/hot_lower.mbt:1080-1084`.
 
 That code-and-doc map is the practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and future landing zone.
 

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `optimize-casts` implementation/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/optimize-casts/` folder, and `docs/wiki/raw/research/`, then chose unimplemented `optimize-casts` because its dossier had strategy, shape, and Starshine pages but still lacked the now-standard owner/helper/lit-test implementation map and exact local prerequisite code map.
+- Added `docs/wiki/raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`, capturing official Binaryen current-main and tagged `version_129` sources for `OptimizeCasts.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, `linear-execution.h`, `properties.h`, `effects.h`, `utils.h`, and `optimize-casts.wast`. The recheck found no teaching-relevant drift: upstream remains a GC-gated two-phase `ref.cast` / `ref.as_non_null` local-flow pass, not a generic `ref.test`, descriptor-cast, extern-conversion, or CFG-wide cast optimizer.
+- Added `docs/wiki/raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md` and `docs/wiki/binaryen/passes/optimize-casts/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, two-phase dataflow guide, WAT-shape catalog, and Starshine status page so readers can map transformed shapes, upstream owner/helper/test surfaces, current removed-registry behavior, the broader-than-upstream `OC` backlog caveat, and exact local parser/IR/binary/validator/HOT prerequisite code locations.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked `optimize-casts` as a deep unimplemented dossier and recorded that the former implementation/test-map gap is closed.
+
 ## [2026-04-25] research | correct `merge-locals` source strategy and test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/merge-locals/` folder, and `docs/wiki/raw/research/`, then chose unimplemented `merge-locals` because it looked complete but still lacked the standard implementation/test-map page and carried a stale 2026-04-23 `EquivalentCopies` / `LocalStructuralDominance` overcorrection.

@@ -1,12 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
+  - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
   - ../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md
+  - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./two-phase-dataflow.md
   - ./wat-shapes.md
   - ../heap2local/index.md
@@ -20,6 +23,7 @@ related:
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The reviewed official Binaryen `version_129` release page checked on 2026-04-22 showed publish date **2026-04-01**.
 - A narrow 2026-04-22 spot check on current `main` did not surface a teaching-relevant drift beyond the contract summarized here.
+- A focused 2026-04-25 current-main recheck also found no teaching-relevant drift and added the owner/helper/lit-test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 - The core implementation is `src/passes/OptimizeCasts.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contracts come from:
@@ -450,7 +454,9 @@ Those are the durable upstream-level truths.
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md)
+- [`../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md)
 - [`../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md`](../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md)
+- [`../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeCasts.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - Binaryen `version_129` after-inlining helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
