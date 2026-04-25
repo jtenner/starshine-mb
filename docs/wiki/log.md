@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | recheck `dataflow-optimization` current-main contract
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/dataflow-optimization/` folder, and `docs/wiki/raw/research/`, then chose removed local registry pass `dataflow-optimization` / upstream `dfo` because the dossier was useful but still carried 2026-04-23 freshness wording and stale Starshine request-guard line anchors.
+- Added `docs/wiki/raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md`, capturing official Binaryen current-main source surfaces for `DataFlowOpts.cpp`, `src/dataflow/*`, `flat.h`, `pass.cpp`, and the combo `flatten_simplify-locals-nonesting_dfo_O3.wast` test. The recheck found no teaching-relevant drift: `dfo` remains a flat-input, integer-local DataFlow SSA side-graph simplifier with identical-constant-phi collapse and nested-`precompute` expression folding.
+- Added `docs/wiki/raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md` and refreshed the living overview, Binaryen strategy, implementation/test-map, Flat/DataFlow boundary guide, WAT-shape catalog, and Starshine status page; the Starshine page now points to current `src/passes/optimize.mbt:468-472` removed-pass rejection anchors and keeps the absence of a local `src/dataflow/` or Flat IR substrate explicit.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; kept the pass as a removed, dossier-covered port-planning target rather than implying active local implementation.
+
 ## [2026-04-25] research | deepen `simplify-locals-nostructure` implementation/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/simplify-locals-nostructure/` folder, neighboring simplify-locals family pages, and `docs/wiki/raw/research/`, then chose removed `simplify-locals-nostructure` because its dossier still lacked the now-standard owner/helper/lit-test implementation map and exact refreshed Starshine dispatcher-gap/code-line map.

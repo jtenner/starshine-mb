@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md
+  - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
   - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DataFlowOpts.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/graph.h
@@ -26,7 +28,7 @@ related:
 2. Binaryen **Flat IR**
 3. Binaryen **DataFlow IR**
 
-If those layers get mixed together, the pass becomes almost impossible to explain correctly.
+If those layers get mixed together, the pass becomes almost impossible to explain correctly. The 2026-04-25 current-main recheck found no reason to change this layer split: upstream still begins from flatness verification, then builds the separate DataFlow graph, then writes only proven constants back into the flat wasm.
 
 ## Layer 1: ordinary Binaryen tree IR
 
@@ -195,6 +197,8 @@ If several of those answers are no, the right prediction is usually:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md)
 - [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DataFlowOpts.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/dataflow/graph.h>

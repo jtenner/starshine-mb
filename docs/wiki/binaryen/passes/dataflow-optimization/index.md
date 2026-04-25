@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
   - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
@@ -35,7 +36,7 @@ related:
 - It is currently **unimplemented** in Starshine's active optimizer.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `dataflow-optimization` / `dfo` slice**.
-- The reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01** on 2026-04-23, and a narrow current-`main` spot check did not surface a teaching-relevant contract drift beyond this dossier's refreshed claims.
+- The reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01** on 2026-04-23, and the 2026-04-25 current-`main` recheck found no teaching-relevant drift: upstream still has the same flat-input DataFlow SSA IR pass, and Starshine still only tracks the local removed spelling `dataflow-optimization`.
 
 ## Why this pass matters
 
@@ -106,6 +107,7 @@ So this is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md)
 - [`../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)

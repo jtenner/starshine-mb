@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
   - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
@@ -15,8 +16,8 @@ related:
 
 # Implementation structure and tests for `dataflow-optimization` / `dfo`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md).
-On 2026-04-23 the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**, and a narrow current-`main` spot check did not surface a teaching-relevant contract drift beyond the owner/test surface described here.
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md).
+On 2026-04-23 the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**. The 2026-04-25 current-`main` recheck did not surface teaching-relevant drift beyond the owner/test surface described here.
 
 ## Core pass file
 
@@ -158,12 +159,14 @@ It suggests:
 
 ## Freshness check against current `main`
 
-I did a narrow current-main check on the reviewed surfaces.
+The 2026-04-25 current-main recheck in [`../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md) covered the same implementation, helper, registration, flat-IR, and combo-lit surfaces.
 
 Durable result:
 
-- `DataFlowOpts.cpp` differs from `version_129` only by a typo fix in a comment
-- `flatten_simplify-locals-nonesting_dfo_O3.wast` is identical between `version_129` and current `main`
+- `DataFlowOpts.cpp` still presents `dfo` as a flat-input DataFlow SSA IR pass and retains the same two rewrite families
+- `graph.h` still owns the integer relevance filter, unsupported-value degradation, EH unsupported boundary, and loop-precision cutoff
+- `pass.cpp` still registers public upstream spelling `dfo`
+- `flatten_simplify-locals-nonesting_dfo_O3.wast` remains the main visible combo-pipeline proof surface
 
 So the documented behavior here is not sitting on a known current-main semantic drift.
 
@@ -203,6 +206,7 @@ That order mirrors the real contract:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md)
 - [`../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md`](../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)
