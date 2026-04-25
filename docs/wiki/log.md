@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | correct and deepen `local-subtyping` implementation/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/local-subtyping/` folder, and `docs/wiki/raw/research/`, then chose unimplemented `local-subtyping` because the dossier still lacked the now-standard implementation/test-map page and the 2026-04-22 source correction had overcorrected the owner-file mechanics.
+- Added `docs/wiki/raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md`, capturing official Binaryen `version_129` and current-main sources for `LocalSubtyping.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, `lubs.*`, `local-structural-dominance.h`, and `local-subtyping.wast`. The recheck found no teaching-relevant current-main drift, but corrected the repo's prior reading: upstream records gets, iterates with `ReFinalize()`, scans params but rewrites only body locals, and uses set-fed LUBs plus get-aware non-null dominance/type repair rather than a set-only/no-refinalize pass.
+- Added `docs/wiki/raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md` and `docs/wiki/binaryen/passes/local-subtyping/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, LUB/dominance guide, WAT-shape catalog, and Starshine status page so transformed shapes, Binaryen strategy, source/test surfaces, and exact Starshine registry, dispatcher-gap, preset-honesty, backlog, type-model, validator, and HOT-local prerequisites are aligned.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked `docs/wiki/raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md` partially superseded for the corrected owner-file mechanics while preserving it as first-correction provenance.
+
 ## [2026-04-25] research | deepen `inlining-optimizing` implementation/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/inlining-optimizing/` folder, the neighboring `inlining` implementation/test-map page, and `docs/wiki/raw/research/`, then chose boundary-only `inlining-optimizing` because its dossier had overview, strategy, WAT shapes, and Starshine status coverage but still lacked the now-standard implementation/test-map page.

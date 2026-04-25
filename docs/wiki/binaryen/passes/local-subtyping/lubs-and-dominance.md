@@ -1,194 +1,147 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-22-local-subtyping-primary-sources.md
+  - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../../raw/research/0261-2026-04-22-local-subtyping-source-correction-and-starshine-followup.md
   - ../../../raw/research/0116-2026-04-20-local-subtyping-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../optimize-casts/index.md
   - ../coalesce-locals/index.md
 ---
 
-# `local-subtyping`: LUBs and dominance
+# `local-subtyping`: LUBs, gets, dominance, and iteration
 
-This page exists because the pass name still invites two common misunderstandings even after the 2026-04-22 source correction:
+This page exists because `local-subtyping` is easy to misread in two opposite ways:
 
-1. “Binaryen just picks the narrowest type it sees.”
-2. “Binaryen either blindly edits the declaration or runs a huge helper rewrite.”
+1. “It is a broad local-flow optimizer that infers from every use and inserts helper locals.”
+2. “It is a tiny set/tee-only pass with no get or refinalization surface.”
 
-Both are wrong.
-The reviewed `version_129` contract is smaller and more precise.
+Both are wrong for Binaryen `version_129`.
 
-## Mental model first
+## Corrected mental model
 
 A safe mental model is:
 
-- start from the declared local type
-- add concrete subtype facts from the values written into that local
-- compute one common target type with a LUB
-- if the target would only improve nullability, require structural dominance first
-- then retag the declaration and the matching `local.get` / `local.tee` expressions directly
+- scan reference-typed locals,
+- remember their sets/tees and gets,
+- compute a LUB from assigned value types,
+- use gets to prove or reject non-nullability,
+- rewrite body-local declarations,
+- retag gets and tees,
+- refinalize and repeat when a rewrite exposes more precise assigned-value types.
 
 So the two key ideas are still:
 
-- **least upper bounds**
-- **structural dominance**
+- **least upper bounds** for declarations;
+- **structural dominance** for non-nullability.
 
-But dominance is narrower here than the older dossier said.
-It is a guard, not a whole-helper rewrite engine.
+But now include a third idea:
 
-## Part 1: why Binaryen uses a least upper bound
+- **iteration after refinalization**.
 
-`LocalSubtyping.cpp` stores a `LUBFinder` per local.
-It seeds that LUB with the current declared type for non-parameter vars and then notes concrete `local.set` / `local.tee` definition types.
+## What feeds the LUB
 
-The important consequence is:
+The LUB candidate is fed by assigned values:
 
-- the pass is looking for one type that is compatible with every written-value fact together
-- while still being as specific as possible
+- `local.set` value types;
+- `local.tee` value/result types through the assignment site.
 
-That is exactly what a least upper bound gives you.
+It is not fed by `local.get` consumer contexts alone.
 
-## What the pass actually feeds into the LUB finder
+That distinction keeps the pass conservative: a call that wants `(ref $A)` does not by itself prove an `anyref` local always contains `$A`.
 
-After the 2026-04-22 correction, the source-backed list is:
+## What gets are used for
 
-- the local's existing declared type
-- concrete `local.set` value types
-- concrete `local.tee` result types
+The 2026-04-22 pages were too strong when they said there was no `local.get` handling.
 
-It does **not** feed in facts from:
+The owner file records get sites so it can answer two questions:
 
-- params
-- tuple locals
-- `local.get`
-- `ref.as_non_null`
-- `ref.cast`
-- `br_on_cast*`
-- global/table traffic
+1. If we make the declaration non-null, are all relevant gets dominated by non-null-producing assignments?
+2. After the declaration changes, which `local.get` expression types can be retagged to the new type, and which must remain nullable?
 
-That is the single biggest correction from the older local reading.
+So gets are **not** LUB evidence, but they are still part of correctness.
 
-## Example A: one obvious narrower subtype
+## Why Binaryen uses a LUB
 
-Suppose a local is declared as a wide reference type, but every concrete value written into it is `(ref null $Child)`.
-Then the LUB of the observed facts is still `(ref null $Child)`.
+A local declaration must have one type that covers every assigned value.
 
-So the pass can narrow the local to that child type.
+Examples:
 
-## Example B: two sibling subtypes
+- all assignments are `(ref null $Child)` → candidate can be `(ref null $Child)`;
+- assignments are `(ref null $Left)` and `(ref null $Right)` with common parent `$Parent` → candidate is `(ref null $Parent)`;
+- assignments have no useful common subtype below the old declaration → no narrowing.
 
-Suppose one definition writes `(ref null $Left)` and another writes `(ref null $Right)`.
-If both share a common parent, the LUB may be that parent type.
+That is why the pass does not pick the narrowest leaf it sees or the last assigned type.
 
-This is the key beginner correction:
+## Why dominance matters only for non-nullability
 
-- Binaryen does **not** pick `$Left`
-- Binaryen does **not** pick `$Right`
-- Binaryen picks the best common type
+A nullable-to-non-null change is special because a local's default value and some control paths may still permit null.
 
-That may still be narrower than the original declaration, but it may be wider than either individual leaf subtype.
+Binaryen asks `LocalStructuralDominance` for non-dominated get indices. If any get is not proven safe, the declaration falls back to the nullable version and the unsafe gets keep nullable expression types.
 
-## Example C: gets alone do not create a narrower target
+This is stricter than textual order. Loops, blocks, catches, and other structured control matter.
 
-Suppose a local is written once and then used many times in narrower contexts.
-That does **not** matter to the LUB unless the written values themselves are narrower.
+## Why repeated refinement matters
 
-This is why the corrected dossier keeps saying the pass is **definition-driven** first.
-The earlier “collect from gets too” story was too broad.
+Changing one local declaration can change the inferred type of expressions that assign to another local. Binaryen therefore reruns the analysis after refinalization while changes continue.
 
-## Part 2: why dominance still matters
+A future Starshine implementation that does one pass over declarations may match small examples but miss repeated-refinement cases from the official lit file.
 
-If the new type were always just a reference-subtype improvement with no nullability risk, the pass could stop after computing the LUB.
-But non-nullability is trickier.
+## Parameters and body locals
 
-If Binaryen wants to tighten a local from nullable to non-null, it must know that all relevant gets are dominated by writes that establish the non-null value.
-That is why `LocalSubtyping.cpp` still consults `LocalStructuralDominance`.
+Parameter handling is split:
 
-## Why simple textual order is not enough
+- the scanner can see params today, and the source has a TODO to ignore them;
+- the declaration rewrite loop starts at the body-local base, so params are not changed.
 
-A beginner might assume:
+The correct porting rule is: preserve the parameter ABI and do not rewrite params unless a deliberate future design says otherwise.
 
-- “if the set appears earlier in the text than the get, it dominates the get.”
+## Nondefaultable and tuple-like locals
 
-Binaryen is stricter than that.
-`LocalStructuralDominance` works over structured control where:
+The checked owner file does not use the old dossier's `TypeUpdating::canHandleAsLocal(...)` gate. The visible behavior is still conservative:
 
-- named blocks matter
-- loops matter
-- catches matter
-- simple textual order is not a sufficient proof
+- relevant locals are reference-typed;
+- nondefaultable candidates must be safe non-null references or become nullable;
+- tuple/non-reference shapes stay out of the transformation surface.
 
-So the helper is checking something more like:
-
-- “is the non-null written state guaranteed on every structured path that reaches this get?”
-
-That is a much better model.
-
-## What dominance is **not** doing here
-
-This is the second big correction from the older dossier.
-The reviewed `version_129` pass does **not** use dominance to drive a broad `LocalUpdater(...).changeType(...)` rewrite with helper-added copy locals.
-
-Instead, dominance is used for narrower tasks:
-
-- guard whether a declaration may keep a non-nullability improvement
-- guard whether a get can safely be retagged to that narrowed declaration type
-
-So the right mental model is:
-
-- LUB chooses the candidate type
-- dominance decides whether the non-nullability part is actually safe to keep
-
-## Why tuple locals are skipped today
-
-`TypeUpdating::canHandleAsLocal(...)` still rejects tuple types.
-That means the helper layer itself is telling `local-subtyping`:
-
-- “I cannot safely represent this local type change today.”
-
-So the pass refuses those locals before trying any rewrite.
-Again, the helper boundary is real, but it is a support gate here, not a large rewrite engine.
-
-## How `optimize-casts` fits in
-
-This page also explains the scheduler order with `optimize-casts`.
-Even after the source correction, the order still matters.
-
-`local-subtyping` does not inspect `ref.cast` or `ref.as_non_null` itself in the reviewed source.
-So if cleaner local definition types need to be exposed first, that job belongs to the left neighbor.
-
-That is why the pass order remains meaningful:
-
-- `optimize-casts`
-- `local-subtyping`
-- `coalesce-locals`
+The official tests include nondefaultable preservation so this boundary is user-visible.
 
 ## Easy-to-miss truths
 
 If you only remember a few things from this page, remember these:
 
-1. narrowing uses a **least upper bound**, not the narrowest leaf type
-2. the pass's new evidence comes from **defs**, not gets
-3. the helper layer is a support gate and dominance utility here, not a copy-local rewrite engine
-4. structural dominance still matters for non-nullability safety
-5. params and tuple locals are intentionally out of scope today
-6. the older local `LocalUpdater` / `ref.as_non_null` reading was an overstatement now kept explicit in the correction note
+1. LUB candidates come from assignments.
+2. Gets are recorded for dominance and type repair.
+3. Non-null declarations require dominance over gets.
+4. Parameters are not rewritten even though the scanner has a TODO about params.
+5. Repeated refinement after refinalization is part of the pass.
+6. The old `LocalUpdater` / copy-local story remains an overread, but the old set-only correction was also too narrow.
 
 ## Porting checklist
 
-A future Starshine port should preserve all of these points:
+A future Starshine port should preserve:
 
-- declaration-seeded, def-fed LUB computation
-- params stay out of scope unless a deliberate wider design lands
-- tuple locals stay out of scope unless helper support grows
-- reference-local-only narrowing
-- dominance-gated non-nullability tightening
-- direct declaration plus get/tee retagging
-- no silent broadening to copy-local insertion or generic use-driven inference
+- reference-local relevance filtering;
+- set/tee-fed LUB computation;
+- get-aware dominance and get-type repair;
+- `local.tee` retagging;
+- parameter-preserving rewrite scope;
+- non-null fallback to nullable when dominance fails;
+- repeated refinalize/reanalyze loop;
+- explicit tests for repeated refinement and nondefaultable preservation.
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md)
+- [`../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md)
+- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/LocalSubtyping.cpp>
+- Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/local-subtyping.wast>

@@ -1,7 +1,9 @@
 ---
 kind: research
-status: supported
-last_reviewed: 2026-04-22
+status: partially_superseded
+last_reviewed: 2026-04-25
+superseded_by:
+  - ./0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
 sources:
   - ../binaryen/2026-04-22-local-subtyping-primary-sources.md
   - ../../binaryen/passes/local-subtyping/index.md
@@ -20,6 +22,10 @@ sources:
 ---
 
 # `local-subtyping` source-correction and Starshine follow-up
+
+## 2026-04-25 supersession note
+
+This note remains useful as the first correction away from the older over-broad `LocalUpdater` / copy-local-insertion reading. It is partially superseded by [`0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](./0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md) for owner-file mechanics: Binaryen `version_129` does record `local.get` sites, iterates with `ReFinalize()`, splits parameter scan from body-local rewrite, and does not use the `TypeUpdating::canHandleAsLocal(...)` gate described here.
 
 ## Why this follow-up exists
 
