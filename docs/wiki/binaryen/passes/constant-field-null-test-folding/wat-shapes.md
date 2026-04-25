@@ -1,14 +1,17 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
+  - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
   - ../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
   - ./index.md
   - ./binaryen-strategy.md
 related:
   - ./two-bucket-subtype-partitions-and-nonnullable-ref-test-gates.md
+  - ./starshine-strategy.md
   - ../constant-field-propagation/wat-shapes.md
   - ../constant-field-propagation/copies-subtypes-ref-tests-and-atomics.md
 ---
@@ -27,7 +30,7 @@ Ask these questions in order:
 3. If not, are there **exactly two** surviving value buckets?
 4. Can one legal `ref.test` distinguish those two buckets?
 5. Are the payloads still legal CFP replacement values?
-6. Do the ordinary CFP safety boundaries still permit rewriting?
+6. Do the ordinary CFP safety boundaries and final `ref.test` / `select` validation rules still permit rewriting?
 
 If any answer is “no,” this variant leaves the read alone.
 
@@ -237,7 +240,7 @@ That contrast is usually the fastest way to keep the family understandable.
 
 ## 12. Porting checklist
 
-A future Starshine port should keep this mental checklist:
+A future Starshine port should keep this mental checklist and the current local status page in [`./starshine-strategy.md`](./starshine-strategy.md):
 
 1. inherit ordinary CFP gates and facts first
 2. do not invent a standalone null-test peephole pass
@@ -248,6 +251,9 @@ A future Starshine port should keep this mental checklist:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md)
+- [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
+- [`../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)
 - [`../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md`](../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md)
 - [`./index.md`](./index.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)

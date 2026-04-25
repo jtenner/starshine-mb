@@ -17,6 +17,7 @@ sources:
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../constant-field-null-test-folding/index.md
+  - ../constant-field-null-test-folding/starshine-strategy.md
   - ../global-type-optimization/index.md
   - ../global-struct-inference/index.md
   - ../type-refining/index.md
@@ -27,6 +28,7 @@ related:
   - ./copies-subtypes-ref-tests-and-atomics.md
   - ./wat-shapes.md
   - ../constant-field-null-test-folding/index.md
+  - ../constant-field-null-test-folding/starshine-strategy.md
   - ../global-type-optimization/index.md
   - ../global-struct-inference/index.md
   - ../type-refining/index.md
@@ -189,7 +191,7 @@ For the upstream details, use:
 
 ### `constant-field-null-test-folding`
 
-See [`../constant-field-null-test-folding/index.md`](../constant-field-null-test-folding/index.md).
+See [`../constant-field-null-test-folding/index.md`](../constant-field-null-test-folding/index.md) and the sibling-specific local status page [`../constant-field-null-test-folding/starshine-strategy.md`](../constant-field-null-test-folding/starshine-strategy.md).
 
 The local sibling name corresponds to upstream `cfp-reftest`.
 It reuses the CFP engine but adds one narrow two-bucket `select(ref.test(...))` read replacement family.

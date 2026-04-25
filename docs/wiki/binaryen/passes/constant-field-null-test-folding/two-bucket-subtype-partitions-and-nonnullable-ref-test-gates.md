@@ -1,8 +1,10 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
+  - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
   - ../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
   - ./binaryen-strategy.md
@@ -10,6 +12,7 @@ sources:
 related:
   - ./index.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../constant-field-propagation/copies-subtypes-ref-tests-and-atomics.md
 ---
 
@@ -19,7 +22,7 @@ This page covers the exact part of the pass that was easiest to hand-wave in the
 
 - how Binaryen proves that a field read has **exactly two** usable outcomes,
 - how it proves that **one subtype test** separates those outcomes,
-- and why nullable inputs can force an extra `ref.as_non_null` plus a feature-sensitive bailout.
+- and why nullable inputs can force an extra `ref.as_non_null` plus a validation-sensitive legality question for future ports.
 
 If you remember only one sentence, use this one:
 
@@ -37,7 +40,7 @@ A good beginner reading order is:
 5. one type must be a subtype of the other
 6. the two payloads must still live inside CFP's tiny replacement lattice
 7. if the base is nullable, Binaryen may need `ref.as_non_null`
-8. if that would require nonnullable-type `ref.test` support the module lacks, Binaryen bails out
+8. if that repaired test is not legal for the module's active GC/reference feature set, a future port must reject it rather than emit invalid code
 9. otherwise Binaryen emits a `select` over the two payloads and the synthesized `ref.test`
 
 If any one step fails, the variant does nothing.
@@ -149,20 +152,19 @@ It is part of how the pass keeps the generated type test well-typed while preser
 
 This also explains why the positive nullable test in `cfp-reftest.wast` matters so much: it proves the pass really does use this repair path, not just a simpler already-nonnullable subset.
 
-## Step 7: nonnullable-type `ref.test` is feature-sensitive
+## Step 7: nullable repair is a validation-sensitive boundary
 
-Binaryen does not always allow the repaired nullable-base form.
-The source explicitly checks whether the resulting `ref.test` would require nonnullable-type test support that the module features do not provide.
-If so, it bails out.
+The 2026-04-25 source capture confirms the emitted condition is built as a nonnullable `ref.test` over a `ref.as_non_null`-repaired receiver when the positive nullable-base shape applies.
+That makes this a validation-sensitive boundary for Starshine even if the exact Binaryen feature gate changes over time.
 
-This is a core portability rule:
+The safe portability rule is:
 
 - `ref.as_non_null` repair and
-- feature-sensitive legality checking
+- validation of the resulting `ref.test` target/reference types
 
 must travel together.
 
-A port that inserts the repair without reproducing the feature gate will over-accept rewrites Binaryen refuses.
+A port that inserts the repair without validating the emitted test can over-accept invalid rewrites.
 A port that always bails out on nullable bases will underperform the real pass.
 
 ## Step 8: the final emitted shape is a `select`, not an `if`
@@ -210,7 +212,7 @@ Then `cfp-reftest` can lower the read to logic equivalent to:
     (ref.as_non_null (local.get $x))))
 ```
 
-if the nullable repair is required and the necessary feature support exists.
+if the nullable repair is required and the repaired condition validates for the module.
 
 ## The most important bailout families
 
@@ -228,10 +230,10 @@ Two buckets are necessary, not sufficient.
 
 If one side still maps to multiple dynamic-type buckets the matcher cannot classify with one test, the pass stops.
 
-### Nullable-base repair would need unsupported nonnullable `ref.test`
+### Nullable-base repair would emit an invalid `ref.test`
 
-This is the subtle feature gate many summaries omit.
-Binaryen can repair nullable bases, but only when the module features make the repaired test legal.
+This is the subtle validation boundary many summaries omit.
+Binaryen can repair nullable bases, but a Starshine port must still ensure the emitted `ref.as_non_null` plus `ref.test` form is legal for the module feature/type environment.
 
 ### Payloads outside the CFP lattice
 
@@ -257,12 +259,14 @@ A future Starshine port should preserve all of these exact behaviors:
 - require one usable classifier bucket per side
 - require one subtype-based discriminator
 - keep payloads inside the ordinary CFP representable-value lattice
-- insert `ref.as_non_null` only when needed
-- reject nullable-base repairs that would require unsupported nonnullable `ref.test`
+- insert `ref.as_non_null` only when needed and validate the repaired `ref.test` form
+- reject nullable-base repairs whose resulting nonnullable `ref.test` cannot validate
 - emit a `select(ref.test(...))` expression rewrite rather than a branch rewrite
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md)
+- [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
 - [`../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)
 - [`../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md`](../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)

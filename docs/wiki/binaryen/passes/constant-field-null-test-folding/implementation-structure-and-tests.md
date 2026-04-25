@@ -1,8 +1,10 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
+  - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
   - ../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
   - ./index.md
@@ -10,6 +12,7 @@ related:
   - ./binaryen-strategy.md
   - ./two-bucket-subtype-partitions-and-nonnullable-ref-test-gates.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../constant-field-propagation/implementation-structure-and-tests.md
 ---
 
@@ -19,7 +22,7 @@ related:
 
 | File | Why it matters |
 | --- | --- |
-| `src/passes/ConstantFieldPropagation.cpp` | Core implementation for both plain `cfp` and variant `cfp-reftest`; contains the mode bit, the ordinary field-fact engine, and the narrow `optimizeUsingRefTest(...)` path |
+| `src/passes/ConstantFieldPropagation.cpp` | Core implementation for both plain `cfp` and variant `cfp-reftest`; contains the mode bit, the ordinary field-fact engine, and the narrow `optimizeUsingRefTest(...)` path; the 2026-04-25 current-`main` spot check found only mechanical early-stop drift in this path, not a different teaching contract |
 | `src/passes/pass.cpp` | Registers the public pass names `cfp` and `cfp-reftest`, proving that the variant is a real upstream CLI surface rather than only an internal option |
 | `src/ir/possible-constant.h` | Defines the tiny replacement domain that still constrains the variant: one literal, one immutable global, or unknown |
 | `src/ir/struct-utils.h` | Provides the struct field scanning and value-propagation helpers the variant inherits from ordinary CFP |
@@ -125,11 +128,14 @@ That ordering keeps beginners from over-attributing all CFP behavior to the vari
 
 ## Freshness note
 
-The reviewed local dossier is anchored to Binaryen `version_129`.
-A future thread should check whether current `main` changes:
+The reviewed local dossier is anchored to Binaryen `version_129` and the sibling-specific raw manifest added on 2026-04-25.
+That capture also performed a narrow current-`main` spot check: the public file paths and pass identity still exist, and the visible semantic contract is unchanged, but the helper's failure path now stops subtype iteration earlier instead of carrying the old separate failure flag.
+
+A future thread should still check whether current `main` changes:
 
 - the public registration names
 - the exact two-bucket matcher rules
+- the nullable-receiver repair and validation story
 - or the dedicated test surface
 
 If it does, record that drift explicitly instead of silently rewriting this `version_129` contract.
@@ -146,6 +152,8 @@ A future Starshine port should preserve all of these source-backed facts:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md)
+- [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
 - [`../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)
 - [`../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md`](../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md)
 - [`./index.md`](./index.md)

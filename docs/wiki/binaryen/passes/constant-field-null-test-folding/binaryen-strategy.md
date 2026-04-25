@@ -1,8 +1,10 @@
 ---
 kind: concept
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
+  - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
   - ../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md
   - ./index.md
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./two-bucket-subtype-partitions-and-nonnullable-ref-test-gates.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../constant-field-propagation/index.md
 ---
 
@@ -19,7 +22,7 @@ related:
 
 ## The one-sentence contract
 
-Binaryen `version_129` implements `cfp-reftest` as **the normal closed-world CFP engine plus one extra field-read rewrite family that can replace a read with `select(..., ..., ref.test(...))` when exactly two subtype-separated constant buckets are provable**.
+Binaryen `version_129` implements `cfp-reftest` as **the normal closed-world CFP engine plus one extra field-read rewrite family that can replace a read with `select(..., ..., ref.test(...))` when exactly two subtype-separated constant buckets are provable**. The sibling-specific raw capture in [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md) now anchors this page directly instead of requiring readers to rely only on the parent CFP manifest.
 
 ## Why the local name is dangerous
 
@@ -90,7 +93,7 @@ A future Starshine port that tries to implement only the visible `select(ref.tes
 ## Phase 3: plain CFP gets first chance
 
 The strategy remains conservative.
-Binaryen tries the plain CFP replacement story first.
+Binaryen tries the plain CFP replacement story first, and the 2026-04-25 source capture records that the upstream helper is only reached when ordinary replacement fails and the receiver reference is not exact.
 That means if one field fact already wins cleanly, the read can be replaced the ordinary way:
 
 - one literal constant
@@ -148,7 +151,7 @@ That is the visible WAT consequence most readers notice.
 But the deeper contract is:
 
 - the `select` is only valid because the field-fact lattice, subtype propagation, and created-type reasoning already proved the two-way partition
-- and the nullable-base repair is only legal when the module feature set permits the resulting nonnullable-`ref.test` form
+- and the nullable-base repair is only legal when the resulting nonnullable `ref.test` form validates for the module's active type/feature environment
 
 ## Phase 7: keep all ordinary CFP safety boundaries
 
@@ -243,6 +246,8 @@ The emitted `select` is a read replacement, not a branch optimizer.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md)
+- [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
 - [`../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)
 - [`../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md`](../../../raw/research/0169-2026-04-21-constant-field-null-test-folding-binaryen-research.md)
 - [`./index.md`](./index.md)

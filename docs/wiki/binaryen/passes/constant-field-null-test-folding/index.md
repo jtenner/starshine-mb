@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-24
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
+  - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md
   - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
@@ -17,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./two-bucket-subtype-partitions-and-nonnullable-ref-test-gates.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../constant-field-propagation/index.md
   - ../constant-field-propagation/starshine-strategy.md
   - ../tracker.md
@@ -27,7 +30,7 @@ related:
 ## Role
 
 - `constant-field-null-test-folding` is the local Starshine registry name for the upstream Binaryen pass published as `cfp-reftest`.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); the parent CFP Starshine status/code-map page tracks both boundary-only names in [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md).
+- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); the sibling-specific Starshine status/code-map page is [`./starshine-strategy.md`](./starshine-strategy.md), and the parent CFP Starshine page remains useful for shared infrastructure context in [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md).
 - It is a real public upstream pass in Binaryen `version_129`, but it is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` default top-level path.
 - It is best understood as the **`constant-field-propagation` variant that adds one narrow `ref.test`-driven two-value field-read rewrite family**.
 
@@ -66,7 +69,7 @@ So this pass is best taught as:
   - exactly two tracked value buckets
   - exactly one usable classifier bucket per side
   - one legal subtype discriminator
-  - optional `ref.as_non_null` repair plus a feature-sensitive nonnullable-`ref.test` bailout
+  - optional `ref.as_non_null` repair plus validation of the repaired nonnullable `ref.test` form
   - replacement with `select(..., ..., ref.test(...))`
 - It belongs to Binaryen's **closed-world GC/type cluster**, not to the repo's open-world no-DWARF default optimize path.
 
@@ -77,9 +80,11 @@ So this pass is best taught as:
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   File-by-file and test-by-test map of the upstream sources that define the pass contract.
 - [`./two-bucket-subtype-partitions-and-nonnullable-ref-test-gates.md`](./two-bucket-subtype-partitions-and-nonnullable-ref-test-gates.md)
-  Source-confirmed mechanics page for the exact matcher: two tracked value buckets, one classifier bucket per side, subtype partition proof, nullable-base `ref.as_non_null` repair, and the feature-sensitive nonnullable-`ref.test` gate.
+  Source-confirmed mechanics page for the exact matcher: two tracked value buckets, one classifier bucket per side, subtype partition proof, nullable-base `ref.as_non_null` repair, and validation of the repaired nonnullable `ref.test` form.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing which field-read families become `select(ref.test(...))`, which stay plain `cfp`, and which still bail out.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current Starshine status and port map: boundary-only local alias, active request rejection, no owner file, no preset role, no backlog slice, prerequisite GC/type/parser/validator/binary surfaces, and why the sibling must layer on a future parent CFP module analysis rather than a HOT peephole.
 
 ## Current maintenance rule
 
@@ -94,6 +99,8 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md)
+- [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
 - [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md)
 - [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)
@@ -102,6 +109,7 @@ So this pass is best taught as:
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../constant-field-propagation/index.md`](../constant-field-propagation/index.md)
+- [`./starshine-strategy.md`](./starshine-strategy.md)
 - [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md)
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` implementation and test sources:
