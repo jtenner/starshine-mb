@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
+  - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
   - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -28,7 +30,7 @@ related:
 
 # Starshine Strategy For `directize`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md) and the 2026-04-25 current-main source bridge in [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -47,22 +49,23 @@ The current local strategy is boundary-only status and landing-zone planning:
 - teach the surrounding late-tail dossiers a future port would have to compose with
 
 So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+The 2026-04-25 current-main source bridge does not change that local status; it only refreshes the upstream contract that a future local implementation must match.
 
 ## Exact local code map today
 
 The fastest read-along path through the current Starshine status is:
 
 - tracked boundary-only pass-name status
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:128-134`
     - `pass_registry_boundary_only_names()` includes `"directize"`
 - active request guard for not-yet-ported boundary passes
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:462-468`
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
 - backlog and delivery plan
-  - `agent-todo.md`
+  - `agent-todo.md:687-691`
     - `DIR` slice under the Binaryen no-DWARF default optimize pathway parity section
 - canonical scheduler context
-  - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
+  - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:34-35`
     - the final late-tail slot where `directize` follows `reorder-globals`
 - neighboring living dossiers a future port must line up with
   - `docs/wiki/binaryen/passes/duplicate-import-elimination/index.md`
@@ -230,3 +233,13 @@ It is:
 - **clear tracked status**
 - **clear late-tail dependency story**
 - **clear neighboring implementation map for the eventual port**
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)
+- [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)
+- [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)
+- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

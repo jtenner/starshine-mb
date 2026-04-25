@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
+  - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
   - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
   - ../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md
@@ -27,7 +29,7 @@ related:
 # Upstream implementation structure and test map for `directize`
 
 The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
-A narrow 2026-04-22 current-`main` spot check on the owner and dedicated test surfaces below did not surface a new teaching-relevant contract drift beyond this page.
+A focused 2026-04-25 current-`main` recheck on the owner and dedicated test surfaces below did not surface a new teaching-relevant contract drift beyond this page.
 
 ## Main implementation files
 
@@ -160,7 +162,7 @@ The lit files are good, but some important facts are still easier to see from th
 
 - the exact ownership split between `Directize.cpp` and `call-utils.h`
 - the whole-pass early no-op when no table can optimize by entry
-- destination `table.copy` as a mutation barrier
+- destination `table.copy` as a source-backed mutation barrier
 - and the explicit post-edit `ReFinalize()` contract
 
 So the safest teaching split is:
@@ -202,6 +204,8 @@ Before calling a future Starshine port faithful, verify all of these against the
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)
+- [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)
 - [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
 - [`../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md`](../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md)

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
+  - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
   - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
   - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
@@ -15,7 +17,7 @@ related:
 # `directize` table info and immutability
 
 The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
-A narrow 2026-04-22 current-`main` spot check on `Directize.cpp`, `table-utils.{h,cpp}`, and the dedicated `directize*` lit files did not surface a new teaching-relevant contract drift beyond this page.
+A focused 2026-04-25 current-`main` source bridge found no teaching-relevant drift in `Directize.cpp`, `table-utils.{h,cpp}`, or the dedicated `directize*` lit files.
 
 This page is the focused guide to the part of `directize` that is easiest to misunderstand:
 
@@ -104,8 +106,8 @@ If any of those write to a table, `mayBeModified` becomes true.
 Important note:
 
 - the shipped `directize` lit tests clearly cover `table.set`, `table.fill`, and `table.init`
-- I did not find an equally explicit directize-specific test for `table.copy`
-- the source still makes `table.copy` a real barrier, so a future port should too
+- the 2026-04-25 current-main recheck still did not find an equally explicit directize-specific test for `table.copy`
+- the source still makes destination `table.copy` a real barrier, so a future port should too
 
 ## What `initialContentsImmutable` actually means
 
@@ -297,6 +299,8 @@ A faithful Starshine port should preserve:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)
+- [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)
 - [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
 - [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)

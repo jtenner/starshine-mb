@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-22
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
+  - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
   - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
   - ../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md
@@ -73,7 +75,7 @@ That is much closer to the real pass than either:
 
 - The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
 - The dossier now has an immutable raw primary-source manifest at [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md).
-- A narrow 2026-04-22 current-`main` spot check on `Directize.cpp`, `pass.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, and the dedicated `directize*` lit files did not surface a new teaching-relevant contract drift beyond the living pages below.
+- A focused 2026-04-25 current-`main` recheck is now captured at [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md); it found no teaching-relevant drift from the `version_129` contract while keeping the source-only `table.copy` mutation-barrier caveat explicit.
 - `directize` is a **late table-facts-driven call rewrite pass**, not a generic constant-propagation pass.
 - The refreshed dossier now also has a compact source-confirmed owner/test-map page, making explicit that the real `version_129` contract is split across `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, and the three dedicated `directize*` lit files.
 - In `version_129`, the main implementation lives in `src/passes/Directize.cpp`.
@@ -120,6 +122,8 @@ That is much closer to the real pass than either:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)
+- [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)
 - [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
 - [`../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md`](../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md)

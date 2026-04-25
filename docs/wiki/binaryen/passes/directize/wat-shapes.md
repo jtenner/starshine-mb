@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
+  - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
   - ../../../raw/research/0126-2026-04-20-directize-binaryen-research.md
   - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
@@ -15,7 +17,7 @@ related:
 # `directize` WAT shapes
 
 The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
-A narrow 2026-04-22 current-`main` spot check on `Directize.cpp`, `call-utils.h`, and the dedicated `directize*` lit files did not surface a new teaching-relevant shape drift beyond this page.
+A focused 2026-04-25 current-`main` source bridge now confirms no teaching-relevant shape drift in `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, or the dedicated `directize*` lit files.
 
 This page is the beginner-friendly shape catalog for Binaryen’s `directize` pass.
 
@@ -538,10 +540,12 @@ The key lesson is:
 - It does not treat every suspicious table-layout case as a proved trap.
 - It does not widen one-known-one-unknown `select` cases into a partial rewrite.
 
-If you see those behaviors, you are probably looking at a different Binaryen helper or at a later upstream evolution, not this exact `version_129` pass.
+The 2026-04-25 current-main recheck did not change those non-goals. If you see those behaviors, you are probably looking at a different Binaryen helper or at a later upstream evolution, not this exact `version_129` pass.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)
+- [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)
 - [`../../../raw/research/0126-2026-04-20-directize-binaryen-research.md`](../../../raw/research/0126-2026-04-20-directize-binaryen-research.md)
 - [`../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md`](../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md)

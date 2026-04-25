@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | recheck `directize` current-main contract
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose `directize` because the tracker has no obvious still-`none` target but this final no-DWARF tail pass still carried older 2026-04-22 current-main freshness wording around a table-analysis contract that is easy to over-widen.
+- Added `docs/wiki/raw/binaryen/2026-04-25-directize-current-main-recheck.md`, capturing official Binaryen current-`main` sources for `Directize.cpp`, `pass.cpp`, `passes.h`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, and the three dedicated `directize*` lit files, with `version_129` retained as the tagged source oracle.
+- Added `docs/wiki/raw/research/0350-2026-04-25-directize-current-main-recheck.md` and refreshed the living `directize` overview, Binaryen strategy, implementation/test-map, table-info guide, WAT-shape catalog, and Starshine strategy page. The recheck found no teaching-relevant drift: `directize` remains a table-info-gated `CallIndirect` rewrite pass with `Known` / `Trap` / `Unknown` target classification, narrow `select` lowering, side-effect-preserving trap rewrites, and post-edit type repair.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; sharpened the local code map to `src/passes/optimize.mbt:128-134`, `src/passes/optimize.mbt:462-468`, `agent-todo.md:687-691`, and `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:34-35`, while keeping the source-backed-but-less-directly-lit `table.copy` mutation-barrier caveat explicit.
+
 ## [2026-04-25] research | add `signext-lowering` source dossier
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose upstream-only `signext-lowering` because the tracker had no obvious `none` queue but Starshine already supports sign-extension instructions while neighboring `optimize-instructions` / `pick-load-signs` docs did not explain Binaryen's separate feature-lowering pass.
