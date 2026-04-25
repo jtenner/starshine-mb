@@ -141,6 +141,22 @@ function resolveStarshineInvocation(
   };
 }
 
+function ensureStarshineRawOutputExists(
+  starshineRawOutputPath: string,
+  starshineCommand: string[],
+  stderr: string,
+): void {
+  if (fs.existsSync(starshineRawOutputPath)) {
+    return;
+  }
+  const stderrNote = stderr.trim().length > 0
+    ? `\nStderr:\n${stderr.trimEnd()}`
+    : "";
+  fail(
+    `Starshine command reported success but did not create ${starshineRawOutputPath}\ncommand: ${starshineCommand.join(" ")}${stderrNote}`,
+  );
+}
+
 function compileStarshineBeforeCompare(repoRoot: string, moonBin: string): void {
   runOrThrow(
     moonBin,
@@ -869,6 +885,11 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
     binaryenRun.stderr,
   );
 
+  ensureStarshineRawOutputExists(
+    starshineRawOutputPath,
+    [starshineInvocation.command, ...starshineArgs],
+    starshineRun.stderr,
+  );
   canonicalizeWasm(options.wasmOptBin, starshineRawOutputPath, starshineOutputPath, repoRoot);
   // Binaryen's direct output is the reference artifact we want to match; keep
   // it verbatim so the published compare pair answers "did Starshine reach the

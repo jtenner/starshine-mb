@@ -23,6 +23,9 @@
 - `scripts/self-optimize-compare.ts` no longer forces full in-memory reads of normalized WAT before parity checks.
   - Large debug-artifact lanes like `ssa-nomerge` now keep normalized WAT on disk, compare it chunkwise, and stream canonical-function splitting from file content instead of failing early with `ENOMEM`.
   - Fresh direct replay evidence: `.tmp/o4z-cron-ssa-nomerge-20260425-fix` now completes with `normalizedWatEqual=true` and `canonicalFuncPrettyEqual=true`.
+- `scripts/self-optimize-compare.ts` now also fails fast when the Starshine command exits zero but omits `starshine.raw.wasm`.
+  - That turns the checked-in debug-artifact `optimize-instructions` lane into an explicit command/output blocker instead of a later `wasm-opt ... Failed opening 'starshine.raw.wasm'` follow-on.
+  - Fresh direct replay evidence: `.tmp/o4z-cron-optimize-instructions-20260425-fix.log` now reports the missing-output failure together with the traced `final module validate: type mismatch` stderr from the Starshine run.
 - The active simplify-locals debt is no longer the old `Func 71` canonical mismatch bucket. The remaining live work is:
   - runtime budget: Starshine is still far slower than Binaryen on the debug artifact (`5316.608ms` total / `2190.921ms` in-pass vs `519.714ms` / `264.709ms`)
   - raw artifact equality: `wasmEqual=false` and `normalizedWatTextEqual=false` still show writeback/text-form drift even though the canonical function compare is green
