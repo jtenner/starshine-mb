@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] health | refresh stale GSI freshness wording
+
+- Ran a focused reference-hygiene check after the `global-struct-inference` source-map commit and found the overview still had one leftover 2026-04-20 freshness sentence even though the same page's Freshness note had been updated to the 2026-04-25 source bridge.
+- Updated `docs/wiki/binaryen/passes/global-struct-inference/index.md` so the durable-takeaways section now uses the same 2026-04-25 no-teaching-drift wording as the rest of the refreshed dossier.
+
 ## [2026-04-25] research | add `global-struct-inference` source manifest and code map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose active `global-struct-inference` because the living dossier already taught the core pass but still lacked an immutable plain-GSI raw primary-source manifest and the implementation/test-map page now standard for neighboring pass folders.

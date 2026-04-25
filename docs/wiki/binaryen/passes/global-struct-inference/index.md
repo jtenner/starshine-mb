@@ -93,7 +93,7 @@ So this is **not** generic whole-program struct analysis and **not** just the re
   - and the sibling `gsi-desc-cast` variant can rewrite some `ref.cast` checks to descriptor-equality casts
 - Atomic gets are **not automatically excluded**.
   - if the field is immutable, Binaryen treats atomic reads as safe to optimize because there are no writes to synchronize with
-- A narrow 2026-04-20 source comparison found **no semantic post-`version_129` drift** in the owning pass file or dedicated lit file.
+- A focused 2026-04-25 primary-source bridge found **no teaching-relevant post-`version_129` drift** in the reviewed owner, registration, helper, and dedicated-lit surfaces.
 
 ## Biggest beginner correction
 
