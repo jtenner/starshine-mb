@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
+  - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
   - ../../../raw/research/0271-2026-04-23-inlining-optimizing-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../dae-optimizing/index.md
@@ -18,7 +21,9 @@ related:
 
 # `inlining-optimizing`: planning, partial inlining, and reruns
 
-This page focuses on the parts of Binaryen `inlining-optimizing` that are easiest to misunderstand:
+This page focuses on the parts of Binaryen `inlining-optimizing` that are easiest to misunderstand. For the file/test map and current-main no-drift bridge, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+
+This page focuses on:
 
 - why whole-module planning matters
 - what keeps a callee alive even after some inlining
@@ -117,7 +122,7 @@ Beginner takeaway:
 
 ## 5. Reviewed `version_129` chosen actions are still direct-call based
 
-This is the main correction this follow-up keeps explicit.
+This is the main correction this follow-up keeps explicit and that the 2026-04-25 implementation/test-map bridge rechecked against current `main`.
 The file contains updater logic for `return_call_ref` and `return_call_indirect`, and the scanner tracks `ref.func` uses.
 It is easy to overread that as “general precise ref-call selection.”
 

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
+  - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0271-2026-04-23-inlining-optimizing-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../agent-todo.md
@@ -16,6 +18,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./planning-partial-inlining-and-reruns.md
   - ./wat-shapes.md
   - ../dae-optimizing/index.md
@@ -26,7 +29,7 @@ related:
 
 # Starshine Strategy For `inlining-optimizing`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md).
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -54,13 +57,13 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/optimize.mbt#L127-L141`](../../../../../src/passes/optimize.mbt#L127-L141)
     - `pass_registry_boundary_only_names()` includes `"inlining-optimizing"`
 - active request guard for not-yet-ported boundary passes
-  - [`src/passes/optimize.mbt#L281-L291`](../../../../../src/passes/optimize.mbt#L281-L291)
-    - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
+  - [`src/passes/optimize.mbt#L458-L468`](../../../../../src/passes/optimize.mbt#L458-L468)
+    - `run_hot_pipeline_expand_passes(...)` looks up the registry entry and returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
 - boundary-only portfolio planning
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60)
+  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61)
     - `inlining-optimizing` is grouped under whole-module or layout transforms, not HOT-local cleanup
 - backlog and delivery plan
-  - [`agent-todo.md#L501-L509`](../../../../../agent-todo.md#L501-L509)
+  - [`agent-todo.md#L513-L521`](../../../../../agent-todo.md#L513-L521)
     - `INL - Inlining Optimizing`
 - canonical scheduler context
   - [`../../no-dwarf-default-optimize-path.md#L35-L40`](../../no-dwarf-default-optimize-path.md#L35-L40)
@@ -68,13 +71,14 @@ The fastest read-along path through the current Starshine status is:
 - archived planning detail behind the same slot
   - [`../../../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L289-L293`](../../../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L289-L293)
     - the older slot note already recorded the same future implementation shape: apply Binaryen-like inlining heuristics, rewrite callsites, delete dead functions, and rerun the nested post-inlining cleanup pipeline
-- neighboring living dossiers a future port must line up with
+- upstream implementation/test map and neighboring living dossiers a future port must line up with
+  - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - [`../dae-optimizing/index.md`](../dae-optimizing/index.md)
   - [`../precompute-propagate/index.md`](../precompute-propagate/index.md)
   - [`../duplicate-function-elimination/index.md`](../duplicate-function-elimination/index.md)
   - [`../inlining/index.md`](../inlining/index.md)
 
-That code-and-doc map is the practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and future landing zone.
+That code-and-doc map is kept current by the 2026-04-25 health check: readers can now jump directly from the upstream algorithm and source/test map to the exact local status and future landing zone.
 
 ## What Starshine currently does for this pass name
 
@@ -240,10 +244,10 @@ That is more useful locally than a generic “compare with Binaryen later” not
 Current Starshine `inlining-optimizing` strategy is honest boundary-only tracking plus a concrete port map:
 
 - the pass name is intentionally preserved in [`src/passes/optimize.mbt#L127-L141`](../../../../../src/passes/optimize.mbt#L127-L141)
-- the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L281-L291`](../../../../../src/passes/optimize.mbt#L281-L291)
-- [`agent-todo.md#L501-L509`](../../../../../agent-todo.md#L501-L509) already treats it as a real late parity slice under `INL`
+- the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L458-L468`](../../../../../src/passes/optimize.mbt#L458-L468)
+- [`agent-todo.md#L513-L521`](../../../../../agent-todo.md#L513-L521) already treats it as a real late parity slice under `INL`
 - the canonical slot and shared nested-rerun rule are already documented in [`../../no-dwarf-default-optimize-path.md#L35-L40`](../../no-dwarf-default-optimize-path.md#L35-L40)
-- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60) already places it in the boundary/module planning bucket
+- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61) already places it in the boundary/module planning bucket
 - the surrounding [`dae-optimizing`](../dae-optimizing/index.md), [`precompute-propagate`](../precompute-propagate/index.md), [`duplicate-function-elimination`](../duplicate-function-elimination/index.md), and plain [`inlining`](../inlining/index.md) dossiers already define the practical landing zone for a future port
 
 So the right mental model today is not “nothing exists locally.”

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `inlining-optimizing` implementation/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/inlining-optimizing/` folder, the neighboring `inlining` implementation/test-map page, and `docs/wiki/raw/research/`, then chose boundary-only `inlining-optimizing` because its dossier had overview, strategy, WAT shapes, and Starshine status coverage but still lacked the now-standard implementation/test-map page.
+- Added `docs/wiki/raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md`, capturing official Binaryen current-main and tagged `version_129` sources for `Inlining.cpp`, `pass.cpp`, `opt-utils.h`, `pass.h`, `NoInline.cpp`, `module-utils.cpp`, and the shared `inlining*` / `no-inline*` / `inline-main` lit proof surfaces. The focused recheck found no teaching-relevant drift: `inlining-optimizing` remains the shared direct-call inliner with the optimizing `precompute-propagate` plus default-function-pipeline rerun suffix.
+- Added `docs/wiki/raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md` and `docs/wiki/binaryen/passes/inlining-optimizing/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, planning/rerun guide, WAT-shape catalog, and Starshine status page so readers can map transformed shapes, Binaryen owner/test surfaces, and exact Starshine boundary-only registry, request-guard, backlog, and scheduler locations.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; the touched-area health check fixed stale Starshine line anchors in the `inlining-optimizing` strategy page and marked the folder as a deep dossier in the tracker.
+
 ## [2026-04-25] research | deepen `flatten` implementation/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/flatten/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `flatten` because the dossier had strategy, shapes, and Starshine status coverage but still lacked the now-standard implementation/test-map page and current-main owner/test proof split.

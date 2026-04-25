@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
+  - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
   - ../../../raw/research/0271-2026-04-23-inlining-optimizing-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./planning-partial-inlining-and-reruns.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -23,10 +26,12 @@ related:
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The core implementation is `src/passes/Inlining.cpp`.
 - Public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp` and `src/passes/opt-utils.h`.
+- The dedicated file/test map is [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md); use it for owner, helper, official lit-test, and current-main no-drift provenance.
 - Heuristic defaults come from `src/pass.h`.
 - Explicit no-inline policy comes from `src/passes/NoInline.cpp`.
 - Clone-surviving no-inline behavior comes from `src/ir/module-utils.cpp`.
 - The shipped behavior examples come from the `inlining*`, `no-inline*`, and `inline-main` lit files.
+- Narrow freshness note: the 2026-04-25 current-`main` implementation/test-map bridge recorded in [`../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md) did not surface a teaching-relevant contract drift on the owner / registration / option / test surfaces. Treat `version_129` as the stable oracle unless a later source ingest says otherwise.
 
 Primary source URLs:
 

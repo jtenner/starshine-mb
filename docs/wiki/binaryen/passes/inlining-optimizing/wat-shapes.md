@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-inlining-optimizing-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-inlining-optimizing-primary-sources.md
+  - ../../../raw/research/0361-2026-04-25-inlining-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0121-2026-04-20-inlining-optimizing-binaryen-research.md
   - ../../../raw/research/0271-2026-04-23-inlining-optimizing-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./planning-partial-inlining-and-reruns.md
   - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
@@ -16,7 +19,7 @@ related:
 
 # `inlining-optimizing` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `inlining-optimizing` pass.
+This page is the beginner-friendly shape catalog for Binaryen's `inlining-optimizing` pass. For the source/test proof surface behind these examples, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Read this page with one mental model
 
@@ -219,7 +222,7 @@ Why this page teaches it as a non-goal:
 
 - reviewed `version_129` chosen inline actions are still discovered from reachable direct `call` / `return_call` sites
 - `call_ref` and `return_call_ref` still matter in copied-body repair and surrounding helper logic
-- but this folder should not teach the release as if general precise `call_ref` selection were already the main planner contract
+- but this folder should not teach the release as if general precise `call_ref` selection were already the main planner contract; the 2026-04-25 current-main source bridge did not find a teaching-relevant drift from that boundary
 
 ## Shape 7: imports never inline
 
