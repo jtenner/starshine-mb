@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | recheck `de-nan` current-main contract
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose local removed `de-nan` / upstream `denan` because the dossier was complete but still worth a current-main source bridge around an effect-adding instrumentation pass whose helper-call strategy is easy to mis-teach as ordinary floating optimization.
+- Added `docs/wiki/raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`, capturing a focused primary-source recheck of Binaryen `version_129` and current `main` `DeNaN.cpp`, `pass.cpp`, `properties.h`, `names.h`, `wasm-builder.h`, `pass.h`, and `denan.wast`. The recheck found no teaching-relevant current-main drift: upstream still exposes `denan`, the implementation remains helper-call NaN-to-zero instrumentation with constant repair, entry-param sanitization, `local.get` / fallthrough skip rules, collision-safe helper names, post-walk helper insertion, and the scalar-lane SIMD helper strategy.
+- Added `docs/wiki/raw/research/0341-2026-04-25-de-nan-current-main-recheck.md` and refreshed the living `de-nan` overview, Binaryen strategy, implementation/test-map, helper-boundary guide, WAT-shape catalog, and Starshine strategy pages. The Starshine page now states explicitly that the new source bridge does not change local status: `de-nan` remains a removed registry name, active requests are rejected, there is no owner file or backlog slice, and a faithful future port is still module-owned instrumentation rather than a HOT-only peephole.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md` so the fresh source bridge and unchanged local status are discoverable.
+
 ## [2026-04-25] research | recheck `memory64-lowering` out-of-range behavior
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose `memory64-lowering` because the dossier was complete enough to be useful but still carried an explicit stale uncertainty around out-of-range constants, active offsets, grow deltas, and limit behavior.

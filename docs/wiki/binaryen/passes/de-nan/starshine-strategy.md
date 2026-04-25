@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
+  - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -24,7 +26,7 @@ related:
 
 # Starshine Strategy For `de-nan` / `denan`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md) and the focused current-main recheck in [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main uncertainty a future parity port must resolve.
 
 ## The honest current status
@@ -73,7 +75,7 @@ The fastest read-along path through the current Starshine status is:
   - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
     - there is currently no dedicated `de-nan` / `denan` slice
 
-That map is the durable local status today: the pass is known, intentionally unavailable, tested as removed, and not assigned to an active implementation slice.
+That map is the durable local status today: the pass is known, intentionally unavailable, tested as removed, and not assigned to an active implementation slice. The 2026-04-25 current-main recheck did not find any upstream drift that would justify changing this local classification or adding `denan` as a separate accepted spelling.
 
 ## Why this is not an ordinary HOT peephole today
 
@@ -193,6 +195,19 @@ A future implementation should validate in layers:
    - compare direct `--pass denan` / local `--pass de-nan` behavior against Binaryen for focused fixtures
 4. broader fuzzing only after the reduced rules are green
    - classify differences around NaN payloads, helper-call placement, and SIMD helper behavior explicitly
+
+## Current-main source bridge
+
+The 2026-04-25 source bridge in [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md) is now the freshness citation for this local strategy page.
+
+It matters locally because it confirms that current upstream still looks like the same module-owned instrumentation pass:
+
+- no new upstream pass spelling that Starshine should mirror today
+- no new default-path role that would make `de-nan` a no-DWARF parity obligation
+- no simpler function-local-only contract that would make a HOT-only port sufficient
+- no change to the helper-call / entry-param / result-fallthrough contract future Starshine tests must compare against
+
+So the local status remains deliberate: keep `de-nan` as a removed compatibility name until a real module pass lands.
 
 ## Bottom line
 

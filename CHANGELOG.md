@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-25 Docs: recheck `de-nan` current-main contract
+
+- **ingest a focused Binaryen current-main recheck for upstream `denan` / local `de-nan` and refresh the dossier to keep the runtime NaN-to-zero helper-call contract, constant repair, entry-param sanitization, `local.get` / result-fallthrough skip rules, collision-safe helper names, post-walk helper insertion, SIMD lane-extraction helper strategy, exact removed-registry / request-rejection / registry-test code locations, no-owner/no-backlog local status, and module-owned future-port recommendation discoverable** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-04-25-de-nan-current-main-recheck.md), [`docs/wiki/raw/research/0341-2026-04-25-de-nan-current-main-recheck.md`](./docs/wiki/raw/research/0341-2026-04-25-de-nan-current-main-recheck.md), and [`docs/wiki/binaryen/passes/de-nan/`](./docs/wiki/binaryen/passes/de-nan/).
+
 ## 2026-04-25 Fix: keep `remove-unused-brs` tail-return rewrites valid on the debug artifact
 
 - **stop `remove-unused-brs` from voidifying returned value-`if` arms that still need typed roots to satisfy the surrounding return context, add an extracted debug-artifact `Func 2244` wasm-tools validity regression, and restore the direct O4z/no-DWARF self-opt compare lane to a valid `normalizedWatEqual=true` / `canonicalFuncPrettyEqual=true` state** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/cmd/cmd_wbtest.mbt`](./src/cmd/cmd_wbtest.mbt), and [`src/passes/remove_unused_brs.mbt`](./src/passes/remove_unused_brs.mbt).

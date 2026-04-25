@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
+  - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp
@@ -20,7 +22,7 @@ related:
 
 # Helper functions, fallthrough, and boundaries in `de-nan` / `denan`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md) and the current Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md), the focused current-main recheck in [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md), and the current Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 This page focuses on the easiest part of `denan` to misread:
 
@@ -141,7 +143,7 @@ It simply filters NaN to zero.
 ## SIMD helper function contract
 
 The SIMD helper is more complicated because a `v128` might be interpreted through floating lanes.
-The source explains two key rules.
+The source explains two key rules. The 2026-04-25 current-main recheck did not find any drift in this helper strategy, so future Starshine work should still treat these rules as part of the current oracle.
 
 ## Rule 1: use `f32x4` lane checks
 
@@ -244,7 +246,9 @@ Dropping any one of those would change the real pass contract.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)
+- [`../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md`](../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md)
 - [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp>

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
+  - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp
@@ -21,7 +23,7 @@ related:
 
 # Upstream implementation structure and tests for `de-nan` / `denan`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md) and the current Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md), the focused current-main recheck in [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md), and the current Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 This page answers a narrow question:
 
@@ -180,7 +182,7 @@ A narrow 2026-04-24 freshness check found:
 - `test/lit/passes/denan.wast`
   - byte-identical to `version_129`
 
-So the tagged `version_129` sources are a reliable oracle here.
+The 2026-04-25 recheck in [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md) widened that spot check to the helper/legality context files (`properties.h`, `names.h`, `wasm-builder.h`, and `pass.h`) and still found no teaching-relevant current-main drift. So the tagged `version_129` sources remain a reliable oracle here.
 
 ## Porting checklist from the file map
 
@@ -198,7 +200,9 @@ If you want the minimum file-guided port checklist, preserve these things in thi
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)
+- [`../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md`](../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md)
 - [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp>

@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
+  - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -76,8 +78,8 @@ So this pass is best taught as:
 - Non-imported functions get entry fixups for float/vector params.
 - The helper functions are added after the walk so they are not instrumented themselves.
 - The `v128` helper path is unusually careful: it extracts `f32x4` lanes and checks them individually instead of relying on vector equality, specifically to avoid self-interference on reruns.
-- The 2026-04-24 raw primary-source manifest records the official `version_129` release provenance, the source/test URLs reviewed for this pass, and the narrow current-`main` drift check.
-- A narrow current-`main` check found the registration unchanged, the lit file unchanged, and the implementation changed only by a comment typo fix, so `version_129` is a reliable oracle here.
+- The 2026-04-24 raw primary-source manifest records the official `version_129` release provenance, the source/test URLs reviewed for this pass, and the first narrow current-`main` drift check.
+- The 2026-04-25 current-main recheck confirms no teaching-relevant drift: registration, helper strategy, skip families, dedicated lit proof surface, and Starshine's removed-registry status still match the living dossier.
 - The dedicated Starshine strategy page now records that current Starshine preserves `de-nan` only as a removed registry entry with explicit request rejection, category tests, no owner file, and no active backlog slice.
 
 ## What this pass sounds like versus what it actually does
@@ -116,7 +118,9 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)
+- [`../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md`](../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md)
 - [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
@@ -133,4 +137,8 @@ What it actually is in `version_129`:
 - Narrow freshness-check sources:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/DeNaN.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/ir/properties.h>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/ir/names.h>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/wasm-builder.h>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/pass.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/denan.wast>
