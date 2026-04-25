@@ -90,6 +90,14 @@ const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--redundant-set-elimination", "--rse"],
 ]);
 
+const STARSHINE_FLAG_ALIASES = new Map<string, string>([
+  ["--dae", "--dead-argument-elimination"],
+  ["--dae-optimizing", "--dead-argument-elimination-optimizing"],
+  ["--dce", "--dead-code-elimination"],
+  ["--gsi", "--global-struct-inference"],
+  ["--rse", "--redundant-set-elimination"],
+]);
+
 const UNSUPPORTED_PRESET_FLAGS = new Set(["--optimize", "--shrink"]);
 
 // Build a deterministic temp directory name so multiple runs can run without
@@ -106,6 +114,13 @@ function normalizeBinaryenPassFlag(flag: string): string {
     fail(`unsupported preset flag for self-optimize compare: ${flag}`);
   }
   return BINARYEN_FLAG_ALIASES.get(flag) ?? flag;
+}
+
+function normalizeStarshinePassFlag(flag: string): string {
+  if (UNSUPPORTED_PRESET_FLAGS.has(flag) || /^-O\d/.test(flag)) {
+    fail(`unsupported preset flag for self-optimize compare: ${flag}`);
+  }
+  return STARSHINE_FLAG_ALIASES.get(flag) ?? flag;
 }
 
 function resolveStarshineInvocation(
@@ -776,6 +791,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   }
 
   const binaryenPassFlags = options.passFlags.map(normalizeBinaryenPassFlag);
+  const starshinePassFlags = options.passFlags.map(normalizeStarshinePassFlag);
   const starshineInvocation = resolveStarshineInvocation(
     repoRoot,
     options.starshineBin,
@@ -783,7 +799,7 @@ export async function runSelfOptimizeCompare(argv: string[]): Promise<void> {
   );
   const starshineArgs = [
     ...starshineInvocation.argsPrefix,
-    ...options.passFlags,
+    ...starshinePassFlags,
     "--out",
     starshineRawOutputPath,
     effectiveInputPath,
