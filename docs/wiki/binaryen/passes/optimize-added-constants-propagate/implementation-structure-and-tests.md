@@ -1,25 +1,33 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md
+  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
+  - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../optimize-added-constants/index.md
 ---
 
 # `optimize-added-constants-propagate`: implementation structure and tests
 
 This page is the file-and-test map for Binaryen `version_129` `optimize-added-constants-propagate`.
+It is now anchored to the sibling-specific raw manifest [`../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md).
 
 ## Core source files
 
 ## `src/passes/OptimizeAddedConstants.cpp`
 
-This is the real implementation for **both** public pass names:
+This is the real implementation for **both** public pass names.
+For the propagate sibling, the important source names are `MemoryAccessOptimizer`, the `propagate` mode field, `tryPropagate`, `tryRemoveSet`, and the `run(...)` path that creates `LazyLocalGraph` only when propagation is enabled.
+
+The public pass names are:
 
 - `optimize-added-constants`
 - `optimize-added-constants-propagate`

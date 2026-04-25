@@ -1,9 +1,11 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-24
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
+  - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -15,6 +17,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../optimize-added-constants/index.md
   - ../precompute/index.md
   - ../tracker.md
@@ -27,13 +30,14 @@ related:
 - `optimize-added-constants-propagate` is an upstream Binaryen function pass.
 - It is currently **unimplemented** in Starshine and still lives in the removed-name registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It shares `version_129` implementation code with the plain sibling [`../optimize-added-constants/index.md`](../optimize-added-constants/index.md), but it enables the extra local-pair propagation mode.
-- The shared 2026-04-24 source manifest is [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md).
+- The sibling-specific 2026-04-25 source manifest is [`../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md); the shared family manifest remains [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` path because that path is not documented with `--low-memory-unused` enabled.
 
 ## Why this pass matters
 
 - The original campaign queues are closed, so this dossier is an explicit tracker expansion for another real local registry name.
 - `agent-todo.md` currently has **no dedicated `optimize-added-constants-propagate` slice**.
+- The current Starshine status and future-port map now live in [`./starshine-strategy.md`](./starshine-strategy.md).
 - The pass is easy to mis-teach because its name sounds like generic constant propagation, but the real contract is about **rewriting memory addresses into load/store offsets**.
 - The `propagate` sibling adds a real extra algorithm on top of the plain pass: it can look through certain `local.set` / `local.get` pairs and move the offset to the memory access anyway.
 
@@ -65,6 +69,8 @@ So the pass is best read as:
   File-by-file and test-by-test map of the upstream sources that define the pass contract.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, bailout, preserved, and easy-to-misread load/store-address families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Current local status and future-port map: removed registry entry, option plumbing, HOT `Load` / `Store` + `MemArg` landing zone, use-def/local-pair proof requirements, and validation plan.
 
 ## Current maintenance rule
 
@@ -74,7 +80,9 @@ So the pass is best read as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md)
+- [`../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md`](../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

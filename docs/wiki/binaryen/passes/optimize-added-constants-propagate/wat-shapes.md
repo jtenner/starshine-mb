@@ -1,19 +1,24 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md
+  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
+  - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-strategy.md
   - ../optimize-added-constants/index.md
 ---
 
 # `optimize-added-constants-propagate` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's `optimize-added-constants-propagate` pass.
+It is now anchored to the sibling-specific raw manifest [`../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md) and the current Starshine status page [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Read this page with one mental model
 
@@ -29,7 +34,7 @@ It is asking a smaller and more concrete question:
 
 The `after` snippets are **conceptual**.
 Real Binaryen output may keep helper locals, `nop`s, or surrounding wrapper structure.
-What matters here is the address-shape contract.
+What matters here is the address-shape contract. Starshine does not implement these rewrites today; use [`./starshine-strategy.md`](./starshine-strategy.md) for the local removed-registry and future-port map.
 
 ## Quick glossary
 

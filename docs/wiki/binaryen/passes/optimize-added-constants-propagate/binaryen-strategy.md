@@ -1,13 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md
+  - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
+  - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../optimize-added-constants/index.md
   - ../precompute/index.md
 ---
@@ -17,6 +21,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
+- The sibling-specific raw source manifest is [`../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md).
 - The core implementation is `src/passes/OptimizeAddedConstants.cpp`.
 - Public registration comes from `src/passes/pass.cpp`.
 - The low-memory threshold comes from `src/pass.h`.
@@ -78,13 +83,14 @@ So the `propagate` variant is not just a cosmetic alias. It has a real extra ana
 
 The durable structure is:
 
-1. visit each `Load` / `Store`
-2. try constant-pointer cleanup first
-3. try direct `add(base, const)` folding next
-4. in propagate mode, inspect `local.get` pointers with unique defining sets
-5. prove those sets are safe to propagate
-6. either reuse an SSA local or insert a helper local
-7. clean up dead sets and iterate again
+1. enter the shared `MemoryAccessOptimizer` owner with `propagate = true`,
+2. visit each `Load` / `Store`,
+3. try constant-pointer cleanup first,
+4. try direct `add(base, const)` folding next,
+5. in propagate mode, build/use `LazyLocalGraph` and inspect `local.get` pointers with unique defining sets,
+6. prove those sets are safe to propagate,
+7. either reuse an SSA local or insert a helper local,
+8. clean up dead sets and iterate again
 
 That is a narrow but real load/store-address pipeline.
 

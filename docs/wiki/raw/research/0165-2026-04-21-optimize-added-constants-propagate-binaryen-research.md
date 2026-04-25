@@ -6,6 +6,7 @@
 - Type: Upstream-pass research / wiki-ing dossier seed
 - Pass chosen: `optimize-added-constants-propagate`
 - Local registry status: `removed`
+- Superseded for raw-source provenance and local Starshine status by [`0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md`](0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md). This note remains useful for the original source-backed teaching correction and initial shape catalog.
 - Campaign status reason: explicit tracker expansion after the original no-DWARF queue, the saved generated-`-O4z` queue, and the first upstream-only expansion queue were already dossier-covered
 
 ## Why this pass was the next eligible target
