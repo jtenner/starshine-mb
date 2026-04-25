@@ -1,14 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-rse-source-correction.md
+  - ../../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
   - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
-  - ../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0114-2026-04-20-rse-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./cfg-and-value-tracking.md
   - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
@@ -16,59 +17,20 @@ related:
 
 # `rse` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `rse` pass.
-The upstream provenance for the shapes here was rechecked against the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md) on 2026-04-22.
+This is the beginner-friendly shape catalog for the corrected Binaryen `version_129` `rse` contract.
+Use it with the source correction in [`../../../raw/binaryen/2026-04-25-rse-source-correction.md`](../../../raw/binaryen/2026-04-25-rse-source-correction.md).
 
 ## Read this page with one mental model
 
-Binaryen is asking two linked questions:
+Binaryen asks:
 
-1. what value does this local definitely hold right now?
-2. does any future read still need this `local.set`, or can those reads be rewritten directly?
+> Does this local already hold the same value number that this `local.set` or `local.tee` is about to write?
 
-If the pass can answer:
+If yes, the write shell is redundant.
+If no, Binaryen remembers the new value number and moves on.
+If control/effects make the fact unsafe, Binaryen forgets it.
 
-- “the local already has that value,” or
-- “the future reads can be rewritten and no later block depends on this stored state,”
-
-then it may delete the set.
-
-## Quick glossary
-
-- **current value**: the exact value Binaryen thinks a local currently holds
-- **influencing set**: a `local.set` whose stored value still matters to some future read or fallthrough
-- **merged values**: several predecessor values where Binaryen knows the alternatives but not one exact replacement expression
-- **same-block read rewrite**: replacing a `local.get` directly so the earlier set becomes unnecessary
-- **refined expression**: a more precise GC expression like `ref.cast` or `ref.as_non_null`
-
-## Shape 1: a plain overwritten set disappears
-
-Before:
-
-```wat
-(local.set $x
-  (i32.const 1))
-(local.set $x
-  (i32.const 2))
-```
-
-After, conceptually:
-
-```wat
-(i32.const 1) ;; kept only if its RHS work matters
-(local.set $x
-  (i32.const 2))
-```
-
-Why it folds:
-
-- the second write overwrites the first
-- no needed read survives between them
-- the earlier store no longer matters
-
-This is the simplest family and the one the README summary hints at.
-
-## Shape 2: storing the same value again is redundant
+## Shape 1: repeated same-value `local.set`
 
 Before:
 
@@ -90,91 +52,116 @@ Conceptual after:
 
 Why it folds:
 
-- Binaryen already knows `$x` holds that exact value
-- the second store changes nothing
-- the assignment vanishes, but the RHS is still preserved if needed
+- the second RHS value-numbers the same as the remembered value for `$x`;
+- the write changes no local state;
+- the RHS evaluation is still preserved.
 
-## Shape 3: a redundant `local.tee` becomes just the value
+A later `vacuum` can erase the `drop` if the RHS is pure and unused.
+
+## Shape 2: repeated same-value `local.tee`
 
 Before:
 
 ```wat
+(local.set $x
+  (i32.const 1))
 (drop
   (local.tee $x
     (i32.const 1)))
 ```
 
-Conceptual after when `$x` already holds `1`:
+Conceptual after:
 
 ```wat
+(local.set $x
+  (i32.const 1))
 (drop
   (i32.const 1))
 ```
 
-Why it matters:
-
-- `local.tee` returns a value, so Binaryen cannot just erase it the way it erases a plain `local.set`
-- it removes the store part while preserving the produced value
-
-## Shape 4: copied locals do not always need a separate store
-
-Before:
-
-```wat
-(local.set $y
-  (i32.const 42))
-(local.set $x
-  (local.get $y))
-(local.get $y)
-```
-
-Conceptual after:
-
-```wat
-(local.set $y
-  (i32.const 42))
-;; no meaningful separate store to $x needed
-(local.get $y)
-```
-
 Why it folds:
 
-- Binaryen tracks `$x` as inheriting `$y`'s current value and history
-- if nothing later truly needs `$x` as its own stored slot, the copied store is redundant
+- the tee's store is redundant;
+- the tee's result value is still needed by its parent `drop`;
+- replacing the tee with the RHS preserves stack behavior.
 
-This is one place where the pass is wider than an adjacent-overwrite peephole.
-
-## Shape 5: same-block reads can be rewritten, so the earlier set can still die
+## Shape 3: RHS side effects or traps stay
 
 Before:
 
 ```wat
 (local.set $x
-  (i32.const 7))
-(drop
-  (local.get $x))
+  (call $may_trap_or_side_effect))
 (local.set $x
-  (i32.const 9))
+  (call $may_trap_or_side_effect))
 ```
 
-Conceptual after:
+This folds only if Binaryen's value-numbering and barrier rules still prove the same value for the second RHS.
+Even then, the call/evaluation cannot disappear just because the local write is redundant.
+The set shell can go away; the observable RHS behavior cannot.
+
+Practical porting rule:
+
+- remove the write, never the RHS effect.
+
+## Shape 4: different overwritten values are not an `rse` deletion
+
+Before:
 
 ```wat
-(drop
-  (i32.const 7))
 (local.set $x
-  (i32.const 9))
+  (i32.const 1))
+(local.set $x
+  (i32.const 2))
 ```
 
-Why it folds:
+Important after:
 
-- the only intervening read was in the same block
-- Binaryen can rewrite that read directly to the current expression
-- after that rewrite, the first set is no longer needed before the later overwrite
+```wat
+(local.set $x
+  (i32.const 1))
+(local.set $x
+  (i32.const 2))
+```
 
-This is the single easiest `rse` behavior to miss.
+Why it does **not** fold in this pass:
 
-## Shape 6: merge points with unanimous predecessors can still fold
+- the second RHS has a different value number;
+- `rse` is not proving that the first write is dead;
+- no liveness or predecessor use analysis runs here.
+
+A different pass may remove dead overwritten writes in some contexts.
+Do not attribute that behavior to Binaryen `version_129` `rse`.
+
+## Shape 5: barrier clearing blocks a later fold
+
+Before, conceptually:
+
+```wat
+(local.set $x
+  (i32.const 1))
+(call $unknown)
+(local.set $x
+  (i32.const 1))
+```
+
+Expected important behavior:
+
+```wat
+(local.set $x
+  (i32.const 1))
+(call $unknown)
+(local.set $x
+  (i32.const 1))
+```
+
+Why it does not fold:
+
+- the call is a conservative barrier;
+- Binaryen forgets the remembered value for locals;
+- the later set must stand because the pass no longer trusts that `$x` still holds `1`.
+
+## Shape 6: branch joins are not merged facts
 
 Before, conceptually:
 
@@ -184,223 +171,76 @@ Before, conceptually:
     (local.set $x (i32.const 1)))
   (else
     (local.set $x (i32.const 1))))
-(local.get $x)
+(local.set $x (i32.const 1))
 ```
 
-After, conceptually:
+A dataflow pass could prove both arms agree.
+`version_129` `rse` does not depend on that proof.
+It uses conservative invalidation around non-linear control instead of exact predecessor merging.
 
-```wat
-(if
-  (then)
-  (else))
-(i32.const 1)
-```
+## Shape 7: local-get refinement for GC/reference values
 
-Why it folds:
-
-- both predecessors agree on the same exact current value
-- Binaryen keeps exact knowledge through that merge
-- the later `local.get` can be replaced
-
-The `if2` / `many-merges` families in the shipped tests are the best concrete examples.
-
-## Shape 7: merge points with different predecessor values do **not** fold exactly
-
-Before, conceptually:
-
-```wat
-(if
-  (then
-    (local.set $x (i32.const 1)))
-  (else
-    (local.set $x (i32.const 2))))
-(local.get $x)
-```
-
-Before and after stay the same in the important part.
-
-Why Binaryen keeps it:
-
-- predecessors disagree on the current value
-- the pass records `MergedValues`
-- that is useful for bookkeeping, but not enough to materialize one exact replacement expression
-
-This is the right beginner mental model for “merged values are not real phi reconstruction.”
-
-## Shape 8: non-linear control flow is a barrier
-
-Conceptual shape:
+Conceptual before:
 
 ```wat
 (local.set $x
-  (i32.const 1))
-(br_if $l (local.get $cond))
+  (ref.as_non_null
+    (local.get $maybe)))
 (local.get $x)
 ```
 
-Why Binaryen becomes conservative:
-
-- the branch makes control flow non-linear
-- the pass clears its exact current-value cache around that barrier
-- the later `local.get` is much less likely to fold
-
-Beginner takeaway:
-
-- `rse` is aggressive in straight-line code
-- it gets cautious once branching enters the picture
-
-## Shape 9: loops are intentionally conservative today
-
-Conceptual shape:
-
-```wat
-(loop $loop
-  (local.set $x
-    (i32.const 1))
-  ...
-  (br $loop)
-  (local.get $x))
-```
-
-Why Binaryen does **not** promise a fold here:
-
-- loop backedges require stronger block-input reasoning
-- the upstream source explicitly says the current model is not right in loops
-- `rse` therefore leaves loop precision on the table
-
-The shipped `loop-target-preserved` GC test protects this conservative choice.
-
-## Shape 10: refined GC expressions can replace later local gets
-
-Before, conceptually:
-
-```wat
-(local.set $refined
-  (ref.cast ... (local.get $arg)))
-(local.set $x
-  (local.get $refined))
-(local.get $x)
-```
-
-After, conceptually:
-
-```wat
-(ref.cast ... (local.get $arg))
-```
-
-Why it folds:
-
-- Binaryen knows the current value of `$x` is the refined expression
-- that refined expression is assignable to the later `local.get` type
-- using the refined expression directly makes the stored local traffic redundant
-
-This is the positive GC family from `rse-gc.wast`.
-
-## Shape 11: a more refined expression is **not** always a valid replacement
-
-Before and after stay the same in the important part when the type story is wrong.
-
-Why Binaryen keeps it:
-
-- same semantic runtime value is not enough
-- the replacement expression must also fit the `local.get`'s static type
-- some GC tests explicitly protect the nullable-vs-non-null distinction here
-
-Beginner takeaway:
-
-- `rse` is not just proving value equality
-- it is also proving type-legal substitution
-
-## Shape 12: different refined predecessor choices stay as a real local get
-
-Conceptual shape from the `different-choices` GC test:
-
-```wat
-(if
-  (then
-    (local.set $x (local.get $choice1)))
-  (else
-    (local.set $x (local.get $choice2))))
-(local.get $x)
-```
-
-Why Binaryen keeps the get:
-
-- the two choices are different current values
-- the merge is not single-valued enough for exact substitution
-- preserving the real `local.get` is safer than picking one branch's representative
-
-## Shape 13: this pass does **not** eliminate `global.set` / memory stores / `struct.set`
-
-Before and after stay the same for the relevant operation families:
-
-```wat
-(global.set $g
-  (i32.const 1))
-(i32.store
-  (i32.const 0)
-  (i32.const 1))
-(struct.set $S 0
-  (local.get $obj)
-  (i32.const 1))
-```
+The important output is not necessarily a visible syntactic rewrite.
+The pass can refine the value-numbering fact for `local.get $x` when the remembered expression has a subtype of the get's declared type.
 
 Why it matters:
 
-- the pass name is broad
-- the implementation is not
-- `RedundantSetElimination.cpp` only implements local traffic cleanup in `version_129`
+- later value-number comparisons can be more precise;
+- GC/ref-type validation stays sound;
+- this is why Binaryen has a dedicated `rse-gc.wast` test surface.
 
-## What nearby passes do with the new shape
+## Shape 8: globals, memory stores, and field stores are non-goals
 
-`rse` is deliberately almost the last local cleanup pass.
+These are outside `version_129` `rse`:
 
-### Unlock family 1: final `vacuum`
+```wat
+(global.set $g (i32.const 1))
+(i32.store (i32.const 0) (i32.const 1))
+(struct.set $T 0 (local.get $obj) (i32.const 1))
+(array.set $A (local.get $arr) (i32.const 0) (i32.const 1))
+```
 
-After `rse` turns redundant stores into `drop(value)` or raw values, final `vacuum` removes tiny leftovers.
+Do not expect this pass to remove them.
+If future Starshine work handles those shapes, document it as a Starshine-local extension or a different Binaryen-pass port.
 
-### Unlock family 2: earlier local cleanup passes expose `rse` candidates
+## Shape 9: `rse -> vacuum` handoff
 
-Earlier passes such as:
+Before `vacuum`:
 
-- `coalesce-locals`
-- `local-cse`
-- `simplify-locals`
-- late `precompute`
-- late `optimize-instructions`
-- late `heap-store-optimization`
+```wat
+(local.set $x (i32.const 1))
+(drop (i32.const 1))
+```
 
-make it easier for `rse` to see repeated current values and dead copied locals.
+After a later cleanup, conceptually:
 
-### Unlock family 3: nested optimizing reruns matter too
+```wat
+(local.set $x (i32.const 1))
+```
 
-Because `dae-optimizing` and `inlining-optimizing` rerun the default function cleanup pipeline, `rse` is also a post-change cleanup tool in those nested lanes, not just in the top-level late slot.
+Why this matters:
 
-## A simple rule of thumb
+- `rse` may intentionally leave `drop` wrappers;
+- the late pipeline expects `vacuum` to clean unused pure results;
+- direct `--rse` output and `--rse --vacuum` output can differ.
 
-When you look at a possible `rse` candidate, ask these questions in order:
+## Porting checklist from the shapes
 
-1. Is this really local traffic, or am I accidentally asking `rse` to optimize some other instruction family?
-2. Does Binaryen know one exact current value for the local here?
-3. If not, did predecessor disagreement already collapse us to merged values?
-4. If a later `local.get` exists, can it be rewritten directly?
-5. Does the current expression still fit the use site's static type?
-6. Did control flow hit a non-linear barrier or a loop precision boundary?
+A faithful Starshine shape suite should include:
 
-If the answer to `2`, `4`, `5`, or `6` is wrong for the transformation, expect Binaryen to keep the local traffic.
-
-## Source strength note
-
-- The positive and negative shapes above come directly from Binaryen's shipped `rse` tests plus the `version_129` implementation.
-- The scheduler-interaction notes are derived from the official `pass.cpp` order and the nested rerun helper in `opt-utils.h`.
-
-## Sources
-
-- [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md)
-- [`../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md`](../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0114-2026-04-20-rse-binaryen-research.md`](../../../raw/research/0114-2026-04-20-rse-binaryen-research.md)
-- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>
-- Binaryen `version_129` pass tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/rse_all-features.wast>
-- Binaryen `version_129` pass output: <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/rse_all-features.txt>
-- Binaryen `version_129` GC lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/rse-gc.wast>
-- Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- same-value `local.set` positive;
+- same-value `local.tee` positive;
+- RHS trap/effect preservation;
+- different-value overwritten-write negative;
+- call/control barrier negative;
+- GC/refinement local-get coverage;
+- late `rse -> vacuum` debris cleanup proof.

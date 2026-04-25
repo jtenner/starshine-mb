@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | correct `rse` strategy overread
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose `rse` because the living dossier was complete-looking but still taught an over-broad LocalGraph/liveness/dataflow strategy for Binaryen `version_129`.
+- Added `docs/wiki/raw/binaryen/2026-04-25-rse-source-correction.md` and `docs/wiki/raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md`, capturing the corrected primary-source contract: `RedundantSetElimination.cpp` is a small `PostWalker` with one value-number slot per local, same-value `local.set` / `local.tee` shell removal, `local.get` type refinement, conservative fact clearing, refinalization, and nested `vacuum`.
+- Refreshed the `rse` overview, Binaryen strategy, value/barrier guide, WAT-shape catalog, and Starshine strategy; added `docs/wiki/binaryen/passes/rse/implementation-structure-and-tests.md`; and marked older notes `0114` and `0259` partially superseded for the over-broad strategy interpretation while preserving them as provenance.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `agent-todo.md` so future work plans no longer start from stale overwritten-write, globals, GC-field-write, liveness, or predecessor-merge expectations.
+
 ## [2026-04-25] research | recheck `untee` current-main freshness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose removed local registry pass `untee` because the dossier was otherwise complete but still carried stale “2026-04-21 drift check” wording in pages reviewed on 2026-04-23.

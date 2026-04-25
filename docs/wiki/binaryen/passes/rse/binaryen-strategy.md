@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-rse-source-correction.md
+  - ../../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
   - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
   - ../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0114-2026-04-20-rse-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./cfg-and-value-tracking.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -18,388 +20,156 @@ related:
 
 ## Upstream source rule
 
-Use the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md) as the provenance anchor for this page.
-The reviewed official Binaryen `version_129` release page was rechecked on 2026-04-22 and showed publish date **2026-04-01**.
-A narrow 2026-04-22 spot check against current `main` did not surface a new teaching-relevant contract drift beyond the claims below.
-
-- Use Binaryen `version_129` as the current source oracle for this pass.
-- The core implementation is `src/passes/RedundantSetElimination.cpp`.
-- Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
-- The key helper contracts come from:
-  - `src/ir/local-graph.h`
-  - `src/ir/liveness.h`
-  - `src/ir/numbering.h`
-  - `src/ir/properties.h`
-- The shipped behavior examples come from:
-  - `test/passes/rse_all-features.wast`
-  - `test/passes/rse_all-features.txt`
-  - `test/lit/passes/rse-gc.wast`
+Use [`../../../raw/binaryen/2026-04-25-rse-source-correction.md`](../../../raw/binaryen/2026-04-25-rse-source-correction.md) as the current provenance anchor.
+It re-read official Binaryen `version_129` plus current `main` on 2026-04-25 and corrects the older `rse` dossier's over-broad dataflow interpretation.
 
 Primary source URLs:
 
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/liveness.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/numbering.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/rse_all-features.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/rse_all-features.txt>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/rse-gc.wast>
+- `RedundantSetElimination.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>
+- `pass.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- `passes.h`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
+- `opt-utils.h`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
+- `numbering.h`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/numbering.h>
+- `properties.h`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
+- `rse_all-features.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/rse_all-features.wast>
+- `rse-gc.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/rse-gc.wast>
 
 ## High-level intent
 
-Binaryen uses `rse` to remove redundant local traffic.
+Binaryen uses `rse` to remove repeated writes of a local to a value the pass already knows that local holds.
+The implementation is intentionally small:
 
-That sentence is true but incomplete.
+- a `PostWalker` visits function expressions;
+- the pass tracks one remembered value number per local;
+- `ValueNumbering` decides whether two RHS expressions are the same value;
+- the walker clears remembered facts at boundaries that could make a straight-line local fact unsafe;
+- after rewriting, Binaryen refinalizes the function and runs `vacuum` as a follow-up cleanup.
 
-The real `version_129` pass is a hybrid of:
-
-- local-set redundancy elimination
-- local-get replacement
-- copied-local value propagation
-- basic-block predecessor merging
-- liveness-backed dead-store checks
-- type-aware current-expression refinement
-
-The name sounds like a generic write-elimination pass.
-
-The implementation is narrower:
-
-- it is about **locals**
-- it is intentionally conservative around non-linear control flow
-- it explicitly avoids loop precision with the current block-input model
+This is narrower than the old local wiki wording.
+`rse` in `version_129` is **not** a LocalGraph/liveness algorithm and it does not prove that overwritten different-value writes are dead.
 
 ## The pass in one table
 
-| Phase | What Binaryen does | Why it exists |
+| Step | What Binaryen does | Why |
 | --- | --- | --- |
-| Build local graph | Compute per-basic-block local get/set relations and fallthrough info | Turn “is this set still needed?” into a real graph question |
-| Seed local state | Give parameters initial value numbers plus self-influence markers | Treat entry values like tracked local sources |
-| Merge block inputs | Combine predecessor knowledge into exact value, merged values, or unseen | Preserve precision only when predecessors really agree |
-| Walk linearly | Track current local values through straight-line code | Enable redundant set/get decisions |
-| Rewrite sets | Delete same-value or never-needed `local.set` / `local.tee` | Shrink local traffic without losing RHS effects |
-| Rewrite gets | Replace some `local.get`s with the current expression/local/zero | Make earlier sets dead and keep current values more precise |
-| Invalidate stale influences | Remove obsolete set->get relations as rewrites happen | Expose more dead sets later in the same walk |
-| Refinalize + vacuum | Repair types and clean tiny leftovers | Keep valid IR and a tidy final shape |
+| Initialize state | Create one `Value*` slot per local, all empty | Remember the current value only when it is safe |
+| Visit ordinary expressions | Let the walker and value-numbering engine see child expressions first | Later set/get decisions can reuse numbered values |
+| Visit `local.get` | If a remembered value exists and its type is a subtype of the get type, refine the value-numbering result for the get | Preserve a more precise known type without changing syntax directly |
+| Visit `local.set` / `local.tee` | Compare the RHS value number with the remembered value for the target local | Same-value writes are redundant |
+| Rewrite redundant set/tee | Replace `local.set` with `drop(value)` when needed; replace `local.tee` with `value` | Preserve RHS effects/results while deleting only the local write |
+| Clear facts | Clear one local or all locals at control/effect/local-state barriers | Avoid carrying straight-line facts across unsafe boundaries |
+| Finalize | Refinalize, then schedule `vacuum` afterward | Keep valid typed IR and clean debris |
 
-## Phase 1: `rse` is locals-only in `version_129`
+## Core state: one value-number slot per local
 
-The most important scope fact comes straight from the implementation surface.
+The corrected source-backed model is simple.
+For each local, Binaryen stores either:
 
-`RedundantSetElimination.cpp` visits and tracks:
+- no trusted value, or
+- a pointer to the current `ValueNumbering::Value` for that local.
 
-- `LocalSet`
-- `LocalGet`
+There is no predecessor lattice, no set-history set, no liveness map, and no local graph in this pass.
+If the pass cannot trust the straight-line fact, it forgets it.
 
-And its analysis dependencies are local-specific:
+## `visitLocalGet`: type refinement, not direct local-get rewriting
 
-- `LocalGraph`
-- `Liveness`
+When the walker sees a `local.get`, it checks whether there is a remembered value for that local.
+If there is, and the remembered expression type is a subtype of the `local.get` type, Binaryen tells value numbering to treat this get as the known value with the more precise type.
 
-There is no pass-local visitor for:
+Important consequences:
 
-- `GlobalSet`
-- memory stores
-- `StructSet`
-- `ArraySet`
+- the `local.get` expression is not replaced by a copied syntax tree here;
+- the value-numbering fact can still make later same-value `local.set` checks succeed;
+- the GC/ref-type behavior belongs here because refined expressions can carry narrower reference types.
 
-So a faithful description is:
+## `visitLocalSet`: the only removal rule
 
-- `rse` is Binaryen's late **local** redundancy cleanup pass
+For `local.set` and `local.tee`, Binaryen value-numbers the RHS.
+Then it compares that value number with the remembered current value for the same local.
 
-not:
+If they match, the write is redundant.
+If they do not match, Binaryen remembers the new RHS value number for that local.
 
-- “remove all redundant sets everywhere.”
+### Plain `local.set`
 
-This is the first thing a Starshine port should preserve honestly.
+A plain `local.set` has no result.
+When Binaryen removes the set shell, it still preserves the RHS evaluation.
+If the RHS has a value type, the replacement is wrapped in `drop`.
 
-## Phase 2: current values are tracked on a tiny lattice
-
-Each local index has a `LocalInfo` record with:
-
-- `curr`
-  - the pass's best current-value knowledge
-- `setses`
-  - which sets or entry/self values still influence that current value
-
-The value side is a three-state lattice:
-
-| State | Meaning |
-| --- | --- |
-| `Unseen` | no exact current value is trusted here |
-| exact `Value` | all known paths agree on one numbered value |
-| `MergedValues` | predecessors disagree, so only a set of possible values remains |
-
-That lattice is tiny on purpose.
-
-Binaryen would rather lose precision than claim more CFG knowledge than it really proved.
-
-## Phase 3: value numbering makes “same value” semantic, not textual
-
-The pass uses `ValueNumbering` to compare values.
-
-It also supplies a `FlexibleValues` callback so that if the implementation already knows the exact current value of a local, then a `local.get` can be value-numbered as that current value instead of as just “some get.”
-
-Practical consequences:
-
-- repeated pure values can count as the same current local value
-- copied locals can inherit exact value identity
-- refined GC expressions can still count as the same semantic value when appropriate
-
-So “same value” in `rse` means:
-
-- same value number under the current flexible-local environment
-
-not merely:
-
-- same syntax text
-
-## Phase 4: block entry merges are where CFG precision is won or lost
-
-Before visiting a basic block, the pass merges predecessor information.
-
-For one local index, the merge rule is:
-
-- if all predecessors provide the same exact value, keep that exact value
-- if predecessors provide different values, record `MergedValues`
-- if there is no usable predecessor knowledge, keep `Unseen`
-
-This is the core CFG boundary.
-
-The pass still merges the influencing set history even when exact value knowledge collapses.
-
-That asymmetry is important:
-
-- exact substitution needs one exact value
-- dead-set reasoning can still benefit from “these are the possible incoming sets”
-
-## Phase 5: copied locals inherit both value and history
-
-If Binaryen sees:
+Conceptual rewrite:
 
 ```wat
-(local.set $y
-  (local.get $x))
+(local.set $x VALUE) ;; where $x already holds VALUE
 ```
 
-it does not treat `$y` as merely holding the syntax `local.get $x`.
+becomes:
 
-Instead it lets `$y` inherit:
+```wat
+(drop VALUE)
+```
 
-- `$x`'s current value state
-- `$x`'s influencing set history
+when `VALUE` produces a result.
 
-That means later reads of `$y` and later dead-set checks on `$y` can be as precise as the knowledge Binaryen already had for `$x`.
+### `local.tee`
 
-This copied-local inheritance is one of the easiest things to accidentally omit in a simpler port.
+A `local.tee` returns its RHS value.
+When the write is redundant, Binaryen replaces the tee with the RHS value itself.
 
-## Phase 6: redundant set elimination has two main entry points
+Conceptual rewrite:
 
-## Family 1: same-value set
+```wat
+(local.tee $x VALUE) ;; where $x already holds VALUE
+```
 
-If a `local.set` writes the value the local already holds, the set is redundant.
+becomes:
 
-Rewrite shape:
+```wat
+VALUE
+```
 
-- `local.set` -> `drop(value)`
-- `local.tee` -> `value`
+## Conservative invalidation is the control-flow strategy
 
-This preserves any RHS work while deleting the local write.
+The pass does not merge facts through diamonds or loops.
+It clears facts.
 
-## Family 2: never-needed set
+The source has two kinds of clearing:
 
-If liveness and fallthrough analysis say the stored local value is never needed by any future non-rewriteable read, then the set is redundant even if the new value differs from the old one.
+- `clearLocal(local)`: forget one local's value after a barrier that may change or invalidate that local;
+- `clearAllLocals()`: forget every local after broader control/effect boundaries.
 
-This is where the pass becomes more interesting than a plain same-value peephole.
+The clear-all family includes many forms of non-linear control, calls, memory/table/atomic/GC interactions, `pop`, continuation-related forms, and other expression classes where keeping a single straight-line fact would be unsound or too expensive.
 
-## Phase 7: same-block reads can be rewritten, so they do not always keep a set alive
+That is the real Binaryen strategy: stay small and forgetful.
 
-The helper `isNeverRead(...)` is subtle.
+## Scheduler placement
 
-A later read inside the same basic block does **not** automatically force the set to stay.
+`rse` appears late in the no-DWARF function cleanup path, after many local and structural simplifications have already run.
+Binaryen's scheduler then runs `vacuum` after `rse`.
 
-If all influenced gets are in the same block and the set does not influence the block's fallthrough value, Binaryen can remove the set because those same-block gets can be replaced directly.
+That order is meaningful:
 
-This is a major implementation fact.
+- earlier passes expose repeated same-value local writes;
+- `rse` removes the redundant set/tee shells;
+- `vacuum` removes pure `drop` debris that is now obviously unused.
 
-It means the pass is really doing two coordinated things:
+## What the pass explicitly is not
 
-- delete redundant sets
-- rewrite redundant gets
+The corrected source read means future docs and ports should avoid these claims unless a newer upstream version or Starshine-local design changes scope:
 
-If you only implement the first half, you will miss real upstream behavior.
+- not global-set elimination;
+- not memory-store elimination;
+- not `struct.set` / `array.set` elimination;
+- not LocalGraph/liveness dead-store elimination;
+- not copied-local inheritance;
+- not same-block read rewriting;
+- not exact-vs-merged predecessor dataflow;
+- not general overwritten-write deletion.
 
-## Phase 8: `noteExpression(...)` is where current-value refinement happens
+## Validation surface
 
-The pass watches ordinary expressions too.
+Use the official tests as source-backed examples:
 
-If an expression's value number matches the exact current value of some local, Binaryen may record that expression as the better current representative for that local.
+- `test/passes/rse_all-features.wast` and expected output cover the ordinary same-value local cases and barrier behavior.
+- `test/lit/passes/rse-gc.wast` covers the reference-type refinement side.
 
-This matters because a later `local.get` replacement should use the **best current expression**, not just an arbitrary earlier one.
-
-For GC locals, this is how more refined expressions like `ref.cast` or `ref.as_non_null` can become the preferred current representative.
-
-## Phase 9: `replaceLoadCurr(...)` is the type-aware local-get rewrite gate
-
-When Binaryen decides a `local.get` can be replaced with the current value, it still checks static type compatibility.
-
-If the current representative expression has a subtype that fits the `local.get` type, Binaryen substitutes that expression.
-
-Otherwise, when the type admits it, the helper path can materialize a zero literal of the requested type.
-
-Two important takeaways:
-
-- this is not a blind substitution pass
-- the GC/ref-type story is tied to type assignability
-
-The shipped `rse-gc.wast` tests exist largely to keep this replacement logic honest.
-
-## Phase 10: non-linear control-flow barriers deliberately wipe precision
-
-After branches and control-flow structures, `noteNonLinear()` clears current local-value knowledge.
-
-This means exact straight-line reasoning is intentionally local.
-
-A beginner-friendly way to think about it is:
-
-- `rse` trusts what it learned on the current linear path
-- once control can split or rejoin in a hard-to-model way, it forgets the exact linear cache and falls back to more conservative block-entry reasoning
-
-This is why the pass stays much simpler than a full SSA optimizer.
-
-## Phase 11: loops are a deliberate conservative bailout
-
-The source comment explicitly says there is no point optimizing loops here with the current `LocalGraph` block-input model because the inputs are wrong in loops.
-
-That means upstream `version_129` prefers:
-
-- leaving some loop redundancies unfixed
-
-instead of:
-
-- risking unsound cross-backedge substitutions
-
-A faithful port should either preserve this loop boundary first or replace it with a provably better loop-aware model.
-
-## Phase 12: liveness/influence invalidation is part of the algorithm, not cleanup fluff
-
-The pass updates the local-graph/liveness story as it rewrites.
-
-Key helpers include:
-
-- `invalidateSetGetPairs(...)`
-- `unneededLoad(...)`
-- `fixPredecessorValues(...)`
-
-The practical meaning is:
-
-- once Binaryen proves an older set no longer matters,
-- it removes stale influence edges,
-- which can make yet more sets look dead later in the same walk
-
-So the analysis is not purely read-only.
-
-The optimizer mutates its own bookkeeping as it goes.
-
-## Phase 13: GC support is about refined local values, not field stores
-
-The shipped GC lit tests show several exact behaviors worth preserving:
-
-- **positive**: prefer a current refined expression when it still fits the use type
-- **negative**: do not replace a local get with a more refined but non-assignable expression
-- **negative**: do not pretend different predecessor choices are one exact value
-- **negative**: do not over-refine through loop-target shapes
-
-This is the easiest place to overstate the pass.
-
-The real GC contract is:
-
-- type-aware local substitution
-
-not:
-
-- “GC field write elimination.”
-
-## Phase 14: the pass refinalizes and vacuums immediately after changes
-
-After a changed function walk, Binaryen runs:
-
-- `ReFinalize().walkFunctionInModule(...)`
-- `vacuum.runOnFunction(...)`
-
-That tells us two things:
-
-- the pass expects its local rewrites to perturb types and structure enough that repair is mandatory
-- the pass also expects tiny cleanup debris and intentionally relies on `vacuum` to remove it
-
-This is why the scheduler still keeps another late top-level `vacuum` after `rse`.
-
-## Scheduler placement is part of the meaning
-
-In `pass.cpp`, Binaryen places `rse` late in the default function optimization pipeline:
-
-- after `coalesce-locals` / `local-cse` / `simplify-locals`
-- after late `code-folding`, `merge-blocks`, `remove-unused-brs`, and `remove-unused-names`
-- after late `precompute(-propagate)`, `optimize-instructions`, and `heap-store-optimization`
-- before the final `vacuum`
-
-That placement is a design clue.
-
-By the time `rse` runs:
-
-- locals have already been structurally simplified
-- shared values and copied locals are easier to see
-- pure value cleanup has already exposed more obvious same-value traffic
-- one final cleanup pass is still available after `rse` finishes
-
-This is why a future Starshine implementation should resist the temptation to wire `rse` too early.
-
-## What the pass does **not** do
-
-A future port should avoid silently broadening the pass beyond upstream behavior.
-
-`rse` in Binaryen `version_129` does **not**:
-
-- eliminate `global.set`
-- eliminate memory stores
-- eliminate `struct.set` or `array.set`
-- solve full SSA or arbitrary phi reasoning
-- optimize loops with the current implementation
-- keep exact value knowledge through every non-linear control-flow boundary
-- promise one canonical best expression after multi-way predecessor disagreement
-
-The real contract is smaller, more local, and more conservative than the name suggests.
-
-## The most important porting lessons
-
-If Starshine ports `rse`, preserve these facts first:
-
-1. locals-only scope
-2. exact scheduler slot and nested rerun presence
-3. copied-local inheritance of both value and influence history
-4. same-block local-get rewriting as part of dead-set elimination
-5. the `Unseen` / exact value / merged-values lattice
-6. non-linear barriers that wipe exact current-value knowledge
-7. explicit loop conservatism unless a stronger proof-backed model exists
-8. type-aware refined-expression replacement for GC locals
-9. refinalization and vacuum cleanup after local rewrites
-
-Those are the durable upstream truths.
-
-## Sources
-
-- [`../../../raw/binaryen/2026-04-22-rse-primary-sources.md`](../../../raw/binaryen/2026-04-22-rse-primary-sources.md)
-- [`../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md`](../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0114-2026-04-20-rse-binaryen-research.md`](../../../raw/research/0114-2026-04-20-rse-binaryen-research.md)
-- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>
-- Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- Binaryen `version_129` after-inlining helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-- Binaryen `version_129` local graph helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-graph.h>
-- Binaryen `version_129` liveness helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/liveness.h>
-- Binaryen `version_129` value numbering helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/numbering.h>
-- Binaryen `version_129` properties helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
-- Binaryen `version_129` pass tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/rse_all-features.wast>
-- Binaryen `version_129` pass output: <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/rse_all-features.txt>
-- Binaryen `version_129` GC lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/rse-gc.wast>
+For Starshine parity, direct `--rse` comparisons should be followed by `--rse --vacuum` or the late no-DWARF tail because Binaryen expects `vacuum` to clean after this pass.

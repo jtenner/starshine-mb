@@ -1,5 +1,9 @@
 # 0114 - `rse` / `redundant-set-elimination` Binaryen research
 
+## 2026-04-25 partial supersession
+
+[`0348-2026-04-25-rse-source-correction-and-starshine-followup.md`](0348-2026-04-25-rse-source-correction-and-starshine-followup.md) supersedes this note's algorithm interpretation where it teaches Binaryen `version_129` `rse` as LocalGraph/liveness/dataflow, copied-local inheritance, same-block read rewriting, predecessor merging, or broad overwritten-write deletion. This note remains useful historical provenance for why the `rse` dossier was created.
+
 ## Status
 
 - Date: 2026-04-20

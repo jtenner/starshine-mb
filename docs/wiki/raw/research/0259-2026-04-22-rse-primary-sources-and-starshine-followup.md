@@ -1,7 +1,9 @@
 ---
 kind: research
-status: supported
-last_reviewed: 2026-04-22
+status: partially_superseded
+last_reviewed: 2026-04-25
+superseded_by:
+  - ./0348-2026-04-25-rse-source-correction-and-starshine-followup.md
 sources:
   - ../binaryen/2026-04-22-rse-primary-sources.md
   - ../../binaryen/passes/rse/index.md
@@ -19,6 +21,10 @@ sources:
 ---
 
 # `rse` primary-source and Starshine follow-up
+
+## 2026-04-25 partial supersession
+
+[`0348-2026-04-25-rse-source-correction-and-starshine-followup.md`](0348-2026-04-25-rse-source-correction-and-starshine-followup.md) supersedes this note's algorithm interpretation where it describes Binaryen `version_129` `rse` as LocalGraph/liveness/dataflow, copied-local inheritance, same-block read rewriting, predecessor merging, or broad overwritten-write deletion. This note remains useful for folder provenance, local status at the time, and the raw-source ingest trail.
 
 ## Why this follow-up exists
 

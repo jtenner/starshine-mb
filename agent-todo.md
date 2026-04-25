@@ -474,14 +474,15 @@ Observed unique-pass order
 
 #### RSE - Redundant Set Elimination
 1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L278](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L278)
+   - Current source-corrected dossier: [rse/index.md](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/passes/rse/index.md)
+   - Source correction: [0348](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [RSE]001 - Redundant Write Detection - Port the late-pipeline write-elimination logic that removes provably redundant sets after coalescing and peephole cleanup.
-     - Deliverables: identify overwritten sets with no intervening observable read; preserve traps and side effects; integrate with current liveness and effects helpers.
-     - Doc: [0066#L278](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L278)
-   - [RSE]002 - Final-Cleanup Regression and Artifact Proof - Add focused set-elimination regressions and confirm the pass output matches Binaryen before the final `vacuum`.
-     - Deliverables: cover locals, globals, and GC field writes where applicable; verify scheduler order with the final cleanup slot; compare `--rse` output against Binaryen on the artifact.
-     - Doc: [0066#L278](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L278)
+   - [RSE]001 - Same-Value Local Set/Tee Elimination - Port Binaryen's late `redundant-set-elimination` baseline: one current value identity per local, same-value `local.set` shell removal, same-value `local.tee` shell removal, RHS effect/trap preservation, and conservative barrier clearing.
+     - Deliverables: focused positives for repeated same-value sets/tees; negatives for different overwritten writes; call/control/effect barrier tests; registry and hot-pass dispatcher wiring.
+     - Doc: [rse/binaryen-strategy.md](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/passes/rse/binaryen-strategy.md)
+   - [RSE]002 - GC Refinement And Final-Cleanup Proof - Add the local-get reference-type refinement coverage and prove direct `--rse` plus late `rse -> vacuum` output matches Binaryen.
+     - Deliverables: `rse-gc.wast`-style type-refinement tests; direct compare-pass parity; final cleanup slot replay on the artifact; explicit non-goals for globals, memory stores, and GC field writes.
+     - Doc: [rse/wat-shapes.md](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/passes/rse/wat-shapes.md)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
