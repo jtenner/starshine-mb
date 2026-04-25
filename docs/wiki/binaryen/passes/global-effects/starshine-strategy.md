@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
@@ -19,6 +20,7 @@ related:
   - ./binaryen-strategy.md
   - ./metadata-naming-and-consumers.md
   - ./wat-shapes.md
+  - ../discard-global-effects/starshine-strategy.md
   - ../simplify-locals/index.md
   - ../heap-store-optimization/index.md
   - ../vacuum/index.md
@@ -140,12 +142,13 @@ Until a module-level implementation exists, do not claim that Starshine:
 
 - computes Binaryen-compatible `Function.effects` metadata
 - makes later calls less conservative using interprocedural global summaries
-- implements upstream `discard-global-effects`
+- implements upstream [`discard-global-effects`](../discard-global-effects/starshine-strategy.md)
 - includes `global-effects` in `optimize` or `shrink` presets
 - has a dedicated active backlog slice for this pass
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
@@ -11,6 +12,7 @@ related:
   - ./metadata-naming-and-consumers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ../discard-global-effects/index.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
 ---
@@ -35,7 +37,7 @@ It is â€œteach the optimizer more precise global read/write facts across calls.â
 
 ## Scheduler placement
 
-`src/passes/pass.cpp` registers `generate-global-effects` and also registers the sibling cleanup pass `discard-global-effects`.
+`src/passes/pass.cpp` registers `generate-global-effects` and also registers the sibling cleanup pass [`discard-global-effects`](../discard-global-effects/index.md).
 The same registration block contains a direct policy note:
 
 - Binaryen does **not** run `generate-global-effects` in the default optimize pipeline today.
@@ -114,7 +116,7 @@ This is why the pass itself often leaves the printed WAT unchanged:
 - it is changing module metadata
 - not the visible body structure
 
-That also explains why the sibling `discard-global-effects` pass exists: upstream Binaryen treats this metadata as explicit state that may need to be cleared when it becomes stale or unnecessary.
+That also explains why the sibling [`discard-global-effects`](../discard-global-effects/index.md) pass exists: upstream Binaryen treats this metadata as explicit state that may need to be cleared when it becomes stale or unnecessary.
 
 ## How later passes consume the result
 
@@ -221,6 +223,8 @@ The reviewed upstream test `vacuum-global-effects.wast` proves the other importa
 This sibling pass matters conceptually even if the current dossier is about the producer.
 It is explicit evidence that Binaryen models global-effect summaries as managed pass-state, not as ambient forever-valid truth.
 
+The cleanup sibling now has its own dossier at [`../discard-global-effects/index.md`](../discard-global-effects/index.md). Keep the producer and cleanup contracts separate: `generate-global-effects` writes summaries; `discard-global-effects` clears them.
+
 ## What a future Starshine port must preserve
 
 A faithful port should preserve:
@@ -236,6 +240,7 @@ If Starshine ever ports this and accidentally turns it into a direct code-rewrit
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)

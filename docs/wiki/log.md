@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | add `discard-global-effects` lifecycle dossier
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/global-effects/`, and `docs/wiki/raw/research/`, then chose upstream `discard-global-effects` because the producer-side `global-effects` dossier repeatedly mentioned the cleanup sibling but the pass still lacked its own canonical overview, metadata-shape, Binaryen strategy, and Starshine status pages.
+- Added `docs/wiki/raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`, capturing official Binaryen `version_129` and current-main sources for `GlobalEffects.cpp` and `pass.cpp`, plus `wasm.h`, `effects.h`, and the Optimizer Cookbook lifecycle rule for effect-adding passes. The source check found no teaching-relevant cleanup-sibling drift: `discard-global-effects` remains a public metadata cleanup pass that clears per-function global-effect summaries rather than rewriting Wasm bodies.
+- Added `docs/wiki/raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md` plus `docs/wiki/binaryen/passes/discard-global-effects/`, covering purpose, invariants, metadata states, validation guidance, upstream implementation strategy, no-dedicated-lit-file caveat, and current Starshine status.
+- Refreshed the neighboring `global-effects` overview, Binaryen strategy, naming/consumer guide, and Starshine strategy so the producer and cleanup sibling no longer duplicate each other. Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; grounded local status in `src/passes/optimize.mbt:128-142`, `src/passes/optimize.mbt:455-473`, `src/ir/effects.mbt:5-279`, `src/ir/analysis_cache.mbt:34`, `src/ir/analysis_cache.mbt:70-81`, `src/ir/analysis_cache.mbt:217-227`, `src/passes/pass_common.mbt:212-234`, and `src/passes/pass_manager.mbt:8717-8720`.
+
 ## [2026-04-25] research | refresh `coalesce-locals` source/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose removed local pass `coalesce-locals` because its dossier had overview, strategy, shapes, and Starshine status coverage but still lacked the source-confirmed implementation/test-map page now standard for neighboring pass folders.

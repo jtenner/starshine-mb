@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
@@ -22,6 +23,7 @@ related:
   - ./metadata-naming-and-consumers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ../discard-global-effects/index.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
   - ../tracker.md
@@ -36,6 +38,7 @@ related:
 - It is a real public upstream pass in Binaryen `version_129`, but it is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` default top-level path.
 - Its job is to compute per-function global-effect summaries that later passes can consult across calls.
 - The 2026-04-24 source capture adds an immutable primary-source manifest, records a current-`main` propagation refactor, and makes the stale upstream comment-vs-implementation wording explicit: the implementation writes per-function `Function.effects`, even though an owner-file header phrase still says `PassOptions`.
+- The 2026-04-25 follow-up gives the cleanup sibling [`../discard-global-effects/index.md`](../discard-global-effects/index.md) its own canonical home, so this page can focus on producing summaries while the sibling page covers clearing stale summaries.
 
 ## Why this pass matters
 
@@ -90,10 +93,12 @@ So the pass is best taught as:
 - Keep the naming split explicit:
   - local registry: `global-effects`
   - upstream public pass: `generate-global-effects`
+  - upstream cleanup sibling: [`discard-global-effects`](../discard-global-effects/index.md)
 - Keep the scheduler fact explicit too: this is a real pass, but not part of the current no-DWARF default optimize path.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)

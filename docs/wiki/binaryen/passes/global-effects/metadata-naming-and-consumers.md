@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
@@ -11,6 +12,7 @@ related:
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ../discard-global-effects/index.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
 ---
@@ -48,7 +50,7 @@ That is why this folder exists at all:
 
 ## Why `discard-global-effects` exists
 
-The existence of `discard-global-effects` is a quiet but important clue about Binaryen's design.
+The existence of [`../discard-global-effects/index.md`](../discard-global-effects/index.md) is a quiet but important clue about Binaryen's design.
 
 It means:
 
@@ -56,7 +58,7 @@ It means:
 - they are not treated as permanently valid ambient truth
 - later transforms may need to clear them if they become stale or if a pipeline no longer wants to rely on them
 
-So a future Starshine port should think about both production and lifecycle, not just production.
+So a future Starshine port should think about both production and lifecycle, not just production. Use the dedicated sibling page for the cleanup pass's own metadata-shape, Binaryen-strategy, and Starshine-status details.
 
 ## How later passes benefit
 
@@ -107,7 +109,7 @@ It is an interprocedural effect-summary producer.
 ### “Once the summaries exist, they are just always correct forever.”
 
 Wrong.
-The sibling `discard-global-effects` pass is explicit evidence that Binaryen treats summary lifecycle seriously.
+The sibling [`discard-global-effects`](../discard-global-effects/index.md) pass is explicit evidence that Binaryen treats summary lifecycle seriously.
 
 ### “This is obviously part of the default optimization path.”
 
@@ -126,6 +128,7 @@ Skipping any one of those will drift away from Binaryen's real contract.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
