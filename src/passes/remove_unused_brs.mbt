@@ -1389,12 +1389,31 @@ fn remove_unused_brs_expand_payload_children(
 }
 
 ///|
+fn remove_unused_brs_region_roots_are_void_context_safe(
+  func : @ir.HotFunc,
+  region_ref : @ir.HotRegionRef,
+) -> Bool {
+  for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
+    let root_id = @ir.hot_region_get(func, region_ref, idx)
+    if root_id >= 0 &&
+      @ir.hot_node_is_live(func, root_id) &&
+      @ir.hot_node_result_arity(func, root_id) != 0 {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn remove_unused_brs_build_tail_return_if_arm_body(
   func : @ir.HotFunc,
   arm_ref : @ir.HotRegionRef,
   return_arity : Int,
 ) -> Array[Int]? {
   if remove_unused_brs_tail_is_nonfallthrough(func, arm_ref) {
+    if !remove_unused_brs_region_roots_are_void_context_safe(func, arm_ref) {
+      return None
+    }
     return Some(remove_unused_brs_region_roots(func, arm_ref))
   }
   let (prefix, payload) = match

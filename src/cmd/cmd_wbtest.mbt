@@ -6052,6 +6052,61 @@ test "run_cmd_with_adapter keeps extracted generated O4z slot14 remove-unused-br
 
 ///|
 #cfg(target="native")
+test "run_cmd_with_adapter keeps extracted debug artifact func 2244 remove-unused-brs output wasm-tools-valid" {
+  let input_path = "tests/node/dist/starshine-debug-wasi.wasm"
+  let output_path = "out.wasm"
+  let wasm = match native_read_bytes(input_path) {
+    Some(bytes) => bytes
+    None => fail("expected checked-in artifact at \{input_path}")
+  }
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    file_exists=fn(path) { path == input_path },
+    list_candidates=fn() { [input_path] },
+    read_file=fn(path) {
+      if path == input_path {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      [
+        "--extract-functions=2244", "--remove-unused-brs", "--out", output_path,
+        input_path,
+      ],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) =>
+      fail(
+        "expected extracted debug artifact func 2244 remove-unused-brs replay success, got \{e}",
+      )
+  }
+  assert_eq(summary.input_files, [input_path])
+  assert_eq(summary.output_files, [output_path])
+  assert_eq(summary.resolved_passes, [
+    "extract-functions=2244", "remove-unused-brs",
+  ])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, output_path)
+  match native_validate_wasm_bytes_with_wasm_tools(writes[0].1) {
+    Ok(_) => ()
+    Err(err) =>
+      fail(
+        "expected extracted debug artifact func 2244 remove-unused-brs output to stay wasm-tools-valid, got \{err}",
+      )
+  }
+}
+
+///|
+#cfg(target="native")
 test "run_cmd_with_adapter keeps extracted generated O4z slot40 remove-unused-brs output wasm-tools-valid" {
   let input_path = ".artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/26-slot37-vacuum/binaryen.wasm"
   let output_path = "out.wasm"
