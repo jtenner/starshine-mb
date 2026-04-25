@@ -1,7 +1,7 @@
 ---
 kind: research
-status: supported
-last_reviewed: 2026-04-22
+status: superseded
+last_reviewed: 2026-04-25
 sources:
   - ../binaryen/2026-04-22-code-pushing-primary-sources.md
   - ../../binaryen/passes/code-pushing/index.md
@@ -16,9 +16,13 @@ sources:
   - ../../binaryen/passes/tuple-optimization/index.md
   - ../../binaryen/passes/precompute/index.md
   - ../../binaryen/passes/simplify-locals-nostructure/index.md
+superseded_by:
+  - ./0345-2026-04-25-code-pushing-source-correction-and-local-status.md
 ---
 
 # `code-pushing` primary-source and Starshine follow-up
+
+> Supersession note (2026-04-25): this note remains useful for historical provenance, but its upstream implementation interpretation and local-status description are superseded by [`0345-2026-04-25-code-pushing-source-correction-and-local-status.md`](./0345-2026-04-25-code-pushing-source-correction-and-local-status.md). Prefer the newer note for the corrected `visitBlock` / `optimizeIntoIf` / `canPushThrough` / `tryPush` strategy and current active Starshine HOT-pass status.
 
 ## Why this follow-up exists
 

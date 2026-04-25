@@ -1,14 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md
+  - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
   - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
-  - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
+  - ../../../../../src/passes/code_pushing_test.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./segment-selection-and-barriers.md
   - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
@@ -16,40 +18,85 @@ related:
 
 # `code-pushing` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen’s `code-pushing` pass.
+This page catalogs the shapes future readers should keep in mind after the 2026-04-25 source correction.
 
-## Read this page with one mental model
+## Mental model
 
-Binaryen is trying to make work more **path-local**.
+Binaryen `code-pushing` moves work later in a structured block when it can prove the move preserves execution and ordering.
 
-It is not asking:
+The two source-backed families to remember are:
 
-- “is this duplicate code?”
+1. one-unreachable-arm `if` sinking;
+2. local sibling-root pushing before a later use.
 
-It is asking:
+Do **not** use the older “duplicate a pure expression into both reachable arms” example as a Binaryen fact. That was a stale dossier overread.
 
-- “is this work currently done in a common prefix even though it is really only needed later inside some control-dependent region?”
-
-If yes, Binaryen may sink that work deeper.
-
-## Quick glossary
-
-- **common prefix**: code that runs before control flow splits
-- **candidate suffix**: the tail of that prefix Binaryen is currently considering moving
-- **separator**: the following `if` or branchy structure that might receive the moved suffix
-- **target segment**: a specific downstream region that would get a cloned copy of the suffix
-- **one-arm case**: only one reachable destination needs the value
-- **two-arm case**: two reachable `if` arms need the value
-
-## Shape 1: pure arithmetic used only in both `if` arms can sink into both arms
+## Shape 1: one unreachable `if` arm lets work move into the reachable arm
 
 Conceptual before:
 
 ```wat
-(local.set $tmp
-  (i32.add
-    (local.get $x)
-    (i32.const 1)))
+(block
+  (local.set $tmp (i32.const 7))
+  (if
+    (local.get $cond)
+    (then
+      (unreachable))
+    (else
+      (drop (local.get $tmp)))))
+```
+
+Conceptual after:
+
+```wat
+(block
+  (if
+    (local.get $cond)
+    (then
+      (unreachable))
+    (else
+      (local.set $tmp (i32.const 7))
+      (drop (local.get $tmp)))))
+```
+
+Why it can move:
+
+- only the `else` arm can continue,
+- the moved work still executes exactly on the continuing path,
+- and the moved roots pass the `canPushThrough(...)` safety check.
+
+## Shape 2: local sibling-root movement before a later use
+
+Conceptual before:
+
+```wat
+(block
+  (local.set $tmp (i32.const 1))
+  (drop (i32.const 0))
+  (drop (local.get $tmp)))
+```
+
+Conceptual after, in spirit:
+
+```wat
+(block
+  (drop (i32.const 0))
+  (local.set $tmp (i32.const 1))
+  (drop (local.get $tmp)))
+```
+
+Why it can move:
+
+- the later root uses the earlier expression,
+- every intervening root is safe to cross,
+- and the move is local to the same block root list.
+
+## Shape 3: both reachable `if` arms using a value is not a guaranteed Binaryen push
+
+Before and after should be assumed unchanged unless a source/test proves the exact case:
+
+```wat
+(local.set $tmp (i32.const 7))
 (if
   (local.get $cond)
   (then
@@ -58,172 +105,13 @@ Conceptual before:
     (drop (local.get $tmp))))
 ```
 
-Conceptual after:
+The stale page claimed Binaryen could generally duplicate the `local.set` into both arms.
+The corrected source-backed rule is: the reviewed `optimizeIntoIf(...)` path is centered on the one-unreachable-arm case, not general two-live-arm duplication.
+
+## Shape 4: value still used after the separator should not move into only one arm
 
 ```wat
-(if
-  (local.get $cond)
-  (then
-    (drop
-      (i32.add
-        (local.get $x)
-        (i32.const 1))))
-  (else
-    (drop
-      (i32.add
-        (local.get $x)
-        (i32.const 1)))))
-```
-
-Why it can sink:
-
-- the value is only needed inside the arms
-- the segment is pure enough for the strict two-arm `if` rules
-- duplicating it makes the work path-local
-
-## Shape 2: pure work used in only one arm can sink into only that arm
-
-Conceptual before:
-
-```wat
-(local.set $tmp
-  (i32.mul
-    (local.get $x)
-    (i32.const 8)))
-(if
-  (local.get $cond)
-  (then
-    (drop (local.get $tmp)))
-  (else
-    (nop)))
-```
-
-Conceptual after:
-
-```wat
-(if
-  (local.get $cond)
-  (then
-    (drop
-      (i32.mul
-        (local.get $x)
-        (i32.const 8))))
-  (else
-    (nop)))
-```
-
-Why it can sink:
-
-- only the `then` arm uses the value
-- there is no use after the `if`
-- the candidate segment is still pure enough for the `if` rewrite family
-
-This is a good reminder that Binaryen is not only “duplicate into both arms.”
-
-## Shape 3: if one arm is already `unreachable`, Binaryen can be more permissive
-
-Conceptual before:
-
-```wat
-(call $side-effect-free-helper)
-(if
-  (local.get $cond)
-  (then
-    (unreachable))
-  (else
-    (drop (i32.const 0))))
-```
-
-Conceptual after, in spirit:
-
-```wat
-(if
-  (local.get $cond)
-  (then
-    (unreachable))
-  (else
-    (call $side-effect-free-helper)
-    (drop (i32.const 0))))
-```
-
-Why this family matters:
-
-- Binaryen treats the one-arm-reachable case differently from the strict two-arm case
-- it is closer to postponing work than to duplicating it into two live paths
-- that is why the pass can sometimes sink here even when the general two-arm rules would reject the same segment
-
-## Shape 4: branchy block / switch-like shapes also participate
-
-Conceptual before:
-
-```wat
-(local.set $tmp
-  (i32.add
-    (local.get $x)
-    (i32.const 1)))
-(block
-  (br_table $a $b $c
-    (local.get $which))
-  ;; various target segments later use $tmp
-)
-```
-
-Conceptual after:
-
-```wat
-(block
-  (br_table $a $b $c
-    (local.get $which))
-  ;; the relevant target segments now each contain
-  ;; their own cloned copy of the pushed suffix
-)
-```
-
-Why it matters:
-
-- `code-pushing` is not only an `if` pass
-- the generic family uses `BranchSeeker` and target segments
-- but it still stays within structured block segments rather than arbitrary CFG regions
-
-## Shape 5: GC operations can push when the same safety rules allow it
-
-The shipped `code-pushing-gc.wast` tests show positive families involving operations like:
-
-- `struct.get`
-- `array.get`
-- `ref.cast`
-- `ref.as_non_null`
-
-Conceptual idea:
-
-```wat
-(local.set $tmp
-  (ref.cast (ref $T)
-    (local.get $r)))
-(if
-  (local.get $cond)
-  (then
-    (drop (local.get $tmp)))
-  (else
-    (nop)))
-```
-
-can become a shape where the `ref.cast` itself lives in the consuming arm.
-
-Why it matters:
-
-- the pass is not limited to integer arithmetic
-- but ref-typed and trap-sensitive operations make the barrier story more important, not less
-
-## Shape 6: if the value is still used after the `if`, do **not** expect a one-arm sink
-
-Before and after stay the same in the important part:
-
-```wat
-(local.set $tmp
-  (i32.add
-    (local.get $x)
-    (i32.const 1)))
+(local.set $tmp (i32.const 7))
 (if
   (local.get $cond)
   (then
@@ -233,173 +121,135 @@ Before and after stay the same in the important part:
 (drop (local.get $tmp))
 ```
 
-Why Binaryen keeps it:
+Why this remains a bailout family:
 
-- the value is still needed after the `if`
-- sinking it into only one arm would strand the later use
+- moving the set into one arm would strand the later use,
+- and preserving execution requires reasoning about all uses, not just the first local arm use.
 
-This is one of the most important negative rules in the `into_if` tests.
+Current Starshine has a focused guard for this family in `src/passes/code_pushing_test.mbt`.
 
-## Shape 7: a value-typed `if` blocks the strict two-arm family
-
-Before and after stay the same in the important part:
+## Shape 5: trap-sensitive computations are barriers unless options say otherwise
 
 ```wat
 (local.set $tmp
-  (i32.add
-    (local.get $x)
-    (i32.const 1)))
-(drop
-  (if (result i32)
-    (local.get $cond)
-    (then
-      (local.get $tmp))
-    (else
-      (local.get $tmp))))
-```
-
-Why Binaryen keeps it:
-
-- when both arms are reachable, `optimizeIntoIf(...)` rejects `if` expressions with concrete result types
-- this is one of the pass’s least-obvious type-shape rules
-
-## Shape 8: calls and other visible side effects stop the strict two-arm `if` path
-
-Before and after stay the same in the important part:
-
-```wat
-(local.set $tmp
-  (call $helper))
+  (i32.div_s
+    (i32.const 1)
+    (i32.const 0)))
 (if
   (local.get $cond)
   (then
-    (drop (local.get $tmp)))
-  (else
     (drop (local.get $tmp))))
 ```
 
-Why Binaryen keeps it under the default rules:
+Why it is sensitive:
 
-- duplicating the call into two live arms changes visible behavior and cost
-- the strict two-arm `if` family rejects calls, side effects, throws, memory traffic, table traffic, and mutable-global traffic
+- moving the division can change when the trap occurs,
+- Binaryen's `canPushThrough(...)` consults trap-related options,
+- Starshine's current subset avoids this by only moving const-like values for the `local.set` sinking family.
 
-## Shape 9: default trap sensitivity is a real barrier
+## Shape 6: GC/reference expressions are not categorically excluded
 
-Before and after often stay the same under default settings:
+The official `code-pushing-gc.wast` test remains part of the source-backed proof surface.
+The important rule is not “GC never moves” or “GC always moves.”
+It is:
+
+- reference-typed expressions participate only when the same movement predicate proves safety,
+- and ref-specific cases such as `ref.func`, casts, and `ref.as_non_null` can matter.
+
+## Shape 7: EH shapes are bailout-rich
+
+Exception-handling shapes can make movement observable through exceptional control and value availability.
+Use `code-pushing-eh.wast` as the official upstream proof surface for this family.
+
+A future Starshine port should add focused fixtures before widening motion around:
+
+- `try`,
+- `catch`,
+- `throw`,
+- and any moved root whose value crosses an exceptional boundary.
+
+## Shape 8: current Starshine positive single-consuming-arm sink
+
+Current Starshine implements a narrower HOT subset than Binaryen.
+A local positive shape is:
 
 ```wat
-(local.set $tmp
-  (i32.load
-    (local.get $ptr)))
-(if
-  (local.get $cond)
-  (then
-    (drop (local.get $tmp)))
-  (else
-    (drop (local.get $tmp))))
+(func (param i32) (local i32)
+  i32.const 7
+  local.set 1
+  local.get 0
+  if
+    local.get 1
+    drop
+  end)
 ```
 
-Why it matters:
+Current local HOT result shape:
 
-- a trapping load is not treated like a harmless integer add
-- moving or duplicating it can change when a trap would happen
+- the original root `local.set` becomes `nop`,
+- a cloned `local.set 1` is inserted at the beginning of the consuming arm,
+- the arm's existing `local.get 1` remains.
 
-The dedicated `ignore-implicit-traps` and `traps-never-happen` test files exist because changing those options changes this barrier story.
+This is useful and safe, but narrower than Binaryen's upstream predicate-driven motion.
 
-## Shape 10: option-relaxed modes unlock more pushing
+## Shape 9: current Starshine keeps both-arm uses
 
-The shipped tests explicitly cover the looser modes:
-
-- `code-pushing_ignore-implicit-traps.wast`
-- `code-pushing_tnh.wast`
-
-Practical takeaway:
-
-- if a load-like or trap-capable operation does not move in the default tests,
-- but does move in the option-specific tests,
-- that is not inconsistency — it is part of the intended contract
-
-## Shape 11: EH structure is a bailout-rich zone
-
-The shipped `code-pushing-eh.wast` tests show why exception handling needs explicit attention.
-
-Conceptual before-and-after lesson:
-
-- `try` / `catch` / `pop` / `throw` shapes can make a candidate look sinkable in a superficial dataflow sense
-- but moving it can change when values exist or when exceptional control flow is observed
-- Binaryen is therefore conservative here
-
-Beginner takeaway:
-
-- EH is one of the easiest reasons for an apparent non-move to be correct
-
-## Shape 12: even safe code may still be skipped if the heuristic says it is not worth it
-
-Conceptual example:
+Current Starshine intentionally does not duplicate into both live arms:
 
 ```wat
-(local.set $tmp
-  (i32.const 1))
-(if
-  (local.get $cond)
-  (then
-    (drop (local.get $tmp)))
-  (else
-    (drop (local.get $tmp))))
+(func (param i32) (local i32)
+  i32.const 7
+  local.set 1
+  local.get 0
+  if
+    local.get 1
+    drop
+  else
+    local.get 1
+    drop
+  end)
 ```
 
-Why Binaryen may skip it:
+The focused test keeps the original set because both arms read the local.
+This now aligns with the corrected wiki warning that two-live-arm duplication is not the source-backed baseline teaching shape.
 
-- duplicating a tiny constant may not buy enough to justify the rewrite
-- the pass uses a real local `benefit > cost` test
+## Shape 10: current Starshine local dead-block flattening helper
 
-That means some non-rewrites are heuristic choices, not semantic impossibilities.
+Current Starshine also has a local cleanup shape around a typed block next to unreachable context.
 
-## What later passes tend to do with the new shape
+Conceptual family:
 
-`code-pushing` is designed to help nearby passes, not replace them.
+```wat
+(func (result i32)
+  i32.const 0
+  (block (result i32)
+    f64.const 0
+    unreachable)
+  unreachable)
+```
 
-### Unlock family 1: `tuple-optimization`
+The local pass can flatten the inner block roots around the unreachable context when its branch/multivalue guards allow it.
 
-The pass sits immediately before tuple-opt in the default no-DWARF path. A more path-local body can make tuple-local cleanup more precise.
+Caveat:
 
-### Unlock family 2: `simplify-locals-nostructure`
+- this is a Starshine-local helper family in `src/passes/code_pushing.mbt`,
+- not a claim about upstream Binaryen `CodePushing.cpp`.
 
-Once work has been sunk nearer its consumers, early local cleanup sees a body with less shared-prefix temporary traffic.
+## Reader checklist
 
-### Unlock family 3: later cleanup passes
+Before expecting a `code-pushing` rewrite, ask:
 
-After tuple and local cleanup, `vacuum` and `reorder-locals` can clean up the reshaped structure further.
-
-## A simple rule of thumb
-
-When you look at a possible `code-pushing` candidate, ask these questions in order:
-
-1. Is this really a contiguous suffix in one block?
-2. Is there an immediate later structured separator Binaryen actually knows how to target?
-3. Are all the important uses inside those target segments or arms?
-4. Does the effect model allow the move?
-5. Is this the strict two-arm `if` family, the one-arm-unreachable family, or the generic branchy family?
-6. Is the move likely worth the duplication cost?
-
-If any answer is “no,” expect Binaryen to keep the prefix where it is.
-
-## Source strength note
-
-- The positive and negative families above come directly from Binaryen’s shipped `code-pushing*` lit tests plus the `version_129` implementation comments.
-- The pass-interaction explanations are derived from the scheduler placement in `pass.cpp` and the repo’s no-DWARF pathway docs.
+1. Is this a one-unreachable-arm `if` family or ordinary sibling-root movement?
+2. Is the source expression local to the same block root list?
+3. Does moving it preserve whether it executes?
+4. Can it cross every intervening expression under `canPushThrough(...)`?
+5. Does trap policy matter?
+6. Are GC/EH/reference details involved?
+7. Is the example actually current Starshine-local rather than upstream Binaryen?
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md)
-- [`../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md`](../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md`](../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md)
-- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
-- Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- Binaryen `version_129` lit tests:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_into_if.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_ignore-implicit-traps.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_tnh.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-gc.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-eh.wast>
+- [`../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md)
+- [`../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md)
+- [`../../../../../src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt)
+- Binaryen `version_129` tests linked in the raw manifest.

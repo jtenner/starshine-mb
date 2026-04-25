@@ -1,261 +1,147 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md
+  - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
   - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
-  - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
 ---
 
-# `code-pushing` Segment Selection And Barriers
+# `code-pushing` Movement Boundaries
 
-This page focuses on the easiest part of Binaryen `code-pushing` to misunderstand:
+## Corrected framing
 
-- how the pass chooses a movable suffix
-- why some shapes that look pure still do not move
-- why the one-arm and two-arm `if` cases behave differently
+This page used to teach `code-pushing` as a target-segment pass with `BranchSeeker`, `Pusher`, two-live-arm `if` duplication, and profitability scoring.
+The 2026-04-25 source correction removes that framing.
 
-## One mental model first
+The real reviewed Binaryen `version_129` surface is easier to follow:
 
-Binaryen is not asking:
+- `visitBlock(...)` scans one block's children.
+- `optimizeIntoIf(...)` handles the one-unreachable-arm `if` case.
+- `tryPush(...)` moves one earlier root near a later use.
+- `canPushThrough(...)` decides whether intervening expressions are safe to cross.
 
-- “what code in this function could theoretically be sunk deeper?”
+## The two movement families
 
-It is asking something more local:
+### Family A: one-unreachable-arm `if` sinking
 
-- “in this one block, do I have a contiguous suffix of expressions immediately before a control-flow separator, and can some suffix of that region move into the specific downstream segments that actually use it?”
+When an `if` has one unreachable arm, Binaryen may move a bounded prefix of preceding block roots into the reachable arm.
 
-That is the real shape.
+Why this is legal only sometimes:
 
-## Phase A: build a contiguous candidate region
+- moving the prefix must not change whether it executes,
+- the prefix must come after the previous fallthrough boundary,
+- the moved roots must be safe to cross intervening expressions,
+- and refinalization must repair the changed `if` body.
 
-While scanning a block left-to-right, Binaryen tracks a current region of expressions that are still candidates for pushing.
+This is not the same as duplicating pure work into two live arms.
+It is closer to postponing work into the only path that can continue.
 
-Useful beginner shorthand:
+### Family B: local sibling-root pushing
 
-- **candidate region** = the current contiguous block suffix under consideration
-- **tracked values** = expressions in that region that are still safe to move past later children
-- **separator** = the next `if` or branchy structured node that might receive the pushed suffix
+For an ordinary later expression, Binaryen can move an earlier block root to immediately before that later expression when:
 
-If a later child invalidates too much of that region, the region ends and the pass starts fresh.
+- the later expression uses the earlier root,
+- every intervening root passes `canPushThrough(...)`,
+- moving the earlier root does not break root ordering or expression validity,
+- and the changed region can be refinalized.
 
-That is why the pass does not gather disjoint expressions from far-apart places.
+This family is still local to one block root list.
+It is not arbitrary CFG sinking.
 
-## Phase B: invalidation decides where the region can end
+## `canPushThrough(...)` is the barrier checklist
 
-The real engine is invalidation.
+When a candidate fails to move, assume `canPushThrough(...)` is the first place to inspect.
 
-Binaryen repeatedly asks whether the next child conflicts with the currently tracked candidate values.
+The predicate accounts for:
 
-If it does, those values are no longer movable past that child.
+- direct uses of the moved expression,
+- expressions without values,
+- side effects,
+- implicit-trap policy,
+- traps-never-happen policy,
+- `if` condition special cases,
+- `call_without_effects`,
+- function-reference use,
+- `ref.func`,
+- `ref.as_non_null`,
+- cast exactness,
+- nested child checks.
 
-Typical invalidation families are:
+That makes the pass conservative in exactly the places beginners expect “pure code” to be enough.
+Purity alone is not the full proof.
 
-- later local writes that break a candidate value’s local assumptions
-- side effects that make reordering visible
-- calls that can do visible work before a moved trap would happen
-- control-flow transfers that make the execution relationship non-linear
-- memory / table / mutable-global interactions
-- EH-sensitive operations
-- trap-sensitive operations under default settings
+## Trap and option boundaries
 
-The details come from `EffectAnalyzer`, but the beginner takeaway is simple:
+Trap timing is a correctness boundary.
 
-- *being pure in isolation is not enough*
-- the candidate must remain safe to move **past what follows it**
+Under normal settings, a move that can change when a trap occurs is blocked.
+The dedicated `ignore-implicit-traps` and traps-never-happen tests exist because Binaryen has options that intentionally relax parts of that rule.
 
-## Phase C: the pass always chooses a suffix
+For Starshine, this means future port work must decide whether to model the option-sensitive behavior or keep a stricter subset and document the mismatch.
 
-When Binaryen finally considers a rewrite, it walks backward from the end of the current candidate region.
+## Calls and external effects
 
-That means it is not choosing an arbitrary subset.
-It is choosing among possible **suffixes**.
+The stale page claimed calls categorically block the strict two-arm family.
+The corrected source-backed statement is narrower:
 
-Why this matters:
+- visible effects generally block motion,
+- but `canPushThrough(...)` has specific handling for `call_without_effects`,
+- and the exact legality is decided by the pass-local predicate, not by a blanket “all calls stop all motion” rule.
 
-- the algorithm stays cheap
-- the rewrite stays structured
-- the later target segments see a clean appended suffix
-- the prefix that remains in the old block is still a real prefix, not a scattered remainder
+So examples should distinguish ordinary calls from explicitly effect-free calls.
 
-If you ever find yourself describing the pass as choosing a random handful of independent expressions, that description has drifted away from upstream behavior.
+## GC and reference boundaries
 
-## The generic segment family
+GC/reference operations participate when the same movement proof succeeds.
+The source has explicit cases for reference-oriented operations, including `ref.func`, `ref.as_non_null`, casts, and nested children.
 
-The generic path uses `BranchSeeker` plus `optimizeSegment(...)`.
+The safe teaching rule is:
 
-The resulting destinations are not arbitrary CFG successors. They are structured target segments associated with the next control-flow node.
+- GC is not excluded,
+- but GC does not bypass trap/effect/reference-use rules.
 
-A safe beginner summary is:
+## EH boundary
 
-- Binaryen looks at the next branchy structure
-- finds the concrete downstream segments or fallthroughs that matter
-- checks whether the candidate suffix can be appended there safely and profitably
+The EH tests remain important because exceptional control can make movement observable.
+The corrected page should not claim a separate EH segment planner.
+Instead, teach EH as a region where `canPushThrough(...)`, expression refs, and refinalization must all keep control/value availability valid.
 
-This family explains why `code-pushing.wast` contains block / branch / `br_table` flavored examples rather than only `if` examples.
+## Starshine-local extra boundary
 
-## The `if` family is asymmetric
+Current Starshine also has a typed/dead-block flattening helper in `src/passes/code_pushing.mbt`.
+That local family is guarded by:
 
-The `if` path is where many false intuitions come from.
+- neighboring `unreachable` or leading-unreachable context,
+- a single body `unreachable` at the beginning or end,
+- no nested branch-bearing roots in moved body entries,
+- no multivalue non-unreachable moved roots.
 
-## One arm unreachable
+Do not confuse that with upstream Binaryen's `CodePushing.cpp` strategy.
+It is a Starshine-local conservative repair/cleanup family currently bundled under the active pass.
 
-When one arm is already `unreachable`, Binaryen can often sink into the one reachable arm.
+## Porting checklist
 
-Why that matters:
+A future broader Starshine port should preserve these rules before widening motion:
 
-- no duplication into two live destinations
-- no need for the strict “both arms must be ultra-pure” rule set
-- conceptually closer to postponing work than to duplicating it
-
-This is why some tests that would fail the general two-arm rules still optimize in the one-arm-unreachable subfamily.
-
-## Both arms reachable
-
-When both arms are reachable, the pass becomes much stricter.
-
-Binaryen requires all of these at once:
-
-- the `if` must not have a concrete result type
-- the candidate segment must not transfer control flow
-- no calls
-- no other side effects
-- no throws
-- no mutable-global reads or writes
-- no memory or table reads or writes
-- no default-mode trap-sensitive operations
-- at least one arm must really use the value
-
-So the real question is not:
-
-- “is this expression pure enough in general?”
-
-It is:
-
-- “is this entire candidate suffix pure enough for the **two-arm** `if` rewrite Binaryen actually knows how to do?”
-
-That is a much narrower question.
-
-## Why “used after the `if`” matters so much
-
-Several negative tests are easiest to understand through this rule.
-
-If the value is still used after the `if`, then sinking it into only one arm or only the internal segments Binaryen currently models would strand another real use.
-
-So even a perfectly pure arithmetic expression may stay in place because the use topology is wrong.
-
-That is not a missed optimization by accident.
-It is the real contract.
-
-## Barrier families you should expect
-
-## Local barriers
-
-- `local.set` to the same local can invalidate the candidate story.
-- Reads that must still work after the separator can keep the value in place.
-- This is one reason `code-pushing` and later local-cleanup passes are separate passes.
-
-## Control-flow barriers
-
-- Branch transfers and non-linear execution break the cheap local reasoning the pass depends on.
-- The generic segment family only handles the structured target-segment cases it explicitly models.
-
-## Side-effect barriers
-
-- calls
-- visible side effects
-- throws
-- mutable-global traffic
-- table traffic
-- memory traffic
-
-These matter most in the strict two-arm `if` family, where Binaryen refuses to duplicate them into two live arms.
-
-## Trap barriers
-
-Under default settings, trap-sensitive operations are a barrier for the strict two-arm `if` path.
-
-The shipped option-specific tests show that this is not fixed forever. Binaryen deliberately supports looser modes such as:
-
-- `--ignore-implicit-traps`
-- `--traps-never-happen`
-
-The durable lesson is:
-
-- the barrier model is partly **pass-option-sensitive**
-
-## GC barriers and GC positives
-
-GC operations are not automatically barriers.
-
-The `code-pushing-gc.wast` tests show that operations like:
-
-- `struct.get`
-- `array.get`
-- `ref.cast`
-- `ref.as_non_null`
-
-can participate when the effect model allows it.
-
-But control-sensitive ref operations and ref-typed contexts are also exactly where type and trap mistakes get easier to make, which is why the tests are valuable.
-
-## EH barriers
-
-The `code-pushing-eh.wast` tests exist because EH is one of the easiest places to make an unsound motion pass.
-
-A good practical rule is:
-
-- if `try` / `catch` / `pop` / `throw` structure matters to when a value exists or when an effect becomes visible,
-- expect `code-pushing` to be conservative unless the exact shape is explicitly supported
-
-## The heuristic barrier: not worth it
-
-Even a semantically legal move can still be rejected because the pass’s local `benefit > cost` test says the duplication is not worthwhile.
-
-That matters especially in:
-
-- loops
-- tiny expressions
-- shapes where the pushed code would still execute on most paths anyway
-
-This is one of the biggest reasons a manual “that looks sinkable” intuition can disagree with actual Binaryen behavior.
-
-## Porting checklist for this page’s topic
-
-If Starshine ports `code-pushing`, this page’s core contract becomes:
-
-1. preserve the contiguous-suffix model
-2. preserve invalidation while scanning, not only at rewrite time
-3. keep one-arm-unreachable and two-arm-reachable `if` logic separate
-4. preserve use-after-separator checks
-5. preserve option-sensitive trap behavior
-6. preserve the local heuristic gate
-7. preserve EH conservatism explicitly
-
-If any of those are weakened, the result may still look like “code motion,” but it will not be the same pass.
-
-## Source strength note
-
-- The contiguous-suffix, invalidation, `if`, and heuristic story above comes directly from `CodePushing.cpp`.
-- The trap-option discussion is partly grounded in the dedicated shipped test files and partly in the visible effect-analysis contract. I did not fully line-trace every option constructor path in `effects.h` in this run, so that part should be treated as a well-supported implementation inference rather than a fully exhaustively line-anchored audit.
+1. scan structured block root lists, not arbitrary CFG regions;
+2. keep one-unreachable-arm `if` sinking separate from ordinary sibling-root pushing;
+3. implement a faithful movement predicate before adding more positive shapes;
+4. keep trap and option behavior explicit;
+5. refinalize or locally retype after every structural mutation;
+6. test GC and EH as first-class boundaries;
+7. document Starshine-local helper families separately from upstream Binaryen behavior.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md)
-- [`../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md`](../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md`](../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md)
-- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
-- Binaryen `version_129` effects helpers: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-- Binaryen `version_129` lit tests:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_into_if.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_ignore-implicit-traps.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_tnh.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-gc.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-eh.wast>
+- [`../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md)
+- [`../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md)
+- Binaryen `version_129` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
+- Current Starshine owner: [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)

@@ -1,5 +1,7 @@
 # 0115 - `code-pushing` Binaryen research
 
+> Supersession note (2026-04-25): this original dossier-building investigation is superseded for upstream implementation shape and current Starshine status by [`0345-2026-04-25-code-pushing-source-correction-and-local-status.md`](./0345-2026-04-25-code-pushing-source-correction-and-local-status.md). It remains useful as historical provenance, but do not rely on its `BranchSeeker` / `Pusher` / local profitability / two-arm sinking interpretation without checking the newer correction.
+
 ## Status
 
 - Date: 2026-04-20

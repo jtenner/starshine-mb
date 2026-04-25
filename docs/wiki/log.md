@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | correct `code-pushing` source strategy and local status
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose active `code-pushing` because the dossier still contained stale `BranchSeeker` / `Pusher` / `benefit > cost` / two-live-arm duplication claims and the Starshine page still ended with obsolete “no transform yet” wording despite the active HOT pass.
+- Added `docs/wiki/raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md` and `docs/wiki/raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md`, capturing the corrected official Binaryen `version_129` source map: `visitBlock`, one-unreachable-arm `optimizeIntoIf`, `canPushThrough`, `tryPush`, the dedicated `code-pushing*` lit roster, and a focused current-main no-teaching-drift spot check.
+- Added `docs/wiki/binaryen/passes/code-pushing/implementation-structure-and-tests.md` and refreshed the overview, Binaryen strategy, barrier guide, WAT-shape catalog, and Starshine strategy page so the dossier now maps upstream transformed shapes to the current Starshine subset: const-like single-consuming-arm `local.set` sinking plus a separate local dead-block flattening helper in `src/passes/code_pushing.mbt`.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `CHANGELOG.md`, and marked older research notes `0115` and `0258` superseded for current strategy and Starshine status while preserving them as historical provenance.
+
 ## [2026-04-25] health | refresh stale GSI freshness wording
 
 - Ran a focused reference-hygiene check after the `global-struct-inference` source-map commit and found the overview still had one leftover 2026-04-20 freshness sentence even though the same page's Freshness note had been updated to the 2026-04-25 source bridge.
