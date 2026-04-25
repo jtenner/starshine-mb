@@ -1,8 +1,10 @@
 ---
 kind: research
-status: supported
-last_reviewed: 2026-04-22
+status: partially-superseded
+last_reviewed: 2026-04-25
 sources:
+  - ../binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
+  - ./0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
   - ../binaryen/2026-04-22-merge-blocks-primary-sources.md
   - ../../binaryen/passes/merge-blocks/index.md
   - ../../binaryen/passes/merge-blocks/binaryen-strategy.md
@@ -18,6 +20,10 @@ sources:
 ---
 
 # `merge-blocks` primary-source and Starshine follow-up
+
+## 2026-04-25 supersession note
+
+This follow-up remains valid for the 2026-04-22 provenance, Starshine-status correction, and local HOT strategy page creation. Its Binaryen strategy interpretation is partially superseded by [`./0357-2026-04-25-merge-blocks-source-correction-and-code-map.md`](./0357-2026-04-25-merge-blocks-source-correction-and-code-map.md) and [`../binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`](../binaryen/2026-04-25-merge-blocks-current-main-source-correction.md). In particular, do not rely on older tail-child-only / unnamed-child-positive / same-name-only summaries for current Binaryen behavior.
 
 ## Why this follow-up exists
 

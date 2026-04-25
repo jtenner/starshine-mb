@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | correct `merge-blocks` source strategy and code map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/merge-blocks/`, and `docs/wiki/raw/research/`, then chose active `merge-blocks` because its dossier was complete-looking but still taught the stale Binaryen model of tail-child-only unnamed/same-name block flattening and lacked the now-standard implementation/test-map page.
+- Added `docs/wiki/raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`, capturing official Binaryen `version_129` and current-main `MergeBlocks.cpp`, `merge-blocks.wast`, `pass.cpp`, `branch-utils.h`, `effects.h`, and `wasm-traversal.h` URLs. The corrected source reading is that upstream `merge-blocks` is named-block deblocking with function-wide ambiguity prescan, recursive branch-user retargeting proof, effect barriers, block / `if` / terminal visitors, scope-name rewrites, and mandatory refinalization; the official lit file's `no-merge-nameless` coverage contradicts the older unnamed-tail-positive teaching.
+- Added `docs/wiki/raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md` and `docs/wiki/binaryen/passes/merge-blocks/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, WAT-shape catalog, and Starshine HOT strategy so the dossier now maps transformed shapes, corrected Binaryen strategy, and exact local registry, dispatcher, label-use, typed-carrier, unreachable-repair, preset, CLI, and test line ranges.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and marked older research notes `0111` and `0255` partially superseded for the Binaryen strategy overread while preserving them for scheduler and Starshine-status history.
+
 ## [2026-04-25] research | refresh `heap-store-optimization` current-main and code map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/heap-store-optimization/`, and `docs/wiki/raw/research/`, then chose active `heap-store-optimization` because the folder was useful but still lacked the implementation/test-map page now standard for neighboring active passes and the Starshine strategy had mostly helper names rather than exact line ranges.

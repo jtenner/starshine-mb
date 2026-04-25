@@ -1,310 +1,293 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
+  - ../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
   - ../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./starshine-hot-ir-strategy.md
   - ../../no-dwarf-default-optimize-path.md
+supersedes:
+  - ../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
 ---
 
 # `merge-blocks` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `merge-blocks` pass.
+This is the beginner-friendly shape catalog for Binaryen's `merge-blocks` pass, corrected against official `version_129` and current-main sources on 2026-04-25.
 
-## Read this page with one mental model
+## Correct mental model
 
-A block can be flattened only when the inner block is just a safe wrapper around the **tail** of the outer block.
+Older local notes taught this as a tail-child-only pass that merges unnamed wrappers. That is wrong for the official source.
 
-The pass is looking for:
+Use this mental model instead:
 
-```wat
-(block $outer
-  ...
-  (block $child
-    ...))
-```
-
-and asking:
-
-- can I copy the child's contents directly into `$outer`?
-- if I do, do branch targets still mean the same thing?
-- do parent and child still promise the same result type?
-- does any observable work disappear?
-
-If the answer is yes, Binaryen merges the blocks.
+- Binaryen removes redundant **named block layers**.
+- It can retarget uses of an inner block name to an outer block name only after a branch-user and effect-safety proof.
+- It also removes named wrappers in `if` arms and around terminal expression families.
+- Nameless wrappers are a negative family in the official lit file.
 
 ## Quick glossary
 
-- **tail child**: the final item in a block's instruction list
-- **unnamed block**: a block with no branch label name
-- **same-name block**: the child and parent use the same label name
-- **typed block**: a block with an explicit result type like `(result i32)`
-- **invalidating effects**: side effects or control effects that make it unsafe to retarget branches across the child body
+- **named block**: a block with a label such as `$inner` that branches can target.
+- **branch user**: a branch, switch, or related control expression that mentions a block label.
+- **retargeting**: changing a branch's target name from an inner block to an outer block after removing the inner wrapper.
+- **invalidating effect**: work that cannot be skipped or reordered across a retargeted branch.
+- **deblocking**: removing a redundant block wrapper while preserving branch semantics.
 
-## Shape 1: unnamed tail block merges
+## Positive family 1: direct same-name block layer
 
-This is the easiest positive case and appears directly in Binaryen's lit tests.
+This is the easiest named case.
 
 Before:
 
 ```wat
-(block $A
+(block $outer
   (i32.const 0)
-  (block
-    (drop
-      (i32.const 1))
-    (br $A
-      (i32.const 2))))
+  (block $outer
+    (drop (i32.const 1))))
 ```
 
 After:
 
 ```wat
-(block $A
+(block $outer
   (i32.const 0)
-  (drop
-    (i32.const 1))
-  (br $A
-    (i32.const 2)))
+  (drop (i32.const 1)))
 ```
 
-Why it merges:
+Why it can merge:
 
-- the child is the last item in the parent
-- the child is unnamed, so it is not a named branch target
-- flattening it does not change the block result contract
+- the child is named;
+- the parent has the same name;
+- branches that used that name already refer to the same visible label family after the wrapper disappears;
+- Binaryen still refinalizes after the edit.
 
-Why this shape matters:
+## Positive family 2: different-name child whose branch users can be retargeted
 
-- it is the core "remove a wrapper block" family
-- it exposes later branch cleanup without needing any complicated name rewrite
-
-## Shape 2: same-name typed tail block can still merge
-
-Binaryen also merges a narrower named case.
+The source is not same-name-only. Different child names can be removed when every use of the child name can be changed to the parent name safely.
 
 Before:
 
 ```wat
-(block $A (result i32)
-  (i32.const 0)
-  (block $A (result i32)
+(block $outer
+  (block $inner
     (drop (i32.const 1))
-    (br $A (i32.const 2))))
+    (br $inner)))
 ```
 
-After:
+After, schematically:
 
 ```wat
-(block $A (result i32)
-  (i32.const 0)
+(block $outer
   (drop (i32.const 1))
-  (br $A (i32.const 2)))
+  (br $outer))
 ```
 
-Why this example is important:
+Why this is conditional:
 
-- many people first reading the source assume that any same-name nested branch must be rejected
-- Binaryen's own tests show that is too pessimistic
-- the real hazard is narrower than "same-name child plus any branch to that name"
+- Binaryen must find all `$inner` branch users;
+- each user's exiting block must itself be safely changeable to `$outer`;
+- retargeting must not skip invalidating effects;
+- the implementation rewrites scope-name uses after splicing.
 
-Beginner takeaway:
+Advanced caveat: do not generalize this into “any different-name block can merge.” The recursive `canChangeTo(...)` proof is the pass.
 
-- same-name children are not automatically forbidden
-- but they live in a much stricter safety zone than unnamed children
+## Positive family 3: named block wrappers in `if` arms
 
-## Shape 3: same-name descendant branch hazard does **not** merge
+`visitIf(...)` gives `merge-blocks` a separate `if`-arm surface.
 
-This is the most important negative case and is also covered directly by Binaryen's lit tests.
+Before:
+
+```wat
+(block $outer
+  (if
+    (i32.const 1)
+    (then
+      (block $inner
+        (drop (i32.const 2))))
+    (else
+      (block $inner_else
+        (drop (i32.const 3))))))
+```
+
+After, schematically:
+
+```wat
+(block $outer
+  (if
+    (i32.const 1)
+    (then
+      (drop (i32.const 2)))
+    (else
+      (drop (i32.const 3)))))
+```
+
+Why this matters:
+
+- an `if` arm is not simply “the final child of a block list”;
+- a future port that only checks block-tail children would miss this upstream behavior;
+- branch-target and effect safety still bound which arm wrappers can disappear.
+
+## Positive family 4: terminal expression wrapper names
+
+The upstream file also visits terminal families such as `throw`, `rethrow`, and `return`.
+
+Before, schematically:
+
+```wat
+(block $outer
+  (block $inner
+    (return)))
+```
+
+After, schematically:
+
+```wat
+(block $outer
+  (return))
+```
+
+Why this can be safe:
+
+- the terminal expression exits the current continuation anyway;
+- the wrapper name can become pure structural noise;
+- Binaryen keeps this in the same pass because it is another redundant block-name layer.
+
+Advanced caveat: this page is describing the source-owned family, not licensing arbitrary label deletion around all control expressions.
+
+## Negative family 1: nameless block wrappers
+
+The official lit file has `no-merge-nameless` coverage.
 
 Before and after stay the same:
 
 ```wat
-(block $A (result i32)
-  (block $A (result i32)
-    (drop (i32.const 1))
-    (block (result i32)
-      (br $A (i32.const 2)))))
+(block $outer
+  (block
+    (drop (i32.const 1))))
 ```
 
-Why Binaryen keeps it:
+Why it stays:
 
-- this is the shadowed same-name descendant-branch family that `ProblemFinder` is designed to catch
-- if Binaryen removes the inner `$A` first and only then tries to retarget branches, some branch uses can become ambiguous
-- upstream chooses safety and bails out of merging for the whole function
+- the main helper looks for named block wrappers;
+- there is no child name to retarget to the parent;
+- this contradicts the older local claim that unnamed tail blocks are a primary positive family.
 
-Beginner takeaway:
+This is the easiest correction to remember: Binaryen and current Starshine diverge here. Starshine can flatten unlabeled branch-free HOT roots; Binaryen's upstream AST pass is name-driven.
 
-- the dangerous family is not just "nested names"
-- it is nested names plus the wrong descendant-branch layout
+## Negative family 2: ambiguous same-name branch retargeting
 
-## Shape 4: named child with branch-like effects stays intact
+If `ProblemFinder` sees a branch-target ambiguity family anywhere in the function, Binaryen skips the normal merge walk for that function.
 
-Binaryen's lit tests also preserve this family:
-
-```wat
-(block $B (result i32)
-  (block $A (result i32)
-    (i32.const 1)
-    (br $B (i32.const 2))))
-```
-
-Why this should stay intact:
-
-- the child has a name
-- its body contains control effects
-- flattening a named child is only safe when the child does **not** invalidate effects
-
-Beginner version:
-
-- if some retargeted branch could now skip the child body, and the child body does observable work, Binaryen refuses the merge
-
-## Shape 5: different-name child does not merge
-
-Derived directly from the source gate that only accepts unnamed children or same-name children.
+Before and after stay the same, schematically:
 
 ```wat
 (block $outer
-  ...
+  (block $outer
+    (block
+      (br $outer))))
+```
+
+Why it stays:
+
+- removing one `$outer` layer can make old branch targets ambiguous;
+- updating branch names after deletion could update too much;
+- Binaryen chooses a whole-function bailout rather than a local best effort.
+
+## Negative family 3: retargeting would skip invalidating effects
+
+Before and after stay the same when a branch retarget would bypass observable work.
+
+```wat
+(block $outer
+  (call $has_effect)
   (block $inner
-    ...))
+    (br $inner)))
 ```
 
-Even if `$inner` is last, Binaryen does not treat that as an automatic merge candidate.
+Why it can stay:
 
-Why this matters:
+- changing `$inner` to `$outer` may make a branch skip work it previously could not skip;
+- `canChangeTo(...)` uses effect analysis to reject those unsafe retargets;
+- the exact result depends on the branch users and positions, so reduce surprising cases with source line references rather than only visual nesting.
 
-- `merge-blocks` is intentionally narrow
-- it is not a general named-label rewrite pass
+## Negative family 4: named grandchildren that cannot also be changed safely
 
-## Shape 6: result-type mismatch does not merge
+When removing a middle block layer, Binaryen checks named child blocks inside it too.
 
-Derived directly from the `curr->type == child->type` gate.
-
-Example family:
+Before and after can stay the same:
 
 ```wat
-(block (result i32)
-  ...
-  (block
-    ...))
+(block $outer
+  (block $middle
+    (block $grandchild
+      (br $grandchild))))
 ```
 
-or any other parent/child type mismatch.
+Why it can stay:
 
-Why it matters:
+- deleting `$middle` may expose `$grandchild` to a different parent scope;
+- Binaryen does not strand named grandchildren in an unsafe retargeting state;
+- the nested proof prevents a local splice from creating a later label-rewrite bug.
 
-- a block type is part of the control-flow contract
-- if flattening changes which block a branch is targeting, the branch payload contract must still match exactly
+## What shapes this pass unlocks later
 
-Beginner takeaway:
+`merge-blocks` is often useful because it leaves simpler control surfaces for neighboring cleanup passes.
 
-- structural cleanup is not allowed to silently change result typing
+### Unlock family 1: direct branches for `remove-unused-brs`
 
-## Shape 7: non-tail nested block does not merge
-
-Derived directly from the source's first candidate check.
+Before:
 
 ```wat
-(block
-  (block
-    ...)
-  (call $later))
+(block $outer
+  (block $inner
+    (br $inner)))
 ```
 
-No merge.
-
-Why it matters:
-
-- the pass only knows how to flatten the **last** child safely
-- if later siblings exist, flattening can change which code is still reachable after branching
-
-## Shape 8: one bad same-name family can block the whole function
-
-This is not a single before/after rewrite shape; it is an execution rule.
-
-If a function contains the dangerous same-name descendant-branch family anywhere, Binaryen's `ProblemFinder` skips merging for that **entire function**.
-
-Why this matters for examples:
-
-- when you reduce a failing or surprising case, do not assume only the local nested block matters
-- a separate bad same-name family elsewhere in the function can explain why an apparently easy candidate did not merge
-
-## What shapes this pass usually unlocks later
-
-`merge-blocks` often matters less for its own printed diff and more for the simpler shapes it leaves behind.
-
-### Unlock family 1: fewer wrapper blocks for `remove-unused-brs`
-
-Before merge-blocks:
+After a safe merge:
 
 ```wat
-(block $A
-  (block
-    (br $A)))
+(block $outer
+  (br $outer))
 ```
 
-After merge-blocks:
+A later branch-cleanup pass can now see a simpler direct branch shape.
 
-```wat
-(block $A
-  (br $A))
-```
+### Unlock family 2: less label noise for `remove-unused-names`
 
-Now a later branch-cleanup pass sees the direct branch shape more clearly.
+Removing an inner named wrapper means later label cleanup has fewer names to preserve or clear.
 
-### Unlock family 2: cleaner typed tails for later peepholes
+### Unlock family 3: simpler typed regions for peepholes
 
-Before merge-blocks:
+After safe deblocking, later peephole passes see direct expressions instead of expressions hidden under one extra named block layer.
 
-```wat
-(block (result i32)
-  ...
-  (block (result i32)
-    (i32.const 7)))
-```
+## Starshine-specific contrast
 
-After merge-blocks:
+Current Starshine intentionally uses a different HOT-IR proof:
 
-```wat
-(block (result i32)
-  ...
-  (i32.const 7))
-```
+- it flattens branch-free region-root blocks;
+- it refuses blocks whose labels are used anywhere;
+- it has typed-carrier guards and dead-`unreachable` suffix repair;
+- it does not implement Binaryen's recursive branch-name retargeting proof.
 
-That is a simpler surface for later `precompute` or instruction cleanup.
-
-### Unlock family 3: fewer useless structural names
-
-If a same-name wrapper disappears, later `remove-unused-names` or follow-up cleanup has less structure to preserve.
-
-## A simple rule of thumb
-
-When reading a candidate shape, ask these four questions in order:
-
-1. Is the child block the **last** item in the parent?
-2. Is the child **unnamed** or the **same name** as the parent?
-3. Do the parent and child have the **same result type**?
-4. If the child is named, would skipping its body hide any **observable work**?
-
-If any answer is "no", expect Binaryen to keep the wrapper.
+So do not use this Binaryen shape catalog as a one-to-one description of `src/passes/merge_blocks.mbt`. Use [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md) for that.
 
 ## Source strength note
 
-- Shapes 1 through 4 are directly grounded in Binaryen's shipped tests and source comments.
-- Shapes 5 through 7 are direct simplifications of the source gates in `MergeBlocks.cpp`.
-- The unlock examples are derived explanations of why the pass sits where it does in the late cleanup cluster.
+- Positive and negative families are grounded in `MergeBlocks.cpp` plus the dedicated `merge-blocks.wast` lit file.
+- The exact before/after examples above are simplified teaching shapes; consult the raw manifest for official source URLs.
+- The main uncertainty is not whether the families exist, but the full set of combinations that the recursive `canChangeTo(...)` proof accepts. Treat nontrivial different-name examples as source-debugging tasks, not pattern-match-only transformations.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md`](../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md)
-- [`../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md`](../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md`](../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md)
-- Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-blocks.wast>
+- [`../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md)
+- [`../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md`](../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeBlocks.cpp>
+- Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-blocks.wast>

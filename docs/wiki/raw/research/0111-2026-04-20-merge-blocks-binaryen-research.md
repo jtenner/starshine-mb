@@ -4,7 +4,12 @@
 
 - Date: 2026-04-20
 - Type: One-off raw investigation
+- Status: partially superseded by `0357-2026-04-25-merge-blocks-source-correction-and-code-map.md`
 - Scope: document one currently unimplemented `-O4z` pass in Starshine, using Binaryen `version_129` plus the saved generated-artifact `-O4z` audit to explain how Binaryen's `merge-blocks` pass really works and which IR shapes matter.
+
+## Supersession note
+
+The 2026-04-25 source correction partially supersedes this note's Binaryen strategy interpretation. In particular, the tail-child-only / unnamed-child-positive / same-name-only teaching frame below is stale. Keep this note for historical scheduler context and the original pass-research provenance, but use `docs/wiki/binaryen/passes/merge-blocks/binaryen-strategy.md` and `docs/wiki/raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md` for current Binaryen behavior.
 
 ## Why this pass
 

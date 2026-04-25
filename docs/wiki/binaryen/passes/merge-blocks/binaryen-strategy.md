@@ -1,289 +1,184 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
+  - ../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
   - ../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
 related:
   - ./index.md
   - ./wat-shapes.md
+  - ./implementation-structure-and-tests.md
   - ./starshine-hot-ir-strategy.md
   - ../../no-dwarf-default-optimize-path.md
+supersedes:
+  - ../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
+  - ../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
 ---
 
 # Binaryen `merge-blocks` Strategy
 
-## Upstream source rule
+## Source rule and correction
 
-- Use Binaryen `version_129` as the current source oracle for this pass.
-- The core implementation is `src/passes/MergeBlocks.cpp`.
-- The late-slot placement is confirmed by the saved generated-artifact `-O4z` audit and by Binaryen's scheduler source in `src/passes/pass.cpp`.
-- The immutable primary-source manifest for this dossier is [`../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md`](../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md).
-- On 2026-04-22, the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
+Use Binaryen `version_129` as the tagged source oracle for this pass, with the 2026-04-25 current-main check as a drift guard.
 
-Primary source URLs:
+Primary source manifest:
 
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeBlocks.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.cpp>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm-traversal.h>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-blocks.wast>
+- [`../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md)
 
-## High-level intent
+Important correction: older local pages described `merge-blocks` as a tail-child-only pass that primarily merges unnamed or same-name child blocks. Re-reading official `MergeBlocks.cpp` and `merge-blocks.wast` contradicts that simplified model.
 
-Binaryen's `merge-blocks` pass is trying to remove a very specific kind of structural noise:
+The corrected beginner summary is:
 
-- a block whose final child is another block
-- where the child is only acting as a wrapper around the parent's tail
+- Binaryen removes redundant **named block layers** when all branches that mention the inner name can safely be retargeted to the surrounding block name.
+- It also has dedicated `if`-arm and terminal-expression name-removal paths.
+- Nameless block wrappers are **not** the main positive case; the official lit file has `no-merge-nameless` coverage.
 
-It is not trying to solve arbitrary control-flow simplification.
+## One-table overview
 
-A good beginner summary is:
-
-- flatten only the tail nested block
-- only when branch targets, result types, and effects still mean the same thing afterwards
-
-## The pass in one table
-
-| Phase | What Binaryen checks or does | Why it exists |
+| Component | Source-owned role | Beginner meaning |
 | --- | --- | --- |
-| Prescan | Run `ProblemFinder` over the whole function | Avoid the shadowed same-name descendant-branch family that can make branch retargeting ambiguous |
-| Candidate selection | Only consider a `block` whose last item is also a `block` | Tail children are the only easy flattening case |
-| Naming gate | Child must be unnamed or share the parent's name | Avoid general arbitrary-label retargeting |
-| Type gate | Parent and child block types must match | Preserve branch payload and result typing |
-| Effect gate | Named children must satisfy `!EffectAnalyzer::invalidates(child)` | Prevent retargeted branches from skipping observable work |
-| Rewrite | Splice the child list into the parent list | Delete the redundant wrapper |
-| Repair | `ReFinalize().walk(curr)` | Recompute types after the structural rewrite |
+| `ProblemFinder` prescan | Skip a whole function if branch retargeting could confuse same-name nested targets | Do not rewrite labels when removing a block would make old branch targets ambiguous |
+| branch-user collection | Find all branches that target a block name | A named block cannot be removed until its branch users are understood |
+| `canChangeTo(block, parent)` | Prove a child block name can be changed to the parent block name | Retargeting is allowed only when every branch user remains semantically safe |
+| `visitBlock(...)` | Splice accepted child block contents into the parent block list and rewrite name uses | Delete one redundant named block layer |
+| `visitIf(...)` | Remove named block wrappers from `if` arms when the same proof succeeds | Deblock `then` / `else` shapes without pretending they are ordinary tail children |
+| terminal visitors | Remove child block names around `throw`, `rethrow`, and `return` families | If the terminal exits anyway, a wrapper label can be unnecessary |
+| `ReFinalize` | Recompute expression types after structural edits | Type repair is part of the pass contract |
 
-## Phase 1: whole-function prescan with `ProblemFinder`
+## Phase 1: function-wide ambiguity prescan
 
-This is the most important surprising detail in the implementation.
+Before the normal postwalk, Binaryen runs `ProblemFinder` over the function.
 
-Before Binaryen performs any merges, it runs a separate post-order walker called `ProblemFinder`.
+The important fact is the bailout strength:
 
-The source comment explains the danger it is looking for:
+- if the bad family is found anywhere, Binaryen skips block merging for the whole function;
+- it does not merely skip the nearest candidate.
 
-- Binaryen removes the inner block first
-- only then does it update branches
-- in the bad same-name shadow family, once the inner block is gone, some branches that used to target the inner block can become indistinguishable from branches that target the outer block
-- a later branch rewrite can then update **too much**
+The bad family is about branch-target ambiguity after removing a named block layer. If a rewrite first deletes an inner name and only later updates name uses, old branch targets can become indistinguishable from a surrounding same-name target. Binaryen chooses safety by avoiding the whole function in that case.
 
-The crucial policy choice is the bailout strength:
+This part of the older dossier was directionally right, but it was overused to justify a tail-child-only model. `ProblemFinder` is a guard inside a broader named-block rewrite pass.
 
-- Binaryen does not skip only one candidate
-- it skips the **entire function** if `ProblemFinder` finds that hazard family anywhere
+## Phase 2: collect branch users by target name
 
-That means a future Starshine port should not model this as a tiny local guard inside only the final splice helper. The upstream behavior is stronger than that.
+The real legality proof starts from branch users, not from a syntactic “last child” test.
 
-## Phase 2: only tail nested blocks are candidates
+Binaryen needs to know:
 
-Inside `optimizeBlock(...)`, Binaryen immediately rejects:
+- which branches target the child block name;
+- which containing block each branch exits;
+- whether those containing exits can themselves be changed to the candidate parent;
+- whether retargeting would skip invalidating effects.
 
-- empty blocks
-- blocks whose last child is not another block
+This is why helper surfaces such as `branch-utils.h` and `effects.h` matter for a faithful reading. The pass is small because it delegates branch-scope and side-effect questions to shared Binaryen utilities.
 
-This is why `merge-blocks` should not be described as a generic flatten pass.
+## Phase 3: `canChangeTo(...)` is the core safety proof
 
-Binaryen only knows how to safely flatten a nested block when that child is at the parent's tail.
+`canChangeTo(block, parent)` is the key function to read.
 
-Why tail position matters:
+Its durable contract is:
 
-- if the child ends the parent, the child and parent share the same continuation point
-- that makes some branch retargeting and wrapper deletion safe
-- a non-tail child would leave later siblings whose reachability could change after flattening
+1. Nameless blocks do not pass this proof.
+2. If the child and parent already have the same name, the direct rename proof is trivial.
+3. Otherwise, Binaryen inspects every branch user of the child name.
+4. Each branch user's exiting block must be changeable to the parent too.
+5. The path between relevant positions must not contain effects that would be invalidated by retargeting the branch.
 
-## Phase 3: the naming gate is deliberately narrow
+That recursive shape is the central correction to the old docs.
 
-Binaryen then requires one of these:
+Older wording said “different-name child does not merge.” The source is more subtle: different names can be legal when their branch users can be recursively retargeted to the parent safely.
 
-- the child block has **no name**, or
-- the child block's name equals the parent block's name
+## Phase 4: `visitBlock(...)` splices accepted named child blocks
 
-This is a very strong statement about upstream intent.
+The normal block visitor:
 
-Binaryen is explicitly **not** doing the general problem:
+1. scans child expressions in a parent block list;
+2. looks for named block children;
+3. requires `canChangeTo(child, parent)`;
+4. checks immediate named grandchildren so removing the middle layer does not strand an unsafe name relation;
+5. splices the child block's list into the parent list;
+6. rewrites scope-name uses from the child name to the parent name;
+7. runs `ReFinalize` on the rewritten block.
 
-- merge a named `$child`
-- then rewrite arbitrary branches from `$child` to some different `$parent`
-- while preserving all control-flow semantics
+The most important correction is what this is **not**:
 
-Instead, it only accepts the easy cases:
+- not tail-child-only;
+- not unnamed-child flattening;
+- not same-name-only;
+- not a generic flatten-all-blocks pass.
 
-### Unnamed child
+It is a named-block deblocking pass whose proof is branch-user and effect driven.
 
-- no branch can target it by name
-- so the structural rewrite is much simpler
+## Phase 5: `visitIf(...)` owns a separate shape family
 
-### Same-name child
+Binaryen also has an `if` visitor that applies the same named-wrapper idea to `if` arms.
 
-- the child is already pretending to be the same exit label family as the parent
-- that makes flattening plausible, but only after the shadow-hazard prescan and the other gates pass
+The teaching point is simple:
 
-## Phase 4: type equality is mandatory
+- an `if` arm can contain a named block wrapper;
+- if the name can be safely changed to the containing block's name, Binaryen can remove that label layer;
+- this is not literally the same shape as “a block's final child is another block.”
 
-Binaryen next requires:
+This matters for shape catalogs and future ports because a local implementation that only scans block-list tail children would miss an official upstream surface.
 
-- `curr->type == child->type`
+## Phase 6: terminal visitors remove redundant names
 
-The source comment gives the reason directly:
+`MergeBlocks.cpp` also has visitors for terminal families such as `throw`, `rethrow`, and `return`.
 
-- if the types differ, changing the branch target can also change the branch's value contract
+The high-level role is to remove a block name around a terminal expression when the label is only structural noise. These visitors make the pass more than a block-list splice pass.
 
-This is the easiest correctness rule to port faithfully:
+Beginner rule:
 
-- never flatten if the parent and child block result types differ
+- if the inner expression exits anyway, the surrounding block label may not need to remain as an observable branch target.
 
-For beginner readers, the safe mental model is:
+Advanced caution:
 
-- the parent and child must promise the same number and kind of results
-- otherwise deleting one wrapper can change what a branch is expected to produce
+- treat this as a source-backed pass surface, not as permission to erase arbitrary names around arbitrary control instructions. The same branch-user and scope-name safety rules still frame the file.
 
-## Phase 5: named children must not invalidate effects
+## Phase 7: refinalization is mandatory
 
-When the child has a name, Binaryen adds another gate:
+After successful structural rewrites, Binaryen refinalizes the affected expression.
 
-- `!EffectAnalyzer::invalidates(child)`
+That is a correctness signal:
 
-The source comment makes the reason unusually explicit:
+- block removal can change the expression tree that type finalization sees;
+- branch name retargeting can alter payload expectations;
+- the pass treats type repair as part of the transformation, not as optional cleanup.
 
-- because the child is at the end of the parent, branches to the child can be retargeted to the parent
-- but if the child body has observable side effects, those effects could disappear if a retargeted branch now skips the child body entirely
+## What Binaryen does not do
 
-This is the important beginner version:
+`merge-blocks` still has a narrow scope even after the correction.
 
-- if flattening could make a branch bypass the child's work, that work must not matter observably
+It does **not**:
 
-Important nuance:
+- flatten nameless wrappers as a general rule;
+- replace `flatten`;
+- replace `remove-unused-brs`;
+- solve arbitrary CFG restructuring;
+- ignore branch users;
+- ignore skipped effects;
+- skip refinalization after edits.
 
-- unnamed children skip this gate
-- that is not because effects suddenly stop mattering in general
-- it is because unnamed blocks are not label targets, so the named-branch retargeting hazard does not arise in the same way
+The corrected mental model is “named-block deblocking with branch-retargeting proof,” not “general block flattening.”
 
-## Phase 6: the actual rewrite is tiny
+## Relationship to current Starshine
 
-Once all gates pass, Binaryen does only a few mechanical steps:
+Current Starshine is in the same cleanup family but uses a different HOT-IR proof:
 
-1. run `BranchUtils::operateOnScopeNameUses(curr, ...)`
-2. remove the tail child from the parent list
-3. append the child's list items directly into the parent list
-4. run `ReFinalize().walk(curr)`
-5. mark the pass as having optimized something
+- Starshine flattens branch-free HOT region-root blocks, including unlabeled local wrappers.
+- Starshine refuses any block whose label is referenced anywhere in the function.
+- Therefore Starshine has no local equivalent of Binaryen's recursive name-retargeting proof, `ProblemFinder`, or named-child effect barrier.
+- Starshine adds local typed-carrier guards and dead-`unreachable` suffix repair because HOT lowering/writeback has different obligations from Binaryen's AST refinalizer.
 
-This is one of those cases where a short source file is deceptive.
-
-The file is short because Binaryen has already pushed the hard parts into helpers:
-
-- branch-scope traversal utilities
-- effect invalidation analysis
-- post-rewrite type repair
-
-## Why `ReFinalize` is non-optional
-
-A common porting mistake would be to think:
-
-- “I only changed structure, not value instructions, so maybe I can skip type repair.”
-
-Binaryen does not do that.
-
-After every successful splice, it refinalizes the rewritten block.
-
-That is upstream evidence that the pass treats type repair as part of the main correctness contract, not as optional cleanup.
-
-## What `BranchUtils` contributes
-
-The relevant Binaryen helper here is not a magical whole-function relabeler.
-
-The important contract is smaller:
-
-- operate on branch-relevant names in the current scope
-- descend through unnamed nested scopes where those uses still belong to the current branch domain
-
-That matches the narrowness of `merge-blocks` itself.
-
-The pass is small because it avoids the general branch-rewrite problem.
-
-My current reading of the source is:
-
-- the branch helper call is mostly a scoped safety belt around an already narrow transform
-- the real semantic boundary is still the candidate gating, especially the same-name hazard prescan and the named-child effect barrier
-
-That is an inference from the current implementation shape, not a line-comment from Binaryen.
-
-## What the pass does **not** do
-
-A future Starshine port should avoid accidentally growing this pass beyond Binaryen's actual scope.
-
-`merge-blocks` does **not**:
-
-- flatten arbitrary nested blocks anywhere in a parent list
-- solve arbitrary named-child retargeting
-- repair control flow for non-tail children
-- replace `remove-unused-brs`
-- replace `flatten`
-- replace `vacuum`
-- create new blocks or branches to make merging possible
-- perform general CFG simplification
-
-It only flattens already-safe tail nested blocks.
-
-## Why the pass is late and repeated
-
-The saved `-O4z` audit shows the top-level late cluster:
-
-- `code-folding`
-- `merge-blocks`
-- `remove-unused-brs`
-- `remove-unused-names`
-- `merge-blocks`
-- `precompute-propagate`
-- `optimize-instructions`
-- `heap-store-optimization`
-- `rse`
-- `vacuum`
-
-That ordering is a clue to the pass's intended role.
-
-### First late `merge-blocks`
-
-After `code-folding`, duplicate-region cleanup can leave nested wrapper blocks.
-
-A first `merge-blocks` run flattens easy wrappers before the next branch cleanup.
-
-### Second late `merge-blocks`
-
-After `remove-unused-brs` and `remove-unused-names`, more wrappers can become trivially mergeable.
-
-A second run catches those newly exposed shapes.
-
-So the repeated scheduling is not accidental duplication. It is part of the cleanup strategy.
-
-## The most important porting lessons
-
-If Starshine ports `merge-blocks`, the implementation should preserve these upstream-level facts first:
-
-1. whole-function shadow-hazard bailout
-2. tail-child-only matching
-3. unnamed-or-same-name child restriction
-4. parent-child block type equality
-5. named-child effect invalidation barrier
-6. post-rewrite type repair
-7. repeated late-slot scheduling rather than one one-off flatten step
-
-Those are the real Binaryen contracts. Everything else is detail.
+Read [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md) for the local code map.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md`](../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md)
-- [`../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md`](../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md)
-- [`../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md`](../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md)
+- [`../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md)
+- [`../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md`](../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeBlocks.cpp>
-- Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- Binaryen `version_129` branch utilities: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h>
-- Binaryen `version_129` branch-utility implementation: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.cpp>
-- Binaryen `version_129` effects helpers: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
-- Binaryen `version_129` traversal / refinalize helpers: <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm/wasm-traversal.h>
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-blocks.wast>
+- Binaryen current-main pass source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MergeBlocks.cpp>
