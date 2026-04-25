@@ -198,7 +198,7 @@ That naturally limits how precise the propagated summaries can become around imp
 ### 3. Missing or stale metadata
 
 Later passes only benefit when the summaries exist and are still valid.
-The existence of `discard-global-effects` is direct source-backed evidence that Binaryen considers invalidation and lifecycle management part of the contract.
+The existence of [`discard-global-effects`](../discard-global-effects/index.md) is direct source-backed evidence that Binaryen considers invalidation and lifecycle management part of the contract.
 
 ### 4. Not a generic alias analysis
 

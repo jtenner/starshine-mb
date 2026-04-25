@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] health | link `discard-global-effects` from global-effects source map
+
+- Ran a focused reference-hygiene check after adding the `discard-global-effects` dossier and found the `global-effects` implementation/test-map page still mentioned the cleanup sibling as plain text with older 2026-04-24 source metadata.
+- Updated `docs/wiki/binaryen/passes/global-effects/implementation-structure-and-tests.md` and one lingering sentence in `docs/wiki/binaryen/passes/global-effects/binaryen-strategy.md` so every source-map mention points at the new cleanup sibling dossier and cites the 2026-04-25 raw source manifest.
+
 ## [2026-04-25] research | add `discard-global-effects` lifecycle dossier
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/global-effects/`, and `docs/wiki/raw/research/`, then chose upstream `discard-global-effects` because the producer-side `global-effects` dossier repeatedly mentioned the cleanup sibling but the pass still lacked its own canonical overview, metadata-shape, Binaryen strategy, and Starshine status pages.

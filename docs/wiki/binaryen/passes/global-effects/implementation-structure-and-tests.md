@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
@@ -11,6 +12,7 @@ related:
   - ./binaryen-strategy.md
   - ./metadata-naming-and-consumers.md
   - ./starshine-strategy.md
+  - ../discard-global-effects/index.md
   - ../simplify-locals/implementation-structure-and-tests.md
   - ../vacuum/effect-pruning-and-traps-never-happen.md
 ---
@@ -22,7 +24,7 @@ related:
 | File | What it proves | Why it matters |
 | --- | --- | --- |
 | `src/passes/GlobalEffects.cpp` | The actual pass algorithm: shallow per-function effect scan, static-call reachability / current-main SCC propagation, conservative unknown-call and recursion handling, and storage into `Function.effects` | This is the main implementation oracle. |
-| `src/passes/pass.cpp` | Public pass registration under the upstream name `generate-global-effects`, sibling `discard-global-effects`, and the explicit note that the pass is not currently scheduled in the default optimization sequence | This is the main scheduler and naming oracle. |
+| `src/passes/pass.cpp` | Public pass registration under the upstream name `generate-global-effects`, sibling [`discard-global-effects`](../discard-global-effects/index.md), and the explicit note that the pass is not currently scheduled in the default optimization sequence | This is the main scheduler and naming oracle. |
 | `src/ir/effects.h` | Consumer-side handoff: `EffectAnalyzer` on a direct `Call` may incorporate a callee's stored `effects` summary | This explains why the pass matters downstream. |
 | `src/wasm.h` | `Function` really stores an optional `effects` pointer as explicit metadata | This proves the pass is metadata-producing, not IR-rewriting. |
 | `test/lit/passes/vacuum-global-effects.wast` | A real downstream consumer case where generated summaries make later `vacuum` cleanup stronger | This is the clearest reviewed behavior proof for the pass's cleanup value. |
@@ -67,7 +69,7 @@ Upstream registers the pass as `generate-global-effects`.
 
 ### 2. Sibling lifecycle pass
 
-Upstream also registers `discard-global-effects`.
+Upstream also registers [`discard-global-effects`](../discard-global-effects/index.md).
 That is strong evidence that Binaryen expects this metadata to have a lifecycle.
 
 ### 3. Default-pipeline policy
@@ -141,6 +143,7 @@ A future port should preserve:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)
