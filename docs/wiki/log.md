@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | add `multi-memory-lowering` source dossier
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose upstream-only `multi-memory-lowering` because the widened tracker had no easy `none` target but Starshine already has memory-index representation, binary, validation, and memory-pass surfaces while no pass page explained Binaryen's many-memories-to-one compatibility lowering.
+- Added `docs/wiki/raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md`, capturing official Binaryen `version_129` and current-main source surfaces for `MultiMemoryLowering.cpp`, `pass.cpp`, `passes.h`, the checked and unchecked lit files, README `wasm-merge` context, and the WebAssembly multi-memory proposal overview. The source check found no teaching-relevant current-main drift: Binaryen still lowers many memories into one combined memory with offset globals, active-data repair, instruction address shifts, generated `memory.size` / `memory.grow` helpers, and an optional bounds-checking sibling.
+- Added `docs/wiki/raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md` and a new living folder `docs/wiki/binaryen/passes/multi-memory-lowering/` with overview, Binaryen strategy, implementation/test map, layout/bounds/growth guide, WAT-shape catalog, and Starshine status page. The Starshine page maps exact local registry absence plus memory representation, WAT lowering, binary codec, and typecheck surfaces while keeping clear that current requests fail as unknown and no lowering pass exists.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked the new family as a justified upstream-only dossier rather than an active or boundary-only Starshine pass.
+
 ## [2026-04-25] research | recheck `dataflow-optimization` current-main contract
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/dataflow-optimization/` folder, and `docs/wiki/raw/research/`, then chose removed local registry pass `dataflow-optimization` / upstream `dfo` because the dossier was useful but still carried 2026-04-23 freshness wording and stale Starshine request-guard line anchors.
