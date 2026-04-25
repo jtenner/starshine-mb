@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
+  - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -13,6 +15,7 @@ sources:
   - ../../../../../agent-todo.md
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./interference-and-ordering.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -65,11 +68,14 @@ That is narrower than “merge any locals that look unused.”
 - Loop backedge copies get extra priority because removing them can avoid branch-only copy work.
 - Binaryen tries two greedy orders by default and has a separate `coalesce-locals-learning` variant, but the default optimize pipeline uses the normal greedy pass.
 - Post-coloring cleanup is part of the contract: redundant copies are deleted, dead sets are removed, and some dead tee rewrites require `ReFinalize()`.
+- A focused 2026-04-25 current-`main` recheck found no teaching-relevant drift on `CoalesceLocals.cpp`, `pass.cpp`, `opt-utils.h`, or `coalesce-locals.wast`; treat that as a narrow freshness bridge, not proof that every helper detail is byte-identical to `version_129`.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: helper dependencies, liveness/value-number interference, greedy coloring, rewrite cleanup, and scheduler placement.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  Source-confirmed owner-file and test-map page covering `CoalesceLocals.cpp`, helper headers, registration/scheduler files, the dedicated lit test, and the exact local Starshine status/prerequisite surfaces.
 - [`./interference-and-ordering.md`](./interference-and-ordering.md)
   Dedicated guide to the easiest parts of the pass to misunderstand: why equal values can overlap without interfering, why zero-init matters, why greedy order matters, and how backedge weighting changes outcomes.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -82,11 +88,14 @@ That is narrower than “merge any locals that look unused.”
 - Treat this folder as the canonical home for future `coalesce-locals` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
 - Treat [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md) as the immutable provenance anchor for the official release/source/test surfaces reviewed on 2026-04-22.
-- New `coalesce-locals` findings should update the Binaryen strategy page, the interference/order page, and the Starshine strategy page together so the algorithm explanation, example catalog, and local status story stay aligned.
+- Treat [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md) as the narrow current-`main` freshness bridge added on 2026-04-25.
+- New `coalesce-locals` findings should update the Binaryen strategy page, the implementation/test map, the interference/order page, and the Starshine strategy page together so the algorithm explanation, example catalog, source map, and local status story stay aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md)
+- [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
 - [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md`](../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

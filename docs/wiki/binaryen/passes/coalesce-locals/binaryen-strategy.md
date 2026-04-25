@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
+  - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./interference-and-ordering.md
   - ./wat-shapes.md
   - ../local-subtyping/index.md
@@ -21,12 +24,14 @@ related:
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The core implementation is `src/passes/CoalesceLocals.cpp`.
 - Treat [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md) as the immutable provenance anchor for the official release, source, helper, and test URLs reviewed on 2026-04-22.
+- Treat [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md) as the focused current-`main` freshness bridge. It found no teaching-relevant drift on the checked owner, scheduler, helper, and dedicated-test surfaces.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
 - The key helper contracts come from:
   - `src/cfg/liveness-traversal.h`
   - `src/ir/numbering.h`
   - `src/ir/utils.h`
 - The shipped behavior examples come from `test/lit/passes/coalesce-locals.wast`.
+- For the owner-file and test-region map, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 Primary source URLs:
 
@@ -337,11 +342,12 @@ A future Starshine port should avoid broadening the pass beyond upstream behavio
 
 ## Freshness note
 
-A narrow 2026-04-22 current-`main` spot check on `CoalesceLocals.cpp`, `pass.cpp`, `opt-utils.h`, and `coalesce-locals.wast` did **not** surface a new teaching-relevant drift beyond the `version_129` contract summarized here.
+A focused 2026-04-25 current-`main` spot check on `CoalesceLocals.cpp`, `pass.cpp`, `opt-utils.h`, helper surfaces, and `coalesce-locals.wast` did **not** surface a teaching-relevant drift beyond the `version_129` contract summarized here.
 So the durable rule is:
 
 - treat Binaryen `version_129` as the released semantic oracle for this dossier
-- use the raw primary-source manifest when future work needs the exact release/source/test provenance again
+- use the 2026-04-22 raw primary-source manifest when future work needs exact tagged release/source/test provenance
+- use the 2026-04-25 current-`main` recheck as a narrow freshness bridge
 - mention current-main drift only when it rises above the current "no teaching-relevant change found" status
 
 `coalesce-locals` does **not**:
@@ -374,7 +380,9 @@ Those are the durable upstream truths.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md)
+- [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
 - [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md`](../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CoalesceLocals.cpp>

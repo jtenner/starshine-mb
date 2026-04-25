@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
+  - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -19,6 +21,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./interference-and-ordering.md
   - ./wat-shapes.md
   - ../local-subtyping/index.md
@@ -29,7 +32,7 @@ related:
 
 # Starshine Strategy For `coalesce-locals`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md), the current-`main` recheck in [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md), and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -52,7 +55,7 @@ So this page is intentionally a **status-and-port-map** page rather than a fake 
 The fastest read-along path through the current Starshine status is:
 
 - tracked but removed pass-name status
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:144-151`
     - `pass_registry_removed_names()` includes `"coalesce-locals"`
 - preset-honesty proof around the missing neighboring slots
   - `src/passes/optimize_test.mbt`
@@ -68,16 +71,21 @@ The fastest read-along path through the current Starshine status is:
       - `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals`
       - `reorder-locals -> coalesce-locals -> reorder-locals`
 - exact neighboring local implementation files already worth reading
-  - `src/passes/reorder_locals.mbt`
+  - `src/passes/reorder_locals.mbt:2`
     - `reorder_locals_summary()`
+  - `src/passes/reorder_locals.mbt:118`
     - `rl_scan_instruction(...)`
+  - `src/passes/reorder_locals.mbt:183`
     - `rl_rewrite_instrs_in_place(...)`
+  - `src/passes/reorder_locals.mbt:544`
     - `reorder_locals_run_module_pass(...)`
   - `src/passes/reorder_locals_test.mbt`
     - `test "reorder-locals rewrites local names for changed defined functions and clears raw payload"`
-  - `src/passes/simplify_locals.mbt`
+  - `src/passes/simplify_locals.mbt:15`
     - `simplify_locals_summary()`
+  - `src/passes/simplify_locals.mbt:2`
     - `simplify_locals_descriptor()`
+  - `src/passes/simplify_locals.mbt:70`
     - `simplify_locals_new_sinkables(...)`
 - exact neighboring living dossiers that define the future slot and local landing zone
   - [`../local-subtyping/index.md`](../local-subtyping/index.md)
@@ -85,7 +93,11 @@ The fastest read-along path through the current Starshine status is:
   - [`../reorder-locals/index.md`](../reorder-locals/index.md)
   - [`../simplify-locals/index.md`](../simplify-locals/index.md)
 
-That code-and-doc map is the main practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and the future landing zone.
+That code-and-doc map is the practical read-along path: readers can jump directly from the upstream algorithm and source/test map to the exact local status and the future landing zone.
+
+## Freshness note
+
+The 2026-04-25 current-`main` recheck found no teaching-relevant drift in Binaryen's checked owner, scheduler, helper, and dedicated-test surfaces. That does **not** change Starshine status: `coalesce-locals` remains removed locally, with no owner file and no dispatcher case.
 
 ## What Starshine currently does for this pass name
 
