@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
+  - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -18,6 +20,7 @@ related:
   - ./linear-traces-read-only-to-write-and-reruns.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-globals/index.md
   - ../propagate-globals-globally/index.md
   - ../inlining-optimizing/index.md
@@ -68,7 +71,7 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
 
 ## Current durable takeaways
 
-- The reviewed official Binaryen `version_129` release page on 2026-04-24 showed publish date **2026-04-01**, and the new raw manifest in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md) records the exact source and lit-test URLs checked for this folder.
+- The reviewed official Binaryen `version_129` release page on 2026-04-24 showed publish date **2026-04-01**, and the raw manifests in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md) record the exact source, lit-test, and current-main port-readiness URLs checked for this folder.
 - `simplify-globals-optimizing` is a **module / boundary** pass, not a function-local peephole.
 - The pass has several distinct algorithm families, not one:
   - practical-immutability discovery
@@ -87,6 +90,7 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
   - the multi-phase global rewrite algorithm
   - the no-extra-`precompute-propagate` nested rerun behavior of the optimizing variant
 - Current Starshine tracks the pass as boundary-only, rejects explicit requests honestly, and has `SGO` backlog slices, but it has no owner file, no global-use fact table, and no nested-rerun scheduler yet.
+- The 2026-04-25 port-readiness bridge found no teaching-relevant Binaryen current-main drift and adds a dedicated Starshine implementation-readiness / validation ladder without claiming local implementation.
 
 ## Page map
 
@@ -100,16 +104,20 @@ That is much closer to the real Binaryen pass than “replace constant `global.g
   Beginner-friendly before/after shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future-port map: boundary-only registry tracking, honest request rejection, missing owner code, `SGO` backlog slices, and the exact neighboring late-tail pass dossiers to compose with.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge for a future port: minimum viable slice order, transformed-shape test plan, scheduler validation, Binaryen oracle comparison, and late-tail replay sequencing.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `simplify-globals-optimizing` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real late boundary/global pass plus the correct nested rerun scheduler behavior.
-- New `simplify-globals-optimizing` findings should update both the strategy page and the linear-trace / read-only-to-write page so the global algorithm story and the scheduler story stay aligned.
+- New `simplify-globals-optimizing` findings should update the strategy page, the linear-trace / read-only-to-write page, and the port-readiness page together so the global algorithm story, scheduler story, and future Starshine validation plan stay aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
+- [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
 - [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

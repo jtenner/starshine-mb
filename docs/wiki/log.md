@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `simplify-globals-optimizing` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/simplify-globals-optimizing/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `simplify-globals-optimizing` because the dossier had source/shape/status coverage but still left future implementers to infer the safe first Starshine slice and validation ladder.
+- Added `docs/wiki/raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` `SimplifyGlobals.cpp`, `pass.cpp`, and `pass.h`; the focused recheck found no teaching-relevant drift from the existing contract and kept the shared-engine plus optimizing-specific changed-function default-rerun split explicit.
+- Added `docs/wiki/raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md` and `docs/wiki/binaryen/passes/simplify-globals-optimizing/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, linear-trace guide, WAT-shape catalog, and Starshine strategy page so transformed shapes, upstream strategy, exact local boundary-only code locations, first-slice order, scheduler tests, oracle comparison, and late-tail replay sequencing are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; the touched-area health check promoted `simplify-globals-optimizing` from `dossier` to `deep` while keeping the pass explicitly unimplemented.
+
 ## [2026-04-25] research | refresh `precompute-propagate` current-main and code map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/precompute-propagate/` folder, and `docs/wiki/raw/research/`, then chose removed `precompute-propagate` because the dossier was complete-looking but still had stale `working` status, a tracker `dossier` classification, and a Starshine status page that named functions without exact line ranges.

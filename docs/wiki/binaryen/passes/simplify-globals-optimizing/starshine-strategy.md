@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
+  - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -18,6 +20,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./linear-traces-read-only-to-write-and-reruns.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-globals/index.md
   - ../propagate-globals-globally/index.md
   - ../duplicate-import-elimination/index.md
@@ -29,8 +32,8 @@ related:
 
 # Starshine strategy for `simplify-globals-optimizing`
 
-Use this page with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md).
-The purpose here is to map the reviewed Binaryen contract to the exact current Starshine status and the concrete local surfaces a future port should start from.
+Use this page with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md).
+The purpose here is to map the reviewed Binaryen contract to the exact current Starshine status and the concrete local surfaces a future port should start from. The implementation-readiness and validation ladder now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Honest current status
 
@@ -55,10 +58,10 @@ The fast read-along path is:
   - [`src/passes/optimize.mbt#L127-L141`](../../../../../src/passes/optimize.mbt#L127-L141)
     - `pass_registry_boundary_only_names()` includes `"simplify-globals-optimizing"`
 - active request guard
-  - [`src/passes/optimize.mbt#L440-L463`](../../../../../src/passes/optimize.mbt#L440-L463)
+  - [`src/passes/optimize.mbt#L448-L466`](../../../../../src/passes/optimize.mbt#L448-L466)
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
 - current preset gap
-  - [`src/passes/optimize.mbt#L240-L270`](../../../../../src/passes/optimize.mbt#L240-L270)
+  - [`src/passes/optimize.mbt#L248-L270`](../../../../../src/passes/optimize.mbt#L248-L270)
     - local `optimize` / `shrink` presets currently expand only to implemented active hot/module passes and stop before the late Binaryen post-pass tail that contains `simplify-globals-optimizing`
 - registry coverage tests
   - [`src/passes/registry_test.mbt#L1-L66`](../../../../../src/passes/registry_test.mbt#L1-L66)
@@ -70,7 +73,7 @@ The fast read-along path is:
   - [`../../no-dwarf-default-optimize-path.md#L35-L48`](../../no-dwarf-default-optimize-path.md#L35-L48)
     - the no-DWARF late post-pass phase places `simplify-globals-optimizing` after `duplicate-import-elimination` and before `remove-unused-module-elements`; the nested rerun rule records that this sibling reruns default function passes without the `precompute-propagate` prefix
 - backlog slice
-  - [`../../../../../agent-todo.md#L535-L547`](../../../../../agent-todo.md#L535-L547)
+  - [`../../../../../agent-todo.md#L546-L561`](../../../../../agent-todo.md#L546-L561)
     - `SGO` is split into constant-global / mutation tracking and nested default-function rerun work
 
 ## What Starshine currently does for this pass name
@@ -114,7 +117,7 @@ The minimum shape is:
 10. re-run validation and Binaryen comparison on both isolated pass tests and the late post-pass neighborhood.
 
 The most likely local landing point is **not** the existing HOT pass manager alone.
-The pass must eventually compose with boundary/module scheduling next to `duplicate-import-elimination`, `remove-unused-module-elements`, `string-gathering`, `reorder-globals`, and `directize`.
+The pass must eventually compose with boundary/module scheduling next to `duplicate-import-elimination`, `remove-unused-module-elements`, `string-gathering`, `reorder-globals`, and `directize`. For a concrete first-slice and validation plan, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Mapping to neighboring dossiers
 
@@ -174,7 +177,9 @@ The pass should stay documented as unimplemented until Starshine has both the sh
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
+- [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
 - [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

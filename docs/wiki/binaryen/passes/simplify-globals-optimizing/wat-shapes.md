@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
+  - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
 related:
@@ -12,12 +14,13 @@ related:
   - ./implementation-structure-and-tests.md
   - ./linear-traces-read-only-to-write-and-reruns.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-module-elements/index.md
 ---
 
 # `simplify-globals-optimizing` WAT and IR shape guide
 
-This page is the beginner-friendly shape catalog for Binaryen `simplify-globals-optimizing`, anchored to the primary-source manifest in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md).
+This page is the beginner-friendly shape catalog for Binaryen `simplify-globals-optimizing`, anchored to the primary-source manifests in [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md).
 
 The main question to keep asking is:
 
@@ -633,6 +636,8 @@ The later top-level `remove-unused-module-elements` pass is what actually remove
 
 ## Easy mental checklist for future Starshine work
 
+For a concrete future local test ladder, pair this shape catalog with [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
 When deciding whether a shape should rewrite, ask:
 
 1. Is this still module-init time, or already runtime code?
@@ -646,6 +651,8 @@ That checklist matches the actual `version_129` source much better than “const
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
+- [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
 - [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md
+  - ../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md
   - ../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md
 related:
@@ -12,6 +14,7 @@ related:
   - ./linear-traces-read-only-to-write-and-reruns.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-globals/index.md
   - ../propagate-globals-globally/index.md
   - ../remove-unused-module-elements/index.md
@@ -23,7 +26,7 @@ related:
 ## Upstream source rule
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
-- The immutable source manifest for this dossier is [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md), which records the official release page, reviewed `version_129` and current-`main` source URLs, helper headers, and lit-test roster.
+- The immutable source manifests for this dossier are [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md), which record the official release page, reviewed `version_129` and current-`main` source URLs, helper headers, lit-test roster, and focused port-readiness recheck.
 - The core implementation is `src/passes/SimplifyGlobals.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - The nested-runner behavior also depends on `src/pass.h`.
@@ -465,6 +468,12 @@ Provides the optimizing variant’s nested rerun contract directly, without usin
 - `propagate-globals-globally.wast`
   - startup-only propagation versus full-pass runtime propagation
 
+## 2026-04-25 current-main and port-readiness note
+
+The focused 2026-04-25 bridge rechecked official Binaryen current-`main` `SimplifyGlobals.cpp`, `pass.cpp`, and `pass.h` for teaching drift. It found no new contract change from the `version_129` strategy above. The main new durable conclusion is port-planning: a Starshine implementation must validate the shared global rewrite algorithm separately from the optimizing wrapper's exact changed-function default-rerun behavior.
+
+Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the future local slice and validation ladder.
+
 ## Future Starshine port checklist
 
 - Keep this a module/boundary pass.
@@ -479,6 +488,8 @@ Provides the optimizing variant’s nested rerun contract directly, without usin
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-globals-optimizing-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-simplify-globals-optimizing-primary-sources.md)
+- [`../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md`](../../../raw/research/0376-2026-04-25-simplify-globals-optimizing-port-readiness.md)
 - [`../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0286-2026-04-24-simplify-globals-optimizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md`](../../../raw/research/0122-2026-04-20-simplify-globals-optimizing-binaryen-research.md)
