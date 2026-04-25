@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
+  - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
@@ -26,7 +28,7 @@ related:
 
 # Starshine strategy for `untee`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the 2026-04-25 current-main bridge in [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -46,6 +48,7 @@ So this page is intentionally a **status-and-port-map** page rather than a fake 
 
 ## Exact local code and doc map today
 
+The 2026-04-25 source bridge does **not** change local implementation status: upstream remained stable, but Starshine still has no `untee` owner file or active backlog slice.
 The fastest read-along path through the current Starshine status is:
 
 - tracked but removed pass-name status

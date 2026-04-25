@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | recheck `untee` current-main freshness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose removed local registry pass `untee` because the dossier was otherwise complete but still carried stale “2026-04-21 drift check” wording in pages reviewed on 2026-04-23.
+- Added `docs/wiki/raw/binaryen/2026-04-25-untee-current-main-recheck.md` and `docs/wiki/raw/research/0347-2026-04-25-untee-current-main-recheck.md`, capturing a primary-source current-main recheck of Binaryen `Untee.cpp`, `pass.cpp`, `passes.h`, `SimplifyLocals.cpp`, and `untee.wast`.
+- Confirmed no teaching-relevant drift from the `version_129` contract: `untee` remains a tiny `LocalSet` / `local.tee` postwalk, reachable tees still expand to `local.set` plus declared-type `local.get`, unreachable tees still delete the shell, the public registration and constructor declaration remain present, and the pass remains absent from the reviewed default function-optimization roster.
+- Refreshed the `untee` overview, Binaryen strategy, implementation/test-map, boundary guide, WAT-shape catalog, and Starshine strategy page; updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the no-drift bridge and corrected freshness wording are discoverable.
+
 ## [2026-04-25] research | correct `string-lifting` wrong-signature behavior
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose upstream-only `string-lifting` because the dossier was complete but carried a stale behavior claim: recognized `wasm:js-string` helper names with wrong signatures were described as unchanged-call bailouts.

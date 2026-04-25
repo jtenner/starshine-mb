@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
+  - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp
@@ -21,8 +23,8 @@ related:
 
 # `untee` implementation structure and tests
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md).
-That manifest records the exact reviewed official release, source, and test URLs plus the 2026-04-23 release-page provenance showing Binaryen `version_129` publish date **2026-04-01**.
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md) and the freshness bridge in [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md).
+The older manifest records the exact reviewed official release, source, and test URLs plus the 2026-04-23 release-page provenance showing Binaryen `version_129` publish date **2026-04-01**; the newer bridge confirms current `main` still has no teaching-relevant drift for the owner file, registration, constructor declaration, dedicated lit oracle, or non-default scheduler status.
 
 This page is the file-by-file map for Binaryen `untee`.
 
@@ -141,19 +143,21 @@ This is the clearest official proof that unreachable tees are a real special cas
 
 ## Freshness check against `main`
 
-A narrow 2026-04-21 drift check compared:
+A narrow 2026-04-25 current-main bridge compared:
 
 - `src/passes/Untee.cpp`
+- `src/passes/pass.cpp`
+- `src/passes/passes.h`
+- `src/passes/SimplifyLocals.cpp`
 - `test/lit/passes/untee.wast`
-- the relevant `pass.cpp` lines
 
-between `version_129` and `main`.
+between `version_129` and `main`; see [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md).
 
 Result:
 
-- no diff in the reviewed implementation or dedicated test surface
+- no teaching-relevant drift in the reviewed implementation, public registration, constructor declaration, dedicated test surface, or non-default scheduler status
 
-That means the `version_129` release tag is a reliable oracle for this pass at the moment.
+That means the `version_129` release tag remains a reliable oracle for this pass at the moment.
 
 ## What the source layout does **not** contain
 
@@ -197,7 +201,9 @@ When this pass is eventually ported, these are the source-backed obligations to 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
+- [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/Untee.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>

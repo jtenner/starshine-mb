@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
+  - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - ../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -75,8 +77,8 @@ So this pass is best taught as:
 - If the tee's value is already `unreachable`, the tee wrapper is deleted instead of expanded.
 - Nested tees expand inside-out because the walk is postorder.
 - The source comment explicitly says this flatter form can help passes like `code-pushing`.
-- The 2026-04-23 raw primary-source manifest now records the exact official release, source, and test URLs reviewed for this dossier, and the checked official Binaryen `version_129` release page showed publish date **2026-04-01**.
-- A narrow current-`main` check found the implementation, registration, and dedicated lit file unchanged from `version_129`, so the tagged release is a reliable oracle here.
+- The 2026-04-23 raw primary-source manifest records the exact official release, source, and test URLs reviewed for this dossier, and the checked official Binaryen `version_129` release page showed publish date **2026-04-01**.
+- The 2026-04-25 current-main source bridge found the implementation, registration, constructor declaration, dedicated lit file, and non-default scheduler status unchanged for teaching purposes, so the tagged release remains a reliable oracle here.
 
 ## What this pass sounds like versus what it actually does
 
@@ -114,7 +116,9 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-untee-primary-sources.md`](../../../raw/binaryen/2026-04-23-untee-primary-sources.md)
+- [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - [`../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md`](../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
