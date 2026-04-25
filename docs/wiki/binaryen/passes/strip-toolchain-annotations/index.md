@@ -17,6 +17,7 @@ related:
   - ../instrument-locals/index.md
   - ../global-effects/index.md
   - ../duplicate-function-elimination/index.md
+  - ../strip-target-features/index.md
   - ../late-pipeline-dispatch.md
 ---
 
@@ -48,7 +49,7 @@ So this pass is best taught as:
 - **toolchain metadata cleanup**;
 - not a code optimizer;
 - not a name/custom-section stripper in general;
-- not the same thing as `strip-debug`, `strip-producers`, or `strip-target-features`.
+- not the same thing as `strip-debug`, `strip-producers`, or [`strip-target-features`](../strip-target-features/index.md).
 
 ## Inputs and outputs
 

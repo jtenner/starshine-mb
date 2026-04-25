@@ -10,6 +10,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ../strip-target-features/index.md
 ---
 
 # Binaryen strategy for `strip-toolchain-annotations`
@@ -68,7 +69,7 @@ Do not teach `strip-toolchain-annotations` as any of these:
 
 - **not `strip-debug`:** it does not remove debug names or source-map style metadata;
 - **not `strip-producers`:** it does not target the producers custom section;
-- **not `strip-target-features`:** it does not remove feature declarations;
+- **not [`strip-target-features`](../strip-target-features/index.md):** it does not suppress target-feature metadata output;
 - **not a generic custom-section stripper:** source review only proves Binaryen code-annotation cleanup;
 - **not an optimizer:** it should not change generated code shape or runtime behavior.
 
