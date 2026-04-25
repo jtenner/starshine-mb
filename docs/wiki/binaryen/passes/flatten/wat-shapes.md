@@ -1,23 +1,26 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
+  - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./flat-ir-contract-and-preludes.md
   - ./starshine-strategy.md
 ---
 
 # `flatten` WAT shapes
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md), the current-main owner/test-map bridge in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md), and the proof-surface map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
-This page is a beginner-friendly shape catalog for the main `flatten` rewrite families.
+This page is a beginner-friendly shape catalog for the main `flatten` rewrite families. The broad direct upstream proof surface is `flatten_all-features.wast`; `flatten.wast` is only a small smoke file, and `flatten-eh-legacy.wast` carries the EH-specific proof lane.
 
 The key question to ask in every case is:
 

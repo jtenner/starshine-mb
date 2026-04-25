@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
+  - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./flat-ir-contract-and-preludes.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -17,7 +20,7 @@ related:
 
 # Binaryen `flatten` strategy
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md) and the 2026-04-25 current-main owner/test-map bridge in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md).
 
 ## Upstream source rule
 
@@ -39,7 +42,7 @@ Use this page together with the raw primary-source manifest in [`../../../raw/bi
   - the `Unsupported instruction for Flatten` fatal on `BrOn*` and `TryTable`
   - the formal Flat IR rule surface in `flat.h`
   - the dedicated `flatten`, `flatten_all-features`, and `flatten-eh-legacy` lit files
-- As of `2026-04-23`, those checked surfaces still match the teaching-relevant `version_129` contract described in this dossier.
+- As of `2026-04-25`, a focused current-main owner/test-map recheck still found no teaching-relevant drift from the `version_129` contract described in this dossier. The useful new detail is the proof-surface split now captured in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md): `flatten.wast` is a tiny smoke file, `flatten_all-features.wast` is the broad behavior proof, and `flatten-eh-legacy.wast` is the EH nested-pop proof surface.
 
 Primary source URLs:
 
@@ -54,6 +57,9 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_rereloop.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_i64-to-i32-lowering.wast>
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/Flatten.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/ir/flat.h>
+- <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/flatten_all-features.wast>
+- <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/flatten-eh-legacy.wast>
 
 ## High-level intent
 

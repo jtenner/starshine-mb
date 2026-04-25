@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `flatten` implementation/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/flatten/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `flatten` because the dossier had strategy, shapes, and Starshine status coverage but still lacked the now-standard implementation/test-map page and current-main owner/test proof split.
+- Added `docs/wiki/raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`, capturing official Binaryen current-main and tagged `version_129` sources for `Flatten.cpp`, `flat.h`, `pass.cpp`, `passes.h`, helper surfaces, and the `flatten.wast` / `flatten_all-features.wast` / `flatten-eh-legacy.wast` proof lanes. The focused recheck found no teaching-relevant drift: upstream remains a function-parallel Flat-IR normalizer based on preludes, branch-target temps, value-carrying control erasure, tee removal, branch-payload routing, unsupported `BrOn*` / `TryTable` fatal boundaries, and EH nested-pop repair.
+- Added `docs/wiki/raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md` and `docs/wiki/binaryen/passes/flatten/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, Flat-IR/prelude guide, WAT-shape catalog, and Starshine status page with exact local removed-registry, CLI-spelling, dispatcher-gap, Batch 2 planning, and no-active-backlog-slice locations.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; the touched-area health check marked `flatten` as a deep dossier and replaced stale generic proof wording with the smoke/all-features/EH official-test split.
+
 ## [2026-04-25] research | deepen `signext-lowering` implementation/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/signext-lowering/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `signext-lowering` because its dossier was useful but still lacked the now-standard implementation/test-map page and carried an over-broad lit-proof wording around feature metadata.

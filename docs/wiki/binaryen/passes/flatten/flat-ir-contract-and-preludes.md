@@ -1,13 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
+  - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
+  - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
+  - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0127-2026-04-20-flatten-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `flatten`: Flat IR contract and preludes
@@ -22,6 +28,8 @@ The real pass is defined by two things together:
 
 - the exact Flat IR contract in `src/ir/flat.h`
 - the exact `preludes` movement algorithm in `src/passes/Flatten.cpp`
+
+The 2026-04-25 current-main recheck in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md) found no teaching-relevant drift in those two surfaces from the tagged `version_129` dossier.
 
 This page focuses on those two pieces.
 

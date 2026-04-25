@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
+  - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
   - ../../../raw/research/0267-2026-04-23-flatten-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
@@ -19,6 +21,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./flat-ir-contract-and-preludes.md
   - ./wat-shapes.md
   - ../simplify-locals-notee-nostructure/index.md
@@ -31,7 +34,7 @@ related:
 
 # Starshine Strategy For `flatten`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md), the 2026-04-25 current-main owner/test-map bridge in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md), and the local owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -55,21 +58,26 @@ So this page is intentionally a **status-and-port-map** page rather than a fake 
 The fastest read-along path through the current Starshine status is:
 
 - tracked but removed pass-name status
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:144-151`
     - `pass_registry_removed_names()` includes `"flatten"`
 - public CLI spelling stability
-  - `src/cli/cli_test.mbt`
+  - `src/cli/cli_test.mbt:280-285`
     - `resolve_pass_flags omits trap-mode toggles from scheduled pass list`
+    - this still preserves the explicit `--flatten` spelling even though trap-mode toggles are omitted
+  - `src/cli/cli_test.mbt:313-316`
     - `resolve_pass_flags ignores -O level flags for preset pass expansion`
-    - those tests still preserve the explicit `--flatten` spelling even though the pipeline rejects the removed pass
+    - this still preserves explicit `--flatten` alongside an `-O` flag
+- dispatcher gap
+  - `src/passes/pass_manager.mbt`
+    - no active `flatten` match exists today
 - current batch intent
-  - `docs/0065-2026-03-24-ir2-execution-plan.md`
+  - `docs/0065-2026-03-24-ir2-execution-plan.md:39`
     - `flatten` still leads the preferred Batch 2 implementation order
-  - `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`
+  - `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md:47`
     - `flatten` still sits in Batch 2 removed-until-implemented planning
 - active backlog truth
   - `agent-todo.md`
-    - there is still **no dedicated `flatten` slice** today; that absence is a real planning fact, not a documentation omission
+    - there is still **no dedicated `flatten` slice** today; shape mentions such as “flattened” in hot-lower or merge-blocks text are not a pass implementation plan
 - exact neighboring living dossiers that define the future landing zone
   - [`../simplify-locals-notee-nostructure/index.md`](../simplify-locals-notee-nostructure/index.md)
   - [`../local-cse/index.md`](../local-cse/index.md)
@@ -86,7 +94,7 @@ Today Starshine's behavior for `flatten` is deliberately limited.
 
 ### 1. The name is tracked, not forgotten
 
-`src/passes/optimize.mbt` keeps the upstream spelling `flatten` in `pass_registry_removed_names()`.
+`src/passes/optimize.mbt:144-151` keeps the upstream spelling `flatten` in `pass_registry_removed_names()`.
 That means:
 
 - the project still treats `flatten` as a real known pass
@@ -97,7 +105,7 @@ That is the right current behavior for an unimplemented parity pass.
 
 ### 2. The CLI spelling is intentionally stable
 
-`src/cli/cli_test.mbt` still exercises the explicit `--flatten` spelling in pass-flag resolution tests.
+`src/cli/cli_test.mbt:280-285` and `src/cli/cli_test.mbt:313-316` still exercise the explicit `--flatten` spelling in pass-flag resolution tests.
 That matters for two reasons:
 
 - docs and future parity commands can keep using the upstream pass spelling consistently
@@ -198,7 +206,7 @@ Starshine does **not** currently have:
 
 - a MoonBit implementation file for `flatten`
 - a committed local equivalent of Binaryen's formal `flat.h` verifier contract
-- a dedicated active backlog slice in `agent-todo.md`
+- a dedicated active backlog slice in `agent-todo.md`; current “flattened” wording there describes lowered/control-flow shapes, not a `flatten` pass slice
 - pass-specific tests or replay lanes beyond the preserved CLI spelling and the broader batch-planning docs
 
 So the current repo status is best summarized as:
