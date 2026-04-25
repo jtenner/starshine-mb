@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | add `signext-lowering` source dossier
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose upstream-only `signext-lowering` because the tracker had no obvious `none` queue but Starshine already supports sign-extension instructions while neighboring `optimize-instructions` / `pick-load-signs` docs did not explain Binaryen's separate feature-lowering pass.
+- Added `docs/wiki/raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`, capturing Binaryen `version_129` `SignExtLowering.cpp`, `pass.cpp`, `passes.h`, the dedicated `signext-lowering.wast` lit test, and a focused current-main no-teaching-drift spot check.
+- Added `docs/wiki/raw/research/0349-2026-04-25-signext-lowering-source-dossier.md` plus a new living dossier under `docs/wiki/binaryen/passes/signext-lowering/`, covering overview, Binaryen strategy, WAT shapes, and current Starshine status / future-port map.
+- Grounded the local status in exact repo surfaces: `src/passes/optimize.mbt` has no active/boundary-only/removed entry, `src/passes/pass_manager.mbt` has no dispatcher, and `src/wast/types.mbt`, `src/wast/keywords.mbt`, `src/wast/parser.mbt`, `src/wast/lower_to_lib.mbt`, `src/lib/types.mbt`, `src/binary/encode.mbt`, `src/validate/typecheck.mbt`, `src/ir/hot_lift.mbt`, and `src/passes/pick_load_signs.mbt` are prerequisites rather than a lowering pass.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; recorded the local feature-metadata caveat that Starshine does not currently expose Binaryen's exact `FeatureSet::SignExt` model.
+
 ## [2026-04-25] research | correct `rse` strategy overread
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose `rse` because the living dossier was complete-looking but still taught an over-broad LocalGraph/liveness/dataflow strategy for Binaryen `version_129`.
