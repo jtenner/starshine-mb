@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-25 Docs: refresh `coalesce-locals` code-map anchors
+
+- **repair touched-area reference hygiene in the `coalesce-locals` implementation/test-map page so the current Starshine file map points to the live `CL` backlog range and current `simplify_locals.mbt` cleanup phase anchors** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`docs/wiki/binaryen/passes/coalesce-locals/implementation-structure-and-tests.md`](./docs/wiki/binaryen/passes/coalesce-locals/implementation-structure-and-tests.md).
+
 ## 2026-04-25 Docs: deepen `coalesce-locals` port-readiness coverage
 
 - **add a dedicated Starshine port-readiness and validation matrix for removed `coalesce-locals`, file the focused health check into raw research, and refresh the dossier/catalogs so current registry/dispatcher/preset/backlog state, reusable `reorder-locals` / `simplify-locals` substrates, minimum viable port shape, first required reduced tests, neighborhood replay, and parity signoff ladder are discoverable while promoting the folder to deep coverage** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md`](./docs/wiki/raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md), and [`docs/wiki/binaryen/passes/coalesce-locals/`](./docs/wiki/binaryen/passes/coalesce-locals/).

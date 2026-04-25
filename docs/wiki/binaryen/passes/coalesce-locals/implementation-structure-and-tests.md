@@ -112,9 +112,9 @@ Starshine does not implement this pass yet. The relevant local files are status,
 | `src/passes/optimize.mbt:144-151` | `pass_registry_removed_names()` includes `coalesce-locals`, so active requests are not treated as a landed pass. |
 | `src/passes/pass_manager.mbt` | No `coalesce-locals` dispatcher case exists. |
 | `src/passes/reorder_locals.mbt:2`, `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Neighboring module pass with local-summary, access scan, in-place index rewrite, and module-pass entry logic a future coalescer will need to compose with. |
-| `src/passes/simplify_locals.mbt:15`, `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:4132` | Neighboring HOT local cleanup pass with local-traffic cleanup machinery, but not a slot-coalescing implementation. |
+| `src/passes/simplify_locals.mbt:15`, `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:4126`, `src/passes/simplify_locals.mbt:4191`, `src/passes/simplify_locals.mbt:4245`, `src/passes/simplify_locals.mbt:4348` | Neighboring HOT local cleanup pass with local-traffic cleanup machinery, but not a slot-coalescing implementation. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | Canonical no-DWARF pipeline still records both `coalesce-locals` slots. |
-| `agent-todo.md:323-325`, `agent-todo.md:376` | Local backlog and neighboring-pass ordering notes still treat coalescing as future work. |
+| `agent-todo.md:392-399` | Current `CL` backlog slice still treats coalescing as future compatibility/lifetime plus dual-slot rewrite work. |
 
 ## What this page rules out
 

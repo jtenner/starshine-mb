@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] health | refresh `coalesce-locals` local code-map anchors
+
+- Ran a focused touched-area reference-hygiene pass after the `coalesce-locals` port-readiness commit and found the existing implementation/test-map page still pointed to older `agent-todo.md` and `simplify_locals.mbt` line anchors.
+- Updated `docs/wiki/binaryen/passes/coalesce-locals/implementation-structure-and-tests.md` so the current Starshine file map uses the live `CL` backlog range and the current simplify-locals cleanup phase anchors.
+
 ## [2026-04-25] research | deepen `coalesce-locals` port-readiness coverage
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/coalesce-locals/` folder, and `docs/wiki/raw/research/`, then chose removed local `coalesce-locals` because it had the standard strategy/shape/source-map pages but still lacked one beginner-to-advanced implementation-readiness bridge and the tracker still marked it as `dossier` rather than `deep`.
