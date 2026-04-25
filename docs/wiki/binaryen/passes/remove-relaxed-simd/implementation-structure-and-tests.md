@@ -1,15 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md
+  - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+supersedes:
+  - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
 ---
 
 # `remove-relaxed-simd` implementation structure and tests
@@ -19,13 +23,18 @@ related:
 ### `src/passes/RemoveRelaxedSIMD.cpp`
 
 This is the owner file for the pass.
-The reviewed `version_129` file contains:
+The reviewed `version_129` and current-`main` file contains:
 
 - the pass-level rationale: relaxed SIMD has nondeterminism and this pass removes it by trapping;
-- `UnreachableRewriter`, a small post-walker that records whether anything changed;
+- `RemoveRelaxedSIMD`, a small `WalkerPass<PostWalker<RemoveRelaxedSIMD>>`;
 - `rewrite(...)`, which constructs the replacement block through `ChildLocalizer` and appends `unreachable`;
 - visitors for relaxed `Unary`, `Binary`, and `SIMDTernary` expressions;
-- `doWalkFunction(...)`, which applies the walker only when relaxed SIMD features are present and refinalizes changed functions.
+- `doWalkFunction(...)`, which runs the postwalk and then refinalizes the function.
+
+The 2026-04-25 recheck corrected two older overreads:
+
+- no per-function relaxed-SIMD feature gate was found in the reviewed owner file;
+- no pass-local `changed` flag or conditional refinalization was found in the reviewed owner file.
 
 The source shape is important because it means the pass is not table-driven over all opcodes in one list.
 The opcode coverage is split by expression arity.
@@ -69,24 +78,28 @@ For complete opcode coverage, use the source visitor enumerations in `RemoveRela
 | Relaxed operations trap | `RemoveRelaxedSIMD.cpp` `rewrite(...)` | expected `unreachable` output |
 | Child effects must be preserved | `ChildLocalizer` use in `rewrite(...)` | source-backed; add local tests before porting |
 | Ordinary SIMD is not rewritten | visitor only matches relaxed opcodes | non-relaxed SIMD expectations in lit file |
-| Changed functions are refinalized | `doWalkFunction(...)` | source-backed; validation should catch regressions |
-| No relaxed-SIMD feature means no work | feature check in `doWalkFunction(...)` | source-backed; add a Starshine no-op test if porting |
+| Functions are refinalized after the postwalk | `doWalkFunction(...)` | source-backed; validation should catch regressions |
+| No feature-gated skip is shown | absence in reviewed owner file | correction from 2026-04-25 recheck |
+| Dot-product naming differs across surfaces | Binaryen source/lit spelling vs Starshine keyword spelling | source-backed; add alias or documentation tests before porting |
 
 ## Current-main drift check
 
-The `main` versions reviewed on 2026-04-24 kept the same owner file, public spelling, and lit filename.
-No teaching-level drift from the `version_129` strategy was found in this focused check.
+The `main` versions reviewed on 2026-04-25 kept the same owner file, public spelling, lit filename, trap replacement, and refinalization shape as `version_129`.
+The check also found no teaching-level evidence for the older feature-gate wording.
 
 ## Porting cautions
 
 - Do not implement this as relaxed-to-deterministic lowering unless a new source changes the contract.
 - Do not erase side-effecting operands.
 - Do not assume the official lit file proves every relaxed opcode directly; mirror the source opcode set in local tests.
-- Source-confirm feature metadata behavior before advertising output as fully relaxed-SIMD-free at the module feature level.
+- Do not treat feature metadata cleanup as part of the pass until a primary source proves it.
+- Decide explicitly whether Starshine should accept Binaryen's dot-product WAT spelling without `relaxed_` as an alias or document the current spelling split.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md)
+- [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md`](../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md)
 - Binaryen `RemoveRelaxedSIMD.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveRelaxedSIMD.cpp>
 - Binaryen `child-localizer.h`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/child-localizer.h>

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md
+  - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
@@ -11,6 +13,8 @@ related:
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
   - ../precompute/wat-shapes.md
+supersedes:
+  - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
 ---
 
 # `remove-relaxed-simd` WAT and IR shape catalog
@@ -74,7 +78,8 @@ Also in this family:
 - `f64x2.relaxed_min`
 - `f64x2.relaxed_max`
 - `i16x8.relaxed_q15mulr_s`
-- `i16x8.relaxed_dot_i8x16_i7x16_s`
+- `i16x8.dot_i8x16_i7x16_s` in Binaryen source/lit spelling
+- `i16x8.relaxed_dot_i8x16_i7x16_s` in current Starshine WAT keyword spelling
 
 ## Shape family 3: ternary relaxed operation becomes a trap
 
@@ -107,7 +112,8 @@ Also in this family:
 - `i16x8.relaxed_laneselect`
 - `i32x4.relaxed_laneselect`
 - `i64x2.relaxed_laneselect`
-- `i32x4.relaxed_dot_i8x16_i7x16_add_s`
+- `i32x4.dot_i8x16_i7x16_add_s` in Binaryen source/lit spelling
+- `i32x4.relaxed_dot_i8x16_i7x16_add_s` in current Starshine WAT keyword spelling
 
 ## Shape family 4: side-effecting children stay before the trap
 
@@ -162,7 +168,7 @@ After, schematically:
 ```
 
 The key is not the exact printed type annotation.
-The key is that Binaryen refinalizes changed functions so the replacement remains valid in a `v128` context.
+The key is that Binaryen refinalizes after the postwalk so the replacement remains valid in a `v128` context.
 
 ## Shape family 6: ordinary SIMD is preserved
 
@@ -199,7 +205,32 @@ After:
 This pass is about relaxed SIMD only.
 It is not a generic SIMD cleanup pass.
 
-## Shape family 7: `precompute` contrast
+## Shape family 7: deterministic-SIMD-only functions are semantic no-ops
+
+Before:
+
+```wat
+(func (param $a v128) (param $b v128)
+  (drop
+    (f32x4.min
+      (local.get $a)
+      (local.get $b))))
+```
+
+After:
+
+```wat
+(func (param $a v128) (param $b v128)
+  (drop
+    (f32x4.min
+      (local.get $a)
+      (local.get $b))))
+```
+
+The 2026-04-25 correction matters here: do not describe this as a source-confirmed relaxed-feature gate.
+The reviewed Binaryen owner file walks and refinalizes functions; the body is unchanged because no visitor arm matches ordinary SIMD.
+
+## Shape family 8: `precompute` contrast
 
 `precompute` also treats relaxed SIMD specially, but for a different reason.
 It avoids folding relaxed SIMD because folding would erase implementation-defined behavior.
@@ -219,11 +250,15 @@ A complete Starshine port should prove:
 - side-effecting children are preserved;
 - typed `v128` result contexts remain valid;
 - ordinary SIMD remains unchanged;
-- binary encode/decode and WAT parsing still agree after rewriting.
+- deterministic-SIMD-only bodies are semantically unchanged;
+- binary encode/decode and WAT parsing still agree after rewriting;
+- Binaryen dot-product spellings and current Starshine `relaxed_dot` spellings are intentionally aligned or intentionally rejected.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md)
+- [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md`](../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md)
 - Binaryen `RemoveRelaxedSIMD.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveRelaxedSIMD.cpp>
 - Binaryen `remove-relaxed-simd.wast`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/remove-relaxed-simd.wast>

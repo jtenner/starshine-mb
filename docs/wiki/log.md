@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | correct `remove-relaxed-simd` feature-gate overread
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/remove-relaxed-simd/`, and `docs/wiki/raw/research/`, then chose upstream-only `remove-relaxed-simd` because its dossier was complete but still carried stale feature-gate / changed-function wording and an unresolved metadata caveat worth narrowing with current primary sources.
+- Added `docs/wiki/raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md` and `docs/wiki/raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`, capturing official Binaryen `version_129` and current-`main` `RemoveRelaxedSIMD.cpp`, `pass.cpp`, `passes.h`, `remove-relaxed-simd.wast`, and relaxed-SIMD proposal context.
+- Refreshed the living `remove-relaxed-simd` overview, Binaryen strategy, implementation/test-map, WAT-shape catalog, and Starshine status page. The corrected contract is trap replacement plus `ChildLocalizer` child-effect preservation and postwalk refinalization, with no reviewed owner-file feature gate or changed-flag-gated refinalization; the dossier now also records the Binaryen-vs-Starshine dot-product spelling caveat and keeps feature-section cleanup separate from instruction replacement.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked older note `0322` partially superseded for the feature-gate and changed-function overread while preserving it as the original dossier provenance.
+
 ## [2026-04-25] health | fix `const-hoisting` WAT-shape heading numbering
 
 - Ran a focused reference-hygiene check after the `const-hoisting` source-bridge commit and found the WAT-shape page still had two `Bailout family 4` headings after the earlier `v128.const` heading correction.
