@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
+  - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/const-hoisting.wast
@@ -183,6 +185,8 @@ This is one of those passes where “roughly similar behavior” is easy to get 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md)
+- [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/literal.h>

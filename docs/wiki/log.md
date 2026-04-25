@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | refresh `const-hoisting` current-main and Starshine code map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose removed local pass `const-hoisting` because its dossier was complete but still had older freshness wording and a high-level Starshine page that did not point to the concrete HOT/local/binary primitives a future port would reuse.
+- Added `docs/wiki/raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`, capturing official Binaryen current-main sources for `ConstHoisting.cpp`, `const-hoisting.wast`, `pass.cpp`, `literal.h`, and `wasm-binary.h`; the check found no teaching-relevant drift from the `version_129` contract.
+- Added `docs/wiki/raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md` and refreshed the living `const-hoisting` overview, Binaryen strategy, implementation/test-map, shape, size-model, literal-identity, and Starshine strategy pages. The Starshine page now links exact local prerequisites in `src/passes/optimize.mbt`, `src/ir/hot_core.mbt`, `src/ir/hot_lift.mbt`, `src/ir/hot_lower.mbt`, `src/ir/hot_builders.mbt`, `src/ir/hot_mutate.mbt`, and `src/binary/encode.mbt`.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; fixed a nearby heading-numbering hygiene issue in the `const-hoisting` WAT-shape page while reviewing links.
+
 ## [2026-04-25] health | link `discard-global-effects` from global-effects source map
 
 - Ran a focused reference-hygiene check after adding the `discard-global-effects` dossier and found the `global-effects` implementation/test-map page still mentioned the cleanup sibling as plain text with older 2026-04-24 source metadata.

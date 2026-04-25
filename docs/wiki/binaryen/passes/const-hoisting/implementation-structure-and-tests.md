@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
+  - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
   - ../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
@@ -116,20 +117,20 @@ So the extra wrapper block is not an accidental current artifact; it is part of 
 
 ## Freshness check against `main`
 
-A narrow 2026-04-21 drift check compared:
+A focused 2026-04-25 recheck captured in [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md) compared these teaching surfaces against the existing `version_129` dossier:
 
 - `src/passes/ConstHoisting.cpp`
 - `test/lit/passes/const-hoisting.wast`
-- the `pass.cpp` registration lines
-
-between `version_129` and `main`.
+- `src/passes/pass.cpp`
+- `src/literal.h`
+- `src/wasm-binary.h`
 
 Result:
 
-- no diff in the reviewed implementation or dedicated test surface
+- no teaching-relevant drift in the reviewed implementation, helper, registration, or dedicated test surface
 - the reviewed official Binaryen GitHub release page for `version_129`, rechecked on 2026-04-23 through [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md), still showed publish date **2026-04-01**
 
-That means the `version_129` release tag is a reliable oracle for this pass at the moment.
+That means the `version_129` release tag remains a reliable oracle for this pass at the moment.
 
 ## What the source layout does **not** contain
 
@@ -182,6 +183,7 @@ When this pass is eventually ported, these are the source-backed obligations to 
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md)
+- [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
 - [`../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>

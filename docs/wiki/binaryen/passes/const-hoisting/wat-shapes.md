@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
+  - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/const-hoisting.wast
@@ -270,7 +272,7 @@ Why:
 - the pass only groups `Const` nodes
 - it does not value-number nonliteral expressions
 
-## Bailout family 3: cross-function repeats
+## Bailout family 4: cross-function repeats
 
 ```wat
 (func $a
@@ -317,6 +319,8 @@ If any of those fail, Binaryen usually preserves the inline constant.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md)
+- [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp>
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/literal.h>

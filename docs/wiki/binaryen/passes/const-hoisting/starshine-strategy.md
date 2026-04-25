@@ -1,11 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
+  - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
   - ../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/ir/hot_core.mbt
+  - ../../../../../src/ir/hot_builders.mbt
+  - ../../../../../src/ir/hot_mutate.mbt
+  - ../../../../../src/ir/hot_lift.mbt
+  - ../../../../../src/ir/hot_lower.mbt
+  - ../../../../../src/binary/encode.mbt
   - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
   - ../precompute/index.md
@@ -25,7 +33,7 @@ related:
 
 # Starshine Strategy For `const-hoisting`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md) and the current-main recheck in [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -64,7 +72,29 @@ The fastest read-along path through the current Starshine status is:
   - [`../optimize-added-constants/index.md`](../optimize-added-constants/index.md)
   - [`../merge-similar-functions/index.md`](../merge-similar-functions/index.md)
 
-That code-and-doc map is the practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and future landing zone.
+That code-and-doc map was the practical addition in the original follow-up: readers can jump directly from the upstream algorithm to the exact local status and future landing zone.
+
+## Reusable Starshine surfaces for a future port
+
+The 2026-04-25 current-main recheck did not change the upstream contract, but it did sharpen the local code map. A future implementation does not need to invent all infrastructure from scratch.
+
+Already-useful local surfaces include:
+
+- scalar constant representation
+  - [`src/ir/hot_core.mbt#L55-L64`](../../../../../src/ir/hot_core.mbt#L55-L64) includes `HotOp::Const`
+  - [`src/ir/hot_core.mbt#L215-L222`](../../../../../src/ir/hot_core.mbt#L215-L222) defines `HotConstPayload::I32Const`, `I64Const`, `F32Const`, and `F64Const`
+- scalar constant lift / lower
+  - [`src/ir/hot_lift.mbt#L1271-L1285`](../../../../../src/ir/hot_lift.mbt#L1271-L1285) lifts scalar numeric constants into HOT side-table payloads
+  - [`src/ir/hot_lower.mbt#L916-L924`](../../../../../src/ir/hot_lower.mbt#L916-L924) lowers `HotOp::Const`, `HotOp::LocalGet`, and `HotOp::LocalSet` back to library instructions
+- local rewrite construction
+  - [`src/ir/hot_builders.mbt#L295-L318`](../../../../../src/ir/hot_builders.mbt#L295-L318) builds typed `local.get` / `local.set` nodes
+  - [`src/ir/hot_mutate.mbt#L196-L200`](../../../../../src/ir/hot_mutate.mbt#L196-L200) appends a fresh body local and bumps the HOT revision
+- byte-size accounting ingredients
+  - [`src/binary/encode.mbt#L478-L501`](../../../../../src/binary/encode.mbt#L478-L501) contains signed-LEB emission logic
+  - [`src/binary/encode.mbt#L551-L553`](../../../../../src/binary/encode.mbt#L551-L553) encodes `I32` through signed LEB
+  - [`src/binary/encode.mbt#L2414-L2435`](../../../../../src/binary/encode.mbt#L2414-L2435) writes scalar const opcodes and payloads
+
+Those surfaces make a HOT-local port plausible, but they are prerequisites, not an implementation. The missing pieces are still pass-specific literal grouping, exact byte-profitability helpers, deterministic prelude insertion, tests, and parity signoff.
 
 ## What Starshine currently does for this pass name
 
@@ -117,8 +147,9 @@ So the local strategy should be thought of as:
 2. group candidates by exact literal identity, including float sign-bit and NaN-payload distinctions
 3. compute the same byte-profitability rule that Binaryen uses today
 4. keep `v128` unsupported unless the local port intentionally widens scope beyond reviewed `version_129`
-5. emit one deterministic entry prelude plus fresh local for each profitable bucket
-6. validate in isolated `--pass const-hoisting` mode against Binaryen before worrying about broader preset placement
+5. use existing HOT local-building and fresh-local append helpers where possible
+6. emit one deterministic entry prelude plus fresh local for each profitable bucket
+7. validate in isolated `--pass const-hoisting` mode against Binaryen before worrying about broader preset placement
 
 That is a much tighter and safer future plan than the vague idea “deduplicate constants later.”
 
@@ -166,7 +197,7 @@ Starshine does **not** currently have:
 
 - a MoonBit implementation file for `const-hoisting`
 - pass-specific literal-bucket collection code
-- local byte-profitability helpers mirroring Binaryen's LEB-size accounting for this pass
+- pass-local byte-profitability helpers mirroring Binaryen's LEB-size accounting for this pass, even though the binary encoder already has signed-LEB building blocks
 - deterministic prelude emission logic for this pass
 - pass-specific reduced tests or replay lanes
 - a dedicated active backlog slice in `agent-todo.md`
@@ -203,12 +234,13 @@ That is more useful locally than a generic “compare with Binaryen later” not
 
 ## Bottom line
 
-Current Starshine `const-hoisting` strategy is honest removed-registry tracking plus a compact port map:
+Current Starshine `const-hoisting` strategy is honest removed-registry tracking plus a concrete prerequisite map:
 
 - the upstream spelling is intentionally preserved in `src/passes/optimize.mbt`
 - the active pipeline rejects the pass honestly rather than pretending it already exists
 - the repo still keeps `const-hoisting` in the removed-until-implemented planning roster
 - the active backlog still does **not** have a dedicated `const-hoisting` slice, and this page keeps that planning gap explicit
+- HOT scalar constants, local builders, fresh-local append, lowering, and signed-LEB encode surfaces are already concrete local prerequisites for a future port
 - the surrounding `precompute`, `optimize-added-constants`, and `merge-similar-functions` dossiers already define the practical implementation neighborhood for a future port
 
 So the right mental model today is not “nothing exists locally.”
