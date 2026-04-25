@@ -1,11 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
+  - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/lib/types.mbt
+  - ../../../../../src/binary/encode.mbt
+  - ../../../../../src/binary/decode.mbt
+  - ../../../../../src/validate/validate.mbt
+  - ../../../../../src/ir/hot.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../string-gathering/index.md
@@ -14,6 +21,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./size-model-and-dependency-order.md
   - ./wat-shapes.md
   - ../string-gathering/index.md
@@ -23,7 +31,7 @@ related:
 
 # Starshine Strategy For `reorder-globals`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md).
+Use this page together with the current-main source bridge in [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -54,8 +62,21 @@ The fastest read-along path through the current Starshine status is:
 - active request guard for not-yet-ported boundary passes
   - [`src/passes/optimize.mbt#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
+- numeric global-index and module-section surfaces a future port must remap
+  - [`src/lib/types.mbt#L91`](../../../../../src/lib/types.mbt#L91)
+    - `GlobalIdx` is a numeric index type, unlike Binaryen's name-keyed global references
+  - [`src/lib/types.mbt#L351-L368`](../../../../../src/lib/types.mbt#L351-L368)
+    - `Module` owns `import_sec`, `global_sec`, `export_sec`, `elem_sec`, `code_sec`, and `data_sec`
+  - [`src/lib/types.mbt#L442`](../../../../../src/lib/types.mbt#L442)
+    - `GlobalSec(Array[Global])` is the declaration vector a local module pass would reorder
+  - [`src/binary/encode.mbt#L633-L636`](../../../../../src/binary/encode.mbt#L633-L636) and [`src/binary/decode.mbt#L731-L735`](../../../../../src/binary/decode.mbt#L731-L735)
+    - binary roundtrip encodes/decodes numeric `GlobalIdx` values
+  - [`src/validate/validate.mbt#L949-L965`](../../../../../src/validate/validate.mbt#L949-L965)
+    - const-expression `global.get` validation depends on imported or previously defined immutable globals
+  - [`src/ir/hot.mbt#L206-L218`](../../../../../src/ir/hot.mbt#L206-L218) and [`src/ir/hot.mbt#L285-L297`](../../../../../src/ir/hot.mbt#L285-L297)
+    - HOT lift stores `GlobalGet` / `GlobalSet` operands as numeric global indices, confirming this is not a HOT-only peephole
 - backlog and delivery plan
-  - [`agent-todo.md#L661-L669`](../../../../../agent-todo.md#L661-L669)
+  - [`agent-todo.md#L672-L687`](../../../../../agent-todo.md#L672-L687)
     - `RG - Reorder Globals`
     - `[RG]001 - Global Cost Model and Reindexing`
     - `[RG]002 - Late-Postpass Validation and Artifact Compare`
@@ -241,7 +262,7 @@ Current Starshine `reorder-globals` strategy is honest boundary-only tracking an
 
 - the pass name is intentionally preserved in [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
 - the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
-- [`agent-todo.md#L661-L669`](../../../../../agent-todo.md#L661-L669) already treats it as a real late parity slice under `RG`
+- [`agent-todo.md#L672-L687`](../../../../../agent-todo.md#L672-L687) already treats it as a real late parity slice under `RG`
 - the canonical slot is already documented in [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
 - the surrounding [`string-gathering`](../string-gathering/index.md), [`reorder-globals-always`](../reorder-globals-always/index.md), and [`directize`](../directize/index.md) dossiers already define the practical landing zone for a future port
 

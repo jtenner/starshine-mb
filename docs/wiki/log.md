@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `reorder-globals` implementation/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/reorder-globals/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `reorder-globals` because its dossier still lacked the now-standard owner/helper/lit-test implementation map and exact local numeric-`GlobalIdx` prerequisite map.
+- Added `docs/wiki/raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`, capturing official Binaryen current-main and tagged `version_129` sources for `ReorderGlobals.cpp`, `pass.cpp`, `passes.h`, `pass.h`, `wasm-traversal.h`, `topological_sort.h`, `wasm.h`, `GlobalStructInference.cpp`, and the `reorder-globals{,-real}.wast` lit proof surfaces. The focused recheck found no teaching-relevant drift from the existing `version_129` contract.
+- Added `docs/wiki/raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md` and `docs/wiki/binaryen/passes/reorder-globals/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, size/dependency guide, WAT-shape catalog, and Starshine status page so readers can map transformed shapes, upstream owner/test surfaces, official test-family split, boundary-only local status, and exact Starshine module/binary/validator/HOT `GlobalIdx` remap prerequisites.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked `reorder-globals` as a deep boundary-only dossier now that the implementation/test-map gap is closed.
+
 ## [2026-04-25] research | deepen `dae-optimizing` implementation/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/dae-optimizing/` folder, the neighboring plain-DAE implementation/test-map page, and `docs/wiki/raw/research/`, then chose boundary-only `dae-optimizing` because its dossier still lacked the now-standard owner/helper/lit-test map page.

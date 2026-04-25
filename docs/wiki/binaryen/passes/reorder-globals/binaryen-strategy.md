@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
+  - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
   - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./size-model-and-dependency-order.md
   - ./wat-shapes.md
   - ../string-gathering/index.md
@@ -20,14 +23,14 @@ related:
 
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - On 2026-04-23, the reviewed official Binaryen release page for `version_129` still showed publish date **2026-04-01**.
-- A narrow 2026-04-23 current-`main` spot check on the same owner, helper, and dedicated test surfaces did not reveal a teaching-relevant contract drift beyond the rules summarized here.
+- A focused 2026-04-25 current-`main` recheck on the same owner, helper, and dedicated test surfaces did not reveal teaching-relevant contract drift beyond the rules summarized here; see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the source/test map.
 - The core implementation lives in `src/passes/ReorderGlobals.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.
 - The walker helper surface for module-level code comes from `src/pass.h` and `src/wasm-traversal.h`.
 - The ordering helper comes from `src/support/topological_sort.h`.
 - The reason Binaryen can apply the final order without rewriting every use site is visible in `src/wasm.h`, where `GlobalGet` and `GlobalSet` refer to globals by `Name`.
-- The main shipped behavior examples come from `test/lit/passes/reorder-globals.wast` and `test/lit/passes/reorder-globals-real.wast`.
+- The main shipped behavior examples come from `test/lit/passes/reorder-globals.wast` and `test/lit/passes/reorder-globals-real.wast`; the first is strongest for visible sorting families through `--reorder-globals-always`, while the second is strongest for the public production cutoff and 129-global behavior.
 - The most important internal caller I found is `src/passes/GlobalStructInference.cpp`, which uses `reorder-globals-always` after adding helper globals.
 
 Primary source URLs:
@@ -438,7 +441,9 @@ A future Starshine port should preserve all of these:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md)
+- [`../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md)
 - [`../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md`](../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md)
 - [`../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>

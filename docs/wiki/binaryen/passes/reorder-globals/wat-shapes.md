@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md
+  - ../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md
   - ../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md
   - ../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./size-model-and-dependency-order.md
   - ../string-gathering/index.md
 ---
@@ -17,7 +20,7 @@ related:
 
 This page is the beginner-friendly shape catalog for Binaryen’s `reorder-globals` pass.
 
-The shape families below were rechecked on 2026-04-23 against the official Binaryen `version_129` release surface plus a narrow current-`main` spot check; no teaching-relevant drift was found for these main positive, negative, or bailout examples.
+The shape families below were rechecked on 2026-04-25 against the official Binaryen `version_129` owner/test surface plus a focused current-`main` spot check; no teaching-relevant drift was found for these main positive, negative, or bailout examples. For proof ownership, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Read this page with one mental model
 
@@ -355,7 +358,9 @@ If you see one of those behaviors, you are probably looking at a different pass 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md`](../../../raw/binaryen/2026-04-23-reorder-globals-primary-sources.md)
+- [`../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/research/0367-2026-04-25-reorder-globals-current-main-and-test-map.md)
 - [`../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md`](../../../raw/research/0125-2026-04-20-reorder-globals-binaryen-research.md)
 - [`../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0270-2026-04-23-reorder-globals-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderGlobals.cpp>
