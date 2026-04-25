@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
+  - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
   - ../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
@@ -16,6 +18,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./terminating-tails.md
   - ./wat-shapes.md
   - ../merge-blocks/index.md
@@ -26,7 +29,7 @@ related:
 
 # Starshine Strategy For `code-folding`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md), the 2026-04-25 current-main bridge in [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md), and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -49,13 +52,22 @@ So this page is intentionally a **status-and-port-map** page rather than a fake 
 The fastest read-along path through the current Starshine status is:
 
 - tracked but removed pass-name status
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:144-151`
     - `pass_registry_removed_names()` includes `"code-folding"`
+  - `src/passes/optimize.mbt:469-471`
+    - removed pass requests fail with the active-registry removed-pass diagnostic
+- preset omission
+  - `src/passes/optimize.mbt:385-410`
+    - public `optimize` / `shrink` preset expansion does not include `code-folding` yet
 - CLI spelling and pass-flag preservation proof
-  - `src/cli/cli_test.mbt`
+  - `src/cli/cli_test.mbt:159-165`
     - `parse_cli_args parses long-form kebab-case pass flags`
+  - `src/cli/cli_test.mbt:297-309`
     - `resolve_pass_flags preserves cli token order for presets and explicit passes`
     - `resolve_pass_flags keeps explicit pass order when no presets are set`
+- dispatcher absence
+  - `src/passes/pass_manager.mbt`
+    - no `code-folding` match or owner branch today
 - backlog and delivery plan
   - `agent-todo.md`
     - `CF` slice under the Binaryen no-DWARF default optimize pathway parity section
@@ -68,7 +80,7 @@ The fastest read-along path through the current Starshine status is:
   - `docs/wiki/binaryen/passes/remove-unused-names/index.md`
   - `docs/wiki/binaryen/passes/rse/index.md`
 
-That code-and-doc map is the main practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and the future landing zone.
+That code-and-doc map, plus [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), lets readers jump directly from the upstream algorithm to exact local status, official test families, and the future landing zone.
 
 ## What Starshine currently does for this pass name
 
@@ -186,6 +198,7 @@ Starshine does **not** currently have:
 - local branch-scope movement analysis specifically for this pass
 - a function-ending helper-label tail-sharing rewriter
 - pass-specific tests or CLI execution coverage beyond the tracked spelling
+- a `pass_manager` dispatcher branch for `code-folding`
 
 So the current repo status is best summarized as:
 
@@ -235,3 +248,15 @@ It is:
 - **clear tracked status**
 - **clear slot in the pipeline**
 - **clear neighboring implementation map for the eventual port**
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
+- [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
+- [`../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md`](../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md)
+- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt)
+- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)

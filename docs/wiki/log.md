@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | refresh `code-folding` source/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose removed local pass `code-folding` because its dossier had overview, strategy, shapes, and Starshine status coverage but still lacked the source-confirmed implementation/test-map page now standard for neighboring pass folders.
+- Added `docs/wiki/raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`, capturing official Binaryen current-main sources for `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`, while retaining `version_129` as the tagged source oracle. The recheck found no teaching-relevant drift: `code-folding` remains a function-parallel duplicate-tail sharing pass split between expression exits and function-ending terminators, guarded by unsupported-branch poisoning, branch-target scope checks, EH movement barriers, profitability, and nested-pop repair.
+- Added `docs/wiki/raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md` and `docs/wiki/binaryen/passes/code-folding/implementation-structure-and-tests.md`, mapping upstream owner/helper/test surfaces and exact local status points: `src/passes/optimize.mbt:144-151`, `src/passes/optimize.mbt:385-410`, `src/passes/optimize.mbt:469-471`, `src/cli/cli_test.mbt:159-165`, `src/cli/cli_test.mbt:297-309`, `src/passes/pass_manager.mbt`, `agent-todo.md:443-448`, and `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33`.
+- Refreshed the living `code-folding` overview, Binaryen strategy, terminating-tail guide, WAT-shape catalog, Starshine strategy, `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the pass dossier now maps transformed shapes, Binaryen strategy, Starshine status, and test/validation surfaces without duplicating the existing pages.
+
 ## [2026-04-25] research | recheck `directize` current-main contract
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose `directize` because the tracker has no obvious still-`none` target but this final no-DWARF tail pass still carried older 2026-04-22 current-main freshness wording around a table-analysis contract that is easy to over-widen.
