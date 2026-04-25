@@ -50,5 +50,5 @@ A later same-day source correction narrowed the wording below. Read `docs/wiki/r
 
 ## Follow-ups
 
-- If Starshine implements the pass, add separate tests for dynamic wrap, in-range constant narrowing, out-of-range constant-to-unreachable, grow failure-sentinel repair, max-limit clamp, min-limit rejection/assertion policy, and active segment offset lowering.
+- If Starshine implements the pass, add separate tests for dynamic operand wrapping, static high-`offset=` replacement, grow failure-sentinel repair, max-limit clamp, min-limit rejection/assertion policy, and active segment offset lowering. See note `0374` for the corrected operand-vs-static-offset split.
 - Reconcile table64 typechecking before exposing `table64-lowering` as a supported local pass.

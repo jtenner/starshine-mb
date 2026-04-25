@@ -10,7 +10,7 @@ The reviewed Binaryen source and current lit output support a narrower rule:
 
 - **dynamic address/index/count operands** lower by inserting `i32.wrap_i64(...)`, even when the operand expression is an `i64.const`;
 - **large static memarg offsets** (`offset=` immediates on loads/stores/SIMD/atomics) become `unreachable` with child side effects preserved;
-- **active data/element offset expressions** are lowered to the new 32-bit expression type by wrapping; this source check did not find evidence for a high-active-offset-to-`unreachable` special case in `Memory64Lowering.cpp`;
+- **active data/element offset expressions** are lowered to the new 32-bit expression type through the segment offset rewrite path; this source check did not find evidence for a high-active-offset-to-`unreachable` special case in `Memory64Lowering.cpp`;
 - `memory.grow` / `table.grow` dynamic deltas are wrapped before the lowered grow, then the lowered `i32` result is repaired so failure maps back to the wasm64 failure sentinel. This source check did not find a separate “high constant delta becomes sentinel before calling grow” rule.
 
 Use the living pages for teaching material:
@@ -83,7 +83,7 @@ Use this rule in living pages and future port plans:
 | Dynamic load/store/SIMD/atomic address operand | `i32.wrap_i64(...)` around the operand |
 | `i64.const` used as an address/index/count operand | still lowered through the operand wrap path |
 | Static `MemArg.offset >= 2^32` | known out-of-range operation; replace with `unreachable` while preserving children/effects |
-| Active data/element offset expression | rewrite expression to 32-bit address type via wrapping; no reviewed high-offset trap special case |
+| Active data/element offset expression | rewrite expression to 32-bit address type through segment offset repair; no reviewed high-offset trap special case |
 | `memory.size` / `table.size` | lowered operation plus `i64.extend_i32_u(...)` where caller expects `i64` |
 | `memory.grow` / `table.grow` | wrap delta, run lowered grow, repair `i32 -1` failure to `i64 -1`, zero-extend success |
 | Max limits above wasm32 maximum | clamp to wasm32 maximum |
