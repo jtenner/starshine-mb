@@ -1,7 +1,7 @@
 # `minify-imports-and-exports` primary sources and Starshine follow-up
 
 _Date:_ 2026-04-25  
-_Status:_ absorbed into living wiki pages
+_Status:_ absorbed into living wiki pages; superseded by `0343-2026-04-25-minify-imports-source-correction.md` for the `WasmBinaryBuilder::getSymbolMap(...)` attribution
 
 ## Question
 
@@ -40,7 +40,7 @@ Local repository surfaces:
 
 - Binaryen `version_129` exposes `minify-imports-and-exports` as a public pass and the sibling `minify-imports-and-exports-and-modules` as a second public pass.
 - The implementation owner is `MinifyImportsAndExports.cpp` for both names. The sibling behavior is selected by the `minifyModules` constructor flag.
-- The pass calls `WasmBinaryBuilder::getSymbolMap(...)` to produce import, export, import/export, and module maps, then applies those maps to the module's import and export declarations.
+- Superseded on 2026-04-25 by [`0343-2026-04-25-minify-imports-source-correction.md`](0343-2026-04-25-minify-imports-source-correction.md): the reviewed `version_129` owner uses `Names::MinifiedNameGenerator` plus used-name avoidance in `MinifyImportsAndExports.cpp`, not `WasmBinaryBuilder::getSymbolMap(...)`, to produce the import/export/module maps.
 - The plain pass rewrites import base names and export names. The sibling also rewrites import module names.
 - This is not a body rewrite: function instructions, local indices, function indices, type indices, and export target indices are not supposed to change.
 - The pass is externally visible. Linking by exact `(module, base)` import names and host/export lookup by exact export strings must use the renamed surface.
@@ -72,6 +72,6 @@ Updated catalogs and chronology:
 
 ## Follow-up questions
 
-- Before implementation, re-read `WasmBinaryBuilder::getSymbolMap(...)` in the exact upstream revision targeted for parity and write tests for short-name ordering, reserved/invalid-name avoidance, and collision behavior.
+- Before implementation, re-read `Names::MinifiedNameGenerator` and the used-name collection rules in the exact upstream revision targeted for parity and write tests for short-name ordering, reserved/invalid-name avoidance, and collision behavior.
 - Decide whether Starshine should track the pass as boundary-only, removed, active, or still unknown. The current dossier intentionally records unknown-pass status rather than silently reserving the names.
 - If implemented, add host-facing compatibility documentation: minifying external names is a product/packaging choice, not a semantics-preserving change for hosts that expect stable names.

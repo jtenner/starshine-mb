@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | add `minify-imports` source correction dossier
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose `minify-imports` because the newly added import/export minification folder still hid a separate upstream public pass and carried a stale `WasmBinaryBuilder::getSymbolMap(...)` attribution.
+- Added `docs/wiki/raw/binaryen/2026-04-25-minify-imports-family-source-correction.md`, capturing the official Binaryen `version_129` release, `MinifyImports.cpp`, `MinifyImportsAndExports.cpp`, `pass.cpp`, `passes.h`, `wasm-module-utils.h`, `support/name.h`, the sibling minify-imports-and-exports lit pair, and current-main spot checks. The capture records the corrected contract: `minify-imports` is non-mutating, reports `modifiesBinaryenIR() == false`, walks imported functions only, emits `old:new` mappings to stdout, and uses `Names::MinifiedNameGenerator`; the mutating import/export family also uses that generator plus used-name avoidance rather than `WasmBinaryBuilder::getSymbolMap(...)` in `version_129`.
+- Added `docs/wiki/raw/research/0343-2026-04-25-minify-imports-source-correction.md` plus a new living dossier under `docs/wiki/binaryen/passes/minify-imports/`, including overview, Binaryen strategy, implementation/test-map, WAT-shape, and Starshine status pages.
+- Refreshed `docs/wiki/binaryen/passes/minify-imports-and-exports/` to cross-link `minify-imports`, replace stale map-builder wording, keep the module-mutating sibling split explicit, and mark older research note `0342` superseded for the map-construction claim.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md` so the separate non-mutating map-emission pass and the corrected mutating family source strategy are discoverable.
+
 ## [2026-04-25] health | link minify dossier from pass-addition caveat
 
 - Ran a focused reference-hygiene check after adding the `minify-imports-and-exports` dossier and found the pass-index tail note still mentioned only `strip-target-features` as source-confirmed in `version_129` without a clean changelog-addition line.

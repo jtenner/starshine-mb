@@ -3,13 +3,16 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md
+  - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
   - ../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
+  - ../minify-imports/index.md
   - ../duplicate-import-elimination/index.md
 ---
 
@@ -159,6 +162,8 @@ This pass is also not [`reorder-functions`](../reorder-functions/index.md):
 ```
 
 Minifying the export string does not reorder the function declarations.
+
+Finally, this pass is not [`minify-imports`](../minify-imports/index.md). The separate pass emits an imported-function map and leaves the module unchanged; these WAT shapes are for the mutating import/export family.
 
 ## Validation checklist
 

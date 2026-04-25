@@ -3,7 +3,9 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md
+  - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
   - ../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -16,6 +18,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ../minify-imports/index.md
   - ../duplicate-import-elimination/index.md
   - ../tracker.md
 ---
@@ -29,11 +32,12 @@ This page is a status and future-port map, not a shipped transform description.
 
 Exact local status:
 
-- `src/passes/optimize.mbt` has no `minify-imports-and-exports` or `minify-imports-and-exports-and-modules` entry in the active registry.
-- `src/passes/optimize.mbt` has no boundary-only or removed compatibility entry for either name.
+- `src/passes/optimize.mbt` has no `minify-imports`, `minify-imports-and-exports`, or `minify-imports-and-exports-and-modules` entry in the active registry.
+- `src/passes/optimize.mbt` has no boundary-only or removed compatibility entry for any of those names.
 - `run_hot_pipeline_expand_passes(...)` reports absent names as `unknown pass flag ...`.
 - `src/passes/pass_manager.mbt` has no module-dispatcher case for either name.
 - There is no `src/passes/minify_imports_and_exports.mbt` owner file.
+- There is no `src/passes/minify_imports.mbt` owner file for the separate map-emitting [`minify-imports`](../minify-imports/index.md) pass either.
 - `agent-todo.md` has no active slice for this pass family.
 
 So Starshine's present strategy is **non-adoption plus documentation**.
@@ -95,7 +99,7 @@ A faithful local port would need three layers:
    - decide whether to add active module passes, boundary-only names, removed names, or keep unknown-pass behavior;
    - add registry tests for both the plain and sibling names.
 2. **Name-map layer**
-   - reproduce Binaryen-compatible short-name allocation from `WasmBinaryBuilder::getSymbolMap(...)`;
+   - reproduce Binaryen-compatible short-name allocation from `Names::MinifiedNameGenerator` plus the owner-file used-name avoidance rules;
    - preserve collision and validity behavior;
    - decide how to expose or debug the map, if at all.
 3. **Rewrite layer**
@@ -110,4 +114,5 @@ A faithful local port would need three layers:
 - Do not fold it into [`duplicate-import-elimination`](../duplicate-import-elimination/index.md); that pass merges duplicate function imports, while this pass renames external strings.
 - Do not add it silently to `optimize` or `shrink`; changing import/export strings is an ABI choice.
 - Do not implement only the sibling and call the plain pass done; the module-name split is part of the public contract.
-- Do not promise Binaryen parity without source-reading `WasmBinaryBuilder::getSymbolMap(...)` in the target upstream revision.
+- Do not treat the separate `minify-imports` map-emitting pass as an implemented mutating pass.
+- Do not promise Binaryen parity without source-reading `Names::MinifiedNameGenerator` and the used-name collection rules in the target upstream revision.

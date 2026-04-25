@@ -3,13 +3,16 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md
+  - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
   - ../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ../minify-imports/binaryen-strategy.md
 ---
 
 # Binaryen strategy for `minify-imports-and-exports`
@@ -24,23 +27,29 @@ The public pass split is a single boolean:
 
 The strategy is:
 
-1. ask `WasmBinaryBuilder::getSymbolMap(...)` to compute short-name maps for imports, exports, import/export names, and modules;
-2. walk module imports and apply the import-name map to each import base name;
-3. when `minifyModules` is true, also apply the module-name map to each import module string;
-4. walk module exports and apply the export-name map to each export name;
-5. leave the imported/exported entity kinds and index targets intact.
+1. collect import base names from `module->imports`;
+2. collect export names from `module->exports`;
+3. when `minifyModules` is true, collect import module names as well;
+4. collect already-used names from relevant name-section surfaces so generated names do not collide with them;
+5. run `Names::MinifiedNameGenerator` through the pass's `mapNames(...)` helper to assign short names that avoid the used-name set;
+6. walk module imports and apply the import-base map;
+7. when `minifyModules` is true, also apply the module-name map;
+8. walk module exports and apply the export-name map;
+9. leave imported/exported entity kinds and index targets intact.
 
-## Why Binaryen delegates name choice
+The earlier first-pass dossier said this family delegates map construction to `WasmBinaryBuilder::getSymbolMap(...)`.
+The 2026-04-25 source-correction recheck supersedes that claim for Binaryen `version_129`: the reviewed owner file uses `Names::MinifiedNameGenerator` directly.
 
-The pass file is intentionally small because name allocation is not a local peephole decision.
-A valid minifier must coordinate names across all imports and exports so it does not create collisions or invalid names.
-Binaryen centralizes that logic in the symbol-map builder rather than deriving names inside each import/export visitor.
+## Why Binaryen collects used names first
 
-This matters for Starshine parity: implementing a quick `a`, `b`, `c` counter over one section may pass trivial examples but still drift from Binaryen on mixed import/export modules, reserved names, collisions, or sibling module-name behavior.
+The pass is not just a naive counter over imports and exports.
+It avoids generating names that would collide with names already present in relevant module metadata, including name-section-derived function/local/label surfaces.
+
+This matters for Starshine parity: a trivial `a`, `b`, `c` generator over only imports and exports may pass simple WAT examples but drift on modules with existing short names or name sections.
 
 ## Plain pass versus `-and-modules`
 
-The plain pass rewrites only:
+The plain mutating pass rewrites only:
 
 - import base names;
 - export names.
@@ -64,15 +73,21 @@ may become a pair of short generated names.
 
 The upstream help text makes this distinction explicit, so docs and tests should not collapse the two pass names into one vague “minify all external names” story.
 
+## Split from `minify-imports`
+
+[`minify-imports`](../minify-imports/index.md) is a separate public pass owned by `MinifyImports.cpp`.
+It reports `modifiesBinaryenIR() == false`, walks only imported functions, and emits a map.
+It should not be taught as the plain mode of this mutating pass family.
+
 ## What stays stable
 
-The pass should preserve:
+The mutating pass family should preserve:
 
 - function bodies and expressions;
 - type, function, table, memory, global, tag, element, data, and code section structure;
 - export target indices;
 - import external kinds and their types;
-- internal function names and locals, except for any unrelated name-section output effects outside this pass's contract.
+- internal function names and locals, except for unrelated printer/name-section effects outside this pass's contract.
 
 A host-visible string changes, but the module still imports and exports the same kinds of things.
 
@@ -88,5 +103,5 @@ Unlike [`duplicate-import-elimination`](../duplicate-import-elimination/index.md
 ## Main caveat
 
 The official test surface reviewed for this run directly proves the `-and-modules` sibling.
-The plain pass remains source-confirmed through the constructor flag, `pass.cpp` registration, and shared implementation.
-A future implementation signoff should add direct local tests for both names instead of relying on the sibling proof alone.
+The plain mutating pass remains source-confirmed through the constructor flag, `pass.cpp` registration, and shared implementation.
+A future implementation signoff should add direct local tests for both mutating names and keep the separate non-mutating `minify-imports` pass in its own lane.
