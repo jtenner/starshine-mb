@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md
+  - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
   - ../../../../../src/passes/heap2local.mbt
@@ -17,6 +19,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./validation-fixups-and-special-cases.md
   - ./wat-shapes.md
   - ./parity.md
@@ -25,7 +28,7 @@ related:
 # Current Starshine `heap2local` strategy
 
 This page is the local “what is actually implemented today?” companion to the upstream Binaryen strategy page.
-The main upgrade in this refresh is an exact MoonBit code map so readers can move quickly from the wiki to the implementation.
+The 2026-04-25 refresh turns the earlier helper-name map into exact MoonBit line ranges so readers can move quickly from the wiki to the implementation. The source-confirmed owner/test map lives in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Short version
 
@@ -42,21 +45,24 @@ The local implementation is narrower, more direct, and much more HOT/use-def dri
 
 Start here when you want to confirm that `heap2local` is live and where the public presets place it.
 
-- `src/passes/heap2local.mbt`
-  - `heap2local_descriptor()` declares the pass name plus the only required analysis: `@ir.HotAnalysis::use_def()`.
+- `src/passes/heap2local.mbt:2-16`
+  - `heap2local_descriptor()` declares the pass name, the only required analysis (`@ir.HotAnalysis::use_def()`), and the invalidation set.
+- `src/passes/heap2local.mbt:18-20`
   - `heap2local_summary()` is the registry summary text used elsewhere in the pass catalog.
-- `src/passes/optimize.mbt`
+- `src/passes/optimize.mbt:201-205`
   - `pass_registry_entries()` registers `heap2local` as an active hot pass.
+- `src/passes/optimize.mbt:253-257`, `src/passes/optimize.mbt:392-396`, `src/passes/optimize.mbt:265-269`, and `src/passes/optimize.mbt:405-409`
   - `optimize_preset_passes(...)` and `shrink_preset_passes(...)` place it in the current local mid-function GC slot.
-- `src/passes/optimize_test.mbt`
+- `src/passes/optimize_test.mbt:398-403`
   - `test "optimize preset schedules heap2local in the mid-function GC slot"` locks the exact neighboring order.
-  - `test "optimize preset hands simplify-locals output to the late merge-blocks cleanup cluster"` proves the local handoff order around `heap2local -> simplify-locals -> merge-blocks`.
-- `src/passes/registry_test.mbt`
-  - `test "pass registry classifies active, boundary-only, and removed names"` and `test "batch 1 descriptors expose the active first hot ports"` keep the registry and descriptor contract explicit.
+- `src/passes/optimize_test.mbt:435-446`
+  - the traced-order test proves the local handoff order around `heap2local -> simplify-locals`.
+- `src/passes/registry_test.mbt:2-31`, `src/passes/registry_test.mbt:102-133`, and `src/passes/registry_test.mbt:146-160`
+  - registry classification, descriptor requirement, and preset roster coverage keep the registry and descriptor contract explicit.
 
 ## 2. Dispatcher entry point
 
-- `src/passes/pass_manager.mbt`
+- `src/passes/pass_manager.mbt:8698`
   - `hot_pass_run(...)` dispatches the public pass name `"heap2local"` directly to `heap2local_run(ctx, func)`.
 
 Important local nuance:
@@ -68,13 +74,12 @@ Important local nuance:
 
 This is the main local owner-analysis surface.
 
-- `src/passes/heap2local.mbt`
-  - `h2l_supported_struct_new_fields(...)` recognizes supported `struct.new` and `struct.new_default` owners.
-  - `h2l_is_direct_struct_alloc(...)` and `h2l_direct_descriptor_alloc_info(...)` recognize direct fresh allocations, including the descriptor-bearing forms used by the local `ref.get_desc` fold.
-  - `h2l_field_index(...)` and `h2l_exact_field_user_matches(...)` gate the direct field-use families that Starshine currently accepts.
-  - `h2l_local_can_hold_struct_ref(...)` enforces the current local-owner type shape.
-  - `h2l_collect_source_use(...)` is the key local-family walker for supported struct traffic: direct field users, `ref.as_non_null`, successful `ref.cast`, final-value block flow, and exclusive local-copy chains.
-  - `h2l_find_candidate_for_local(...)` is the top-level struct candidate matcher: one write, supported owner, supported read family, supported copy family, and nonempty use set.
+- `src/passes/heap2local.mbt:84-145`
+  - `h2l_supported_struct_new_fields(...)`, `h2l_is_direct_struct_alloc(...)`, and `h2l_direct_descriptor_alloc_info(...)` recognize supported `struct.new`, `struct.new_default`, and descriptor-bearing fresh allocations.
+- `src/passes/heap2local.mbt:147-466`
+  - field-index, exact-field-user, local-owner, passthrough, block-flow, and supported-use collection helpers gate the direct field-use families that Starshine currently accepts.
+- `src/passes/heap2local.mbt:468-558`
+  - `h2l_find_candidate_for_local(...)` is the top-level struct candidate matcher: non-parameter local, exactly one write, supported owner, supported read/copy family, and nonempty use set.
 
 This is where the biggest local-vs-upstream difference shows up most clearly.
 Binaryen teaches `heap2local` through `EscapeAnalyzer`, parent walking, branch-target flow, and exclusivity proofs.
@@ -84,11 +89,12 @@ Starshine teaches it through a much narrower one-write local owner plus exact su
 
 Current Starshine does support arrays, but through a simpler direct element-localization path rather than upstream Binaryen's array-to-synthetic-struct stage.
 
-- `src/passes/heap2local.mbt`
+- `src/passes/heap2local.mbt:562-658`
   - `h2l_supported_array_init(...)` accepts the current local array subset: `array.new_default`, `array.new`, and `array.new_fixed` with constant size and the existing `< 20` cap.
-  - `h2l_local_can_hold_array_ref(...)` enforces the owner-local type check.
+- `src/passes/heap2local.mbt:660-725`
   - `h2l_collect_array_use(...)` accepts the current local use subset: constant-index `array.get`, `array.get_s`, `array.get_u`, and `array.set`.
-  - `h2l_find_array_candidate_for_local(...)` ties those checks together into the direct array candidate matcher.
+- `src/passes/heap2local.mbt:695-748`
+  - `h2l_find_array_candidate_for_local(...)` ties owner-local checks, supported initializer checks, and supported uses together into the direct array candidate matcher.
 
 That direct path is simpler than Binaryen, but it also means local Starshine does **not** inherit the larger upstream shared struct-stage handling for many type-flow, atomic, and cmpxchg cases.
 
@@ -96,15 +102,14 @@ That direct path is simpler than Binaryen, but it also means local Starshine doe
 
 Once a candidate is accepted, these helpers emit the local replacement IR.
 
-- `src/passes/heap2local.mbt`
-  - `h2l_alloc_field_locals(...)` allocates one local per struct field.
-  - `h2l_alloc_array_element_locals(...)` allocates one local per array slot.
-  - `h2l_build_init_replacement(...)` lowers supported struct initializers into local sets.
-  - `h2l_build_array_init_replacement(...)` lowers supported array initializers into local sets.
-  - `h2l_wrap_replacement_with_init(...)`, `h2l_passthrough_child_node(...)`, `h2l_source_requires_tee_init(...)`, `h2l_node_is_block(...)`, `h2l_block_flow_tail_node(...)`, and `h2l_wrap_replacement_with_block_prefix(...)` own the local tee-flow and simple block-result wrapper repair.
-  - `h2l_apply_candidate(...)` performs the main struct rewrite.
-  - `h2l_apply_array_candidate(...)` performs the direct array rewrite.
-  - `h2l_delete_detached_live_nodes(...)` cleans up detached live nodes after the accepted rewrites.
+- `src/passes/heap2local.mbt:750-1054`
+  - local allocation, struct initializer, array initializer, tee-wrapper, and simple block-result wrapper helpers prepare replacement IR.
+- `src/passes/heap2local.mbt:1164-1216`
+  - `h2l_apply_array_candidate(...)` performs the direct array rewrite into element locals.
+- `src/passes/heap2local.mbt:1219-1347`
+  - `h2l_apply_candidate(...)` performs the main struct rewrite into field locals, including tee/block wrapper repair and detached-node bookkeeping.
+- `src/passes/heap2local.mbt:1349-1376`
+  - `h2l_delete_detached_live_nodes(...)` cleans up detached live nodes after accepted rewrites.
 
 This is the exact local bridge from the shape pages to the code.
 If you want to understand why a specific local `tee`, block-result, or array case does or does not rewrite, these helpers are the shortest path.
@@ -113,10 +118,10 @@ If you want to understand why a specific local `tee`, block-result, or array cas
 
 The local file also folds a few direct ref-operation families outside the main field/element rewrite loop.
 
-- `src/passes/heap2local.mbt`
-  - `h2l_ref_eq_null_replacement(...)` plus `h2l_try_fold_direct_ref_eq(...)`
-  - `h2l_ref_get_desc_replacement(...)` plus `h2l_try_fold_direct_ref_get_desc(...)`
-  - `h2l_array_ref_test_replacement(...)` plus `h2l_try_fold_direct_array_ref_test(...)`
+- `src/passes/heap2local.mbt:986-1054`
+  - replacement builders for fresh-struct `ref.eq` against null, descriptor `ref.get_desc`, and direct array `ref.test`.
+- `src/passes/heap2local.mbt:1056-1159`
+  - `h2l_try_fold_direct_ref_eq(...)`, `h2l_try_fold_direct_ref_get_desc(...)`, and `h2l_try_fold_direct_array_ref_test(...)` apply those folds.
 
 Those helpers explain why the local pass already covers:
 
@@ -128,7 +133,7 @@ but still does **not** claim the full upstream direct-ref surface.
 
 ## 7. Top-level pass driver
 
-- `src/passes/heap2local.mbt`
+- `src/passes/heap2local.mbt:1379-1442`
   - `heap2local_run(...)` is the real local pass driver.
 
 It does four things in order:
@@ -165,14 +170,14 @@ That is already a meaningful subset of the upstream pass.
 
 The best local proof surface is spread across several files, not just one test file.
 
-- `src/passes/heap2local_test.mbt`
-  - focused direct pass tests for struct owners, copy chains, tee owners, block flow, `ref.as_non_null`, successful `ref.cast`, direct `ref.eq`, descriptor-bearing `ref.get_desc`, array lowering, array `ref.test`, and a parameter-backed bailout
-- `src/passes/heap2local_primary_test.mbt`
-  - broader Binaryen-aligned primary suite covering the main green subset plus the explicit bailout families
-- `src/passes/optimize_test.mbt`
-  - preset-order evidence showing where `heap2local` sits today in the active `optimize` / `shrink` cluster
-- `src/passes/registry_test.mbt`
-  - registry and descriptor coverage
+- `src/passes/heap2local_test.mbt:86-453`
+  - focused direct pass tests for struct owners, copy chains, tee owners, block flow, `ref.as_non_null`, successful `ref.cast`, direct `ref.eq`, descriptor-bearing `ref.get_desc`, array lowering, array `ref.test`, and a parameter-backed bailout.
+- `src/passes/heap2local_primary_test.mbt:158-568`
+  - broader Binaryen-aligned primary suite covering the main green subset plus the explicit bailout families.
+- `src/passes/optimize_test.mbt:398-403` and `src/passes/optimize_test.mbt:435-446`
+  - preset-order evidence showing where `heap2local` sits today and how its output reaches `simplify-locals` in the active local pipeline.
+- `src/passes/registry_test.mbt:2-31`, `src/passes/registry_test.mbt:102-133`, and `src/passes/registry_test.mbt:146-160`
+  - registry, descriptor, and roster coverage.
 
 Important touched-area hygiene note:
 
@@ -278,3 +283,13 @@ If Starshine rewrites this pass again, keep these lessons explicit:
 - add nondefaultable-local / refinalization repair instead of papering over it
 - keep the preset slot aligned with the future `optimize-casts -> local-subtyping -> coalesce-locals -> local-cse` neighbor cluster
 - keep the strong existing parity evidence visible, but do not overstate it as full upstream surface parity
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
+- [`../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md)
+- [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+- [`../../../../../src/passes/heap2local.mbt`](../../../../../src/passes/heap2local.mbt)
+- [`../../../../../src/passes/heap2local_test.mbt`](../../../../../src/passes/heap2local_test.mbt)
+- [`../../../../../src/passes/heap2local_primary_test.mbt`](../../../../../src/passes/heap2local_primary_test.mbt)

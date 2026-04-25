@@ -1,11 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
+  - ../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md
+  - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./validation-fixups-and-special-cases.md
   - ./wat-shapes.md
   - ./parity.md
@@ -17,7 +21,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
+Use Binaryen `version_129` as the primary source oracle for this pass. The 2026-04-25 current-main source bridge found no new teaching-relevant drift beyond the earlier narrow array/cmpxchg/unreachable-`ref.test` caveat, so this page still describes the released `version_129` contract.
 
 Primary files:
 
@@ -40,6 +44,8 @@ Most important helper dependencies visible in the source:
 The shipped dedicated lit surface is also part of the contract:
 
 - `test/lit/passes/heap2local.wast`
+
+For the exact owner/helper/test-map split and the current Starshine line-range bridge, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## High-level intent
 
@@ -359,4 +365,12 @@ A narrow 2026-04-20 check found small but real source drift on current `main` ar
 - `array.cmpxchg` / `struct.cmpxchg` handling
 - unreachable `ref.test`
 
-The dedicated lit surface still only shows a typo fix there, so `version_129` remains the best released oracle for this dossier.
+The 2026-04-25 current-main source bridge rechecked the owner/test-map and found no additional teaching-relevant drift. The dedicated lit surface still only shows the already-known typo fix there, so `version_129` remains the best released oracle for this dossier.
+
+## Sources
+
+- [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
+- [`../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md)
+- [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+- [`../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md`](../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md)

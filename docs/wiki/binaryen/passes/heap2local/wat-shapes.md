@@ -1,12 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
+  - ../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md
+  - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./validation-fixups-and-special-cases.md
   - ./parity.md
   - ../../no-dwarf-default-optimize-path.md
@@ -14,7 +18,7 @@ related:
 
 # `heap2local` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `heap2local` pass.
+This page is the beginner-friendly shape catalog for Binaryen's `heap2local` pass. The 2026-04-25 source-map refresh did not change the shape contract; it added the owner/test/source bridge in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Read this page with one mental model
 

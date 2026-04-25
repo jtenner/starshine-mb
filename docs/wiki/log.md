@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | deepen `heap2local` implementation/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/heap2local/` folder, and `docs/wiki/raw/research/`, then chose active `heap2local` because the dossier was useful but still lacked the now-standard implementation/test-map page and exact current local line ranges.
+- Added `docs/wiki/raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`, capturing official Binaryen current-main and tagged `version_129` source surfaces for `Heap2Local.cpp`, `heap2local.wast`, `pass.cpp`, `pass.h`, `type-updating.h`, and helper headers. The focused recheck found no new teaching-relevant drift beyond the earlier array/cmpxchg/unreachable-`ref.test` caveat: upstream remains conservative nonescaping-plus-exclusive GC scalarization with array-to-synthetic-struct lowering and validation repair.
+- Added `docs/wiki/raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md` and `docs/wiki/binaryen/passes/heap2local/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, validation/fixup guide, WAT-shape catalog, Starshine HOT strategy, and parity page so readers can map transformed shapes, upstream owner/test surfaces, exact local registry/preset/dispatcher/candidate/rewrite/test line ranges, and the remaining nondefaultable-local/refinalization gap.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; the touched-area health check fixed stale parity wording that had listed atomic array access as a generic upstream bailout even though Binaryen source has atomic/RMW/cmpxchg handling when nonescape and exclusivity are proven.
+
 ## [2026-04-25] research | deepen `optimize-casts` implementation/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/optimize-casts/` folder, and `docs/wiki/raw/research/`, then chose unimplemented `optimize-casts` because its dossier had strategy, shape, and Starshine pages but still lacked the now-standard owner/helper/lit-test implementation map and exact local prerequisite code map.

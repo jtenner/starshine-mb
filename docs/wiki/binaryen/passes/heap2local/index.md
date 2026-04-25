@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md
+  - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0245-2026-04-22-heap2local-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
   - ../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md
@@ -28,6 +30,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/heap2local.wast
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./validation-fixups-and-special-cases.md
   - ./wat-shapes.md
   - ./parity.md
@@ -128,6 +131,8 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the real `Heap2Local.cpp` structure, helper analyses, scheduler placement, and the multi-stage array + struct algorithm.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Source-confirmed owner-file, helper, lit-test, and Starshine code-map page for `heap2local`, including exact local registry, dispatcher, candidate-analysis, rewrite, focused-test, and preset line ranges.
 - [`./validation-fixups-and-special-cases.md`](./validation-fixups-and-special-cases.md)
   - Focused guide to the easiest parts to misunderstand: nondefaultable locals, `ReFinalize`, packed fields, atomics, descriptor families, and the small but real post-`version_129` drift on current `main`.
 - [`./wat-shapes.md`](./wat-shapes.md)
@@ -136,14 +141,16 @@ What it actually is in `version_129`:
   - Current in-tree Starshine parity state, focused coverage, and the local remaining gap.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current Starshine HOT-IR strategy, now with an exact MoonBit registry / dispatcher / candidate-analysis / rewrite / test map so readers can move directly from the dossier into `src/passes/heap2local.mbt`.
+- [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
+  - Immutable current-main source bridge and exact Starshine code-map refresh for this dossier.
 - [`../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md)
-  - Immutable primary-source manifest for the official Binaryen release, source, and lit-test surfaces re-checked in this run.
+  - Immutable primary-source manifest for the official Binaryen release, source, and lit-test surfaces re-checked in the earlier run.
 
 ## Freshness note
 
 A 2026-04-22 re-check of the official Binaryen GitHub release surfaces recorded `version_129` as the reviewed release anchor for this dossier, with the release page showing publish date **2026-04-01**.
 
-A narrow direct source comparison still found **real but limited** post-`version_129` drift in current `main`:
+A 2026-04-25 current-main code-map refresh did not find new teaching-relevant drift beyond the already-recorded source caveat. A narrow direct source comparison still finds **real but limited** post-`version_129` drift in current `main`:
 
 - array interaction checks are slightly more precise
 - `array.cmpxchg` / `struct.cmpxchg` expected-vs-ref handling is more refined
@@ -163,11 +170,14 @@ Current durable rule:
 - Keep the main correction explicit:
   - upstream `heap2local` is conservative GC scalarization, not generic stack allocation
 - Keep the array-first, exclusivity-proof, and validation-repair stories explicit whenever future docs or code changes touch this pass.
-- Keep the exact local navigation path explicit too: registry / preset placement in `src/passes/optimize.mbt`, dispatch in `src/passes/pass_manager.mbt`, rewrite logic in `src/passes/heap2local.mbt`, and proof coverage in the focused local test files.
+- Keep the exact local navigation path explicit too: registry / preset placement in `src/passes/optimize.mbt`, dispatch in `src/passes/pass_manager.mbt`, rewrite logic in `src/passes/heap2local.mbt`, proof coverage in the focused local test files, and the line-range map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 - Keep the current-main drift note explicit unless a future released Binaryen tag absorbs those changes.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md)
+- [`../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md`](../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md)
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 - [`../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md`](../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md)
 - [`../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md`](../../../raw/research/0075-2026-04-03-heap2local-binaryen-comparison.md)
 - [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)

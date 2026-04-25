@@ -1,19 +1,25 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-heap2local-current-main-and-code-map.md
+  - ../../../raw/binaryen/2026-04-22-heap2local-primary-sources.md
+  - ../../../raw/research/0365-2026-04-25-heap2local-current-main-and-code-map.md
   - ../../../raw/research/0135-2026-04-20-heap2local-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./parity.md
 ---
 
 # `heap2local` validation fixups and special cases
 
-This page covers the part of `heap2local` that is easiest to misunderstand:
+This page covers the part of `heap2local` that is easiest to misunderstand. The 2026-04-25 source-map refresh keeps the same released `version_129` contract, adds a dedicated owner/test/code-map page at [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and keeps the small current-main drift caveat explicit.
+
+This page focuses on:
 
 - why the pass keeps emitting nullable placeholders
 - why refinalization is mandatory
