@@ -1,11 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md
+  - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
+  - ../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
@@ -32,6 +36,8 @@ Most important helper dependencies:
 The shipped dedicated lit test is also part of the contract here:
 
 - `test/lit/passes/heap-store-optimization.wast`
+
+For owner-file and proof-surface details, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## High-level intent
 
@@ -375,9 +381,12 @@ A future Starshine rewrite or refactor must keep these Binaryen-backed invariant
 
 ## Current freshness note
 
-A 2026-04-20 narrow source check found:
+A 2026-04-25 focused current-main source bridge found no teaching-relevant drift from the `version_129` contract:
 
-- `main` `HeapStoreOptimization.cpp` identical to `version_129`
-- `main` `heap-store-optimization.wast` identical to `version_129`
+- `main` still keeps the generic heap dead-store / load-forwarding work as a TODO;
+- `main` still records only `StructSet` and `Block` action sites;
+- immediate tee folds and later local-set chains remain the central positive families;
+- `trySwap(...)` remains a narrow local motion helper;
+- `LazyLocalGraph::canMoveSet(...)` remains the hard control-flow safety proof for moved values.
 
-So unlike some other pass dossiers, there is no current-trunk drift story to document here yet.
+So unlike some other pass dossiers, there is still no current-trunk contract drift to document here yet. The recheck is captured in [`../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md).

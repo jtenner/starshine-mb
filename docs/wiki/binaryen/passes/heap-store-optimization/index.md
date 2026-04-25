@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
+  - ../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/heap_store_optimization.mbt
@@ -26,9 +28,11 @@ sources:
   - https://docs.rs/wasm-opt/latest/wasm_opt/enum.Pass.html
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
+  - ../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -86,7 +90,7 @@ It is a narrow GC constructor/store cleanup pass.
 - `struct.new_default` can be expanded into explicit default operands so the later store can still be absorbed.
 - Function-external exits are mostly safe for this pass's current goal, but in-function exits and catches can block the rewrite.
 - Current upstream `main` is unusually stable here.
-  - A 2026-04-20 narrow freshness check found `main` `HeapStoreOptimization.cpp` and the dedicated `heap-store-optimization.wast` test file identical to `version_129`.
+  - A 2026-04-25 focused current-main source bridge found no teaching-relevant drift in `HeapStoreOptimization.cpp`, the dedicated `heap-store-optimization.wast` test file, and helper surfaces versus the `version_129` contract.
 
 ## Beginner warning: what the name hides
 
@@ -120,12 +124,16 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the actual Binaryen `version_129` implementation structure, helper dependencies, scheduler placement, and the exact safety checks that make the pass much narrower than its name suggests.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Source-confirmed owner-file, helper, lit-test, registry, dispatcher, raw fast-skip, focused-test, perf-test, and CLI-replay map for upstream Binaryen and current Starshine.
 - [`./swap-safety-and-control-flow.md`](./swap-safety-and-control-flow.md)
   - Focused guide to the easiest part of the pass to misunderstand: swap legality, field/descriptor reordering, target-local hazards, and the `LazyLocalGraph` rule that distinguishes safe exits from dangerous in-function skips.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering tee folds, subsequent local-set chains, default-materialization positives, safe and unsafe control-flow families, and the main bailout shapes.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine strategy and the major ways the HOT-region implementation differs from upstream Binaryen's CFG-based source while still pursuing the same core optimization; the refreshed page now also points readers to the exact MoonBit registry / dispatcher / helper-cluster / reduced-test / CLI-replay code map.
+- [`../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md)
+  - Focused current-main source bridge plus exact Starshine code-map refresh for this dossier on 2026-04-25.
 - [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md)
   - Immutable capture of the official Binaryen release, source, and lit-test URLs re-checked for this dossier on 2026-04-22.
 
@@ -138,7 +146,7 @@ Current durable answer:
 - Binaryen `pass.cpp` still registers `heap-store-optimization` in `version_129`.
 - The official Binaryen GitHub `version_129` release page re-checked on 2026-04-22 showed publish date **2026-04-01**.
 - The current upstream changelog still records `Add a new --heap-store-optimization pass. (#6882)` under `v119`.
-- A 2026-04-22 direct source re-check preserved the earlier no-drift result for the teaching-relevant surfaces in `main` `HeapStoreOptimization.cpp` and `test/lit/passes/heap-store-optimization.wast` versus `version_129`.
+- A 2026-04-25 focused current-main source bridge preserved the no-teaching-drift result for `main` `HeapStoreOptimization.cpp`, the dedicated lit file, and helper surfaces, while adding an exact local code map.
 - The Debian experimental `wasm-opt` manpage still lists `--heap-store-optimization`.
 - The published docs.rs `wasm_opt::Pass` enum still omits `HeapStoreOptimization`, so that surface is still wrapper lag, not rename pressure.
 
@@ -150,9 +158,13 @@ Current durable answer:
   - this pass is mainly about folding `struct.set` into nearby `struct.new` families
   - it is not yet generic GC heap dead-store elimination or load forwarding
 - Keep the current no-drift note explicit unless a future source sweep finds a real post-`version_129` change.
+- Keep [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) in sync with local owner/test line ranges when the active HOT implementation moves.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md)
+- [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md)
+- [`../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md`](../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md)
 - [`../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md`](../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md)
 - [`../../../../../src/passes/heap_store_optimization.mbt`](../../../../../src/passes/heap_store_optimization.mbt)
 - [`../../../../../src/passes/heap_store_optimization_test.mbt`](../../../../../src/passes/heap_store_optimization_test.mbt)

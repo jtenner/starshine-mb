@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | refresh `heap-store-optimization` current-main and code map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/heap-store-optimization/`, and `docs/wiki/raw/research/`, then chose active `heap-store-optimization` because the folder was useful but still lacked the implementation/test-map page now standard for neighboring active passes and the Starshine strategy had mostly helper names rather than exact line ranges.
+- Added `docs/wiki/raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md`, capturing official Binaryen current-main `HeapStoreOptimization.cpp`, `heap-store-optimization.wast`, `pass.cpp`, `local-graph.h`, and `effects.h` URLs plus exact local Starshine owner/test/dispatcher surfaces. The focused current-main recheck found no teaching-relevant drift: the pass remains narrow `struct.set`-into-fresh-`struct.new` folding, not generic heap dead-store elimination or load forwarding.
+- Added `docs/wiki/raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md` and `docs/wiki/binaryen/passes/heap-store-optimization/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, and Starshine HOT strategy so the dossier now links the upstream owner/helper/test surfaces and exact MoonBit registry, preset, dispatcher, raw fast-skip, fold-helper, region-processing, focused-test, perf-test, and CLI-replay line ranges.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; health-check edits in the touched area replaced stale 2026-04-20 / 2026-04-22 freshness wording with the new 2026-04-25 source bridge while keeping the `version_129` oracle and current-main no-drift caveat explicit.
+
 ## [2026-04-25] research | correct `remove-relaxed-simd` feature-gate overread
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `docs/wiki/binaryen/passes/remove-relaxed-simd/`, and `docs/wiki/raw/research/`, then chose upstream-only `remove-relaxed-simd` because its dossier was complete but still carried stale feature-gate / changed-function wording and an unresolved metadata caveat worth narrowing with current primary sources.

@@ -1,12 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md
+  - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
+  - ../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./swap-safety-and-control-flow.md
   - ../../no-dwarf-default-optimize-path.md
 ---

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
+  - ../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/heap_store_optimization.mbt
@@ -16,6 +18,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./swap-safety-and-control-flow.md
   - ./wat-shapes.md
 ---
@@ -57,41 +60,35 @@ not:
 
 ## Exact local code map
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md).
+Use this page together with the current source bridge in [`../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The fastest read-along path through the current MoonBit implementation is:
 
 - registry descriptor and one-line public summary
-  - `src/passes/heap_store_optimization.mbt`
-    - `heap_store_optimization_descriptor()`
-    - `heap_store_optimization_summary()`
-  - `src/passes/optimize.mbt`
-    - active hot-pass registration for `heap-store-optimization`
-    - optimize/shrink preset placement after `optimize-instructions` and before `pick-load-signs`, plus the late rerun after the second `precompute`
+  - [`src/passes/heap_store_optimization.mbt:2-24`](../../../../../src/passes/heap_store_optimization.mbt)
+- active registry and preset placement
+  - [`src/passes/optimize.mbt:197-199`](../../../../../src/passes/optimize.mbt) registers the active hot pass
+  - [`src/passes/optimize.mbt:253-257`](../../../../../src/passes/optimize.mbt) and [`src/passes/optimize.mbt:392-396`](../../../../../src/passes/optimize.mbt) place it in `optimize`
+  - [`src/passes/optimize.mbt:265-269`](../../../../../src/passes/optimize.mbt) and [`src/passes/optimize.mbt:405-409`](../../../../../src/passes/optimize.mbt) place it in `shrink`
 - pass-manager integration and raw fast-skip plumbing
-  - `src/passes/pass_manager.mbt`
-    - `run_hot_pipeline_raw_heap_store_optimization(...)`
-    - main hot-pass dispatch case for `"heap-store-optimization"`
+  - [`src/passes/pass_manager.mbt:7045-7058`](../../../../../src/passes/pass_manager.mbt) owns `run_hot_pipeline_raw_heap_store_optimization(...)`
+  - [`src/passes/pass_manager.mbt:8697`](../../../../../src/passes/pass_manager.mbt) dispatches the main hot-pass case for `"heap-store-optimization"`
 - local proof helpers in `src/passes/heap_store_optimization.mbt`
-  - `hso_subtree_may_skip_local_set(...)`
-  - `hso_subtree_is_trapless_readonly(...)`
-  - `hso_subtree_is_trapless_reorderable(...)`
-  - `hso_root_can_swap_before_local_struct_new(...)`
-  - `hso_supported_struct_new(...)`
+  - [`src/passes/heap_store_optimization.mbt:312-354`](../../../../../src/passes/heap_store_optimization.mbt) covers skip-local-set / control-flow predicates
+  - [`src/passes/heap_store_optimization.mbt:560-631`](../../../../../src/passes/heap_store_optimization.mbt) covers trapless readonly and reorderable subtree predicates
+  - [`src/passes/heap_store_optimization.mbt:761-792`](../../../../../src/passes/heap_store_optimization.mbt) covers root-swap legality
+  - [`src/passes/heap_store_optimization.mbt:914-970`](../../../../../src/passes/heap_store_optimization.mbt) covers the supported `struct.new*` / descriptor / default constructor family
 - local rewrite helpers in `src/passes/heap_store_optimization.mbt`
-  - `hso_try_flatten_block_wrapper(...)`
-  - `hso_trim_unreachable_subtree(...)`
-  - `hso_try_fold_into_struct_new(...)`
-  - `hso_try_fold_tee_wrapped_struct_set(...)`
-  - `hso_process_region(...)`
+  - [`src/passes/heap_store_optimization.mbt:1296-1468`](../../../../../src/passes/heap_store_optimization.mbt) handles HOT wrapper flattening and unreachable-tail repair
+  - [`src/passes/heap_store_optimization.mbt:1653-1775`](../../../../../src/passes/heap_store_optimization.mbt) owns the shared fold-into-constructor proof and rewrite
+  - [`src/passes/heap_store_optimization.mbt:1777-1827`](../../../../../src/passes/heap_store_optimization.mbt) owns the tee-wrapped fold rewrite
+  - [`src/passes/heap_store_optimization.mbt:2028-2218`](../../../../../src/passes/heap_store_optimization.mbt) recursively processes HOT regions, later-set chains, swaps, and root replacement
+  - [`src/passes/heap_store_optimization.mbt:2220-2241`](../../../../../src/passes/heap_store_optimization.mbt) requires effect summaries, marks mutation, and returns pass results
 - focused local evidence surfaces
-  - `src/passes/heap_store_optimization_test.mbt`
-    - reduced constructor/store, readonly-prefix, swap, branch, descriptor, raw-prefix, and wrapper-cleanup regressions
-  - `src/passes/registry_test.mbt`
-    - registration and preset exposure
-  - `src/cmd/cmd_wbtest.mbt`
-    - focused `--heap-store-optimization` CLI replay lanes
+  - [`src/passes/heap_store_optimization_test.mbt:396-1967`](../../../../../src/passes/heap_store_optimization_test.mbt) covers reduced constructor/store, readonly-prefix, swap, branch, descriptor, raw-prefix, and wrapper-cleanup regressions
+  - [`src/passes/perf_test.mbt:6241-6320`](../../../../../src/passes/perf_test.mbt) covers raw fast-skip trace/perf behavior
+  - [`src/cmd/cmd_wbtest.mbt:2514-3490`](../../../../../src/cmd/cmd_wbtest.mbt) and [`src/cmd/cmd_wbtest.mbt:6600-6634`](../../../../../src/cmd/cmd_wbtest.mbt) cover focused `--heap-store-optimization` CLI replay and debug-artifact lanes
 
-This exact code map is the main practical difference between the older page and the refreshed one: readers can now go directly from the living strategy text to the concrete implementation entry points.
+This exact code map is the main practical difference between the older page and the refreshed one: readers can now go directly from the living strategy text to concrete line ranges.
 
 ## What Starshine already models well
 
@@ -202,10 +199,9 @@ Current Starshine answers the same *kind* of question with custom HOT helpers su
 
 The exact local code locations worth reading are:
 
-- `src/passes/heap_store_optimization.mbt:hso_subtree_may_skip_local_set(...)`
-- `src/passes/heap_store_optimization.mbt:hso_subtree_is_trapless_readonly(...)`
-- `src/passes/heap_store_optimization.mbt:hso_subtree_is_trapless_reorderable(...)`
-- `src/passes/heap_store_optimization.mbt:hso_root_can_swap_before_local_struct_new(...)`
+- [`src/passes/heap_store_optimization.mbt:312-354`](../../../../../src/passes/heap_store_optimization.mbt) for `hso_subtree_may_skip_local_set(...)` and related skip checks
+- [`src/passes/heap_store_optimization.mbt:560-631`](../../../../../src/passes/heap_store_optimization.mbt) for `hso_subtree_is_trapless_readonly(...)` and `hso_subtree_is_trapless_reorderable(...)`
+- [`src/passes/heap_store_optimization.mbt:761-792`](../../../../../src/passes/heap_store_optimization.mbt) for `hso_root_can_swap_before_local_struct_new(...)`
 
 So the local proof is aiming at the same semantic barrier, but it is not using the same exact helper stack.
 
@@ -219,9 +215,9 @@ Several local helpers exist mainly to avoid generating invalid or awkward lowere
 
 The exact local code locations worth reading are:
 
-- `src/passes/heap_store_optimization.mbt:hso_trim_unreachable_subtree(...)`
-- `src/passes/heap_store_optimization.mbt:hso_try_flatten_block_wrapper(...)`
-- `src/passes/heap_store_optimization.mbt:hso_retarget_subtree_label(...)`
+- [`src/passes/heap_store_optimization.mbt:1296-1468`](../../../../../src/passes/heap_store_optimization.mbt) for wrapper flattening and unreachable-tail repair
+- [`src/passes/heap_store_optimization.mbt:1653-1775`](../../../../../src/passes/heap_store_optimization.mbt) for side-effect-preserving constructor replacement
+- [`src/passes/heap_store_optimization.mbt:2028-2218`](../../../../../src/passes/heap_store_optimization.mbt) for region-root replacement after folds and swaps
 
 That is a local HOT/writeback reality, not a direct upstream Binaryen concern.
 
