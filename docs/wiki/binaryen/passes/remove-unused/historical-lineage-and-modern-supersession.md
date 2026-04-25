@@ -1,13 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
+  - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./module-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-module-elements/index.md
 ---
 
@@ -19,7 +23,7 @@ This is the easiest part of the local registry name to misread.
 
 `remove-unused` is **not** a current public Binaryen pass spelling.
 
-The most useful source-backed interpretation is:
+The most useful source-backed interpretation, refreshed against an immutable 2026-04-25 raw-source manifest and a current-`main` registration spot check, is:
 
 - historical upstream pass: `remove-unused-functions`
 - modern upstream replacement: `remove-unused-module-elements`
@@ -112,7 +116,10 @@ If someone remembers only one sentence from this page, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
+- [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
 - [`../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md`](../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/RemoveUnusedFunctions.cpp>
 - <https://github.com/WebAssembly/binaryen/commit/98e9e604c7e2e4f928abe8f05691df90cddf09e4>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>

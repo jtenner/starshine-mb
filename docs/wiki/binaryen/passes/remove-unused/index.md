@@ -1,8 +1,10 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-21
+status: supported
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
+  - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
@@ -13,6 +15,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./historical-lineage-and-modern-supersession.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-module-elements/index.md
   - ../remove-unused-non-function-elements/index.md
   - ../remove-unused-types/index.md
@@ -77,6 +80,8 @@ A safe beginner mental model is:
   Focused guide to the easiest thing to misread: what the local alias likely points to, and why it should not be taught as a synonym for modern RUME.
 - [`./module-shapes.md`](./module-shapes.md)
   Beginner-friendly before/after shape catalog for the old function-only pass and for the main differences from modern `remove-unused-module-elements`.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  Exact local status and port-strategy map: boundary-only registry entry, request rejection, no dispatcher case, modern RUME implementation pointer, and future choices if the alias is removed, renamed, or implemented literally.
 
 ## Current maintenance rule
 
@@ -90,6 +95,8 @@ A safe beginner mental model is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
+- [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
 - [`../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md`](../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
@@ -97,6 +104,7 @@ A safe beginner mental model is:
 - [`../index.md`](../index.md)
 - Current upstream surfaces:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/help/wasm-opt.test>
 - Historical upstream surfaces:

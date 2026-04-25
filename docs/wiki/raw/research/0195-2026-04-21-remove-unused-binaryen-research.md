@@ -2,6 +2,8 @@
 
 Date: 2026-04-21
 
+_Superseded for raw-source provenance and Starshine status by [`0339-2026-04-25-remove-unused-source-bridge.md`](0339-2026-04-25-remove-unused-source-bridge.md) and [`../binaryen/2026-04-25-remove-unused-primary-sources.md`](../binaryen/2026-04-25-remove-unused-primary-sources.md). This note remains the original folder-creation and lineage-research record._
+
 ## Scope
 
 This thread continued the recursive Binaryen pass wiki campaign after the main no-DWARF queue, the saved generated-artifact `-O4z` queue, and the first large upstream-only registry expansion wave were already dossier-covered.

@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
+  - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./historical-lineage-and-modern-supersession.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
   - ../remove-unused-module-elements/index.md
 ---
 
@@ -23,6 +26,7 @@ Use two different upstream source horizons here:
   - where Binaryen publicly registered `remove-unused-functions`
 - **modern oracle** for what Binaryen exposes now:
   - `version_129`
+  - current `main` spot-check on 2026-04-25 for registration drift
   - where Binaryen exposes `remove-unused-module-elements` but no `remove-unused` or `remove-unused-functions`
 
 That split is the whole point of this dossier.
@@ -110,7 +114,7 @@ It replaced the historical function-only public pass with a broader module-eleme
 
 ## What current Binaryen exposes instead
 
-Current `version_129` `pass.cpp` registers these relevant names:
+Current `version_129` `pass.cpp`, with a narrow current-`main` spot check on 2026-04-25, registers these relevant names:
 
 - `remove-unused-brs`
 - `remove-unused-module-elements`
@@ -199,6 +203,8 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
+- [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
 - [`../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md`](../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/RemoveUnusedFunctions.cpp>
@@ -206,4 +212,5 @@ If someone remembers only one sentence, it should be this:
 - <https://github.com/WebAssembly/binaryen/commit/98e9e604c7e2e4f928abe8f05691df90cddf09e4>
 - <https://github.com/WebAssembly/binaryen/blob/98e9e604c7e2e4f928abe8f05691df90cddf09e4/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>

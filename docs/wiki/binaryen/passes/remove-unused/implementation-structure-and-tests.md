@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
+  - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./historical-lineage-and-modern-supersession.md
   - ./module-shapes.md
+  - ./starshine-strategy.md
 ---
 
 # `remove-unused`: implementation structure and tests
@@ -36,7 +39,7 @@ This dossier is unusual because the important file map is split across **histori
 
 | File | Why it matters | What it proves |
 | --- | --- | --- |
-| `version_129/src/passes/pass.cpp` | Current public pass roster | There is no current `remove-unused` or `remove-unused-functions` registration |
+| `version_129/src/passes/pass.cpp` plus current `main/src/passes/pass.cpp` spot check | Current public pass roster | There is no current `remove-unused` or `remove-unused-functions` registration |
 | `version_129/src/passes/passes.h` | Current factory roster | There is no current `createRemoveUnusedFunctionsPass()` |
 | `version_129/test/lit/help/wasm-opt.test` | Current CLI oracle | Help output lists the modern remove-unused family names, but not `remove-unused` |
 | `version_129/test/lit/help/wasm-metadce.test` | Secondary help oracle | Same absence on another tool surface |
@@ -99,6 +102,10 @@ and do **not** include:
 
 That makes the local Starshine registry entry a documentation problem, not a missing-current-upstream-page problem.
 
+## What this file map means for Starshine
+
+The local follow-along map is now in [`./starshine-strategy.md`](./starshine-strategy.md). In short: `src/passes/optimize.mbt` keeps `remove-unused` boundary-only, `run_hot_pipeline_expand_passes(...)` rejects it before dispatch, and `src/passes/pass_manager.mbt` only dispatches the modern `remove-unused-module-elements` module pass.
+
 ## What this file map means for future work
 
 If someone is deciding what to implement or rename locally:
@@ -117,6 +124,8 @@ The implementation/test map says the local wiki should teach `remove-unused` as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
+- [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
 - [`../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md`](../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/RemoveUnusedFunctions.cpp>
@@ -125,6 +134,7 @@ The implementation/test map says the local wiki should teach `remove-unused` as:
 - <https://github.com/WebAssembly/binaryen/blob/98e9e604c7e2e4f928abe8f05691df90cddf09e4/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/98e9e604c7e2e4f928abe8f05691df90cddf09e4/src/passes/RemoveUnusedModuleElements.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/help/wasm-opt.test>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/help/wasm-metadce.test>

@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
+  - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./historical-lineage-and-modern-supersession.md
+  - ./starshine-strategy.md
   - ../remove-unused-module-elements/index.md
 ---
 
@@ -186,6 +189,10 @@ The historical function-only pass had no equivalent surface.
 | Reference-only root weakening | No | Yes |
 | Non-function payload nullification/weakening | No | Yes |
 
+## Starshine caveat
+
+Current Starshine does **not** apply these historical rewrites for `remove-unused`. The local name is boundary-only and rejects active requests. Use [`./starshine-strategy.md`](./starshine-strategy.md) for the local status and [`../remove-unused-module-elements/index.md`](../remove-unused-module-elements/index.md) for the implemented modern module-element cleanup pass.
+
 ## Best beginner summary
 
 If someone remembers only one thing from this page, it should be this:
@@ -194,6 +201,8 @@ If someone remembers only one thing from this page, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
+- [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
 - [`../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md`](../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/RemoveUnusedFunctions.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/98e9e604c7e2e4f928abe8f05691df90cddf09e4/src/passes/RemoveUnusedModuleElements.cpp>
