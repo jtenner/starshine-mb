@@ -1,7 +1,9 @@
 ---
 kind: research
-status: supported
-last_reviewed: 2026-04-23
+status: superseded
+last_reviewed: 2026-04-25
+superseded_by:
+  - 0363-2026-04-25-merge-locals-source-correction-and-test-map.md
 sources:
   - ../binaryen/2026-04-23-merge-locals-primary-sources.md
   - ../../binaryen/passes/merge-locals/index.md
@@ -17,6 +19,10 @@ sources:
 ---
 
 # `merge-locals` primary-source and source-correction follow-up
+
+## Supersession note
+
+This note is superseded for Binaryen implementation details by `0363-2026-04-25-merge-locals-source-correction-and-test-map.md` and the refreshed living dossier. It remains useful as provenance for why the 2026-04-23 pages were created, but its rejection of the one-set/fresh-temp/local-name-bailout model and its replacement `EquivalentCopies` / `LocalStructuralDominance` interpretation were not supported by the 2026-04-25 primary-source recheck.
 
 ## Why this follow-up exists
 

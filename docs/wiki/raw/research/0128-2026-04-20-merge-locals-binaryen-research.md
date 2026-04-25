@@ -4,6 +4,7 @@
 
 - Date: 2026-04-20
 - Type: One-off raw investigation
+- Status: **superseded for implementation details** by `docs/wiki/raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md`; still useful for original queue context and saved-audit motivation.
 - Scope: document one currently unimplemented Binaryen local-cleanup pass in Starshine, using Binaryen `version_129` plus the saved generated-artifact audit to explain what `merge-locals` actually does, which helper utilities it depends on, which IR / WAT shapes it rewrites or preserves, and what a future Starshine port must keep exact.
 
 ## Why this pass
@@ -84,6 +85,10 @@ I only used `main` for a narrow freshness check on the easiest drift points to m
 - the eager `LocalGraph(false)` comment noting that lazy mode misses opportunities and ran slower on the Binaryen benchmark note captured in source
 
 As of `2026-04-20`, those lines still match `version_129` in substance.
+
+## Supersession note
+
+The fast answer below is historically useful but no longer the maintained contract. The 2026-04-25 source correction in `0363-2026-04-25-merge-locals-source-correction-and-test-map.md` keeps the one-set-local and fresh-temp parts, but updates the implementation/test map and resolves later contradictions from the 2026-04-23 overcorrection. Use the living dossier under `docs/wiki/binaryen/passes/merge-locals/` for current guidance.
 
 ## Fast answer
 

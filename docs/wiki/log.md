@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-25] research | correct `merge-locals` source strategy and test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/merge-locals/` folder, and `docs/wiki/raw/research/`, then chose unimplemented `merge-locals` because it looked complete but still lacked the standard implementation/test-map page and carried a stale 2026-04-23 `EquivalentCopies` / `LocalStructuralDominance` overcorrection.
+- Added `docs/wiki/raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md`, capturing official Binaryen `version_129` and current-main sources for `MergeLocals.cpp`, `pass.cpp`, `passes.h`, `local-graph.h`, and `merge-locals.wast`. The recheck found no teaching-relevant current-main drift, but corrected the maintained contract back to one-set local merging with a local-name bailout, simple-value gate, graph-influenced-get proof, small source-local reuse, and fresh-temp fallback.
+- Added `docs/wiki/raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md` and `docs/wiki/binaryen/passes/merge-locals/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, LocalGraph guide, WAT-shape catalog, and Starshine status page so transformed shapes, upstream owner/test surfaces, current removed-registry behavior, request rejection, and future port prerequisites are aligned.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked research notes `0128` and `0272` superseded for implementation details while preserving their queue/context provenance.
+
 ## [2026-04-25] research | correct and deepen `local-subtyping` implementation/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/local-subtyping/` folder, and `docs/wiki/raw/research/`, then chose unimplemented `local-subtyping` because the dossier still lacked the now-standard implementation/test-map page and the 2026-04-22 source correction had overcorrected the owner-file mechanics.

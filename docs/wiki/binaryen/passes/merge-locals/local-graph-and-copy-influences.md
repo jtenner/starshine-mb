@@ -1,233 +1,162 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
+  - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-merge-locals-primary-sources.md
-  - ../../../raw/research/0272-2026-04-23-merge-locals-primary-sources-and-source-correction-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../coalesce-locals/index.md
 ---
 
-# `merge-locals`: LocalGraph, copy influences, and structural dominance
+# `merge-locals`: LocalGraph and copy influences
 
 ## Why this page exists
 
-The easiest way to misunderstand `merge-locals` is to imagine one of two wrong extremes:
+The easiest way to misread `merge-locals` is to choose one wrong extreme:
 
-- a tiny peephole that only deletes adjacent `local.set` / `local.get` pairs
-- a broad allocator-style pass like `coalesce-locals`
+- too small: “just delete adjacent local copies”
+- too large: “do coalesce-locals style slot coloring”
+- stale repo overread: “use `EquivalentCopies` plus `LocalStructuralDominance` to collapse wrapper families onto one existing winner”
 
-The reviewed Binaryen pass is in between.
-This page focuses on the part that makes that possible:
-
-- `LocalGraph`
-- ordinary influences versus set influences
-- `EquivalentCopies`
-- `LocalStructuralDominance`
+The reviewed Binaryen implementation is in between.
+It uses `LocalGraph` influence facts to prove a one-set local can be merged, but it stays far narrower than general local allocation.
 
 ## The central question
 
-Ask this question, not the pass name:
+Ask:
 
-- “which locals are only structurally equivalent copy wrappers around one simple root set?”
+- “does this local have exactly one simple set, and do all influenced gets still trace to that same set?”
 
-If the answer is yes, Binaryen can collapse them.
-If the answer is no, Binaryen bails out.
+Do **not** ask:
 
-That is the real personality of the pass.
+- “are these locals broadly equivalent?”
+- “can these locals share storage?”
+- “is there an equivalent-copy wrapper family under structural dominance?”
+
+Those are different pass families or stale documentation claims.
 
 ## What `LocalGraph` contributes
 
-The pass source depends on a `LocalGraph` and calls both:
+`MergeLocals.cpp` creates a `LocalGraph` and computes two things:
 
-- `computeInfluences()`
-- `computeSetInfluences()`
-
-Those are different kinds of facts.
+- ordinary influences
+- set influences
 
 ### Ordinary influences
 
-These explain which gets and local uses are fed by earlier sets.
-They let the pass see more than one adjacent copy.
+Ordinary influences let the pass see which gets and local uses are fed by which sets.
+This is why the pass can reason through more than a single adjacent `local.set` / `local.get` pair.
 
 ### Set influences
 
-These let the pass iterate from actual root sets rather than treating every local as an equally interesting candidate.
-That is one of the main corrections from the older dossier.
+Set influences let the pass ask whether a local's uses all come from one set.
+The candidate dies if any influenced get traces to a different set.
 
-A better summary is:
+That is the real proof surface: a clean one-set influence story.
 
-- Binaryen starts from simple root sets and reasons outward
+## Why eager graph construction matters
 
-not:
+The reviewed source constructs the graph in non-lazy mode.
+The source comment says lazy mode missed opportunities and was slower in Binaryen benchmarking.
 
-- Binaryen scans every local for an exact-one-set property and then normalizes that local directly.
+For readers, the takeaway is simple:
 
-## Why this is wider than a peephole
+- Binaryen pays for a fuller graph because this pass is meant to catch non-adjacent copy/influence patterns.
 
-Because the graph tracks influence relationships, Binaryen can reason about shapes like:
+## How this is wider than a peephole
 
-```wat
-(local.set $a (i32.const 1))
-(local.set $b (local.get $a))
-(local.set $c (local.get $b))
-(drop (local.get $c))
-```
+A local copy can be separated from its uses by control structure, ordering, or other simple local traffic.
+The official test file includes branch, DAG-like, and loop-shaped families.
 
-as one connected value story instead of three unrelated locals.
-
-That is why the official tests include transitive and ordering-sensitive families.
-
-## Why this is narrower than `coalesce-locals`
-
-`coalesce-locals` asks something like:
-
-- “can these locals share storage without liveness or interference trouble?”
-
-`merge-locals` asks something sharper:
-
-- “are these locals only equivalent copy wrappers around one simple root set?”
-
-So `merge-locals` is **not** doing:
-
-- liveness coloring
-- interference analysis
-- exact-type compatibility search across arbitrary locals
-- global best-fit slot sharing
-
-It is doing source-story collapse.
-
-## `EquivalentCopies` is the key missing concept from the older dossier
-
-The reviewed source uses an `EquivalentCopies` notion to compare wrapper copy sets.
-That is what keeps the pass from being either:
-
-- too small to handle transitive alias families, or
-- too large to rewrite arbitrary local groups
-
-Good beginner wording:
-
-- Binaryen looks for locals whose copy wrappers are the same kind of wrapper around the same root story
-
-That is stronger than “they both copy something once” and narrower than “they look similar.”
-
-## `LocalStructuralDominance` explains why the rewritten gets stay safe
-
-Even if two locals are equivalent copy wrappers, Binaryen still needs proof that the gets it rewrites are in the right structural region.
-That is where `LocalStructuralDominance` comes in.
-
-The durable mental model is:
-
-- `LocalGraph` tells Binaryen which values and copy wrappers are connected
-- `LocalStructuralDominance` tells Binaryen whether the rewrite stays valid at the actual use sites
-
-That is why the pass is not just a graph rewrite and not just a dominance rewrite.
-It needs both.
-
-## Conceptual example: positive equivalent copy family
-
-Before:
+So a future Starshine port should not be implemented as only:
 
 ```wat
-(local.set $root (i32.const 10))
-(local.set $b (local.get $root))
-(local.set $c (local.get $root))
-(drop (local.get $b))
-(drop (local.get $c))
+(local.set $x (local.get $y))
+(local.get $x)
 ```
 
-After, conceptually:
+The source-backed pass is graph-guided.
+
+## How this is narrower than `coalesce-locals`
+
+[`../coalesce-locals/index.md`](../coalesce-locals/index.md) is about broader slot sharing under liveness/interference constraints.
+`merge-locals` is not.
+
+`merge-locals` does not try to answer:
+
+- can two unrelated locals occupy the same slot?
+- can compatible typed locals be recolored?
+- can a later declaration order be improved?
+
+It answers only a much smaller question:
+
+- can this local's one simple set be replaced by an existing source local or by one fresh temp for all influenced gets?
+
+## Direct source-local reuse
+
+If the single set's value is a `local.get` from a small enough source-local chain, Binaryen can retarget gets to that source local.
+
+Conceptually:
 
 ```wat
-(local.set $root (i32.const 10))
-(drop (local.get $root))
-(drop (local.get $root))
+(local.set $tmp (local.get $src))
+(drop (local.get $tmp))
 ```
 
-Why it rewrites:
-
-- the root set is simple
-- `$b` and `$c` are just equivalent copy wrappers around that root
-- the rewritten gets stay structurally dominated by the relevant value story
-
-## Conceptual example: transitive copy family
-
-Before:
+becomes:
 
 ```wat
-(local.set $root (i32.const 10))
-(local.set $b (local.get $root))
-(local.set $c (local.get $b))
-(drop (local.get $c))
+(drop (local.get $src))
 ```
 
-After, conceptually:
+The graph proof matters because the pass must know the uses of `$tmp` are really fed by that one set.
+
+## Fresh-temp materialization
+
+If the single set's value is simple but not a small reusable local-get chain, Binaryen can materialize the value once in a fresh temp and retarget gets to that temp.
+
+Conceptually:
 
 ```wat
-(local.set $root (i32.const 10))
-(drop (local.get $root))
+(local.set $a (i32.const 10))
+(local.set $b (i32.const 10))
+(drop (i32.add (local.get $a) (local.get $b)))
 ```
 
-Why it rewrites:
+can become a shape like:
 
-- `LocalGraph` can still see the connected influence story
-- the wrapper copies remain structurally equivalent enough to collapse
+```wat
+(local.set $fresh (i32.const 10))
+(drop (i32.add (local.get $fresh) (local.get $fresh)))
+```
 
-## Important correction: no fresh-temp canonicalization story
-
-The older dossier taught a direct-reuse versus fresh-temp split.
-The reviewed `version_129` pass source does **not** support that explanation.
-
-A better summary is:
-
-- Binaryen chooses one existing target local among the equivalent family
-- then collapses the other equivalent wrappers into it
-
-That is why the current page talks about a **winner local**, not a synthetic temp local.
+Exact printed output depends on surrounding cleanup passes.
 
 ## Why extra sets break the proof
 
-If a local stops being a pure equivalent-copy wrapper because another set interferes, the equivalence story breaks.
-That is a core negative case.
+If the candidate local has two sets, or if an influenced get is graph-fed by a different set, the rewrite is no longer safe.
+The pass does not try to merge “probably equivalent” locals.
 
-So the pass is not trying to answer:
+That conservative rule protects cases where control flow or ordering can change which value a get observes.
 
-- “can these two locals probably mean the same thing?”
+## Why complex values stay put
 
-It is trying to answer:
+Even a clean one-set influence story is not enough if the set value is not simple.
+Calls, large expressions, and trap/effect-sensitive operations cannot be moved or shared by this pass without changing behavior.
 
-- “can I still prove one structurally equivalent copy-wrapper story here?”
+## What to remember
 
-If not, it bails out.
+`merge-locals` is a **one-set local influence rewrite**:
 
-## Why non-simple roots break the proof
-
-Even a perfectly connected copy family is not enough if the root set value is not simple under `FunctionUtils::isSimple(...)`.
-That keeps the pass from floating into effectful or control-heavy rewrite territory.
-
-So two things must be true together:
-
-- the copy-wrapper family is equivalent
-- the root producer is simple enough
-
-## The easiest wrong summary
-
-The easiest wrong summary is:
-
-- “merge-locals removes redundant local copies”
-
-That is too shallow.
-A better summary is:
-
-- `merge-locals` uses `LocalGraph` plus `LocalStructuralDominance` to prove that some locals are only equivalent copy wrappers around one simple root set, then rewrites that family onto one existing local.
-
-## Bottom line
-
-If you remember one thing from this page, remember this:
-
-- `merge-locals` is a **rooted equivalent-copy proof**, not just a copy peephole and not a general local-slot merger.
+- `LocalGraph` proves the candidate's uses are all fed by one set
+- the set's value must be simple
+- Binaryen either reuses a small source-local chain or creates a fresh temp
+- broader slot sharing belongs to `coalesce-locals`
+- `LocalStructuralDominance` and `EquivalentCopies` are not part of the reviewed `merge-locals` implementation
