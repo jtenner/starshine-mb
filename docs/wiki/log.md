@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `monomorphize` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/monomorphize/` folder, neighboring `monomorphize-always` coverage, and `docs/wiki/raw/research/`, then chose boundary-only `monomorphize` because its source-correct dossier still lacked a dedicated first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` `Monomorphize.cpp`, `pass.cpp`, and dedicated lit surfaces; no teaching-relevant drift was found from the 2026-04-24 contract.
+- Added `docs/wiki/raw/research/0416-2026-04-26-monomorphize-port-readiness.md` and `docs/wiki/binaryen/passes/monomorphize/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, WAT-shape catalog, and Starshine strategy so transformed shapes, upstream strategy, exact local boundary-only / option-plumbing code surfaces, no-rewrite analyzer, scalar-literal clone first slice, dropped-result follow-up, effect-movement sequencing, `monomorphize-always` sharing, and Binaryen oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; kept `monomorphize` classified as boundary-only and deep while making the future validation ladder explicit.
+
 ## [2026-04-26] research | deepen `string-lowering` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/string-lowering/` folder, neighboring string pass coverage, and `docs/wiki/raw/research/`, then chose upstream-only `string-lowering` because the dossier had source-correct overview/strategy/shape/status coverage but still lacked the standard first-slice / validation bridge.

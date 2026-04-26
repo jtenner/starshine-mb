@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md
@@ -20,6 +21,7 @@ related:
   - ./clone-construction-signature-rebuild-and-dropped-call-rewrites.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../monomorphize-always/index.md
   - ../inlining/index.md
   - ../inline-main/index.md
@@ -117,6 +119,8 @@ So this pass is best taught as:
   Beginner-friendly shape catalog showing the main positive, mixed, and bailout WAT families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future port map: exact boundary-only registry / request-guard locations, existing `monomorphize_min_benefit` option plumbing, missing owner-file/backlog-slice status, and the neighboring whole-module pass landing zone.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge for a future Starshine port: registry-honesty checks, no-rewrite analyzer, scalar-literal clone first slice, dropped-result follow-up, context-movement sequencing, `monomorphize-always` sharing, and Binaryen oracle lanes.
 
 ## Current maintenance rule
 
@@ -126,9 +130,11 @@ So this pass is best taught as:
 - Keep the split from `monomorphize-always` explicit too: the sibling is useful test surface, but the default public pass is the empirical usefulness-gated one.
 - Keep the clone-mechanics fact explicit too: the real contract is not just “specialize a callee,” but a source-backed signature-rebuild, param-to-local, local-remap, dropped-result, and caller-rewrite pipeline.
 - Keep the Starshine status explicit: current local support is boundary-only name tracking plus `--monomorphize-min-benefit` option plumbing, not an implemented transform.
+- Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for future implementation sequencing; do not collapse scalar specialization, dropped-result repair, effectful context movement, and usefulness gating into one first patch.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md)
 - [`../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
 - [`../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md`](../../../raw/research/0233-2026-04-21-monomorphize-clone-and-rewrite-followup.md)

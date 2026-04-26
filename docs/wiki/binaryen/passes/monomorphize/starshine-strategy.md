@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - ../../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -24,6 +26,7 @@ related:
   - ./call-context-benefit-and-boundaries.md
   - ./clone-construction-signature-rebuild-and-dropped-call-rewrites.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../monomorphize-always/index.md
   - ../inlining/index.md
   - ../inline-main/index.md
@@ -50,6 +53,7 @@ The current Starshine strategy is boundary-only status plus compatibility/config
 - keep the current planning gap explicit: `agent-todo.md` still has no dedicated `monomorphize` slice
 
 So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+For implementation sequencing and validation lanes, continue to [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Exact local code map today
 
@@ -147,6 +151,8 @@ So the local strategy should be thought of as:
 8. run the nested optimizer and compare cost using the configured benefit threshold
 9. memoize both successful and failed `(target, context)` pairs
 10. expose the sibling `monomorphize-always` as the same legality pipeline without default usefulness rejection
+
+The readiness bridge now recommends splitting that target into a no-rewrite analyzer, a scalar-literal clone slice, a dropped-result slice, effect-safe context movement, and only then usefulness-gated parity work; see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 That shape is more precise than the vague plan “clone specialized callees later.”
 

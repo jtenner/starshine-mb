@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
+  - ../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
@@ -89,6 +91,8 @@ sources:
   - ../../raw/binaryen/2026-04-24-legalize-and-prune-js-interface-primary-sources.md
   - ../../raw/research/0292-2026-04-24-legalize-and-prune-js-interface-primary-sources-and-starshine-followup.md
   - ../../raw/research/0224-2026-04-21-legalize-and-prune-js-interface-binaryen-research.md
+  - ../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
+  - ../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md
   - ../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - ../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md
@@ -502,7 +506,7 @@ The same is now true for `dead-argument-elimination`: that folder now has tagged
 The same is now true for `code-folding`: that folder now has a port-readiness raw source manifest plus a dedicated Starshine implementation-readiness and validation page, and the tracker correctly marks it as `deep` rather than `dossier`; future threads should not treat its former first-port-slice / local-HOT-prerequisite / validation-ladder gap as still open.
 The same is now true for `instrument-memory`: that folder now has a 2026-04-26 current-main / port-readiness raw manifest plus a dedicated Starshine port-readiness and validation page, and the tracker correctly marks it as `deep` rather than `dossier`; future threads should not treat its former first-slice / validation-ladder gap as still open.
 The same is now true for `i64-to-i32-lowering`: that folder now has immutable raw primary-source manifests including the 2026-04-26 port-readiness bridge, a dedicated Starshine status/port-strategy page, and a first-slice validation ladder. Its refreshed landing / strategy / test-map / shape notes make the flat-input pair-lowering contract, helper-import and unsupported-family boundaries, exact local boundary-only / no-dispatcher / no-owner-file / no-backlog-slice status, analyzer-first sequence, and scalar type/local first mutating slice explicit, so future threads should not treat its former provenance, local-follow-along, or validation-ladder gap as open.
-The same is now true for `monomorphize`: that folder now has an immutable raw primary-source manifest, a dedicated Starshine status/port-strategy page, and the earlier clone-construction page plus refreshed landing / strategy / test-map notes. Future threads should not treat its former provenance, local-follow-along, or clone/rewrite mechanics gaps as open; the current local truth is boundary-only name tracking plus `--monomorphize-min-benefit` option plumbing, not an implemented transform.
+The same is now true for `monomorphize`: that folder now has immutable raw primary-source and 2026-04-26 port-readiness manifests, a dedicated Starshine status/port-strategy page, a first-slice validation ladder, and the earlier clone-construction page plus refreshed landing / strategy / shape notes. Future threads should not treat its former provenance, local-follow-along, clone/rewrite mechanics, or validation-sequencing gaps as open; the current local truth is boundary-only name tracking plus `--monomorphize-min-benefit` option plumbing, not an implemented transform.
 The same is now true for `simplify-globals-optimizing`: that folder now has immutable raw primary-source and port-readiness manifests plus dedicated upstream implementation/test-map, Starshine status/port-strategy, and validation-readiness pages, so future threads should not treat its former provenance, source-structure, local-follow-along, or first-slice validation gaps as open.
 The same is now true for `unsubtyping`: that folder now has an immutable raw primary-source manifest plus a dedicated Starshine status/port-strategy page, so future threads should not treat its former provenance or local-follow-along gap as open.
 The same is now true for `legalize-js-interface`: that folder now has immutable raw primary-source manifests plus dedicated Starshine status/port-strategy and first-slice validation pages, so future threads should not treat its former provenance, local-follow-along, function-index rewrite sequencing, `ref.func` repair, or validation-ladder gaps as open.
@@ -677,6 +681,8 @@ A good future expansion should now look like the successful second-wave dossiers
 - [`../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md)
 - [`../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md`](../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md)
 - [`../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md`](../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md)
+- [`../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md`](../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md)
+- [`../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md`](../../raw/research/0416-2026-04-26-monomorphize-port-readiness.md)
 - [`../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md`](../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md)
 - [`../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md`](../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md)
 - [`../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md`](../../raw/research/0302-2026-04-24-monomorphize-primary-sources-and-starshine-followup.md)

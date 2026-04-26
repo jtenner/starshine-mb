@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-monomorphize-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-monomorphize-primary-sources.md
   - ../../../raw/research/0176-2026-04-21-monomorphize-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/Monomorphize.cpp
@@ -18,11 +19,13 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./call-context-benefit-and-boundaries.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # WAT shape catalog for `monomorphize`
 
 This page catalogs the main shape families beginners should look for when reading Binaryen `monomorphize` output.
+For future Starshine implementation ordering, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md); it turns these shapes into a staged local validation ladder.
 
 ## Positive family 1: constant argument specialization
 
