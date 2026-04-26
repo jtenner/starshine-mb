@@ -1,5 +1,9 @@
 # 0114 - `rse` / `redundant-set-elimination` Binaryen research
 
+## 2026-04-26 partial supersession
+
+[`0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md`](0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md) supersedes both this note's overbroad `LocalGraph` / liveness / arbitrary overwritten-write claims and the later 2026-04-25 straight-line-only overcorrection. The source-backed durable claim is now that Binaryen `version_129` `rse` uses pass-local CFG value flow, predecessor merge identities, same-value set/tee shell removal, and strict-subtype local-get retargeting, while still avoiding `LocalGraph`, liveness, memory/global/heap-field stores, and generic dead-store elimination.
+
 ## 2026-04-25 partial supersession
 
 [`0348-2026-04-25-rse-source-correction-and-starshine-followup.md`](0348-2026-04-25-rse-source-correction-and-starshine-followup.md) supersedes this note's algorithm interpretation where it teaches Binaryen `version_129` `rse` as LocalGraph/liveness/dataflow, copied-local inheritance, same-block read rewriting, predecessor merging, or broad overwritten-write deletion. This note remains useful historical provenance for why the `rse` dossier was created.

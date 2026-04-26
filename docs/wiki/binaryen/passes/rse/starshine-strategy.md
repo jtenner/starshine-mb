@@ -1,18 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-25-rse-source-correction.md
-  - ../../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
+  - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/ir/use_def.mbt
-  - ../../../../../src/ir/liveness.mbt
+  - ../../../../../src/ir/hot_module_context.mbt
   - ../../../../../src/ir/ssa_local.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../simplify-locals/index.md
+  - ../local-cse/index.md
   - ../vacuum/index.md
 related:
   - ./index.md
@@ -20,15 +21,17 @@ related:
   - ./implementation-structure-and-tests.md
   - ./cfg-and-value-tracking.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals/index.md
+  - ../local-cse/index.md
   - ../vacuum/index.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
 # Starshine Strategy For `rse`
 
-Use this page with the corrected primary-source capture in [`../../../raw/binaryen/2026-04-25-rse-source-correction.md`](../../../raw/binaryen/2026-04-25-rse-source-correction.md).
-The most important 2026-04-25 change is that the future Starshine port should be **smaller** than the older dossier suggested.
+Use this page with the corrected primary-source capture in [`../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md`](../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md).
+The most important 2026-04-26 change is that the future Starshine port needs a **small CFG/value-flow substrate**, not the stale straight-line-only plan from 2026-04-25.
 
 ## Honest current status
 
@@ -37,12 +40,12 @@ There is no `src/passes/rse.mbt` and no `src/passes/redundant_set_elimination.mb
 
 Current local behavior is registry/backlog tracking only:
 
-- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`src/passes/optimize.mbt:144-152`](../../../../../src/passes/optimize.mbt)
   - `pass_registry_removed_names()` includes `"redundant-set-elimination"`.
-- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- [`src/passes/pass_manager.mbt:8685-8705`](../../../../../src/passes/pass_manager.mbt)
   - the hot-pass dispatcher match has no `"rse"` or `"redundant-set-elimination"` arm.
-- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-  - backlog slice `RSE` exists and now describes source-faithful same-value local set/tee work.
+- [`agent-todo.md:481-491`](../../../../../agent-todo.md)
+  - backlog slice `RSE` exists and now describes CFG-aware same-value local set/tee work plus refined local-get retargeting.
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
   - documents the late no-DWARF slot before final cleanup.
 
@@ -50,48 +53,49 @@ Current local behavior is registry/backlog tracking only:
 
 A faithful first Starshine port should implement Binaryen's `version_129` contract:
 
-1. track one current value identity per local while walking HOT expressions;
-2. refine `local.get` value/type identity when the remembered expression is safely assignable;
-3. remove a `local.set` only when its RHS has the same value identity as the remembered value for the target local;
-4. remove a `local.tee` under the same condition while preserving the RHS result;
-5. clear one local or all locals at conservative barriers;
-6. run/compare the pass in the late `rse -> vacuum` cleanup context.
+1. collect ordered local-get/local-set/local-tee sites per HOT/basic block;
+2. compute per-local value identities at block starts and ends until CFG facts converge;
+3. synthesize merge identities for predecessor disagreement instead of choosing one path;
+4. remove a `local.set` only when its RHS has the same value identity as the current target-local identity;
+5. remove a `local.tee` under the same condition while preserving the RHS result;
+6. retarget a `local.get` to another local only when both locals hold the same identity and the replacement local's declared type is a strict subtype;
+7. run/compare the pass in the late `rse -> vacuum` cleanup context.
 
-That is a local-value-number cleanup pass, not a generic dead-store pass.
+That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store pass.
 
 ## Exact code locations a future port must touch
 
 ### Registry
 
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`src/passes/optimize.mbt:144-152`](../../../../../src/passes/optimize.mbt)
   - Move `"redundant-set-elimination"` out of `pass_registry_removed_names()` once implemented.
-  - Add an active hot-pass registry entry and descriptor.
-  - Decide whether to expose only the upstream spelling or also the short CLI alias `rse`.
+  - Add an active hot-pass registry entry and descriptor near the other local cleanup passes.
+  - Decide whether to expose only the long upstream spelling or also the short `rse` alias.
 
 ### Dispatcher
 
-- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-  - Add a hot-pass match arm beside the other local cleanup passes.
+- [`src/passes/pass_manager.mbt:8685-8705`](../../../../../src/passes/pass_manager.mbt)
+  - Add a hot-pass match arm beside `simplify-locals`, `merge-blocks`, and other late cleanup passes.
   - Reuse existing validation/writeback policy rather than adding pass-specific raw bypasses first.
-  - Keep the pass near the final cleanup cluster in preset expansion only after direct parity is green.
+  - Keep preset placement near the final cleanup cluster only after direct parity is green.
 
 ### Likely new owner file
 
 - Suggested: `src/passes/redundant_set_elimination.mbt`
-  - Own the per-local current-value table.
-  - Own the set/tee rewrite rules.
-  - Own barrier invalidation policy.
+  - Own the pass-local CFG/value-flow table.
+  - Own value identity and merge identity assignment.
+  - Own set/tee rewrite rules.
+  - Own refined local-get retargeting and type gates.
   - Own focused tests in `src/passes/redundant_set_elimination_test.mbt`.
 
-### Existing analysis surfaces to read, but not over-port
+### Existing Starshine analysis surfaces to read
 
-- [`src/ir/use_def.mbt`](../../../../../src/ir/use_def.mbt)
-- [`src/ir/liveness.mbt`](../../../../../src/ir/liveness.mbt)
+- [`src/ir/use_def.mbt:1-120`](../../../../../src/ir/use_def.mbt)
+  - Local read/write collection exists, but it is not yet Binaryen-style value numbering or block merge flow.
+- [`src/ir/hot_module_context.mbt:1-58`](../../../../../src/ir/hot_module_context.mbt)
+  - Module subtype/function type context exists and is the likely source for refined-local type checks.
 - [`src/ir/ssa_local.mbt`](../../../../../src/ir/ssa_local.mbt)
-
-These are useful local infrastructure, but the corrected Binaryen source does not require a liveness or SSA fixed-point port for baseline parity.
-Use them only if they make value identity or testing easier.
-Do not let them turn the first port into a broader dead-store optimizer.
+  - Useful local-SSA infrastructure to read before designing value identities, but not a mandate to port broad SSA/liveness behavior.
 
 ## Neighboring pass relationships
 
@@ -101,6 +105,13 @@ See [`../simplify-locals/index.md`](../simplify-locals/index.md).
 
 `rse` should run after earlier local simplification because those passes expose repeated same-value local writes and tees.
 The relationship is producer-consumer, not replacement.
+
+### `local-cse`
+
+See [`../local-cse/index.md`](../local-cse/index.md).
+
+`local-cse` can create local reuse opportunities that later value-number equalities make visible to `rse`.
+Do not collapse the two passes: `local-cse` introduces/reuses temporaries for repeated expressions, while `rse` removes redundant writes and retargets some gets.
 
 ### `vacuum`
 
@@ -117,30 +128,27 @@ Do **not** make the initial parity slice cover:
 - globals;
 - memory stores;
 - `struct.set` or `array.set`;
-- LocalGraph predecessor merges;
-- liveness-backed dead overwritten writes;
-- same-block `local.get` rewriting;
-- copied-local provenance inheritance;
-- exact-vs-merged CFG lattices.
+- Binaryen `LocalGraph` or liveness-backed dead overwritten writes;
+- expression cloning/substitution for arbitrary `local.get`s;
+- value propagation outside the local get/set/tee surface.
 
-Those were older local-wiki overreads, not source-backed `version_129` requirements.
+Those are not source-backed `version_129` `rse` requirements.
 If the project wants them later, document them as separate Starshine-local extensions.
 
 ## Validation ladder
 
-1. Focused WAT tests for same-value `local.set` and `local.tee`.
-2. Negative WAT tests for different overwritten writes.
-3. Barrier tests for calls, branches, loops, and other invalidation points.
-4. GC/ref-type local-get refinement tests modeled on Binaryen `rse-gc.wast`.
-5. Direct `bun fuzz compare-pass ... --pass redundant-set-elimination` once the harness accepts the name.
-6. Late-cluster replay with `rse -> vacuum`.
-7. Saved generated-artifact prefix replay around the historical slot 46 before declaring parity.
+1. Focused WAT tests for same-block same-value `local.set` and `local.tee`.
+2. CFG tests for branch-join agreement, branch-join disagreement, and loop convergence/skip behavior.
+3. Negative WAT tests for different overwritten writes.
+4. RHS trap/effect preservation tests.
+5. GC/ref-type local-get retargeting tests modeled on Binaryen `rse-gc.wast`.
+6. Direct `bun fuzz compare-pass ... --pass redundant-set-elimination` once the harness accepts the name.
+7. Late-cluster replay with `rse -> vacuum`.
+8. Saved generated-artifact prefix replay around the historical slot `46` before declaring parity.
 
 ## Current uncertainty
 
-The only remaining design uncertainty is local naming:
+Two local design decisions remain open:
 
-- upstream exposes the public long name `redundant-set-elimination` and the pipeline/debug logs often use `rse` shorthand;
-- Starshine currently tracks only the long name as removed.
-
-When implementing, choose whether the CLI accepts both names or only the canonical upstream registry spelling, and record that decision in this page.
+- **Name surface:** upstream exposes the public long name `redundant-set-elimination` and the shorthand `rse` appears in pipeline/debug contexts; Starshine currently tracks only the long name as removed.
+- **CFG/value substrate:** Binaryen definitely has a CFG flow here, but Starshine still needs to decide whether to build a pass-local value-flow helper or reuse broader HOT block/use-def/SSA infrastructure without widening semantics.

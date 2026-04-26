@@ -481,14 +481,15 @@ Observed unique-pass order
 #### RSE - Redundant Set Elimination
 1. Research exact functionality in document.
    - Current source-corrected dossier: [rse/index.md](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/passes/rse/index.md)
-   - Source correction: [0348](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md)
+   - Current source correction and port bridge: [0382](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md)
+   - Superseded straight-line-only correction: [0348](/home/jtenner/Projects/starshine-mb/docs/wiki/raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [RSE]001 - Same-Value Local Set/Tee Elimination - Port Binaryen's late `redundant-set-elimination` baseline: one current value identity per local, same-value `local.set` shell removal, same-value `local.tee` shell removal, RHS effect/trap preservation, and conservative barrier clearing.
-     - Deliverables: focused positives for repeated same-value sets/tees; negatives for different overwritten writes; call/control/effect barrier tests; registry and hot-pass dispatcher wiring.
-     - Doc: [rse/binaryen-strategy.md](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/passes/rse/binaryen-strategy.md)
-   - [RSE]002 - GC Refinement And Final-Cleanup Proof - Add the local-get reference-type refinement coverage and prove direct `--rse` plus late `rse -> vacuum` output matches Binaryen.
-     - Deliverables: `rse-gc.wast`-style type-refinement tests; direct compare-pass parity; final cleanup slot replay on the artifact; explicit non-goals for globals, memory stores, and GC field writes.
-     - Doc: [rse/wat-shapes.md](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/passes/rse/wat-shapes.md)
+   - [RSE]001 - Registry And Same-Block Same-Value Elimination - Port the smallest safe slice of Binaryen's late `redundant-set-elimination`: active registry/dispatcher wiring, same-block value identity, same-value `local.set` shell removal, same-value `local.tee` shell removal, and RHS effect/trap preservation.
+     - Deliverables: focused positives for repeated same-value sets/tees; negatives for different overwritten writes; drop-compatible RHS preservation; registry and hot-pass dispatcher wiring; direct reduced Binaryen `--rse` comparisons.
+     - Doc: [rse/starshine-port-readiness-and-validation.md](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md)
+   - [RSE]002 - CFG Value Flow And Refined Local Gets - Complete the source-backed Binaryen `CFGWalker` contract: block start/end local value identities, predecessor agreement/disagreement merge handling, loop convergence or documented conservative skips, and strict-subtype equivalent-local `local.get` retargeting.
+     - Deliverables: branch-join positive and negative tests; loop convergence/skip tests; `rse-gc.wast`-style type-refinement tests; direct compare-pass parity; final `rse -> vacuum` cleanup-slot replay; explicit non-goals for globals, memory stores, GC field writes, `LocalGraph`, liveness, and arbitrary overwritten-write deletion.
+     - Doc: [rse/cfg-and-value-tracking.md](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/passes/rse/cfg-and-value-tracking.md)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.

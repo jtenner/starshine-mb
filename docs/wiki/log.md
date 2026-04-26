@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | correct `rse` CFG strategy and port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/rse/` folder, and `docs/wiki/raw/research/`, then chose removed `rse` because the 2026-04-25 source correction had overcorrected the pass into a straight-line-only `PostWalker` and erased Binaryen's real CFG value-flow contract.
+- Added `docs/wiki/raw/binaryen/2026-04-26-rse-cfg-source-correction.md`, rechecking official Binaryen `version_129` and current-main `RedundantSetElimination.cpp`, registration files, helper headers, and official tests; the focused recheck found no teaching-relevant current-main drift and restored the source-backed `CFGWalker`, block start/end value arrays, predecessor merge value numbers, same-value set/tee removal, strict-subtype local-get retargeting, and conditional refinalization model.
+- Added `docs/wiki/raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md` and `docs/wiki/binaryen/passes/rse/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, CFG guide, WAT-shape catalog, and Starshine strategy page so transformed shapes, upstream strategy, exact local registry/dispatcher/use-def/type-context/backlog code locations, first-slice order, full parity slices, and Binaryen oracle comparison are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, `agent-todo.md`, and `CHANGELOG.md`; marked the 2026-04-25 RSE research note superseded for the straight-line-only claim, refreshed the older `0114` / `0259` supersession notices, and preserved the valid narrowing away from `LocalGraph`, liveness, memory/global/heap-field stores, and arbitrary overwritten-write deletion.
+
 ## [2026-04-26] research | deepen `avoid-reinterprets` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/avoid-reinterprets/` folder, and `docs/wiki/raw/research/`, then chose removed `avoid-reinterprets` because the dossier was source-correct but still left future implementers to infer the safe first Starshine slice, LocalGraph-equivalent proof decision, and validation ladder.

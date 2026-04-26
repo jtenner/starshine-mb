@@ -1,114 +1,105 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-25-rse-source-correction.md
-  - ../../../raw/research/0348-2026-04-25-rse-source-correction-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
+  - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
+  - ../../../raw/binaryen/2026-04-25-rse-source-correction.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
-# `rse` Value Tracking And Barrier Rules
+# `rse` CFG And Value Tracking
 
-This page corrects the easiest `rse` mistake in the older dossier.
-Binaryen `version_129` does **not** run a CFG predecessor-merge analysis for this pass.
-It keeps one straight-line value-number fact per local and forgets that fact at conservative barriers.
+This page corrects the easiest current `rse` mistake.
+Binaryen `version_129` **does** run a pass-local CFG value-flow analysis for `rse`, but that analysis is still much narrower than LocalGraph/liveness dead-store elimination.
 
 ## The real tracking model
 
-For each local, Binaryen remembers:
+For every basic block, Binaryen stores:
 
-- no trusted value, or
-- one value-numbering result for the expression currently believed to be in that local.
+- a `start` local-value array;
+- an `end` local-value array;
+- the block's collected `local.get` sites;
+- the block's collected `local.set` / `local.tee` sites.
 
-That is all.
+For each local, the value is one of:
 
-There is no pass-local state for:
+- unknown/no useful value;
+- a value-numbered expression/local fact;
+- a block merge value number created when incoming predecessor values disagree.
 
-- predecessor sets;
-- merged value alternatives;
-- LocalGraph incoming values;
-- liveness-backed use sets;
-- copied-local provenance chains.
+That is enough to answer the pass's two real questions:
 
-The result is deliberately simple and cheap.
+1. Does this write assign the same value number the target local already has?
+2. Does this get have an equivalent local with a stricter static reference type?
 
-## Why value numbering matters
+## CFG flow, not LocalGraph/liveness
 
-The remembered value is not a textual WAT snippet.
-It is a value-numbering result.
-That lets the pass answer “does this RHS equal the current local value?” in Binaryen's semantic value-numbering domain rather than by string comparison.
+The implementation builds a CFG and flows facts through blocks.
+It does **not** use Binaryen `LocalGraph` or liveness to prove arbitrary writes dead.
 
-This enables the important positive case:
+The distinction matters:
 
-```wat
-(local.set $x VALUE)
-(local.set $x VALUE)
-```
+- CFG value flow can prove that both paths into a block agree on the value currently in `$x`.
+- Liveness dead-store elimination would prove that an older different-value write is never read before being overwritten.
+- `rse` does the first kind of reasoning for value equality; it does not do the second kind of deletion.
 
-where the second write can be removed if both `VALUE` expressions number the same way and no barrier cleared `$x` in between.
+## How block start values are derived
 
-## Why `local.get` still matters
+At the entry block, Binaryen initializes facts from function parameters and defaultable/nondefaultable local entries.
+For later blocks:
 
-`visitLocalGet` does not directly rewrite the get expression.
-Instead, when the remembered expression's type is a subtype of the `local.get` type, it refines the value-numbering result for the get.
+- one predecessor: copy the predecessor `end` facts;
+- many predecessors with the same real value: keep that value;
+- many predecessors with different real values: synthesize a block-specific merge value;
+- still-unseen predecessors during fixed-point convergence: treat them carefully so the work queue can converge.
 
-That matters for two reasons:
+The merge value is not a runtime value.
+It is a value-numbering sentinel meaning “all paths reach here with some value represented by this merge slot.”
 
-- later same-value checks can succeed because the get carries the known value number;
-- GC/reference tests can preserve narrower type facts without an unsafe syntactic substitution.
+## How block end values are computed
 
-## Barrier rule: forget rather than merge
+Within a block, Binaryen processes collected local writes in order.
+For a write RHS:
 
-When a construct makes the straight-line fact unsafe, Binaryen clears remembered values.
-The corrected source-backed rule is:
+- if the RHS is a `local.get`, reuse the current value number of the referenced local;
+- otherwise use ordinary `ValueNumbering` on the expression;
+- first ask `Properties::getFallthrough(...)` for the fallthrough value when the RHS is wrapped in a shape whose visible value is not the outer expression itself.
 
-- use precise single-local clearing when a construct invalidates one target local;
-- use all-local clearing when control/effect boundaries make every remembered local fact suspect.
+Then the target local's current value becomes that RHS value.
+The resulting per-local array becomes the block's `end` state.
 
-This is simpler and more conservative than predecessor dataflow.
+## Why local-get retargeting needs the value map
 
-## Examples of barriers
+During optimization, Binaryen also builds a map from value number to locals that currently hold that value.
+When it visits a `local.get`, it can choose a different local with the same value number if that local's declared type is a strict subtype of the original local's type.
 
-The source's clear-all and clear-local cases cover broad families, including:
-
-- non-linear control transfer such as breaks and throws;
-- loops and conditional structures where one linear current value is not enough;
-- calls and other operations that may interact with local or global state;
-- memory/table/atomic/GC forms where the pass chooses not to preserve facts;
-- continuation/pop forms and newer feature surfaces that should not inherit stale local facts accidentally.
-
-The important teaching point is not the exhaustive list.
-The important point is the policy: when unsure, forget.
-
-## What this means for shapes
-
-### Same-value repeated writes can fold
+This is not expression substitution.
+It is a local-index retarget:
 
 ```wat
-(local.set $x (i32.const 1))
-(local.set $x (i32.const 1))
+(local.get $wide)
 ```
 
-The second set can fold because `$x` still has the same remembered value.
-
-### Different overwritten writes are not enough
+can become:
 
 ```wat
-(local.set $x (i32.const 1))
-(local.set $x (i32.const 2))
+(local.get $narrow)
 ```
 
-This is not an `rse` proof by itself.
-Binaryen remembers the newer value, but the older different-value set is not deleted merely because it is overwritten.
+when `$wide` and `$narrow` hold the same value number and `$narrow`'s type validates where `$wide` was used.
 
-### Branch joins do not become exact facts
+## Examples of what the CFG flow enables
+
+### Same value through a diamond
 
 ```wat
 (if
@@ -117,19 +108,43 @@ Binaryen remembers the newer value, but the older different-value set is not del
 (local.set $x (i32.const 1))
 ```
 
-A more ambitious dataflow pass might prove the post-if value.
-`version_129` `rse` does not rely on such a join proof; barriers clear facts conservatively.
+A straight-line-only pass would lose the fact at the join.
+Binaryen `rse` can carry the agreed value through the block-start state, so the final same-value set is eligible.
+
+### Different values through a diamond
+
+```wat
+(if
+  (then (local.set $x (i32.const 1)))
+  (else (local.set $x (i32.const 2))))
+(local.set $x (i32.const 1))
+```
+
+The incoming values differ.
+Binaryen must not pretend `$x` definitely holds `1`; the later write is not a same-value deletion.
+
+### Copied locals
+
+```wat
+(local.set $a (ref.as_non_null (local.get $maybe)))
+(local.set $b (local.get $a))
+(local.get $b)
+```
+
+If `$a` and `$b` carry the same value number but `$a` has a narrower type, a later get may be retargeted to `$a`.
+This is the kind of behavior the GC test surface protects.
 
 ## Relationship to Starshine infrastructure
 
 Starshine already has useful local-analysis infrastructure in files such as `src/ir/use_def.mbt`, `src/ir/liveness.mbt`, and `src/ir/ssa_local.mbt`.
-Those may be useful for a deliberate future extension, but they are not required to match the reviewed Binaryen `rse` baseline.
+For a source-faithful first `rse` port, those files should be treated as optional substrates, not as permission to widen the semantics.
 
-The source-faithful Starshine port should begin with:
+The pass needs:
 
-- per-local current-value identity;
-- same-value set/tee shell removal;
-- local-get type/value refinement if the HOT representation supports it cleanly;
-- conservative invalidation boundaries.
+- a HOT/basic-block view that can model predecessor joins;
+- per-local value identity at block starts and ends;
+- ordered local-get/local-set site scanning;
+- reference-type comparison for refined local retargeting;
+- type/writeback validation after rewrites.
 
-Only after direct Binaryen parity is green should a wider liveness/dataflow variant be considered.
+Only after direct Binaryen parity is green should a wider liveness/dead-store variant be considered.

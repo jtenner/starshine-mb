@@ -1,8 +1,12 @@
 ---
 kind: research
-status: supported
-last_reviewed: 2026-04-25
+status: superseded
+last_reviewed: 2026-04-26
+superseded_by:
+  - ./0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
 sources:
+  - ./0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
+  - ../binaryen/2026-04-26-rse-cfg-source-correction.md
   - ../binaryen/2026-04-25-rse-source-correction.md
   - ../binaryen/2026-04-22-rse-primary-sources.md
   - ./0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
@@ -14,6 +18,10 @@ sources:
 ---
 
 # RSE source correction and Starshine follow-up
+
+## Supersession notice
+
+This 2026-04-25 note is superseded for the claim that Binaryen `version_129` `rse` is a straight-line `PostWalker` with no CFG predecessor merge. The 2026-04-26 recheck in [`0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md`](./0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md) restores the source-backed CFG/value-flow reading: `rse` uses `CFGWalker`, block start/end local-value arrays, predecessor merge value numbers, same-value set/tee removal, and refined local-get retargeting. This note remains useful provenance for narrowing the pass away from `LocalGraph`, liveness, memory/global/heap-field stores, and arbitrary overwritten-write deletion.
 
 ## Question
 

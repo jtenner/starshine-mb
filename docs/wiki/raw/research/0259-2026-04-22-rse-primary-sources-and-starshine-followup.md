@@ -1,8 +1,9 @@
 ---
 kind: research
 status: partially_superseded
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 superseded_by:
+  - ./0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ./0348-2026-04-25-rse-source-correction-and-starshine-followup.md
 sources:
   - ../binaryen/2026-04-22-rse-primary-sources.md
@@ -22,9 +23,13 @@ sources:
 
 # `rse` primary-source and Starshine follow-up
 
+## 2026-04-26 partial supersession
+
+[`0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md`](0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md) supersedes both this note's overbroad `LocalGraph` / liveness / broad overwritten-write claims and the later 2026-04-25 straight-line-only overcorrection. The source-backed durable claim is now that Binaryen `version_129` `rse` uses pass-local CFG value flow, predecessor merge identities, same-value set/tee shell removal, and strict-subtype local-get retargeting, while still avoiding `LocalGraph`, liveness, memory/global/heap-field stores, and generic dead-store elimination.
+
 ## 2026-04-25 partial supersession
 
-[`0348-2026-04-25-rse-source-correction-and-starshine-followup.md`](0348-2026-04-25-rse-source-correction-and-starshine-followup.md) supersedes this note's algorithm interpretation where it describes Binaryen `version_129` `rse` as LocalGraph/liveness/dataflow, copied-local inheritance, same-block read rewriting, predecessor merging, or broad overwritten-write deletion. This note remains useful for folder provenance, local status at the time, and the raw-source ingest trail.
+[`0348-2026-04-25-rse-source-correction-and-starshine-followup.md`](0348-2026-04-25-rse-source-correction-and-starshine-followup.md) superseded this note's algorithm interpretation where it described Binaryen `version_129` `rse` as LocalGraph/liveness/dataflow, copied-local inheritance, same-block read rewriting, predecessor merging, or broad overwritten-write deletion. It is itself now superseded for the straight-line-only claim by the 2026-04-26 note above. This note remains useful for folder provenance, local status at the time, and the raw-source ingest trail.
 
 ## Why this follow-up exists
 
