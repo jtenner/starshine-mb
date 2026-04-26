@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `dae2` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/dae2/` folder, neighboring DAE-family pages, and `docs/wiki/raw/research/`, then chose upstream-only `dae2` because the dossier was source-correct but still lacked the standard first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` `DeadArgumentElimination2.cpp`, `pass.cpp`, `passes.h`, and `dae2.wast`; no teaching-relevant drift was found from the 2026-04-25 dossier.
+- Added `docs/wiki/raw/research/0410-2026-04-26-dae2-port-readiness.md` and `docs/wiki/binaryen/passes/dae2/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test map, focused mechanics guide, WAT-shape catalog, and Starshine strategy so transformed shapes, upstream strategy, exact local unknown-pass code surfaces, registry-honesty first slice, no-rewrite analyzer, private direct-call deletion, fixed-point forwarding cycles, referenced type-tree follow-up, and Binaryen `--dae2 --closed-world` oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `dae2` from `dossier` to `deep` while keeping it explicitly upstream-only and unknown to Starshine's registry today.
+
 ## [2026-04-26] health | refresh `type-ssa` touched-area links
 
 - Ran a focused touched-area hygiene check after adding the `type-ssa` port-readiness bridge.

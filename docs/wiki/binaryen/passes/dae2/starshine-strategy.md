@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
+  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../../../src/passes/optimize.mbt
@@ -19,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./fixed-point-forwarding-type-trees-and-expression-removal.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dead-argument-elimination/starshine-strategy.md
   - ../dae-optimizing/starshine-strategy.md
 ---
@@ -29,7 +32,9 @@ related:
 
 Starshine does **not** currently implement Binaryen's `dae2` pass.
 
-This matters because the pass is not just a spelling variant of the existing local `dead-argument-elimination` boundary-only name. Upstream `dae2` is a separate experimental engine with backward forwarding-graph analysis and optional referenced function-type-tree rewriting. See the source-backed upstream summary in [`./binaryen-strategy.md`](./binaryen-strategy.md) and the immutable manifest in [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md).
+This matters because the pass is not just a spelling variant of the existing local `dead-argument-elimination` boundary-only name. Upstream `dae2` is a separate experimental engine with backward forwarding-graph analysis and optional referenced function-type-tree rewriting. See the source-backed upstream summary in [`./binaryen-strategy.md`](./binaryen-strategy.md), the immutable manifest in [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md), and the 2026-04-26 current-main / port-readiness recheck in [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md).
+
+For a concrete future implementation sequence and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This status page stays focused on current local truth.
 
 ## Exact local code map
 
@@ -75,6 +80,8 @@ A faithful local port would need module-wide analysis and rewrite machinery:
 The current HOT pass infrastructure is useful for local expression rewrites, but it is not enough by itself for the upstream `dae2` contract. The closer local building blocks are module-pass infrastructure plus the existing function/type/call representation and validator surfaces listed above.
 
 ## Beginner-to-advanced implementation roadmap
+
+The detailed slice order now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The summary below remains as the short orientation.
 
 ### 1. Name and scope decision
 
@@ -132,11 +139,14 @@ Those features belong to the plain DAE-family pages today. If upstream grows the
 - [`./fixed-point-forwarding-type-trees-and-expression-removal.md`](./fixed-point-forwarding-type-trees-and-expression-removal.md) - core mechanics.
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) - upstream algorithm map.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - source/test map.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - first-slice implementation and validation ladder.
 - [`../dead-argument-elimination/index.md`](../dead-argument-elimination/index.md) - plain DAE sibling.
 - [`../dae-optimizing/index.md`](../dae-optimizing/index.md) - optimizing DAE sibling.
 
 ## Sources
 
+- Port-readiness source capture: [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md)
+- Port-readiness research note: [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md)
 - Raw source manifest: [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md)
 - Research follow-up: [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
 - Starshine registry: [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

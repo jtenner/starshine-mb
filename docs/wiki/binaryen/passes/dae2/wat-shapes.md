@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
+  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
@@ -11,6 +13,7 @@ related:
   - ./binaryen-strategy.md
   - ./fixed-point-forwarding-type-trees-and-expression-removal.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dead-argument-elimination/index.md
 ---
 
@@ -40,7 +43,7 @@ Real Binaryen output may include:
 - replacement types,
 - repaired wrappers that preserve effects or control shape.
 
-So use these as rewrite-family illustrations, not literal goldens.
+So use these as rewrite-family illustrations, not literal goldens. The Starshine first-slice validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) names which of these shapes should be used for analyzer-only, private direct-call, fixed-point, and referenced type-tree validation.
 
 ## Quick glossary
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
+  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `dae2`: fixed point, forwarding, type trees, and expression removal
@@ -30,7 +33,7 @@ The real question is:
 
 > after accounting for slot reuse, pure forwarding, direct calls, indirect calls, and escapes, does anything semantically observable still depend on the incoming value?
 
-That is why the pass is built around a fixed point instead of a one-pass direct matcher.
+That is why the pass is built around a fixed point instead of a one-pass direct matcher. For the concrete Starshine implementation sequence that follows from this mechanics page, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Part 1: forwarding is the core abstraction
 

@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
+  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
@@ -16,6 +18,7 @@ related:
   - ./fixed-point-forwarding-type-trees-and-expression-removal.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dead-argument-elimination/index.md
   - ../dae-optimizing/index.md
   - ../tracker.md
@@ -32,7 +35,8 @@ related:
   - not in the saved generated-artifact `-O4z` skipped-slot queue,
   - and not named in the local Starshine pass registry.
 - Upstream describes it as an **experimental reimplementation of DAE**.
-- As of the 2026-04-25 source bridge, this folder is anchored to an immutable raw primary-source manifest and a dedicated Starshine status page: [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md), [`./starshine-strategy.md`](./starshine-strategy.md).
+- As of the 2026-04-26 port-readiness bridge, this folder is anchored to both the original immutable raw primary-source manifest and a current-main / Starshine-readiness manifest: [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md), [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md).
+- The current local implementation answer is split into a status/code-map page and a concrete first-slice validation bridge: [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Why this folder exists
 
@@ -117,6 +121,8 @@ So this folder should stay separate instead of being collapsed into the plain-`d
   Beginner-friendly before/after shape catalog for the main positive, bailout, and corner-case IR families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future-port map: unknown-pass registry behavior, no owner/dispatcher/backlog status, prerequisite function/type/call/reference surfaces, and why full parity requires module/type-graph infrastructure.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Concrete first-slice and validation bridge: registry-honesty decision, no-rewrite analyzer, private direct-call scalar deletion, fixed-point forwarding cycles, referenced function-type-tree follow-up, and Binaryen oracle lanes.
 
 ## Current maintenance rule
 
@@ -130,6 +136,9 @@ So this folder should stay separate instead of being collapsed into the plain-`d
 - [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
 - [`../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md`](../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+- [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md)
+- [`../../../raw/research/0410-2026-04-26-dae2-port-readiness.md`](../../../raw/research/0410-2026-04-26-dae2-port-readiness.md)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
 - [`../tracker.md`](../tracker.md)
 - Binaryen `version_129` sources:

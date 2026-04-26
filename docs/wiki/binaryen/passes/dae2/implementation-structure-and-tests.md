@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
+  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
@@ -11,6 +13,7 @@ related:
   - ./binaryen-strategy.md
   - ./fixed-point-forwarding-type-trees-and-expression-removal.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dead-argument-elimination/index.md
 ---
 
@@ -30,6 +33,8 @@ This page keeps the source roles explicit so future work does not blur:
 - and what the unusually large `dae2.wast` file is actually proving.
 
 ## Upstream file map
+
+The 2026-04-26 recheck did not find teaching-relevant current-main drift from this map; it adds the local first-slice / validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 | File | What it contributes | Why it matters for a port |
 | --- | --- | --- |

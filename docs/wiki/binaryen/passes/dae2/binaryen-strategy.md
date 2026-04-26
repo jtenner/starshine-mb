@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
+  - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
   - ../../../raw/research/0337-2026-04-25-dae2-source-bridge.md
   - ../../../raw/research/0218-2026-04-21-dae2-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./fixed-point-forwarding-type-trees-and-expression-removal.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dead-argument-elimination/index.md
   - ../dae-optimizing/index.md
 ---
@@ -22,6 +25,7 @@ related:
 
 - Use Binaryen `version_129` as the current source oracle for `dae2`.
 - The 2026-04-25 immutable manifest is [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md).
+- The 2026-04-26 current-main / port-readiness recheck is [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md); it found no teaching-relevant drift from the tagged strategy and connected the upstream phases to [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - The core implementation is `src/passes/DeadArgumentElimination2.cpp`.
 - Public registration lives in `src/passes/pass.cpp`.
 - The reviewed official test surface is `test/lit/passes/dae2.wast`.
