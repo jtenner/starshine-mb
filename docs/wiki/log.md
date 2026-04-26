@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `remove-unused-non-function-elements` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/remove-unused-non-function-elements/` folder, neighboring full-RUME coverage, and `docs/wiki/raw/research/`, then chose boundary-only `remove-unused-non-function-elements` because its source dossier still lacked a concrete first-slice / validation bridge for a future Starshine sibling port.
+- Added `docs/wiki/raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` `RemoveUnusedModuleElements.cpp`, `pass.cpp`, `passes.h`, and the dedicated `remove-unused-nonfunction-module-elements_all-features.wast` fixture; no teaching-relevant drift was found from the 2026-04-24 shared-RUME sibling contract.
+- Added `docs/wiki/raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md` and `docs/wiki/binaryen/passes/remove-unused-non-function-elements/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test map, defined-vs-imported guide, module-shape catalog, and Starshine strategy so transformed module shapes, upstream strategy, exact local boundary-only code surfaces, policy-first liveness sequencing, required differential tests, Binaryen `--remove-unused-nonfunction-module-elements` oracle spelling, and validation ladder are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `remove-unused-non-function-elements` from `dossier` to `deep` while keeping it explicitly boundary-only and unimplemented in Starshine today.
+
 ## [2026-04-26] health | refresh `simplify-locals-nonesting` touched-area links
 
 - Ran a focused touched-area hygiene check after adding the `simplify-locals-nonesting` port-readiness bridge.

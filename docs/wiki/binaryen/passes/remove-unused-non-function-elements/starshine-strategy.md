@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
+  - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
   - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -19,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./shared-engine-rooting-and-defined-vs-imported-functions.md
   - ./module-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-module-elements/starshine-hot-ir-strategy.md
   - ../remove-unused-module-elements/retention-and-index-rewrites.md
   - ../remove-unused-module-elements/parity.md
@@ -41,7 +44,7 @@ The local state on 2026-04-24 is:
 - dedicated owner file: no
 - active backlog slice: no dedicated slice found in `agent-todo.md`
 
-So this page is a status and port-strategy bridge, not a claim that the sibling already runs in Starshine.
+So this page is a status and port-strategy bridge, not a claim that the sibling already runs in Starshine. For the concrete first-slice sequence, required tests, Binaryen oracle spelling, and future signoff ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Exact local code locations
 
@@ -102,6 +105,8 @@ The cleanest future Starshine port would probably parameterize the local RUME li
 - seed all defined function absolute indices after the no-op-start decision and before or beside the ordinary export/start/imported-parent roots;
 - reuse the existing RUME traversal and rewrite stages;
 - add focused tests proving that dead defined functions stay while dead imported functions and dead non-function sections can still disappear.
+
+The 2026-04-26 port-readiness bridge makes that sequence more explicit: start with policy-level liveness tests, then expose a sibling module-pass entry point that calls the same rewrite path, and only then update registry/request behavior.
 
 ## What Starshine must not do
 

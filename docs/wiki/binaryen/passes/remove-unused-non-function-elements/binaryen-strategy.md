@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
+  - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
   - ../../../raw/research/0328-2026-04-24-remove-unused-non-function-elements-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0194-2026-04-21-remove-unused-non-function-elements-binaryen-research.md
@@ -20,6 +22,7 @@ related:
   - ./shared-engine-rooting-and-defined-vs-imported-functions.md
   - ./module-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-module-elements/index.md
   - ../remove-unused-module-elements/binaryen-strategy.md
 ---
@@ -28,7 +31,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass. The 2026-04-24 immutable raw manifest is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md).
+Use Binaryen `version_129` as the source oracle for this pass. The 2026-04-24 immutable raw manifest is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md), and the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md).
 The core sources are:
 
 - `src/passes/RemoveUnusedModuleElements.cpp`
@@ -167,7 +170,7 @@ That means it still inherits the same deeper RUME ideas:
 - ordinary import/export semantics
 - the shared decision to clean up function types after function reachability is settled
 
-So the sibling should be thought of as a **mode of RUME**, not a new whole-module algorithm.
+So the sibling should be thought of as a **mode of RUME**, not a new whole-module algorithm. The Starshine port-readiness bridge turns this into a concrete local implementation ladder in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Phase 5: function cleanup code still runs, but the rooted set changes the outcome
 
