@@ -75,7 +75,7 @@ Starshine's currently visible local support is narrower and shaped differently:
 
 - WAT syntax can parse and print annotations.
 - Lowering creates a module-level `FuncAnnotationSec` for functions and function imports.
-- The local binary encoder/decoder grep in this run did not expose a direct `func_annotation_sec` binary custom-section path, so binary parity must be source-confirmed before promising it.
+- The local binary encoder/decoder scan in this run did not expose a direct `func_annotation_sec` binary custom-section path, so binary parity must be source-confirmed before promising it.
 - The HOT IR does not expose a general per-expression code-annotation wrapper that matches Binaryen's `codeAnnotations` map.
 
 So the first Starshine decision is not how to fold annotations in HOT IR; it is what annotation surface the pass should own.
