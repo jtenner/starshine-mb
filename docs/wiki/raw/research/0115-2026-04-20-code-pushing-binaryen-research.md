@@ -1,6 +1,6 @@
 # 0115 - `code-pushing` Binaryen research
 
-> Supersession note (2026-04-25): this original dossier-building investigation is superseded for upstream implementation shape and current Starshine status by [`0345-2026-04-25-code-pushing-source-correction-and-local-status.md`](./0345-2026-04-25-code-pushing-source-correction-and-local-status.md). It remains useful as historical provenance, but do not rely on its `BranchSeeker` / `Pusher` / local profitability / two-arm sinking interpretation without checking the newer correction.
+> Supersession note (2026-04-26): this original dossier-building investigation remains historical provenance, but the current living contract is [`0413-2026-04-26-code-pushing-current-main-port-readiness.md`](./0413-2026-04-26-code-pushing-current-main-port-readiness.md) plus the living [`code-pushing` dossier](../../binaryen/passes/code-pushing/index.md). The 2026-04-25 correction overcorrected by removing `Pusher` / segment terminology; the 2026-04-26 source recheck restores Binaryen's real `LocalAnalyzer` + `Pusher` model while still warning against arbitrary two-live-arm duplication.
 
 ## Status
 

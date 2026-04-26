@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | correct and deepen `code-pushing` strategy
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/code-pushing/` folder, and `docs/wiki/raw/research/`, then chose active HOT `code-pushing` because its 2026-04-25 correction had become the stale reference needing cleanup.
+- Added `docs/wiki/raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`, rechecking official Binaryen current-main and tagged `version_129` `CodePushing.cpp` plus the dedicated `code-pushing*` lit tests and exact Starshine `code_pushing.mbt`, `code_pushing_test.mbt`, and `optimize.mbt` code surfaces.
+- Added `docs/wiki/raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md` and `docs/wiki/binaryen/passes/code-pushing/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, movement-boundary, WAT-shape catalog, and Starshine strategy so the current upstream `LocalAnalyzer` / `Pusher` / segment-window model, one-consuming-arm `if` sinking, post-if unreachable-arm nuance, local subset, and analyzer-first Starshine validation ladder are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; explicitly superseded the 2026-04-25 miscorrection that had removed `Pusher` and segment terminology while preserving the warning against arbitrary two-live-arm duplication.
+- Health-fixed the older `docs/wiki/raw/research/0115-2026-04-20-code-pushing-binaryen-research.md` and `docs/wiki/raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md` supersession notes so future readers are routed to the 2026-04-26 corrected contract instead of the overcorrected 2026-04-25 note.
+
 ## [2026-04-26] research | deepen `i64-to-i32-lowering` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/i64-to-i32-lowering/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `i64-to-i32-lowering` because its source-backed dossier still lacked the newer first-slice / validation bridge.

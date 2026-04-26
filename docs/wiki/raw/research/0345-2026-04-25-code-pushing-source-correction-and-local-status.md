@@ -1,8 +1,10 @@
 ---
 kind: research
-status: supported
-last_reviewed: 2026-04-25
+status: superseded
+last_reviewed: 2026-04-26
 sources:
+  - ../binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
+  - ./0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md
   - ../binaryen/2026-04-22-code-pushing-primary-sources.md
   - ./0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
@@ -23,6 +25,8 @@ supersedes:
 ---
 
 # `code-pushing` source correction and local-status follow-up
+
+> Supersession note (2026-04-26): this note's local Starshine status remains historically useful, but its upstream correction overcorrected the Binaryen strategy. Use [`0413-2026-04-26-code-pushing-current-main-port-readiness.md`](./0413-2026-04-26-code-pushing-current-main-port-readiness.md) and the living [`code-pushing` dossier](../../binaryen/passes/code-pushing/index.md) for current upstream behavior. In particular, `Pusher`, segment windows, `isPushable`, `isPushPoint`, and `optimizeSegment` are real owner-file concepts in the official sources checked on 2026-04-26.
 
 ## Why this follow-up exists
 

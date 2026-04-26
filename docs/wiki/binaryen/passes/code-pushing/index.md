@@ -1,19 +1,19 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
+  - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md
   - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
   - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
   - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0115-2026-04-20-code-pushing-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/code_pushing.mbt
   - ../../../../../src/passes/code_pushing_test.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
-  - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 related:
@@ -22,11 +22,12 @@ related:
   - ./segment-selection-and-barriers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../late-pipeline-dispatch.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 supersedes:
-  - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
 ---
 
 # `code-pushing`
@@ -35,57 +36,55 @@ supersedes:
 
 `code-pushing` is an upstream Binaryen function pass and an active explicit HOT pass in Starshine.
 
-Its purpose is to move work later in structured code when doing so preserves execution and ordering.
-The corrected source-backed Binaryen mental model is:
+Its purpose is to move single-assignment local writes later when doing so preserves behavior and makes the write execute closer to the control-flow path that consumes it.
 
-- scan block root order,
-- handle a one-unreachable-arm `if` sinking family,
-- otherwise try local sibling-root movement before a later use,
-- let a movement-safety predicate decide whether intervening expressions can be crossed.
+The current source-backed Binaryen mental model is:
+
+- analyze locals for single-first-assignment (SFA) behavior;
+- scan structured block root segments with `Pusher`;
+- admit only pushable `local.set` roots whose value effects are safe;
+- push toward `if`, `switch`, conditional `br`, or dropped push-point wrappers;
+- sink into the one `if` arm that reads the local, with an important unreachable-arm post-use allowance;
+- rely on later optimizer cycles for deeper recursive opportunities.
 
 The current Starshine implementation is a conservative subset:
 
-- const-like `local.set` sinking into the single `if` arm that contains all reads of that local,
+- const-like `local.set` sinking into the single `if` arm that contains all reads of that local;
 - plus one Starshine-local typed/dead-block flattening helper near unreachable context.
 
-## 2026-04-25 correction
+## 2026-04-26 correction
 
-This folder previously over-taught Binaryen `code-pushing` as if `version_129` used:
+This folder previously contained a 2026-04-25 correction that removed `Pusher`, segment selection, and local profitability-style movement from the upstream teaching. That correction was itself stale/wrong after a fresh official-source recheck.
 
-- `BranchSeeker`,
-- `Pusher`,
-- generic target-segment sinking,
-- local `benefit > cost` profitability,
-- and general two-live-arm `if` duplication.
+The preferred source manifest is now:
 
-A fresh official-source check found those claims unsupported by the reviewed `CodePushing.cpp`.
-The corrected source map is now captured in:
+- [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
+- [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
 
-- [`../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md)
-- [`../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md)
-
-The older raw and research files remain as historical provenance, but current teaching should prefer the 2026-04-25 correction.
+Keep the useful part of the 2026-04-25 warning: do not teach arbitrary two-live-arm duplication as the baseline. But restore the correct upstream owner concepts: `LocalAnalyzer`, `Pusher`, segment windows, `isPushable`, `isPushPoint`, and `optimizeSegment`.
 
 ## Why it matters
 
 - Binaryen schedules `code-pushing` in the canonical no-DWARF function pipeline between `precompute` and the tuple/local-cleanup neighborhood.
 - The saved generated-artifact `-O4z` audit recorded it as top-level skipped slot `20` before Starshine grew the current direct subset.
 - Starshine's `tuple-optimization` exact-slot story still depends on this pass and `simplify-locals-nostructure` being represented honestly.
-- The pass is easy to over-broaden. Correctness depends on movement safety, trap policy, reference use, and refinalization.
+- The pass is easy to over-broaden. Correctness depends on SFA local proofs, effect invalidation, trap policy, GC/reference behavior, EH, and post-if read rules.
 
 ## Inputs and outputs
 
 ### Upstream Binaryen input shape
 
 - Function-local structured expression trees.
-- Block child order with expression refs available.
-- Optimization options that affect trap handling.
+- Block root lists containing `local.set` temporaries and later push points.
+- Local get/set information and effect properties.
+- Optimization options that affect implicit traps and traps-never-happen behavior.
 
 ### Upstream Binaryen output shape
 
-- Some block roots move later in the same block or into a reachable `if` arm.
-- The moved expression should execute on the same paths where Binaryen proves execution is preserved.
-- Affected expressions are refinalized.
+- Some pushable `local.set` roots move later within the same block segment.
+- Some sets move into the only `if` arm that reads their local.
+- Moved sets keep order and should execute on the same or fewer paths as allowed by the proof.
+- Unproven shapes stay unchanged.
 
 ### Current Starshine input shape
 
@@ -100,56 +99,63 @@ The older raw and research files remain as historical provenance, but current te
 
 ## Invariants and correctness constraints
 
-- Do not move work across effects or trap-sensitive barriers unless the pass explicitly models the option-sensitive rule.
-- Do not strand a later use after moving work into only one arm.
-- Do not duplicate into both live arms just because a value is pure; that is not the corrected source-backed baseline.
+- Do not move non-SFA locals without a stronger local-use proof.
+- Do not move values across effects that can invalidate the delayed computation.
+- Do not change trap timing unless the active trap policy explicitly permits that behavior.
+- Do not strand post-if uses unless the non-consuming arm cannot fall through or another proof preserves the value.
+- Do not treat two-live-arm duplication as a default `code-pushing` behavior.
+- Preserve order among multiple pushed sets.
 - Preserve function validity after structural mutation.
 - Keep Starshine-local dead-block flattening documented separately from upstream Binaryen behavior.
 - Do not claim public preset parity until the exact scheduler neighborhood is implemented and validated.
 
 ## Notable edge cases
 
-- One `if` arm unreachable: upstream Binaryen's distinctive positive family.
-- Both `if` arms reachable and both use a value: now documented as a no-assumption / bailout family unless a source/test proves otherwise.
-- Trap-capable expressions: option-sensitive upstream, guarded out by current Starshine's const-like subset.
-- GC/reference operations: can participate upstream under movement-safety rules, but current Starshine has no broad parity.
-- EH: bailout-rich and should stay covered by focused tests before local widening.
-- Starshine dead-block flattening: useful local cleanup, but not an upstream `CodePushing.cpp` claim.
+- One `if` arm consumes the local and the other does not.
+- Post-if reads where the non-consuming arm is unreachable.
+- `switch` and conditional `br` push points.
+- Trap-capable expressions under default, ignore-implicit-traps, and TNH options.
+- GC/reference operations such as `ref.func`, casts, and null checks.
+- EH control where movement can change exceptional observability.
+- Starshine dead-block flattening, which is local cleanup rather than upstream `CodePushing.cpp` behavior.
 
 ## Validation
 
-For current docs-only maintenance:
+For docs maintenance:
 
-- keep the source correction linked from this page, the strategy pages, indexes, tracker, and log;
-- search for stale `BranchSeeker`, `Pusher`, `benefit > cost`, two-arm duplication, and “no transform yet” wording in this folder.
+- prefer the 2026-04-26 manifest over the 2026-04-25 correction;
+- search for stale “no `Pusher`,” “no segment selection,” or “no local profitability” wording in this folder;
+- keep the no-two-live-arm-duplication warning, but do not erase Binaryen's real `Pusher` model.
 
 For future code work:
 
 1. add focused tests in `src/passes/code_pushing_test.mbt` before widening behavior;
-2. validate direct pass execution through `src/passes/registry_test.mbt` and command/native surfaces;
-3. compare against Binaryen on reduced WAT families first;
-4. then run pass-fuzz / artifact comparisons for the `CP` backlog slice;
-5. only after that revisit preset placement.
+2. build an analyzer/segment-discovery slice before broad mutation;
+3. validate direct pass execution through registry and command surfaces;
+4. compare reduced WAT against Binaryen `wasm-opt --code-pushing` for each widened family;
+5. then run pass-fuzz / artifact comparisons for the `CP` backlog slice;
+6. only after that revisit preset placement.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Corrected source-backed Binaryen strategy: `visitBlock`, `optimizeIntoIf`, `canPushThrough`, `tryPush`, and the removed stale helper/profitability claims.
+  - Current source-backed Binaryen strategy: `LocalAnalyzer`, `Pusher`, segment scanning, push points, effects, and `if` arm sinking.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Upstream owner-file and lit-test map for the corrected strategy.
 - [`./segment-selection-and-barriers.md`](./segment-selection-and-barriers.md)
-  - Movement-safety guide centered on one-unreachable-arm `if` sinking, sibling-root pushing, trap/effect/GC/EH barriers, and Starshine-local dead-block flattening.
+  - Movement-safety guide centered on SFA locals, effect barriers, push points, `if` arm rules, and Starshine-local dead-block flattening.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly before/after and bailout shape catalog, including current Starshine positive and negative families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  - Exact local code map and remaining `CP` parity plan.
+  - Exact local code map and current subset.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - First-slice and validation plan for future broader parity work.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md)
-- [`../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md)
-- [`../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md)
+- [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
+- [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)
 - [`../../../../../src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- Binaryen `version_129` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
+- Binaryen current-main `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>

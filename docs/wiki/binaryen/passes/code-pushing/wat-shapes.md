@@ -1,11 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md
-  - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
-  - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
+  - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
+  - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../../../src/passes/code_pushing_test.mbt
 related:
   - ./index.md
@@ -13,87 +12,104 @@ related:
   - ./implementation-structure-and-tests.md
   - ./segment-selection-and-barriers.md
   - ./starshine-strategy.md
-  - ../../no-dwarf-default-optimize-path.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `code-pushing` WAT Shapes
 
-This page catalogs the shapes future readers should keep in mind after the 2026-04-25 source correction.
+This page catalogs the source-backed shapes future readers should keep in mind after the 2026-04-26 source correction.
 
 ## Mental model
 
-Binaryen `code-pushing` moves work later in a structured block when it can prove the move preserves execution and ordering.
+Binaryen `code-pushing` moves SFA-like `local.set` roots later in a structured block segment when the value can safely cross intervening effects.
 
-The two source-backed families to remember are:
+The main families are:
 
-1. one-unreachable-arm `if` sinking;
-2. local sibling-root pushing before a later use.
+1. block-local segment pushing toward a push point;
+2. `if` arm sinking when exactly one arm consumes the local;
+3. post-if-read allowances when the non-consuming arm cannot fall through.
 
-Do **not** use the older “duplicate a pure expression into both reachable arms” example as a Binaryen fact. That was a stale dossier overread.
+Do **not** use arbitrary “duplicate pure expression into both reachable arms” examples as a Binaryen fact.
 
-## Shape 1: one unreachable `if` arm lets work move into the reachable arm
+## Shape 1: local-set segment pushes toward a later control point
 
 Conceptual before:
 
 ```wat
 (block
-  (local.set $tmp (i32.const 7))
+  (local.set $tmp (i32.const 1))
+  (drop (i32.const 0))
   (if
     (local.get $cond)
-    (then
-      (unreachable))
-    (else
-      (drop (local.get $tmp)))))
+    (then (drop (local.get $tmp)))))
+```
+
+Conceptual after, if the intervening roots are safe to cross:
+
+```wat
+(block
+  (drop (i32.const 0))
+  (local.set $tmp (i32.const 1))
+  (if
+    (local.get $cond)
+    (then (drop (local.get $tmp)))))
+```
+
+Why it can move:
+
+- `$tmp` is SFA-like;
+- the set's value is movable;
+- the intervening roots do not invalidate the value effects;
+- the destination is a recognized push point.
+
+## Shape 2: `if` arm sinking into the only consuming arm
+
+Conceptual before:
+
+```wat
+(local.set $tmp (i32.const 7))
+(if
+  (local.get $cond)
+  (then
+    (drop (local.get $tmp)))
+  (else
+    (nop)))
 ```
 
 Conceptual after:
 
 ```wat
-(block
-  (if
-    (local.get $cond)
-    (then
-      (unreachable))
-    (else
-      (local.set $tmp (i32.const 7))
-      (drop (local.get $tmp)))))
+(if
+  (local.get $cond)
+  (then
+    (local.set $tmp (i32.const 7))
+    (drop (local.get $tmp)))
+  (else
+    (nop)))
 ```
 
-Why it can move:
+This is close to Starshine's current positive subset when the value is const-like and all local reads are in one arm.
 
-- only the `else` arm can continue,
-- the moved work still executes exactly on the continuing path,
-- and the moved roots pass the `canPushThrough(...)` safety check.
+## Shape 3: post-if use can be safe when the other arm is unreachable
 
-## Shape 2: local sibling-root movement before a later use
-
-Conceptual before:
+Conceptual family:
 
 ```wat
-(block
-  (local.set $tmp (i32.const 1))
-  (drop (i32.const 0))
-  (drop (local.get $tmp)))
+(local.set $tmp (i32.const 7))
+(if
+  (local.get $cond)
+  (then
+    (unreachable))
+  (else
+    (drop (local.get $tmp))))
+(drop (local.get $tmp))
 ```
 
-Conceptual after, in spirit:
+The post-if read is not automatically fatal if the non-consuming path cannot continue. This nuance belongs to Binaryen's `optimizeIntoIf(...)` family and should be tested before Starshine claims it.
 
-```wat
-(block
-  (drop (i32.const 0))
-  (local.set $tmp (i32.const 1))
-  (drop (local.get $tmp)))
-```
+## Shape 4: both reachable arms using a value is not the baseline push
 
-Why it can move:
-
-- the later root uses the earlier expression,
-- every intervening root is safe to cross,
-- and the move is local to the same block root list.
-
-## Shape 3: both reachable `if` arms using a value is not a guaranteed Binaryen push
-
-Before and after should be assumed unchanged unless a source/test proves the exact case:
+Assume unchanged unless a source/test proves a more specific case:
 
 ```wat
 (local.set $tmp (i32.const 7))
@@ -105,10 +121,9 @@ Before and after should be assumed unchanged unless a source/test proves the exa
     (drop (local.get $tmp))))
 ```
 
-The stale page claimed Binaryen could generally duplicate the `local.set` into both arms.
-The corrected source-backed rule is: the reviewed `optimizeIntoIf(...)` path is centered on the one-unreachable-arm case, not general two-live-arm duplication.
+The pass is not a generic “duplicate the set into both arms” transform.
 
-## Shape 4: value still used after the separator should not move into only one arm
+## Shape 5: post-if read with fallthrough from the other arm should not sink into one arm
 
 ```wat
 (local.set $tmp (i32.const 7))
@@ -123,12 +138,10 @@ The corrected source-backed rule is: the reviewed `optimizeIntoIf(...)` path is 
 
 Why this remains a bailout family:
 
-- moving the set into one arm would strand the later use,
-- and preserving execution requires reasoning about all uses, not just the first local arm use.
+- moving the set into the `then` arm would leave the later read uninitialized on the `else` fallthrough path;
+- Starshine has a focused guard for this family in `src/passes/code_pushing_test.mbt`.
 
-Current Starshine has a focused guard for this family in `src/passes/code_pushing_test.mbt`.
-
-## Shape 5: trap-sensitive computations are barriers unless options say otherwise
+## Shape 6: trap-sensitive computations are option-sensitive
 
 ```wat
 (local.set $tmp
@@ -143,35 +156,37 @@ Current Starshine has a focused guard for this family in `src/passes/code_pushin
 
 Why it is sensitive:
 
-- moving the division can change when the trap occurs,
-- Binaryen's `canPushThrough(...)` consults trap-related options,
-- Starshine's current subset avoids this by only moving const-like values for the `local.set` sinking family.
+- moving the division can change when the trap occurs;
+- Binaryen has tests for ignore-implicit-traps and TNH modes;
+- Starshine's current subset avoids this by moving only const-like values.
 
-## Shape 6: GC/reference expressions are not categorically excluded
+## Shape 7: `switch` and conditional branch push points
 
-The official `code-pushing-gc.wast` test remains part of the source-backed proof surface.
-The important rule is not “GC never moves” or “GC always moves.”
-It is:
+Binaryen's push-point concept is broader than plain `if`. Future Starshine work should add no-rewrite shape recognition before mutation for:
 
-- reference-typed expressions participate only when the same movement predicate proves safety,
-- and ref-specific cases such as `ref.func`, casts, and `ref.as_non_null` can matter.
+```wat
+(local.set $tmp (i32.const 1))
+(br_if $label (local.get $cond))
+```
 
-## Shape 7: EH shapes are bailout-rich
+and switch/br-table-like shapes where the local's later consumption and effect barriers can be proved.
 
-Exception-handling shapes can make movement observable through exceptional control and value availability.
-Use `code-pushing-eh.wast` as the official upstream proof surface for this family.
+## Shape 8: GC/reference expressions are not categorically excluded
 
-A future Starshine port should add focused fixtures before widening motion around:
+The official `code-pushing-gc.wast` test remains part of the proof surface.
 
-- `try`,
-- `catch`,
-- `throw`,
-- and any moved root whose value crosses an exceptional boundary.
+Safe rule:
 
-## Shape 8: current Starshine positive single-consuming-arm sink
+- reference-typed expressions may participate only when the same SFA, use, and effect proof succeeds;
+- `ref.func`, casts, null checks, and descriptor-shaped operations need explicit tests before Starshine widens.
 
-Current Starshine implements a narrower HOT subset than Binaryen.
-A local positive shape is:
+## Shape 9: EH shapes are bailout-rich
+
+Exception-handling shapes can make movement observable through exceptional control and value availability. Future Starshine fixtures should cover `try`, `catch`, `throw`, and any moved root whose value crosses an exceptional boundary.
+
+## Shape 10: current Starshine positive single-consuming-arm sink
+
+Current Starshine implements this narrower HOT subset:
 
 ```wat
 (func (param i32) (local i32)
@@ -186,34 +201,11 @@ A local positive shape is:
 
 Current local HOT result shape:
 
-- the original root `local.set` becomes `nop`,
-- a cloned `local.set 1` is inserted at the beginning of the consuming arm,
+- the original root `local.set` becomes `nop`;
+- a cloned `local.set 1` is inserted at the beginning of the consuming arm;
 - the arm's existing `local.get 1` remains.
 
-This is useful and safe, but narrower than Binaryen's upstream predicate-driven motion.
-
-## Shape 9: current Starshine keeps both-arm uses
-
-Current Starshine intentionally does not duplicate into both live arms:
-
-```wat
-(func (param i32) (local i32)
-  i32.const 7
-  local.set 1
-  local.get 0
-  if
-    local.get 1
-    drop
-  else
-    local.get 1
-    drop
-  end)
-```
-
-The focused test keeps the original set because both arms read the local.
-This now aligns with the corrected wiki warning that two-live-arm duplication is not the source-backed baseline teaching shape.
-
-## Shape 10: current Starshine local dead-block flattening helper
+## Shape 11: current Starshine local dead-block flattening helper
 
 Current Starshine also has a local cleanup shape around a typed block next to unreachable context.
 
@@ -228,28 +220,26 @@ Conceptual family:
   unreachable)
 ```
 
-The local pass can flatten the inner block roots around the unreachable context when its branch/multivalue guards allow it.
-
 Caveat:
 
-- this is a Starshine-local helper family in `src/passes/code_pushing.mbt`,
-- not a claim about upstream Binaryen `CodePushing.cpp`.
+- this is a Starshine-local helper family in `src/passes/code_pushing.mbt`;
+- it is not a claim about upstream Binaryen `CodePushing.cpp`.
 
 ## Reader checklist
 
 Before expecting a `code-pushing` rewrite, ask:
 
-1. Is this a one-unreachable-arm `if` family or ordinary sibling-root movement?
-2. Is the source expression local to the same block root list?
-3. Does moving it preserve whether it executes?
-4. Can it cross every intervening expression under `canPushThrough(...)`?
+1. Is the source a suitable SFA `local.set` root?
+2. Is there a recognized push point?
+3. Are all local gets accounted for at or after the destination?
+4. Can the value cross every intervening effect?
 5. Does trap policy matter?
 6. Are GC/EH/reference details involved?
 7. Is the example actually current Starshine-local rather than upstream Binaryen?
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md)
-- [`../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md)
+- [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
+- [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../../../src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt)
 - Binaryen `version_129` tests linked in the raw manifest.

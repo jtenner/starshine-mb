@@ -1,65 +1,66 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
+  - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md
-  - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
-  - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./segment-selection-and-barriers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `code-pushing` Implementation Structure And Tests
 
 ## Why this page exists
 
-The older dossier explained `code-pushing` with helper names and heuristics that are not present in the reviewed Binaryen `version_129` source.
-This page is the source map future readers should use before editing strategy or shape pages.
+This page is the source map future readers should use before editing `code-pushing` strategy or shape pages.
+
+The 2026-04-26 recheck supersedes the 2026-04-25 miscorrection: upstream Binaryen `CodePushing.cpp` does use `LocalAnalyzer`, `Pusher`, segment selection, and effect-checked movement.
 
 ## Upstream owner file
 
 The pass is concentrated in:
 
+- Binaryen current-main `src/passes/CodePushing.cpp`
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>
 - Binaryen `version_129` `src/passes/CodePushing.cpp`
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
 
-Important source regions:
+Important source regions by owner name:
 
-| Source region | What it owns | Teaching consequence |
+| Source owner | What it owns | Teaching consequence |
 | --- | --- | --- |
-| `CodePushing` pass declaration, `isFunctionParallel()`, `requiresExpressionRefs()`, and `getPassOptions()` | Pass identity, per-function execution, expression-ref dependency, option capture | Ports need expression identity and option-sensitive trap behavior |
-| `visitBlock(...)` | Main structured block scan | The pass is block-child-order local, not arbitrary CFG sinking |
-| `optimizeIntoIf(...)` | One-unreachable-arm `if` movement | Do not teach this as generic two-reachable-arm duplication |
-| `canPushThrough(...)` | Movement safety across a later expression | Most correctness constraints live here |
-| `tryPush(...)` | Generic local sibling-root movement before a later use | The generic rewrite is one-expression local motion, not target-segment cloning |
-| `ReFinalize` calls | Type repair after changes | Refinalization is part of the mutation contract |
+| `LocalAnalyzer` | Local set/get counts and single-first-assignment classification | The pass is about movable temporary locals, not arbitrary expression sinking |
+| `Pusher` | Block-root segment scan and rewrite driver | Segment-selection language is correct when it means block-local `local.set` windows |
+| `isPushable(...)` | Candidate `local.set` legality, SFA requirement, local-use accounting, and removable-effect gate | Most no-ops come from local-use or effect proof failure |
+| `isPushPoint(...)` | Recognition of `if`, `switch`, conditional `br`, and dropped push-point wrappers | Shape catalogs should include more than plain `if` |
+| `optimizeSegment(...)` | Ordered movement of one or more candidate sets toward a push point | Multi-set order preservation is part of the real contract |
+| `optimizeIntoIf(...)` | Arm-specific sinking and post-if-read checks | One-arm consumption and unreachable-arm cases are the important `if` family |
+| `doWalkFunction(...)` / pass declaration | Function-local analysis plus walker setup | Starshine parity needs function-local analysis before broader mutation |
 
 ## Supporting upstream files
 
 - `src/passes/pass.cpp`
   - Registers and schedules the public pass name.
   - Source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-- `src/passes/opt-utils.h`
-  - Scheduler helper context for optimization reruns; useful for understanding why `code-pushing` appears in repeated cleanup neighborhoods.
-  - Source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-
-Older docs also cited helper surfaces such as `effects.h`.
-Those helpers still matter conceptually, but for this pass the concrete source-reading path should start from the pass-local `canPushThrough(...)` predicate in `CodePushing.cpp`.
+- Effect/property helper surfaces used from `CodePushing.cpp`
+  - The concrete source path should start at the pass-local `EffectAnalyzer` / `Properties` calls rather than at generic helper descriptions.
 
 ## Official lit-test map
 
 | Test file | What it proves |
 | --- | --- |
-| `code-pushing.wast` | Baseline local pushing examples and no-op boundaries for ordinary structured code |
-| `code-pushing_into_if.wast` | The one-unreachable-arm `if` family and execution-preservation subtleties |
+| `code-pushing.wast` | Baseline local-set segment pushing and ordinary no-op boundaries |
+| `code-pushing_into_if.wast` | One-arm `if` sinking plus post-if-read and unreachable-arm subtleties |
 | `code-pushing_ignore-implicit-traps.wast` | Option-sensitive relaxation around implicit traps |
 | `code-pushing_tnh.wast` | Traps-never-happen behavior |
-| `code-pushing-gc.wast` | GC/reference-typed families that can participate only under the same movement-safety rules |
+| `code-pushing-gc.wast` | GC/reference-typed families under the same movement-safety rules |
 | `code-pushing-eh.wast` | Exception-handling-sensitive no-op and movement boundaries |
 
 Official test URLs:
@@ -71,24 +72,29 @@ Official test URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-gc.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-eh.wast>
 
-## Explicit non-owners
+## Starshine implementation/test map
 
-Do not cite these as `CodePushing.cpp` implementation pieces for `version_129` unless future upstream source changes:
+| Local file | What it proves |
+| --- | --- |
+| [`src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt) | Active HOT subset: const-like single-arm `local.set` sinking plus local dead-block flattening |
+| [`src/passes/code_pushing_test.mbt`](../../../../../src/passes/code_pushing_test.mbt) | Then/else positives, both-arm and later-use negatives, nested-later-use negative, trap guard, dead-block flattening guards |
+| [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | Active registry entry and preset omission / tuple exact-slot gating |
+| [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Registry classification for the direct pass |
+| [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) | Command-surface coverage for direct pass use |
 
-- `BranchSeeker`
-- `Pusher`
-- a local `benefit > cost` profitability score
-- a pass-local target-segment planner
+## Explicit stale claims
 
-Those names belonged to the stale interpretation this page corrects.
+Do not repeat these 2026-04-25 claims:
 
-## Current-main drift note
+- “`Pusher` is not present in `CodePushing.cpp`.”
+- “Segment selection is stale.”
+- “The pass is only `visitBlock` + `tryPush`.”
+- “Local profitability-style selection is absent.”
 
-A focused 2026-04-25 current-`main` spot check of `CodePushing.cpp`, `pass.cpp`, `opt-utils.h`, and the dedicated `code-pushing*` lit files did not find teaching-relevant drift from the corrected `version_129` structure.
-Keep the current-main check narrow: it confirms the corrected skeleton above, not every possible future behavior claim.
+The correct caveat is narrower: Binaryen has a `Pusher` / segment algorithm, but it is constrained to SFA `local.set` candidates and does not justify arbitrary two-live-arm duplication.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md)
-- [`../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md)
-- Binaryen `version_129` source and tests linked above.
+- [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
+- [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
+- Binaryen current-main and `version_129` source/test links above.

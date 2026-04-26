@@ -1,196 +1,131 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
+  - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md
   - ../../../raw/binaryen/2026-04-22-code-pushing-primary-sources.md
-  - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
-  - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./segment-selection-and-barriers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
 supersedes:
-  - ../../../raw/research/0258-2026-04-22-code-pushing-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md
 ---
 
 # Binaryen `code-pushing` Strategy
 
-## Correction summary
+## Current correction
 
-The current source-backed strategy is smaller than the older dossier taught.
+The 2026-04-25 `code-pushing` correction went too far. It correctly warned against teaching arbitrary two-live-arm duplication, but it incorrectly said the reviewed upstream file did not use `Pusher`, segment selection, or local profitability-style movement.
 
-Use [`../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md) as the current source manifest.
-It corrects the 2026-04-22 interpretation that attributed these implementation pieces to Binaryen `CodePushing.cpp`:
+The 2026-04-26 primary-source recheck found that official Binaryen `version_129` and current-main `src/passes/CodePushing.cpp` are in fact organized around:
 
-- `BranchSeeker`
-- `Pusher`
-- generic target-segment sinking
-- a local `benefit > cost` profitability gate
-- general duplication into two reachable `if` arms
+- `LocalAnalyzer`,
+- `Pusher`,
+- `isPushable(...)`,
+- `isPushPoint(...)`,
+- `optimizeSegment(...)`,
+- `optimizeIntoIf(...)`,
+- cached `EffectAnalyzer` / `Properties` reasoning,
+- and `doWalkFunction(...)` running the analysis plus the walker.
 
-Those names and that profitability model are **not** present in the reviewed Binaryen `version_129` `src/passes/CodePushing.cpp`.
-The real reviewed skeleton is:
+Use [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md) as the current source manifest. The older 2026-04-25 file is now historical provenance for local-status notes, not the preferred upstream strategy description.
 
-- `visitBlock(...)`
-- `optimizeIntoIf(...)`
-- `canPushThrough(...)`
-- `tryPush(...)`
+Primary sources:
 
-Primary locations:
-
-- `CodePushing.cpp` declaration and pass options: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp#L23-L62>
-- block walk: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp#L66-L87>
-- one-unreachable-arm `if` path: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp#L91-L233>
-- movement-safety predicate: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp#L239-L315>
-- generic local push: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp#L340-L395>
-
-A 2026-04-25 current-`main` spot check found no teaching-relevant drift for those corrected points; the change here is a source-reading correction, not a new upstream algorithm.
+- Binaryen current-main `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>
+- Binaryen `version_129` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
 
 ## High-level intent
 
-Binaryen `code-pushing` moves work later when doing so preserves behavior and makes the work closer to the point that needs it.
+Binaryen `code-pushing` moves single-assignment local writes later in structured code so the write executes closer to, or only on, the path that consumes it.
 
-The beginner-safe mental model is:
+Beginner mental model:
 
-- scan a block in source order,
-- if a following `if` has one unreachable arm, try to sink the preceding fallthrough-preserved prefix into the reachable arm,
-- otherwise, when a later expression uses an earlier expression, try to move that earlier expression directly before the use,
-- only move across siblings that `canPushThrough(...)` says are safe.
+1. identify locals with one assignment and no read before that assignment;
+2. find block segments where eligible `local.set` roots can move forward;
+3. stop at a push point such as an `if`, `switch`, or conditional branch;
+4. move only values whose effects can be safely delayed across intervening effects;
+5. for `if`, sink each moved set into the one arm that reads the local when the other arm does not need it.
 
-It is not a general CFG code-sinking pass.
-It does not search arbitrary disjoint regions.
-It does not prove a global profitability model in the reviewed source.
+Advanced mental model: the pass is a structured-block, SFA-local, effect-checked code-sinking pass. It is not whole-CFG sinking and it is not generic expression duplication into all arms.
 
 ## Phase table
 
-| Phase | Source location | What Binaryen does | Why it matters |
+| Phase | Upstream owner | What Binaryen does | Why it matters |
 | --- | --- | --- | --- |
-| Pass setup | `CodePushing.cpp` `isFunctionParallel()` / `requiresExpressionRefs()` | Runs per function and depends on expression refs | The pass rewrites expression identity/order, so ports need stable expression-reference machinery |
-| Block walk | `visitBlock(...)` | Walks `Block` list children by index; tries the `if` special case first; then scans earlier siblings for `tryPush(...)` | The pass is local to structured block child order, not arbitrary CFG search |
-| One-arm `if` sinking | `optimizeIntoIf(...)` | If exactly one arm is unreachable, move a bounded prior region into the reachable arm when execution is preserved | This is the most distinctive upstream family and the main reason `into_if` tests exist |
-| Movement check | `canPushThrough(...)` | Decides whether an expression may cross a later sibling under effect/trap/reference rules | This is the correctness engine; most surprising no-ops come from here |
-| Generic local push | `tryPush(...)` | Moves an earlier root before a later expression that uses it when every intervening root is safe to cross | This is local sibling-root motion, not a broad segment duplicator |
-| Type repair | `ReFinalize` calls in the changed paths | Recomputes affected expression types after mutation | Required because changing root order and `if` bodies can change surrounding expression types |
+| Local analysis | `LocalAnalyzer` | Counts local gets/sets and marks single-first-assignment locals | Only SFA `local.set` roots become push candidates |
+| Block candidate scan | `Pusher::visitBlock` | Walks a block root list and finds a segment from first pushable root to a later push point | The rewrite is segment-local, not arbitrary CFG motion |
+| Candidate test | `isPushable(...)` | Requires an SFA local, all local gets seen, and a value without unremovable side effects | A pure-looking expression is not enough; the local-use proof matters |
+| Push point test | `isPushPoint(...)` | Treats `if`, `switch`, conditional `br`, and dropped forms as places worth pushing toward | Explains why control-flow roots dominate the examples |
+| Segment movement | `optimizeSegment(...)` | Moves eligible `local.set` roots forward when cumulative effects do not invalidate the value effects | This is the real segment-selection / movement-safety engine |
+| Arm sinking | `optimizeIntoIf(...)` | Inserts a moved set into the one arm that reads the local when the other arm is safe | This is the distinctive `if` family and includes unreachable-arm post-use allowances |
+| Type/effect repair | changed-path finalization and later optimizer cycles | Keeps expression types/effects coherent and leaves deeper opportunities to later cycles | Ports need validation and repeated-pass tests, not one-shot local rewrites only |
 
-## `visitBlock(...)`: the real outer loop
+## `LocalAnalyzer`: why the pass is local-set centered
 
-The reviewed source walks each block body by index.
-For each current child it:
+The pass is not looking for any expression that might be profitable to duplicate. It looks for `local.set` roots whose local behaves like a single-first-assignment temporary.
 
-1. tries `optimizeIntoIf(...)` when the current child is an `if`, then
-2. scans earlier block roots and calls `tryPush(...)` to see whether one can move nearer this current expression.
+A local remains interesting when:
 
-That means the pass's normal search unit is:
+- it has exactly one write;
+- it is not a parameter;
+- no `local.get` appears before that write in the traversal used by the analysis;
+- and the write is represented as a `local.set` candidate root.
 
-- one structured `Block`,
-- one later expression,
-- one earlier root candidate,
-- and the siblings between them.
+This analysis is why examples should be written with explicit temporary locals. Direct arithmetic moved across arbitrary siblings is not the basic public contract.
 
-This is why the wiki should not describe the pass as target-segment discovery through `BranchSeeker`.
+## `Pusher`: segment selection and movement
 
-## `optimizeIntoIf(...)`: one arm unreachable
+`Pusher` walks blocks and tracks a candidate segment. Once it reaches a push point, `optimizeSegment(...)` tries to move eligible candidate sets forward.
 
-The reviewed `optimizeIntoIf(...)` path is not a generic “push into both arms” rule.
-It is centered on this shape:
+Important constraints:
 
-- the current expression is an `if`,
-- exactly one arm is unreachable,
-- the moved expressions can be placed in the reachable arm without changing whether they execute,
-- and the code between the source location and the `if` is safe to cross.
+- movement preserves the relative order of pushed sets;
+- candidate values cannot have unremovable side effects;
+- cumulative effects between source and destination must not invalidate the candidate value's effects;
+- deeper recursive opportunities are intentionally left for later optimizer cycles.
 
-The important source idea is the `skipTo` / `limit` boundary.
-The pass does not blindly move every earlier expression into the arm.
-It finds the prior execution boundary and only considers the bounded block slice that can be moved while preserving whether the expressions run.
+This restores the segment-selection language that the 2026-04-25 correction wrongly removed, but with a narrower source-backed meaning: a block-local segment of `local.set` roots, not arbitrary target-region cloning.
 
-Practical consequence:
+## `optimizeIntoIf(...)`: one-arm consumption, not generic duplication
 
-- one-unreachable-arm examples can optimize even when a naive two-live-arm duplication rule would be unsafe,
-- but two-reachable-arm examples should not be documented as a guaranteed Binaryen `code-pushing` family unless a test/source location proves that exact rewrite.
+The `if` case is still easy to over-teach. Binaryen does not need to duplicate a temporary into both live arms to be useful.
 
-## `canPushThrough(...)`: safety gate
+The source-backed positive family is:
 
-`canPushThrough(curr, pushed)` is the main correctness gate.
-It answers: can `pushed` move across `curr`?
+- a moved local is read in exactly one arm;
+- the other arm does not read the local;
+- any reads after the `if` are safe, commonly because the non-consuming arm is unreachable;
+- the moved `local.set` is inserted into the consuming arm.
 
-Source-backed factors include:
+So the corrected rule is: `code-pushing` can sink into an `if` arm, including unreachable-arm scenarios, but this should not be generalized into “duplicate pure work into both reachable arms.”
 
-- whether `curr` directly uses `pushed`,
-- side effects and non-value expressions,
-- traps-never-happen / ignore-implicit-traps option behavior,
-- special handling for `if` conditions,
-- `Call` with `call_without_effects`,
-- `RefFunc` plus observed function-reference use,
-- `RefAs` / `RefCast` details,
-- constant-like and simple `local.get` / `struct.get` style expressions,
-- recursive checks through children.
+## Effects, traps, GC, and EH
 
-For Starshine, this is the important future-port surface: the local pass should grow by making this safety predicate more faithful before widening motion.
+The official lit suite shows why movement is not just syntactic:
 
-## `tryPush(...)`: local sibling motion
+- `code-pushing_ignore-implicit-traps.wast` and `code-pushing_tnh.wast` cover trap-policy differences.
+- `code-pushing-gc.wast` proves reference/GC-shaped expressions are part of the proof surface.
+- `code-pushing-eh.wast` keeps exceptional control in scope.
 
-`tryPush(...)` is the generic local move:
+The core rule is effect invalidation: a candidate can move only when intervening effects do not make the delayed value computation observably different under the active options.
 
-- find a later expression that uses an earlier root,
-- prove the earlier root can cross every intervening root,
-- move it immediately before the later expression,
-- preserve ordered root lists,
-- refinalize the changed expression.
+## Starshine implication
 
-This can make local computations path- or use-local, but it is still root-order surgery inside one structured block.
-It should not be explained as arbitrary CFG code sinking.
-
-## Option-sensitive trap behavior
-
-The dedicated lit files for `ignore-implicit-traps` and traps-never-happen remain important.
-The corrected mental model is:
-
-- a move that changes trap timing is normally blocked,
-- Binaryen options can relax that barrier,
-- `canPushThrough(...)` is where that relaxation is consulted.
-
-That is why trap examples belong in the barrier page and shape catalog, even though the older profitability/segment explanation has been removed.
-
-## Scheduler placement
-
-`pass.cpp` still places `code-pushing` in the early function-optimization neighborhood before tuple/local cleanup in the no-DWARF path captured by the Starshine wiki.
-The living no-DWARF page and tracker remain the local source for why this pass matters to Starshine's preset parity.
-
-The nested-rerun story is still relevant as scheduler context, but the source-backed implementation of the pass itself is the smaller block-local strategy above.
-
-## What the pass does not do
-
-Do not teach Binaryen `version_129` `code-pushing` as:
-
-- `BranchSeeker` / `Pusher`-owned segment sinking,
-- local `benefit > cost` profitability,
-- arbitrary two-live-arm `if` duplication,
-- whole-CFG sinking,
-- a substitute for `code-folding`, `tuple-optimization`, or `simplify-locals*`,
-- Starshine's typed/dead-block flattening helper.
-
-The last item is important: current Starshine has an extra conservative dead-block flattening family in its local `code_pushing.mbt`; that is a local helper shape, not a source-confirmed Binaryen `code-pushing` behavior.
+Starshine's current direct pass is a small, safe subset: const-like `local.set` sinking into one consuming `if` arm plus a local dead-block flattening helper. A faithful widening should first port the SFA-local analyzer and effect-checked segment model before adding broader `if`, branch, GC, or EH cases. See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md)
-- [`../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md`](../../../raw/research/0345-2026-04-25-code-pushing-source-correction-and-local-status.md)
-- Binaryen `version_129` source:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
-- Binaryen current-main spot-check source:
-  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>
-- Binaryen `version_129` lit tests:
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_into_if.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_ignore-implicit-traps.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing_tnh.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-gc.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-pushing-eh.wast>
+- [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
+- [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
+- Binaryen current-main `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/CodePushing.cpp>
+- Binaryen `version_129` `CodePushing.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodePushing.cpp>
