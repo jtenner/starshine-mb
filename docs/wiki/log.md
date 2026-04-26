@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `directize` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/directize/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `directize` because the dossier had correct upstream strategy coverage but still left the future Starshine first slice and validation ladder scattered across registry, parser, IR, binary, HOT, validator, and backlog surfaces while the tracker still classified it as only `dossier`.
+- Added `docs/wiki/raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`, rechecking official Binaryen `version_129` and current-main sources for `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, `pass.cpp`, `passes.h`, and the three dedicated `directize*` lit files; the focused recheck found no teaching-relevant drift and recast the evidence as a port-readiness bridge.
+- Added `docs/wiki/raw/research/0380-2026-04-26-directize-port-readiness.md` and `docs/wiki/binaryen/passes/directize/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, table-info guide, WAT-shape catalog, and Starshine strategy page so transformed shapes, upstream strategy, exact local code locations, table-facts-first implementation order, `Known` / `Trap` / `Unknown` classifier seam, constant and `select` rewrite ladder, and Binaryen oracle comparison are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; promoted `directize` from `dossier` to `deep` while keeping the pass explicitly boundary-only and unimplemented.
+
 ## [2026-04-26] research | deepen `alignment-lowering` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/alignment-lowering/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `alignment-lowering` because the dossier was source-correct but still left future implementers to infer the first Starshine slice, local memory-op code map, and validation ladder while the tracker still classified it as only `dossier`.

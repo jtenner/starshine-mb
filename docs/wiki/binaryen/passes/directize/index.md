@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
+  - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
   - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
@@ -22,6 +24,7 @@ related:
   - ./table-info-and-immutability.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-globals/index.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -78,6 +81,7 @@ That is much closer to the real pass than either:
 - A focused 2026-04-25 current-`main` recheck is now captured at [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md); it found no teaching-relevant drift from the `version_129` contract while keeping the source-only `table.copy` mutation-barrier caveat explicit.
 - `directize` is a **late table-facts-driven call rewrite pass**, not a generic constant-propagation pass.
 - The refreshed dossier now also has a compact source-confirmed owner/test-map page, making explicit that the real `version_129` contract is split across `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, and the three dedicated `directize*` lit files.
+- A 2026-04-26 port-readiness bridge is now captured at [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md), with the repo-authored digest at [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md); it does not change the upstream algorithm, but it names the first Starshine slices as table facts, target classification, constant rewrites, `select` lowering, and late-tail scheduling.
 - In `version_129`, the main implementation lives in `src/passes/Directize.cpp`.
 - It computes module-wide table facts first with `TableUtils::computeTableInfo(...)`.
 - It only visits `CallIndirect` nodes.
@@ -111,6 +115,8 @@ That is much closer to the real pass than either:
   Beginner-friendly before/after WAT shape catalog for direct-call positives, trap/unreachable rewrites, `select` lowering, mutation and flat-table bailouts, wasm64 width correctness, and GC subtype behavior.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Dedicated Starshine status-and-port-map page covering the current boundary-only registry story, request guard, backlog slice `DIR`, canonical no-DWARF tail slot, and the exact neighboring local dossiers a future port would need to compose with.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge for future Starshine work: local parser / IR / binary / validator / HOT prerequisite map, first-slice order, reduced-test families, Binaryen oracle order, and open design questions.
 
 ## Current maintenance rule
 
@@ -122,6 +128,8 @@ That is much closer to the real pass than either:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)
+- [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)

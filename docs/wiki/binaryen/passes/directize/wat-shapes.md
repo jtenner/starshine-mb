@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
+  - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
   - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
@@ -12,12 +14,14 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./table-info-and-immutability.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `directize` WAT shapes
 
 The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
 A focused 2026-04-25 current-`main` source bridge now confirms no teaching-relevant shape drift in `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, or the dedicated `directize*` lit files.
+The 2026-04-26 Starshine port-readiness bridge maps these shapes into the local validation ladder in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 This page is the beginner-friendly shape catalog for Binaryen’s `directize` pass.
 
@@ -540,10 +544,12 @@ The key lesson is:
 - It does not treat every suspicious table-layout case as a proved trap.
 - It does not widen one-known-one-unknown `select` cases into a partial rewrite.
 
-The 2026-04-25 current-main recheck did not change those non-goals. If you see those behaviors, you are probably looking at a different Binaryen helper or at a later upstream evolution, not this exact `version_129` pass.
+The 2026-04-25 current-main recheck and the 2026-04-26 port-readiness bridge did not change those non-goals. If you see those behaviors, you are probably looking at a different Binaryen helper or at a later upstream evolution, not this exact `version_129` pass.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)
+- [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)

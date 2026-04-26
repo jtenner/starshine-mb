@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
+  - ../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../../src/passes/optimize.mbt
   - ../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
   - ../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
@@ -293,7 +295,7 @@ related:
 - [`string-gathering/index.md`](string-gathering/index.md) - Deepened dossier for the upstream late string-hoisting pass that still remains unimplemented in Starshine; the folder now has immutable tagged and current-main / port-readiness raw source manifests, a source-confirmed implementation/test-map page, focused reuse/order and WAT-shape guides, a Starshine status/code-map page, and a dedicated port-readiness / validation ladder that maps registry honesty, exact `StringConst` site collection, canonical defining-global rules, non-defining `global.get` rewrites, validity-first reorder, feature-gated late-tail scheduling, and exact local string literal / HOT prerequisite anchors.
 - [`reorder-globals/index.md`](reorder-globals/index.md) - Refreshed dossier for the upstream late global-layout pass that still remains boundary-only in Starshine; the folder now has immutable raw source manifests plus a source-confirmed implementation/test-map page and a dedicated Starshine status/port-strategy page, keeps explicit that the reviewed official Binaryen `version_129` release page on 2026-04-23 showed publish date **2026-04-01**, records the 2026-04-25 current-main no-drift bridge, and maps the exact boundary-only registry, request-guard, `RG` backlog, numeric `GlobalIdx` remap prerequisites, `string-gathering -> reorder-globals -> directize` scheduler slot, and `reorder-globals` vs `reorder-globals-always` sibling split a future local port would need to preserve.
 - [`reorder-globals-always/index.md`](reorder-globals-always/index.md) - Refreshed dossier for the upstream small-module/test/internal-fixup sibling of `reorder-globals`; the folder now has an immutable sibling-specific raw primary-source manifest plus a dedicated Starshine status/port-strategy page, records the exact `< 128` cutoff removal, the exact `1.0 + (i / 128.0)` smooth scoring formula, the strongest `reorder-globals.wast` / `reorder-globals-real.wast` proof split, the nested `GlobalStructInference` caller, boundary-only local request rejection, no owner/backlog status, and future numeric `GlobalIdx` repair requirements.
-- [`directize/index.md`](directize/index.md) - Refreshed dossier for the upstream final indirect-call cleanup pass that still remains boundary-only in Starshine; the folder now also has an immutable raw primary-source manifest, a 2026-04-25 current-main no-drift source bridge, and a dedicated Starshine status/port-strategy page, keeps explicit that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**, and maps the exact late-tail landing zone a future local port would need to compose with instead of leaving the local side scattered across registry, backlog, and neighboring cleanup docs.
+- [`directize/index.md`](directize/index.md) - Deepened dossier for the upstream final indirect-call cleanup pass that still remains boundary-only in Starshine; the folder now also has immutable raw primary-source bridges through the 2026-04-26 port-readiness manifest, a source-confirmed implementation/test map, table-info and WAT-shape guides, a Starshine status/code-map page, and a dedicated port-readiness / validation ladder that maps the future table-facts-first implementation sequence, `Known` / `Trap` / `Unknown` classifier seam, constant and `select` rewrite slices, exact local parser / IR / binary / validator / HOT prerequisites, no-DWARF tail placement, and Binaryen oracle order.
 
 ## Additional upstream-only pass research
 

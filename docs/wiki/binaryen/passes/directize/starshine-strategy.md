@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
+  - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
   - ../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
@@ -21,6 +23,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./table-info-and-immutability.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../duplicate-import-elimination/index.md
   - ../simplify-globals-optimizing/index.md
   - ../remove-unused-module-elements/index.md
@@ -30,8 +33,9 @@ related:
 
 # Starshine Strategy For `directize`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md) and the 2026-04-25 current-main source bridge in [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md), the 2026-04-25 current-main source bridge in [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md), and the 2026-04-26 port-readiness bridge in [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
+For the first-slice order and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
 
@@ -56,13 +60,13 @@ The 2026-04-25 current-main source bridge does not change that local status; it 
 The fastest read-along path through the current Starshine status is:
 
 - tracked boundary-only pass-name status
-  - `src/passes/optimize.mbt:128-134`
+  - `src/passes/optimize.mbt:127-136`
     - `pass_registry_boundary_only_names()` includes `"directize"`
 - active request guard for not-yet-ported boundary passes
-  - `src/passes/optimize.mbt:462-468`
+  - `src/passes/optimize.mbt:452-470`
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
 - backlog and delivery plan
-  - `agent-todo.md:687-691`
+  - `agent-todo.md:689-701`
     - `DIR` slice under the Binaryen no-DWARF default optimize pathway parity section
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:34-35`
@@ -74,7 +78,15 @@ The fastest read-along path through the current Starshine status is:
   - `docs/wiki/binaryen/passes/string-gathering/index.md`
   - `docs/wiki/binaryen/passes/reorder-globals/index.md`
 
-That code-and-doc map is the practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and future landing zone.
+Additional implementation substrate now mapped in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md):
+
+- `src/wast/parser.mbt:1874-1885` and `src/wast/lower_to_lib.mbt:1919-1958` for WAT indirect-call parsing/lowering.
+- `src/wast/lower_to_lib.mbt:2171-2252` plus `src/lib/types.mbt:198-212`, `221`, and `780-785` for table/element/mutation shapes.
+- `src/lib/types.mbt:526-531`, `src/binary/decode.mbt:2544-2564`, `src/binary/encode.mbt:2008-2028`, and `src/lib/show.mbt:866-882` for direct/indirect call representation and roundtrip.
+- `src/ir/hot_side_tables.mbt:249-254` and `src/ir/hot_lower.mbt:993-1018` for HOT signature/table side data and lowering.
+- `src/validate/typecheck.mbt:907-944` and `3216-3219` plus negative tests in `src/validate/typecheck_negative_tests.mbt:332-391` for validation of call-indirect table/type boundaries.
+
+That code-and-doc map is the practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status, reusable substrates, and future landing zone.
 
 ## What Starshine currently does for this pass name
 
@@ -190,6 +202,7 @@ So the current repo status is best summarized as:
 - request guard tracked
 - backlog tracked
 - scheduler slot documented
+- parser / IR / binary / validation / HOT substrates mapped
 - transform itself not yet landed
 
 ## Validation plan for the eventual port
@@ -236,6 +249,8 @@ It is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)
+- [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md`](../../../raw/research/0350-2026-04-25-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md)
