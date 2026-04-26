@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
+  - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -24,6 +26,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./closed-world-visibility-and-rec-group-rewrite.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-module-elements/index.md
   - ../type-merging/index.md
   - ../minimize-rec-groups/index.md
@@ -157,12 +160,13 @@ A faithful port should preserve the source-backed contract from the rest of this
 - rewrite every affected module type use through an old-to-new map,
 - validate after the rewrite.
 
-For the upstream details, use:
+For the upstream details and the future local implementation ladder, use:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 - [`./closed-world-visibility-and-rec-group-rewrite.md`](./closed-world-visibility-and-rec-group-rewrite.md)
 - [`./wat-shapes.md`](./wat-shapes.md)
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 
 ## Nearby boundaries to keep distinct
 
@@ -236,4 +240,4 @@ A one-off `remove-unused-types` implementation would duplicate machinery that ne
 - [`unsubtyping`](../unsubtyping/index.md) needs descriptor/subtype graph proof and allocation repair.
 - [`type-refining`](../type-refining/index.md) needs closed-world declaration and instruction type repair.
 
-Until a backlog slice decides that architecture, keep `remove-unused-types` documented as boundary-only and unimplemented.
+Until a backlog slice decides that architecture, keep `remove-unused-types` documented as boundary-only and unimplemented. The implementation sequencing and validation ladder now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), which should be updated before the registry category changes.

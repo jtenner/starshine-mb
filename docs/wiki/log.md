@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `remove-unused-types` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/remove-unused-types/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `remove-unused-types` because its corrected source dossier still lacked a concrete first-slice / validation bridge for a future Starshine port.
+- Added `docs/wiki/raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` `RemoveUnusedTypes.cpp`, `pass.cpp`, `type-updating.h`, `module-utils.h`, and `remove-unused-types.wast`; no teaching-relevant drift was found from the corrected 2026-04-24 `GlobalTypeRewriter` contract.
+- Added `docs/wiki/raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md` and `docs/wiki/binaryen/passes/remove-unused-types/starshine-port-readiness-and-validation.md`; refreshed the overview and Starshine strategy so transformed type-section shapes, upstream strategy, exact local boundary-only code surfaces, no-rewrite analyzer-first sequencing, private singleton deletion, old-rec-group member removal, descriptor/supertype retention, full type-use repair, and closed-world Binaryen-oracle validation are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `remove-unused-types` from `dossier` to `deep` while keeping it explicitly boundary-only and unimplemented in Starshine today.
+
 ## [2026-04-26] research | deepen `signature-pruning` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/signature-pruning/` folder, neighboring `signature-refining` and `dead-argument-elimination` coverage, and `docs/wiki/raw/research/`, then chose boundary-only `signature-pruning` because the dossier was source-correct but still lacked a dedicated first-slice / validation bridge.

@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
+  - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
@@ -22,6 +24,7 @@ related:
   - ./closed-world-visibility-and-rec-group-rewrite.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
   - ../index.md
   - ../global-refining/index.md
@@ -125,11 +128,13 @@ That means the changed surface can include:
   - Beginner-friendly module-shape catalog covering private removals, public retention, fresh private grouping, descriptor/supertype constraints, and open-world/no-GC boundaries.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current Starshine status: boundary-only registry entry, active request rejection, no owner file, reusable type-section/parser/validator surfaces, and future port requirements.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - Future Starshine implementation ladder: no-rewrite analyzer first, private singleton deletion, old-rec-group member removal, descriptor/supertype dependency retention, full type-use repair, and closed-world Binaryen-oracle validation.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `remove-unused-types` research in this repo.
-- Cite the 2026-04-24 raw primary-source manifest for the corrected source reading.
+- Cite the 2026-04-24 raw primary-source manifest for the corrected source reading and the 2026-04-26 port-readiness manifest when discussing future Starshine implementation sequencing.
 - Keep the 0149 research note as history only; do not reuse its superseded pass-local scanner / whole-old-rec-group explanation as the current algorithm.
 - Keep the page honest about scheduler scope:
   - closed-world GC/type cluster in Binaryen,
@@ -138,6 +143,8 @@ That means the changed surface can include:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md)
+- [`../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md`](../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md)
 - [`../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md`](../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md)
 - Historical, superseded for algorithm details: [`../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md`](../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md)
