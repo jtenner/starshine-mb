@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-26 Docs: add `llvm-memory-copy-fill-lowering` dossier
+
+- **ingest an immutable Binaryen primary-source manifest for upstream `llvm-memory-copy-fill-lowering`, add a complete living dossier, and align the catalogs so the `memory.copy` / `memory.fill` to helper-call compatibility-lowering contract, no dedicated pass-named lit fixture caveat, boundaries with `memory-packing`, `multi-memory-lowering`, and `memory64-lowering`, exact Starshine WAT/lib/binary/validator/HOT code locations, and current unknown-pass registry status are discoverable** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md`](./docs/wiki/raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md), [`docs/wiki/raw/research/0384-2026-04-26-llvm-memory-copy-fill-lowering-source-dossier.md`](./docs/wiki/raw/research/0384-2026-04-26-llvm-memory-copy-fill-lowering-source-dossier.md), and [`docs/wiki/binaryen/passes/llvm-memory-copy-fill-lowering/`](./docs/wiki/binaryen/passes/llvm-memory-copy-fill-lowering/).
+
 ## 2026-04-26 Docs: refresh `discard-global-effects` drift wording
 
 - **repair touched-area reference hygiene in the `discard-global-effects` Binaryen strategy page so the current-main no-drift sentence names the 2026-04-26 recheck and includes the pass-runner effect-invalidation path added by the source-map bridge** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`docs/wiki/binaryen/passes/discard-global-effects/binaryen-strategy.md`](./docs/wiki/binaryen/passes/discard-global-effects/binaryen-strategy.md).

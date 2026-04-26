@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | add `llvm-memory-copy-fill-lowering` source dossier
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `docs/wiki/raw/research/`, then chose upstream-only `llvm-memory-copy-fill-lowering` because the widened tracker had no obvious remaining `none` target but Starshine already carries `memory.copy` / `memory.fill` representation, validation, binary, HOT, and effect surfaces while no pass page explained Binaryen's helper-call compatibility lowering.
+- Added `docs/wiki/raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md`, capturing official Binaryen `version_129` and current-main owner/registration/factory surfaces for `LLVMMemoryCopyFillLowering.cpp`, `pass.cpp`, and `passes.h`, plus a focused official lit-directory caveat: no pass-named `llvm-memory-copy-fill-lowering.wast` fixture was found in the checked directories.
+- Added `docs/wiki/raw/research/0384-2026-04-26-llvm-memory-copy-fill-lowering-source-dossier.md` and a new living folder `docs/wiki/binaryen/passes/llvm-memory-copy-fill-lowering/` with overview, Binaryen strategy, implementation/test map, helper-call boundary guide, WAT-shape catalog, and Starshine status page. The dossier records `memory.copy` / `memory.fill` to helper-call replacement, source-backed boundaries with `memory-packing`, `multi-memory-lowering`, and `memory64-lowering`, current unknown-pass local status, and exact Starshine WAT/lib/binary/validator/HOT code surfaces.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; marked the new family as a justified upstream-only dossier rather than active or boundary-only Starshine support.
+
 ## [2026-04-26] health | refresh `discard-global-effects` drift wording
 
 - Ran a focused touched-area hygiene pass after the `discard-global-effects` implementation/test-map commit and found the Binaryen strategy page still described only the older 2026-04-25 current-main spot check.
