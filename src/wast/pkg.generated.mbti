@@ -441,8 +441,6 @@ pub impl Show for Memory
 pub impl @quickcheck.Arbitrary for Memory
 
 pub struct MemoryType(Limits) derive(Eq, @debug.Debug)
-#deprecated
-pub fn MemoryType::inner(Self) -> Limits
 pub impl @lib.PrettyPrint for MemoryType
 pub impl Show for MemoryType
 pub impl @quickcheck.Arbitrary for MemoryType

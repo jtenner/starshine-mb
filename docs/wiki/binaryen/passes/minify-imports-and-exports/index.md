@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-minify-imports-and-exports-port-readiness-primary-sources.md
+  - ../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md
@@ -19,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../minify-imports/index.md
   - ../duplicate-import-elimination/index.md
   - ../reorder-functions/index.md
@@ -76,7 +79,7 @@ After the sibling, the module string may also be shortened:
 (export "c" (func $callback))
 ```
 
-The exact generated names are owned by Binaryen's `Names::MinifiedNameGenerator` plus used-name avoidance in `MinifyImportsAndExports.cpp` and must be rechecked before implementation signoff.
+The exact generated names are owned by Binaryen's `Names::MinifiedNameGenerator` plus used-name avoidance in `MinifyImportsAndExports.cpp` and must be rechecked before implementation signoff. The 2026-04-26 current-main recheck found no teaching-relevant drift from the existing strategy, but it did confirm the JSON map output shape uses row arrays rather than nested objects.
 
 ## Inputs and outputs
 
@@ -143,13 +146,16 @@ For a future Starshine port, add tests in this order:
 - [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md) - owner files and proof surface.
 - [`wat-shapes.md`](wat-shapes.md) - concrete before/after module shapes.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - implementation-order and validation bridge for a future Starshine port.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-minify-imports-and-exports-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-minify-imports-and-exports-port-readiness-primary-sources.md)
+- [`../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md`](../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md`](../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md)
 - [`../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md`](../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md)
 - [`../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md`](../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md)
 - [`../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md`](../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md)
 - Binaryen `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImportsAndExports.cpp>
-- Binaryen `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImportsAndExports.cpp>
+- Binaryen current `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/MinifyImportsAndExports.cpp>
 - Binaryen pass registry: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

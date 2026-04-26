@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-minify-imports-and-exports-port-readiness-primary-sources.md
+  - ../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md
   - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
@@ -18,6 +20,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../minify-imports/index.md
   - ../duplicate-import-elimination/index.md
   - ../tracker.md
@@ -41,7 +44,7 @@ Exact local status:
 - `agent-todo.md` has no active slice for this pass family.
 
 So Starshine's present strategy is **non-adoption plus documentation**.
-The folder tracks Binaryen's public pass because the upstream source is compact, ABI-visible, and easy to confuse with harmless internal minification.
+The folder tracks Binaryen's public pass because the upstream source is compact, ABI-visible, and easy to confuse with harmless internal minification. If that status changes, use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) as the first-slice and validation checklist rather than implementing directly from the overview.
 
 ## Exact local code locations to read first
 
@@ -93,7 +96,7 @@ A faithful Starshine port should therefore be a module pass that rewrites `Impor
 
 ## Future-port shape
 
-A faithful local port would need three layers:
+The implementation-order bridge is now maintained in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md). In short, a faithful local port would need three layers:
 
 1. **Registry/status layer**
    - decide whether to add active module passes, boundary-only names, removed names, or keep unknown-pass behavior;

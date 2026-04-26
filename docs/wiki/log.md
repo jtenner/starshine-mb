@@ -2,6 +2,20 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `minify-imports-and-exports` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/minify-imports-and-exports/` folder, neighboring `minify-imports` coverage, and `docs/wiki/raw/research/`, then chose upstream-only `minify-imports-and-exports` because the dossier explained the shared Binaryen owner but still left first-slice sequencing, validation order, and JSON map shape hygiene implicit.
+- Added `docs/wiki/raw/binaryen/2026-04-26-minify-imports-and-exports-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` owner/registration/test-directory sources; no teaching-relevant strategy drift was found, but the recheck confirmed the JSON map shape is row arrays and that no pass-named `minify-imports*.wast` fixture exists in the official pass-test directory.
+- Added `docs/wiki/raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md` and `docs/wiki/binaryen/passes/minify-imports-and-exports/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, and Starshine status page so transformed import/export/module-name shapes, upstream strategy, exact local declaration-string code surfaces, registry-honesty choices, first mutating slice, sibling split, map-output checks, and Binaryen oracle lanes are connected.
+- Updated `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md`; health-fixed a duplicate Binaryen source link in the overview and corrected the stale conceptual JSON object example to current row-array output.
+
+## [2026-04-26] implementation | land direct `reorder-globals` port
+
+- Used the existing `reorder-globals` dossier as the pass contract for an O4z no-DWARF late-tail pass that was still missing locally.
+- Added `src/passes/reorder_globals.mbt` plus focused pass, registry, and CLI tests for the public `<128` cutoff, 129-global reorder, dependency preservation, export/name remapping, active module-pass classification, and explicit `--reorder-globals` acceptance.
+- Wired the module pass through `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, `src/passes/pkg.generated.mbti`, and `scripts/lib/pass-fuzz-compare-task.ts`; left `reorder-globals-always` boundary-only and kept preset scheduling deferred until `string-gathering` and `directize` exist locally.
+- Refreshed `docs/wiki/binaryen/passes/reorder-globals/` and `agent-todo.md` so the direct port, remaining late-tail/artifact evidence, and sibling deferral are explicit.
+
 ## [2026-04-26] health | refresh full `ssa` touched-area links
 
 - Ran a focused touched-area hygiene check after adding the full `ssa` port-readiness bridge.

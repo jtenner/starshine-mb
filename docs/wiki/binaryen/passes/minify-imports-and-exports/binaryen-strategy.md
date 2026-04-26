@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-minify-imports-and-exports-port-readiness-primary-sources.md
+  - ../../../raw/research/0403-2026-04-26-minify-imports-and-exports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md
@@ -59,20 +61,16 @@ This is ABI-visible. A host that looks up `"main"` or `"very_long_export_name"` 
 
 ## JSON output
 
-The shared owner prints JSON-shaped output with both import and export maps when exports are enabled. Conceptually:
+The shared owner prints JSON-shaped output with both import and export maps when exports are enabled. The 2026-04-26 current-main recheck confirmed that the shape is row arrays, not nested objects. Conceptually:
 
 ```json
 {
-  "imports": {
-    "a": ["env", "old_import"]
-  },
-  "exports": {
-    "b": "old_export"
-  }
+  "imports": [["env", "old_import", "a"]],
+  "exports": [["old_export", "b"]]
 }
 ```
 
-The example is not a byte-for-byte oracle. Preserve Binaryen's exact ordering, escaping, and generated-name sequence when testing parity.
+The example is not a byte-for-byte oracle. Preserve Binaryen's exact ordering, escaping, row order, and generated-name sequence when testing parity.
 
 ## What stays stable
 
@@ -94,4 +92,4 @@ Unlike [`strip-target-features`](../strip-target-features/index.md), this pass m
 
 ## Main caveat
 
-The official test surface reviewed for this run directly proves the `-and-modules` sibling. Plain `minify-imports` and `minify-imports-and-exports` remain source-confirmed through constructor flags, `pass.cpp` registration, and shared implementation. A future implementation signoff should add direct local oracle tests for all three public names.
+The official test surface reviewed for this dossier directly proves the `-and-modules` sibling. Plain `minify-imports` and `minify-imports-and-exports` remain source-confirmed through constructor flags, `pass.cpp` registration, and shared implementation. The 2026-04-26 current-main recheck found no pass-named `minify-imports*.wast` lit fixture in the official pass-test directory, so a future Starshine signoff should add direct local oracle tests for all three public names.

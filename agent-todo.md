@@ -674,11 +674,14 @@ Suggested Tests
 1. Research exact functionality in document.
    - Research exactly how it works with a document: [0066#L308](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L308)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [RG]001 - Global Cost Model and Reindexing - Port Binaryen's global reordering criteria and compute a safe remap after late global cleanup and string gathering.
-     - Deliverables: define the reordering cost model; preserve externally visible boundaries and section invariants; prepare a reusable global-index remapper.
-     - Doc: [0066#L308](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L308)
-   - [RG]002 - Late-Postpass Validation and Artifact Compare - Apply the global reorder, lock the resulting section rewrites into tests, and compare the output against Binaryen.
-     - Deliverables: add regressions for reordered globals with string users and exports; verify the pass stays after `string-gathering`; replay `--reorder-globals` parity on the artifact.
+   - [RG]001 - Global Cost Model and Reindexing - Direct public `reorder-globals` module pass is now active.
+     - Status: implemented in `src/passes/reorder_globals.mbt`, registered as a module pass, dispatched through the module-pass path, accepted by `cmd`, and listed in the pass-fuzz compare harness. The port preserves the public `<128` total-global no-op, counts `global.get` and `global.set` in functions plus module-level expression slots, builds initializer dependency constraints, tries zero/raw/summed-dependent/exponential-dependent candidate orders, scores with true ULEB index-size cost, reorders defined globals after the import prefix, and remaps numeric `GlobalIdx` users in globals, exports, tables, element/data expressions, code, and global names.
+     - Focused coverage: `src/passes/reorder_globals_test.mbt` covers registry status, the public cutoff, hot 129th-global reordering, dependency preservation, export remapping, and name-section remapping; `src/cmd/cmd_wbtest.mbt` covers explicit CLI acceptance.
+     - Fresh evidence: `bun scripts/pass-fuzz-compare.ts --pass reorder-globals --count 10000 --seed 0x5eed --max-failures 20 --out-dir .tmp/pass-fuzz-reorder-globals-10000-post-raw-name-clear` reached `6759/10000` comparable cases with `6759` normalized matches, `0` mismatches, `0` Starshine validation failures, and `20` command failures; `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-reorder-globals-20260426-post-raw-name-clear --reorder-globals` reports canonical and normalized WAT equality, Starshine pass runtime `102.767ms`, and Binaryen pass runtime `17.517ms`.
+     - Remaining blocker: no `reorder-globals-always` sibling yet and no late-tail preset slot yet because `string-gathering` and `directize` remain unimplemented.
+     - Doc: [reorder-globals Starshine strategy](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/passes/reorder-globals/starshine-strategy.md)
+   - [RG]002 - Late-Postpass Validation and Artifact Compare - Apply the landed direct pass in the real late-tail neighborhood once neighbors exist and compare the output against Binaryen.
+     - Deliverables: add string-gathering/directize neighborhood regressions; verify the pass stays after `string-gathering`; replay ordered late-tail parity once neighboring passes exist.
      - Doc: [0066#L308](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L308)
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.

@@ -667,8 +667,6 @@ pub impl PrettyPrint for Catch
 pub impl Show for Catch
 
 pub struct CodeSec(Array[Func]) derive(Eq, Hash, @debug.Debug)
-#deprecated
-pub fn CodeSec::inner(Self) -> Array[Func]
 pub fn CodeSec::new(Array[Func]) -> Self
 pub impl PrettyPrint for CodeSec
 pub impl Show for CodeSec
@@ -699,15 +697,11 @@ pub impl Show for Data
 pub impl @quickcheck.Arbitrary for Data
 
 pub struct DataCntSec(U32) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn DataCntSec::inner(Self) -> U32
 pub fn DataCntSec::new(U32) -> Self
 pub impl PrettyPrint for DataCntSec
 pub impl Show for DataCntSec
 
 pub struct DataIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn DataIdx::inner(Self) -> UInt
 pub fn DataIdx::new(UInt) -> Self
 pub impl PrettyPrint for DataIdx
 pub impl Show for DataIdx
@@ -722,8 +716,6 @@ pub impl PrettyPrint for DataMode
 pub impl Show for DataMode
 
 pub struct DataSec(Array[Data]) derive(Eq, Hash, @debug.Debug)
-#deprecated
-pub fn DataSec::inner(Self) -> Array[Data]
 pub fn DataSec::new(Array[Data]) -> Self
 pub impl PrettyPrint for DataSec
 pub impl Show for DataSec
@@ -744,8 +736,6 @@ pub impl Show for Elem
 pub impl @quickcheck.Arbitrary for Elem
 
 pub struct ElemIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn ElemIdx::inner(Self) -> UInt
 pub fn ElemIdx::new(UInt) -> Self
 pub impl PrettyPrint for ElemIdx
 pub impl Show for ElemIdx
@@ -773,8 +763,6 @@ pub impl PrettyPrint for ElemMode
 pub impl Show for ElemMode
 
 pub struct ElemSec(Array[Elem]) derive(Eq, Hash, @debug.Debug)
-#deprecated
-pub fn ElemSec::inner(Self) -> Array[Elem]
 pub fn ElemSec::new(Array[Elem]) -> Self
 pub impl PrettyPrint for ElemSec
 pub impl Show for ElemSec
@@ -786,15 +774,11 @@ pub impl PrettyPrint for Export
 pub impl Show for Export
 
 pub struct ExportSec(Array[Export]) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn ExportSec::inner(Self) -> Array[Export]
 pub fn ExportSec::new(Array[Export]) -> Self
 pub impl PrettyPrint for ExportSec
 pub impl Show for ExportSec
 
 pub struct Expr(Array[Instruction]) derive(Eq, Hash, @debug.Debug)
-#deprecated
-pub fn Expr::inner(Self) -> Array[Instruction]
 pub fn Expr::new(Array[Instruction]) -> Self
 pub impl PrettyPrint for Expr
 pub impl Show for Expr
@@ -852,15 +836,11 @@ pub impl PrettyPrint for ExtractLaneOp
 pub impl Show for ExtractLaneOp
 
 pub(all) struct F32(Float) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn F32::inner(Self) -> Float
 pub fn F32::new(Float) -> Self
 pub impl PrettyPrint for F32
 pub impl Show for F32
 
 pub(all) struct F64(Double) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn F64::inner(Self) -> Double
 pub fn F64::new(Double) -> Self
 pub impl PrettyPrint for F64
 pub impl Show for F64
@@ -893,21 +873,15 @@ pub fn FuncAnnotationAssoc::new(UInt, Array[FuncAnnotation]) -> Self
 pub impl Show for FuncAnnotationAssoc
 
 pub struct FuncAnnotationSec(Array[FuncAnnotationAssoc]) derive(Eq, Hash, @debug.Debug)
-#deprecated
-pub fn FuncAnnotationSec::inner(Self) -> Array[FuncAnnotationAssoc]
 pub fn FuncAnnotationSec::new(Array[FuncAnnotationAssoc]) -> Self
 pub impl Show for FuncAnnotationSec
 
 pub struct FuncIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn FuncIdx::inner(Self) -> UInt
 pub fn FuncIdx::new(UInt) -> Self
 pub impl PrettyPrint for FuncIdx
 pub impl Show for FuncIdx
 
 pub struct FuncSec(Array[TypeIdx]) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn FuncSec::inner(Self) -> Array[TypeIdx]
 pub fn FuncSec::new(Array[TypeIdx]) -> Self
 pub impl PrettyPrint for FuncSec
 pub impl Show for FuncSec
@@ -938,15 +912,11 @@ pub impl PrettyPrint for Global
 pub impl Show for Global
 
 pub struct GlobalIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn GlobalIdx::inner(Self) -> UInt
 pub fn GlobalIdx::new(UInt) -> Self
 pub impl PrettyPrint for GlobalIdx
 pub impl Show for GlobalIdx
 
 pub struct GlobalSec(Array[Global]) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn GlobalSec::inner(Self) -> Array[Global]
 pub fn GlobalSec::new(Array[Global]) -> Self
 pub impl PrettyPrint for GlobalSec
 pub impl Show for GlobalSec
@@ -973,15 +943,11 @@ pub impl Show for HeapType
 pub impl @quickcheck.Arbitrary for HeapType
 
 pub(all) struct I32(Int) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn I32::inner(Self) -> Int
 pub fn I32::new(Int) -> Self
 pub impl PrettyPrint for I32
 pub impl Show for I32
 
 pub(all) struct I64(Int64) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn I64::inner(Self) -> Int64
 pub fn I64::new(Int64) -> Self
 pub impl PrettyPrint for I64
 pub impl Show for I64
@@ -992,8 +958,6 @@ pub impl PrettyPrint for Import
 pub impl Show for Import
 
 pub struct ImportSec(Array[Import]) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn ImportSec::inner(Self) -> Array[Import]
 pub fn ImportSec::new(Array[Import]) -> Self
 pub impl PrettyPrint for ImportSec
 pub impl Show for ImportSec
@@ -1004,8 +968,6 @@ pub impl PrettyPrint for IndirectNameAssoc
 pub impl Show for IndirectNameAssoc
 
 pub struct IndirectNameMap(Array[IndirectNameAssoc]) derive(Eq, Hash, @debug.Debug)
-#deprecated
-pub fn IndirectNameMap::inner(Self) -> Array[IndirectNameAssoc]
 pub fn IndirectNameMap::new(Array[IndirectNameAssoc]) -> Self
 pub impl PrettyPrint for IndirectNameMap
 pub impl Show for IndirectNameMap
@@ -2074,15 +2036,11 @@ pub impl Show for Instruction
 pub impl @quickcheck.Arbitrary for Instruction
 
 pub struct LabelIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn LabelIdx::inner(Self) -> UInt
 pub fn LabelIdx::new(UInt) -> Self
 pub impl PrettyPrint for LabelIdx
 pub impl Show for LabelIdx
 
 pub struct LaneIdx(Byte) derive(Eq, Hash, @debug.Debug)
-#deprecated
-pub fn LaneIdx::inner(Self) -> Byte
 pub fn LaneIdx::new(Byte) -> Self
 pub impl PrettyPrint for LaneIdx
 pub impl Show for LaneIdx
@@ -2174,8 +2132,6 @@ pub impl PrettyPrint for LoadOp
 pub impl Show for LoadOp
 
 pub struct LocalIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn LocalIdx::inner(Self) -> UInt
 pub fn LocalIdx::new(UInt) -> Self
 pub impl PrettyPrint for LocalIdx
 pub impl Show for LocalIdx
@@ -2234,15 +2190,11 @@ pub impl Show for MemArg
 pub impl @quickcheck.Arbitrary for MemArg
 
 pub struct MemIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn MemIdx::inner(Self) -> UInt
 pub fn MemIdx::new(UInt) -> Self
 pub impl PrettyPrint for MemIdx
 pub impl Show for MemIdx
 
 pub struct MemSec(Array[MemType]) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn MemSec::inner(Self) -> Array[MemType]
 pub fn MemSec::new(Array[MemType]) -> Self
 pub impl PrettyPrint for MemSec
 pub impl Show for MemSec
@@ -2310,8 +2262,6 @@ pub impl Show for Mut
 
 pub struct Name(StringView) derive(Eq, Hash, @debug.Debug)
 pub fn Name::from_string(String) -> Self
-#deprecated
-pub fn Name::inner(Self) -> StringView
 pub fn Name::new(StringView) -> Self
 pub impl PrettyPrint for Name
 pub impl Show for Name
@@ -2323,8 +2273,6 @@ pub impl PrettyPrint for NameAssoc
 pub impl Show for NameAssoc
 
 pub struct NameMap(Array[NameAssoc]) derive(Eq, Hash, @debug.Debug)
-#deprecated
-pub fn NameMap::inner(Self) -> Array[NameAssoc]
 pub fn NameMap::new(Array[NameAssoc]) -> Self
 pub impl PrettyPrint for NameMap
 pub impl Show for NameMap
@@ -2427,15 +2375,11 @@ pub impl PrettyPrint for ReplaceLaneOp
 pub impl Show for ReplaceLaneOp
 
 pub(all) struct S33(UInt) derive(Eq, Hash, @debug.Debug)
-#deprecated
-pub fn S33::inner(Self) -> UInt
 pub fn S33::new(UInt) -> Self
 pub impl PrettyPrint for S33
 pub impl Show for S33
 
 pub struct StartSec(FuncIdx) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn StartSec::inner(Self) -> FuncIdx
 pub fn StartSec::new(FuncIdx) -> Self
 pub impl PrettyPrint for StartSec
 pub impl Show for StartSec
@@ -2491,8 +2435,6 @@ pub impl PrettyPrint for StoreOp
 pub impl Show for StoreOp
 
 pub struct StringRefsSec(Array[Bytes]) derive(Eq, Hash, @debug.Debug)
-#deprecated
-pub fn StringRefsSec::inner(Self) -> Array[Bytes]
 pub fn StringRefsSec::new(Array[Bytes]) -> Self
 pub impl Show for StringRefsSec
 
@@ -2517,15 +2459,11 @@ pub impl PrettyPrint for Table
 pub impl Show for Table
 
 pub struct TableIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn TableIdx::inner(Self) -> UInt
 pub fn TableIdx::new(UInt) -> Self
 pub impl PrettyPrint for TableIdx
 pub impl Show for TableIdx
 
 pub struct TableSec(Array[Table]) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn TableSec::inner(Self) -> Array[Table]
 pub fn TableSec::new(Array[Table]) -> Self
 pub impl PrettyPrint for TableSec
 pub impl Show for TableSec
@@ -2543,22 +2481,16 @@ pub fn TabsOrSpaces::spaces() -> Self
 pub fn TabsOrSpaces::tabs() -> Self
 
 pub struct TagIdx(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn TagIdx::inner(Self) -> UInt
 pub fn TagIdx::new(UInt) -> Self
 pub impl PrettyPrint for TagIdx
 pub impl Show for TagIdx
 
 pub struct TagSec(Array[TagType]) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn TagSec::inner(Self) -> Array[TagType]
 pub fn TagSec::new(Array[TagType]) -> Self
 pub impl PrettyPrint for TagSec
 pub impl Show for TagSec
 
 pub struct TagType(TypeIdx) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn TagType::inner(Self) -> TypeIdx
 pub fn TagType::new(TypeIdx) -> Self
 pub impl PrettyPrint for TagType
 pub impl Show for TagType
@@ -2580,22 +2512,16 @@ pub struct TypeMetadata {
 pub fn TypeMetadata::new(describes? : TypeIdx?, descriptor? : TypeIdx?) -> Self
 
 pub struct TypeSec(Array[RecType]) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn TypeSec::inner(Self) -> Array[RecType]
 pub fn TypeSec::new(Array[RecType]) -> Self
 pub impl PrettyPrint for TypeSec
 pub impl Show for TypeSec
 
 pub(all) struct U32(UInt) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn U32::inner(Self) -> UInt
 pub fn U32::new(UInt) -> Self
 pub impl PrettyPrint for U32
 pub impl Show for U32
 
 pub(all) struct U64(UInt64) derive(Eq, Hash, @debug.Debug, @quickcheck.Arbitrary)
-#deprecated
-pub fn U64::inner(Self) -> UInt64
 pub fn U64::new(UInt64) -> Self
 pub impl PrettyPrint for U64
 pub impl Show for U64

@@ -4167,6 +4167,44 @@ test "run_cmd_with_adapter applies duplicate-import-elimination to wasm inputs" 
 }
 
 ///|
+test "run_cmd_with_adapter accepts reorder-globals as an active module pass" {
+  let source =
+    #|(module
+    #|  (global $a i32 (i32.const 1))
+    #|  (global $b i32 (i32.const 2))
+    #|  (func (drop (global.get $b)))
+    #|)
+    #|,
+  let wasm = encode_module_bytes(@passes.pass_test_module_from_wat(source))
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["rg.wasm"] },
+    file_exists=fn(path) { path == "rg.wasm" },
+    read_file=fn(path) {
+      if path == "rg.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--reorder-globals", "--out", "out.wasm", "rg.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["reorder-globals"])
+  assert_eq(writes.length(), 1)
+}
+
+///|
 test "run_cmd_with_adapter applies remove-unused-module-elements to wasm inputs" {
   let wasm = encode_module_bytes(fixture_remove_unused_module_elements_module())
   let writes : Array[(String, Bytes)] = []

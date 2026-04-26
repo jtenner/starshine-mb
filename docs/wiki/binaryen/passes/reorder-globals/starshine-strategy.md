@@ -32,37 +32,42 @@ related:
 # Starshine Strategy For `reorder-globals`
 
 Use this page together with the current-main source bridge in [`../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-reorder-globals-current-main-and-test-map.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that now own the direct pass, and the concrete neighboring implementation areas the late-tail preset still has to hook into.
 
 ## The honest current status
 
-`reorder-globals` is still **unimplemented** in Starshine.
-There is no `src/passes/reorder_globals.mbt` owner file today.
+`reorder-globals` now has an active direct Starshine module-pass port in `src/passes/reorder_globals.mbt`.
 
-That does **not** mean there is no Starshine strategy surface.
-The current local strategy is boundary-only status plus late-tail landing-zone planning:
+The current local strategy is direct public-pass support plus explicit late-tail deferral:
 
-- keep the pass spelling tracked in the registry surface
-- keep the boundary-only classification explicit, because the pass needs whole-module declaration and remap work rather than HOT-region local rewrites
-- keep active pipeline requests honest by rejecting the pass name instead of pretending it already exists
-- keep the canonical no-DWARF late-tail slot documented
-- keep the backlog slice focused on safe global-index remapping, section-boundary preservation, and artifact proof
-- keep the split from the upstream/local sibling `reorder-globals-always` explicit
-- teach the surrounding late-tail dossiers a future port would have to compose with
+- keep the public pass spelling active as a module pass
+- keep `reorder-globals-always` boundary-only so the sibling policy is not collapsed into the production pass
+- preserve Binaryen's public `<128` total-global no-op
+- count whole-module global traffic and initializer dependencies
+- apply a declaration reorder plus Starshine-specific numeric `GlobalIdx` remapping
+- keep the canonical no-DWARF late-tail slot documented but out of presets until `string-gathering` and `directize` exist locally
+- keep direct artifact and 10000-case oracle proof recorded while reserving ordered late-tail proof for missing neighbors
 
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+So this page is now an **implementation status and late-tail follow-up** page.
 
 ## Exact local code map today
 
 The fastest read-along path through the current Starshine status is:
 
-- tracked boundary-only pass-name status
-  - [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
-    - `pass_registry_boundary_only_names()` includes both `"reorder-globals"` and `"reorder-globals-always"`
-- active request guard for not-yet-ported boundary passes
-  - [`src/passes/optimize.mbt#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
-    - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
-- numeric global-index and module-section surfaces a future port must remap
+- active module-pass owner
+  - [`src/passes/reorder_globals.mbt`](../../../../../src/passes/reorder_globals.mbt)
+    - implements public cutoff, traffic counting, dependency sorting, candidate scoring, declaration reorder, and numeric index remapping
+- focused direct-pass tests
+  - [`src/passes/reorder_globals_test.mbt`](../../../../../src/passes/reorder_globals_test.mbt)
+    - covers registry status, public cutoff, hot 129th-global movement, dependency preservation, export remapping, and global-name remapping
+- registry status
+  - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+    - `reorder-globals` is registered as a module pass; `reorder-globals-always` remains boundary-only
+- active dispatch and CLI surfaces
+  - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+  - [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+  - [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
+- numeric global-index and module-section surfaces the active port remaps
   - [`src/lib/types.mbt#L91`](../../../../../src/lib/types.mbt#L91)
     - `GlobalIdx` is a numeric index type, unlike Binaryen's name-keyed global references
   - [`src/lib/types.mbt#L351-L368`](../../../../../src/lib/types.mbt#L351-L368)
@@ -83,7 +88,7 @@ The fastest read-along path through the current Starshine status is:
 - canonical scheduler context
   - [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
     - the canonical late-tail slot `string-gathering -> reorder-globals -> directize`
-- neighboring living dossiers a future port must line up with
+- neighboring living dossiers the late-tail preset still must line up with
   - [`../string-gathering/index.md`](../string-gathering/index.md)
   - [`../reorder-globals-always/index.md`](../reorder-globals-always/index.md)
   - [`../directize/index.md`](../directize/index.md)
@@ -92,32 +97,25 @@ That code-and-doc map is the practical addition in this follow-up: readers can n
 
 ## What Starshine currently does for this pass name
 
-Today Starshine's behavior for `reorder-globals` is deliberately limited.
+Today Starshine accepts `--reorder-globals` as a real module pass.
 
-### 1. The name is tracked, not forgotten
+### 1. The public production pass is active
 
-`src/passes/optimize.mbt` keeps `reorder-globals` in `pass_registry_boundary_only_names()`.
-That means:
+The implementation:
 
-- the project still treats `reorder-globals` as a real known pass
-- the spelling is preserved in the registry-level compatibility surface
-- the pass remains visible in tracker and backlog work instead of silently falling out of planning
-- the current local classification already teaches an important semantic fact: this is not expected to fit naturally into the existing HOT-only function pipeline
+- returns unchanged below `128` total globals, matching the public Binaryen cutoff
+- counts `global.get` and `global.set` uses in functions and module-level expression code
+- builds initializer dependency edges from defined-global initializer `global.get`s
+- tries the zero/raw/summed-dependent/exponential-dependent candidate families
+- scores candidates using true observed counts and estimated ULEB global-index byte widths
+- keeps imported globals before defined globals
+- reorders the defined `global_sec` entries and remaps numeric global references across module/code/name surfaces
 
-That is the right current behavior for an unimplemented late boundary pass.
+### 2. The `always` sibling still rejects honestly
 
-### 2. The active pipeline rejects the pass honestly
+`reorder-globals-always` remains boundary-only. That keeps explicit requests for the small-module/internal-helper variant honest until the repo chooses to port that separate policy.
 
-The same file's `run_hot_pipeline_expand_passes(...)` path returns a specific boundary-only error when a user requests `reorder-globals`.
-That matters because it keeps three things honest at once:
-
-- explicit pass selection does not silently no-op
-- the CLI and API surface do not imply the pass already exists locally
-- the boundary-only classification remains executable documentation rather than dead metadata
-
-For this pass family, that is currently the most important in-repo behavior after name tracking.
-
-### 3. The work is planned as a real parity slice, not an orphan idea
+### 3. The remaining work is planned as a real parity slice, not an orphan idea
 
 `agent-todo.md` already gives `reorder-globals` a real backlog slice under `RG`.
 The current deliverables are framed around the right local concerns:
@@ -130,9 +128,9 @@ The current deliverables are framed around the right local concerns:
 
 That backlog framing already matches the upstream dossier better than a vague “sort globals by use count” summary would.
 
-## The right future Starshine implementation shape
+## The right Starshine implementation shape
 
-The current docs and neighboring passes strongly suggest that a future local `reorder-globals` port should be taught as a **late module pass**, not as an isolated HOT peephole and not as a side effect of `string-gathering`.
+The current docs, neighboring passes, and landed direct port teach `reorder-globals` as a **late module pass**, not as an isolated HOT peephole and not as a side effect of `string-gathering`.
 
 Why:
 
@@ -143,13 +141,13 @@ Why:
 
 So the local strategy should be thought of as:
 
-1. wait until late-tail cleanup has mostly stabilized the global surface
-2. collect enough whole-module information to model index-sensitive global traffic and initializer dependencies
-3. search or otherwise choose a dependency-safe final declaration order that matches the reviewed Binaryen contract closely enough for parity
-4. apply a declaration reorder and whatever local remap/writeback work Starshine's representation requires
-5. validate exports, string users, startup/global-initializer correctness, and final artifact parity in the real late-tail neighborhood
+1. keep the direct module pass focused on whole-module global traffic and initializer dependencies
+2. choose a dependency-safe final declaration order with the reviewed Binaryen candidate families
+3. apply a declaration reorder and Starshine-specific numeric remapping
+4. keep reduced export/name/dependency coverage green
+5. validate string users, startup/global-initializer correctness, and final artifact parity in the real late-tail neighborhood once surrounding passes exist
 
-In other words, the future port should slot into a local late optimization ecosystem that is already documented.
+In other words, the direct port has landed, while its preset slot still belongs to the documented late optimization ecosystem.
 
 ## The most important local dependency map
 
@@ -163,7 +161,7 @@ Why it matters locally:
 
 - the no-DWARF scheduler docs already place `reorder-globals` immediately after `string-gathering`
 - the `string-gathering` dossier already teaches that its own internal reorder is only a validity repair for defining globals
-- a future Starshine port should therefore keep the same division of labor explicit: string gathering first for validity/canonicalization, final global layout second for size and declaration order
+- Starshine should keep the same division of labor explicit when the late-tail preset lands: string gathering first for validity/canonicalization, final global layout second for size and declaration order
 
 That boundary is easy to blur if readers only remember that both passes can move globals.
 
@@ -175,9 +173,9 @@ See:
 
 Why it matters locally:
 
-- `src/passes/optimize.mbt` already preserves both spellings in the boundary-only registry
+- `src/passes/optimize.mbt` preserves both spellings but now classifies only `reorder-globals-always` as boundary-only
 - the upstream dossier keeps the `< 128` public no-op rule and the smooth-scoring sibling distinct
-- a future local port may need to decide whether exact parity also requires a separate internal/test-facing helper story, or whether the repo should keep only the production public policy initially
+- a future sibling port may need to decide whether exact parity also requires a separate internal/test-facing helper story, or whether the repo should keep only the production public policy
 
 The current local strategy page therefore keeps the sibling boundary explicit instead of teaching `reorder-globals` as if it were the entire family.
 
@@ -191,7 +189,7 @@ Why it matters locally:
 
 - the canonical no-DWARF scheduler places `reorder-globals` immediately before `directize`
 - even though the passes operate on different surfaces, the local late-tail contract is clearer if `reorder-globals` is validated in the real neighborhood rather than as an isolated declaration-order tweak
-- a future Starshine port should therefore include scheduler-neighborhood proof, not only standalone reorder tests
+- the remaining Starshine late-tail work should therefore include scheduler-neighborhood proof, not only standalone reorder tests
 
 ### `reorder-globals` is boundary/module work, not a neighbor of the current HOT peephole cluster
 
@@ -206,7 +204,7 @@ The current active Starshine HOT cluster covers passes like:
 - `merge-blocks`
 
 Those are valuable neighboring dossiers for style and validation habits, but `reorder-globals` does not naturally belong in that cluster.
-Its current boundary-only classification is not arbitrary bookkeeping.
+Its module-pass classification is not arbitrary bookkeeping.
 It reflects the same architectural fact the Binaryen dossier teaches: global declaration layout and representation-correct remapping come first.
 
 ## What Starshine does **not** have yet
@@ -214,21 +212,17 @@ It reflects the same architectural fact the Binaryen dossier teaches: global dec
 A future contributor should be careful not to overread the current local surface.
 Starshine does **not** currently have:
 
-- a `reorder-globals` MoonBit implementation file
-- local global-traffic counting or dependency sorting code for this pass
-- a local declaration-remap helper dedicated to this late-tail transformation
-- reduced `reorder-globals` regression tests
-- artifact replay coverage specific to the pass beyond the tracked backlog slice and scheduler docs
+- a `reorder-globals-always` implementation
+- public optimize/shrink preset scheduling for the late `string-gathering -> reorder-globals -> directize` tail
+- ordered late-tail artifact replay coverage through `string-gathering -> reorder-globals -> directize`
 
 So the current repo status is best summarized as:
 
-- name tracked
-- boundary-only status tracked
-- request guard tracked
-- backlog tracked
-- scheduler slot documented
-- sibling split from `reorder-globals-always` documented
-- transform itself not yet landed
+- direct public transform landed
+- `always` sibling still boundary-only
+- late-tail preset integration deferred behind missing neighbors
+- reduced tests landed
+- direct artifact/oracle proof recorded; ordered late-tail proof still blocked on missing neighbors
 
 ## Validation plan for the eventual port
 
@@ -251,26 +245,26 @@ A future real implementation should validate in this order:
 4. scheduler-neighborhood interaction tests
    - the full late-tail `string-gathering -> reorder-globals -> directize`
 5. artifact and oracle comparison
-   - the `RG` slice in `agent-todo.md`
-   - the canonical no-DWARF debug-artifact replay path
+   - direct pass evidence is `.tmp/pass-fuzz-reorder-globals-10000-post-raw-name-clear` and `.tmp/self-opt-reorder-globals-20260426-post-raw-name-clear`
+   - the remaining future evidence is ordered late-tail replay once neighboring passes exist
 
 That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the in-repo workflow and the exact neighboring passes that should feed the port.
 
 ## Bottom line
 
-Current Starshine `reorder-globals` strategy is honest boundary-only tracking and late-tail landing-zone planning:
+Current Starshine `reorder-globals` strategy is direct public-pass support plus late-tail landing-zone planning:
 
-- the pass name is intentionally preserved in [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
-- the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
-- [`agent-todo.md#L672-L687`](../../../../../agent-todo.md#L672-L687) already treats it as a real late parity slice under `RG`
+- the pass implementation lives in [`src/passes/reorder_globals.mbt`](../../../../../src/passes/reorder_globals.mbt)
+- focused coverage lives in [`src/passes/reorder_globals_test.mbt`](../../../../../src/passes/reorder_globals_test.mbt)
+- `reorder-globals` is registered as an active module pass while `reorder-globals-always` remains boundary-only
+- [`agent-todo.md`](../../../../../agent-todo.md) records direct artifact/oracle evidence and treats late-tail proof as the remaining `RG` work
 - the canonical slot is already documented in [`../../no-dwarf-default-optimize-path.md#L35`](../../no-dwarf-default-optimize-path.md#L35)
-- the surrounding [`string-gathering`](../string-gathering/index.md), [`reorder-globals-always`](../reorder-globals-always/index.md), and [`directize`](../directize/index.md) dossiers already define the practical landing zone for a future port
+- the surrounding [`string-gathering`](../string-gathering/index.md), [`reorder-globals-always`](../reorder-globals-always/index.md), and [`directize`](../directize/index.md) dossiers define the remaining landing zone
 
-So the right mental model today is not “nothing exists locally.”
-It is:
+So the right mental model today is:
 
-- **no transform yet**
-- **clear tracked status**
-- **clear late-tail dependency story**
-- **clear public-vs-`always` sibling boundary**
-- **clear reindexing-and-validation plan for the eventual port**
+- **public transform landed**
+- **`always` sibling deferred**
+- **late-tail preset scheduling deferred**
+- **reduced reindexing tests landed**
+- **direct artifact and 10000-case compare evidence recorded; ordered late-tail proof pending**

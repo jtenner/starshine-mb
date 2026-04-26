@@ -162,6 +162,10 @@ pub fn remove_unused_names_descriptor() -> @ir.HotPassDescriptor
 
 pub fn remove_unused_names_summary() -> String
 
+pub fn reorder_globals_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn reorder_globals_summary() -> String
+
 pub fn reorder_locals_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn reorder_locals_summary() -> String

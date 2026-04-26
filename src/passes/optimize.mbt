@@ -134,9 +134,8 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "type-finalizing", "type-un-finalizing", "unsubtyping", "inlining", "inlining-optimizing",
     "inline-main", "merge-similar-functions", "minimize-rec-groups", "type-merging",
     "monomorphize", "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all",
-    "i64-to-i32-lowering", "reorder-types", "reorder-globals", "reorder-globals-always",
-    "reorder-functions", "reorder-functions-by-name", "remove-unused-types", "remove-unused",
-    "remove-unused-non-function-elements",
+    "i64-to-i32-lowering", "reorder-types", "reorder-globals-always", "reorder-functions",
+    "reorder-functions-by-name", "remove-unused-types", "remove-unused", "remove-unused-non-function-elements",
   ]
 }
 
@@ -249,6 +248,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     ),
     pass_registry_entry_module("reorder-locals", reorder_locals_summary()),
     pass_registry_entry_module("duplicate-import-elimination", die_summary()),
+    pass_registry_entry_module("reorder-globals", reorder_globals_summary()),
     pass_registry_entry_preset(
       "optimize",
       "Run the default hot optimization preset.",

@@ -144,13 +144,17 @@ The tests are complementary. Do not cite only `reorder-globals.wast` for the pub
 
 ## Current Starshine status map
 
-Starshine does not have a local transform owner file yet.
+Starshine now has a direct public-pass owner file for `reorder-globals`.
 
 | Local source | Current role |
 | --- | --- |
-| `src/passes/optimize.mbt:127-140` | Tracks both `reorder-globals` and `reorder-globals-always` as boundary-only names. |
-| `src/passes/optimize.mbt:446-461` | Rejects active requests for boundary-only passes with an explicit error instead of silently no-oping. |
-| `agent-todo.md:672-687` | Tracks backlog slice `RG - Reorder Globals`, including cost model/reindexing and late-postpass validation/artifact compare work. |
+| `src/passes/reorder_globals.mbt` | Active module-pass implementation: public `<128` cutoff, module/code global traffic counts, initializer dependency matrix, Binaryen-shaped candidate ordering, true ULEB-size scoring, declaration reorder, and numeric `GlobalIdx` remapping. |
+| `src/passes/reorder_globals_test.mbt` | Focused direct-pass coverage for registry status, public cutoff, 129-global reorder, dependency preservation, export remapping, and name-section remapping. |
+| `src/passes/optimize.mbt` | Registers `reorder-globals` as a module pass while keeping `reorder-globals-always` boundary-only. |
+| `src/passes/pass_manager.mbt` | Dispatches the active module pass. |
+| `src/cmd/cmd_wbtest.mbt` | Covers explicit CLI acceptance for `--reorder-globals`. |
+| `scripts/lib/pass-fuzz-compare-task.ts` | Lists `--reorder-globals` for direct compare harness runs. |
+| `agent-todo.md` | Tracks completed direct-pass status plus late-tail scheduling follow-up. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:34-35` | Records the canonical late-tail slot: `string-gathering -> reorder-globals -> directize`. |
 | `src/lib/types.mbt:91` | Defines numeric `GlobalIdx`, the core index type that a Starshine implementation must remap. |
 | `src/lib/types.mbt:351-368` | Defines `Module` section storage, including `import_sec`, `global_sec`, `export_sec`, `elem_sec`, `code_sec`, and `data_sec`. |
@@ -160,9 +164,9 @@ Starshine does not have a local transform owner file yet.
 | `src/validate/validate.mbt:949-965` | Validates const-expression `global.get` against imported or previously defined immutable globals, making declaration order a validation constraint. |
 | `src/ir/hot.mbt:206-218` and `src/ir/hot.mbt:285-297` | Lifts `GlobalGet` / `GlobalSet` into HOT nodes with numeric indices, confirming that this pass is not naturally a function-local HOT peephole. |
 
-## What a future Starshine implementation must add
+## What the current Starshine implementation adds
 
-A faithful Starshine port needs at least these pieces:
+The active direct Starshine port includes these pieces:
 
 1. **Whole-module traffic counter**
    - count `global.get` and `global.set` in function bodies,
@@ -173,9 +177,9 @@ A faithful Starshine port needs at least these pieces:
    - preserve `global.get` dependencies among global initializers,
    - validate against Starshine's const-expression rules.
 3. **Binaryen-compatible ordering policy**
-   - public `< 128` no-op if parity is the target,
-   - separate `reorder-globals-always` policy or an explicit documented deviation,
-   - zero/raw/sum/exponential candidate search or a proven equivalent.
+   - public `< 128` no-op,
+   - `reorder-globals-always` kept separate as boundary-only,
+   - zero/raw/sum/exponential candidate search.
 4. **Numeric `GlobalIdx` remapper**
    - global declarations,
    - exports of globals,
@@ -184,9 +188,9 @@ A faithful Starshine port needs at least these pieces:
    - global-initializer dependencies,
    - binary encode/decode and validation-sensitive order.
 5. **Late-tail scheduling proof**
-   - run after `string-gathering`,
-   - run before `directize`,
-   - prove reduced shapes plus debug-artifact or oracle parity.
+   - still deferred until `string-gathering` and `directize` exist locally,
+   - direct reduced shapes are covered now,
+   - direct oracle evidence is recorded: `.tmp/pass-fuzz-reorder-globals-10000-post-raw-name-clear` has `6759` comparable normalized matches with `0` mismatches before known command-failure cutoff, and `.tmp/self-opt-reorder-globals-20260426-post-raw-name-clear` is canonical/normalized-WAT equal on the debug artifact.
 
 ## Non-goals
 
