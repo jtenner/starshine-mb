@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `avoid-reinterprets` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/avoid-reinterprets/` folder, and `docs/wiki/raw/research/`, then chose removed `avoid-reinterprets` because the dossier was source-correct but still left future implementers to infer the safe first Starshine slice, LocalGraph-equivalent proof decision, and validation ladder.
+- Added `docs/wiki/raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`, rechecking official Binaryen `version_129` and current-main `AvoidReinterprets.cpp`, `pass.cpp`, `avoid-reinterprets.wast`, and `avoid-reinterprets64.wast`; the focused recheck found no teaching-relevant drift from the narrow full-width load/reinterpret contract.
+- Added `docs/wiki/raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md` and `docs/wiki/binaryen/passes/avoid-reinterprets/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, single-load-chain guide, WAT-shape catalog, and Starshine strategy page so transformed shapes, upstream strategy, exact local registry/HOT/use-def/SSA/codegen code locations, direct first-slice order, indirect helper-local prerequisites, memory64 pointer-temp rule, and Binaryen oracle comparison are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; promoted `avoid-reinterprets` from `dossier` to `deep` while keeping the pass explicitly removed and outside the current no-DWARF / saved-`-O4z` queues.
+
 ## [2026-04-26] research | deepen `directize` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/directize/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `directize` because the dossier had correct upstream strategy coverage but still left the future Starshine first slice and validation ladder scattered across registry, parser, IR, binary, HOT, validator, and backlog surfaces while the tracker still classified it as only `dossier`.

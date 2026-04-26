@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
+  - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
   - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
@@ -17,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Single-load chains, fallthrough, and bailout boundaries in `avoid-reinterprets`
@@ -26,6 +29,7 @@ related:
 The hard part of `avoid-reinterprets` is not the final rewrite syntax.
 The hard part is proving when a reinterpreting value still comes from exactly one source load.
 The 2026-04-24 Starshine follow-up in [`./starshine-strategy.md`](./starshine-strategy.md) keeps this proof obligation explicit because the current local HOT analyses are not yet documented as a drop-in equivalent of Binaryen's `LocalGraph` behavior.
+The 2026-04-26 port-readiness page, [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), turns that caution into an implementation rule: ship direct `reinterpret(load)` flips before attempting this local-chain proof.
 
 That proof depends on three things working together:
 
@@ -183,6 +187,8 @@ They are also not current Starshine behavior: Starshine still tracks the pass on
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)
+- [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)
 - [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)

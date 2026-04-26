@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
+  - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
   - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./single-load-chains-and-bailouts.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # WAT shape catalog for `avoid-reinterprets`
@@ -31,6 +34,7 @@ Read every example below as:
 - and what a faithful port must not overgeneralize.
 
 For current local status, see [`./starshine-strategy.md`](./starshine-strategy.md): Starshine does not implement these shapes yet and still rejects `avoid-reinterprets` as a removed registry entry.
+For a future implementation order, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): direct full-width load flips are the safe first slice; local-get helper-local rewrites need the single-load provenance proof first.
 
 ## Shape 1: direct full-width load flip
 
@@ -244,7 +248,7 @@ The dedicated `avoid-reinterprets64.wast` file exists to lock that down.
 
 ## What a future Starshine port must preserve
 
-The local implementation surface is still future work, but [`./starshine-strategy.md`](./starshine-strategy.md) maps the likely HOT builders, fresh-local allocation, and local-analysis questions.
+The local implementation surface is still future work, but [`./starshine-strategy.md`](./starshine-strategy.md) maps the likely HOT builders, fresh-local allocation, and local-analysis questions, while [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) maps the first-slice and validation order.
 Any future port must preserve:
 
 - direct-load flip versus indirect-user helper-local split
@@ -256,6 +260,8 @@ Any future port must preserve:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)
+- [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)
 - [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)

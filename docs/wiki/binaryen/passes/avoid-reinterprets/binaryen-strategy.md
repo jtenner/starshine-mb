@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
+  - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
   - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
@@ -17,6 +19,7 @@ related:
   - ./single-load-chains-and-bailouts.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen strategy for `avoid-reinterprets`
@@ -25,8 +28,8 @@ related:
 
 Upstream Binaryen publishes this pass as `avoid-reinterprets`.
 
-The 2026-04-24 primary-source capture is [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md).
-It confirms that the reviewed implementation is a **small function-parallel AST pass** whose real job is:
+The 2026-04-24 primary-source capture is [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md), and the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md).
+Together they confirm that the reviewed implementation is a **small function-parallel AST pass** whose real job is:
 
 - identify reinterpret users of a full-width load value,
 - prove that value still comes from one load through a simple local chain,
@@ -45,10 +48,11 @@ That means the best mental model is:
 
 The local repo makes three scheduler facts explicit:
 
-- it remains removed in [`src/passes/optimize.mbt#L144-L153`](../../../../../src/passes/optimize.mbt#L144-L153)
+- it remains removed in [`src/passes/optimize.mbt#L144-L150`](../../../../../src/passes/optimize.mbt#L144-L150)
 - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43) still lists it as removed-until-hot-implementation work
 - it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
-- [`./starshine-strategy.md`](./starshine-strategy.md) now records the local request guard, missing backlog slice, and likely HOT-IR analysis questions
+- [`./starshine-strategy.md`](./starshine-strategy.md) records the local request guard, missing backlog slice, and likely HOT-IR analysis questions
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) records the recommended future slice order: direct full-width `reinterpret(load)` flips first, indirect local-chain helper-local rewrites second
 
 So the scheduler truth is:
 
@@ -298,6 +302,7 @@ I compared:
 
 The original dossier found the files identical on 2026-04-21.
 The 2026-04-24 source-capture follow-up did not surface teaching-relevant drift in the main pass file, registration surface, helper headers, or dedicated lit files.
+The 2026-04-26 port-readiness follow-up rechecked the official `version_129` and current-main implementation, registration, and dedicated lit surfaces again and found no teaching-relevant drift from this contract.
 
 That does not prove every neighboring helper file is frozen, but it does mean the reviewed implementation summary still matches the official sources checked for this dossier.
 
@@ -331,7 +336,8 @@ A faithful port should preserve:
 
 - exact reinterpret-op recognition
 - exact full-width-only eligibility
-- exact single-load provenance proof
+- exact single-load provenance proof for the indirect local-get family
+- a direct-load first slice that does not pretend to solve local-chain provenance
 - fallthrough-wrapper sensitivity
 - memory32 vs memory64 pointer temp typing
 - helper-local duplication for indirect reinterpret users
@@ -346,6 +352,8 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)
+- [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)
 - [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)

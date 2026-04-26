@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
+  - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
   - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md
@@ -18,12 +20,13 @@ related:
   - ./single-load-chains-and-bailouts.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Upstream implementation structure and tests for `avoid-reinterprets`
 
-The 2026-04-24 primary-source manifest is [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md).
-Use [`./starshine-strategy.md`](./starshine-strategy.md) for the local status and exact Starshine code-map bridge.
+The 2026-04-24 primary-source manifest is [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md), with a focused 2026-04-26 port-readiness recheck in [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md).
+Use [`./starshine-strategy.md`](./starshine-strategy.md) for the local status and exact Starshine code-map bridge, and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the future first-slice plan.
 
 ## Main reviewed files
 
@@ -162,7 +165,8 @@ If you only remember one source role per file, remember this:
 
 ## What a future Starshine port must preserve
 
-The local status and likely HOT-IR building blocks are now mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
+The local status and likely HOT-IR building blocks are mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
+The future slice order and reduced validation ladder are mapped in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 A future port should preserve:
 
 - the split between direct and indirect reinterpret users
@@ -173,6 +177,8 @@ A future port should preserve:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)
+- [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)
 - [`../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md`](../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md`](../../../raw/research/0172-2026-04-21-avoid-reinterprets-binaryen-research.md)
