@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
+  - ../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
   - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
@@ -16,12 +18,14 @@ related:
   - ./binaryen-strategy.md
   - ./temp-ret-helpers-and-pruning-split.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `legalize-js-interface` WAT shapes
 
 This page is a beginner-friendly catalog of the main IR shapes Binaryen rewrites.
 The examples are schematic: they show the contract, not verbatim full lit output.
+For the Starshine-specific first-slice order and validation matrix that corresponds to these shapes, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## 1. Exported `i64` result -> legal wrapper returning low `i32`
 

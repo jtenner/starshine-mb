@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
+  - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
   - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./helper-import-roster-filters-and-unsupported-types.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../instrument-locals/index.md
 ---
 
@@ -326,8 +329,8 @@ This is the same basic instrumentation-story neighborhood as `instrument-locals`
 The raw primary-source manifest anchors this page to Binaryen `version_129`.
 The official GitHub release page reviewed on 2026-04-24 showed publish date **2026-04-01 14:31**.
 
-A narrow current-`main` spot check of `InstrumentMemory.cpp` and the four dedicated lit files did not surface teaching-relevant contract drift beyond the tagged `version_129` claims.
-That spot check is intentionally narrower than a full upstream drift audit, so keep future source corrections explicit if Binaryen changes the pass.
+A focused 2026-04-26 current-`main` recheck of `InstrumentMemory.cpp`, `pass.cpp`, `passes.h`, and the four dedicated lit files did not surface teaching-relevant contract drift beyond the tagged `version_129` claims.
+That recheck is intentionally narrower than a full upstream history audit, so keep future source corrections explicit if Binaryen changes the pass.
 
 ## Nearby-pass relationship map
 
@@ -348,7 +351,7 @@ After instrumentation, many operations that previously looked removable will now
 
 ## What a future Starshine port must preserve
 
-Current Starshine has no implementation, registry spelling, or backlog slice for this pass; see [`./starshine-strategy.md`](./starshine-strategy.md) for the local code map.
+Current Starshine has no implementation, registry spelling, or backlog slice for this pass; see [`./starshine-strategy.md`](./starshine-strategy.md) for the local code map and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the first-slice validation ladder.
 A faithful future port should preserve:
 
 - public pass identity separate from default optimization presets
@@ -372,6 +375,8 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md)
+- [`../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md`](../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)
 - [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)

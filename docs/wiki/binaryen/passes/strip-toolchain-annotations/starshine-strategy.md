@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
+  - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -16,6 +18,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../duplicate-function-elimination/index.md
   - ../tracker.md
 ---
@@ -36,6 +39,7 @@ The exact local status is:
 
 That means Starshine's present strategy is **non-adoption plus documentation**.
 The wiki tracks the upstream pass because Binaryen exposes it publicly and because the late-pass chronology had already mentioned it without a canonical dossier.
+The 2026-04-26 port-readiness update keeps that status unchanged but documents a safe future module-pass subset in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 
 ## Exact local code locations to read first
 
@@ -61,6 +65,8 @@ The wiki tracks the upstream pass because Binaryen exposes it publicly and becau
   - existing annotation-section remap helper used when DFE rewrites function indices; this is not a strip pass, but it is the closest current pass-local annotation-maintenance code.
 - `src/passes/duplicate_function_elimination.mbt:3034-3072`
   - DFE equivalence and hashing include annotations, which shows annotations are observable to at least one local pass today.
+- `src/passes/duplicate_import_elimination.mbt:310-332` and `src/passes/remove_unused_module_elements.mbt:1703-1724`
+  - additional module passes that remap annotation indices when import/function spaces change.
 
 ## Why there is no straightforward HOT-IR port today
 
@@ -76,7 +82,9 @@ So the first Starshine decision is not how to fold annotations in HOT IR; it is 
 
 ## If Starshine ever ports it
 
-A faithful local port should probably start as a **module pass** over the module's annotation metadata, not as a normal HOT peephole.
+A useful first local port should probably start as a **module pass** over `FuncAnnotationSec`, not as a normal HOT peephole.
+That first slice can strip `binaryen.removable.if.unused`, `binaryen.idempotent`, and `binaryen.js.called` from function/import annotation entries while preserving `metadata.code.inline` and unknown annotations.
+A faithful Binaryen parity port is broader: it must also model per-expression `codeAnnotations` or explicitly document that Starshine does not support that surface.
 
 Minimum acceptance criteria:
 

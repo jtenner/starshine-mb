@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md
+  - ../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md
   - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
@@ -16,6 +18,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./import-and-call-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../string-lowering/index.md
   - ../string-gathering/index.md
   - ../../../strings/string-const-surface.md
@@ -108,7 +111,10 @@ For Starshine work:
 
 - first add honest registry handling if the pass is tracked locally;
 - add module-pass tests before implementation;
+- start with the magic-import `global.get -> string.const` slice before JSON custom-section or helper-call work;
 - keep the pass out of active presets until parser/type/model coverage includes the full lifted output surface.
+
+See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the first-slice order, prerequisite code map, and validation ladder.
 
 ## Page map
 
@@ -120,9 +126,13 @@ For Starshine work:
   Beginner-to-advanced transformed-shape catalog with before/after examples and bailout cases.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Exact current Starshine status and code-location map for the missing pass plus reusable string plumbing.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Future-port checklist: registry honesty, local opcode prerequisites, magic-import first slice, JSON/helper follow-on slices, cast-policy decision, and validation ladder.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md)
+- [`../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md`](../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md)
 - [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)

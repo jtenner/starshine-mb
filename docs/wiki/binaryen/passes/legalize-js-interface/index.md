@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
+  - ../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
   - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0223-2026-04-21-legalize-js-interface-binaryen-research.md
@@ -19,6 +21,7 @@ related:
   - ./temp-ret-helpers-and-pruning-split.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../i64-to-i32-lowering/index.md
   - ../legalize-and-prune-js-interface/index.md
   - ../tracker.md
@@ -74,8 +77,9 @@ So this pass is best taught as:
 - `--pass-arg=legalize-js-interface-export-originals` keeps extra `orig$...` exports for non-import, non-`dynCall_*` originals.
 - `--pass-arg=legalize-js-interface-exported-helpers` reuses already-exported `__set_temp_ret` / `__get_temp_ret` helpers instead of importing `setTempRet0` / `getTempRet0` from `env`.
 - The pruning sibling goes further: it removes exports and replaces imports that still expose unsupported JS-surface features such as SIMD, multivalue results, exception handling, or stack switching.
-- A current-`main` spot check found `LegalizeJSInterface.cpp`, the reviewed helper headers, and the reviewed lit files unchanged in teaching-relevant ways from `version_129`.
+- A 2026-04-26 current-`main` port-readiness recheck found `LegalizeJSInterface.cpp`, the reviewed helper headers, and the reviewed lit files unchanged in teaching-relevant ways from `version_129`.
 - The current Starshine strategy is honest non-adoption: no registry entry, no owner file, no backlog slice, but clear module/import/export/ref.func code surfaces for a future module pass.
+- The new Starshine port-readiness page makes the first safe implementation slice explicit: registry honesty, export stubs, default temp-ret helpers, import wrappers plus direct-call repair, `ref.func` repair, then deletion of original illegal imports; prune mode stays separate.
 
 ## Page map
 
@@ -89,12 +93,14 @@ So this pass is best taught as:
   Beginner-friendly before/after shape catalog for exported stubs, imported wrappers, `ref.func` repair, helper reuse, and prune-only removals.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future port bridge: exact registry omission, unknown-pass request path, no owner file, no backlog slice, and the local module/import/export/ref.func code surfaces a future implementation would need.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  First-slice and validation guide for a future module pass: function-index rewrite risks, export-stub and import-wrapper sequencing, `ref.func` repair coverage, temp-ret helper lanes, and Binaryen fixture comparison.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `legalize-js-interface` research.
 - Keep it explicitly marked as an **upstream-only** dossier unless Starshine later grows a real registry entry for this surface.
-- Cite [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md) for the current raw source manifest and [`./starshine-strategy.md`](./starshine-strategy.md) for the local follow-along path.
+- Cite [`../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md) and [`../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md`](../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md) for raw source provenance, [`./starshine-strategy.md`](./starshine-strategy.md) for current local status, and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for future implementation sequencing.
 - Keep the split from `i64-to-i32-lowering` explicit: `legalize-js-interface` changes the JS boundary ABI, while `i64-to-i32-lowering` changes internal module code.
 - Keep the sibling relationship explicit too: `legalize-and-prune-js-interface` is the same family plus extra pruning, not a wholly different algorithm.
 

@@ -166,6 +166,10 @@ pub fn reorder_locals_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn reorder_locals_summary() -> String
 
+pub fn rse_descriptor() -> @ir.HotPassDescriptor
+
+pub fn rse_summary() -> String
+
 pub fn rume_extract_functions(@lib.Module, Array[@lib.FuncIdx]) -> Result[@lib.Module, String]
 
 pub fn rume_run_module_pass(@lib.Module) -> @lib.Module

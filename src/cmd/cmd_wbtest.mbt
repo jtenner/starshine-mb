@@ -3919,6 +3919,48 @@ test "run_cmd_with_adapter accepts code-pushing" {
 }
 
 ///|
+test "run_cmd_with_adapter accepts redundant-set-elimination" {
+  let input_mod = @passes.pass_test_module_from_wat(
+    "(module (func (local i32) i32.const 1 local.set 0 i32.const 1 local.set 0))",
+  )
+  let input_wasm = encode_module_bytes(input_mod)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["a.wasm"] },
+    file_exists=fn(path) { path == "a.wasm" },
+    read_file=fn(path) {
+      if path == "a.wasm" {
+        Ok(input_wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+
+  let summary = match
+    run_cmd_with_adapter(
+      ["--redundant-set-elimination", "--out", "out.wasm", "a.wasm"],
+      io,
+    ) {
+    Ok(summary) => summary
+    Err(err) =>
+      fail("expected redundant-set-elimination cli success, got \{err}")
+  }
+  assert_eq(summary.resolved_passes, ["redundant-set-elimination"])
+  assert_eq(writes.length(), 1)
+  assert_eq(writes[0].0, "out.wasm")
+  match @validate.validate_module(decode_module_bytes(writes[0].1)) {
+    Ok(_) => ()
+    Err(err) =>
+      fail("expected redundant-set-elimination output to validate, got \{err}")
+  }
+}
+
+///|
 #cfg(target="native")
 test "run_cmd_with_adapter dumps lowered remove-unused-brs carried guard wrappers without br_if" {
   let source =
@@ -5846,8 +5888,7 @@ test "run_cmd native child process validates extracted optimize-instructions deb
   assert_true(native_write_bytes(input_path, wasm))
 
   let (signaled, status) = native_run_cmd_exit_status([
-    "--extract-functions=523", "--optimize-instructions", "--out", output_path,
-    input_path,
+    "--extract-functions=523", "--optimize-instructions", "--out", output_path, input_path,
   ])
   if signaled {
     native_remove_if_exists(input_path)

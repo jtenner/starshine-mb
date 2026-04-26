@@ -1,15 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
+  - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `strip-toolchain-annotations` WAT and annotation shapes
@@ -139,7 +142,34 @@ After:
 
 The pass has no reason to touch function order, type declarations, names, exports, imports, locals, or expression bodies.
 
-## 7. Explicit non-goals
+## 7. Starshine first-slice function-annotation shape
+
+Starshine's current local annotation surface is function/function-import metadata lowered into `FuncAnnotationSec`.
+A future first slice can therefore handle this module shape even before expression annotations exist:
+
+Before:
+
+```wat
+(@binaryen.idempotent)
+(@metadata.code.inline "\00")
+(func $local)
+
+(@binaryen.js.called)
+(import "env" "host" (func $host))
+```
+
+After:
+
+```wat
+(@metadata.code.inline "\00")
+(func $local)
+
+(import "env" "host" (func $host))
+```
+
+Caveat: this is a Starshine subset shape, not the full Binaryen per-expression `codeAnnotations` contract.
+
+## 8. Explicit non-goals
 
 These should not be described as `strip-toolchain-annotations` shapes:
 
@@ -159,4 +189,5 @@ A correct Starshine port should prove at least:
 - preserved metadata remains;
 - mixed annotations are partially stripped, not all-or-nothing deleted;
 - code and module sections stay unchanged except for supported annotation storage;
-- unknown or unsupported annotation surfaces have an explicit policy instead of silent best-effort deletion.
+- unknown or unsupported annotation surfaces have an explicit policy instead of silent best-effort deletion;
+- a first Starshine subset says clearly whether expression-level annotation wrappers are unsupported, preserved, or represented in a new side table.

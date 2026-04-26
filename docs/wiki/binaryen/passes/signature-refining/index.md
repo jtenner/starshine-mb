@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
+  - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
   - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
@@ -17,6 +19,7 @@ related:
   - ./params-results-publicity-and-intrinsics.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
   - ../index.md
   - ../signature-pruning/index.md
@@ -124,6 +127,8 @@ What it actually is in `version_129`:
   - Beginner-friendly WAT-shape catalog covering direct and `call_ref` positives, mixed-LUB outcomes, result refinement, body-fixup locals, intrinsic positives and negatives, and the main bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current Starshine status and future-port map: boundary-only registry entry, active request rejection, active-preset omission, no owner file, no active backlog slice, local `TypeIdx` / `FuncType` / `CallRef` / validator / binary surfaces, and the reason a faithful port must be module/type-graph work rather than a HOT peephole.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - Implementation-readiness bridge for a future Starshine port: registry-honesty tests, no-rewrite analyzer, narrow direct-call param refinement, shared-heap-type fanout, body-fixup/result/`call_ref`/`call.without.effects` follow-up slices, and validation ladder.
 
 ## Current maintenance rule
 
@@ -134,14 +139,18 @@ What it actually is in `version_129`:
   - it does **not** belong to the repo's current open-world no-DWARF optimize path
 - Keep the distinction between `signature-pruning` and `signature-refining` explicit.
 - Keep the distinction between scheduler gating and pass-local gates explicit.
+- Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) as the first stop for future implementation planning, especially the direct `call_ref` text-surface gap and the missing `call.without.effects` local intrinsic surface.
 - Keep any future current-`main` drift notes explicit instead of silently rewriting the `version_129` contract.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md)
+- [`../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md`](../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
 - [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)

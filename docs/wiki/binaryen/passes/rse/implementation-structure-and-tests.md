@@ -80,12 +80,12 @@ No teaching-relevant drift was found:
 
 ## Starshine read-across
 
-The local follow-along points are exact but currently negative:
+The local follow-along points are now active:
 
-- [`src/passes/optimize.mbt:144-152`](../../../../../src/passes/optimize.mbt) keeps `"redundant-set-elimination"` in `pass_registry_removed_names()`.
-- [`src/passes/pass_manager.mbt:8685-8705`](../../../../../src/passes/pass_manager.mbt) has no `"rse"` or `"redundant-set-elimination"` dispatcher arm in the hot-pass match.
-- [`src/ir/use_def.mbt:1-120`](../../../../../src/ir/use_def.mbt) records existing HOT local read/write surfaces that a future pass can inspect, but it is not currently a value-numbering or CFG-merge engine.
-- [`src/ir/hot_module_context.mbt:1-58`](../../../../../src/ir/hot_module_context.mbt) exposes module type context useful for reference-type checks.
-- [`agent-todo.md:481-491`](../../../../../agent-todo.md) tracks backlog slice `RSE`.
+- `src/passes/rse.mbt` owns the direct pass descriptor, HOT same-value local write rewrite, raw lowered-function fast path, and summary.
+- `src/passes/optimize.mbt` registers `"redundant-set-elimination"` as an active hot pass.
+- `src/passes/pass_manager.mbt` dispatches the pass and runs the raw fast path before hot lift.
+- `src/passes/rse_test.mbt`, `src/passes/registry_test.mbt`, and `src/cmd/cmd_wbtest.mbt` cover focused pass behavior, registry classification, and CLI execution.
+- `scripts/lib/pass-fuzz-compare-task.ts` maps the Starshine long name to Binaryen `--rse` for oracle comparison.
 
-A faithful future implementation should probably live in a new `src/passes/redundant_set_elimination.mbt` or similarly named owner file, with focused tests next to it and dispatcher/registry wiring in the files above.
+Future implementation work should stay in `src/passes/rse.mbt`, adding fixed-point CFG merge values and strict-subtype refined local-get retargeting without changing the pass into generic liveness dead-store elimination.

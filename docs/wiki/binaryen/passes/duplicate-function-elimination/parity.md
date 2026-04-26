@@ -20,7 +20,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./type-compaction-and-metadata.md
-  - ./starshine-hot-ir-strategy.md
+  - ./starshine-strategy.md
 ---
 
 # `duplicate-function-elimination` Binaryen parity

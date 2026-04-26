@@ -1,8 +1,10 @@
 ---
 kind: pass
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
   - ../../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../optimize-instructions/index.md
   - ../pick-load-signs/index.md
 ---
@@ -41,7 +44,7 @@ Starshine does **not** currently expose `signext-lowering` as a public pass name
 - It has no dispatcher or owner file in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - Starshine does have prerequisite sign-extension instruction support in WAT parsing, library IR, validation, binary encoding, HOT lifting, and neighboring optimization logic. The exact local code map is in [`starshine-strategy.md`](starshine-strategy.md).
 
-That means this folder is a source-backed upstream-only dossier plus a future-port map, not a claim that Starshine already implements the pass. The exact upstream owner/test files and local prerequisite code map are in [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md).
+That means this folder is a source-backed upstream-only dossier plus a future-port map, not a claim that Starshine already implements the pass. The exact upstream owner/test files and local prerequisite code map are in [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md). The future implementation sequence, red-test ladder, and Binaryen oracle comparison path are in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 
 ## Invariants
 
@@ -107,5 +110,6 @@ For a future Starshine port:
 - [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md) - upstream owner/test map plus exact local prerequisite code surfaces.
 - [`wat-shapes.md`](wat-shapes.md) - concrete before/after instruction shapes.
 - [`starshine-strategy.md`](starshine-strategy.md) - exact local code-location map and future port notes.
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - first-slice plan, reduced-test ladder, feature-metadata caveat, and Binaryen oracle comparison path.
 - [`../optimize-instructions/index.md`](../optimize-instructions/index.md) - neighboring optimization pass that reasons about sign-extension patterns.
 - [`../pick-load-signs/index.md`](../pick-load-signs/index.md) - neighboring pass that may choose signed loads based on sign-extension uses.

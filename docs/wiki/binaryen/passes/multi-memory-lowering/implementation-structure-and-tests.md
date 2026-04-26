@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
+  - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
 related:
   - ./index.md
@@ -11,6 +13,7 @@ related:
   - ./memory-layout-bounds-and-growth.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `multi-memory-lowering` implementation structure and tests
@@ -83,9 +86,15 @@ The official lit files are broad, but they should not be overread as proving eve
 
 ## Starshine test gap
 
-Starshine has no local test surface for this pass today because no local registry entry exists. Future local tests should mirror the official lit split:
+Starshine has no local test surface for this pass today because no local registry entry exists. Future local tests should mirror the official lit split, but the 2026-04-26 port-readiness pass recommends a narrower order:
 
-- unchecked lowering fixtures;
+- request behavior while the pass remains unknown or boundary-only;
+- unchecked two-memory structural lowering fixtures;
+- active-data and scalar/bulk body rewrite fixtures;
+- `memory.size` and `memory.grow` helper fixtures;
+- non-last grow movement fixtures;
 - checked lowering fixtures;
 - unsupported module-shape diagnostics or explicit unsupported-status tests;
 - WAT frontend tests if named/indexed multi-memory syntax is added before the pass.
+
+See [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) for the full validation ladder.

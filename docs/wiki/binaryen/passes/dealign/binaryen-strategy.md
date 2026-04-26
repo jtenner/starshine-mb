@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
   - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp
@@ -14,6 +15,7 @@ related:
   - ./align-one-rewrite-surface-and-alignment-lowering-split.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../alignment-lowering/index.md
 supersedes:
   - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
@@ -159,7 +161,7 @@ It does not visibly prove broad scalar type coverage or SIMD coverage. Those bro
 
 ## Freshness note
 
-A narrow 2026-04-24 current-`main` spot check on `DeAlign.cpp` and `dealign.wast` did not surface teaching-relevant drift from the tagged `version_129` behavior summarized here.
+A narrow 2026-04-26 current-`main` recheck on `DeAlign.cpp`, `pass.cpp`, and `dealign.wast` did not surface teaching-relevant drift from the tagged `version_129` behavior summarized here. That recheck is captured in [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md).
 
 ## What a faithful port must preserve
 
@@ -179,7 +181,9 @@ Binaryen `dealign` is a public function-parallel walker that sets `Load`, `Store
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md)
+- [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
 - [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

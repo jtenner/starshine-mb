@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-legalize-js-interface-port-readiness-primary-sources.md
+  - ../../../raw/research/0395-2026-04-26-legalize-js-interface-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-legalize-js-interface-primary-sources.md
   - ../../../raw/research/0291-2026-04-24-legalize-js-interface-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -24,6 +26,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./temp-ret-helpers-and-pruning-split.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../i64-to-i32-lowering/index.md
   - ../legalize-and-prune-js-interface/index.md
 ---
@@ -139,16 +142,16 @@ A future implementation should not hide the boundary wrapper pass inside `i64-to
 A faithful Starshine port would be a **module/boundary pass**, not a HOT peephole.
 The pass must update type, import, function, export, and code surfaces together, then repair function references that may appear in ordinary bodies or module-level code.
 
-A safe implementation ladder would be:
+A safe implementation ladder is now detailed in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). In short:
 
 1. choose the registry policy first:
    - keep the names unknown until implemented, or
    - add boundary-only entries plus tests that reject them honestly
-2. add request tests for both `legalize-js-interface` and `legalize-and-prune-js-interface`
+2. add request tests for both `legalize-js-interface` and `legalize-and-prune-js-interface` if registry status changes
 3. add a module-pass owner file only when wrapper generation exists
 4. implement type-signature rewriting before wrapper bodies
 5. implement export stubs before import wrappers, matching Binaryen's asymmetric directions
-6. implement temp-ret helper creation / reuse as an explicit subcomponent
+6. implement default temp-ret helper creation before exported-helper reuse
 7. repair direct `call` and `ref.func` references before deleting original illegal imports
 8. add prune-mode only after plain `i64` legalization is green
 9. compare focused Binaryen fixtures before any broad fuzzing
@@ -189,4 +192,4 @@ Current Starshine `legalize-js-interface` strategy is honest non-adoption plus a
 - the pass must remain separate from whole-module `i64-to-i32-lowering` unless a future design intentionally merges them
 - a faithful future port must preserve the plain-vs-prune sibling split and the temp-ret helper modes
 
-For upstream behavior, read [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), [`./temp-ret-helpers-and-pruning-split.md`](./temp-ret-helpers-and-pruning-split.md), and [`./wat-shapes.md`](./wat-shapes.md).
+For upstream behavior, read [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), [`./temp-ret-helpers-and-pruning-split.md`](./temp-ret-helpers-and-pruning-split.md), and [`./wat-shapes.md`](./wat-shapes.md). For future local sequencing and validation, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

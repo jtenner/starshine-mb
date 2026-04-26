@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0391-2026-04-26-inlining-port-readiness.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
@@ -20,6 +22,7 @@ related:
   - ./heuristics-splitting-and-plain-vs-optimizing.md
   - ./compilation-hints-vs-no-inline-flags-and-clone-survival.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../inlining-optimizing/index.md
   - ../inlining-optimizing/starshine-strategy.md
   - ../inline-main/index.md
@@ -138,7 +141,7 @@ So the local strategy should be thought of as:
 4. remove now-dead private helpers only when roots and surviving uses permit it
 5. validate that the pass stops there, without accidentally inheriting the optimizing sibling's nested useful-pass rerun
 
-That is a much tighter and safer future plan than the vague mental model “add an inliner later.”
+That is a much tighter and safer future plan than the vague mental model “add an inliner later.” The dedicated port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) turns that plan into a staged first-slice and validation ladder.
 
 ## The most important local dependency map
 
@@ -216,7 +219,7 @@ So the current repo status is best summarized as:
 ## Validation plan for the eventual port
 
 The existing dossier plus the local status surfaces imply the right validation ladder.
-A future real implementation should validate in this order:
+A future real implementation should validate in this order. For the full staged ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 1. reduced rewrite tests for the reviewed upstream plain-pass families
    - tiny and one-use direct-call positives

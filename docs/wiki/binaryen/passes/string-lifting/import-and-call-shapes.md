@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md
+  - ../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md
   - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
@@ -12,6 +14,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../string-lowering/index.md
 ---
 
@@ -48,6 +51,7 @@ The lifted expression has string type, but an enclosing ABI type such as `extern
 - The module string is configurable by `string-constants-module`; the lit test uses the magic import style.
 - Literal identity comes from the import base string.
 - Nonmatching import modules are not lifted.
+- This is the safest first Starshine semantic slice because it only needs imported-global discovery plus currently modeled `string.const` output; see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Shape 2: numbered `string.const` global plus JSON custom section
 
@@ -76,6 +80,7 @@ where the payload comes from entry `0` of the JSON array.
 - This path is source-confirmed in `StringLifting.cpp`.
 - The dedicated `string-lifting.wast` lit proof is more visually direct for magic imports than for this JSON custom-section path.
 - A malformed, missing, or mismatched custom section should be treated as a correctness risk when building future tests.
+- For Starshine, keep this as a separate second slice because it needs pass-facing `string.consts` custom-section parse/remove behavior.
 
 ## Shape 3: UTF-16 array to string helper
 
@@ -287,6 +292,8 @@ The helper roster is not only name-based; recognized names must have exactly the
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md)
+- [`../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md`](../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md)
 - [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)

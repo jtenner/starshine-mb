@@ -1,5 +1,7 @@
 # `strip-target-features` primary sources and Starshine follow-up
 
+> Supersession note, 2026-04-26: source-mechanics claims in this note are superseded by [`0390-2026-04-26-strip-target-features-source-correction.md`](0390-2026-04-26-strip-target-features-source-correction.md). Official Binaryen `version_129` and current `main` show `modifiesBinaryenIR() == true` and `module->hasFeaturesSection = false`, not an option-only `emitTargetFeatures` toggle. Keep this note only as provenance for the initial dossier and neighboring-pass distinctions.
+
 _Date:_ 2026-04-25  
 _Status:_ absorbed into living wiki pages  
 _Supersedes:_ the older catalog-only mentions that treated `strip-target-features` as a late upstream-only name without a dedicated dossier or local status map

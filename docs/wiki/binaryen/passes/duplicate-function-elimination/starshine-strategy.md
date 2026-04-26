@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md
+  - ../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md
   - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
   - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
@@ -22,9 +24,11 @@ related:
 
 ## First correction
 
-Despite the historical folder filename, this is **not** a HOT-IR pass in Starshine today.
+Despite the older historical page filename, this is **not** a HOT-IR pass in Starshine today.
 It is an active **module pass**.
 That is the honest description for both the upstream Binaryen contract and the current local implementation.
+
+The 2026-04-26 health cleanup renamed the living page from `starshine-hot-ir-strategy.md` to `starshine-strategy.md` so the filename no longer contradicts the strategy. Older raw/research notes may still mention the historical filename as immutable audit evidence.
 
 ## Why Starshine keeps it module-scoped
 
@@ -51,9 +55,9 @@ So the practical rule is simple:
 
 ### 1. Registry and dispatcher surface
 
-- `src/passes/optimize.mbt:231-240`
+- `src/passes/optimize.mbt:241`
   - registers `duplicate-function-elimination` as an active **module pass** entry, not a hot pass
-- `src/passes/pass_manager.mbt:8627-8648`
+- `src/passes/pass_manager.mbt:8672-8673`
   - dispatches the module-pass name to `dfe_run_module_pass_with_perf(...)`
 - `src/passes/optimize.mbt:379-402`
   - current public `optimize` / `shrink` presets do **not** include DFE

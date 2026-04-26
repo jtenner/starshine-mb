@@ -1,17 +1,16 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
+  - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
-  - ../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md
   - ../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md
   - ../tracker.md
   - ../index.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
   - ../../../../../agent-todo.md
-  - ../type-merging/binaryen-strategy.md
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -21,104 +20,96 @@ related:
   - ../type-merging/index.md
   - ../type-refining/index.md
   - ../ssa/index.md
-  - ../type-generalizing/index.md
 ---
 
 # `type-ssa`
 
 ## Role
 
-- `type-ssa` is a real public upstream Binaryen pass in `version_129`.
-- It is currently **upstream-only** for this repo.
-- It is **not** in the local Starshine pass registry.
-- It is **not** part of the current canonical no-DWARF `-O` / `-Os` path.
-- It does **not** appear in the saved generated-artifact `-O4z` skipped-slot queue.
-- `agent-todo.md` currently has **no dedicated `type-ssa` slice**.
+`type-ssa` is a real public upstream Binaryen pass, but it is currently **upstream-only** for Starshine:
 
-So this folder is an explicit tracker expansion, not a hidden implementation backlog.
+- no `src/passes/type_ssa.mbt` owner file exists,
+- the local registry does not list `type-ssa` as active, boundary-only, or removed,
+- it is not in the current no-DWARF `-O` / `-Os` parity path,
+- it is not in the saved generated-artifact `-O4z` skipped-slot queue,
+- `agent-todo.md` has no dedicated `type-ssa` slice.
 
-## Why this pass matters
+This folder is therefore a source-backed dossier and port-planning note, not a hidden local implementation.
 
-`type-ssa` deserved its own dossier for one concrete reason:
+## Important 2026-04-26 correction
 
-- the existing [`../type-merging/index.md`](../type-merging/index.md) dossier already depends on contrasting against it,
-- but until this follow-up the folder still lacked an immutable raw primary-source manifest and a dedicated Starshine status page.
+The older 2026-04-23 dossier misdescribed `type-ssa` as a local/global/control-flow created-type propagation pass that retagged later gets, call operands, and returns. A fresh official-source read corrected that.
 
-That made it easy to keep saying “`type-ssa` creates distinctions” without teaching what the pass actually does.
+The real Binaryen `version_129` and current-main contract is:
+
+- scan selected allocation instructions,
+- decide which allocations are worth splitting into their own type,
+- create fresh private subtypes of the allocated struct/array heap types,
+- rewrite those allocation result types to exact non-null fresh types,
+- then refinalize ordinary functions and module code.
+
+Treat the older `createdTypes` / call-operand / return-retagging story as **superseded** by [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md).
 
 ## Beginner summary
 
-A good beginner mental model is:
+A good mental model is:
 
-- when Binaryen sees a value that was **just created** as an exact struct/array/reference type,
-- it remembers that precision,
-- threads it through simple SSA-like local/global and control-value flows,
-- then retags later `local.get`, `global.get`, call arguments, and returns when the narrower type is still subtype-safe.
+> Binaryen `type-ssa` gives some allocation sites their own fresh heap type, like SSA gives some values their own register.
 
-So `type-ssa` is **not** ordinary SSA conversion and **not** whole-program type inference.
-It is a small GC type-precision pass built around **created exact types**.
+For example, if two `struct.new $A` instructions allocate values that later optimizations could distinguish, Binaryen may create `$A.0` and `$A.1` as private subtypes of `$A`, retag each allocation to its fresh exact type, and let later type-aware passes see those allocations as separate.
+
+It is **not** ordinary SSA construction, and it is **not** a local-flow pass over every `local.get` / `global.get`.
 
 ## Main durable takeaways
 
-- The pass is a **function pass** with a tiny implementation surface.
-- Its main state is a `createdTypes` map from expressions to more precise reference types.
-- It seeds that map from:
-  - `struct.new`
-  - `array.new`
-  - `array.new_fixed`
-  - `ref.as_non_null`
-  - `ref.cast`
-- It can propagate those facts through:
-  - `block` values
-  - `if` values when both arms agree
-  - some `try` result shapes when the values agree
-  - `local.set` / `local.get`
-  - `global.set` / `global.get`
-- It can then sharpen:
-  - direct call operands
-  - return values
-- It intentionally does **not** treat `loop` as a value-propagation source here.
-- If anything changed and GC is enabled, it runs `ReFinalize`.
+- `type-ssa` is implemented in upstream `src/passes/TypeSSA.cpp` and registered by `pass.cpp`.
+- It is GC-gated.
+- It analyzes module-visible exact-observation surfaces before rewriting allocation types.
+- Candidate allocation sites include:
+  - `struct.new`,
+  - `array.new`,
+  - `array.new_data`,
+  - `array.new_elem`,
+  - `array.new_fixed`.
+- Candidate rejection includes:
+  - unreachable allocations,
+  - final types,
+  - open-disabled types,
+  - descriptor/describee heap-type families,
+  - types that were observed in exact-sensitive places.
+- Positive interestingness includes:
+  - default `struct.new`,
+  - constants/globals feeding fields or elements,
+  - operands whose type is more refined than the declared field/element type,
+  - data/element-backed arrays,
+  - fixed arrays when all elements are interesting.
+- The rewrite creates fresh private subtypes in one rec group, preserves sharing, copies friendly names when possible, retags the selected allocation nodes, and refinalizes.
 
 ## Page map
 
-- [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Source-backed explanation of the real `version_129` algorithm, helper surface, pass boundaries, and nearby-pass interactions.
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  File-by-file and test-by-test map for the upstream implementation and public proof surface.
-- [`./created-exact-types-control-values-and-signature-rewrites.md`](./created-exact-types-control-values-and-signature-rewrites.md)
-  Focused guide to the hardest part to misread: what counts as a created exact type, how `block` / `if` / `try` values propagate it, and where the pass pushes that precision into call and return signatures.
-- [`./wat-shapes.md`](./wat-shapes.md)
-  Beginner-friendly before/after shape catalog for the main positive, preserved, and bailout families.
-- [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status page covering the repo's deliberate non-adoption today, the omission from local registry and backlog/planning surfaces, and the nearest concrete local code locations a future port would need to study first.
+- [`./binaryen-strategy.md`](./binaryen-strategy.md) explains Binaryen's corrected source-backed algorithm and caveats.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) maps the owner files, registration surface, test file, helper dependencies, and superseded older interpretation.
+- [`./created-exact-types-control-values-and-signature-rewrites.md`](./created-exact-types-control-values-and-signature-rewrites.md) is now the focused correction page for allocation-type splitting, exact-observation blockers, and why the old local-flow model is stale.
+- [`./wat-shapes.md`](./wat-shapes.md) gives before/after module and instruction shapes for the allocation-subtype rewrite and bailout families.
+- [`./starshine-strategy.md`](./starshine-strategy.md) records Starshine's current non-adoption and the real future local prerequisites.
 
-## Current maintenance rule
+## Validation guidance
 
-- Treat this folder as the canonical home for future `type-ssa` research.
-- Keep it explicitly marked as **upstream-only** unless Starshine ever adopts it.
-- Keep the split from nearby passes explicit:
-  - unlike [`../ssa/index.md`](../ssa/index.md), this is not general SSA conversion,
-  - unlike [`../type-refining/index.md`](../type-refining/index.md), this is not a closed-world field-analysis pass,
-  - unlike [`../type-generalizing/index.md`](../type-generalizing/index.md), this does not consume a content oracle,
-  - unlike [`../type-merging/index.md`](../type-merging/index.md), this increases use-site precision instead of merging declarations.
+For a future Starshine port, validation must compare against Binaryen's allocation-type-splitting behavior, not the older stale local-flow story:
+
+1. add reduced WAT tests for positive `struct.new`, `array.new`, `array.new_data`, `array.new_elem`, and all-interesting `array.new_fixed` cases;
+2. add bailouts for final types, exact-observed types, descriptor/describee types, unreachable code, and uninteresting operands;
+3. validate type sections, allocation result types, and refinalized parent types;
+4. compare against `wasm-opt --type-ssa` on official reduced cases before fuzzing;
+5. run pass-targeted parity through the local Binaryen comparison harness only after Starshine has honest registry support.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md)
-- [`../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md`](../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md)
-- [`../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md`](../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md)
-- [`../tracker.md`](../tracker.md)
-- [`../index.md`](../index.md)
-- [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)
-- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-- [`../type-merging/binaryen-strategy.md`](../type-merging/binaryen-strategy.md)
-- Binaryen `version_129` sources:
+- [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md)
+- [`../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md`](../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md)
+- Older, superseded capture kept for audit trail: [`../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md)
+- Official Binaryen sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TypeSSA.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/type-ssa.wast>
-  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/ReFinalize.cpp>
-  - current-main spot checks:
-    - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeSSA.cpp>
-    - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/type-ssa.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeSSA.cpp>

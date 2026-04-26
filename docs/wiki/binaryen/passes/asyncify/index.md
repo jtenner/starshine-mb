@@ -3,6 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md
+  - ../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
   - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
@@ -16,6 +18,7 @@ related:
   - ./wat-shapes.md
   - ./state-machine-memory-and-eh-boundaries.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../i64-to-i32-lowering/index.md
   - ../legalize-js-interface/index.md
   - ../memory64-lowering/index.md
@@ -115,9 +118,12 @@ For a future Starshine port, add tests in this order:
 - [`wat-shapes.md`](wat-shapes.md) - transformed module/function shape catalog.
 - [`state-machine-memory-and-eh-boundaries.md`](state-machine-memory-and-eh-boundaries.md) - focused guide to state values, memory/pointer width, indirect-call bookkeeping, catch unwinding, tail-call rejection, and helper-pass boundaries.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - first-slice order and validation ladder for a future local port, including registry honesty, direct-call scalar proof, live-local save/restore, indirect calls, memory64, EH/catch, and dynamic host-harness gates.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md)
+- [`../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md`](../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md`](../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md)
 - [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)

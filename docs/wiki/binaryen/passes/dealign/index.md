@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
+  - ../../../raw/research/0389-2026-04-26-dealign-port-readiness.md
   - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -18,6 +20,7 @@ related:
   - ./align-one-rewrite-surface-and-alignment-lowering-split.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../alignment-lowering/index.md
   - ../tracker.md
 supersedes:
@@ -65,7 +68,7 @@ Fresh 2026-04-24 source review corrected the older 2026-04-21 dossier text:
 - The reviewed file does **not** define `visitSIMDStore`.
 - Each visitor unconditionally assigns `curr->align = 1`; already-`align=1` accesses are unchanged only because the assignment is idempotent.
 - The dedicated lit file visibly proves small scalar `i32.load` / `i32.store` examples with default, explicit `align=1`, and explicit `align=2` forms. SIMD support is source-confirmed but not separately isolated by that lit file.
-- A narrow current-`main` spot check did not surface teaching-relevant drift from the tagged `version_129` behavior.
+- A narrow 2026-04-26 current-`main` recheck did not surface teaching-relevant drift from the tagged `version_129` behavior, and it added exact Starshine memarg / validation anchors for future implementation planning.
 
 ## Important constraints
 
@@ -98,6 +101,7 @@ It does not directly rewrite:
 - [`./align-one-rewrite-surface-and-alignment-lowering-split.md`](./align-one-rewrite-surface-and-alignment-lowering-split.md) - Focused guide to the `align=1` rewrite surface and the corrected split from `alignment-lowering`.
 - [`./wat-shapes.md`](./wat-shapes.md) - Beginner-friendly before/after catalog for scalar and source-confirmed SIMDLoad shapes plus no-op and non-goal families.
 - [`./starshine-strategy.md`](./starshine-strategy.md) - Current Starshine status bridge: no registry spelling, unknown-pass rejection, no backlog slice, and future-port implications.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - Future implementation bridge: first-slice order, local memarg code anchors, validation ladder, Binaryen oracle plan, and SIMD caveats.
 
 ## Maintenance rule
 
@@ -105,7 +109,9 @@ Treat this folder as the canonical home for future `dealign` research. Treat [`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md)
+- [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
 - [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md`](../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md) - historical; superseded for the corrected mechanics above
 - Binaryen `version_129` sources:

@@ -15,7 +15,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
-  - ./starshine-hot-ir-strategy.md
+  - ./starshine-strategy.md
   - ./parity.md
 ---
 

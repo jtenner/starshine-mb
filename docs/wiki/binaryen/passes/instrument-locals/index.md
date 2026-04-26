@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-instrument-locals-port-readiness-primary-sources.md
+  - ../../../raw/research/0397-2026-04-26-instrument-locals-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
   - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
@@ -17,6 +19,7 @@ related:
   - ./unsupported-types-effects-and-import-roster.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../instrument-memory/index.md
   - ../global-effects/index.md
   - ../tracker.md
@@ -90,6 +93,8 @@ So this pass is best taught as:
   Beginner-friendly before/after shape catalog for wrapped gets, wrapped sets/tees, helper-import injection, `i64` no-op cases, and the legacy-EH `pop` boundary.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current local status and future-port map: no registry spelling today, exact code locations where pass names are accepted/rejected, and the module-pass requirements a future port would need to satisfy.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Focused future-port bridge: scalar-first module-pass slice, helper-import synthesis requirements, red-herring local code surfaces, and validation ladder.
 
 ## Current maintenance rule
 
@@ -98,6 +103,7 @@ So this pass is best taught as:
 - Keep the local status precise: current Starshine rejects it as an unknown pass, not as boundary-only or removed.
 - Keep the split from locals optimizers explicit: `instrument-locals` adds imported-call observations, while passes like `simplify-locals*` and `untee` remove or canonicalize local traffic.
 - Keep the global-effects interaction explicit too: this pass is small, but it is intentionally effectful.
+- If Starshine ever ports this pass, start from [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): helper imports and effect invalidation are the real first problem, not just finding `LocalGet` / `LocalSet` nodes.
 
 ## Sources
 

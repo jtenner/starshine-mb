@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md
+  - ../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md
   - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
 related:
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 supersedes:
   - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
 ---
@@ -33,7 +36,7 @@ This avoids pretending that one deterministic SIMD sequence is a faithful substi
 The same tag declares `createRemoveRelaxedSIMDPass()` in `src/passes/passes.h` and implements the pass in `src/passes/RemoveRelaxedSIMD.cpp`.
 The tagged changelog records the pass as a `version_126` addition.
 
-Current `main`, rechecked on 2026-04-25, keeps the same public pass spelling, constructor, owner file, and dedicated lit filename.
+Current `main`, rechecked again on 2026-04-26 for port readiness, keeps the same public pass spelling, constructor, owner file, trap-replacement strategy, refinalization shape, and dedicated lit filename. The fresh recheck is captured in [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md).
 
 ## Core rewrite algorithm
 
@@ -139,6 +142,7 @@ Before porting, source-confirm whether Starshine should add a separate metadata 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md)
 - [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)

@@ -128,6 +128,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--code-pushing",
   "--simplify-locals",
   "--merge-blocks",
+  "--redundant-set-elimination",
   "--memory-packing",
   "--once-reduction",
   "--global-refining",
@@ -141,6 +142,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
 const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--dead-code-elimination", "--dce"],
   ["--global-struct-inference", "--gsi"],
+  ["--redundant-set-elimination", "--rse"],
 ]);
 
 const HELP_TEXT = [
@@ -221,10 +223,12 @@ function supportedCommandFailureClasses(): CommandFailureClass[] {
 function normalizePassNameToFlag(raw: string): string {
   const trimmed = raw.trim();
   const normalized = trimmed.startsWith("--") ? trimmed : `--${trimmed}`;
-  if (!SUPPORTED_PASS_FLAGS.has(normalized)) {
+  const starshineFlag =
+    normalized === "--rse" ? "--redundant-set-elimination" : normalized;
+  if (!SUPPORTED_PASS_FLAGS.has(starshineFlag)) {
     fail(`unsupported pass flag for pass-fuzz-compare: ${raw}`);
   }
-  return normalized;
+  return starshineFlag;
 }
 
 function normalizeCommandFailureClass(raw: string): CommandFailureClass {

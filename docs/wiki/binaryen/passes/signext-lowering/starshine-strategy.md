@@ -1,8 +1,10 @@
 ---
 kind: strategy
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
   - ../../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
@@ -24,6 +26,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../pick-load-signs/starshine-hot-ir-strategy.md
   - ../optimize-instructions/starshine-hot-ir-strategy.md
 ---
@@ -93,7 +96,7 @@ If feature metadata cleanup is required, the pass should be module-owned even th
 
 ## Validation plan for a future port
 
-Minimum focused tests:
+The detailed first-slice plan and oracle sequence now live in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md). Minimum focused tests:
 
 - `i32.extend8_s` -> `i32.shl` / `i32.shr_s` with shift count `24`;
 - `i32.extend16_s` -> shift count `16`;

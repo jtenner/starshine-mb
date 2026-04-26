@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
+  - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
 related:
   - ./index.md
@@ -11,6 +13,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./memory-layout-bounds-and-growth.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `multi-memory-lowering` WAT shapes
@@ -40,7 +43,7 @@ After:
       (i32.add (local.get $p) (global.get $b_base)))))
 ```
 
-The exact offset depends on page size and previous memories' initial sizes.
+The exact offset depends on page size and previous memories' initial sizes. For a future Starshine port, this is the first body-rewrite shape to test after module memory declarations and active data offsets are repaired.
 
 ## Positive family 2: active data segment
 
@@ -139,7 +142,7 @@ After:
   (call $__memory_grow_a (local.get $delta)))
 ```
 
-This is the easiest shape to under-document. It is why the pass is a module transform with generated helpers.
+This is the easiest shape to under-document. It is why the pass is a module transform with generated helpers. It should not be the first Starshine implementation slice; prove unchecked structural lowering and last-memory helper behavior before adding byte movement for non-last growth.
 
 ## Positive family 6: checked sibling trap
 
@@ -162,7 +165,7 @@ After, in the checked sibling:
     (i32.add (local.get $p) (global.get $b_base))))
 ```
 
-The checked sibling traps for out-of-virtual-memory accesses before the combined memory can accidentally expose a neighboring original memory's bytes.
+The checked sibling traps for out-of-virtual-memory accesses before the combined memory can accidentally expose a neighboring original memory's bytes. Keep Binaryen's source-commented effective-address overflow caveat visible; do not claim stronger checked semantics without a deliberate local divergence and tests.
 
 ## Bailout family 1: single-memory modules
 

@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
+  - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -17,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./memory-layout-bounds-and-growth.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../memory64-lowering/index.md
   - ../memory-packing/index.md
 ---
@@ -100,7 +103,7 @@ That makes this closer to [`../memory64-lowering/index.md`](../memory64-lowering
 
 ## Future implementation shape
 
-A faithful Starshine port should start with a module pass behind an explicit registry decision.
+A faithful Starshine port should start with a module pass behind an explicit registry decision. The dedicated port-readiness bridge gives the full staged plan and validation order: [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 
 Recommended phases:
 
@@ -110,23 +113,28 @@ Recommended phases:
 2. **Frontend readiness**
    - Add WAT support for indexed/named memory operands if local fixtures need text roundtrips.
    - Ensure binary and validation fixtures can exercise nonzero memory indexes without relying only on hand-built IR.
-3. **Module legality analysis**
+3. **Narrow unchecked first slice**
+   - Start with two unshared memory32 memories, no imports/exports, constant active offsets, scalar load/store, and simple bulk-memory retargeting.
+   - Leave `memory.size`, `memory.grow`, SIMD, atomics, and checked traps out until declaration/data/body repair is green.
+4. **Module legality analysis**
    - Match Binaryen's accepted family: same address type, same sharedness, same page size, and only first-memory import/export preservation.
    - Decide local diagnostics for unsupported shapes.
-4. **Combined-memory rewrite**
+5. **Combined-memory rewrite**
    - Replace multiple memories with one combined memory.
    - Add mutable offset globals for original memories after the first.
    - Retarget active data segments and shift constant offsets.
-5. **Function-body rewrite**
+6. **Function-body rewrite**
    - Retarget all memory operations to memory `0`.
    - Add offset globals to address operands for nonzero original memories.
    - Cover scalar, SIMD, atomic, and bulk-memory forms.
-6. **Helper generation**
+7. **Helper generation**
    - Generate virtual `memory.size` and `memory.grow` helpers.
    - Pay special attention to non-last memory growth, which must move later ranges and update offset globals.
-7. **Checked sibling**
+8. **Checked sibling**
    - Add optional explicit trap checks only after unchecked lowering is correct.
    - Preserve Binaryen's documented overflow-imprecision caveat unless a deliberate local divergence is chosen and tested.
+9. **Feature cleanup**
+   - Decide how Starshine represents Binaryen's MultiMemory feature disablement after lowering: IR feature state, custom-section mutation, or both.
 
 ## Validation checklist for a future Starshine port
 

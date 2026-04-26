@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
+  - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -17,6 +19,7 @@ related:
   - ./memory-layout-bounds-and-growth.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../memory64-lowering/index.md
   - ../memory-packing/index.md
   - ../remove-unused-module-elements/index.md
@@ -109,6 +112,8 @@ For a future Starshine port, add tests in this order:
 10. bounds-checking sibling traps;
 11. feature/custom-section cleanup for the lowered output.
 
+The 2026-04-26 port-readiness bridge keeps that test order explicit for Starshine: begin with unchecked two-memory structural lowering, then helpers, then non-last grow movement, and only then the checked sibling. See [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
+
 ## Page map
 
 - [`binaryen-strategy.md`](binaryen-strategy.md) - source-backed Binaryen strategy.
@@ -116,10 +121,13 @@ For a future Starshine port, add tests in this order:
 - [`memory-layout-bounds-and-growth.md`](memory-layout-bounds-and-growth.md) - focused guide to layout, optional traps, and `memory.grow` movement.
 - [`wat-shapes.md`](wat-shapes.md) - before/after shape catalog.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - staged future implementation and validation ladder.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md)
+- [`../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md`](../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md)
 - [`../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md`](../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md)
 - Binaryen `MultiMemoryLowering.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MultiMemoryLowering.cpp>
 - Binaryen pass registration: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

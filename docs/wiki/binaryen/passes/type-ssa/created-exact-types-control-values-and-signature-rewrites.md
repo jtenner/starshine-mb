@@ -1,157 +1,132 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md
+  - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
+  - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
+  - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
-# `type-ssa`: created exact types, control values, and signature rewrites
+# `type-ssa`: fresh allocation subtypes, exactness blockers, and stale local-flow claims
 
-This page covers the easiest part of `type-ssa` to misread.
-The pass name sounds broad, but the real `version_129` contract is mostly three small ideas:
+## Why this page keeps its old filename
 
-1. decide which values count as **created exact types**,
-2. decide when control wrappers carry one of those values unchanged,
-3. push that precision into later locals, globals, calls, and returns.
+This page used to explain “created exact types, control values, and signature rewrites.” That framing is now explicitly stale for Binaryen `version_129` and current `main`.
 
-## 1. What counts as a created exact type?
+The filename is kept for link stability, but the content now records the corrected hard part of the pass:
 
-The answer is narrower than many readers expect.
+- which allocation sites can receive fresh private subtypes,
+- which exactness observations block splitting,
+- which interestingness rules make a split useful,
+- and which older local-flow claims are superseded.
 
-The helper `getTargetType(...)` rejects:
+## Correct core concept
 
-- non-reference types,
-- `anyref`,
-- `eqref`,
-- `i31ref`,
-- `none`.
+`type-ssa` gives selected allocation values a new heap type.
 
-If a type survives that filter:
+Instead of keeping every `struct.new $A` as exactly `$A`, the pass can create fresh private subtypes such as `$A.0` and `$A.1`, then rewrite individual allocation instructions to return exact non-null refs to those fresh subtypes.
 
-- an already-exact reference stays exact,
-- a nonexact concrete reference becomes the same heap type but **exact + non-null**.
+That is the SSA analogy: one allocation value can get its own type identity.
 
-So the pass starts from a very specific invariant:
+## Allocation candidates
 
-- “this value was just created as a concrete exact heap-typed reference.”
+The source-backed candidate surface is allocation-centered:
 
-## 2. Where do those created exact types come from?
+- `struct.new`,
+- `array.new`,
+- `array.new_data`,
+- `array.new_elem`,
+- `array.new_fixed`.
 
-The seed surface is tiny.
-Binaryen records created exact types for:
+The pass scans ordinary defined functions and module-level expression surfaces such as globals and element segments. Imported functions are skipped for body analysis because there is no body to inspect.
 
-- `struct.new`
-- `array.new`
-- `array.new_fixed`
-- `ref.as_non_null`
-- `ref.cast`
+## Exactness blockers
 
-That is why `type-ssa` feels smaller than its name.
-It is not discovering precision everywhere.
-It is protecting precision that was already made obvious by constructor-like or cast-like instructions.
+A fresh subtype is unsafe if existing program constructs can observe exact identity of the original type. Binaryen records those blockers in `disallowedTypes`.
 
-## 3. How do control wrappers carry the precision?
+Important blocker families include:
 
-The helper `getValue(...)` is the real control-flow rulebook.
+- exact casts,
+- exact tests,
+- exact function result types,
+- exact global types,
+- exact element-segment types,
+- child-type constraints discovered through `ChildTyper`.
 
-### `block`
+The beginner rule is:
 
-A `block` value comes from its last child.
-So if the last child carries a created exact type, the block can carry it too.
+> Do not split an allocation's type if code may require the allocation to be exactly the old type.
 
-### `if`
+## Interestingness rules
 
-An `if` only forwards the precision when both arms produce values with the **same** created type.
-If the arms disagree, Binaryen keeps the broader original type.
+Safe is not enough. The allocation also needs to be useful to split.
 
-This is a very important beginner correction.
-The pass is not doing arbitrary join inference.
-It wants exact agreement.
+Positive interestingness families include:
 
-### `try`
+- default `struct.new`,
+- constants stored into fields or arrays,
+- globals stored into fields or arrays,
+- operand types that are more refined than the declared field or element type,
+- `array.new_data`,
+- `array.new_elem`,
+- `array.new_fixed` when all elements are interesting.
 
-The same idea applies to `try` results.
-The `do` body or catch bodies can carry a created type upward only when the reviewed helper finds one stable carried value.
+Common no-op families include:
 
-### `loop`
+- unreachable allocation results,
+- allocations of final types,
+- allocations of types whose `open` bit is disabled,
+- descriptor/describee allocations,
+- operands that do not expose a better type or constant/global fact.
 
-`loop` is the cleanest explicit non-goal.
-The helper returns no carried value for loops.
-So `type-ssa` does not try to forward created exact types through loop values.
+## Rewrite mechanics
 
-## 4. How does local/global propagation work?
+For selected candidates, Binaryen:
 
-Once a carried value has a remembered created type:
+1. creates fresh private subtypes of the old allocated heap types,
+2. groups them in one new rec group,
+3. preserves sharing with an old-to-new map,
+4. makes the rec group unique with type-shape machinery,
+5. retags each allocation result to exact non-null fresh type,
+6. copies a useful old type name plus a numeric suffix when possible,
+7. runs refinalization afterward.
 
-- `local.set` records that type for the set,
-- `global.set` does the same.
+## Why the old local-flow model is stale
 
-Later:
+The superseded 2026-04-23 dossier claimed the pass was mostly about:
 
-- `local.get` can be retagged to that type,
-- `global.get` can be retagged too.
+- a `createdTypes` expression map,
+- `getTargetType(...)`,
+- forwarding through `block`, `if`, and `try`,
+- local/global set-to-get propagation,
+- direct-call operand retagging,
+- return-value retagging.
 
-The get keeps its original nullability.
-So the main win is usually:
+Those are not the corrected `version_129` / current-main implementation. Future readers should not use that model to write tests or code.
 
-- more specific heap type,
-- often exactness,
-- without blindly forcing a different nullable/nonnullable story than the use site already had.
+## Practical prediction checklist
 
-## 5. Why are call operands and returns part of the pass?
+To predict whether `type-ssa` should change a shape, ask:
 
-This is another place the pass is easy to undersell.
-The precision does not stop at local or global loads.
+1. Is the instruction one of the allocation candidates?
+2. Is GC enabled?
+3. Is the allocated type non-final, open, and outside descriptor/describee exclusions?
+4. Has the old type avoided exact-observation blockers?
+5. Is the allocation interesting under Binaryen's constants/globals/refined-operand/data/elem/fixed-array criteria?
+6. Can the type section be extended with a fresh private subtype and then refinalized?
 
-The pass also looks at:
+If all answers are yes, the allocation's result type is likely to become an exact non-null fresh subtype.
 
-- direct call operands,
-- return values.
+## Relationship to `type-merging`
 
-If a remembered created type is a subtype of the expected parameter or result type, Binaryen rewrites the expression type there too.
+This pass may intentionally create more private type distinctions. Later type cleanup passes such as [`../type-merging/index.md`](../type-merging/index.md) may collapse declarations that prove indistinguishable. That makes the passes complementary rather than contradictory:
 
-That matters because later optimizations can only benefit if the sharper type is visible at the program edges where other passes read it.
-
-## 6. What the pass refuses to do
-
-It is just as important to remember the refusals.
-
-The reviewed `version_129` pass does **not**:
-
-- build general SSA form,
-- reason about loops as value carriers,
-- infer new exactness for abstract refs like `anyref` or `eqref`,
-- merge different branch-created types into one new invented exact type,
-- or consume a whole-program content oracle.
-
-Those non-goals keep the pass small and predictable.
-
-## A compact mental checklist
-
-If you want to predict whether `type-ssa` helps on a shape, ask these questions in order:
-
-1. Was the value freshly created by one of the tiny seed instructions?
-2. Is the type concrete enough to survive `getTargetType(...)`?
-3. If it flows through control, do the carried-value rules still see one stable exact type?
-4. If it reaches a local/global get, call argument, or return, is the narrower type subtype-safe there?
-
-If all four answers are yes, `type-ssa` is likely to rewrite the visible type.
-If any answer is no, Binaryen usually preserves the broader original type.
-
-## Why this matters next to `type-merging`
-
-This page also clarifies the comment already cited in the `type-merging` dossier.
-`type-ssa` creates distinctions because it keeps exact created types visible longer.
-Later, `type-merging` may remove declaration-level distinctions that no longer matter.
-
-So the two passes are not competitors.
-They act at different times and on different layers:
-
-- `type-ssa` sharpens **uses**,
-- `type-merging` compacts **declarations**.
+- `type-ssa` exposes allocation-site distinctions,
+- `type-merging` removes unnecessary declaration distinctions later.

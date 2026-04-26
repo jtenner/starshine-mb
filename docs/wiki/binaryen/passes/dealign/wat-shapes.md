@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
   - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp
@@ -13,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./align-one-rewrite-surface-and-alignment-lowering-split.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 supersedes:
   - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
 ---
@@ -133,7 +135,7 @@ This is source-confirmed from the implementation. The reviewed dedicated lit fil
 (i32.store align=1 (local.get $p) (i32.const 0))
 ```
 
-The implementation still assigns `1`; the output is unchanged because the assignment is idempotent.
+The implementation still assigns `1`; the output is unchanged because the assignment is idempotent. In Starshine's library IR, the equivalent stored memarg value for text `align=1` is exponent `0`; see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Preserved family 2: child expressions stay intact
 
@@ -213,7 +215,9 @@ If so, its printed alignment should become `1`; otherwise the pass has no direct
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md)
+- [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
 - [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dealign.wast>

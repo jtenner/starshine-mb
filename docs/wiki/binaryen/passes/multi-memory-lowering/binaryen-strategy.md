@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md
+  - ../../../raw/research/0393-2026-04-26-multi-memory-lowering-port-readiness.md
   - ../../../raw/research/0370-2026-04-25-multi-memory-lowering-source-dossier.md
 related:
   - ./index.md
@@ -11,6 +13,7 @@ related:
   - ./memory-layout-bounds-and-growth.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen strategy for `multi-memory-lowering`
@@ -51,7 +54,7 @@ The source-backed contract is concentrated in Binaryen `version_129`:
 - `src/passes/passes.h`
   - public constructor declarations.
 
-See the raw manifest for exact URLs and reviewed surfaces: [`../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md).
+See the raw manifests for exact URLs and reviewed surfaces: [`../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-multi-memory-lowering-primary-sources.md) and the focused 2026-04-26 port-readiness recheck [`../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-multi-memory-lowering-port-readiness-primary-sources.md).
 
 ## Combined memory layout
 
@@ -98,4 +101,4 @@ The source comment still records an imprecision: the inserted checks do not perf
 
 ## Current-main check
 
-A focused 2026-04-25 current-`main` spot check on `MultiMemoryLowering.cpp` and the paired lit filenames found no teaching-relevant drift from the `version_129` contract recorded here.
+A focused 2026-04-26 current-`main` recheck on `MultiMemoryLowering.cpp`, `pass.cpp`, `passes.h`, and the paired lit filenames found no teaching-relevant drift from the `version_129` contract recorded here. The source-backed caveats are still part of the strategy: non-first imports/exports are not positive shapes, all memories must share address type/sharedness/page size, non-constant active data offsets remain behind a TODO/assertion path, and the checked sibling has a documented effective-address overflow imprecision.

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
+  - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
   - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
@@ -21,6 +23,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./helper-import-roster-filters-and-unsupported-types.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../instrument-locals/index.md
   - ../global-effects/index.md
   - ../tracker.md
@@ -43,7 +46,7 @@ The exact local status is sharper than just "not implemented":
 
 That means Starshine's present strategy is **non-adoption plus documentation**.
 The wiki tracks the upstream pass because it is a real public Binaryen pass, because it explains the sibling split from [`instrument-locals`](../instrument-locals/index.md), and because its helper imports intentionally change effect-sensitive downstream reasoning.
-It is not part of Starshine's optimize or shrink preset today.
+It is not part of Starshine's optimize or shrink preset today. If that status ever changes, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) as the first-slice and validation checklist rather than inferring implementation order from the broad upstream strategy page.
 
 ## Exact local code locations to read first
 
@@ -110,8 +113,10 @@ Minimum acceptance criteria:
 
 ## Validation plan for a future port
 
+Use the detailed ladder in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). In short:
+
 - Add registry tests first for whichever public status is chosen: active module pass, boundary-only compatibility name, removed compatibility name, or continued unknown-name rejection.
-- Add shape tests modeled on [`wat-shapes.md`](./wat-shapes.md): scalar load/store positives, `memory.grow`, filtered no-op stores, GC struct/array positives, memory64 address widening, and unsupported family preservation.
+- Add reduced shape tests modeled on [`wat-shapes.md`](./wat-shapes.md): scalar load/store positives, `memory.grow`, filtered no-op stores, GC struct/array positives, memory64 address widening, and unsupported family preservation.
 - Add one effect-sensitive test modeled on the Binaryen `addsEffects()` contract so the pass cannot be misclassified as effect-neutral.
 - Run the normal repo validation path for implemented behavior (`moon info`, `moon fmt`, `moon test`) and, if a parity harness supports instrumentation passes by then, compare against `wasm-opt --instrument-memory` on the covered subset.
 

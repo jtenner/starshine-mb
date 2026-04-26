@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md
+  - ../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md
   - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
 related:
@@ -12,6 +14,7 @@ related:
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 supersedes:
   - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
 ---
@@ -85,7 +88,8 @@ For complete opcode coverage, use the source visitor enumerations in `RemoveRela
 ## Current-main drift check
 
 The `main` versions reviewed on 2026-04-25 kept the same owner file, public spelling, lit filename, trap replacement, and refinalization shape as `version_129`.
-The check also found no teaching-level evidence for the older feature-gate wording.
+The 2026-04-26 port-readiness recheck found no teaching-level drift from that correction and added a local implementation ladder in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
+The checks also found no teaching-level evidence for the older feature-gate wording.
 
 ## Porting cautions
 
@@ -97,6 +101,7 @@ The check also found no teaching-level evidence for the older feature-gate wordi
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md)
 - [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)

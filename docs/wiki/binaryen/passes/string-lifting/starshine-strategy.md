@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md
+  - ../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md
   - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
@@ -23,6 +25,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./import-and-call-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../string-lowering/starshine-strategy.md
   - ../string-gathering/starshine-strategy.md
 ---
@@ -104,13 +107,13 @@ A pass port must not assume those are already complete just because `string.cons
 
 ## Suggested future implementation order
 
-If Starshine ever tracks this pass, use this sequence:
+If Starshine ever tracks this pass, use the more detailed ladder in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The short version is:
 
 1. Add the pass name as boundary-only or removed, with tests proving explicit requests fail honestly.
 2. Add missing WAT/lib/validator/binary support for every lifted output opcode the pass will emit.
-3. Build a module-pass scanner for imported globals and helper functions.
+3. Implement magic-import `global.get -> string.const` first.
 4. Add JSON `string.consts` custom-section decode/remove support only after a focused fixture proves roundtrip behavior.
-5. Implement magic-import `global.get -> string.const` first.
+5. Build exact `wasm:js-string` helper signature checking before helper-call rewrites.
 6. Add helper-call rewrites one family at a time.
 7. Decide and document the cast-repair boundary before turning on broader call rewrites.
 8. Keep the pass out of presets unless a larger string-lifting/lowering pipeline exists and validates against Binaryen.
@@ -136,6 +139,8 @@ The best current Starshine strategy is documentation and explicit tracking, not 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md)
+- [`../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md`](../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md)
 - [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)

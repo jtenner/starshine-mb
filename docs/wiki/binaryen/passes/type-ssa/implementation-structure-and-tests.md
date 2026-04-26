@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
+  - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
-  - ../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md
-  - ../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -18,14 +18,7 @@ related:
 
 ## Why this page exists
 
-The landing page explains what `type-ssa` is for.
-This page answers a different question:
-
-- which official Binaryen files actually define that contract?
-
-For `type-ssa`, the answer is pleasantly small.
-The real contract is mostly one implementation file, one registration file, one direct lit file, and one explicit refinalization dependency.
-The exact reviewed official source URLs and release provenance for this map are captured immutably in [`../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md).
+This page maps the official Binaryen files that define `type-ssa` after the 2026-04-26 source correction. The main correction is that `TypeSSA.cpp` is an allocation-subtype creation pass, not the local/global/control-value retagging pass described by the older 2026-04-23 dossier.
 
 ## Main upstream files
 
@@ -33,34 +26,54 @@ The exact reviewed official source URLs and release provenance for this map are 
 
 Source:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TypeSSA.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeSSA.cpp>
 
-This is the real implementation.
-It defines:
+This is the owner file. It defines:
 
-- the `createdTypes` map,
-- the `getTargetType`, `setCreatedType`, and `getValue` helpers,
-- the seed visitors for `struct.new`, `array.new`, `array.new_fixed`, `ref.as_non_null`, and `ref.cast`,
-- local/global forwarding,
-- direct-call operand and return-value retagging,
-- and the final GC-only `ReFinalize` step.
+- the GC feature gate,
+- the `news` allocation-site collection,
+- the `disallowedTypes` exact-observation collection,
+- the module-code/global/element scanning surface,
+- `ChildTyper`-based child exactness checks,
+- the `isInteresting(...)` filter,
+- `modifyNews(...)` fresh subtype / rec-group creation,
+- allocation result-type rewrites,
+- type-name copying,
+- and final `ReFinalize` over functions and module code.
 
-If you only read one file for this pass, read this one.
+If you only read one file for `type-ssa`, read this one.
 
 ### 2. `src/passes/pass.cpp`
 
 Source:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
 
-This file matters because it proves that `type-ssa` is a real public Binaryen pass name.
-That is the source-backed reason to track it as its own dossier instead of leaving it only as a contrast point inside `type-merging`.
+This file proves that `type-ssa` is a real public pass name. That is the reason this dossier exists independently instead of being only a note inside `type-merging` or `ssa`.
 
-### 3. `src/ir/ReFinalize.cpp`
+### 3. `src/passes/passes.h`
+
+Source:
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/passes.h>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/passes.h>
+
+This file exposes the `createTypeSSAPass()` factory in the pass factory surface.
+
+### 4. `src/ir/ReFinalize.cpp`
 
 Source:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/ReFinalize.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/ir/ReFinalize.cpp>
 
-This file matters because `type-ssa` explicitly invokes `ReFinalize` when a GC function changed.
-That makes refinalization part of the real correctness contract, not just optional surrounding cleanup.
+`type-ssa` invokes `ReFinalize` after allocation type rewrites. That makes parent-type repair part of the correctness contract.
+
+### 5. `src/wasm-type-shape.*`
+
+Source:
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-type-shape.h>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/wasm-type-shape.h>
+
+The owner file uses type-shape machinery when making the fresh rec group unique. This is a subtle but important implementation detail: the pass is not just appending ad-hoc duplicate type declarations.
 
 ## Dedicated official test
 
@@ -68,100 +81,69 @@ That makes refinalization part of the real correctness contract, not just option
 
 Source:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/type-ssa.wast>
+- <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/type-ssa.wast>
 
-This is the direct public proof surface for the pass.
-It shows the main positive and preserved families Binaryen considers part of the contract:
+This is the direct public proof surface for the pass. Read it as a type-section and allocation-result oracle:
 
-- local and global forwarding from freshly created exact values,
-- branch-value agreement through `if`,
-- `try` result forwarding,
-- direct call-operand sharpening,
-- return-value sharpening,
-- and preserved broader types when the proof is too weak.
+- positive `struct.new` splitting,
+- array allocation splitting,
+- positive interestingness cases,
+- preserved allocations when exactness or type-shape safety blocks fresh subtype creation,
+- refinalized output after allocation result types change.
+
+Do not read the test as a proof of local/global get retagging; that was the stale 2026-04-23 interpretation.
 
 ## File map in one table
 
 | File | Why it matters | Main thing it proves |
 | --- | --- | --- |
-| `TypeSSA.cpp` | core algorithm | `type-ssa` is a created-exact-type retagging pass, not generic SSA conversion |
-| `pass.cpp` | public registration | `type-ssa` is a real user-visible Binaryen pass |
-| `ReFinalize.cpp` | correctness dependency | parent types must be recomputed after successful GC retagging |
-| `type-ssa.wast` | behavior oracle | the real public rewrite surface is local/global/control-value plus call/return retagging |
+| `TypeSSA.cpp` | core algorithm | selected allocations become exact fresh private subtypes |
+| `pass.cpp` | public registration | `type-ssa` is a user-visible Binaryen pass |
+| `passes.h` | factory surface | the pass has an ordinary pass-construction entry point |
+| `ReFinalize.cpp` | correctness dependency | parent/module-code types are repaired after rewrites |
+| `wasm-type-shape.*` | type uniqueness helper | fresh rec groups are canonicalized instead of blindly duplicated |
+| `type-ssa.wast` | behavior oracle | official allocation-subtype positives and bailouts |
 
 ## Implementation outline
 
-The reviewed `version_129` implementation is compact enough to summarize almost linearly:
+The corrected `version_129` implementation is best read in this order:
 
-1. define a function walker with a `createdTypes` map,
-2. convert eligible created refs into exact non-null target types,
-3. seed those types from constructor/cast-like nodes,
-4. propagate them through `block` / `if` / some `try` values,
-5. propagate them through `local.set` / `global.set`,
-6. retag later `local.get` / `global.get`,
-7. retag direct call operands and return values when subtype-safe,
-8. refinalize changed GC functions.
+1. gate on GC,
+2. scan functions and module-level expressions for allocation candidates,
+3. record exact-observation blockers,
+4. filter candidates with `isInteresting(...)`,
+5. build fresh private subtypes in a new rec group,
+6. make the new group unique,
+7. rewrite each selected allocation's result type to exact non-null fresh subtype,
+8. copy useful names,
+9. refinalize functions and module code.
 
-That compactness is itself important.
-`type-ssa` is a small specialized pass.
+## Superseded implementation outline
 
-## What the test file proves best
+The older local wiki said the implementation worked by:
 
-## Local/global forwarding
+1. recording created exact types in an expression map,
+2. forwarding facts through `block` / `if` / `try`,
+3. propagating through locals/globals,
+4. retagging later gets, calls, and returns.
 
-The test demonstrates that a value freshly created at one exact heap type can be stored and later reloaded with that precision intact.
+That outline is stale and should not be used for implementation planning.
 
-## Control-value propagation
+## Starshine proof surface implied by the upstream map
 
-The test also proves that matching branch results can carry a created type upward through wrappers like `if` and some `try` forms.
+A future Starshine implementation needs tests and code for:
 
-## Signature-facing retagging
+- parsing and representing the allocation instructions listed above,
+- discovering allocations in ordinary functions and module-level code,
+- deciding exact-observation blockers,
+- creating fresh heap types and rec groups,
+- preserving or deriving type names safely,
+- retagging allocation instruction result types,
+- refinalizing or validating rewritten parent expression types,
+- comparing generated WAT/type sections against `wasm-opt --type-ssa`.
 
-The pass does not stop at local gets.
-The test covers call and return edges too, which is important for later GC optimization passes.
+That is module/type-section infrastructure. It is not a small HOT local-flow port.
 
-## Preserved bailouts
+## Current-main drift
 
-The test file is also useful because of what it does **not** claim.
-It does not present `type-ssa` as a broad flow-sensitive optimizer for every control form.
-That matches the source's explicit conservatism around loops and mismatched joins.
-
-## Current-main drift check
-
-The 2026-04-23 raw manifest also records the checked official release provenance: the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
-I did a narrow current-main spot check on:
-
-- `src/passes/TypeSSA.cpp`
-- `test/lit/passes/type-ssa.wast`
-
-On the reviewed surfaces, current `main` still matched the tagged `version_129` behavior relevant to this dossier.
-So the documented behavior here is not sitting on a known current-main drift.
-
-## Relationship to nearby dossiers
-
-This file/test map sharpens the split from neighboring pages:
-
-- compared with [`../ssa/index.md`](../ssa/index.md), `type-ssa` is much smaller and never builds general SSA scaffolding,
-- compared with [`../type-refining/index.md`](../type-refining/index.md), it does not aggregate field traffic across the closed world,
-- compared with [`../type-generalizing/index.md`](../type-generalizing/index.md), it does not use a content oracle,
-- compared with [`../type-merging/index.md`](../type-merging/index.md), it improves use precision rather than merging declarations.
-
-## Porting checklist derived from the official file map
-
-A future Starshine port should not be called faithful unless it has equivalents for:
-
-- created exact-type seeding,
-- conservative `block` / `if` / `try` value forwarding,
-- local and global propagation,
-- call-operand and return-value retagging,
-- explicit `loop` no-propagation behavior,
-- GC-only refinalization after changes,
-- a dedicated test surface that locks the same families.
-
-## Practical reading order
-
-For future follow-up work, the best reading order is:
-
-1. `pass.cpp` to confirm the public pass identity,
-2. `TypeSSA.cpp` to understand the whole algorithm,
-3. `type-ssa.wast` to see the real visible families,
-4. `ReFinalize.cpp` only when the post-change repair story needs deeper confirmation.
+The 2026-04-26 current-main check found no teaching-relevant drift from this corrected map.

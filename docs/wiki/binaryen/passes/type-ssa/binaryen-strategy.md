@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
+  - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
-  - ../../../raw/research/0217-2026-04-21-type-ssa-binaryen-research.md
-  - ../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
@@ -20,245 +20,150 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass.
-The immutable primary-source manifest for this dossier is [`../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md).
-The core sources are:
+Use the 2026-04-26 correction capture as the current source oracle: [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md).
+
+The key official sources are:
 
 - `src/passes/TypeSSA.cpp`
 - `src/passes/pass.cpp`
+- `src/passes/passes.h`
 - `test/lit/passes/type-ssa.wast`
 - `src/ir/ReFinalize.cpp`
+- `src/wasm-type-shape.*`
 
-Primary source URLs:
+Primary URLs:
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/TypeSSA.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/type-ssa.wast>
-- <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/ReFinalize.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeSSA.cpp>
 
 ## The pass in one sentence
 
-Binaryen `type-ssa` is a small GC function pass that remembers exact created reference types, propagates them through SSA-like local/global and control-value flows, and retags later uses, call operands, and returns when the narrower type is subtype-safe.
+Binaryen `type-ssa` is a GC pass that creates fresh private heap subtypes for selected allocation instructions and rewrites those allocations to exact non-null fresh types so later type-aware optimizations can distinguish allocation sites.
 
-## Biggest naming fact
+## The corrected naming fact
 
-The easiest mistake is to read `type-ssa` as if it meant:
+The name is still intentionally SSA-flavored, but the analogy is narrower than the old dossier claimed.
 
-- “convert the function to SSA form, but for types.”
+- Ordinary SSA: each value can get a distinct register.
+- `type-ssa`: selected allocation values can get distinct fresh heap types.
 
-That is not the real `version_129` contract.
-
-A better reading is:
-
-- “preserve exact created heap-type information across simple SSA-like flows.”
-
-So the pass is much smaller than full [`../ssa/index.md`](../ssa/index.md), and much more local than broader GC/type passes.
+So `type-ssa` is not general [`../ssa/index.md`](../ssa/index.md), not local-flow retagging, and not whole-program type inference.
 
 ## Public-pass fact
 
-`pass.cpp` registers `type-ssa` as its own public pass name.
-So this is not just an unnamed helper mentioned by `type-merging`.
-It is a real public Binaryen pass.
+`pass.cpp` registers `type-ssa` as a public pass name. That makes it worth tracking as its own upstream dossier even though Starshine does not currently name the pass in the local registry.
 
-## Scheduler fact
+## High-level algorithm
 
-For this repo, `type-ssa` is currently upstream-only:
+### 1. Gate on GC
 
-- it is not in the local Starshine registry,
-- it is not in the no-DWARF default optimize path page,
-- and it is not in the saved generated-artifact `-O4z` skipped-slot queue.
+The pass requires GC support. Without GC heap types, fresh allocation subtypes have no useful target representation.
 
-So this dossier is a justified upstream-only expansion rather than a missing default-parity pass.
+### 2. Scan allocation candidates
 
-## Core state: `createdTypes`
+The analyzer records allocation sites in a `news` list. The important candidate families are:
 
-The implementation keeps one central map:
+- `struct.new`,
+- `array.new`,
+- `array.new_data`,
+- `array.new_elem`,
+- `array.new_fixed`.
 
-- `std::unordered_map<Expression*, Type> createdTypes;`
+It skips imported functions for function-body analysis but also scans module code, globals, and element segments so allocation sites outside ordinary defined function bodies are not missed.
 
-That is the entire pass's mental center.
-It is not building a broad lattice over all expressions.
-It is only remembering places where Binaryen knows a value has a more specific exact reference type.
+### 3. Record exact-observation blockers
 
-## Helper 1: `getTargetType`
+The pass also records `disallowedTypes`: types that cannot safely be split because exact type identity might already be observable or constrained.
 
-The helper `getTargetType(Type type)` is the first real boundary.
-It rejects:
+Important blocker families include:
 
-- non-reference types,
-- `anyref`,
-- `eqref`,
-- `i31ref`,
-- and `none`.
+- exact `ref.cast` / `ref.test` targets,
+- exact function results,
+- exact global types,
+- exact element-segment types,
+- exact child constraints found through the `ChildTyper` helper.
 
-If the type is already exact, it keeps it.
-Otherwise it turns the heap type into an **exact non-null** version.
+This is the core correctness guard. A fresh subtype is only safe when later code cannot observe that the allocation no longer has exactly the original heap type.
 
-That means the pass's precision starts from a very narrow idea:
+### 4. Filter for interesting allocations
 
-- concrete heap-typed references that Binaryen can treat as freshly exact.
+Not every safe allocation is worth splitting. `isInteresting(...)` rejects allocations that do not expose useful type distinctions.
 
-## Helper 2: `setCreatedType`
+Important positive families include:
 
-The pass only records a created type when the target type is not `none`.
-That small gate is why the pass does not try to generalize broad abstract reference families.
+- default `struct.new`,
+- fields or elements initialized from constants,
+- fields or elements initialized from globals,
+- operands whose types are more refined than the declared field or element type,
+- data/element-backed arrays,
+- `array.new_fixed` when every element is interesting.
 
-## Helper 3: `getValue`
+Important negative families include:
 
-`getValue(Expression*)` defines how control-flow wrappers propagate created types.
-The reviewed `version_129` source handles:
+- unreachable allocations,
+- final types,
+- types whose `open` bit is disabled,
+- descriptor/describee types,
+- boring operands that do not carry useful refinement.
 
-- ordinary expressions by default,
-- `block` via the last child,
-- `if` only when both arms produce the same created type,
-- `try` through the `do` body or catch bodies when the values agree,
-- but it returns `nullptr` for `loop`.
+### 5. Create a fresh rec group
 
-So the pass is deliberately conservative at joins.
-It only forwards a created type when Binaryen can point at one stable carried value.
+For selected candidates, Binaryen constructs one new rec group containing fresh private subtypes of the original allocated heap types.
 
-## Phase 1: seed created exact types
+The rewrite preserves sharing through an old-to-new type map and calls the type-shape machinery so the new group is unique rather than colliding with existing shapes.
 
-The pass records created exact types for a tiny seed surface:
+### 6. Rewrite allocation result types
 
-- `visitStructNew`
-- `visitArrayNew`
-- `visitArrayNewFixed`
-- `visitRefAs`
-- `visitRefCast`
+Each selected allocation is retagged from the old allocation type to an exact non-null reference to its fresh subtype.
 
-This is the core positive surface.
-In beginner terms, these are the places where Binaryen says:
+This is the visible transformation: the allocation node, not a later `local.get` or call operand, gets the fresh type.
 
-- “I know exactly what heap type this value just became.”
+### 7. Preserve useful names
 
-## Phase 2: propagate through locals and globals
+When the old type has a name, Binaryen copies a friendly derived name to the new fresh subtype with a numeric suffix. This is a readability/debugging detail, not the semantic core.
 
-When a `local.set` or `global.set` stores a value with a remembered created type, the pass records that same created type for the set node.
-Later:
+### 8. Refinalize
 
-- `visitLocalGet` can retag the get to that more precise type,
-- `visitGlobalGet` can do the same.
+After rewriting, Binaryen runs `ReFinalize` over ordinary functions and module code so parent expression types agree with the new child allocation types.
 
-The get keeps its original nullability, so the main improvement is heap-type precision and exactness, not unconditional non-null forcing.
+## Closed-world caveat
 
-## Phase 3: propagate through signature-facing sites
-
-The pass also pushes created-type precision into typed boundaries.
-In the reviewed `version_129` source that means:
-
-- `visitCall` for direct call operands,
-- `visitReturn` for returned values.
-
-For each value, if the remembered created type is a subtype of the expected parameter or result type, Binaryen rewrites the expression type to that narrower type.
-
-This is why the pass matters to later GC optimization.
-It does not just make local gets prettier.
-It makes more exact types visible at call and return boundaries too.
-
-## Refinalization is part of the contract
-
-At the end of a changed function, if GC is enabled, Binaryen runs:
-
-- `ReFinalize().walkFunctionInModule(curr, module);`
-
-That is not optional cleanup.
-It is how Binaryen makes parent expression types consistent with the newly narrowed children.
-
-## Positive family 1: fresh constructor to local.get
-
-The classic shape is:
-
-- create an exact value,
-- store it in a local,
-- later load the local again.
-
-`type-ssa` can retag the later `local.get` to the created exact subtype.
-
-## Positive family 2: matching branch values
-
-If both `if` arms produce values with the same created type, the enclosing `if` can carry that type too.
-The same idea appears in narrow `try` result families.
-
-## Positive family 3: narrower call operands and returns
-
-If the pass knows an operand or return value is a created exact subtype, and that subtype fits the expected signature slot, it rewrites the expression type at that boundary.
-
-## Negative family 1: loops
-
-`loop` is an explicit non-goal for the value-propagation helper here.
-That is a real design boundary, not a documentation omission.
-
-## Negative family 2: mixed branch types
-
-If `if` or `try` flows do not agree on one created type, the pass keeps the broader original type.
-
-## Negative family 3: abstract refs
-
-Because `getTargetType` rejects `anyref`, `eqref`, `i31ref`, and `none`, the pass does not try to build exact created-type precision for those broader families.
-
-## Important pass interactions
-
-## 1. With `type-merging`
-
-This is the key neighboring relationship.
-The `type-merging` dossier already points out that `type-ssa` can create distinctions that help earlier optimization.
-Later, `type-merging` can collapse distinctions that are no longer worth preserving.
-
-So the relationship is:
-
-- `type-ssa` creates useful use-site precision,
-- `type-merging` later removes unneeded declaration-level distinctions.
-
-## 2. With `ssa`
-
-The pass name is misleading because this is **not** the same kind of transformation as full `ssa`.
-`type-ssa` does not introduce merge locals or entry prepends.
-It only forwards precise created reference types across existing flows.
-
-## 3. With `type-refining`
-
-`type-refining` is a closed-world field-analysis pass.
-`type-ssa` is much smaller and more local.
-Its precision comes from created values, not from whole-program write aggregation.
-
-## 4. With `type-generalizing`
-
-`type-generalizing` consumes a content oracle over a narrow expression family.
-`type-ssa` does not use a content oracle at all.
-Its evidence is “this exact value was just created here.”
-
-## What a future Starshine port would need to preserve
-
-A faithful port would need to preserve at least these boundaries:
-
-1. the tiny created-type seed surface,
-2. the `getTargetType` rejection of abstract refs,
-3. conservative `block` / `if` / `try` value forwarding,
-4. the explicit `loop` exclusion,
-5. local/global propagation,
-6. call-operand and return-value retagging,
-7. GC-only refinalization after changes.
+The pass comments describe the optimization as likely most useful in closed-world scenarios because fresh rec-group collisions outside the module can make some distinctions less profitable or harder to preserve. The source-backed gate, however, is GC support plus the pass's own exact-observation/disallowed-type analysis, not a simple hard `--closed-world` option check like some neighboring GC/type passes.
 
 ## Current-main drift check
 
-The 2026-04-23 raw manifest records the checked official release provenance explicitly: the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
-I did a narrow current-main spot check on:
+The 2026-04-26 source capture rechecked current `main`. No teaching-relevant drift was found from the corrected `version_129` allocation-subtype contract.
 
-- `src/passes/TypeSSA.cpp`
-- `test/lit/passes/type-ssa.wast`
+## What the older dossier got wrong
 
-On the reviewed surfaces, current `main` still matched the tagged `version_129` behavior relevant to this dossier.
-So the documented contract here is not sitting on a known current-main semantic drift.
+The older 2026-04-23 pages should not be used for the algorithm. They claimed the pass had:
 
-## Most important beginner correction
+- a `createdTypes` expression map,
+- a `getTargetType(...)` helper that filtered abstract refs,
+- control-value forwarding through `block` / `if` / `try`,
+- local/global get retagging,
+- direct-call operand and return retagging.
 
-If someone says:
+Those claims are superseded by the owner file's allocation-subtype implementation.
 
-- “`type-ssa` is basically SSA plus types”
+## Important pass interactions
 
-that is too vague and points in the wrong direction.
+- Compared with [`../ssa/index.md`](../ssa/index.md), this pass creates fresh **types**, not general SSA locals.
+- Compared with [`../type-refining/index.md`](../type-refining/index.md), this pass does not aggregate field writes; it specializes allocation result types.
+- Compared with [`../type-merging/index.md`](../type-merging/index.md), this pass may create more type distinctions, while type merging later removes indistinguishable private declarations.
+- Compared with [`../abstract-type-refining/index.md`](../abstract-type-refining/index.md), this pass creates new private subtypes rather than only refining uses of existing abstract types.
 
-A much better sentence is:
+## Validation expectations
 
-- “`type-ssa` is a small GC pass that remembers exact created heap types and keeps that precision alive across SSA-like uses.”
+A faithful implementation must prove:
+
+- allocation candidate discovery across functions and module code,
+- exact-observation blockers,
+- interestingness filtering,
+- correct subtype/rec-group creation,
+- exact non-null allocation retagging,
+- name copying only as a non-semantic detail,
+- refinalization after rewrites,
+- no accidental local-flow retagging model imported from the superseded dossier.

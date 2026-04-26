@@ -1,15 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
+  - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `strip-toolchain-annotations` implementation structure and tests
@@ -82,12 +85,13 @@ Binaryen `CHANGELOG.md` under `version_126` records the introduction of:
 
 That release-note framing explains why the pass is intentionally forward-looking and allowlist-like: it is not a generic metadata vacuum.
 
-## Current-main spot check
+## Current-main spot checks
 
-The current-`main` source and lit file reviewed on 2026-04-24 still present the same teaching-level contract as the tagged `version_129` sources.
-No current-main behavior drift was filed into the living pages in this run.
+The current-`main` source and lit file reviewed on 2026-04-24 still presented the same teaching-level contract as the tagged `version_129` sources.
+A second focused recheck on 2026-04-26 found the same teaching-level result and added a port-readiness bridge for Starshine's narrower function-annotation model.
 
 ## Testing gap to remember
 
 `jsCalled` removal is source-backed by `remove(CodeAnnotation&)` and release-note provenance, but the dedicated lit file does not isolate `@binaryen.js.called` in the same direct way it checks `@binaryen.removable.if.unused` and `@binaryen.idempotent`.
 A future upstream or Starshine test that isolates `jsCalled` would make the proof surface more beginner-obvious.
+For Starshine specifically, the 2026-04-26 grep found local parser/lowering tests for `binaryen.js.called`, `binaryen.idempotent`, and `metadata.code.inline`, but not `binaryen.removable.if.unused`; a future local pass should add that spelling to the supported fixture set before claiming parity with Binaryen's dedicated lit file.

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
   - ./binaryen-strategy.md
@@ -11,6 +13,7 @@ related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../optimize-instructions/wat-shapes.md
   - ../pick-load-signs/wat-shapes.md
 ---

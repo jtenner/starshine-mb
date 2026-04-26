@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md
+  - ../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
   - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
@@ -21,6 +23,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./state-machine-memory-and-eh-boundaries.md
+  - ./starshine-port-readiness-and-validation.md
   - ../i64-to-i32-lowering/index.md
   - ../legalize-js-interface/index.md
   - ../memory64-lowering/index.md
@@ -130,7 +133,9 @@ Asyncify needs a dedicated owner because the correctness story spans callgraph a
 
 ## Candidate tests for a Starshine port
 
-- `--pass asyncify` is accepted only after the pass exists.
+Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) as the fuller validation ladder. The short checklist is:
+
+- `--pass asyncify` is accepted only after the pass exists, or remains explicitly unknown/boundary-only.
 - A direct async import creates the runtime API exports.
 - A transitive caller is instrumented.
 - A function outside the async closure remains unchanged.
@@ -152,6 +157,8 @@ Asyncify needs a dedicated owner because the correctness story spans callgraph a
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md)
+- [`../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md`](../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md)
 - [`../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md`](../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md)
 - [`../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md`](../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md)

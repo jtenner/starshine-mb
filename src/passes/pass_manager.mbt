@@ -7092,6 +7092,35 @@ fn run_hot_pipeline_raw_pick_load_signs(
 }
 
 ///|
+fn run_hot_pipeline_raw_rse(
+  mod_ : @lib.Module,
+  func_idx : @lib.FuncIdx,
+  module_state : HotPipelineModuleState,
+  descriptor : @ir.HotPassDescriptor,
+  options : HotPipelineOptions,
+) -> HotPipelineFuncResult? {
+  if descriptor.name != "redundant-set-elimination" {
+    return None
+  }
+  let original = run_hot_pipeline_original_func(mod_, func_idx)
+  let module_ctx = run_hot_pipeline_require_module_ctx(
+    mod_, module_state, options,
+  )
+  let params = run_hot_pipeline_required_func_params(module_ctx, func_idx)
+  let (rewritten, changed) = rse_run_raw_func(original, params.length())
+  Some({
+    reason: if changed {
+      "raw-same-value-local-write"
+    } else {
+      "no-rse-candidates"
+    },
+    func: rewritten,
+    unchanged_original: !changed,
+    trace_skip_raw: true,
+  })
+}
+
+///|
 fn run_hot_pipeline_instr_has_remove_unused_names_candidate(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -7845,6 +7874,11 @@ fn run_hot_pipeline_func(
     None => ()
   }
   match run_hot_pipeline_raw_pick_load_signs(mod_, func_idx, descriptor) {
+    Some(result) => return Ok(result)
+    None => ()
+  }
+  match
+    run_hot_pipeline_raw_rse(mod_, func_idx, module_state, descriptor, options) {
     Some(result) => return Ok(result)
     None => ()
   }
@@ -8702,6 +8736,7 @@ pub fn hot_pass_run(
     "tuple-optimization" => tuple_optimization_run(ctx, func)
     "simplify-locals" => simplify_locals_run(ctx, func)
     "merge-blocks" => merge_blocks_run(ctx, func)
+    "redundant-set-elimination" => rse_run(ctx, func)
     _ => return Err("unsupported hot pass \{descriptor.name}")
   }
   perf_stop_timer_opt(ctx.perf, "pass:\{descriptor.name}", pass_timer_start)

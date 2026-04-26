@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md
+  - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
   - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
   - ../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md
 related:
@@ -19,65 +21,58 @@ related:
 
 ## Source-backed contract
 
-Binaryen implements `minify-imports-and-exports` and `minify-imports-and-exports-and-modules` in the same owner file: `src/passes/MinifyImportsAndExports.cpp`.
-The public pass split is a single boolean:
+Binaryen implements `minify-imports`, `minify-imports-and-exports`, and `minify-imports-and-exports-and-modules` in the same owner file: `src/passes/MinifyImportsAndExports.cpp`.
 
-- `minifyModules = false` for `minify-imports-and-exports`;
-- `minifyModules = true` for `minify-imports-and-exports-and-modules`.
+The public pass split is controlled by two flags:
 
-The strategy is:
+- `minifyExports = false`, `minifyModules = false` for plain `minify-imports`;
+- `minifyExports = true`, `minifyModules = false` for `minify-imports-and-exports`;
+- `minifyExports = true`, `minifyModules = true` for `minify-imports-and-exports-and-modules`.
 
-1. collect import base names from `module->imports`;
-2. collect export names from `module->exports`;
-3. when `minifyModules` is true, collect import module names as well;
-4. collect already-used names from relevant name-section surfaces so generated names do not collide with them;
-5. run `Names::MinifiedNameGenerator` through the pass's `mapNames(...)` helper to assign short names that avoid the used-name set;
-6. walk module imports and apply the import-base map;
-7. when `minifyModules` is true, also apply the module-name map;
-8. walk module exports and apply the export-name map;
-9. leave imported/exported entity kinds and index targets intact.
+For the export-minifying pass, the strategy is:
 
-The earlier first-pass dossier said this family delegates map construction to `WasmBinaryBuilder::getSymbolMap(...)`.
-The 2026-04-25 source-correction recheck supersedes that claim for Binaryen `version_129`: the reviewed owner file uses `Names::MinifiedNameGenerator` directly.
+1. collect eligible import base names;
+2. collect export names;
+3. generate short names with Binaryen's name generator;
+4. rewrite import base names;
+5. rewrite export names;
+6. update module maps;
+7. emit JSON mapping output describing old import/export names and new names.
 
-## Why Binaryen collects used names first
+The earlier first-pass dossier said this family delegates map construction to `WasmBinaryBuilder::getSymbolMap(...)`. The 2026-04-25 source-correction recheck superseded that claim for Binaryen `version_129`: the reviewed owner file uses `Names::MinifiedNameGenerator` directly.
 
-The pass is not just a naive counter over imports and exports.
-It avoids generating names that would collide with names already present in relevant module metadata, including name-section-derived function/local/label surfaces.
+The 2026-04-26 correction further supersedes the claim that plain `minify-imports` is separate/non-mutating/function-only. It is the narrow no-export/no-module mode of this same shared owner.
 
-This matters for Starshine parity: a trivial `a`, `b`, `c` generator over only imports and exports may pass simple WAT examples but drift on modules with existing short names or name sections.
+## Import-base rule differs by sibling
 
-## Plain pass versus `-and-modules`
+For `minify-imports-and-exports`, import-base minification follows the same plain-mode gate as `minify-imports`: imports are eligible when their module string is `env` or begins with `wasi_`.
 
-The plain mutating pass rewrites only:
+For `minify-imports-and-exports-and-modules`, Binaryen minifies import bases regardless of original module and then rewrites import module names to one short singleton module.
 
-- import base names;
-- export names.
+That makes the `-and-modules` sibling more than a small extra rename. It can change custom-module imports that the plain and export-only modes leave untouched.
 
-It does **not** rewrite import module names.
-For example, if an import starts as:
+## Export-name rewriting
 
-```wat
-(import "env" "long_function_name" (func))
+The `minifyExports` flag adds export-name rewriting. Export target indices and external kinds remain stable; only the public export string changes.
+
+This is ABI-visible. A host that looks up `"main"` or `"very_long_export_name"` must be updated to use the new name or the generated map.
+
+## JSON output
+
+The shared owner prints JSON-shaped output with both import and export maps when exports are enabled. Conceptually:
+
+```json
+{
+  "imports": {
+    "a": ["env", "old_import"]
+  },
+  "exports": {
+    "b": "old_export"
+  }
+}
 ```
 
-the plain pass may shorten `"long_function_name"` but should keep `"env"`.
-
-The sibling also rewrites the first string:
-
-```wat
-(import "long_module_name" "long_function_name" (func))
-```
-
-may become a pair of short generated names.
-
-The upstream help text makes this distinction explicit, so docs and tests should not collapse the two pass names into one vague “minify all external names” story.
-
-## Split from `minify-imports`
-
-[`minify-imports`](../minify-imports/index.md) is a separate public pass owned by `MinifyImports.cpp`.
-It reports `modifiesBinaryenIR() == false`, walks only imported functions, and emits a map.
-It should not be taught as the plain mode of this mutating pass family.
+The example is not a byte-for-byte oracle. Preserve Binaryen's exact ordering, escaping, and generated-name sequence when testing parity.
 
 ## What stays stable
 
@@ -93,15 +88,10 @@ A host-visible string changes, but the module still imports and exports the same
 
 ## Pipeline role
 
-This is a size and packaging pass.
-It is useful when a producer controls the host glue or when external symbol names are intentionally unstable.
-It is unsafe as a transparent optimizer for modules whose imports or exports are part of a stable public ABI.
+This is a size and packaging pass. It is useful when a producer controls the host glue or when external symbol names are intentionally unstable. It is unsafe as a transparent optimizer for modules whose imports or exports are part of a stable public ABI.
 
-Unlike [`strip-target-features`](../strip-target-features/index.md), this pass mutates in-memory module declarations rather than only toggling output metadata.
-Unlike [`duplicate-import-elimination`](../duplicate-import-elimination/index.md), it does not merge or remove imports.
+Unlike [`strip-target-features`](../strip-target-features/index.md), this pass mutates in-memory module declarations rather than only toggling output metadata. Unlike [`duplicate-import-elimination`](../duplicate-import-elimination/index.md), it does not merge or remove imports.
 
 ## Main caveat
 
-The official test surface reviewed for this run directly proves the `-and-modules` sibling.
-The plain mutating pass remains source-confirmed through the constructor flag, `pass.cpp` registration, and shared implementation.
-A future implementation signoff should add direct local tests for both mutating names and keep the separate non-mutating `minify-imports` pass in its own lane.
+The official test surface reviewed for this run directly proves the `-and-modules` sibling. Plain `minify-imports` and `minify-imports-and-exports` remain source-confirmed through constructor flags, `pass.cpp` registration, and shared implementation. A future implementation signoff should add direct local oracle tests for all three public names.

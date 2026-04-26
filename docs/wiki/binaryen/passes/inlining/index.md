@@ -1,12 +1,14 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-23
+status: supported
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-inlining-primary-sources.md
   - ../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md
   - ../../../raw/research/0226-2026-04-21-inlining-inline-hints-and-no-inline-followup.md
   - ../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0391-2026-04-26-inlining-port-readiness.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -18,6 +20,7 @@ related:
   - ./compilation-hints-vs-no-inline-flags-and-clone-survival.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../inlining-optimizing/index.md
   - ../dae-optimizing/index.md
   - ../duplicate-function-elimination/index.md
@@ -95,6 +98,8 @@ That final “then stop” is the big difference from `inlining-optimizing`.
   Beginner-friendly before/after shape catalog for the main positive, bailout, preserved, and easy-to-misread rewrite families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future port map: exact boundary-only registry / request-guard locations, current planning gap around a dedicated plain-`inlining` backlog slice, and the neighboring dossiers a future local port should compose with.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Dedicated first-slice and validation bridge for a future Starshine port, covering module-pass landing order, direct-call copy/rewrite tests, root-survival negatives, no accidental optimizing suffix, and Binaryen oracle comparison order.
 
 ## Current maintenance rule
 
@@ -104,9 +109,11 @@ That final “then stop” is the big difference from `inlining-optimizing`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-inlining-current-main-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-inlining-primary-sources.md`](../../../raw/binaryen/2026-04-23-inlining-primary-sources.md)
 - [`../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md`](../../../raw/research/0161-2026-04-21-inlining-binaryen-research.md)
 - [`../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md`](../../../raw/research/0274-2026-04-23-inlining-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0391-2026-04-26-inlining-port-readiness.md`](../../../raw/research/0391-2026-04-26-inlining-port-readiness.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

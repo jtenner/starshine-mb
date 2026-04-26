@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md
+  - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
   - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
   - ../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md
 related:
@@ -21,55 +23,42 @@ related:
 
 ### `src/passes/MinifyImportsAndExports.cpp`
 
-This is the implementation owner for both mutating public names:
+This is the implementation owner for all three public names:
 
+- `minify-imports`;
 - `minify-imports-and-exports`;
 - `minify-imports-and-exports-and-modules`.
 
-It owns the pass class, the `minifyModules` flag, import/export collection, used-name collection from name-section surfaces, `Names::MinifiedNameGenerator`-based `mapNames(...)`, and the helpers that apply maps to imports and exports.
+It owns the pass class, the `minifyExports` / `minifyModules` mode split, import/export collection, short-name generation, declaration-string rewrites, map updates, and JSON mapping output.
 
 Teaching contract:
 
-- the pass is module-wide;
+- the pass family is module-wide;
 - it rewrites declaration strings, not instruction bodies;
-- the sibling is not a separate algorithm;
+- plain `minify-imports` is the narrow shared-owner mode, not a separate non-mutating owner;
 - generated-name choice is in the pass owner file and `Names::MinifiedNameGenerator`, not `WasmBinaryBuilder::getSymbolMap(...)` in Binaryen `version_129`.
-
-### `src/passes/MinifyImports.cpp`
-
-This neighboring owner file belongs to the separate [`minify-imports`](../minify-imports/index.md) pass.
-It emits an imported-function map and does not mutate IR.
-Keep it separate when reading source or writing tests.
 
 ### `src/passes/pass.cpp`
 
-This file owns the public registration and help text.
-It is the source that proves the naming split:
+This file owns the public registration and help text. It is the source that proves the naming split:
 
-- `minify-imports` emits import-name mappings only;
-- `minify-imports-and-exports` minifies import and export names, not module names;
+- `minify-imports` minifies eligible import names and emits a map;
+- `minify-imports-and-exports` minifies eligible import names plus export names, not module names;
 - `minify-imports-and-exports-and-modules` also minifies module names.
 
 ### `src/passes/passes.h`
 
-This file exposes two separate factory shapes:
-
-- `createMinifyImportsPass()`;
-- `createMinifyImportsAndExportsPass(bool minifyModules)`.
-
-The boolean argument is part of the mutating family shape: one factory, two registrations.
+This file exposes separate factories for the public names. The factory split is public API shape; the implementation still routes through the same owner with different flags.
 
 ### `src/support/name.h`
 
-`Names::MinifiedNameGenerator` is the short-name generator used by both minify owner files.
-Future Starshine parity work should source-read this helper in the target upstream revision before implementing short-name ordering locally.
+`Names::MinifiedNameGenerator` is the short-name generator used by the family. Future Starshine parity work should source-read this helper in the target upstream revision before implementing short-name ordering locally.
 
 ## Upstream test surface
 
 ### `test/passes/minify-imports-and-exports-and-modules.wast`
 
-This WAT fixture includes imports of several external kinds plus exports with long names.
-It is strongest evidence for the sibling that minifies module names as well as import/export names.
+This WAT fixture includes imports of several external kinds plus exports with long names. It is strongest evidence for the sibling that minifies module names as well as import/export names.
 
 ### `test/passes/minify-imports-and-exports-and-modules.txt`
 
@@ -82,20 +71,20 @@ This expected-output file shows the core visible behavior:
 
 ## Proof gaps to keep explicit
 
-- The reviewed lit pair is sibling-focused. The plain mutating pass is source-confirmed by the `minifyModules = false` registration, but this run did not find a separate dedicated plain-pass WAT pair.
-- The separate `minify-imports` pass also lacks a reviewed dedicated lit pair and should not be inferred from the mutating sibling output.
-- The exact generated short-name sequence is controlled by `Names::MinifiedNameGenerator` plus used-name avoidance. Do not infer a full naming algorithm from illustrative WAT snippets.
-- This mutating pass changes external names. A validation-only test is not enough; future local tests need before/after name assertions and host-ABI documentation.
+- The reviewed lit pair is sibling-focused. Plain `minify-imports` and `minify-imports-and-exports` are source-confirmed by constructor flags and registry entries, but this run did not find separate dedicated WAT pairs for those modes.
+- The exact generated short-name sequence is controlled by `Names::MinifiedNameGenerator`. Do not infer a full naming algorithm from illustrative WAT snippets.
+- This family changes external names. A validation-only test is not enough; future local tests need before/after name assertions, JSON output assertions, and host-ABI documentation.
 
 ## Suggested future Starshine test map
 
 If Starshine implements this pass family, add local tests around these phases:
 
 1. registry tests for all three minify pass names;
-2. plain mutating function import/export rename with module string unchanged;
-3. sibling import module-name rename;
-4. non-function import/export cases: table, memory, global, and tag;
-5. collision cases where an already-short export or name-section name exists;
-6. roundtrip binary encode/decode proving the rewritten names persist;
-7. separate `minify-imports` stdout/no-mutation tests;
-8. negative or documentation tests explaining host ABI instability.
+2. plain `minify-imports` `env` / `wasi_` import-base rewrite;
+3. `minify-imports-and-exports` export rename with module strings unchanged;
+4. `minify-imports-and-exports-and-modules` all-import-base rewrite plus singleton module-name merge;
+5. non-function import/export cases: table, memory, global, and tag;
+6. collision cases where an already-short export or name-section name exists;
+7. JSON output capture separate from optimized wasm/WAT output;
+8. roundtrip binary encode/decode proving the rewritten names persist;
+9. negative or documentation tests explaining host ABI instability.

@@ -29,25 +29,30 @@ It should be read after [`./binaryen-strategy.md`](./binaryen-strategy.md) and [
 
 ## Current readiness verdict
 
-Starshine is **not ready to flip `redundant-set-elimination` on by wiring alone**.
-The registry and dispatcher gaps are simple, but a faithful port also needs a pass-local CFG/value-number flow or an equivalent HOT substrate.
+Starshine now has an **active direct `redundant-set-elimination` port**. The first landed slice is intentionally scoped to same-value local write shell removal and validation/signoff plumbing rather than the entire Binaryen refined-get surface.
 
-The minimum implementation is still small compared with `local-cse` or a full dataflow optimizer, but it is larger than a straight-line peephole:
+The implemented surface:
 
-- collect local get/set/tee sites by block;
-- compute block start/end local value identities;
-- converge through loops and diamonds;
-- remove same-value set/tee shells;
-- retarget subtype-safe equivalent local gets;
-- refinalize or otherwise validate type-sensitive rewrites.
+- registers `redundant-set-elimination` as an active hot pass and CLI flag;
+- keeps Binaryen `--rse` aliasing in the compare harnesses;
+- removes same-value `local.set` shells as `drop(value)` and same-value `local.tee` shells as the original value;
+- tracks simple value identities through constants, local copies, selected integer operations, and structured `if` agreement;
+- uses a raw fast path for lowered functions plus a HOT fallback for direct hot-pass tests;
+- keeps the direct `gen-valid` 10000-case lane and debug-artifact canonical function compare green.
+
+Remaining full-parity work is still real:
+
+- complete Binaryen-style fixed-point CFG merge values through loops and arbitrary diamonds;
+- add strict-subtype equivalent-local `local.get` retargeting and any required refinalization;
+- schedule the late no-DWARF slot only after the refined-get / tail-cleanup surface is proven.
 
 ## Exact local status
 
 | Surface | Current state | Future action |
 | --- | --- | --- |
-| Registry | [`src/passes/optimize.mbt:144-152`](../../../../../src/passes/optimize.mbt) lists `"redundant-set-elimination"` in `pass_registry_removed_names()`. | Move it to an active hot-pass entry once tests exist. Decide whether `rse` is accepted as an alias. |
-| Dispatcher | [`src/passes/pass_manager.mbt:8685-8705`](../../../../../src/passes/pass_manager.mbt) has no `rse` arm. | Add a pass-manager arm after the owner file lands. |
-| Owner file | No `src/passes/rse.mbt` or `src/passes/redundant_set_elimination.mbt`. | Add a dedicated owner rather than hiding the pass in `pass_manager.mbt`. |
+| Registry | `src/passes/optimize.mbt` now has an active `"redundant-set-elimination"` hot-pass entry. | Keep it direct-only until the late preset slot is proven. |
+| Dispatcher | `src/passes/pass_manager.mbt` dispatches `"redundant-set-elimination"` and has a raw fast path before hot lift. | Extend the raw/HOT implementations as refined-get and loop fixed-point support lands. |
+| Owner file | `src/passes/rse.mbt` owns descriptor, HOT rewrite, raw rewrite helper, and summary. | Keep new behavior beside this owner with focused tests. |
 | HOT local surfaces | [`src/ir/use_def.mbt:1-120`](../../../../../src/ir/use_def.mbt) records local reads/writes, but no value-number CFG flow. | Reuse only the collection pieces that fit; add explicit value identity and merge logic. |
 | Type context | [`src/ir/hot_module_context.mbt:1-58`](../../../../../src/ir/hot_module_context.mbt) and later helpers expose module subtype/function type context. | Use this for strict-subtype retargeting checks. |
 | Backlog | [`agent-todo.md:481-491`](../../../../../agent-todo.md) tracks `RSE`. | Keep the backlog aligned with this CFG-aware contract. |
@@ -96,18 +101,18 @@ Only then should the pass enter public preset scheduling.
 
 ## Validation checklist
 
-- [ ] Same-block repeated `local.set` positive.
-- [ ] Same-block repeated `local.tee` positive.
-- [ ] Different overwritten value negative.
-- [ ] RHS trap/effect preservation positive.
-- [ ] Branch-join same-value positive.
-- [ ] Branch-join different-value negative.
+- [x] Same-block repeated `local.set` positive.
+- [x] Same-block repeated `local.tee` positive.
+- [x] Different overwritten value negative.
+- [x] RHS trap/effect preservation by replacing the shell, not the value expression.
+- [x] Direct Binaryen `--rse` compare-pass lane: `.tmp/pass-fuzz-rse-genvalid-10000-raw` (`10000/10000`) and `.tmp/pass-fuzz-rse-10000-raw` (`6759` comparable matches, `0` mismatches, `20` Binaryen-side command failures).
+- [x] Generated-artifact direct replay: `.tmp/self-opt-rse-native-20260426b` has normalized WAT equality via fallback and canonical function equality.
+- [ ] Branch-join same-value positive beyond the simple structured raw/HOT cases.
+- [ ] Branch-join different-value negative beyond the focused local tests.
 - [ ] Loop convergence or conservative loop skip behavior documented and tested.
 - [ ] Refined local-get retargeting with a strict-subtype local.
 - [ ] No changes to globals, memory stores, struct stores, or array stores.
-- [ ] Direct Binaryen `--rse` compare-pass lane.
 - [ ] Late `--rse --vacuum` lane.
-- [ ] Generated-artifact no-DWARF slot replay.
 
 ## Open design questions
 

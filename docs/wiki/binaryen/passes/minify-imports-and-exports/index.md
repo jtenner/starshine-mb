@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-and-exports-primary-sources.md
   - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
@@ -31,7 +32,7 @@ related:
 `minify-imports-and-exports` is a public Binaryen module pass that shortens externally visible import base names and export names.
 Binaryen also exposes the sibling `minify-imports-and-exports-and-modules`, which uses the same implementation but additionally shortens import module names.
 
-Do not confuse either mutating pass with [`minify-imports`](../minify-imports/index.md): `minify-imports` is a separate non-mutating pass that emits an imported-function name map to stdout.
+Do not confuse either export-minifying pass with [`minify-imports`](../minify-imports/index.md): the plain pass is a narrower shared-owner mode that mutates only qualifying import base names (`env` / `wasi_` in plain mode) and emits a JSON import map; it does not rename exports or import modules.
 
 Starshine currently treats all three minification names as **upstream-only unknown pass names**:
 
@@ -100,7 +101,7 @@ The output is the same module structure with shorter external names:
 - **Do not retarget entities:** changing an export name must not change which function/table/memory/global/tag it exports.
 - **Do not rewrite bodies:** this pass is declaration-string minification, not call rewriting, import deduplication, inlining, or section reordering.
 - **Keep the sibling split explicit:** the plain mutating pass does not minify import module names; the `-and-modules` sibling does.
-- **Keep `minify-imports` separate:** map emission for imported functions is a different public pass and should not be documented as module mutation.
+- **Keep `minify-imports` narrower:** the plain public pass mutates qualifying import base names and emits JSON, but export-name and import-module-name mutation belong to the export/minify-module siblings.
 - **Avoid name collisions:** generated names must remain unique enough for imports/exports to remain valid and unambiguous.
 - **Use valid wasm names:** a future port must preserve Binaryen-compatible name generation rather than inventing names that fail text/binary roundtrips.
 
@@ -124,7 +125,7 @@ For Binaryen parity research:
 5. confirm import module names are shortened too;
 6. confirm all import/export target kinds and indices remain unchanged;
 7. confirm the module still validates and round-trips;
-8. run Binaryen `--minify-imports` separately and confirm it emits a map without mutating the module.
+8. run Binaryen `--minify-imports` separately and confirm it mutates only eligible import base names while emitting the JSON import map.
 
 For a future Starshine port, add tests in this order:
 
@@ -133,7 +134,7 @@ For a future Starshine port, add tests in this order:
 3. table, memory, global, and tag import/export fixtures prove the non-function surface;
 4. the sibling proves module-name renaming separately;
 5. duplicate or already-short names prove collision handling;
-6. a separate `minify-imports` test proves no module mutation and stdout map emission;
+6. a separate `minify-imports` test proves the `env` / `wasi_` import-base-only mutation and JSON output;
 7. a host-ABI note or option warning documents that external names are intentionally unstable after the mutating pass.
 
 ## Page map
@@ -150,5 +151,5 @@ For a future Starshine port, add tests in this order:
 - [`../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md`](../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md)
 - [`../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md`](../../../raw/research/0342-2026-04-25-minify-imports-and-exports-source-dossier.md)
 - Binaryen `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImportsAndExports.cpp>
-- Binaryen `MinifyImports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImports.cpp>
+- Binaryen `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImportsAndExports.cpp>
 - Binaryen pass registry: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

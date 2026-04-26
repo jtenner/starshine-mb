@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
+  - ../../../raw/research/0389-2026-04-26-dealign-port-readiness.md
   - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
@@ -16,13 +18,14 @@ related:
   - ./implementation-structure-and-tests.md
   - ./align-one-rewrite-surface-and-alignment-lowering-split.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../alignment-lowering/starshine-strategy.md
 ---
 
 # Starshine Strategy For `dealign`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md).
-The goal here is to show the exact current Starshine status and the concrete local files a future port would need to touch, not to imply that a local implementation already exists.
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md) and [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md).
+The goal here is to show the exact current Starshine status and the concrete local files a future port would need to touch, not to imply that a local implementation already exists. The implementation-order and validation details live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
 
@@ -138,7 +141,9 @@ Current Starshine `dealign` strategy is **do not pretend it exists locally**:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md)
+- [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
 - [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md)

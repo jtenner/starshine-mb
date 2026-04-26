@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md
+  - ../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md
   - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -23,6 +25,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/index.md
   - ../strip-target-features/index.md
   - ../late-pipeline-dispatch.md
@@ -113,9 +116,11 @@ For a future Starshine port, add tests in this order:
 - [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md) - owner files and official test surface.
 - [`wat-shapes.md`](wat-shapes.md) - before/after shape catalog.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - safe future implementation order, validation ladder, and local code-surface map.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md)
 - [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)

@@ -1,13 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
-  - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
+  - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
+  - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./env-wasi-json-map-and-module-merge.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
 ---
@@ -16,69 +17,79 @@ related:
 
 ## Upstream owner files
 
-### `src/passes/MinifyImports.cpp`
+### `src/passes/MinifyImportsAndExports.cpp`
 
-This is the implementation owner for the public `minify-imports` pass.
-It owns:
+This is the implementation owner for all three public minification names:
 
-- the `MinifyImports` pass class;
-- the non-mutating `modifiesBinaryenIR()` contract;
-- imported-function traversal;
-- short-name generation;
-- stdout map emission.
+- `minify-imports`;
+- `minify-imports-and-exports`;
+- `minify-imports-and-exports-and-modules`.
 
-Teaching contract: this file does not apply the names back to the module.
+The source-corrected plain-pass contract lives here, not in a separate `MinifyImports.cpp` file.
+
+For `minify-imports`, the owner is responsible for:
+
+- scanning module imports;
+- selecting imports whose module string is `env` or starts with `wasi_`;
+- generating short base names;
+- mutating import base names;
+- updating module maps after declaration-string rewrites;
+- emitting JSON mapping output.
+
+For the siblings, the same owner additionally handles export-name rewrites and, in `-and-modules` mode, import module-name merging.
 
 ### `src/passes/pass.cpp`
 
-This file owns the public registry entry and help text for `minify-imports`.
-It is also the easiest source to compare the three public minification names:
-
-- `minify-imports` emits import-name mappings;
-- `minify-imports-and-exports` mutates import base names and export names;
-- `minify-imports-and-exports-and-modules` mutates those names plus import module names.
+This file owns the public registry entries and help text for the three names. It is the quickest source-level way to confirm that plain `minify-imports` is not an alias for the export-minifying pass, but is still part of the same implementation family.
 
 ### `src/passes/passes.h`
 
-This file exposes `createMinifyImportsPass()` separately from `createMinifyImportsAndExportsPass(bool minifyModules)`.
-The separate factory is the source-level reminder that `minify-imports` is not just the plain mode of the mutating pass family.
-
-### `src/wasm/wasm-module-utils.h`
-
-The pass uses `ModuleUtils::iterImportedFunctions(...)` for traversal.
-That helper boundary is why the pass is documented as imported-function-only.
+This file exposes separate factories for the three public pass names. The factories route into the same owner with different flags.
 
 ### `src/support/name.h`
 
-`Names::MinifiedNameGenerator` provides generated short names.
-Future parity tests should not hard-code a guessed alphabet without checking this helper in the targeted revision.
+`Names::MinifiedNameGenerator` provides generated short names. Future parity tests should source-read this helper in the target Binaryen revision rather than hard-coding illustrative `a`, `b`, `c` examples.
 
 ## Upstream test surface
 
-This run found no dedicated official `test/passes/minify-imports.wast` / `.txt` pair in the reviewed `version_129` pass tests.
-The source proof is still strong enough to document the pass, but the proof gap matters:
+The reviewed official `version_129` pass tests include a dedicated fixture for `minify-imports-and-exports-and-modules`, not a dedicated plain-`minify-imports` fixture.
 
-- no direct lit fixture was reviewed for stdout map order;
-- no direct lit fixture was reviewed for duplicate imported-function base names;
-- no direct lit fixture was reviewed for non-function import negatives.
+That proof split matters:
 
-The nearby `minify-imports-and-exports-and-modules` lit pair belongs to the mutating sibling, not to `minify-imports`.
-Do not use that sibling test as proof that `minify-imports` mutates module declarations.
+- source proves the plain pass's `env` / `wasi_` import-base mutation;
+- sibling tests prove the broader import/export/module declaration-shape family;
+- they do not replace an oracle check for exact plain-mode JSON order and formatting.
+
+Future Starshine work should add local plain-mode tests even if upstream still lacks a dedicated lit fixture.
 
 ## Suggested future Starshine test map
 
-If Starshine implements `minify-imports`, add local tests around these phases:
+If Starshine implements `minify-imports`, add tests around these phases:
 
 1. registry behavior for `minify-imports` is explicit;
-2. imported-function fixture emits mapping lines;
-3. module bytes or WAT are unchanged by the pass;
-4. imported memory/table/global/tag fixture emits no mapping lines;
-5. export-only fixture emits no mapping lines;
-6. duplicate imported function names document Binaryen-compatible output behavior;
-7. CLI test captures stdout and errors separately from normal optimized module output.
+2. `env` function import gets a shorter base name;
+3. `env` memory/table/global/tag imports are treated as eligible when supported by fixtures;
+4. `wasi_` module import gets a shorter base name;
+5. custom `host` module import is unchanged in plain mode;
+6. export-only fixture is unchanged in plain mode;
+7. stdout JSON is captured independently from optimized wasm/WAT output;
+8. import maps and binary roundtrip are consistent after mutation;
+9. sibling tests prove export-name mutation and module-name merge separately.
 
 ## Nearby sibling tests to keep separate
 
-Tests for [`minify-imports-and-exports`](../minify-imports-and-exports/index.md) should assert mutated module declarations.
-Tests for `minify-imports` should assert no mutation plus map output.
-Combining those expectations under one pass name would hide the most important distinction in the source.
+Tests for [`minify-imports-and-exports`](../minify-imports-and-exports/index.md) should assert export-name mutation. Tests for `minify-imports-and-exports-and-modules` should assert all-module import-base eligibility plus singleton module-name rewrite.
+
+Tests for plain `minify-imports` should not assert either behavior.
+
+## Corrected stale references
+
+The following older claims are superseded for Binaryen `version_129` and current `main`:
+
+- separate `src/passes/MinifyImports.cpp` owner;
+- `modifiesBinaryenIR() == false` for the plain pass;
+- imported-function-only traversal;
+- one `old:new` text line per imported function;
+- no module mutation under plain `minify-imports`.
+
+Preserve the older notes only as provenance for the import/export minification research thread.

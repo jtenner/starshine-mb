@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
   - ../../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
@@ -24,6 +26,7 @@ related:
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `signext-lowering` implementation structure and tests
@@ -93,4 +96,4 @@ A local port should add focused tests before implementation:
 5. validation after rewrite;
 6. target-feature metadata behavior if Starshine adds a feature model or target-feature custom-section editing.
 
-The expected Binaryen parity command is still `wasm-opt --signext-lowering`, but local pass-harness comparison only makes sense after Starshine registers a public `signext-lowering` pass name.
+The expected Binaryen parity command is still `wasm-opt --signext-lowering`, but local pass-harness comparison only makes sense after Starshine registers a public `signext-lowering` pass name. See [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) for the reduced-test order, first-slice caveat around feature metadata, and full-parity checklist.

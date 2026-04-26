@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
+  - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
   - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
@@ -26,6 +28,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./params-results-publicity-and-intrinsics.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../signature-pruning/index.md
   - ../global-refining/index.md
   - ../type-refining/index.md
@@ -34,13 +37,17 @@ related:
 
 # Starshine Strategy For `signature-refining`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md).
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md) and [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
+
+For implementation sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). That bridge spells out the safe no-rewrite analyzer, first direct-call param-refinement slice, later result/`call_ref`/`call.without.effects` slices, and validation ladder.
 
 ## The honest current status
 
 `signature-refining` is still **unimplemented** in Starshine.
 There is no `src/passes/signature_refining.mbt`, `src/passes/signature-refining.mbt`, or similarly named owner file today.
+
+The 2026-04-26 port-readiness check did not find teaching-relevant current-main Binaryen drift from the 2026-04-24 `version_129` dossier, but it did make two local blockers more explicit: direct `call_ref` is present in library/binary/validator/HOT surfaces but not in the WAT parser surface beside `return_call_ref`, and `call.without.effects` has no local spelling under `src/`.
 
 The current Starshine strategy is deliberately limited:
 
@@ -192,7 +199,7 @@ That local grouping still matches the source-backed upstream contract better tha
 
 ## What a future Starshine port must preserve
 
-A faithful port should preserve the source-backed contract from the rest of this folder:
+A faithful port should preserve the source-backed contract from the rest of this folder. The recommended slice order lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md); the contract checklist is:
 
 - return without rewriting when GC is unavailable;
 - require an explicit closed-world mode before default-preset scheduling, even though upstream direct invocation relies on conservative blockers rather than a pass-local closed-world fatal guard;

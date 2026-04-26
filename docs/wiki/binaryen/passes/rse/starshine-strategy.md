@@ -35,19 +35,15 @@ The most important 2026-04-26 change is that the future Starshine port needs a *
 
 ## Honest current status
 
-`rse` is still **unimplemented** in Starshine.
-There is no `src/passes/rse.mbt` and no `src/passes/redundant_set_elimination.mbt` owner file today.
+`rse` is now **implemented as an active direct pass** in Starshine under the long upstream spelling `redundant-set-elimination`.
 
-Current local behavior is registry/backlog tracking only:
+Current local behavior:
 
-- [`src/passes/optimize.mbt:144-152`](../../../../../src/passes/optimize.mbt)
-  - `pass_registry_removed_names()` includes `"redundant-set-elimination"`.
-- [`src/passes/pass_manager.mbt:8685-8705`](../../../../../src/passes/pass_manager.mbt)
-  - the hot-pass dispatcher match has no `"rse"` or `"redundant-set-elimination"` arm.
-- [`agent-todo.md:481-491`](../../../../../agent-todo.md)
-  - backlog slice `RSE` exists and now describes CFG-aware same-value local set/tee work plus refined local-get retargeting.
-- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-  - documents the late no-DWARF slot before final cleanup.
+- `src/passes/rse.mbt` owns the descriptor, HOT same-value write rewrite, raw lowered-function fast path helper, and summary.
+- `src/passes/optimize.mbt` registers `"redundant-set-elimination"` as an active hot pass instead of a removed name.
+- `src/passes/pass_manager.mbt` dispatches the hot pass and runs the raw fast path before hot lift for large lowered functions.
+- `src/cmd/cmd_wbtest.mbt`, `src/passes/rse_test.mbt`, and `src/passes/registry_test.mbt` cover CLI, direct HOT behavior, and registry classification.
+- The pass remains **direct-only**; the late no-DWARF preset slot is not scheduled yet.
 
 ## Corrected local strategy
 
@@ -63,30 +59,29 @@ A faithful first Starshine port should implement Binaryen's `version_129` contra
 
 That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store pass.
 
-## Exact code locations a future port must touch
+## Exact code locations touched by the active port
 
 ### Registry
 
-- [`src/passes/optimize.mbt:144-152`](../../../../../src/passes/optimize.mbt)
-  - Move `"redundant-set-elimination"` out of `pass_registry_removed_names()` once implemented.
-  - Add an active hot-pass registry entry and descriptor near the other local cleanup passes.
-  - Decide whether to expose only the long upstream spelling or also the short `rse` alias.
+- `src/passes/optimize.mbt`
+  - Keeps `"redundant-set-elimination"` as an active hot-pass registry entry near `merge-blocks`.
+  - The short `rse` name is accepted by compare harnesses as a Binaryen/Starshine alias, not as a public CLI registry name.
 
 ### Dispatcher
 
-- [`src/passes/pass_manager.mbt:8685-8705`](../../../../../src/passes/pass_manager.mbt)
-  - Add a hot-pass match arm beside `simplify-locals`, `merge-blocks`, and other late cleanup passes.
-  - Reuse existing validation/writeback policy rather than adding pass-specific raw bypasses first.
-  - Keep preset placement near the final cleanup cluster only after direct parity is green.
+- `src/passes/pass_manager.mbt`
+  - Runs `rse_run_raw_func` before hot lift for `redundant-set-elimination`.
+  - Keeps the normal hot-pass dispatcher arm for focused HOT tests and fallback behavior.
+  - Keeps preset placement near the final cleanup cluster deferred until refined-get and late-tail proof are complete.
 
-### Likely new owner file
+### Owner file
 
-- Suggested: `src/passes/redundant_set_elimination.mbt`
-  - Own the pass-local CFG/value-flow table.
-  - Own value identity and merge identity assignment.
-  - Own set/tee rewrite rules.
-  - Own refined local-get retargeting and type gates.
-  - Own focused tests in `src/passes/redundant_set_elimination_test.mbt`.
+- `src/passes/rse.mbt`
+  - Owns the active direct-pass descriptor and summary.
+  - Owns the HOT same-value `local.set` / `local.tee` rewrite used by focused tests.
+  - Owns the raw lowered-function value tracker used to keep the debug-artifact lane fast.
+  - Should own future fixed-point CFG merge and refined local-get retargeting work.
+  - Focused tests live in `src/passes/rse_test.mbt`.
 
 ### Existing Starshine analysis surfaces to read
 
@@ -142,13 +137,14 @@ If the project wants them later, document them as separate Starshine-local exten
 3. Negative WAT tests for different overwritten writes.
 4. RHS trap/effect preservation tests.
 5. GC/ref-type local-get retargeting tests modeled on Binaryen `rse-gc.wast`.
-6. Direct `bun fuzz compare-pass ... --pass redundant-set-elimination` once the harness accepts the name.
-7. Late-cluster replay with `rse -> vacuum`.
-8. Saved generated-artifact prefix replay around the historical slot `46` before declaring parity.
+6. Direct `bun fuzz compare-pass ... --pass redundant-set-elimination`; current evidence is `.tmp/pass-fuzz-rse-genvalid-10000-raw` and `.tmp/pass-fuzz-rse-10000-raw` with zero mismatches on comparable cases.
+7. Direct debug-artifact replay; current evidence is `.tmp/self-opt-rse-native-20260426b` with normalized WAT equality via fallback and canonical function equality.
+8. Late-cluster replay with `rse -> vacuum`.
+9. Saved generated-artifact prefix replay around the historical slot `46` before declaring preset parity.
 
 ## Current uncertainty
 
 Two local design decisions remain open:
 
-- **Name surface:** upstream exposes the public long name `redundant-set-elimination` and the shorthand `rse` appears in pipeline/debug contexts; Starshine currently tracks only the long name as removed.
-- **CFG/value substrate:** Binaryen definitely has a CFG flow here, but Starshine still needs to decide whether to build a pass-local value-flow helper or reuse broader HOT block/use-def/SSA infrastructure without widening semantics.
+- **Name surface:** upstream exposes the public long name `redundant-set-elimination` and the shorthand `rse` appears in pipeline/debug contexts; Starshine exposes the long CLI/registry name and maps `--rse` inside compare harnesses.
+- **CFG/value substrate:** Binaryen definitely has a fuller fixed-point CFG flow than the first active Starshine slice; future work should extend the pass-local tracker without widening into liveness-backed dead-store elimination.

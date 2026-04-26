@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
+  - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
   - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../instrument-locals/index.md
 ---
 

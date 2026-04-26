@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md
+  - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
   - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0251-2026-04-22-precompute-primary-sources-and-code-map-followup.md
@@ -24,12 +26,13 @@ related:
   - ./implementation-structure-and-tests.md
   - ./propagation-partial-precompute-and-gc-identity.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute-propagate/index.md
 ---
 
 # Starshine `precompute` strategy today
 
-This page describes the **current in-tree Starshine implementation**, not the full upstream Binaryen `version_129` contract.
+This page describes the **current in-tree Starshine implementation**, not the full upstream Binaryen `version_129` contract. For the future-slice and validation ladder that sits on top of this code map, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Short version
 
@@ -48,6 +51,8 @@ That is useful and already well tested.
 But it is still much smaller than upstream Binaryen plain `precompute`, and much smaller again than the full `precompute` + `precompute-propagate` family.
 
 ## Exact local code map
+
+The 2026-04-26 readiness capture confirms that the important local follow-along points are `src/passes/precompute.mbt:1-1158` for HOT rewrites, `src/passes/pass_manager.mbt:8185-8484` for writeback validation / escape-carrier guards, `src/passes/optimize.mbt:207-276` and `394-417` for registry and preset placement, and `src/passes/precompute_test.mbt:1-342` for the current focused proof lane.
 
 ## 1. Registry entry and user-visible summary
 

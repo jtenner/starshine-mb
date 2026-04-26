@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-instrument-locals-port-readiness-primary-sources.md
+  - ../../../raw/research/0397-2026-04-26-instrument-locals-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-locals-primary-sources.md
   - ../../../raw/research/0287-2026-04-24-instrument-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0227-2026-04-21-instrument-locals-binaryen-research.md
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./unsupported-types-effects-and-import-roster.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../instrument-memory/index.md
   - ../global-effects/index.md
   - ../tracker.md
@@ -69,10 +72,11 @@ Per the upstream source captured in [`../../../raw/binaryen/2026-04-24-instrumen
 
 Starshine's active HOT passes mostly rewrite existing function bodies and then rely on validation/writeback guards.
 `instrument-locals` would additionally require module import synthesis, helper ABI naming, and a product decision about whether debug instrumentation belongs in the same user-facing optimizer surface.
+The focused 2026-04-26 port-readiness bridge is [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md); it recommends a scalar-first module-pass slice and calls out `src/passes/optimize.mbt:407-421` as imported-function bookkeeping rather than helper-import synthesis.
 
 ## If Starshine ever ports it
 
-A faithful local port should start as a **module pass**, not as an isolated HOT peephole, because helper-import creation is part of the observable output.
+A faithful local port should start as a **module pass**, not as an isolated HOT peephole, because helper-import creation is part of the observable output. The first useful slice should prove `i32` / `f32` / `f64` helper-import synthesis plus local get/set/tee wrapping before adding references, SIMD, or any divergence from Binaryen's current `i64` no-op behavior.
 
 Minimum acceptance criteria:
 

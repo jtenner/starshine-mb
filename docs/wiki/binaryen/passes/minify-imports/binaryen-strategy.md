@@ -1,12 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
-  - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
+  - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
+  - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
 related:
   - ./index.md
+  - ./env-wasi-json-map-and-module-merge.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -15,63 +16,68 @@ related:
 
 # Binaryen strategy for `minify-imports`
 
-## Source-backed contract
+## Corrected source-backed contract
 
-Binaryen implements `minify-imports` in `src/passes/MinifyImports.cpp`.
-The pass is separate from `src/passes/MinifyImportsAndExports.cpp`.
+Binaryen implements `minify-imports` in `src/passes/MinifyImportsAndExports.cpp`, the same owner as `minify-imports-and-exports` and `minify-imports-and-exports-and-modules`.[^raw]
 
-The strategy is intentionally small:
+The plain public pass is the shared pass with both optional expansion flags disabled:
 
-1. declare that the pass does not modify Binaryen IR;
-2. construct a `Names::MinifiedNameGenerator`;
-3. walk imported functions with `ModuleUtils::iterImportedFunctions(...)`;
-4. assign each imported function base name a generated short name;
-5. print `old:new` mapping lines to stdout.
+- `minifyExports = false`;
+- `minifyModules = false`.
 
-No module section is rebuilt.
-No function body is rewritten.
-No export is renamed.
+That means the pass does three visible things:
 
-## Why `modifiesBinaryenIR() == false` matters
+1. walks module imports;
+2. rewrites qualifying import base names to generated short names;
+3. prints a JSON mapping so external tooling can follow the ABI change.
 
-`minify-imports` is closer to a reporting/packaging helper than a normal optimizer.
-A consumer can use the emitted map to rewrite host glue or another artifact, but the pass itself does not change the wasm module in memory.
+This corrects the stale teaching that the plain pass is non-mutating imported-function-only map output.
 
-That makes it very different from [`minify-imports-and-exports`](../minify-imports-and-exports/index.md), whose owner mutates import/export declarations.
+## Import traversal and plain-mode gate
 
-## Imported-function-only scope
+The owner uses a generic import walk, not a function-only helper. In plain mode, an import is eligible only when its module string is:
 
-The owner file walks imported functions, not all imports.
-Therefore the source-backed surface is:
+- exactly `env`; or
+- prefixed with `wasi_`.
 
-- yes: `(import "m" "f" (func ...))` base names;
-- no: imported memories;
-- no: imported tables;
-- no: imported globals;
-- no: imported tags;
-- no: export names;
-- no: import module strings.
+This gate is deliberate. A custom module such as `"host"` stays unchanged under `--minify-imports`, even if its base name is long. The `-and-modules` sibling changes that rule by minifying all import bases and then making every import use one short module name.
 
-This is a common place to overgeneralize from the pass name.
-The mutating `minify-imports-and-exports` family covers more external declaration kinds; `minify-imports` does not.
+## Name generation and map keys
 
-## Name generation
+Binaryen uses `Names::MinifiedNameGenerator` for generated names. The import-side mapping is keyed by old module plus old base name, not only by base name. That matters when two different modules import the same base string.
 
-The generated names come from `Names::MinifiedNameGenerator`.
-The pass owner does not call `WasmBinaryBuilder::getSymbolMap(...)`.
-That earlier attribution in the first import/export minification dossier is stale for Binaryen `version_129`.
+After choosing the new base name, the pass mutates the import's base-name field. It then updates module maps after mutations so later lookups reflect the declaration-string changes.
 
-A faithful Starshine port should re-read `Names::MinifiedNameGenerator` in the exact Binaryen revision targeted for parity, then test both generated names and emitted ordering.
+## JSON output
 
-## Pipeline role
+The pass emits a JSON-shaped map instead of one `old:new` text line. Conceptually, the import map says:
 
-The pass is useful when a toolchain wants an import-name map without letting Binaryen rewrite the module.
-Possible consumers include host-glue generators or downstream packagers that want to decide themselves how and whether to apply a rename.
+```json
+{"imports":{"newBase":["oldModule","oldBase"]},"exports":{}}
+```
 
-It is not a transparent optimizer for general wasm files because import names are host ABI.
-Even emitting a suggested map implies the host and module producer must coordinate.
+For the two export-minifying siblings, the `exports` object is populated too.
 
-## Main caveat
+The exact key order and formatting belong to Binaryen's writer in the targeted revision. Starshine should not bake in the conceptual example as a conformance oracle.
 
-This run did not find a dedicated `minify-imports.wast` / expected-output pair in the official `version_129` pass tests.
-The pass is still source-confirmed through `MinifyImports.cpp`, `pass.cpp`, and `passes.h`, but future implementation signoff should include local tests for stdout and no module mutation.
+## Sibling strategy split
+
+The three public names are one implementation with different flags:
+
+- `minify-imports`: eligible import base names only;
+- `minify-imports-and-exports`: same import-base rule plus export-name rewriting;
+- `minify-imports-and-exports-and-modules`: all import base names plus export-name rewriting plus import module-name merge to one short module.
+
+The split is not cosmetic. Plain `minify-imports` is already mutating, but it is narrower than the module-merging sibling.
+
+## Why the pass is ABI-sensitive
+
+Import module/base strings are link-time names. Renaming them is safe only if host glue, generated JS, loaders, or downstream packagers apply the emitted map consistently.
+
+This pass is therefore unlike internal cleanup passes such as local simplification. It may shrink names while breaking any consumer that still expects the old import strings.
+
+## Test caveat
+
+The reviewed official pass-test surface did not include a dedicated plain-`minify-imports.wast` / expected-output pair. The contract above is source-backed by the shared owner, factory registration, and current-main recheck. A future Starshine port should use direct Binaryen oracle comparisons for the plain mode.
+
+[^raw]: [`../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md`](../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md) records the exact official sources and the superseded 2026-04-25 claims.

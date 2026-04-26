@@ -1,10 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
+  - ../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/binaryen/2026-04-25-strip-target-features-primary-sources.md
-  - ../../../raw/research/0334-2026-04-25-strip-target-features-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -16,17 +17,15 @@ related:
 
 # `strip-target-features` output and module shapes
 
-This pass is unusual for the pass wiki: the important before/after shape is output metadata, not a WAT instruction rewrite.
-The snippets below are schematic.
-They teach the shape of the transformation rather than exact byte encoding.
+This pass is unusual for the pass wiki: the important before/after shape is module/output metadata, not a WAT instruction rewrite. The snippets below are schematic. They teach the shape of the transformation rather than exact byte encoding.
 
 ## 1. Target-features metadata is omitted from output
 
-Before output policy:
+Before:
 
 ```text
-Binaryen output options:
-  emitTargetFeatures = true
+Binaryen module metadata:
+  hasFeaturesSection = true
 
 Emitted wasm:
   custom section "target_features"
@@ -36,15 +35,14 @@ Emitted wasm:
 After `strip-target-features`:
 
 ```text
-Binaryen output options:
-  emitTargetFeatures = false
+Binaryen module metadata:
+  hasFeaturesSection = false
 
 Emitted wasm:
   type/function/code/data/etc. sections
 ```
 
-The pass changes whether Binaryen emits the custom section.
-It does not need to edit function bodies.
+The pass clears Binaryen's module metadata flag. It does not need to edit function bodies.
 
 ## 2. Function bodies are unchanged
 
@@ -90,8 +88,7 @@ After:
   ))
 ```
 
-Removing target-feature metadata is not the same as lowering or deleting feature-using instructions.
-Use pages like [`remove-relaxed-simd`](../remove-relaxed-simd/index.md), `memory64-lowering`, or `i64-to-i32-lowering` for actual feature/code transformations.
+Removing target-feature metadata is not the same as lowering or deleting feature-using instructions. Use pages like [`remove-relaxed-simd`](../remove-relaxed-simd/index.md), `memory64-lowering`, or `i64-to-i32-lowering` for actual feature/code transformations.
 
 ## 4. Non-target custom sections should not be deleted by accident
 
@@ -119,18 +116,18 @@ A future concrete Starshine implementation over `Module.custom_secs` must be car
 Before:
 
 ```text
-Binaryen output options:
-  emitTargetFeatures = false
+Binaryen module metadata:
+  hasFeaturesSection = false
 ```
 
 After:
 
 ```text
-Binaryen output options:
-  emitTargetFeatures = false
+Binaryen module metadata:
+  hasFeaturesSection = false
 ```
 
-Running the pass when emission is already disabled should be harmless.
+Running the pass when the metadata flag is already false should be harmless.
 
 ## 6. Explicit non-goals
 
@@ -151,4 +148,4 @@ A correct future Starshine port should prove at least:
 - arbitrary non-target custom sections are preserved;
 - all executable sections remain byte- or structure-equivalent;
 - the pass status is explicit in the registry instead of being accidentally unknown;
-- docs distinguish output-option parity from IR mutation parity.
+- docs distinguish Binaryen module-metadata mutation from executable IR mutation.

@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md
+  - ../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md
   - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -23,6 +25,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/index.md
   - ../strip-target-features/index.md
 supersedes:
@@ -106,6 +109,8 @@ The minimum faithful local algorithm would:
 5. validate and lower back to the same binary/WAT surfaces;
 6. separately decide whether Starshine should support Binaryen's dot-product WAT spelling aliases.
 
+The dedicated port-readiness ladder is in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md). Use that page before implementing so the first local slice tests registry behavior, child-effect preservation, typed `v128` contexts, ordinary-SIMD preservation, and Binaryen oracle fixture spelling separately.
+
 ## Why not make deterministic substitutions?
 
 Binaryen does not choose deterministic equivalents.
@@ -142,6 +147,7 @@ The Binaryen-compatible behavior is to trap at the relaxed operation site.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md)
 - [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)

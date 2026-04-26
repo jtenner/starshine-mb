@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md
+  - ../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md
   - ../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
 related:
@@ -12,6 +14,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/wat-shapes.md
 supersedes:
   - ../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md
@@ -243,7 +246,7 @@ So these two are not contradictory:
 
 ## Validation checklist
 
-A complete Starshine port should prove:
+Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) for the ordered future implementation ladder. A complete Starshine port should prove:
 
 - every local relaxed SIMD `Instruction` variant is matched;
 - unary, binary, and ternary arities all rewrite;
@@ -256,6 +259,7 @@ A complete Starshine port should prove:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md)
 - [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)

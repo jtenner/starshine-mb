@@ -1,18 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
-  - ../../../raw/research/0277-2026-04-23-type-ssa-primary-sources-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
+  - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
+  - ../../../../../src/passes/ssa_nomerge.mbt
+  - ../../../../../src/passes/global_refining.mbt
+  - ../../../../../src/passes/global_struct_inference.mbt
   - ../../../../../agent-todo.md
-  - ../../no-dwarf-default-optimize-path.md
-  - ../ssa/index.md
-  - ../type-merging/index.md
-  - ../type-refining/index.md
-  - ../type-generalizing/index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -22,222 +19,139 @@ related:
   - ../ssa/index.md
   - ../type-merging/index.md
   - ../type-refining/index.md
-  - ../type-generalizing/index.md
 ---
 
 # Starshine Strategy For `type-ssa`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and planning surfaces that already answer whether the pass exists, and the nearest neighboring Starshine code locations a future port would need to study.
+Use this page together with the corrected raw source capture in [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md).
 
-## The honest current status
+## Honest current status
 
 `type-ssa` is still **unimplemented and untracked** in Starshine.
-There is no `src/passes/type_ssa.mbt` owner file today.
 
-That status is slightly stronger than many other dossier pages:
+There is no `src/passes/type_ssa.mbt` owner file, and the pass name is not listed as active, boundary-only, or removed.
 
-- the pass is **not** active
-- the pass is **not** tracked as boundary-only
-- the pass is **not** tracked as removed
-- the pass is **not** listed in the current pass-port batches
-- the pass is **not** in the canonical no-DWARF parity queue
-- `agent-todo.md` currently has **no dedicated `type-ssa` slice**
+That status means:
 
-So this page is intentionally a **status-and-neighborhood** page rather than a fake implementation page.
+- Starshine does not currently promise CLI compatibility for `--pass type-ssa`,
+- there is no pass-specific request rejection path,
+- there is no active preset slot,
+- there is no no-DWARF parity dependency,
+- `agent-todo.md` has no dedicated `type-ssa` slice.
 
 ## Exact local code map today
 
-The fastest read-along path through the current Starshine status is:
+The fastest read-along path through the current local status is:
 
-- current registry compatibility surface
-  - [`src/passes/optimize.mbt#L127-L152`](../../../../../src/passes/optimize.mbt#L127-L152)
-    - `pass_registry_boundary_only_names()` and `pass_registry_removed_names()` do **not** include `type-ssa`
-- current active registry entries
+- registry compatibility arrays:
+  - [`src/passes/optimize.mbt#L127-L154`](../../../../../src/passes/optimize.mbt#L127-L154)
+  - `pass_registry_boundary_only_names()` and `pass_registry_removed_names()` do **not** include `type-ssa`
+- active registry entries and presets:
   - [`src/passes/optimize.mbt#L156-L259`](../../../../../src/passes/optimize.mbt#L156-L259)
-    - `pass_registry_entries()` defines the active hot/module/preset entries, and there is no `type-ssa` entry there either
-- current expansion / rejection behavior
-  - [`src/passes/optimize.mbt#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
-    - `run_hot_pipeline_expand_passes(...)` only dispatches active entries or rejects tracked boundary-only / removed names, so `type-ssa` currently has no compatibility-path behavior beyond being absent from lookup data
-- current project-wide pass-port map
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L7-L68`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L7-L68)
-    - the active hot/module sets, removed batches, and boundary-only groups do not include `type-ssa`
-- canonical parity queue by omission
-  - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-    - the current canonical no-DWARF path page does not place `type-ssa` in the active Binaryen-parity route
-- backlog context by omission
-  - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-    - there is currently no dedicated `type-ssa` slice
-- closest neighboring Starshine implementation files today
+  - `pass_registry_entries()` defines active hot/module/preset entries, and no `type-ssa` entry exists
+- current expansion / rejection behavior:
+  - [`src/passes/optimize.mbt#L446-L472`](../../../../../src/passes/optimize.mbt#L446-L472)
+  - unknown names fall outside the tracked active/boundary/removed compatibility paths
+- closest SSA-adjacent implementation:
   - [`src/passes/ssa_nomerge.mbt#L2-L49`](../../../../../src/passes/ssa_nomerge.mbt#L2-L49)
+- closest active type-tightening module pass:
   - [`src/passes/global_refining.mbt#L2-L367`](../../../../../src/passes/global_refining.mbt#L2-L367)
+- closest active struct/value-origin module pass:
   - [`src/passes/global_struct_inference.mbt#L1-L345`](../../../../../src/passes/global_struct_inference.mbt#L1-L345)
+- backlog by omission:
+  - [`agent-todo.md`](../../../../../agent-todo.md)
+  - no dedicated `type-ssa` slice exists today
 
-That code-and-doc map is the practical value this page adds: readers can now jump directly from the upstream algorithm to the exact local non-adoption status and the nearest concrete files that would matter if the repo ever chooses to port the pass.
+## Current Starshine strategy
 
-## What Starshine currently does for this pass
+The current strategy is deliberate non-adoption plus accurate documentation.
 
-Today Starshine's strategy for `type-ssa` is deliberate non-adoption.
+That is especially important after the 2026-04-26 correction: a future `type-ssa` port would be module/type-section work, not a small HOT local-flow peephole.
 
-### 1. The registry does not pretend to know the pass
+## What a faithful future port would require
 
-Unlike boundary-only names such as `type-refining` or `type-merging`, `type-ssa` is not listed in the current registry metadata.
-That means the repo is making a stronger statement than “known but unavailable.”
+A Starshine port would need these pieces before claiming Binaryen parity:
 
-The durable current answer is:
+### 1. Registry honesty
 
-- Starshine does not currently promise CLI compatibility for the pass name
-- Starshine does not currently treat the pass as a planned boundary/module/hot slot
-- Starshine does not currently expose a pass-specific rejection path because it has not committed to tracking the name in the first place
+Decide whether `type-ssa` should become:
 
-That is the right current behavior for an upstream-only pass that has not yet been adopted into local planning.
+- active,
+- boundary-only with a clear rejection message,
+- or still upstream-only and absent.
 
-### 2. The pass-port map does not reserve a slot for it
+Do not add tests that assume active behavior while the registry still treats the name as unknown.
 
-`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` records active hot passes, module passes, removed batches, and boundary-only groups.
-`type-ssa` appears in none of those sections.
+### 2. Allocation candidate discovery
 
-So the local planning story today is not “scheduled later.”
-It is:
+The port needs to discover:
 
-- no current batch owner
-- no current registry owner
-- no current parity owner
+- `struct.new`,
+- `array.new`,
+- `array.new_data`,
+- `array.new_elem`,
+- `array.new_fixed`,
+- ordinary function bodies,
+- globals and module-code expression surfaces,
+- element segments.
 
-That is useful durable knowledge because it prevents readers from assuming the neighboring GC/type dossiers already imply an active local adoption plan.
+This probably belongs in module-level IR/lib analysis, not only in HOT region rewriting.
 
-### 3. The no-DWARF parity route does not currently depend on it
+### 3. Exact-observation blocker analysis
 
-The canonical no-DWARF `-O` / `-Os` parity page omits `type-ssa`.
-That matters because it answers an easy future-question up front:
+The port needs an equivalent to Binaryen's `disallowedTypes` collection:
 
-- a future `type-ssa` port is not required for the repo's current default Binaryen parity queue
+- exact casts,
+- exact tests,
+- exact function result types,
+- exact global types,
+- exact element-segment types,
+- child exactness constraints.
 
-So the current Starshine strategy is not “blocked on implementing `type-ssa` for present parity.”
-It is simply “document the pass honestly until the repo wants it.”
+Without this, fresh subtype creation can change exact-type-observable behavior.
 
-## The most useful current local neighborhood
+### 4. Fresh subtype and rec-group construction
 
-Even though the pass is not implemented, the repo already has nearby code and dossier surfaces that define the practical local neighborhood a future port would have to preserve.
+The port needs to mutate the type section:
 
-### `ssa-nomerge` is the closest active SSA-adjacent implementation
+- create private subtypes of existing struct/array heap types,
+- preserve sharing among repeated old types,
+- build valid rec groups,
+- avoid name collisions,
+- keep descriptor/describee exclusions until deliberately supported.
 
-See:
+This is the largest local infrastructure gap.
 
-- [`../ssa/index.md`](../ssa/index.md)
-- [`src/passes/ssa_nomerge.mbt#L2-L49`](../../../../../src/passes/ssa_nomerge.mbt#L2-L49)
+### 5. Allocation result retagging and refinalization
 
-Why it matters locally:
+The visible rewrite is allocation result typing, followed by parent/module-code type repair. A faithful port needs validator-backed proof that rewritten allocation types remain subtype-safe at all uses.
 
-- `type-ssa` also relies on SSA-like flow ideas
-- but upstream `type-ssa` is not general SSA construction
-- the local `ssa-nomerge` implementation is therefore a useful neighboring code surface, not a hidden implementation of `type-ssa`
+## Nearby local code is not an implementation
 
-### `global-refining` is the closest active local GC/type-tightening module pass
+### `ssa-nomerge`
 
-See:
+[`src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt) is useful as an SSA-adjacent Starshine pass, but it rewrites locals/phis. Corrected `type-ssa` creates fresh heap types for allocations, so `ssa-nomerge` is only a conceptual neighbor.
 
-- [`../type-refining/index.md`](../type-refining/index.md)
-- [`src/passes/global_refining.mbt#L2-L367`](../../../../../src/passes/global_refining.mbt#L2-L367)
+### `global-refining`
 
-Why it matters locally:
+[`src/passes/global_refining.mbt`](../../../../../src/passes/global_refining.mbt) is the closest active type-tightening module pass. It refines private global declarations from initializers and writes. Corrected `type-ssa` instead creates new private heap types for allocation sites.
 
-- both families are about making narrower reference-type information visible
-- but `global-refining` is a module/global write-aggregation pass, not a created-value SSA-like pass
-- that makes it a useful future landing-neighbor while keeping the semantics distinct
+### `global-struct-inference`
 
-### `global-struct-inference` is another active precision neighbor, but with a different evidence source
+[`src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt) is another useful GC/type neighbor because it reasons about fixed struct origins. It still does not build fresh rec groups or rewrite allocation result heap types.
 
-See:
+## Validation ladder for a future port
 
-- [`src/passes/global_struct_inference.mbt#L1-L345`](../../../../../src/passes/global_struct_inference.mbt#L1-L345)
-- [`../type-merging/index.md`](../type-merging/index.md)
-- [`../type-generalizing/index.md`](../type-generalizing/index.md)
+A safe port should proceed in this order:
 
-Why it matters locally:
+1. add registry status tests first,
+2. add reduced WAT parser/lib tests for fresh subtype emission,
+3. add exact-observation bailout tests,
+4. add descriptor/describee and final/open-disabled type bailouts,
+5. add `array.new_data`, `array.new_elem`, and all-interesting `array.new_fixed` positives,
+6. compare against official `wasm-opt --type-ssa` reductions,
+7. only then run broader pass-fuzz comparison.
 
-- `global-struct-inference` sharpens types from globally fixed struct origins
-- `type-ssa` sharpens types from freshly created exact values flowing through locals/globals/control results
-- the future neighborhood is therefore conceptually real, but there is no current shared implementation
+## Current conclusion
 
-## What Starshine does **not** have yet
-
-A future contributor should be careful not to overread the current local surface.
-Starshine does **not** currently have:
-
-- a MoonBit `type-ssa` implementation file
-- a boundary-only or removed registry entry for the pass name
-- a dedicated backlog slice in `agent-todo.md`
-- a scheduler slot in the active presets or the no-DWARF parity route
-- reduced local regressions specific to `type-ssa`
-- any artifact replay lane that treats `type-ssa` as an expected missing pass
-
-So the current repo status is best summarized as:
-
-- pass researched upstream
-- pass not adopted locally
-- no compatibility alias
-- no backlog owner
-- no parity dependency
-- nearest local understanding comes from neighboring SSA and GC/type passes only
-
-## What a future port would need to preserve if Starshine adopts it
-
-Even without a local owner today, the future correctness contract is already clear from the Binaryen dossier.
-A faithful Starshine port would need to preserve all of these source-backed properties:
-
-- seed precision only from the tiny created-value surface (`struct.new`, `array.new`, `array.new_fixed`, `ref.as_non_null`, `ref.cast`)
-- reject abstract refs in the local equivalent of `getTargetType(...)`
-- carry precision through conservative `block` / `if` / `try` value rules only
-- keep the explicit `loop` no-propagation boundary
-- propagate precision through local/global sets and gets
-- retag direct call operands and return values only when subtype-safe
-- repair parent expression types after changes in the local equivalent of `ReFinalize`
-
-For the full source-backed explanation of those invariants, use:
-
-- [`./binaryen-strategy.md`](./binaryen-strategy.md)
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-- [`./created-exact-types-control-values-and-signature-rewrites.md`](./created-exact-types-control-values-and-signature-rewrites.md)
-- [`./wat-shapes.md`](./wat-shapes.md)
-
-## Validation plan for any eventual port
-
-Because the pass is not even registry-tracked today, a real adoption change would need a wider validation story than ordinary pass-local testing.
-A future implementation should validate in roughly this order:
-
-1. registry honesty
-   - decide whether the pass first lands as tracked boundary-only metadata or as a real active pass
-   - update `src/passes/optimize.mbt` and `docs/0063-2026-03-24-pass-port-batches-and-registry-map.md` in the same change
-2. reduced semantic coverage
-   - created exact-type seed shapes
-   - matching `if` and `try` carried-value positives
-   - explicit loop no-propagation cases
-   - local/global forwarding
-   - call-operand and return retagging
-3. neighborhood honesty
-   - keep the split explicit from `ssa`, `type-refining`, `type-generalizing`, and `type-merging`
-4. parity justification
-   - document explicitly why the repo wants the pass even though it is outside the current no-DWARF parity route
-
-That is more useful locally than a vague “compare with Binaryen later” note because it preserves the most important current reality: the algorithm is well-understood, but the repo has not yet chosen to own the pass.
-
-## Bottom line
-
-Current Starshine `type-ssa` strategy is honest non-adoption plus explicit neighboring context:
-
-- [`src/passes/optimize.mbt#L127-L152`](../../../../../src/passes/optimize.mbt#L127-L152) shows that the current registry's boundary-only and removed name sets do **not** include `type-ssa`
-- [`src/passes/optimize.mbt#L156-L259`](../../../../../src/passes/optimize.mbt#L156-L259) shows there is no active `type-ssa` entry either
-- [`src/passes/optimize.mbt#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461) shows the current expansion logic only handles tracked names, which means `type-ssa` has no local compatibility path today
-- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L7-L68`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L7-L68) likewise omits the pass from active, removed, and boundary-only planning buckets
-- [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) omits it from the active canonical parity route
-- [`../../../../../agent-todo.md`](../../../../../agent-todo.md) still has no dedicated slice for it
-- the nearest concrete local neighbors are [`src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt), [`src/passes/global_refining.mbt`](../../../../../src/passes/global_refining.mbt), and [`src/passes/global_struct_inference.mbt`](../../../../../src/passes/global_struct_inference.mbt), but none of them implement `type-ssa`
-
-So the right mental model today is:
-
-- **upstream dossier complete enough to teach and port later**
-- **no current Starshine implementation**
-- **no current registry or backlog owner**
-- **clear neighboring local code map for future adopters**
-- **clear future correctness contract if the repo ever decides the pass is worth owning**
+Starshine currently has no `type-ssa` strategy beyond documenting upstream behavior accurately. If the repo adopts it later, the corrected implementation target is a module-level GC type-section transformation, not the stale created-type propagation model.

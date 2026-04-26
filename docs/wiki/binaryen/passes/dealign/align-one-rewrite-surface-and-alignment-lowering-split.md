@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
   - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp
@@ -14,6 +15,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../alignment-lowering/index.md
 supersedes:
   - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
@@ -40,7 +42,7 @@ For each visited node, the source-level rewrite is direct assignment:
 
 - set the alignment immediate to `1`
 
-That is the only field the pass intends to change.
+That is the only field the pass intends to change. A Starshine port must remember that local `@lib.MemArg` stores text `align=1` as exponent `0`, as mapped in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## What it preserves
 
@@ -129,7 +131,9 @@ Its contract is far smaller than all of those.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md)
+- [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
 - [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dealign.wast>

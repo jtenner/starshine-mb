@@ -97,7 +97,7 @@ A write of `1` followed by a write of `2` is not removed by this pass merely bec
 - **Plain set vs tee:** `local.set` has no result, so Binaryen keeps the RHS evaluation through a `drop`-style replacement; `local.tee` already has the RHS result.
 - **Copied locals:** a `local.set $b (local.get $a)` can cause `$a` and `$b` to carry the same value number; later gets may prefer the more precise typed local.
 - **GC/ref types:** the dedicated GC test surface is about refined local-get retargeting and type safety, not field-store deletion.
-- **Unimplemented Starshine status:** Starshine currently tracks only `"redundant-set-elimination"` as a removed name; there is no active `rse` implementation or dispatcher arm yet.
+- **Starshine status:** Starshine now exposes `"redundant-set-elimination"` as an active direct hot pass with a raw fast path and HOT fallback. The landed surface covers same-value `local.set` / `local.tee` shell removal, branch-local agreement for simple structured `if` cases, RHS preservation, CLI/registry/harness wiring, direct pass-fuzz parity, and debug-artifact canonical function parity. Refined strict-subtype `local.get` retargeting and preset scheduling remain follow-up work.
 
 ## Validation guidance
 
@@ -123,8 +123,8 @@ The current durable claim is:
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - owner files, registration, helpers, and official test surfaces.
 - [`./cfg-and-value-tracking.md`](./cfg-and-value-tracking.md) - how block start/end values, merge values, and local retargeting work.
 - [`./wat-shapes.md`](./wat-shapes.md) - beginner-friendly before/after and bailout shapes.
-- [`./starshine-strategy.md`](./starshine-strategy.md) - current local removed-name status and faithful future port map.
-- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - first-slice, local substrate, and validation ladder for a future port.
+- [`./starshine-strategy.md`](./starshine-strategy.md) - current active direct-pass status and remaining faithful port map.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - landed first-slice evidence, remaining CFG/refined-get work, and validation ladder.
 
 ## Sources
 

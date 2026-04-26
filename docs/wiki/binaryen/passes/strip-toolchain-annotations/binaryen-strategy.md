@@ -1,15 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
+  - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../strip-target-features/index.md
 ---
 
@@ -17,6 +20,7 @@ related:
 
 ## Source-backed contract
 
+The 2026-04-26 official `main` recheck found no teaching-relevant drift from the earlier `version_129` dossier.
 Binaryen's `strip-toolchain-annotations` is a narrow metadata pass.
 It removes Binaryen-owned toolchain annotation bits from functions and expressions and otherwise leaves the module's executable IR alone.
 
@@ -73,7 +77,10 @@ Do not teach `strip-toolchain-annotations` as any of these:
 - **not a generic custom-section stripper:** source review only proves Binaryen code-annotation cleanup;
 - **not an optimizer:** it should not change generated code shape or runtime behavior.
 
-## Main caveat
+## Main caveats
 
 The source clears `jsCalled`, but the dedicated `strip-toolchain-annotations.wast` file reviewed in this pass focuses on `@binaryen.removable.if.unused`, `@binaryen.idempotent`, and `@metadata.code.inline` preservation.
 So the `jsCalled` behavior is source-backed, while the other two removed families also have direct lit proof.
+
+Binaryen's strategy covers two annotation surfaces: function-level annotations and per-expression `codeAnnotations`.
+That distinction matters for Starshine because the local model currently has `FuncAnnotationSec` for function/import annotations but no matching expression-annotation map; see [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).

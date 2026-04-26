@@ -1,8 +1,10 @@
 ---
 kind: strategy
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md
   - ../../../raw/research/0359-2026-04-25-signext-lowering-implementation-test-map.md
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen strategy for `signext-lowering`
@@ -92,7 +95,7 @@ Those belong to neighboring Binaryen passes such as `optimize-instructions` and 
 
 ## Current-main freshness
 
-A focused 2026-04-25 check of Binaryen `main` found no teaching-relevant drift from `version_129`: the owner file still uses the same five-opcode, shift-pair, feature-disable strategy, and the dedicated lit proof still checks the same output instruction families. This is not a guarantee that no small formatting or infrastructure change happened elsewhere; it only supports using the `version_129` behavior as the stable teaching contract for this dossier.
+A focused 2026-04-26 recheck of Binaryen `main` found no teaching-relevant drift from `version_129` or from the 2026-04-25 dossier: the owner file still uses the same five-opcode, shift-pair, feature-disable strategy, and the dedicated lit proof still checks the same output instruction families. This is not a guarantee that no small formatting or infrastructure change happened elsewhere; it only supports using the `version_129` behavior as the stable teaching contract for this dossier.
 
 ## Non-goals
 

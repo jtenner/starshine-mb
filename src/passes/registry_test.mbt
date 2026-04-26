@@ -49,6 +49,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("redundant-set-elimination"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("reorder-locals"),
     Some(HotPassRegistryCategory::module_pass()),
   )
@@ -111,6 +115,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let h2l = heap2local_descriptor()
   let locals = simplify_locals_descriptor()
   let merge_blocks = merge_blocks_descriptor()
+  let rse = rse_descriptor()
   let rub = remove_unused_brs_descriptor()
 
   assert_eq(ssa.name, "ssa-nomerge")
@@ -134,6 +139,8 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(@ir.hot_pass_requires(locals), [])
   assert_eq(merge_blocks.name, "merge-blocks")
   assert_eq(@ir.hot_pass_requires(merge_blocks), [])
+  assert_eq(rse.name, "redundant-set-elimination")
+  assert_eq(@ir.hot_pass_requires(rse), [])
   assert_eq(rub.name, "remove-unused-brs")
 }
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-dealign-primary-sources.md
   - ../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp
@@ -16,6 +17,7 @@ related:
   - ./align-one-rewrite-surface-and-alignment-lowering-split.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 supersedes:
   - ../../../raw/research/0221-2026-04-21-dealign-binaryen-research.md
 ---
@@ -31,7 +33,7 @@ This page maps the exact upstream owner files and proof surface for Binaryen `de
 | `src/passes/DeAlign.cpp` | Main implementation | Owns the whole transform: a `WalkerPass<PostWalker<DeAlign>>`, function-parallel flag, three visitors, and direct `align = 1` assignments. |
 | `src/passes/pass.cpp` | Public registration | Confirms `dealign` is a public pass name and records Binaryen's short help text. |
 | `test/lit/passes/dealign.wast` | Dedicated behavioral oracle | Proves the visible scalar `i32.load` / `i32.store` alignment rewrite and idempotent `align=1` cases. |
-| current `main` `DeAlign.cpp` and `dealign.wast` | Narrow freshness spot check | No teaching-relevant drift was found on the reviewed surfaces in this 2026-04-24 refresh. |
+| current `main` `DeAlign.cpp`, `pass.cpp`, and `dealign.wast` | Narrow freshness recheck | No teaching-relevant drift was found on the reviewed surfaces in the 2026-04-26 port-readiness refresh. |
 
 ## `DeAlign.cpp`
 
@@ -101,6 +103,7 @@ This distinction matters because the pass is tiny; over-broad test claims can mi
 2. `test/lit/passes/dealign.wast`
 3. `src/passes/pass.cpp`
 4. `docs/wiki/binaryen/passes/dealign/starshine-strategy.md`
+5. `docs/wiki/binaryen/passes/dealign/starshine-port-readiness-and-validation.md`
 
 That path recovers both the upstream mechanics and the current in-repo status.
 
@@ -119,7 +122,9 @@ A future Starshine port should preserve:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dealign-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-dealign-primary-sources.md`](../../../raw/binaryen/2026-04-24-dealign-primary-sources.md)
+- [`../../../raw/research/0389-2026-04-26-dealign-port-readiness.md`](../../../raw/research/0389-2026-04-26-dealign-port-readiness.md)
 - [`../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md`](../../../raw/research/0317-2026-04-24-dealign-primary-sources-and-starshine-followup.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeAlign.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

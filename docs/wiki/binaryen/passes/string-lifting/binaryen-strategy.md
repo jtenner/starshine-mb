@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md
+  - ../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
   - ../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md
   - ../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./import-and-call-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../string-lowering/index.md
 ---
 
@@ -190,8 +193,9 @@ The durable rule for readers and future ports is:
 
 ## Current-main drift check
 
-A 2026-04-25 focused spot check against current `main` for `StringLifting.cpp` and `string-lifting.wast` did not reveal teaching-relevant drift from the `version_129` source contract described here, including the recognized-helper wrong-signature fatal behavior.
+A 2026-04-26 focused spot check against current `main` for `StringLifting.cpp`, `string-lifting.wast`, and pass registration did not reveal teaching-relevant drift from the `version_129` source contract described here, including the recognized-helper wrong-signature fatal behavior, module-code walk, `string.consts` custom-section removal, Strings feature enablement, and cast-repair TODO.
 Treat that as a narrow freshness check, not a proof that every helper edge case is unchanged forever.
+See [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md) for the source manifest and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the local implementation ladder.
 
 ## What this pass is not
 
@@ -206,6 +210,8 @@ It is not:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md)
+- [`../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md`](../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lifting-primary-sources.md)
 - [`../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/research/0346-2026-04-25-string-lifting-signature-fatal-source-correction.md)

@@ -1,10 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
-  - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
-  - ../../../raw/research/0343-2026-04-25-minify-imports-source-correction.md
+  - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
+  - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
@@ -14,6 +14,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./env-wasi-json-map-and-module-merge.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ../minify-imports-and-exports/starshine-strategy.md
@@ -24,78 +25,70 @@ related:
 
 ## Current local status
 
-Starshine currently has **no `minify-imports` implementation**.
-This page is a status and future-port map, not a shipped transform description.
+Starshine currently has **no `minify-imports` implementation**. This page is a status and future-port map, not a shipped transform description.
 
 Exact local status:
 
-- `src/passes/optimize.mbt` has no `minify-imports` entry in the active registry.
-- `src/passes/optimize.mbt` has no boundary-only or removed compatibility entry for `minify-imports`.
-- `run_hot_pipeline_expand_passes(...)` reports absent names as `unknown pass flag ...`.
-- `src/passes/pass_manager.mbt` has no module-dispatcher case for `minify-imports`.
-- There is no `src/passes/minify_imports.mbt` owner file.
+- `src/passes/optimize.mbt:127-143` lists boundary-only names; `minify-imports` is absent.
+- `src/passes/optimize.mbt:146-156` lists removed names; `minify-imports` is absent.
+- `src/passes/optimize.mbt:462-465` reports absent names as `unknown pass flag ...`.
+- `src/passes/pass_manager.mbt:8661-8664` starts the active module-pass dispatcher; no minification case exists.
+- There is no `src/passes/minify_imports.mbt` or shared `minify_imports_and_exports.mbt` owner file.
 - `agent-todo.md` has no active slice for this pass.
 
-The current strategy is **non-adoption plus explicit documentation**.
-The pass is tracked because Binaryen exposes it publicly and because its non-mutating map-emission contract is easy to confuse with the mutating import/export minification family.
+The current strategy is **non-adoption plus explicit documentation**. The pass is tracked because Binaryen exposes it publicly and because the corrected contract is easy to misread: even plain `minify-imports` mutates import declarations.
 
 ## Exact local code locations to read first
 
-- `src/passes/optimize.mbt:115-126`
-  - boundary-only registry names; `minify-imports` is absent.
-- `src/passes/optimize.mbt:129-141`
-  - removed registry names; `minify-imports` is absent.
-- `src/passes/optimize.mbt:144-267`
-  - active hot/module/preset registry construction; no minify pass entry exists.
-- `src/passes/optimize.mbt:446-489`
-  - request expansion and unknown-name rejection.
-- `src/passes/pass_manager.mbt:8628-8649`
-  - active module-pass dispatcher; no minify case exists.
-- `src/lib/types.mbt:218-227`
-  - `Import(Name, Name, ExternType)` holds module/base strings that a related mutating pass would inspect, while `Export(Name, ExternIdx)` is out of scope for `minify-imports`.
-- `src/lib/types.mbt:350-424`
-  - `Module` owns optional `import_sec` and `export_sec` fields.
+- `src/lib/types.mbt:218`
+  - `Import(Name, Name, ExternType)` carries module and base strings.
+- `src/lib/types.mbt:227`
+  - `Export(Name, ExternIdx)` is out of scope for plain `minify-imports` but needed by the `-and-exports` siblings.
+- `src/lib/types.mbt:430`
+  - `ImportSec(Array[Import])` is the declaration section a future plain pass would rewrite.
+- `src/lib/types.mbt:460`
+  - `ExportSec(Array[Export])` is the sibling pass's declaration section.
 - `src/binary/decode.mbt:1899-1906`
   - binary import decoding reads module name, base name, then external type.
 - `src/binary/encode.mbt:1151-1165`
   - import section and import encoding write module name, base name, then external type.
 - `src/wast/lower_to_lib.mbt:2924-3004`
   - WAT imports lower into `@lib.Import::new(module_name, field_name, ...)` across function/table/memory/global/tag imports.
-
-## Why this is not a normal module rewrite
-
-A tempting Starshine port would rebuild `ImportSec` with shorter names.
-That would implement part of [`minify-imports-and-exports`](../minify-imports-and-exports/index.md), not `minify-imports`.
-
-For `minify-imports`, the faithful behavior is:
-
-- scan imported functions;
-- generate short names;
-- emit a map;
-- leave the module unchanged.
-
-That shape does not fit the current module-pass API cleanly because `run_hot_pipeline_apply_module_pass(...)` expects a transformed `@lib.Module`, not an auxiliary stdout/report value.
+- `src/passes/optimize.mbt:127-156`
+  - current compatibility registries omit all minification names.
+- `src/passes/optimize.mbt:462-465`
+  - unknown-pass error path today.
+- `src/passes/pass_manager.mbt:8661-8664`
+  - current module-pass dispatcher landing zone if the pass becomes active.
 
 ## Future-port shape
 
-A faithful local port would need three layers:
+A faithful local port should be treated as a module-declaration rewrite plus reporting pass:
 
-1. **Registry and API layer**
-   - decide whether `minify-imports` remains unknown, becomes boundary-only, or becomes an active reporting pass;
-   - decide how a reporting pass exposes stdout without corrupting normal optimized wasm output.
-2. **Traversal and name generation layer**
-   - walk only imported functions;
-   - reproduce Binaryen-compatible `Names::MinifiedNameGenerator` behavior;
-   - preserve Binaryen output order.
-3. **Testing and UX layer**
-   - assert no module mutation;
-   - assert function-only mapping output;
-   - document how users should apply the map to host glue or downstream packaging.
+1. **Registry/API decision**
+   - decide whether all three minification names remain unknown, become boundary-only, or become active;
+   - define how JSON map output is surfaced without mixing it with optimized wasm bytes.
+2. **Plain import rewrite**
+   - walk `ImportSec` records;
+   - select only module `env` and module names beginning `wasi_`;
+   - rewrite import base names for all import kinds;
+   - preserve module names and export names;
+   - rebuild any affected lookup maps.
+3. **Name generator parity**
+   - port or emulate Binaryen's `Names::MinifiedNameGenerator` for the target revision;
+   - preserve Binaryen-compatible collision and ordering behavior.
+4. **Sibling expansion**
+   - add export-name mutation for `minify-imports-and-exports`;
+   - add all-module import-base eligibility and singleton module rewrite for `minify-imports-and-exports-and-modules`.
+5. **Validation**
+   - compare WAT/binary changes and JSON output against Binaryen on reduced modules;
+   - include custom-module negatives, `wasi_` positives, non-function imports, and sibling surfaces.
 
 ## Non-goals today
 
 - Do not mark `minify-imports` implemented because Starshine can parse import names.
-- Do not implement declaration mutation under this pass name.
-- Do not include export names or import module names.
-- Do not fold the pass into [`duplicate-import-elimination`](../duplicate-import-elimination/index.md); that pass rewrites duplicate imported functions, while `minify-imports` emits a name map.
-- Do not promise Binaryen parity without checking stdout order and `Names::MinifiedNameGenerator` in the targeted Binaryen revision.
+- Do not preserve the stale non-mutating/imported-function-only contract.
+- Do not implement export-name mutation under the plain pass name.
+- Do not implement module-name merging under the plain pass name.
+- Do not fold this into [`duplicate-import-elimination`](../duplicate-import-elimination/index.md); duplicate import elimination merges equivalent imported functions, while minification changes ABI strings.
+- Do not promise Binaryen parity without checking JSON output order and `Names::MinifiedNameGenerator` in the targeted Binaryen revision.

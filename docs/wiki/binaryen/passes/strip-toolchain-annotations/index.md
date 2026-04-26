@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md
+  - ../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md
   - ../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../instrument-locals/index.md
   - ../global-effects/index.md
   - ../duplicate-function-elimination/index.md
@@ -34,6 +37,7 @@ It is currently **upstream-only** in Starshine:
 - `agent-todo.md` has no dedicated slice for it today.
 
 This folder exists because the late-pass chronology already mentioned `--strip-toolchain-annotations` as a newer upstream addition, but the wiki had no beginner-facing explanation, no transformed-shape catalog, no immutable primary-source manifest, and no precise Starshine status page.
+The 2026-04-26 port-readiness update found no teaching-relevant Binaryen `main` drift from the earlier source contract and now makes the safe Starshine first slice explicit: a module pass over local `FuncAnnotationSec`, while full Binaryen parity remains blocked on an expression-annotation model.
 
 ## Beginner summary
 
@@ -81,7 +85,8 @@ Non-toolchain metadata annotations remain.
 
 - A single annotation entry can contain both removed and preserved bits.
 - `@binaryen.js.called` is source-backed as removed, but the reviewed dedicated lit file does not isolate it directly.
-- Starshine stores some function annotations in `FuncAnnotationSec`, but it does not currently expose Binaryen's full per-expression `codeAnnotations` model.
+- Starshine stores function/import annotations in `FuncAnnotationSec`, but it does not currently expose Binaryen's full per-expression `codeAnnotations` model.
+- A first local implementation should strip only supported function/import annotation entries and must call that out as a subset until expression annotations exist.
 - Binary output support for the same annotation surface should be source-confirmed locally before a future port promises binary-roundtrip parity.
 
 ## Validation strategy
@@ -98,7 +103,8 @@ For a future Starshine port, add tests in this order:
 4. `@metadata.code.inline` is preserved;
 5. mixed removed-plus-preserved annotation entries keep only the preserved payload;
 6. an empty annotation entry disappears;
-7. the pass remains absent from optimize/shrink presets unless there is a deliberate product decision to expose it.
+7. the pass remains absent from optimize/shrink presets unless there is a deliberate product decision to expose it;
+8. function-import and function-definition annotation indices remain correct when neighboring module passes rewrite imports/functions.
 
 ## Page map
 
@@ -106,10 +112,13 @@ For a future Starshine port, add tests in this order:
 - [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md) - owner files and official test surface.
 - [`wat-shapes.md`](wat-shapes.md) - before/after annotation-shape catalog.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - future Starshine first slice, validation ladder, and full-parity blockers.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-strip-toolchain-annotations-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md`](../../../raw/binaryen/2026-04-24-strip-toolchain-annotations-primary-sources.md)
+- [`../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md`](../../../raw/research/0394-2026-04-26-strip-toolchain-annotations-port-readiness.md)
 - [`../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md`](../../../raw/research/0324-2026-04-24-strip-toolchain-annotations-primary-sources-and-starshine-followup.md)
 - Binaryen `StripToolchainAnnotations.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StripToolchainAnnotations.cpp>
 - Binaryen lit file: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/strip-toolchain-annotations.wast>

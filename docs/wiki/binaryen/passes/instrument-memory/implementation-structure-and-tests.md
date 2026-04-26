@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md
+  - ../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md
   - ../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./helper-import-roster-filters-and-unsupported-types.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Implementation structure and test map for `instrument-memory`
@@ -150,8 +153,8 @@ Why this order helps:
 
 The raw primary-source manifest anchors this page to the official Binaryen `version_129` release page, which was reviewed on 2026-04-24 and showed publish date **2026-04-01 14:31**.
 
-A narrow current-`main` spot check of `InstrumentMemory.cpp` and the four dedicated lit files did not surface teaching-relevant contract drift beyond the tagged `version_129` claims.
-That means the tagged sources remain the preferred teaching oracle for this dossier, with the caveat that the spot check was not a full upstream drift audit.
+A focused 2026-04-26 current-`main` recheck of `InstrumentMemory.cpp`, `pass.cpp`, `passes.h`, and the four dedicated lit files did not surface teaching-relevant contract drift beyond the tagged `version_129` claims.
+That means the tagged sources remain the preferred teaching oracle for this dossier, with the caveat that the recheck was not a full upstream history audit.
 
 ## Beginner checklist
 
@@ -169,10 +172,12 @@ When reading a future Starshine port, verify these concrete pieces exist:
 - preserved unsupported families rather than silently widened instrumentation
 
 If any one of those is missing, the port is not really implementing the Binaryen pass contract.
-The current local status page, [`./starshine-strategy.md`](./starshine-strategy.md), explains why Starshine does not have such a port today and which local registry / IR files a future implementation should read first.
+The current local status page, [`./starshine-strategy.md`](./starshine-strategy.md), explains why Starshine does not have such a port today and which local registry / IR files a future implementation should read first. The companion readiness page, [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), gives the recommended first-slice and validation order.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-instrument-memory-current-main-port-readiness.md)
+- [`../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md`](../../../raw/research/0388-2026-04-26-instrument-memory-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md`](../../../raw/binaryen/2026-04-24-instrument-memory-primary-sources.md)
 - [`../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md`](../../../raw/research/0288-2026-04-24-instrument-memory-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md`](../../../raw/research/0231-2026-04-21-instrument-memory-binaryen-research.md)
