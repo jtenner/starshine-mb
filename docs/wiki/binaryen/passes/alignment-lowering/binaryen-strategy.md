@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
+  - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
   - ../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp
@@ -14,6 +16,7 @@ related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen strategy for `alignment-lowering`
@@ -24,7 +27,7 @@ Upstream Binaryen publishes this pass as `alignment-lowering`.
 The public registration description is: lower unaligned loads and stores to smaller aligned ones.
 
 That description is accurate, but still slightly too vague for teaching.
-On 2026-04-23 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
+On 2026-04-23 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**. A focused 2026-04-26 current-main / port-readiness recheck is captured in [`../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md); it found no teaching-relevant drift from the source-backed contract described here.
 
 The reviewed implementation is a **small local AST legalization pass** that:
 
@@ -378,6 +381,8 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md)
+- [`../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md`](../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md)
 - [`../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md`](../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp>

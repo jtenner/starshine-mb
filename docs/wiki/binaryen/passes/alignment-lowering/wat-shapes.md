@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
+  - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
   - ../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp
@@ -12,13 +14,14 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # WAT shape catalog for `alignment-lowering`
 
 ## Reading this page correctly
 
-This pass is shape-driven, but the shapes are narrower than many people expect.
+This pass is shape-driven, but the shapes are narrower than many people expect. The 2026-04-26 port-readiness recheck did not change these upstream shapes; it made them the recommended first red-test ladder for a future Starshine port.
 It rewrites only ordinary scalar loads and stores with weaker-than-natural alignment.
 
 Read every example below as:
@@ -345,6 +348,8 @@ Not visited directly, except that the pass may wrap the current expression in a 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md)
+- [`../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md`](../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md)
 - [`../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md`](../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/AlignmentLowering.cpp>

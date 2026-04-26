@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `alignment-lowering` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/alignment-lowering/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `alignment-lowering` because the dossier was source-correct but still left future implementers to infer the first Starshine slice, local memory-op code map, and validation ladder while the tracker still classified it as only `dossier`.
+- Added `docs/wiki/raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`, rechecking official Binaryen `version_129` and current-main sources for `AlignmentLowering.cpp`, `pass.cpp`, `passes.h`, `pass.h`, `bits.h`, and `alignment-lowering.wast`; the focused recheck found no teaching-relevant drift from the narrow scalar load/store chunk-lowering contract.
+- Added `docs/wiki/raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md` and `docs/wiki/binaryen/passes/alignment-lowering/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, chunk-selection guide, WAT-shape catalog, and Starshine strategy page so transformed shapes, upstream strategy, exact local WAT/lib/binary/HOT prerequisite code locations, first red-test order, direct Binaryen oracle comparison, and the unresolved HOT-vs-lib landing-zone decision are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; promoted `alignment-lowering` from `dossier` to `deep` while keeping the pass explicitly boundary-only and outside the current no-DWARF / saved-`-O4z` queue.
+
 ## [2026-04-25] research | deepen `loop-invariant-code-motion` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/loop-invariant-code-motion/` folder, and `docs/wiki/raw/research/`, then chose removed Batch 3 `loop-invariant-code-motion` / upstream `licm` because the dossier had the corrected Binaryen strategy but still lacked a dedicated first-slice / validation ladder and exact refreshed local line anchors.

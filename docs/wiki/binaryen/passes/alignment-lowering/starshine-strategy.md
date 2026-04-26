@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
+  - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
   - ../../../raw/research/0273-2026-04-23-alignment-lowering-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -18,6 +20,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./chunk-selection-and-unreachable-semantics.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dealign/index.md
   - ../avoid-reinterprets/index.md
   - ../i64-to-i32-lowering/index.md
@@ -25,7 +28,7 @@ related:
 
 # Starshine Strategy For `alignment-lowering`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md) and the 2026-04-26 current-main / port-readiness bridge in [`../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main uncertainties a future parity port still has to resolve honestly.
 
 ## The honest current status
@@ -43,6 +46,7 @@ The current local strategy is boundary-only status plus explicit non-availabilit
 - keep its absence from the canonical no-DWARF path explicit
 - keep the missing dedicated backlog slice explicit instead of inventing a false implementation plan
 - keep the conceptual boundary from neighboring memory/legalization passes explicit
+- keep the new port-readiness page as the future first-slice and validation ladder
 
 So this page is intentionally a **status-and-port-planning** page rather than a fake implementation page.
 
@@ -54,8 +58,15 @@ The fastest read-along path through the current Starshine status is:
   - [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
     - `pass_registry_boundary_only_names()` includes `"alignment-lowering"`
 - active request guard for not-yet-ported boundary passes
-  - [`src/passes/optimize.mbt#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
+  - [`src/passes/optimize.mbt#L449-L466`](../../../../../src/passes/optimize.mbt#L449-L466)
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
+- concrete local memory-op surfaces for a future port
+  - [`src/wast/parser.mbt#L255-L257`](../../../../../src/wast/parser.mbt#L255-L257) defines WAT `MemArg`
+  - [`src/wast/parser.mbt#L1323-L1348`](../../../../../src/wast/parser.mbt#L1323-L1348) parses `offset=` / `align=`
+  - [`src/wast/lower_to_lib.mbt#L1528-L1555`](../../../../../src/wast/lower_to_lib.mbt#L1528-L1555) lowers scalar WAT loads/stores
+  - [`src/lib/types.mbt#L475`](../../../../../src/lib/types.mbt#L475) and [`#L543-L565`](../../../../../src/lib/types.mbt#L543-L565) define `MemArg` and scalar load/store instructions
+  - [`src/binary/encode.mbt#L1819-L1840`](../../../../../src/binary/encode.mbt#L1819-L1840) encodes memargs
+  - [`src/ir/hot_builders.mbt#L535-L557`](../../../../../src/ir/hot_builders.mbt#L535-L557), [`src/ir/hot_lift.mbt#L741-L760`](../../../../../src/ir/hot_lift.mbt#L741-L760), and [`src/ir/hot_lower.mbt#L1077-L1086`](../../../../../src/ir/hot_lower.mbt#L1077-L1086) are the relevant HOT load/store builder, lift, and lower surfaces
 - broader pass-port planning bucket
   - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61)
     - `alignment-lowering` sits under the `Whole-module or layout transforms` planning group
@@ -70,7 +81,8 @@ The fastest read-along path through the current Starshine status is:
   - [`../avoid-reinterprets/index.md`](../avoid-reinterprets/index.md)
   - [`../i64-to-i32-lowering/index.md`](../i64-to-i32-lowering/index.md)
 
-That code-and-doc map is the practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status, the current planning gaps, and the nearby dossier boundaries that matter for future work.
+That code-and-doc map is the practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status, the current planning gaps, the memory-op representation surfaces, and the nearby dossier boundaries that matter for future work.
+For the recommended first red-test and validation order, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## What Starshine currently does for this pass name
 
@@ -209,6 +221,7 @@ Starshine does **not** currently have:
 - a MoonBit `alignment-lowering` implementation file
 - an agreed HOT-pass or module-pass landing slot
 - a dedicated backlog slice in `agent-todo.md`
+- an implementation landing-zone decision that chooses HOT rewrite versus lib/post-writeback legalization
 - reduced local regressions specific to this pass
 - artifact replay coverage specific to the pass
 
@@ -225,7 +238,7 @@ So the current repo status is best summarized as:
 
 ## Validation plan for the eventual port
 
-The existing dossier already implies the right validation ladder.
+The existing dossier already implies the right validation ladder, now written out in detail in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 A future real implementation should validate in roughly this order:
 
 1. reduced shape tests for the main upstream families
@@ -250,7 +263,7 @@ That is more useful locally than a vague “compare with Binaryen later” note 
 Current Starshine `alignment-lowering` strategy is honest boundary-only tracking plus explicit placement uncertainty:
 
 - the pass name is intentionally preserved in [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
-- the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L446-L461`](../../../../../src/passes/optimize.mbt#L446-L461)
+- the same file keeps the active pipeline honest by rejecting boundary-only requests at [`#L449-L466`](../../../../../src/passes/optimize.mbt#L449-L466)
 - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L57-L61) still keeps the pass only in a broad planning bucket
 - [`agent-todo.md`](../../../../../agent-todo.md) still has no dedicated slice for it
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) still omits it from the active canonical default route
@@ -263,4 +276,5 @@ It is:
 - **clear tracked status**
 - **clear correctness contract from the Binaryen dossier**
 - **clear neighboring memory/lowering boundaries**
+- **clear local memory-op representation surfaces**
 - **clear missing-slice / missing-landing-zone uncertainty that future port work must resolve explicitly**

@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md
+  - ../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md
   - ../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md
   - ../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md
@@ -18,6 +20,7 @@ related:
   - ./chunk-selection-and-unreachable-semantics.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
 ---
 
@@ -62,8 +65,8 @@ So this pass is best taught as:
 - The exact helper matrix is small and source-confirmed: the interesting integer helper cases are misaligned `2`-byte and `4`-byte families, not an open-ended generic chunker.
 - The pass introduces fresh locals to preserve single evaluation of pointer and value expressions.
 - Unreachable loads and stores have special operand-preserving rewrites.
-- The reviewed `version_129` and current upstream `main` implementation file are identical in the 2026-04-23 spot check.
-- Starshine still has no implementation or dedicated backlog slice for this pass, but the dossier now has a dedicated local status/port-planning page instead of leaving that story scattered across registry docs.
+- The reviewed `version_129` and current upstream `main` implementation file are identical in the 2026-04-23 spot check; the 2026-04-26 current-main / port-readiness recheck found no teaching-relevant drift from that contract.
+- Starshine still has no implementation or dedicated backlog slice for this pass, but the dossier now has a dedicated local status/port-planning page and a first-slice validation bridge instead of leaving that story scattered across registry docs.
 
 ## Page map
 
@@ -77,6 +80,8 @@ So this pass is best taught as:
   Beginner-friendly shape catalog showing the main aligned-chunk rewrite families, negative shapes, bailout shapes, and easy-to-miss corner cases.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Exact current Starshine status and port-planning bridge, including the boundary-only registry entry, the active request guard, the missing dedicated backlog slice, and the still-open landing-zone question.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge for future Starshine work: local memory-op code map, narrow first-slice scope, red-test order, direct Binaryen oracle comparison plan, and the unresolved HOT-vs-lib landing-zone decision.
 
 ## Current maintenance rule
 
@@ -84,11 +89,14 @@ So this pass is best taught as:
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real active pass for it.
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is not in the current no-DWARF default optimize path.
 - Keep the local-status fact explicit too: Starshine still tracks the name boundary-only, rejects explicit requests honestly, and still has no dedicated backlog slice or chosen landing zone.
+- Keep the port-readiness page current whenever future code changes the local load/store/HOT landing-zone answer.
 - Keep the scope fact explicit: reviewed Binaryen handles ordinary scalar loads/stores here, not every memory instruction family.
 - Keep the helper-matrix fact explicit too: the future-port contract is not just “split to smaller loads/stores somehow,” but the exact source-backed chunk-selection and unreachable-operand rules documented in the mechanics page.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-alignment-lowering-current-main-port-readiness.md)
+- [`../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md`](../../../raw/research/0379-2026-04-26-alignment-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-23-alignment-lowering-primary-sources.md)
 - [`../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md`](../../../raw/research/0171-2026-04-21-alignment-lowering-binaryen-research.md)
 - [`../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md`](../../../raw/research/0200-2026-04-21-alignment-lowering-chunk-matrix-followup.md)
