@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
+  - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
   - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
@@ -10,6 +12,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dae-optimizing/index.md
 ---
 
@@ -17,7 +20,7 @@ related:
 
 This page is the beginner-friendly shape catalog for Binaryen's plain `dead-argument-elimination` / `dae` pass.
 
-For primary-source provenance, see [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md). For current local implementation status and future Starshine port planning, see [`./starshine-strategy.md`](./starshine-strategy.md).
+For primary-source provenance, see [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md) and the current-main readiness check in [`../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md). For current local implementation status, see [`./starshine-strategy.md`](./starshine-strategy.md); for future first-slice validation, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Read this page with one mental model
 

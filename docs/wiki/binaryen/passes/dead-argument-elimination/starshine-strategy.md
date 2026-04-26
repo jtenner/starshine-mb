@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
+  - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
   - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -17,12 +19,15 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dae-optimizing/starshine-strategy.md
   - ../dae2/index.md
   - ../signature-pruning/index.md
 ---
 
 # Starshine `dead-argument-elimination` strategy and status
+
+For first-slice implementation order and validation details, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This page is the current status/code-map summary; the readiness page is the future-port checklist.
 
 ## Current status
 
@@ -116,11 +121,14 @@ The practical design should be a shared module-boundary core plus a scheduling f
 
 ## Validation plan when the port starts
 
+Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) as the implementation ladder: analyzer-only first, scalar direct-call parameter deletion second, then constant actuals, GC refinements, dropped-result removal, localization, and plain-vs-optimizing sibling split checks.
+
 Use the existing Binaryen dossier as the behavior checklist:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) for phase order, data ownership, and plain-vs-optimizing split.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the upstream owner-file and proof-surface map.
 - [`./wat-shapes.md`](./wat-shapes.md) for beginner-friendly positive and negative cases to convert into tests.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for Starshine's first safe slices, exact code surfaces, and Binaryen oracle lanes.
 - [`../dae-optimizing/starshine-strategy.md`](../dae-optimizing/starshine-strategy.md) for the optimizing-only scheduler delta.
 
 Concrete future tests should cover at least:

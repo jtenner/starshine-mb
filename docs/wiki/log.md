@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen plain `dead-argument-elimination` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/dead-argument-elimination/` folder, neighboring `dae-optimizing` coverage, and `docs/wiki/raw/research/`, then chose boundary-only plain `dead-argument-elimination` because the dossier was source-correct but still lacked the standard first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md`, rechecking official Binaryen current-main owner/helper/scheduler/test surfaces for `DeadArgumentElimination.cpp`, `pass.cpp`, `param-utils.*`, `lubs.h`, `return-utils.h`, `type-updating.h`, and the representative `dae_tnh` / `dae-gc*` lit files; no teaching-relevant drift was found from the tagged `version_129` contract.
+- Added `docs/wiki/raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md` and `docs/wiki/binaryen/passes/dead-argument-elimination/starshine-port-readiness-and-validation.md`; refreshed the overview and Starshine strategy so transformed shapes, upstream strategy, exact local boundary-only code surfaces, analyzer-only first slice, scalar direct-call deletion, follow-up constant/GC/result/localization families, Binaryen `--dae` oracle lanes, and the plain-vs-optimizing scheduler guardrail are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted plain `dead-argument-elimination` from `dossier` to `deep` while keeping it explicitly boundary-only and unimplemented in Starshine today.
+
 ## [2026-04-26] research | deepen `remove-unused-types` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/remove-unused-types/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `remove-unused-types` because its corrected source dossier still lacked a concrete first-slice / validation bridge for a future Starshine port.

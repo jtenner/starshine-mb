@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
+  - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
   - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
@@ -26,6 +28,7 @@ related:
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dae-optimizing/index.md
   - ../dae2/index.md
 ---
@@ -34,7 +37,7 @@ related:
 
 This page is the compact owner-file and proof-surface map for Binaryen `version_129` plain `dead-argument-elimination` / `dae`.
 
-The current immutable source manifest is [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md). It records the 2026-04-24 official release-page recheck, the reviewed `version_129` source/test URLs, and a narrow current-`main` no-teaching-drift spot check.
+The current tagged source manifest is [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md). It records the 2026-04-24 official release-page recheck, the reviewed `version_129` source/test URLs, and a narrow current-`main` no-teaching-drift spot check. The later current-main / Starshine-readiness recheck is [`../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md), and the local validation ladder is [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Biggest source-confirmation result
 

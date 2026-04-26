@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
+  - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
   - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0159-2026-04-21-dead-argument-elimination-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dae-optimizing/index.md
 ---
 
@@ -23,6 +26,7 @@ related:
 - The immutable source manifest for this dossier is [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md).
 - The official `version_129` GitHub release page was re-checked on 2026-04-24 and showed publish date **2026-04-01 14:31**.
 - A narrow 2026-04-24 current-`main` spot check on the owner file, registration file, helper headers, and dedicated lit roster did not surface a teaching-relevant contract drift beyond this page's claims.
+- A focused 2026-04-26 current-`main` port-readiness recheck in [`../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md) also found no teaching-relevant drift, but it adds the Starshine implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - The core implementation is `src/passes/DeadArgumentElimination.cpp`.
 - Public registration and the plain-vs-optimizing split come from `src/passes/pass.cpp`.
 - The nested cleanup helper that only the optimizing variant uses lives in `src/passes/opt-utils.h`.
