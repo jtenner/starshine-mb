@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] health | refresh `discard-global-effects` drift wording
+
+- Ran a focused touched-area hygiene pass after the `discard-global-effects` implementation/test-map commit and found the Binaryen strategy page still described only the older 2026-04-25 current-main spot check.
+- Updated `docs/wiki/binaryen/passes/discard-global-effects/binaryen-strategy.md` to name the 2026-04-26 focused recheck and include the pass-runner invalidation path in the current-main no-drift sentence.
+
 ## [2026-04-26] research | deepen `discard-global-effects` implementation/test map
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/discard-global-effects/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `discard-global-effects` because the dossier had correct metadata-only strategy coverage but still lacked the standard owner/helper/test-map page and under-taught Binaryen's automatic `addsEffects()` invalidation hook.

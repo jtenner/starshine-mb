@@ -68,7 +68,7 @@ after discard-global-effects, no later pass can observe an old global-effects su
 
 ## Current-main status
 
-A 2026-04-25 spot check of Binaryen `main` found no teaching-relevant drift for the cleanup sibling itself. Current `main` still registers the pass and keeps the same high-level summary-clearing contract.
+A 2026-04-26 focused recheck of Binaryen `main` found no teaching-relevant drift for the cleanup sibling itself. Current `main` still registers the pass and keeps the same high-level summary-clearing contract, including the pass-runner invalidation path for effect-adding passes.
 
 The sibling producer `generate-global-effects` has known implementation-shape drift in current `main` versus `version_129`: it now uses an SCC/call-graph propagation structure. That drift is documented in [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md), but it does not change `discard-global-effects`' cleanup contract.
 
