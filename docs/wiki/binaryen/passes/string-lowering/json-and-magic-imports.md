@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
@@ -11,11 +13,13 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `string-lowering`: JSON custom sections and magic imports
 
 This page covers the most non-obvious part of Binaryen `string-lowering`: how literal payloads survive after defining string globals stop being real `StringConst` initializers.
+For Starshine implementation sequencing, especially the split between default JSON, magic imports, and assert mode, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The problem this page answers
 

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `string-lowering` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/string-lowering/` folder, neighboring string pass coverage, and `docs/wiki/raw/research/`, then chose upstream-only `string-lowering` because the dossier had source-correct overview/strategy/shape/status coverage but still lacked the standard first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` `StringLowering.cpp`, `pass.cpp`, and lit surfaces plus the official JS string builtins proposal context; no teaching-relevant Binaryen current-main drift was found from the 2026-04-24 contract.
+- Added `docs/wiki/raw/research/0415-2026-04-26-string-lowering-port-readiness.md` and `docs/wiki/binaryen/passes/string-lowering/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, JSON/magic-import guide, WAT-shape catalog, and Starshine strategy so transformed shapes, upstream helper namespace, exact local unknown-pass status, `string.const` parser/encoder/validator/HOT code surfaces, missing helper-call source surface, registry-honesty first slice, default-JSON lowering, helper-import rewrite sequencing, magic-import/assert-mode checks, and feature-cleanup validation are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `string-lowering` from `dossier` to `deep` while keeping it explicitly upstream-only and unknown to Starshine's registry today.
+
 ## [2026-04-26] research | deepen `llvm-memory-copy-fill-lowering` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/llvm-memory-copy-fill-lowering/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `llvm-memory-copy-fill-lowering` because its dossier still left Binaryen's exact helper-function ABI, fatal boundaries, and Starshine first-slice validation ladder too schematic.

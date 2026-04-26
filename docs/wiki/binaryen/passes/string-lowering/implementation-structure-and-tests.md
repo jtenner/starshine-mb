@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
@@ -11,12 +13,14 @@ related:
   - ./binaryen-strategy.md
   - ./json-and-magic-imports.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../string-gathering/index.md
 ---
 
 # `string-lowering`: implementation structure and tests
 
 This page is the compact source-confirmed map of which Binaryen files own `string-lowering` and which shipped tests prove the important contract surfaces.
+The 2026-04-26 port-readiness bridge found no teaching-relevant current-main drift from this file/test map and adds Starshine-specific validation sequencing in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Official owner files
 

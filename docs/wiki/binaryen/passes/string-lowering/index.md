@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
@@ -16,6 +18,7 @@ related:
   - ./wat-shapes.md
   - ./json-and-magic-imports.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../string-gathering/index.md
   - ../string-lifting/index.md
   - ../../../strings/string-const-surface.md
@@ -84,7 +87,8 @@ That is much more accurate than saying either:
 - The supported op surface in `version_129` is narrow and explicit, not universal. Some `string.new*` and `string.encode*` variants still hit upstream `TODO` / `WASM_UNREACHABLE` paths.
 - After lowering, Binaryen runs `ReFinalize()` and disables `FeatureSet::Strings`.
 - A 2026-04-24 direct source check found no visible drift in `main/src/passes/StringLowering.cpp` on the checked surfaces.
-- Starshine currently supports `string.const` textual, binary, validation, and HOT roundtrip plumbing, but it has no `string-lowering` pass, no local registry spelling, and no active backlog slice for the broader ABI-lowering transform.
+- A 2026-04-26 port-readiness recheck again found no teaching-relevant current-main drift, and it tied the helper import namespace to the official JS string builtins proposal.
+- Starshine currently supports `string.const` textual, binary, validation, and HOT roundtrip plumbing plus some string new/encode array opcodes, but it has no `string-lowering` pass, no local registry spelling, no `wasm:js-string` helper-call source surface, and no active backlog slice for the broader ABI-lowering transform.
 
 ## Page map
 
@@ -98,6 +102,8 @@ That is much more accurate than saying either:
   Focused guide to the most non-obvious part of the pass: numbered `string.const` imports vs magic imports, custom-section JSON encoding, invalid-string fallback, and assert-mode failure.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and code map: no registry spelling or pass owner yet, but real `string.const` parser / encoder / decoder / validator / HOT roundtrip infrastructure that future boundary-module work would reuse.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Future-port bridge: registry-honesty first slice, no-mutation analyzer, default JSON lowering, helper-import rewrite sequence, magic-import/assert-mode validation, and exact local code surfaces.
 
 ## Current maintenance rule
 
@@ -107,6 +113,8 @@ That is much more accurate than saying either:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md)
+- [`../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md`](../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)
 - [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
@@ -126,3 +134,5 @@ That is much more accurate than saying either:
 - Current `main` drift check:
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
+- JS string builtins proposal context:
+  - <https://github.com/WebAssembly/js-string-builtins/blob/main/proposals/js-string-builtins/Overview.md>

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./wat-shapes.md
   - ./json-and-magic-imports.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../string-gathering/index.md
   - ../string-lifting/index.md
 ---
@@ -20,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current tagged oracle for this folder, with the 2026-04-24 raw manifest as the provenance anchor.
+Use Binaryen `version_129` as the current tagged oracle for this folder, with the 2026-04-24 raw manifest and 2026-04-26 port-readiness bridge as provenance anchors.
 On 2026-04-24 the official GitHub `version_129` release page showed publish date **2026-04-01 14:31**.
 The main sources are:
 
@@ -41,6 +44,7 @@ Primary URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-gathering.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-lowering.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-lowering.js>
+- <https://github.com/WebAssembly/js-string-builtins/blob/main/proposals/js-string-builtins/Overview.md>
 
 ## High-level intent
 
@@ -178,6 +182,8 @@ The manual lit file proves the distinction with valid strings, unpaired surrogat
 
 ## Phase 5: add imported helper functions for lowered string ops
 
+The 2026-04-26 recheck ties these helpers to the official JS string builtins proposal rather than treating them as arbitrary host imports. That proposal is the primary external context for the `wasm:js-string` namespace and imported string-constant convention.
+
 Before instruction rewriting, Binaryen creates all helper imports up front.
 That avoids mutating import state during parallel rewriting.
 
@@ -283,12 +289,17 @@ So `string-lowering` should be taught as one half of a bidirectional public fami
 A 2026-04-24 checked source diff found no visible difference between `version_129` and current `main` for `src/passes/StringLowering.cpp` on the inspected teaching-relevant surfaces.
 `main/src/passes/pass.cpp` still exposes the same pass names.
 
+A 2026-04-26 port-readiness recheck again found no teaching-relevant drift in phase order, helper import roster, JSON/magic-import behavior, or unsupported-op boundaries.
+
 The durable conclusion is:
 
 - the `version_129` strategy described here is still current on the checked surfaces.
+- implementation sequencing and local validation lanes belong in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md)
+- [`../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md`](../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md)
 - [`../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md`](../../../raw/research/0215-2026-04-21-string-lowering-binaryen-research.md)
@@ -301,3 +312,4 @@ The durable conclusion is:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/string-lowering.js>
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLowering.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/js-string-builtins/blob/main/proposals/js-string-builtins/Overview.md>

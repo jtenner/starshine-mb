@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0415-2026-04-26-string-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md
   - ../../../raw/research/0284-2026-04-24-string-lowering-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -25,13 +27,14 @@ related:
   - ./implementation-structure-and-tests.md
   - ./json-and-magic-imports.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../string-gathering/index.md
   - ../../../strings/string-const-surface.md
 ---
 
 # Starshine Strategy For `string-lowering`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-string-lowering-primary-sources.md) and the port-readiness bridge in [`../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-string-lowering-port-readiness-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code surfaces that already handle wasm strings, and the main uncertainty a future parity port must resolve.
 
 ## The honest current status
@@ -129,6 +132,8 @@ A future implementation should not hide these under one local name unless the do
 
 ## Likely future landing shape
 
+For the detailed first-slice and validation ladder, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
 A faithful Starshine port would probably be a **module/boundary pass**, not a HOT peephole.
 The Binaryen pass mutates enough module-wide metadata that a HOT-only owner would be misleading.
 
@@ -185,3 +190,4 @@ Current Starshine `string-lowering` strategy is honest non-adoption plus a preci
 - a faithful future port must be module/boundary-owned because it rewrites ABI-visible types, imports, globals, custom sections, helper calls, and feature flags
 
 For upstream behavior, read [`./binaryen-strategy.md`](./binaryen-strategy.md), [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), [`./json-and-magic-imports.md`](./json-and-magic-imports.md), and [`./wat-shapes.md`](./wat-shapes.md).
+For implementation sequencing, registry-honesty policy, and validation lanes, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
