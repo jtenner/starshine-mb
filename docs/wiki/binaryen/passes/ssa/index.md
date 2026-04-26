@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
@@ -26,6 +28,7 @@ related:
   - ./merge-locals-entry-prepends-and-default-values.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../ssa-nomerge/index.md
   - ../tracker.md
 ---
@@ -116,15 +119,19 @@ That absence is intentional context for this folder: it is a documentation expan
   - Beginner-friendly shape catalog, with direct `ssa.wast` positives clearly separated from source-derived merge-local families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current Starshine status and port map: no local `ssa` registry entry, active `ssa-nomerge` sibling only, reusable HOT SSA overlay/destruction infrastructure, and the exact code locations a future faithful port would need to bridge.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - Future implementation bridge: registry honesty, source classifier requirements, merge-local rewrite order, `ssa-nomerge` sibling-stability checks, and validation ladder.
 
 ## Freshness note
 
-A 2026-04-21 exactness check found `SSAify.cpp` and `test/lit/passes/ssa.wast` on current upstream `main` matched `version_129`. The 2026-04-24 source refresh re-opened the same current-`main` source/test surfaces for a narrow spot check and did not find a teaching-level drift; this is not a full trunk-equivalence audit.
+A 2026-04-21 exactness check found `SSAify.cpp` and `test/lit/passes/ssa.wast` on current upstream `main` matched `version_129`. The 2026-04-24 source refresh re-opened the same current-`main` source/test surfaces for a narrow spot check and did not find a teaching-level drift. The 2026-04-26 port-readiness recheck also found no teaching-level drift across `SSAify.cpp`, registration, helper, and lit surfaces; this is not a full trunk-equivalence audit.
 
 So this folder should keep treating Binaryen `version_129` as the released semantic oracle without an active trunk-drift caveat.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md)
+- [`../../../raw/research/0402-2026-04-26-ssa-port-readiness.md`](../../../raw/research/0402-2026-04-26-ssa-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md)
 - [`../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md`](../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md`](../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md) (historical; superseded for raw-source provenance and local Starshine status)

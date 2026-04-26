@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
@@ -16,6 +18,7 @@ related:
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../ssa-nomerge/merge-shapes-and-canonical-slots.md
 ---
 

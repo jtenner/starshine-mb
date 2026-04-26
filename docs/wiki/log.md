@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen full `ssa` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/ssa/` folder, neighboring `ssa-nomerge` coverage, and `docs/wiki/raw/research/`, then chose upstream-only full `ssa` because its dossier was source-correct but still lacked the standard first-slice / validation bridge for a future Starshine port.
+- Added `docs/wiki/raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` sources for `SSAify.cpp`, `pass.cpp`, `passes.h`, LocalGraph, `ReFinalize`, `ssa.wast`, and sibling `ssa-nomerge` proof surfaces; no teaching-relevant drift was found from the 2026-04-24 contract.
+- Added `docs/wiki/raw/research/0402-2026-04-26-ssa-port-readiness.md` and `docs/wiki/binaryen/passes/ssa/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test map, WAT-shape, focused merge-local guide, and Starshine strategy so transformed shapes, upstream strategy, exact local code surfaces, registry honesty, source-classifier requirements, merge-local / incoming-`tee` rewrite order, `ssa-nomerge` sibling stability, and Binaryen `--ssa` validation are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `ssa` from `dossier` to `deep` while keeping it explicitly upstream-only and unknown to Starshine's registry today.
+
 ## [2026-04-26] research | add `asyncify` port-readiness bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/asyncify/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `asyncify` because the dossier had overview/strategy/shape/source-map/status coverage but still lacked the now-standard first-slice / validation bridge for a future Starshine port.

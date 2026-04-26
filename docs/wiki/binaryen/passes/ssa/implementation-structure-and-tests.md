@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
@@ -22,6 +24,7 @@ related:
   - ./merge-locals-entry-prepends-and-default-values.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../ssa-nomerge/index.md
 ---
 
@@ -174,7 +177,7 @@ A narrow 2026-04-21 exactness check found:
 - `SSAify.cpp` on current upstream `main` matched `version_129`
 - `test/lit/passes/ssa.wast` on current upstream `main` matched `version_129`
 
-The 2026-04-24 source refresh re-opened the same current-`main` source/test surfaces for a narrow spot check and did not find a teaching-level drift. This is not a full trunk-equivalence audit.
+The 2026-04-24 source refresh re-opened the same current-`main` source/test surfaces for a narrow spot check and did not find a teaching-level drift. A 2026-04-26 port-readiness recheck reopened the same owner/registration/helper/test surfaces plus local Starshine SSA surfaces and also found no teaching-level upstream drift. This is not a full trunk-equivalence audit.
 
 So the durable reading is:
 

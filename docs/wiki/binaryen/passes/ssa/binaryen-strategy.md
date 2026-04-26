@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
@@ -19,6 +21,7 @@ related:
   - ./merge-locals-entry-prepends-and-default-values.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../ssa-nomerge/binaryen-strategy.md
 ---
 
@@ -26,7 +29,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass. The committed raw source manifest is [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md).
+Use Binaryen `version_129` as the primary source oracle for this pass. The committed raw source manifest is [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md). The 2026-04-26 port-readiness bridge [`../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md) rechecked current `main` and found no teaching-level drift.
 
 Primary files:
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0402-2026-04-26-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-ssa-primary-sources.md
   - ../../../raw/research/0321-2026-04-24-ssa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0207-2026-04-21-ssa-binaryen-research.md
@@ -21,6 +23,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./merge-locals-entry-prepends-and-default-values.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../ssa-nomerge/starshine-hot-ir-strategy.md
   - ../ssa-nomerge/index.md
   - ../tracker.md
@@ -77,44 +80,37 @@ Starshine's local HOT pipeline has an SSA overlay model used by the active sibli
 
 So the local infrastructure is real and important. The missing piece is a public pass whose contract matches Binaryen full `ssa`.
 
+For first-slice implementation order and validation, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). That page keeps registry honesty, source classification, merge-local rewriting, and sibling-stability tests together.
+
 ## Exact local code map
 
 Use this map when following along in-tree:
 
-- `src/passes/optimize.mbt:158`
-  - active registry entry for `ssa-nomerge`; no sibling `ssa` entry exists nearby.
-- `src/passes/optimize.mbt:246`
-  - `optimize` preset includes `ssa-nomerge` in the early hot-pass slot.
-- `src/passes/optimize.mbt:258`
-  - `shrink` preset mirrors the same `ssa-nomerge` slot.
-- `src/passes/ssa_nomerge.mbt:2`
+- `src/passes/optimize.mbt`
+  - owns pass categories, presets, and request lookup.
+  - active entries start with `ssa-nomerge`; no sibling `ssa` entry exists in active, module, boundary-only, removed, or preset lists.
+  - `optimize` and `shrink` presets both include `ssa-nomerge` in the early hot-pass slot.
+- `src/passes/ssa_nomerge.mbt`
   - descriptor for the active sibling, including broad invalidation of CFG, dominance, liveness, use-def, effects, loop info, and SSA.
-- `src/passes/ssa_nomerge.mbt:15`
-  - active sibling summary: “Untangle hot locals into semi-SSA form and lower overlay phis through predecessor copies.”
-- `src/passes/ssa_nomerge.mbt:49`
-  - active sibling runner requires CFG + local SSA and delegates to `@ir.ssa_destroy_into_hot(...)`.
-- `src/ir/ssa_policy.mbt:5`
+  - runner requires CFG + local SSA and delegates to `@ir.ssa_destroy_into_hot(...)`.
+- `src/ir/ssa_policy.mbt`
   - `HotSsaValueOrigin` distinguishes entry params, entry default inits, local-set defs, local-tee defs, and phi defs.
-- `src/ir/ssa_policy.mbt:31`
   - `HotSsaPhi` models local-specific block phis in the overlay.
-- `src/ir/ssa_policy.mbt:138`
   - `HotSsaExcludedFeature` records current v1 limits: exceptional edges, persistent HOT phi nodes, IR-owned SSA bodies, and non-local values.
-- `src/ir/ssa_local.mbt:260`
+- `src/ir/ssa_local.mbt`
   - `ssa_build_local(...)` seeds entry definitions, places phis, visits the dominator tree, records uses, and sorts phi inputs.
-- `src/ir/ssa_destroy.mbt:267`
+- `src/ir/ssa_destroy.mbt`
   - `ssa_assign_concrete_locals(...)` chooses existing or fresh locals for SSA values.
-- `src/ir/ssa_destroy.mbt:457`
-  - `ssa_insert_predecessor_copies(...)` is the public helper for inserting explicit predecessor copies.
-- `src/ir/ssa_destroy.mbt:528`
+  - `ssa_insert_predecessor_copies(...)` inserts explicit predecessor copies.
   - `ssa_destroy_into_hot(...)` performs the local SSA destruction used by `ssa-nomerge`.
-- `src/passes/pass_common.mbt:239`
+- `src/passes/pass_common.mbt`
   - `pass_require_ssa(...)` builds/caches the local SSA analysis for hot passes.
-- `src/passes/ssa_nomerge_test.mbt:189`
+- `src/passes/ssa_nomerge_test.mbt`
   - branch-join coverage for the active local sibling's predecessor-copy style.
-- `src/passes/registry_test.mbt:97`
+- `src/passes/registry_test.mbt`
   - registry test coverage for the active `ssa-nomerge` descriptor.
-- `agent-todo.md:72`
-  - the observed unique-pass order uses shorthand `SSA` for the active local `ssa-nomerge` slot in the current parity chain, not a separate full-`ssa` implementation slice.
+- `agent-todo.md`
+  - current parity notes use shorthand `SSA` for the active local `ssa-nomerge` slot, not a separate full-`ssa` implementation slice.
 
 ## Current behavior versus Binaryen full `ssa`
 
