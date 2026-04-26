@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
@@ -15,12 +17,13 @@ related:
   - ./implementation-structure-and-tests.md
   - ./static-offsets-dynamic-operands-and-grow-repair.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `memory64-lowering` WAT shape catalog
 
 This page shows the important before/after families for Binaryen's `memory64-lowering` and `table64-lowering` passes.
-The examples are schematic but match the source-backed rewrite rules captured in the raw manifest.
+The examples are schematic but match the source-backed rewrite rules captured in the raw manifest. For future Starshine implementation order and validation lanes, see [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 
 ## 1. Memory declaration lowering
 
@@ -327,6 +330,8 @@ That detail is important for mixed table32/table64 cases.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
+- [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)

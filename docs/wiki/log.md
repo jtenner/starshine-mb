@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `memory64-lowering` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/memory64-lowering/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `memory64-lowering` / `table64-lowering` because the corrected source dossier still lacked a concrete Starshine first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` `Memory64Lowering.cpp`, `pass.cpp`, `memory64-lowering.wast`, `table64-lowering.wast`, and the official Emscripten `MEMORY64` setting; no teaching-relevant drift was found from the 2026-04-25 static-offset correction.
+- Added `docs/wiki/raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md` and `docs/wiki/binaryen/passes/memory64-lowering/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test map, focused mechanics guide, WAT-shape catalog, and Starshine strategy so transformed shapes, upstream strategy, exact local unknown-pass code surfaces, registry-honesty/no-op-analyzer sequencing, memory declaration/data-offset first slice, grow sentinel repair, bulk/SIMD/atomic follow-ups, table64 typechecker prerequisite, and Binaryen oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; kept `memory64-lowering` / `table64-lowering` classified as upstream-only and deep while making the future validation ladder explicit.
+
 ## [2026-04-26] research | deepen `dae2` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/dae2/` folder, neighboring DAE-family pages, and `docs/wiki/raw/research/`, then chose upstream-only `dae2` because the dossier was source-correct but still lacked the standard first-slice / validation bridge.

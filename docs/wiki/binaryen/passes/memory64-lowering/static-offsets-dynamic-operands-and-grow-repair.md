@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
@@ -17,13 +19,14 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `memory64-lowering` static offsets, dynamic operands, and grow repair
 
 This page is the corrected guide to the easiest part of `memory64-lowering` / `table64-lowering` to overgeneralize: which “large constants” are known traps, which ones are just expression operands that get wrapped, and why grow repair is about the lowered grow result.
 
-Read this with the raw primary-source correction in [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md).
+Read this with the raw primary-source correction in [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md). Future Starshine implementation checkpoints for these shapes are now maintained in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 
 ## The corrected distinction
 
@@ -130,6 +133,8 @@ A future Starshine port should add at least these tests before calling the out-o
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
+- [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)

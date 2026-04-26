@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
@@ -15,6 +17,7 @@ related:
   - ./static-offsets-dynamic-operands-and-grow-repair.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen strategy for `memory64-lowering`
@@ -101,8 +104,12 @@ That is a useful external motivation for the pass, but the mechanics on this pag
 
 A 2026-04-25 current-`main` recheck of the owner source and paired lit files did not reveal teaching-level drift from the `version_129` contract. A later same-day source correction narrowed the high-constant wording: dynamic operand constants wrap, static memory-access `offset=` immediates at or above `2^32` become `unreachable`, grow deltas are repaired through the lowered grow result, max limits clamp to the 32-bit maximum, and min-limit behavior is still best described as source-level assertion rather than a user-facing diagnostic contract.
 
+A 2026-04-26 port-readiness recheck again found no teaching-level upstream drift; its new value is local sequencing in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md), not a changed Binaryen strategy.
+
 ## Sources
 
+- Port-readiness primary-source recheck: [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
+- Port-readiness research note: [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - Static-offset correction: [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
 - Correction note: [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - Current-main recheck: [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)

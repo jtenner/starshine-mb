@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
@@ -15,6 +17,7 @@ related:
   - ./static-offsets-dynamic-operands-and-grow-repair.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `memory64-lowering` implementation structure and tests
@@ -51,7 +54,7 @@ The pass names are separate because users may lower memory64 without lowering ta
 ### `test/lit/passes/memory64-lowering.wast`
 
 This is the primary memory-focused proof file.
-It covers the visible families a future Starshine port should mirror first:
+It covers the visible families a future Starshine port should mirror first; the exact local sequencing is maintained in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md):
 
 - memory declaration lowering;
 - active data offset lowering to the new address type;
@@ -104,6 +107,8 @@ Before Starshine implements the pass, decide and test whether local impossible-m
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
+- [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)

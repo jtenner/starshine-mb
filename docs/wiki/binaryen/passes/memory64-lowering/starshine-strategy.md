@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
@@ -21,6 +23,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./static-offsets-dynamic-operands-and-grow-repair.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Starshine strategy for `memory64-lowering`
@@ -38,6 +41,8 @@ The local status is stronger than “not yet ported”:
 So today's correct user-facing description is:
 
 > Starshine can model several memory64/table64 surfaces, but it has no wasm64-to-wasm32 lowering pass today.
+
+The concrete future implementation ladder now lives in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md): registry honesty, a no-op analyzer, memory declaration/data-offset lowering, scalar body lowering, size/grow repair, bulk/SIMD/atomic memory coverage, and a later table64 sibling after table typing cleanup.
 
 ## Relevant local surfaces
 
@@ -120,6 +125,8 @@ That makes the pass closer to `memory-packing`, `reorder-locals`, or other modul
 
 ## Validation checklist for a future Starshine port
 
+Use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) as the detailed validation ladder. The compact checklist here is the contract summary:
+
 - `memory64-lowering` request is accepted only once the pass is real.
 - Memory declarations are converted to 32-bit limits.
 - Active data offsets become lowered address-type expressions.
@@ -139,6 +146,8 @@ That makes the pass closer to `memory-packing`, `reorder-locals`, or other modul
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
+- [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)

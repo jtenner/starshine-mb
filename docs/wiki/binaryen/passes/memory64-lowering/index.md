@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md
   - ../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md
@@ -18,6 +20,7 @@ related:
   - ./static-offsets-dynamic-operands-and-grow-repair.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../memory-packing/index.md
   - ../instrument-memory/index.md
 ---
@@ -28,7 +31,7 @@ related:
 
 `memory64-lowering` is Binaryen's wasm64-to-wasm32 index-width conversion pass for linear memory.
 Its sibling `table64-lowering` applies the same idea to table indexes.
-Both siblings matter to Starshine because Starshine already models memory/table limit widths, validates memory64 modules, and optimizes memory-heavy code, but it does **not** currently implement an index-width lowering pass.
+Both siblings matter to Starshine because Starshine already models memory/table limit widths, validates memory64 modules, and optimizes memory-heavy code, but it does **not** currently implement an index-width lowering pass. A 2026-04-26 port-readiness bridge now turns that status into a concrete first-slice and validation ladder in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 
 The beginner version:
 
@@ -108,6 +111,8 @@ For a future Starshine port, add tests in this order:
 10. table copy/fill/init mixed-width cases;
 11. SIMD and atomic address wrapping plus high static `offset=` replacement.
 
+The future Starshine sequencing is spelled out in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md): start with registry honesty and a no-op analyzer, then memory declarations plus active data offsets, scalar body rewrites, size/grow repair, bulk/SIMD/atomic families, and only then table64 after table typechecking cleanup.
+
 ## Page map
 
 - [`binaryen-strategy.md`](binaryen-strategy.md) - source-backed Binaryen strategy.
@@ -115,9 +120,12 @@ For a future Starshine port, add tests in this order:
 - [`static-offsets-dynamic-operands-and-grow-repair.md`](static-offsets-dynamic-operands-and-grow-repair.md) - corrected guide to static `offset=` immediates, dynamic operands, active offsets, and grow failure repair.
 - [`wat-shapes.md`](wat-shapes.md) - before/after shapes.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - future implementation slices and Binaryen oracle lanes.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-memory64-lowering-port-readiness-primary-sources.md)
+- [`../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md`](../../../raw/research/0411-2026-04-26-memory64-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md`](../../../raw/research/0374-2026-04-25-memory64-lowering-static-offset-correction.md)
 - [`../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-memory64-lowering-current-main-recheck.md)
