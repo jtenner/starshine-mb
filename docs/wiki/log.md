@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `llvm-memory-copy-fill-lowering` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/llvm-memory-copy-fill-lowering/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `llvm-memory-copy-fill-lowering` because its dossier still left Binaryen's exact helper-function ABI, fatal boundaries, and Starshine first-slice validation ladder too schematic.
+- Added `docs/wiki/raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` `LLVMMemoryCopyFillLowering.cpp` plus local Starshine registry, HOT effect, and data-count validation surfaces; no current-main drift from the tagged contract was found, but the recheck corrected the teaching model from vague helper imports to local `__memory_copy` / `__memory_fill` functions.
+- Added `docs/wiki/raw/research/0414-2026-04-26-llvm-memory-copy-fill-lowering-port-readiness.md` and `docs/wiki/binaryen/passes/llvm-memory-copy-fill-lowering/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test map, helper-boundary guide, WAT-shape catalog, and Starshine strategy so transformed shapes, upstream helper bodies, memory32 single-memory support, memory64/multi-memory/passive/table-bulk fatal boundaries, bulk-memory feature cleanup, exact local unknown-pass code surfaces, and Binaryen oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `llvm-memory-copy-fill-lowering` from `dossier` to `deep` while keeping it explicitly upstream-only and unknown to Starshine's registry today.
+
 ## [2026-04-26] research | correct and deepen `code-pushing` strategy
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/code-pushing/` folder, and `docs/wiki/raw/research/`, then chose active HOT `code-pushing` because its 2026-04-25 correction had become the stale reference needing cleanup.

@@ -5,6 +5,8 @@ last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md
   - ../../../raw/research/0384-2026-04-26-llvm-memory-copy-fill-lowering-source-dossier.md
+  - ../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0414-2026-04-26-llvm-memory-copy-fill-lowering-port-readiness.md
   - ../../../../../src/wast/types.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../src/binary/encode.mbt
@@ -31,7 +33,7 @@ It is not a size optimizer, data-segment optimizer, or many-memory layout pass. 
 
 Starshine does **not** currently implement or register this pass.
 
-The local codebase does already understand the underlying instructions:
+The local codebase does already understand the underlying instructions, and the 2026-04-26 port-readiness bridge now pins Binaryen's exact helper model: module-local `__memory_copy` / `__memory_fill` functions with `(i32, i32, i32) -> none` signatures, memory32/single-memory-only support, fatal boundaries for memory64, multi-memory, passive segment/table-bulk surfaces, and bulk-memory feature cleanup after lowering.
 
 - WAST opcode names include `MemoryFill` and `MemoryCopy` in `src/wast/types.mbt:309-310` and lower them to lib instructions in `src/wast/lower_to_lib.mbt:2295-2301`.
 - Binary encoding writes the bulk-memory prefix/opcodes for `MemoryCopy` and `MemoryFill` in `src/binary/encode.mbt:3055-3074`.
@@ -47,9 +49,9 @@ A faithful port must preserve:
 
 - operand evaluation order for destination, source/value, and length operands;
 - memory-write effects and possible traps;
-- helper import declarations and call signatures;
+- helper function declarations, bodies, and call signatures;
 - memory index semantics, especially because Starshine's lib IR represents `MemoryCopy(MemIdx, MemIdx)` and `MemoryFill(MemIdx)`;
-- validation after adding helper imports and replacing instructions with calls.
+- validation after adding helper functions and replacing instructions with calls.
 
 ## Inputs and outputs
 
@@ -60,23 +62,28 @@ Input instructions:
 
 Output shape:
 
-- helper import/declaration surface, if not already present;
+- module-local helper functions named from `__memory_copy` and `__memory_fill`, if the relevant opcode is used;
 - calls to helper functions carrying the same logical operands;
-- no change to unrelated `memory.init`, `data.drop`, active/passive data segment layout, or memory declaration layout.
+- no change to unrelated `memory.init`, `data.drop`, active/passive data segment layout, table bulk operations, or memory declaration layout.
+
+Binaryen's implementation creates temporary empty helper stubs, rewrites uses, populates only used helper bodies, removes unused helpers, and clears the bulk-memory optional feature after successful lowering.
 
 ## Important edges
 
 - `memory.copy` and `memory.fill` do not require the data-count section rule that applies to `memory.init` / `data.drop`; Starshine's validator reflects that split in `src/validate/validate.mbt:2086-2118`.
-- A future Starshine port must decide whether it is memory-zero-only or multi-memory-aware. The upstream Binaryen owner file should be rechecked at implementation time before freezing helper ABI or multi-memory behavior.
+- A first Starshine port should be memory-zero-only to match Binaryen's current fatal on multi-memory; do not drop `MemoryCopy(dst, src)` indices by accident.
+- Memory64 is an upstream fatal boundary here; sequence [`../memory64-lowering/index.md`](../memory64-lowering/index.md) before this pass if a pipeline needs both.
 - Because helper calls replace memory operations, downstream effect analysis must see call effects conservatively unless helper purity/effect metadata is also modeled.
+- Binaryen explicitly does not model LLVM pointer-overflow undefined behavior in this pass; tests should not require stronger behavior than the oracle provides.
 
 ## Validation plan for a future port
 
 1. Add reduced WAT tests for direct `memory.copy` and `memory.fill` lowering.
 2. Add operand-order tests with trapping/effectful operands.
-3. Add validation tests proving helper imports are declared with the expected signatures.
+3. Add validation tests proving helper functions are declared with the expected signatures and bodies.
 4. Compare with Binaryen using `wasm-opt --llvm-memory-copy-fill-lowering` on the same reduced fixtures.
-5. Run `moon info`, `moon fmt`, `moon test`, then a targeted pass-fuzz comparison if the pass enters the public registry.
+5. Add negative tests for memory64, multi-memory, passive segment, and `table.copy` / `table.fill` boundaries.
+6. Run `moon info`, `moon fmt`, `moon test`, then a targeted pass-fuzz comparison if the pass enters the public registry.
 
 ## Pages in this dossier
 
@@ -85,5 +92,6 @@ Output shape:
 - [`wat-shapes.md`](wat-shapes.md) - transformed and non-transformed instruction shapes.
 - [`helper-call-lowering-and-boundaries.md`](helper-call-lowering-and-boundaries.md) - helper-call ABI, traps, effects, and neighboring-pass boundaries.
 - [`starshine-strategy.md`](starshine-strategy.md) - current local status and future port map.
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - first-slice implementation order, validation ladder, and oracle boundaries.
 
 [^sources]: See the primary-source manifest in [`../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-26-llvm-memory-copy-fill-lowering-primary-sources.md).
