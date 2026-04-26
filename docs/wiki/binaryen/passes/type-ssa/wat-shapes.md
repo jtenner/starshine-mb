@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
 related:
@@ -11,6 +13,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./created-exact-types-control-values-and-signature-rewrites.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `type-ssa` WAT and IR shape catalog
@@ -23,7 +26,7 @@ These sketches are conceptual. Binaryen's exact printer output may differ, but t
 - selected allocation instructions are retagged to exact non-null refs to those fresh subtypes,
 - parent expression types are refinalized.
 
-This page intentionally replaces the older stale local-flow examples.
+This page intentionally replaces the older stale local-flow examples. For the future Starshine test order that turns these families into analyzer and Binaryen-oracle lanes, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Family 1: interesting `struct.new` gets a fresh subtype
 

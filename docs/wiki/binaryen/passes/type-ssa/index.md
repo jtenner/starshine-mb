@@ -3,6 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
@@ -17,6 +19,7 @@ related:
   - ./created-exact-types-control-values-and-signature-rewrites.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../type-merging/index.md
   - ../type-refining/index.md
   - ../ssa/index.md
@@ -92,19 +95,23 @@ It is **not** ordinary SSA construction, and it is **not** a local-flow pass ove
 - [`./created-exact-types-control-values-and-signature-rewrites.md`](./created-exact-types-control-values-and-signature-rewrites.md) is now the focused correction page for allocation-type splitting, exact-observation blockers, and why the old local-flow model is stale.
 - [`./wat-shapes.md`](./wat-shapes.md) gives before/after module and instruction shapes for the allocation-subtype rewrite and bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md) records Starshine's current non-adoption and the real future local prerequisites.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) turns the corrected strategy into an implementation sequence: registry honesty, analyzer-only candidate/blocker discovery, fresh-subtype mutation, allocation retagging, and Binaryen-oracle validation.
 
 ## Validation guidance
 
-For a future Starshine port, validation must compare against Binaryen's allocation-type-splitting behavior, not the older stale local-flow story:
+For a future Starshine port, validation must compare against Binaryen's allocation-type-splitting behavior, not the older stale local-flow story. Use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) as the detailed ladder:
 
-1. add reduced WAT tests for positive `struct.new`, `array.new`, `array.new_data`, `array.new_elem`, and all-interesting `array.new_fixed` cases;
-2. add bailouts for final types, exact-observed types, descriptor/describee types, unreachable code, and uninteresting operands;
-3. validate type sections, allocation result types, and refinalized parent types;
-4. compare against `wasm-opt --type-ssa` on official reduced cases before fuzzing;
-5. run pass-targeted parity through the local Binaryen comparison harness only after Starshine has honest registry support.
+1. decide registry honesty first;
+2. add analyzer-only tests for positive `struct.new`, `array.new`, `array.new_data`, `array.new_elem`, and all-interesting `array.new_fixed` cases;
+3. add bailouts for final types, exact-observed types, descriptor/describee types, unreachable code, and uninteresting operands;
+4. validate type sections, allocation result types, and refinalized parent types;
+5. compare against `wasm-opt --type-ssa` on official reduced cases before fuzzing;
+6. run pass-targeted parity through the local Binaryen comparison harness only after Starshine has honest registry support.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md)
+- [`../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md`](../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md)
 - [`../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md`](../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md)
 - Older, superseded capture kept for audit trail: [`../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md)

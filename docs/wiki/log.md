@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `type-ssa` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/type-ssa/` folder, neighboring type/SSA dossiers, and `docs/wiki/raw/research/`, then chose upstream-only `type-ssa` because the corrected allocation-subtype dossier still lacked a concrete Starshine first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md`, rechecking official Binaryen `version_129` and current-main `TypeSSA.cpp`, `pass.cpp`, `passes.h`, `type-ssa.wast`, `ReFinalize.cpp`, and type-shape helpers; no teaching-relevant drift was found from the corrected allocation-subtype contract.
+- Added `docs/wiki/raw/research/0409-2026-04-26-type-ssa-port-readiness.md` and `docs/wiki/binaryen/passes/type-ssa/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test map, WAT-shape catalog, and Starshine strategy so transformed shapes, upstream strategy, exact local unknown-pass status, GC-allocation / WAT-lowering / typechecker code surfaces, analyzer-first sequencing, fresh-subtype mutation prerequisites, and Binaryen `--type-ssa` oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `type-ssa` from `dossier` to `deep` while keeping it explicitly upstream-only and unknown to Starshine's registry today.
+
 ## [2026-04-26] health | refresh `remove-unused-non-function-elements` touched-area links
 
 - Ran a focused touched-area hygiene check after adding the `remove-unused-non-function-elements` port-readiness bridge.

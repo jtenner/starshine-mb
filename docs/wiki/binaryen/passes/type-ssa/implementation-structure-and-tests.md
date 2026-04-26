@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
@@ -12,6 +14,7 @@ related:
   - ./created-exact-types-control-values-and-signature-rewrites.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Upstream implementation structure and test map for `type-ssa`

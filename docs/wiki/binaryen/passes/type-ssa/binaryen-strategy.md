@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
@@ -12,6 +14,7 @@ related:
   - ./created-exact-types-control-values-and-signature-rewrites.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../type-merging/index.md
   - ../ssa/index.md
 ---
@@ -134,7 +137,7 @@ The pass comments describe the optimization as likely most useful in closed-worl
 
 ## Current-main drift check
 
-The 2026-04-26 source capture rechecked current `main`. No teaching-relevant drift was found from the corrected `version_129` allocation-subtype contract.
+The 2026-04-26 source correction and the later port-readiness bridge rechecked current `main`. No teaching-relevant drift was found from the corrected `version_129` allocation-subtype contract. The latest bridge keeps the same port-facing reading: candidate discovery is still allocation-site based, exact-observation blockers still gate fresh subtype creation, and refinalization remains part of the post-rewrite contract.
 
 ## What the older dossier got wrong
 
@@ -167,3 +170,5 @@ A faithful implementation must prove:
 - name copying only as a non-semantic detail,
 - refinalization after rewrites,
 - no accidental local-flow retagging model imported from the superseded dossier.
+
+For Starshine-specific sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

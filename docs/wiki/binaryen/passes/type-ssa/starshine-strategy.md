@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../../../src/passes/optimize.mbt
@@ -16,6 +18,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./created-exact-types-control-values-and-signature-rewrites.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../ssa/index.md
   - ../type-merging/index.md
   - ../type-refining/index.md
@@ -23,7 +26,7 @@ related:
 
 # Starshine Strategy For `type-ssa`
 
-Use this page together with the corrected raw source capture in [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md).
+Use this page together with the corrected raw source capture in [`../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md`](../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md) and the port-readiness bridge in [`../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md).
 
 ## Honest current status
 
@@ -142,15 +145,16 @@ The visible rewrite is allocation result typing, followed by parent/module-code 
 
 ## Validation ladder for a future port
 
-A safe port should proceed in this order:
+A safe port should proceed in the detailed order in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md):
 
 1. add registry status tests first,
-2. add reduced WAT parser/lib tests for fresh subtype emission,
-3. add exact-observation bailout tests,
-4. add descriptor/describee and final/open-disabled type bailouts,
-5. add `array.new_data`, `array.new_elem`, and all-interesting `array.new_fixed` positives,
-6. compare against official `wasm-opt --type-ssa` reductions,
-7. only then run broader pass-fuzz comparison.
+2. add no-rewrite analyzer classification for allocation candidates and exact-observation blockers,
+3. add reduced WAT parser/lib tests for fresh subtype emission,
+4. add exact-observation bailout tests,
+5. add descriptor/describee and final/open-disabled type bailouts,
+6. add `array.new_data`, `array.new_elem`, and all-interesting `array.new_fixed` positives,
+7. compare against official `wasm-opt --type-ssa` reductions,
+8. only then run broader pass-fuzz comparison.
 
 ## Current conclusion
 
