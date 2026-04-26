@@ -47,10 +47,10 @@ That status means:
 The fastest read-along path through the current local status is:
 
 - registry compatibility arrays:
-  - [`src/passes/optimize.mbt#L127-L154`](../../../../../src/passes/optimize.mbt#L127-L154)
+  - [`src/passes/optimize.mbt#L127-L155`](../../../../../src/passes/optimize.mbt#L127-L155)
   - `pass_registry_boundary_only_names()` and `pass_registry_removed_names()` do **not** include `type-ssa`
 - active registry entries and presets:
-  - [`src/passes/optimize.mbt#L156-L259`](../../../../../src/passes/optimize.mbt#L156-L259)
+  - [`src/passes/optimize.mbt#L158-L275`](../../../../../src/passes/optimize.mbt#L158-L275)
   - `pass_registry_entries()` defines active hot/module/preset entries, and no `type-ssa` entry exists
 - current expansion / rejection behavior:
   - [`src/passes/optimize.mbt#L446-L472`](../../../../../src/passes/optimize.mbt#L446-L472)

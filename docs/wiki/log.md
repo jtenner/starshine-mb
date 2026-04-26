@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] health | refresh `type-ssa` touched-area links
+
+- Ran a focused touched-area hygiene check after adding the `type-ssa` port-readiness bridge.
+- Updated the focused exactness/interestingness guide so future-port sequencing and validation lanes point directly at `starshine-port-readiness-and-validation.md` instead of leaving the new page discoverable only through the overview and Starshine strategy page.
+- Refreshed the Starshine strategy code-range pointers for the current registry arrays and active entry/preset span.
+
 ## [2026-04-26] research | deepen `type-ssa` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/type-ssa/` folder, neighboring type/SSA dossiers, and `docs/wiki/raw/research/`, then chose upstream-only `type-ssa` because the corrected allocation-subtype dossier still lacked a concrete Starshine first-slice / validation bridge.

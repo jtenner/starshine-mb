@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-type-ssa-port-readiness-primary-sources.md
+  - ../../../raw/research/0409-2026-04-26-type-ssa-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-type-ssa-source-correction-and-current-main.md
   - ../../../raw/research/0386-2026-04-26-type-ssa-source-correction.md
   - ../../../raw/binaryen/2026-04-23-type-ssa-primary-sources.md
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `type-ssa`: fresh allocation subtypes, exactness blockers, and stale local-flow claims
@@ -130,3 +133,5 @@ This pass may intentionally create more private type distinctions. Later type cl
 
 - `type-ssa` exposes allocation-site distinctions,
 - `type-merging` removes unnecessary declaration distinctions later.
+
+For future Starshine port sequencing and reduced validation lanes for these blocker/interestingness families, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
