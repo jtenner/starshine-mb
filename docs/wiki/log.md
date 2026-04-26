@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] health | refresh `remove-unused-non-function-elements` touched-area links
+
+- Ran a focused touched-area hygiene check after adding the `remove-unused-non-function-elements` port-readiness bridge.
+- Updated the module-shape landing note and Binaryen strategy local-status note so future-port references point directly at `starshine-port-readiness-and-validation.md` instead of leaving the validation ladder discoverable only through the overview and Starshine strategy page.
+- Refreshed the overview wording so the 2026-04-24 provenance update and 2026-04-26 port-readiness bridge are not conflated.
+
 ## [2026-04-26] research | deepen `remove-unused-non-function-elements` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/remove-unused-non-function-elements/` folder, neighboring full-RUME coverage, and `docs/wiki/raw/research/`, then chose boundary-only `remove-unused-non-function-elements` because its source dossier still lacked a concrete first-slice / validation bridge for a future Starshine sibling port.

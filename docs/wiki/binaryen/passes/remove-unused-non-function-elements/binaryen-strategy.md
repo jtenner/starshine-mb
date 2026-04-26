@@ -297,7 +297,7 @@ A faithful port must also preserve these non-rewrites:
 
 ## Starshine mapping
 
-Current Starshine keeps the local spelling `remove-unused-non-function-elements` as a boundary-only registry name, not an active module pass. Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code locations and the future landing-zone map.
+Current Starshine keeps the local spelling `remove-unused-non-function-elements` as a boundary-only registry name, not an active module pass. Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code locations and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the future implementation and validation ladder.
 
 ## What a future Starshine port must preserve
 

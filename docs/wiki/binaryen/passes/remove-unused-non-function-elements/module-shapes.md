@@ -351,7 +351,7 @@ Type compaction is still part of the ordinary shared cleanup story.
 
 ## Starshine-specific caveat
 
-Current Starshine only implements full [`remove-unused-module-elements`](../remove-unused-module-elements/index.md), which may delete dead defined functions. The sibling shapes on this page are future-port requirements for the boundary-only local `remove-unused-non-function-elements` name; see [`./starshine-strategy.md`](./starshine-strategy.md).
+Current Starshine only implements full [`remove-unused-module-elements`](../remove-unused-module-elements/index.md), which may delete dead defined functions. The sibling shapes on this page are future-port requirements for the boundary-only local `remove-unused-non-function-elements` name; see [`./starshine-strategy.md`](./starshine-strategy.md) for current status and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the implementation/test ladder.
 
 ## Bottom line
 

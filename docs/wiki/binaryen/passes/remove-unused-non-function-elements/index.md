@@ -41,7 +41,7 @@ So this folder is another explicit, source-backed upstream-only registry expansi
 ## Why this pass matters
 
 - The main parity queues and the first tracker-expansion wave are already dossier-covered.
-- The local boundary-only registry still names `remove-unused-non-function-elements`; the original 0194 dossier made the upstream sibling understandable, and this 2026-04-24 refresh adds immutable provenance plus a Starshine follow-along map.
+- The local boundary-only registry still names `remove-unused-non-function-elements`; the original 0194 dossier made the upstream sibling understandable, the 2026-04-24 refresh added immutable provenance plus a Starshine follow-along map, and the 2026-04-26 bridge adds concrete port-readiness and validation sequencing.
 - It sits directly beside the already-documented `remove-unused-module-elements` engine and is easy to mis-teach as either:
   - just another spelling for full RUME, or
   - a pass that literally never changes anything related to functions.
