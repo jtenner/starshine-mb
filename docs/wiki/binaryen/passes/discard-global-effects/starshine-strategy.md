@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
   - ../../../../../src/passes/optimize.mbt
@@ -14,6 +15,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./metadata-shapes.md
   - ../global-effects/starshine-strategy.md
 ---
@@ -51,7 +53,7 @@ Current relevant local surfaces:
 
 ## Why no local pass is needed yet
 
-Binaryen's cleanup sibling matters because Binaryen stores persistent per-function global-effect summaries on module functions.
+Binaryen's cleanup sibling matters because Binaryen stores persistent per-function global-effect summaries on module functions and uses a pass-runner `addsEffects()` capability hook to discard those summaries before effect-adding transforms.
 
 Current Starshine effect summaries are different:
 
@@ -59,6 +61,8 @@ Current Starshine effect summaries are different:
 - they are keyed by HOT revision,
 - the pass manager invalidates the cache after a function changes,
 - they are not stored as durable module metadata for later unrelated passes.
+
+That means Starshine's current invalidation analogue is revision-keyed cache rebuilding, not a public `discard-global-effects` no-op.
 
 So a public `discard-global-effects` pass would have nothing Binaryen-equivalent to clear today.
 

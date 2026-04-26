@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `discard-global-effects` implementation/test map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/discard-global-effects/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `discard-global-effects` because the dossier had correct metadata-only strategy coverage but still lacked the standard owner/helper/test-map page and under-taught Binaryen's automatic `addsEffects()` invalidation hook.
+- Added `docs/wiki/raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md`, rechecking official Binaryen `version_129` and current-main `GlobalEffects.cpp`, `pass.cpp`, `pass.h`, `wasm.h`, `effects.h`, and the Optimizer Cookbook; the focused recheck found no cleanup-sibling drift and records the public pass plus pass-runner invalidation lifecycle.
+- Added `docs/wiki/raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md` and `docs/wiki/binaryen/passes/discard-global-effects/implementation-structure-and-tests.md`; refreshed the overview, Binaryen strategy, metadata-shape catalog, and Starshine strategy so metadata shapes, upstream strategy, owner files, indirect producer/consumer test evidence, no-standalone-WAT-diff caveat, and exact local effect-cache/registry code surfaces are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and `CHANGELOG.md`; promoted `discard-global-effects` from `dossier` to `deep` while keeping it explicitly upstream-only and currently unknown to Starshine's registry.
+
 ## [2026-04-26] research | correct `rse` CFG strategy and port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/rse/` folder, and `docs/wiki/raw/research/`, then chose removed `rse` because the 2026-04-25 source correction had overcorrected the pass into a straight-line-only `PostWalker` and erased Binaryen's real CFG value-flow contract.

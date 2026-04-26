@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
@@ -14,6 +15,7 @@ sources:
   - ../../../../../src/passes/pass_manager.mbt
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./metadata-shapes.md
   - ./starshine-strategy.md
   - ../global-effects/index.md
@@ -63,7 +65,7 @@ Outputs:
 ## Important caveats
 
 - This is a **pass-state cleanup transformation**, not an instruction optimizer.
-- The dedicated source set did not reveal a standalone `discard-global-effects.wast` lit file; the pass is source-confirmed through `GlobalEffects.cpp` / `pass.cpp` and lifecycle-confirmed through `generate-global-effects` consumers.
+- The dedicated source set did not reveal a standalone `discard-global-effects.wast` lit file; the pass is source-confirmed through `GlobalEffects.cpp` / `pass.cpp` / `pass.h` and lifecycle-confirmed through `generate-global-effects` consumers.
 - Starshine does **not** currently expose a `discard-global-effects` registry name. Its local `global-effects` entry is boundary-only and covers the producer-side compatibility name, not this cleanup sibling.
 
 ## Validation guidance
@@ -85,10 +87,13 @@ For Starshine work:
 
 - [`./metadata-shapes.md`](./metadata-shapes.md) covers the transformed metadata/module/function states with concrete before/after shapes.
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) explains the upstream source strategy and lifecycle relation to `generate-global-effects`.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) maps the owner files, pass-runner invalidation hook, indirect consumer tests, and no-standalone-WAT-diff caveat.
 - [`./starshine-strategy.md`](./starshine-strategy.md) maps the current local non-implementation, exact code locations, and future port decision.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
+- [`../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md)
 - [`../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md`](../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md)
 - [`../global-effects/index.md`](../global-effects/index.md)

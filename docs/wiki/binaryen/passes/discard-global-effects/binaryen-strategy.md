@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
   - ./index.md
 related:
+  - ./implementation-structure-and-tests.md
   - ./metadata-shapes.md
   - ./starshine-strategy.md
   - ../global-effects/binaryen-strategy.md
@@ -30,13 +32,13 @@ The strategy is intentionally tiny:
 3. reset the function's optional global-effect summary,
 4. return without rewriting instruction bodies.
 
-`src/passes/pass.cpp` registers `discard-global-effects` as a public pass next to `generate-global-effects`, making the cleanup lifecycle explicit rather than hidden.
+`src/passes/pass.cpp` registers `discard-global-effects` as a public pass next to `generate-global-effects`, making the cleanup lifecycle explicit rather than hidden. The same pass-runner layer also clears stored global-effect summaries before a pass that reports it can add effects, using the `addsEffects()` capability surfaced from `src/passes/pass.h`.
 
 ## Why the pass exists
 
 `generate-global-effects` lets later effect-sensitive passes treat direct calls more precisely than a generic opaque call. That is powerful but only while the summaries are valid.
 
-If a later pass adds a call, store, trap path, throw path, memory operation, or global mutation, old summaries can become wrong. `discard-global-effects` is the public mechanism for erasing those facts.
+If a later pass adds a call, store, trap path, throw path, memory operation, or global mutation, old summaries can become wrong. `discard-global-effects` is the public mechanism for erasing those facts, while Binaryen's pass runner uses the same invalidation rule automatically for passes that declare they may add effects.
 
 The Binaryen Optimizer Cookbook reinforces this lifecycle: passes that may add effects must report that capability so earlier global-effect analysis is discarded before they run. The public cleanup pass and the pass-authoring rule tell the same story from two directions.
 
@@ -96,6 +98,8 @@ See [`../global-effects/binaryen-strategy.md`](../global-effects/binaryen-strate
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
+- [`../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md)
 - [`../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md`](../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md)

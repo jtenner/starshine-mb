@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
   - ./index.md
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
   - ../global-effects/wat-shapes.md
 ---
@@ -50,7 +52,7 @@ module
   func $writer effects = Some(global write)
 ```
 
-After:
+After explicit `discard-global-effects`, or after Binaryen's pass runner invalidates summaries before an effect-adding pass:
 
 ```text
 module
@@ -88,7 +90,7 @@ body:
   i32.const 1
 ```
 
-This is the safety-critical shape. A consumer must not remove or reorder `$f` as if the old summary were still true.
+This is the safety-critical shape. A consumer must not remove or reorder `$f` as if the old summary were still true. [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) maps the `pass.cpp` / `pass.h` capability hook behind that automatic invalidation rule.
 
 ## Shape 4: producer / consumer / cleanup pipeline
 
