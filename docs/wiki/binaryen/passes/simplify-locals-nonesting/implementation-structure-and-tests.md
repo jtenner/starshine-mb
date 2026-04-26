@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md
   - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
@@ -20,6 +20,7 @@ related:
   - ./flatness-variant-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals/implementation-structure-and-tests.md
 ---
 
@@ -178,6 +179,7 @@ The lesson is that Binaryen keeps this public variant around because downstream 
 
 ## What these files do *not* prove
 
+The future Starshine test ladder that builds on these files is now in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 Being explicit about non-proof is useful here.
 These files do **not** prove that:
 

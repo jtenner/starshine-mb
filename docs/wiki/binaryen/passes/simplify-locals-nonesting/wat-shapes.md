@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md
   - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
@@ -15,6 +15,7 @@ related:
   - ./binaryen-strategy.md
   - ./flatness-variant-boundaries.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../flatten/index.md
   - ../dataflow-optimization/index.md
 ---
@@ -304,6 +305,10 @@ This pass lives in separate aggressive / explicit pipelines, not the current def
 If you want one short memory hook, use this:
 
 - `simplify-locals-nonesting` = “clean up local traffic, but do not push real values down into new nested use sites.”
+
+## Validation bridge
+
+Use these shapes with the local first-slice plan in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md); do not use full `simplify-locals` as this sibling's oracle.
 
 ## Sources
 

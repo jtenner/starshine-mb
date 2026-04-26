@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md
   - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
@@ -15,6 +15,7 @@ related:
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals/variant-matrix-and-scheduler.md
   - ../simplify-locals-notee/index.md
   - ../simplify-locals-notee-nostructure/index.md
@@ -221,6 +222,7 @@ Official combo tests use it in real flatten-neighbor pipelines.
 
 ## Practical future-port rules
 
+For local first-slice sequencing and validation, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 A future Starshine port should preserve these teaching-important boundaries:
 
 - separate `simplify-locals-nonesting` from `simplify-locals-notee-nostructure`

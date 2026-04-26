@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] health | refresh `simplify-locals-nonesting` touched-area links
+
+- Ran a focused touched-area hygiene check after adding the `simplify-locals-nonesting` port-readiness bridge.
+- Updated the existing Binaryen strategy, implementation/test-map, flatness-boundary, and WAT-shape pages so future-port and validation references point directly at `starshine-port-readiness-and-validation.md` instead of leaving the new first-slice ladder discoverable only through the overview and Starshine status page.
+
 ## [2026-04-26] research | deepen `simplify-locals-nonesting` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/simplify-locals-nonesting/` folder, neighboring `simplify-locals*`, `flatten`, `dataflow-optimization`, and `souperify` coverage, and `docs/wiki/raw/research/`, then chose removed-name `simplify-locals-nonesting` because the dossier was source-correct but still lacked the standard first-slice / validation bridge.
