@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md
+  - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md
   - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./constant-actuals-localization-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../type-refining/index.md
   - ../global-refining/index.md
   - ../../no-dwarf-default-optimize-path.md
@@ -41,7 +44,7 @@ Primary files:
 - `src/cfg/liveness-traversal.h`
 - `test/lit/passes/signature-pruning.wast`
 
-I also did a narrow current-`main` check on the same surfaces.
+The later 2026-04-26 port-readiness pass in [`../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md) repeated a narrow current-`main` check on the same teaching surfaces.
 Durable result:
 
 - the checked `main` pass logic still matches the reviewed `version_129` algorithm on the important gates, phase split, and helper usage

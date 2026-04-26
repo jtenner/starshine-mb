@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md
+  - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md
   - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -26,6 +28,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./constant-actuals-localization-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../type-refining/index.md
   - ../signature-refining/index.md
   - ../global-refining/index.md
@@ -34,7 +37,7 @@ related:
 
 # Starshine Strategy For `signature-pruning`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md), the 2026-04-26 current-main / port-readiness ingest in [`../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md), and the implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status
@@ -51,7 +54,7 @@ The current Starshine strategy is deliberately limited:
 - keep the missing dedicated backlog slice explicit;
 - document why a future port is module/type-graph and function-body rewrite work, not a HOT peephole.
 
-This is a **status-and-port-planning** page, not an implementation page.
+This is a **status-and-port-planning** page, not an implementation page. For first-slice sequencing and validation details, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Exact local code map today
 
@@ -204,12 +207,13 @@ A faithful port should preserve the source-backed contract from the rest of this
 - localize blocked effectful operands before the second pass cycle;
 - cap the rewrite at the source-backed two-cycle behavior unless a later source check justifies a fixed point.
 
-For the upstream details, use:
+For the upstream details and local port ladder, use:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 - [`./constant-actuals-localization-and-boundaries.md`](./constant-actuals-localization-and-boundaries.md)
 - [`./wat-shapes.md`](./wat-shapes.md)
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 
 ## Nearby boundaries to keep distinct
 

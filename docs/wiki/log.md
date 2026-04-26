@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `signature-pruning` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/signature-pruning/` folder, neighboring `signature-refining` and `dead-argument-elimination` coverage, and `docs/wiki/raw/research/`, then chose boundary-only `signature-pruning` because the dossier was source-correct but still lacked a dedicated first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md`, rechecking official Binaryen current-main `SignaturePruning.cpp`, `signature-pruning.wast`, `pass.cpp`, and helper surfaces; no teaching-relevant drift was found from the 2026-04-24 `version_129` contract.
+- Added `docs/wiki/raw/research/0404-2026-04-26-signature-pruning-port-readiness.md` and `docs/wiki/binaryen/passes/signature-pruning/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, and Starshine strategy so transformed shapes, upstream strategy, exact local boundary-only code surfaces, direct-call first slice, `call_ref` / constant-actual / localization follow-up slices, validation ladder, and direct `call_ref` text-fixture caveat are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `signature-pruning` from `dossier` to `deep` while keeping it explicitly boundary-only and unimplemented in Starshine today.
+
 ## [2026-04-26] research | deepen `minify-imports-and-exports` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/minify-imports-and-exports/` folder, neighboring `minify-imports` coverage, and `docs/wiki/raw/research/`, then chose upstream-only `minify-imports-and-exports` because the dossier explained the shared Binaryen owner but still left first-slice sequencing, validation order, and JSON map shape hygiene implicit.

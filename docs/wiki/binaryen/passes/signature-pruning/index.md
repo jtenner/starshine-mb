@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md
+  - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md
   - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
@@ -18,6 +20,7 @@ related:
   - ./constant-actuals-localization-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
   - ../index.md
   - ../type-refining/index.md
@@ -63,7 +66,7 @@ It is **heap-type-level dead-argument elimination for nominal function signature
 
 ## Most important durable takeaways
 
-- The dossier is now anchored to the immutable raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md) and the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+- The dossier is anchored to the immutable raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md), the 2026-04-26 current-main / port-readiness ingest in [`../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md), the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md), and the implementation-readiness ladder in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - `signature-pruning` is **not** part of the repo's main open-world no-DWARF `-O` / `-Os` path.
 - The default scheduler places it only in the **closed-world GC/type cluster** after `type-refining` and before `signature-refining` / `global-refining`.
 - The pass body itself checks:
@@ -75,7 +78,7 @@ It is **heap-type-level dead-argument elimination for nominal function signature
 - Binaryen decides per **function heap type**, so one live or blocked sibling can stop pruning for the entire type family.
 - Constant-actual rewriting is part of the real contract, not optional polish.
 - Side-effect localization plus one extra cycle is part of the real contract too.
-- A narrow 2026-04-24 freshness check on the owner file, registration surface, helpers, and dedicated lit file did not find teaching-relevant drift from the reviewed `version_129` story; keep that claim narrow.
+- A narrow 2026-04-26 current-main recheck on the owner file, registration surface, helpers, and dedicated lit file did not find teaching-relevant drift from the reviewed `version_129` story; keep that claim narrow.
 
 ## Beginner warning: what the name hides
 
@@ -123,6 +126,8 @@ What it actually is in `version_129`:
   - Beginner-friendly WAT-shape catalog covering direct and `call_ref` positives, all-param removal, overwritten-param liveness, constant/ref/null actuals, localization-driven wins, and the main bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Exact Starshine status and future-port map: boundary-only registry entry, active request rejection, active-preset omission, no owner file, no active backlog slice, and the local type/call/validation/binary surfaces a future heap-type-level signature rewrite would need.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - First-slice and validation bridge for a future Starshine port: keep the current boundary-only behavior until a closed-world module pass can rewrite nominal function heap types, direct calls, callee locals, and later `call_ref` families coherently.
 
 ## Current maintenance rule
 
@@ -136,10 +141,13 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md)
+- [`../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md`](../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md)
 - [`../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md`](../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md`](../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
