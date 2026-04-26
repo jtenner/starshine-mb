@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
   - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
@@ -25,6 +27,7 @@ related:
   - ./abi-surface-and-opcode-coverage.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen strategy for `i64-to-i32-lowering`
@@ -52,7 +55,7 @@ That means the best mental model is:
 
 - `lower all uses of i64s to use i32s instead`
 
-The local repo makes four scheduler facts explicit, now expanded in [`./starshine-strategy.md`](./starshine-strategy.md):
+The local repo makes the scheduler facts explicit in [`./starshine-strategy.md`](./starshine-strategy.md), with future implementation sequencing in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md):
 
 - it remains boundary-only in `src/passes/optimize.mbt`
 - `src/passes/pass_manager.mbt` has no module-pass dispatcher case for it
@@ -434,7 +437,7 @@ So the `version_129` summary in this folder is still effectively current.
 
 ## Porting checklist
 
-A future Starshine port must preserve at least these facts:
+A future Starshine port must preserve at least these facts; the concrete first-slice and validation order now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md):
 
 1. flat-input precondition
 2. low-half visible / high-half hidden value model

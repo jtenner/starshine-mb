@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
   - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
@@ -27,6 +29,7 @@ related:
   - ./flatness-helpers-and-boundaries.md
   - ./abi-surface-and-opcode-coverage.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../legalize-js-interface/index.md
   - ../flatten/index.md
   - ../tracker.md
@@ -112,6 +115,8 @@ HOT IR may be useful for rewriting function bodies later, but the pass cannot be
 
 ## Strategy shape for a future Starshine port
 
+For the newer implementation sequence and validation ladder, start with [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). The key update from the 2026-04-26 recheck is that the first Starshine work should be registry-honesty and analyzer-only classification before any mutating ABI rewrite.
+
 A faithful local port should be staged as a module pass with explicit gates.
 The minimum strategy is:
 
@@ -173,9 +178,12 @@ For this pass, read in this order:
 4. [`./flatness-helpers-and-boundaries.md`](./flatness-helpers-and-boundaries.md) for the main correctness constraints
 5. [`./abi-surface-and-opcode-coverage.md`](./abi-surface-and-opcode-coverage.md) for coverage boundaries
 6. this page for current Starshine status and future code-map landing zones
+7. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) before writing implementation code, so the first slice and validation lane are explicit
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md)
+- [`../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md`](../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md)
 - [`../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md`](../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md`](../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md)

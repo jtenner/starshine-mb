@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
   - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0197-2026-04-21-i64-to-i32-lowering-abi-and-coverage-followup.md
@@ -17,6 +19,7 @@ related:
   - ./flatness-helpers-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `i64-to-i32-lowering`: ABI surface and opcode coverage
@@ -39,7 +42,7 @@ The reviewed Binaryen `version_129` source says something more precise:
 - some families are still explicitly unsupported
 
 So this page is the compact ledger for what the pass really covers.
-For the current Starshine implementation status and future local landing map, see [`./starshine-strategy.md`](./starshine-strategy.md).
+For the current Starshine implementation status and future local landing map, see [`./starshine-strategy.md`](./starshine-strategy.md). For the staged implementation and validation ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## 1. ABI surface matrix
 
@@ -214,6 +217,8 @@ It visibly proves:
 If you need one compact sentence, use this:
 
 > Binaryen `i64-to-i32-lowering` is a flat-input whole-module ABI-and-expression rewrite pass: it directly lowers many i64 families into paired i32 logic, lowers some others through wasm2js helpers, and still explicitly rejects or assumes-away several harder shapes.
+
+For Starshine, this matrix should be consumed as a staged checklist, not a single-patch promise: the port-readiness bridge intentionally starts with classification and scalar type/local splitting before calls, globals, returns, memory, helpers, or atomics.
 
 ## Sources
 

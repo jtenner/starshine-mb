@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
   - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
@@ -15,13 +17,14 @@ related:
   - ./flatness-helpers-and-boundaries.md
   - ./abi-surface-and-opcode-coverage.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Beginner-friendly WAT shape catalog for `i64-to-i32-lowering`
 
 This page focuses on what kinds of WAT or IR shapes Binaryen actually rewrites.
 The examples are schematic, not exact checked output dumps.
-For the current Starshine non-implementation status and future local code map, see [`./starshine-strategy.md`](./starshine-strategy.md).
+For the current Starshine non-implementation status and future local code map, see [`./starshine-strategy.md`](./starshine-strategy.md). For implementation order and validation lanes, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Core mental model
 
@@ -495,4 +498,4 @@ The real WAT story is wider:
 - helper imports for reinterpret and some atomics
 - real unsupported families and scheduler prerequisites
 
-That wider story is what a future Starshine port must preserve.
+That wider story is what a future Starshine port must preserve. The safe Starshine sequence is to classify these families first, then land a narrow scalar local/type split before enabling call, global, return, memory, helper, or atomic shapes; see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `i64-to-i32-lowering` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/i64-to-i32-lowering/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `i64-to-i32-lowering` because its source-backed dossier still lacked the newer first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` owner/registration/helper/flatness/test sources plus exact Starshine registry, dispatcher, type, locals, WAT, binary, and validation code surfaces; no teaching-relevant upstream correction was found from the 2026-04-24 pair-lowering contract.
+- Added `docs/wiki/raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md` and `docs/wiki/binaryen/passes/i64-to-i32-lowering/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, hard-boundaries guide, ABI/opcode ledger, WAT-shape catalog, and Starshine strategy so transformed shapes, upstream strategy, exact local boundary-only code surfaces, analyzer-only first slice, scalar type/local first mutating slice, unsupported-family negatives, and Binaryen oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `i64-to-i32-lowering` from `dossier` to `deep` while keeping it explicitly boundary-only and unimplemented in Starshine today.
+
 ## [2026-04-26] research | deepen `memory64-lowering` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/memory64-lowering/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `memory64-lowering` / `table64-lowering` because the corrected source dossier still lacked a concrete Starshine first-slice / validation bridge.

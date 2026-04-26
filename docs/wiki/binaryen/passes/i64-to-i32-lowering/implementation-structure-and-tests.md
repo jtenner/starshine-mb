@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-i64-to-i32-lowering-port-readiness-primary-sources.md
+  - ../../../raw/research/0412-2026-04-26-i64-to-i32-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-i64-to-i32-lowering-primary-sources.md
   - ../../../raw/research/0299-2026-04-24-i64-to-i32-lowering-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0175-2026-04-21-i64-to-i32-lowering-binaryen-research.md
@@ -24,6 +26,7 @@ related:
   - ./flatness-helpers-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Upstream implementation structure and tests for `i64-to-i32-lowering`
@@ -195,7 +198,8 @@ If you need to re-study this pass later, use this order:
 ## Starshine follow-along map
 
 For the local code surfaces a future port must read after this upstream file/test map, see [`./starshine-strategy.md`](./starshine-strategy.md).
-That page records the current boundary-only registry status and the exact Starshine files that own pass dispatch, type/index structures, WAT lowering, binary codec support, and validation.
+For the actual first-slice order and validation ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Those pages record the current boundary-only registry status, exact Starshine dispatch/type/index/WAT/binary/validation files, and the analyzer-first plan that should precede any mutating rewrite.
 
 ## Short source-backed summary
 
