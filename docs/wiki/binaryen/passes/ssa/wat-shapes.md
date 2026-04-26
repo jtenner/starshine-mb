@@ -24,7 +24,7 @@ related:
 
 # `ssa` WAT shapes
 
-This page is the beginner-friendly shape catalog for full Binaryen `ssa`. It is anchored by the committed primary-source manifest [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md).
+This page is the beginner-friendly shape catalog for full Binaryen `ssa`. It is anchored by the committed primary-source manifest [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md) and the 2026-04-26 current-main port-readiness recheck [`../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md).
 
 The most important rule to remember is:
 
@@ -245,7 +245,7 @@ That is the main sibling difference this folder exists to keep visible.
 
 ## Starshine shape caveat
 
-Current Starshine does not expose full `ssa`, so these are Binaryen shapes, not local output guarantees. Starshine's active sibling uses HOT SSA destruction and predecessor copies; see [`./starshine-strategy.md`](./starshine-strategy.md) and [`../ssa-nomerge/starshine-hot-ir-strategy.md`](../ssa-nomerge/starshine-hot-ir-strategy.md).
+Current Starshine does not expose full `ssa`, so these are Binaryen shapes, not local output guarantees. Starshine's active sibling uses HOT SSA destruction and predecessor copies; see [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), and [`../ssa-nomerge/starshine-hot-ir-strategy.md`](../ssa-nomerge/starshine-hot-ir-strategy.md).
 
 ## Practical rules a future reader should keep
 

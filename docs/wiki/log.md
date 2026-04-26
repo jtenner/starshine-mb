@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] health | refresh full `ssa` touched-area links
+
+- Ran a focused touched-area hygiene check after adding the full `ssa` port-readiness bridge.
+- Updated `docs/wiki/binaryen/passes/ssa/binaryen-strategy.md`, `implementation-structure-and-tests.md`, `merge-locals-entry-prepends-and-default-values.md`, and `wat-shapes.md` so future-port and shape references point directly at `starshine-port-readiness-and-validation.md` instead of leaving the new validation ladder discoverable only through the overview.
+
 ## [2026-04-26] research | deepen full `ssa` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/ssa/` folder, neighboring `ssa-nomerge` coverage, and `docs/wiki/raw/research/`, then chose upstream-only full `ssa` because its dossier was source-correct but still lacked the standard first-slice / validation bridge for a future Starshine port.

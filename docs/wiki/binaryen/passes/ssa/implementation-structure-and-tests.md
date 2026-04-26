@@ -30,7 +30,7 @@ related:
 
 # `ssa` implementation structure and tests
 
-This page is the compact "show me the real source surface" companion for the full-`ssa` sibling. For immutable provenance URLs and anchors, start with [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md).
+This page is the compact "show me the real source surface" companion for the full-`ssa` sibling. For immutable tagged provenance URLs and anchors, start with [`../../../raw/binaryen/2026-04-24-ssa-primary-sources.md`](../../../raw/binaryen/2026-04-24-ssa-primary-sources.md); for the current-main port-readiness recheck, use [`../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-ssa-port-readiness-primary-sources.md).
 
 ## Upstream file map
 

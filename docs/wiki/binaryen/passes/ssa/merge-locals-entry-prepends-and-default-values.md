@@ -203,7 +203,7 @@ That distinction should stay visible so the dossier is confident without pretend
 
 ## Starshine status caveat
 
-Current Starshine's active `ssa-nomerge` path can lower HOT overlay phis through predecessor copies, but that is not this Binaryen full-`ssa` merge-local contract. Local follow-along and future-port requirements live in [`./starshine-strategy.md`](./starshine-strategy.md).
+Current Starshine's active `ssa-nomerge` path can lower HOT overlay phis through predecessor copies, but that is not this Binaryen full-`ssa` merge-local contract. Local follow-along lives in [`./starshine-strategy.md`](./starshine-strategy.md); future-port sequencing and validation live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Why `ssa-nomerge` is smaller
 

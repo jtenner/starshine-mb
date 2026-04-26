@@ -254,7 +254,7 @@ Keep these non-goals explicit:
 
 ## Starshine mapping note
 
-Current Starshine does not expose this full `ssa` pass. The local active sibling is `ssa-nomerge`, and its implementation uses Starshine's HOT SSA overlay/destruction machinery rather than this exact Binaryen merge-local + incoming-`tee` rewrite. See [`./starshine-strategy.md`](./starshine-strategy.md) for the local code map and future-port requirements.
+Current Starshine does not expose this full `ssa` pass. The local active sibling is `ssa-nomerge`, and its implementation uses Starshine's HOT SSA overlay/destruction machinery rather than this exact Binaryen merge-local + incoming-`tee` rewrite. See [`./starshine-strategy.md`](./starshine-strategy.md) for the local code map and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for future-port sequencing.
 
 ## Bottom line
 
