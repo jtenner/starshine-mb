@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
+  - ../../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md
+  - ../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md
   - ../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md
@@ -18,6 +20,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flatness-variant-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals/index.md
   - ../simplify-locals/starshine-hot-ir-strategy.md
   - ../simplify-locals-notee/index.md
@@ -37,6 +40,7 @@ Starshine does **not** currently implement upstream Binaryen `simplify-locals-no
 
 The precise local state is:
 
+- current port-readiness bridge: [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 - upstream Binaryen spelling: `simplify-locals-nonesting`
 - local Starshine compatibility spelling: `simplify-locals-no-nesting`
 - registry category today: **removed**, not active
@@ -123,6 +127,7 @@ The exact danger is advertising full-pass behavior as a flatness-preserving sibl
 
 ## Suggested future tests
 
+The detailed first-slice ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 Add tests before implementing the port.
 Minimum focused coverage:
 
@@ -151,6 +156,8 @@ Until those tests exist and pass, keep this page as a **status/port-strategy pag
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md)
+- [`../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md`](../../../raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nonesting-primary-sources.md)
 - [`../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md`](../../../raw/research/0331-2026-04-25-simplify-locals-nonesting-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md`](../../../raw/research/0186-2026-04-21-simplify-locals-nonesting-binaryen-research.md)

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] research | deepen `simplify-locals-nonesting` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/simplify-locals-nonesting/` folder, neighboring `simplify-locals*`, `flatten`, `dataflow-optimization`, and `souperify` coverage, and `docs/wiki/raw/research/`, then chose removed-name `simplify-locals-nonesting` because the dossier was source-correct but still lacked the standard first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-26-simplify-locals-nonesting-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` owner/registration/constructor/test/combo-lit surfaces plus exact Starshine removed-registry, CLI, dispatcher, and full-`simplify-locals` implementation surfaces; no teaching-relevant drift was found from the 2026-04-25 contract.
+- Added `docs/wiki/raw/research/0407-2026-04-26-simplify-locals-nonesting-port-readiness.md` and `docs/wiki/binaryen/passes/simplify-locals-nonesting/starshine-port-readiness-and-validation.md`; refreshed the overview and Starshine strategy so transformed shapes, upstream strategy, exact local removed-alias code surfaces, spelling-policy first step, no-rewrite skeleton, flat-copy first slice, disabled tee/structure/nesting negatives, late-cleanup follow-up, and Binaryen `--simplify-locals-nonesting` oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; kept `simplify-locals-nonesting` classified as removed and deep while making the future validation ladder explicit.
+
 ## [2026-04-26] research | deepen plain `dead-argument-elimination` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/dead-argument-elimination/` folder, neighboring `dae-optimizing` coverage, and `docs/wiki/raw/research/`, then chose boundary-only plain `dead-argument-elimination` because the dossier was source-correct but still lacked the standard first-slice / validation bridge.
