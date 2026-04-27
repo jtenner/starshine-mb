@@ -2,6 +2,7 @@
 package "jtenner/starshine/passes"
 
 import {
+  "jtenner/starshine/bitset",
   "jtenner/starshine/ir",
   "jtenner/starshine/lib",
   "moonbitlang/core/debug",
@@ -66,7 +67,11 @@ pub fn optimize_instructions_summary() -> String
 
 pub fn optimize_preset_passes(HotPipelineOptions) -> Array[String]
 
+pub fn pass_compute_label_used(@ir.HotFunc) -> @bitset.BitSet
+
 pub fn pass_delete_detached_nodes(HotPassContext, @ir.HotFunc, Array[Int]) -> Unit
+
+pub fn pass_label_is_used(Int, @bitset.BitSet) -> Bool
 
 pub fn pass_mark_mutated(HotPassContext, @ir.HotFunc) -> Unit
 
@@ -79,6 +84,8 @@ pub fn pass_prepare_requirements(HotPassContext, @ir.HotFunc) -> Unit
 pub fn pass_registry_all() -> Array[HotPassRegistryEntry]
 
 pub fn pass_registry_category(String) -> HotPassRegistryCategory?
+
+pub fn pass_registry_help_entries() -> Array[HotPassRegistryEntry]
 
 pub fn pass_registry_lookup(String) -> HotPassRegistryEntry?
 
@@ -101,6 +108,8 @@ pub fn pass_require_postdom(HotPassContext, @ir.HotFunc) -> @ir.HotPostDominator
 pub fn pass_require_ssa(HotPassContext, @ir.HotFunc) -> @ir.HotLocalSsa
 
 pub fn pass_require_use_def(HotPassContext, @ir.HotFunc) -> @ir.HotUseDef
+
+pub fn pass_rewrite_structured_instr(@lib.Instruction, (Array[@lib.Instruction]) -> (Array[@lib.Instruction], Bool)) -> (@lib.Instruction, Bool)
 
 pub fn pass_splice_region(HotPassContext, @ir.HotFunc, @ir.HotRegionRef, Int, Int, Array[Int]) -> Array[Int]
 
@@ -225,8 +234,6 @@ pub struct HotPassContext {
   module_ctx : @ir.HotModuleContext?
 }
 pub fn HotPassContext::new(@ir.HotPassDescriptor, @ir.HotAnalysisCache, HotPipelineVerifyPolicy, Bool, (String) -> Unit, perf? : HotPerfSession?, module_ctx? : @ir.HotModuleContext?) -> Self
-
-type HotPassRegistryCache
 
 pub enum HotPassRegistryCategory {
   HotPass

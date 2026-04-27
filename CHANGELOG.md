@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Build: refresh passes API snapshot
+
+- **refresh the generated passes interface after exposing shared pass helpers and hiding the registry cache internals** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/pkg.generated.mbti`](./src/passes/pkg.generated.mbti).
+
 ## 2026-04-27 Docs: clarify HOT region body ownership
 
 - **document the intentional HOT region-ref asymmetry where blocks/loops own body roots directly but try-like nodes point at child region holders** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/ir/hot_region_edit.mbt`](./src/ir/hot_region_edit.mbt).
