@@ -8669,6 +8669,7 @@ fn run_hot_pipeline_apply_module_pass(
     "pass:\{entry.name}",
   )
   let next = match entry.name {
+    "untee" => untee_run_module_pass(mod_)
     "duplicate-function-elimination" =>
       dfe_run_module_pass_with_perf(mod_, options.perf)
     "remove-unused-module-elements" => rume_run_module_pass(mod_)

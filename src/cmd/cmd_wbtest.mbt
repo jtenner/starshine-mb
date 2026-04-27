@@ -4241,6 +4241,58 @@ test "run_cmd_with_adapter applies remove-unused-module-elements to wasm inputs"
 }
 
 ///|
+test "run_cmd_with_adapter accepts untee as an active module pass" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (result i32) (local i32) i32.const 7 local.tee 0))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["untee.wasm"] },
+    file_exists=fn(path) { path == "untee.wasm" },
+    read_file=fn(path) {
+      if path == "untee.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(["--untee", "--out", "out.wasm", "untee.wasm"], io) {
+    Ok(v) => v
+    Err(e) => fail("unexpected untee run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["untee"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(
+            _,
+            @lib.Expr(
+              [
+                @lib.I32Const(_),
+                @lib.LocalSet(@lib.LocalIdx(0U)),
+                @lib.LocalGet(@lib.LocalIdx(0U)),
+              ]
+            )
+          ),
+        ]
+      )
+    ) => ()
+    other => fail("expected untee-expanded output, got \{other}")
+  }
+}
+
+///|
 test "run_cmd_with_adapter applies reorder-locals to wasm inputs" {
   let wasm = encode_module_bytes(
     @passes.pass_test_module_from_wat(

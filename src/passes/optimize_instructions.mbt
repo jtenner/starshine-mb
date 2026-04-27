@@ -20,7 +20,9 @@ pub fn optimize_instructions_summary() -> String {
 priv struct OptimizeInstructionsScratch {
   cross_seen_stamps : Array[Int]
   loop_input_nodes : @bitset.BitSet
+  if_condition_nodes : @bitset.BitSet
   mut loop_input_nodes_ready : Bool
+  mut if_condition_nodes_ready : Bool
   mut next_cross_seen_stamp : Int
 }
 
@@ -31,7 +33,9 @@ fn OptimizeInstructionsScratch::new(
   {
     cross_seen_stamps: Array::make(node_count, -1),
     loop_input_nodes: @bitset.BitSet::new(node_count),
+    if_condition_nodes: @bitset.BitSet::new(node_count),
     loop_input_nodes_ready: false,
+    if_condition_nodes_ready: false,
     next_cross_seen_stamp: 0,
   }
 }
@@ -75,6 +79,33 @@ fn optimize_instructions_mark_loop_input_nodes(
     }
   }
   scratch.loop_input_nodes_ready = true
+}
+
+///|
+fn optimize_instructions_mark_if_condition_nodes(
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+) -> Unit {
+  if scratch.if_condition_nodes_ready {
+    return
+  }
+  for node_id = 0; node_id < func.nodes.length(); node_id = node_id + 1 {
+    if !optimize_instructions_node_is_live(func, dead, node_id) {
+      continue
+    }
+    let node = func.nodes[node_id]
+    match node.op {
+      @ir.HotOp::If if node.child_count > 0 => {
+        let cond_id = func.children[node.child_base]
+        if cond_id >= 0 && cond_id < scratch.if_condition_nodes.length() {
+          scratch.if_condition_nodes[cond_id] = true
+        }
+      }
+      _ => ()
+    }
+  }
+  scratch.if_condition_nodes_ready = true
 }
 
 ///|
@@ -2045,8 +2076,9 @@ fn optimize_instructions_try_optimize_if_condition(
         _ => None
       }
       match operand_id {
-        Some(operand_id) if
-          optimize_instructions_node_is_i32_value(func, operand_id) =>
+        Some(operand_id) if optimize_instructions_node_is_i32_value(
+            func, operand_id,
+          ) =>
           if @ir.hot_node_is_live(func, else_region) {
             flip_if(operand_id)
             true
@@ -2869,15 +2901,45 @@ fn optimize_instructions_is_remainder_instr(
 }
 
 ///|
-fn optimize_instructions_try_rewrite_compare_eqz(
-  ctx : HotPassContext,
+fn optimize_instructions_should_keep_i64_eq_zero_if_condition(
   func : @ir.HotFunc,
   dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
   node_id : Int,
   instr : @lib.Instruction,
   lhs_id : Int,
   rhs_id : Int,
 ) -> Bool {
+  match instr {
+    @lib.Instruction::I64Eq => ()
+    _ => return false
+  }
+  optimize_instructions_mark_if_condition_nodes(func, dead, scratch)
+  if node_id < 0 ||
+    node_id >= scratch.if_condition_nodes.length() ||
+    !scratch.if_condition_nodes[node_id] {
+    return false
+  }
+  optimize_instructions_i64_const(func, dead, lhs_id) == Some(@lib.I64(0L)) ||
+  optimize_instructions_i64_const(func, dead, rhs_id) == Some(@lib.I64(0L))
+}
+
+///|
+fn optimize_instructions_try_rewrite_compare_eqz(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+  dead : @bitset.BitSet,
+  scratch : OptimizeInstructionsScratch,
+  node_id : Int,
+  instr : @lib.Instruction,
+  lhs_id : Int,
+  rhs_id : Int,
+) -> Bool {
+  if optimize_instructions_should_keep_i64_eq_zero_if_condition(
+      func, dead, scratch, node_id, instr, lhs_id, rhs_id,
+    ) {
+    return false
+  }
   match
     (
       instr,
@@ -3061,7 +3123,7 @@ fn optimize_instructions_visit_node(
         let mut current_rhs = func.children[node.child_base + 1]
         let mut changed = false
         if optimize_instructions_try_rewrite_compare_eqz(
-            ctx, func, dead, node_id, current_instr, current_lhs, current_rhs,
+            ctx, func, dead, scratch, node_id, current_instr, current_lhs, current_rhs,
           ) {
           true
         } else {

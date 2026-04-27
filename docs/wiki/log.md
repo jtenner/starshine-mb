@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-26] implementation | activate `untee`
+
+- Landed the active Starshine `untee` module pass for explicit `local.tee` desugaring into `local.set` plus `local.get`, including recursive structured-body traversal and direct flat `unreachable; local.tee` deletion.
+- Wired registry, dispatcher, CLI adapter coverage, pass-fuzz support, public API snapshot, and focused tests for root tees, nested tees, unreachable input, and `if` bodies.
+- Refreshed the `untee` wiki status, pass catalog, and tracker row from removed/future-port language to active direct-pass status; direct validation evidence is green on focused Moon tests, `moon test src/passes`, `moon test src/cmd`, full `moon test`, `.tmp/pass-fuzz-untee-genvalid-10000-staged`, `.tmp/pass-fuzz-untee-keepgoing-staged`, and `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-866306` after fixing the neighboring `optimize-instructions` i64 compare-form regression.
+
 ## [2026-04-26] research | deepen `monomorphize` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/monomorphize/` folder, neighboring `monomorphize-always` coverage, and `docs/wiki/raw/research/`, then chose boundary-only `monomorphize` because its source-correct dossier still lacked a dedicated first-slice / validation bridge.

@@ -200,6 +200,10 @@ pub fn tuple_optimization_exact_slot_prereqs_ready() -> Bool
 
 pub fn tuple_optimization_summary() -> String
 
+pub fn untee_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn untee_summary() -> String
+
 // Errors
 
 // Types and methods

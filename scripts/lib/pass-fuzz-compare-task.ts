@@ -114,6 +114,7 @@ const RESERVED_OPTIONS = new Set([
 ]);
 
 const SUPPORTED_PASS_FLAGS = new Set([
+  "--untee",
   "--ssa-nomerge",
   "--dead-code-elimination",
   "--remove-unused-names",

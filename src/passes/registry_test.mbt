@@ -57,6 +57,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::module_pass()),
   )
   assert_eq(
+    pass_registry_category("untee"),
+    Some(HotPassRegistryCategory::module_pass()),
+  )
+  assert_eq(
     pass_registry_category("duplicate-function-elimination"),
     Some(HotPassRegistryCategory::module_pass()),
   )
@@ -182,6 +186,11 @@ test "preset expansion stays on implemented active pass names" {
 test "run_hot_pipeline rejects removed registry names" {
   let input = pass_test_module_from_wat(
     "(module (func (result i32) i32.const 1))",
+  )
+
+  assert_eq(
+    pass_registry_category("untee"),
+    Some(HotPassRegistryCategory::module_pass()),
   )
 
   match run_hot_pipeline(input, HotPipelineOptions::new(), ["de-nan"]) {

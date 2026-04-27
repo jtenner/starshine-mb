@@ -1,16 +1,18 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-26
 sources:
   - ../../../raw/binaryen/2026-04-25-untee-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-untee-primary-sources.md
   - ../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md
   - ../../../raw/research/0185-2026-04-21-untee-binaryen-research.md
   - ../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md
+  - ../../../../../src/passes/untee.mbt
+  - ../../../../../src/passes/untee_test.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md
-  - ../../../../../agent-todo.md
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
   - ../index.md
@@ -30,9 +32,9 @@ related:
 ## Role
 
 - `untee` is a real public Binaryen pass.
-- It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **removed** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is now implemented in Starshine as an explicit active module pass in [`../../../../../src/passes/untee.mbt`](../../../../../src/passes/untee.mbt) and is no longer in the local removed registry.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
-- `agent-todo.md` currently has **no dedicated `untee` slice**.
+- The 2026-04-26 Starshine slice landed as a direct pass, not as preset scheduling work.
 - Upstream `pass.cpp` describes it briefly as:
   - `removes local.tees, replacing them with sets and gets`
 
@@ -105,12 +107,12 @@ What it actually is in `version_129`:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, nested, preserved, and bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status page mapping the removed-registry entry, honest request rejection, missing backlog slice, and the nearest local `simplify-locals` / `code-pushing` landing zone for a future port.
+  Exact current Starshine status page mapping the active module-pass owner, registry/dispatcher wiring, validation ladder, and the nearest local `simplify-locals` / `code-pushing` interaction boundaries.
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `untee` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass for it.
+- Treat this folder as the canonical home for future `untee` research, parity follow-up, and preset-planning notes.
+- Keep it marked as an active explicit pass, but keep the split from the default optimize path explicit unless a future preset change proves a real scheduling need.
 - Keep the split from `simplify-locals-notee` explicit: those passes are neighbors, not synonyms.
 - Keep the split from the default optimize-path docs explicit too: this is an optional explicit pass, not a missing no-DWARF parity slot.
 
@@ -121,8 +123,11 @@ What it actually is in `version_129`:
 - [`../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md`](../../../raw/research/0347-2026-04-25-untee-current-main-recheck.md)
 - [`../../../raw/research/0185-2026-04-21-untee-binaryen-research.md`](../../../raw/research/0185-2026-04-21-untee-binaryen-research.md)
 - [`../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md`](../../../raw/research/0279-2026-04-23-untee-primary-sources-and-starshine-followup.md)
+- [`../../../../../src/passes/untee.mbt`](../../../../../src/passes/untee.mbt)
+- [`../../../../../src/passes/untee_test.mbt`](../../../../../src/passes/untee_test.mbt)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+- [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- [`../../../../../scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
 - [`../index.md`](../index.md)
