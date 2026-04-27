@@ -3,12 +3,14 @@ fn hot_make_node_with_children(
   func : HotFunc,
   op : HotOp,
   ty : TypeId,
-  flags : UInt,
+  canonicalized_flags : UInt,
   imm0 : Int,
   imm1 : Int,
   children : Array[NodeId],
 ) -> NodeId {
-  let _ = flags
+  // Flags are intentionally canonicalized from the opcode, matching
+  // hot_make_simple_node and hot_replace_node.
+  let _ = canonicalized_flags
   let id = hot_alloc_node(func, {
     op,
     ty,

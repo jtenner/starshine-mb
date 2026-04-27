@@ -428,12 +428,14 @@ pub fn hot_debug_dump_core(func : HotFunc) -> String {
 pub fn hot_make_simple_node(
   op : HotOp,
   ty : TypeId,
-  flags : UInt,
+  canonicalized_flags : UInt,
   imm0 : Int,
   imm1 : Int,
   children : Array[NodeId],
 ) -> HotNode {
-  let _ = flags
+  // Flags are intentionally canonicalized from the opcode so callers cannot
+  // construct stale flag metadata through this convenience helper.
+  let _ = canonicalized_flags
   {
     op,
     ty,

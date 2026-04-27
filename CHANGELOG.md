@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Docs: clarify HOT node flag canonicalization
+
+- **rename and document HOT node-builder flag parameters as canonicalized inputs so callers and tests reflect that node flags always derive from the opcode** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot.mbt`](./src/ir/hot.mbt), and [`src/ir/hot_core.mbt`](./src/ir/hot_core.mbt).
+
 ## 2026-04-27 Cleanup: tighten pass registry cache API
 
 - **mark the pass-registry cache as private, expose help entries through a small accessor, and update whitebox coverage to avoid direct field coupling while clearing registry-cache warnings** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), and [`src/passes/pass_manager_wbtest.mbt`](./src/passes/pass_manager_wbtest.mbt).
