@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `reorder-locals` validation bridge
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/reorder-locals/` folder, and `docs/wiki/raw/research/`, then chose active module pass `reorder-locals` because its source-correct dossier still lacked a compact explicit-pass-vs-preset validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`, rechecking official Binaryen current-main `ReorderLocals.cpp`, `pass.cpp`, and dedicated semantic / print-roundtrip fixtures plus exact local Starshine registry, dispatcher, implementation, focused tests, preset-exclusion test, registry-category test, and CLI adapter coverage.
+- Added `docs/wiki/raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md` and `docs/wiki/binaryen/passes/reorder-locals/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, WAT-shape catalog, names/roundtrip guide, Starshine strategy, and parity page so transformed local-declaration shapes, upstream strategy, exact local code/test surfaces, metadata repair, multivalue writer-boundary caveat, and preset-readiness gates are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; kept `reorder-locals` classified as active implemented and deep while making the remaining scheduler/preset evidence requirement explicit.
+
 ## [2026-04-27] health | refresh `strip-target-features` tracker sources
 
 - Ran a focused touched-area hygiene check after adding the `strip-target-features` port-readiness bridge.

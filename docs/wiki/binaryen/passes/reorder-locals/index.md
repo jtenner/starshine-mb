@@ -3,6 +3,8 @@ kind: entity
 status: supported
 last_reviewed: 2026-04-22
 sources:
+  - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
+  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
   - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
@@ -36,6 +38,7 @@ related:
   - ./names-roundtrip-and-porting.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ./parity.md
   - ./multivalue-call-scope.md
   - ../tracker.md
@@ -134,6 +137,8 @@ What it actually is in `version_129`:
   - Beginner-friendly shape catalog covering hot locals moving forward, first-use ties, dead tail drops, write-only and tee-only locals, nested local-user rewrites, and the main non-goals.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current in-tree Starshine module-pass strategy: why the pass stays module-scoped, the exact MoonBit code map, the grouped-local-run rebuild and name-section-rewrite mechanics, and the main representation differences from upstream Binaryen.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - Validation bridge separating explicit-pass correctness from preset-readiness: maps the local tests, registry/dispatcher/CLI surfaces, Binaryen repeated scheduler role, neighboring locals-pass gate, and multivalue writer-boundary caveat into actionable signoff rules.
 - [`./parity.md`](./parity.md)
   - Current in-tree parity state, explicit module-pass status, stable-boundary signoff rule, and the honest remaining compare caveats.
 - [`./multivalue-call-scope.md`](./multivalue-call-scope.md)
@@ -165,6 +170,8 @@ So the durable rule is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md)
+- [`../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md`](../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md)
 - [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md)
 - [`../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md`](../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md`](../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md)

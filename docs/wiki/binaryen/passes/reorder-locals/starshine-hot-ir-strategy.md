@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
+  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
   - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
@@ -21,6 +23,7 @@ related:
   - ./binaryen-strategy.md
   - ./names-roundtrip-and-porting.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ./parity.md
   - ./multivalue-call-scope.md
   - ../../no-dwarf-default-optimize-path.md
@@ -28,7 +31,9 @@ related:
 
 # Starshine module-pass strategy for `reorder-locals`
 
-This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `ReorderLocals.cpp` contract.
+This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `ReorderLocals.cpp` contract. For signoff sequencing and the distinction between explicit-pass correctness and preset-readiness, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
+The 2026-04-27 validation bridge keeps the current policy explicit: the standalone module pass is active, while public `optimize` / `shrink` scheduling remains guarded by `src/passes/optimize_test.mbt:390` until neighboring local-pass coverage and ordered no-DWARF replay evidence are ready.
 For the immutable manifest of the reviewed official Binaryen release, source, and dedicated test URLs behind the comparison on this page, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md).
 
 ## Current local surface

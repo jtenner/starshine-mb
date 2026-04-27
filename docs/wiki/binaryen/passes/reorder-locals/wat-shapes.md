@@ -1,20 +1,23 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
+  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./names-roundtrip-and-porting.md
   - ./parity.md
+  - ./starshine-port-readiness-and-validation.md
   - ./multivalue-call-scope.md
 ---
 
 # `reorder-locals` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's `reorder-locals` pass.
+This page is the beginner-friendly shape catalog for Binaryen's `reorder-locals` pass. For the Starshine validation ladder that keeps these examples tied to local tests, metadata repair, CLI roundtrip, and preset-readiness gates, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Read this page with one mental model
 

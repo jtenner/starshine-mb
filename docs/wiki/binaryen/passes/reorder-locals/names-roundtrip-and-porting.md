@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
+  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
   - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
@@ -21,6 +23,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ./parity.md
   - ./multivalue-call-scope.md
 ---
@@ -28,7 +31,7 @@ related:
 # `reorder-locals`: names, roundtrips, and porting boundaries
 
 This page explains the half of `reorder-locals` that is easiest to underestimate.
-It should now be read together with the immutable primary-source manifest at [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md).
+It should now be read together with the immutable primary-source manifest at [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md) and the Starshine validation bridge at [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The algorithm in `ReorderLocals.cpp` is tiny, but the practical contract is larger because:
 

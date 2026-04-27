@@ -1,8 +1,10 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
+  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
   - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0237-2026-04-21-reorder-locals-starshine-strategy-followup.md
@@ -10,6 +12,7 @@ sources:
   - ../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md
 related:
   - ./starshine-hot-ir-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ./multivalue-call-scope.md
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -33,6 +36,7 @@ related:
 
 - The implementation lives in [`../../../../../src/passes/reorder_locals.mbt`](../../../../../src/passes/reorder_locals.mbt).
 - The current local strategy and exact code map now live in [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md).
+- The current explicit-pass-versus-preset signoff ladder lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - The pass is wired through the module-pass dispatcher in [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
 - Registry and preset policy live in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) and [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt).
 - CLI coverage for explicit pass execution lives in [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt).
@@ -70,6 +74,7 @@ Use the Binaryen boundary controls when comparing this pass:
 
 - Archived research doc: [`../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md`](../../../raw/research/0073-2026-04-02-reorder-locals-binaryen-comparison.md)
 - Supplemental health rerun: [`../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md`](../../../raw/research/0078-2026-04-11-parity-smoke-rerun.md)
+- Validation primary-source manifest: [`../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md)
 - Raw primary-source manifest: [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderLocals.cpp>
 - Scope decision: [`./multivalue-call-scope.md`](./multivalue-call-scope.md)

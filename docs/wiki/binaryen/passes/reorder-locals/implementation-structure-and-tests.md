@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
+  - ../../../raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md
   - ../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md
   - ../../../raw/research/0142-2026-04-20-reorder-locals-binaryen-research.md
   - ../../../raw/research/0253-2026-04-22-reorder-locals-primary-sources-and-code-map-followup.md
@@ -12,6 +14,7 @@ related:
   - ./names-roundtrip-and-porting.md
   - ./wat-shapes.md
   - ./starshine-hot-ir-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ./parity.md
   - ./multivalue-call-scope.md
   - ../../no-dwarf-default-optimize-path.md
@@ -29,7 +32,7 @@ For the immutable manifest of the reviewed official release, source, and test UR
 
 - [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md)
 
-A narrow 2026-04-22 current-`main` spot check on `ReorderLocals.cpp`, `pass.cpp`, and the dedicated pass tests found no teaching-relevant drift beyond the dossier's existing claims.
+A narrow 2026-04-22 current-`main` spot check on `ReorderLocals.cpp`, `pass.cpp`, and the dedicated pass tests found no teaching-relevant drift beyond the dossier's existing claims. A focused 2026-04-27 validation recheck refreshed the current-main owner/scheduler/test provenance and filed the Starshine signoff bridge at [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## One-table summary
 
