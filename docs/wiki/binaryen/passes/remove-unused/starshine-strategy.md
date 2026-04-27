@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
+  - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
   - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -17,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./historical-lineage-and-modern-supersession.md
   - ./module-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-module-elements/index.md
   - ../remove-unused-non-function-elements/index.md
   - ../remove-unused-types/index.md
@@ -36,6 +39,8 @@ The current local strategy is documentation and request hygiene:
 - point current Binaryen-parity work at [`../remove-unused-module-elements/index.md`](../remove-unused-module-elements/index.md), not at the ambiguous short alias;
 - preserve the historical explanation that the local name most likely points at upstream's old function-only `remove-unused-functions` lineage.
 
+For a decision-oriented checklist, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). It spells out the four supported futures: keep rejecting, remove/rename, implement the old function-only behavior literally, or deliberately alias to modern RUME.
+
 ## Exact code locations
 
 ### Registry classification
@@ -44,7 +49,7 @@ The current local strategy is documentation and request hygiene:
 
 The relevant surfaces are:
 
-- `pass_registry_boundary_only_names()` includes `"remove-unused"` beside `"remove-unused-types"` and `"remove-unused-non-function-elements"`.
+- `pass_registry_boundary_only_names()` includes `"remove-unused"` in the boundary-only array at `src/passes/optimize.mbt:127`-`139`.
 - `pass_registry_entries()` appends each boundary-only name as `pass_registry_entry_boundary_only(name)`.
 - `run_hot_pipeline_expand_passes(...)` rejects a requested boundary-only name with the error shape:
   - `pass flag <name> is boundary-only and is not implemented in the hot pipeline`
@@ -55,9 +60,10 @@ That means a request such as `--remove-unused` is recognized but intentionally n
 
 [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) contains the active module-pass dispatcher.
 
-Its `run_hot_pipeline_apply_module_pass(...)` cases include the modern implemented replacement-family pass:
+Its `run_hot_pipeline_apply_module_pass(...)` cases at `src/passes/pass_manager.mbt:8655`-`8685` include the modern implemented replacement-family passes:
 
 - `"remove-unused-module-elements" => rume_run_module_pass(mod_)`
+- `"remove-unused-nonfunction-module-elements" => rume_run_nonfunction_module_pass(mod_)`
 
 There is no `"remove-unused"` case. Because `remove-unused` is boundary-only, the dispatcher should not be reached for it.
 
@@ -65,7 +71,7 @@ There is no `"remove-unused"` case. Because `remove-unused` is boundary-only, th
 
 [`../../../../../src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt) is the implemented modern module-element cleanup pass.
 
-It owns Starshine's current `remove-unused-module-elements` behavior, including multi-kind module liveness and rewrite helpers. That file is the correct local implementation to study for current Binaryen parity. It is **not** evidence that the short historical alias is implemented.
+Its summaries at `src/passes/remove_unused_module_elements.mbt:1`-`8` describe the active RUME/RUNE behavior. That file is the correct local implementation to study for current Binaryen parity. It is **not** evidence that the short historical alias is implemented.
 
 ### Tests and planning docs
 
@@ -139,7 +145,7 @@ If Starshine ever implements a literal historical pass, the minimum validation m
 - no deletion of globals, memories, tables, tags, data segments, or types except where another explicitly requested pass owns that cleanup;
 - no accidental aliasing to current RUME behavior.
 
-The easiest parity oracle for current Binaryen is **not** `version_129`, because the old pass no longer exists there. A compatibility port would need to compare against the historical `remove-unused-functions` source horizon captured in [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md).
+The easiest parity oracle for current Binaryen is **not** `version_129`, because the old pass no longer exists there. A compatibility port would need to compare against the historical `remove-unused-functions` source horizon captured in [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md) and the 2026-04-27 source recheck in [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md).
 
 ## Main caveat
 
@@ -152,7 +158,9 @@ The local alias relation is an inference, not a proved rename record. No reviewe
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
+- [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
 - [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

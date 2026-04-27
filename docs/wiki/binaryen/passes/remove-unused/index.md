@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
+  - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
   - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -16,6 +18,7 @@ related:
   - ./historical-lineage-and-modern-supersession.md
   - ./module-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-module-elements/index.md
   - ../remove-unused-non-function-elements/index.md
   - ../remove-unused-types/index.md
@@ -30,6 +33,7 @@ related:
 - It is currently **unimplemented** in Starshine and still lives in the local boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It is also still listed in the local Batch 4 map in [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md).
 - The best source-backed explanation is that this local short name is a **legacy historical alias** for upstream Binaryen's old `remove-unused-functions` pass, which Binaryen later replaced with `remove-unused-module-elements`.
+- The 2026-04-27 port-readiness recheck found no current Binaryen resurrection of the short spelling and makes the first local action a registry-hygiene decision: keep rejecting, remove/rename, implement the historical function-only pass literally, or intentionally alias to modern RUME.
 
 ## Why this page exists
 
@@ -82,6 +86,8 @@ A safe beginner mental model is:
   Beginner-friendly before/after shape catalog for the old function-only pass and for the main differences from modern `remove-unused-module-elements`.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Exact local status and port-strategy map: boundary-only registry entry, request rejection, no dispatcher case, modern RUME implementation pointer, and future choices if the alias is removed, renamed, or implemented literally.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Decision and validation bridge for the ambiguous local alias: keep rejecting, remove/rename, implement the old function-only pass literally, or deliberately alias to modern RUME.
 
 ## Current maintenance rule
 
@@ -91,11 +97,15 @@ A safe beginner mental model is:
   - [`../remove-unused-module-elements/index.md`](../remove-unused-module-elements/index.md)
   - [`../remove-unused-non-function-elements/index.md`](../remove-unused-non-function-elements/index.md)
   - [`../remove-unused-types/index.md`](../remove-unused-types/index.md)
+- Cite the 2026-04-25 raw manifest, the 2026-04-27 port-readiness source recheck, and the source-bridge notes when explaining provenance.
+- Treat the `remove-unused` implementation question as a naming and migration decision before treating it as code work.
 - Do not silently collapse the historical function-only pass into modern RUME.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
+- [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
 - [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
 - [`../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md`](../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

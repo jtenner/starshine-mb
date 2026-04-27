@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `remove-unused` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/remove-unused/` folder, and `docs/wiki/raw/research/`, then chose local boundary-only `remove-unused` because its lineage dossier was source-correct but still lacked a decision/validation bridge for the ambiguous historical alias.
+- Added `docs/wiki/raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`, rechecking official Binaryen current `main` `pass.cpp`, current `RemoveUnusedModuleElements.cpp`, and historical `RemoveUnusedFunctions.cpp`; no current-main resurrection of `remove-unused` / `remove-unused-functions` was found.
+- Added `docs/wiki/raw/research/0420-2026-04-27-remove-unused-port-readiness.md` and `docs/wiki/binaryen/passes/remove-unused/starshine-port-readiness-and-validation.md`; refreshed the landing and Starshine strategy pages so old function-only shapes, modern RUME alias risk, exact local boundary-only / dispatcher / RUME code locations, and the four future choices (keep rejecting, remove/rename, implement literal old behavior, or intentionally alias to RUME) are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `remove-unused` from `dossier` to `deep` while keeping it explicitly boundary-only and unimplemented in Starshine today.
+
 ## [2026-04-27] research | deepen `type-refining` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/type-refining/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `type-refining` because its source-backed dossier still lacked the newer analyzer-first / validation bridge.
