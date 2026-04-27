@@ -93,15 +93,15 @@ The easiest way to follow the in-tree implementation is this file map:
   - local-name rewrite plus raw-name-payload clearing coverage
 - `src/passes/reorder_locals_test.mbt:500`
   - Binaryen-materialized carrier-shape ordering coverage
-- `src/passes/pass_manager.mbt:8646`
+- `src/passes/pass_manager.mbt:8684`
   - active module-pass dispatch site
-- `src/passes/optimize.mbt:237`
+- `src/passes/optimize.mbt:257`
   - registry entry
 - `src/passes/optimize_test.mbt:390`
   - preset exclusion policy test
-- `src/passes/registry_test.mbt:48`
+- `src/passes/registry_test.mbt:56`
   - module-pass-category assertion
-- `src/cmd/cmd_wbtest.mbt:4082`
+- `src/cmd/cmd_wbtest.mbt:4296`
   - explicit CLI pass execution coverage
 
 ## How the local pass works today

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] health | refresh `reorder-locals` code pointers
+
+- Ran a focused touched-area reference-hygiene check after adding the `reorder-locals` validation bridge.
+- Updated the existing Starshine strategy code map so the registry, module dispatcher, registry-category test, and CLI adapter line pointers match the current in-tree locations already cited by the new validation bridge.
+
 ## [2026-04-27] research | deepen `reorder-locals` validation bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/reorder-locals/` folder, and `docs/wiki/raw/research/`, then chose active module pass `reorder-locals` because its source-correct dossier still lacked a compact explicit-pass-vs-preset validation bridge.

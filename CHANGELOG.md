@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Docs: refresh `reorder-locals` pointers
+
+- **refresh stale `reorder-locals` Starshine strategy code-map line pointers for the registry, dispatcher, registry-category test, and CLI adapter after the validation bridge health check** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`docs/wiki/binaryen/passes/reorder-locals/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/reorder-locals/starshine-hot-ir-strategy.md).
+
 ## 2026-04-27 Docs: deepen `reorder-locals` validation bridge
 
 - **add a Starshine validation bridge for active `reorder-locals`, refresh the dossier/catalog wording around explicit-pass correctness versus preset-readiness, metadata and CLI roundtrip signoff, Binaryen's three no-DWARF scheduler slots, neighboring locals-pass gates, and the multivalue writer-boundary caveat, and file the supporting current-main primary-source ingest while keeping the pass active but out of public presets** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md`](./docs/wiki/raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md), [`docs/wiki/raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md`](./docs/wiki/raw/research/0430-2026-04-27-reorder-locals-validation-bridge.md), and [`docs/wiki/binaryen/passes/reorder-locals/`](./docs/wiki/binaryen/passes/reorder-locals/).
