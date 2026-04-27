@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] health | refresh `strip-target-features` tracker sources
+
+- Ran a focused touched-area hygiene check after adding the `strip-target-features` port-readiness bridge.
+- Updated the pass tracker frontmatter source list so the 2026-04-27 raw source manifest and research note are directly discoverable from the tracker, matching the refreshed row and tail maintenance note.
+
 ## [2026-04-27] research | deepen `strip-target-features` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/strip-target-features/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `strip-target-features` because its corrected dossier still lacked the standard Starshine port-readiness / validation bridge.

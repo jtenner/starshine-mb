@@ -49,6 +49,8 @@ sources:
   - ../../raw/research/0210-2026-04-21-vacuum-source-confirmation-followup.md
   - ../../raw/binaryen/2026-04-24-simplify-locals-notee-primary-sources.md
   - ../../raw/research/0329-2026-04-24-simplify-locals-notee-primary-sources-and-starshine-followup.md
+  - ../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
+  - ../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
   - ../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md
   - ../../raw/binaryen/2026-04-25-strip-target-features-primary-sources.md
