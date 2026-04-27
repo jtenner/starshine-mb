@@ -662,7 +662,19 @@ pub fn hot_node_exact_instr_set(
         func,
         HotInstrPayload::new(instr),
       )
-      func.nodes[id] = { ..node, imm0: payload_id }
+      let next_node = match node.op {
+        HotOp::Load
+        | HotOp::Store
+        | HotOp::RefTest
+        | HotOp::RefCast
+        | HotOp::RefTestDesc
+        | HotOp::RefCastDescEq
+        | HotOp::BrOnCast
+        | HotOp::BrOnCastFail
+        | HotOp::Atomic => { ..node, imm1: payload_id }
+        _ => { ..node, imm0: payload_id }
+      }
+      func.nodes[id] = next_node
       hot_revision_bump(func)
     }
     None => abort("hot node_exact_instr_set requires an exact-instruction node")

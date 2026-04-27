@@ -715,28 +715,13 @@ fn pls_rewrite_candidates(
       "replace-load",
       payload="candidate(\{candidate.local_idx},\{candidate.set_node}) load_id=\{candidate.load_id} target_signed=\{candidate.target_signed}",
     )
-    let next_ty = if candidate.load_is_i64 {
-      @lib.ValType::i64()
-    } else {
-      @lib.ValType::i32()
-    }
-    pipeline_trace_hook(
-      ctx.trace,
-      "pick-load-signs",
-      "replace-load-build",
-      payload="load_id=\{candidate.load_id} ty=\{next_ty} memarg",
-    )
-    let replacement = @ir.hot_build_heap(func, [next_ty], next_load, [
-      candidate.load_addr_id,
-    ])
-    let replacement_node = @ir.hot_node_get(func, replacement)
-    @ir.hot_delete_node(func, replacement)
-    pass_replace_node(ctx, func, candidate.load_id, replacement_node)
+    @ir.hot_node_exact_instr_set(func, candidate.load_id, next_load)
+    pass_mark_mutated(ctx, func)
     pipeline_trace_hook(
       ctx.trace,
       "pick-load-signs",
       "replace-load-done",
-      payload="load_id=\{candidate.load_id} replaced_by=\{replacement}",
+      payload="load_id=\{candidate.load_id}",
     )
     changed = true
   }

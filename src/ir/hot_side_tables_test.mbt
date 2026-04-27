@@ -76,6 +76,36 @@ test "exact instruction payload helpers expose opcode identity for generic famil
 }
 
 ///|
+test "exact instruction setter updates load payload without clobbering memarg" {
+  let memarg = @lib.MemArg::new(@lib.U32(0), None, @lib.U64(0))
+  let func = hot_lift_body_with_context(
+    @lib.Expr::new([
+      @lib.Instruction::i32_const(@lib.I32(0)),
+      @lib.Instruction::i32_load8s(memarg),
+      @lib.Instruction::drop(),
+    ]),
+    HotLocals::new(),
+    hot_module_context_from_module(
+      @lib.Module::new().with_mem_sec(
+        @lib.MemSec::new([@lib.MemType::new(@lib.Limits::i32(1, None))]),
+      ),
+    ),
+  )
+  let load_id = hot_child_get(func, hot_root_get(func, 0), 0)
+  hot_node_exact_instr_set(func, load_id, @lib.Instruction::i32_load8u(memarg))
+
+  assert_true(hot_node_kind_is_memory(func, load_id))
+  assert_eq(
+    hot_memarg_get(func, hot_node_get(func, load_id).imm0),
+    HotMemArg::new(memarg),
+  )
+  assert_eq(
+    hot_node_exact_instr(func, load_id),
+    Some(@lib.Instruction::i32_load8u(memarg)),
+  )
+}
+
+///|
 test "branch table and catch side tables expose typed target metadata" {
   let func = hot_lift_body(
     @lib.Expr::new([

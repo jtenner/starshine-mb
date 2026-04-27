@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Fix: preserve load memargs when rewriting exact payloads
+
+- **fix HOT exact-instruction payload mutation for load/store/cast/atomic-style nodes so side-table payload updates use `imm1` without clobbering primary side-table references, add load setter coverage, and make `pick-load-signs` update load payloads in place instead of build/delete/replacing nodes** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_mutate.mbt`](./src/ir/hot_mutate.mbt), [`src/ir/hot_side_tables_test.mbt`](./src/ir/hot_side_tables_test.mbt), and [`src/passes/pick_load_signs.mbt`](./src/passes/pick_load_signs.mbt).
+
 ## 2026-04-27 Refactor: share raw structured-instruction traversal
 
 - **factor the common raw `block` / `loop` / `if` / `try_table` recursive rewrite shell into `pass_common` and reuse it from `untee` and `avoid-reinterprets`** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/pass_common.mbt`](./src/passes/pass_common.mbt), [`src/passes/untee.mbt`](./src/passes/untee.mbt), and [`src/passes/avoid_reinterprets.mbt`](./src/passes/avoid_reinterprets.mbt).
