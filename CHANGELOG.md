@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Safety: avoid unsafe float decode indexing
+
+- **replace guarded `unsafe_get` byte reads in binary F32/F64 decoding with ordinary indexed reads while preserving the existing bounds checks and binary tests** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/binary/decode.mbt`](./src/binary/decode.mbt).
+
 ## 2026-04-27 Fix: preserve load memargs when rewriting exact payloads
 
 - **fix HOT exact-instruction payload mutation for load/store/cast/atomic-style nodes so side-table payload updates use `imm1` without clobbering primary side-table references, add load setter coverage, and make `pick-load-signs` update load payloads in place instead of build/delete/replacing nodes** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot_mutate.mbt`](./src/ir/hot_mutate.mbt), [`src/ir/hot_side_tables_test.mbt`](./src/ir/hot_side_tables_test.mbt), and [`src/passes/pick_load_signs.mbt`](./src/passes/pick_load_signs.mbt).

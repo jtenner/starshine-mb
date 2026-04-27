@@ -650,10 +650,10 @@ pub impl Decode for @lib.U64 with decode(bytes, i) {
 ///|
 pub impl Decode for F32 with decode(bytes, i) {
   if bytes.length() >= i + 4 {
-    let value : Int = (bytes.unsafe_get(i + 3).to_int() << 24) |
-      (bytes.unsafe_get(i + 2).to_int() << 16) |
-      (bytes.unsafe_get(i + 1).to_int() << 8) |
-      bytes.unsafe_get(i).to_int()
+    let value : Int = (bytes[i + 3].to_int() << 24) |
+      (bytes[i + 2].to_int() << 16) |
+      (bytes[i + 1].to_int() << 8) |
+      bytes[i].to_int()
     Ok((F32(Float::reinterpret_from_int(value)), i + 4))
   } else {
     Err(BinaryDecodeError::IndexOutOfBounds)
@@ -663,14 +663,14 @@ pub impl Decode for F32 with decode(bytes, i) {
 ///|
 pub impl Decode for F64 with decode(bytes, i) {
   if bytes.length() >= i + 8 {
-    let value : Int64 = (bytes.unsafe_get(i + 7).to_int64() << 56) |
-      (bytes.unsafe_get(i + 6).to_int64() << 48) |
-      (bytes.unsafe_get(i + 5).to_int64() << 40) |
-      (bytes.unsafe_get(i + 4).to_int64() << 32) |
-      (bytes.unsafe_get(i + 3).to_int64() << 24) |
-      (bytes.unsafe_get(i + 2).to_int64() << 16) |
-      (bytes.unsafe_get(i + 1).to_int64() << 8) |
-      bytes.unsafe_get(i).to_int64()
+    let value : Int64 = (bytes[i + 7].to_int64() << 56) |
+      (bytes[i + 6].to_int64() << 48) |
+      (bytes[i + 5].to_int64() << 40) |
+      (bytes[i + 4].to_int64() << 32) |
+      (bytes[i + 3].to_int64() << 24) |
+      (bytes[i + 2].to_int64() << 16) |
+      (bytes[i + 1].to_int64() << 8) |
+      bytes[i].to_int64()
     Ok((F64(value.reinterpret_as_double()), i + 8))
   } else {
     Err(BinaryDecodeError::IndexOutOfBounds)
