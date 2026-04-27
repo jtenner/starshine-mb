@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Perf: avoid extra HOT region-splice copies
+
+- **rewrite non-root HOT region splices to rebuild directly from child storage and route root splices through the existing root helper, avoiding an intermediate region-root copy** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/ir/hot_region_edit.mbt`](./src/ir/hot_region_edit.mbt).
+
 ## 2026-04-27 Perf: reduce hot stack-pop allocation
 
 - **rewrite HOT value-stack popping to allocate only the ordered output array and add direct order-preservation coverage for the helper** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot.mbt`](./src/ir/hot.mbt), and [`src/ir/hot_tests.mbt`](./src/ir/hot_tests.mbt).

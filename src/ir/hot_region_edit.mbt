@@ -287,24 +287,35 @@ pub fn hot_region_splice(
   remove_count : Int,
   node_ids : Array[NodeId],
 ) -> Array[NodeId] {
-  let current = hot_region_roots(func, region_ref)
-  hot_region_require_index(current.length(), idx, allow_end=true)
-  hot_region_require_remove_count(current.length(), idx, remove_count)
+  if hot_region_is_root(region_ref) {
+    hot_region_require_index(hot_root_count(func), idx, allow_end=true)
+    hot_region_require_remove_count(hot_root_count(func), idx, remove_count)
+    return hot_root_splice(func, idx, remove_count, node_ids)
+  }
+  let holder = hot_region_require_holder(func, region_ref)
+  let node = hot_node_get(func, holder)
+  let base = hot_region_body_base(func, holder)
+  let root_count = node.child_count - base
+  hot_region_require_index(root_count, idx, allow_end=true)
+  hot_region_require_remove_count(root_count, idx, remove_count)
   let next : Array[NodeId] = []
+  for i = 0; i < base; i = i + 1 {
+    next.push(func.children[node.child_base + i])
+  }
   for i = 0; i < idx; i = i + 1 {
-    next.push(current[i])
+    next.push(func.children[node.child_base + base + i])
   }
   for node_id in node_ids {
     next.push(node_id)
   }
-  for i = idx + remove_count; i < current.length(); i = i + 1 {
-    next.push(current[i])
+  for i = idx + remove_count; i < root_count; i = i + 1 {
+    next.push(func.children[node.child_base + base + i])
   }
   let removed : Array[NodeId] = []
   for i = idx; i < idx + remove_count; i = i + 1 {
-    removed.push(current[i])
+    removed.push(func.children[node.child_base + base + i])
   }
-  ignore(hot_region_write_roots(func, region_ref, next))
+  ignore(hot_replace_child_span(func, holder, next))
   removed
 }
 
