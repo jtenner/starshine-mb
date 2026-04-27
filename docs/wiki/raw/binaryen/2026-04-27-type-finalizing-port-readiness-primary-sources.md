@@ -21,10 +21,10 @@ Use this file as provenance, not as the explanatory destination. The living page
   - URL: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeFinalizing.cpp>
   - Raw URL: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/TypeFinalizing.cpp>
   - Relevant source locations observed on 2026-04-27:
-    - Lines 483-489: early return when GC is not enabled.
-    - Lines 491-517: finalizing mode builds a subtype index and admits only private heap types with no immediate subtypes; unfinalizing skips the leaf proof.
-    - Lines 519-545: local `GlobalTypeRewriter` subclass toggles `TypeBuilder` entries with `setOpen(!finalize)` and then updates the module globally.
-    - Lines 552-554: shared owner file creates both `type-finalizing` and `type-unfinalizing` passes.
+    - `TypeFinalizing::run(Module*)`: early return when GC is not enabled.
+    - `TypeFinalizing::run(Module*)`: finalizing mode builds a subtype index and admits only private heap types with no immediate subtypes; unfinalizing skips the leaf proof.
+    - Nested `TypeRewriter : GlobalTypeRewriter`: toggles `TypeBuilder` entries with `setOpen(!finalize)` and then updates the module globally.
+    - `createTypeFinalizingPass()` / `createTypeUnFinalizingPass()`: shared owner file creates both public pass factories.
 - Binaryen `main` `pass.cpp`
   - URL: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
   - Raw URL: <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
