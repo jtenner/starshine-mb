@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
+  - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/const-hoisting.wast
@@ -13,11 +15,12 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./size-model-and-boundaries.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `const-hoisting` WAT shapes
 
-This page is the beginner-friendly shape catalog for Binaryen `const-hoisting`.
+This page is the beginner-friendly shape catalog for Binaryen `const-hoisting`. For the future Starshine implementation and validation ladder over these shapes, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Reading rule
 

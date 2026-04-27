@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
+  - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
   - ../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
@@ -17,11 +19,12 @@ related:
   - ./binaryen-strategy.md
   - ./size-model-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `const-hoisting` implementation structure and tests
 
-This page is the file-by-file map for Binaryen `const-hoisting`.
+This page is the file-by-file map for Binaryen `const-hoisting`. For Starshine implementation sequencing and validation, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Main implementation file
 

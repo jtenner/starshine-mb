@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] health | refresh `const-hoisting` touched-area links
+
+- Ran a focused touched-area hygiene check after adding the `const-hoisting` port-readiness bridge.
+- Updated the existing Binaryen strategy, implementation/test-map, byte-size model, literal identity, and WAT-shape pages so the 2026-04-27 source recheck and [`starshine-port-readiness-and-validation.md`](binaryen/passes/const-hoisting/starshine-port-readiness-and-validation.md) are discoverable from every maintained `const-hoisting` page, not only from the overview and Starshine strategy pages.
+
 ## [2026-04-27] research | deepen `const-hoisting` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/const-hoisting/` folder, and `docs/wiki/raw/research/`, then chose removed `const-hoisting` because its source-correct dossier still lacked the newer first-slice / validation bridge.

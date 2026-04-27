@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
+  - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstHoisting.cpp
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/literal.h
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./size-model-and-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `const-hoisting` literal bit identity, zero signs, and NaN payloads
@@ -22,6 +25,8 @@ related:
 This page covers the easiest subtlety in `const-hoisting` to miss after you already understand the byte-cost algebra:
 
 - **what counts as “the same constant” for hoisting purposes**
+
+For the Starshine negative-test checklist that preserves these buckets, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The short answer is:
 
