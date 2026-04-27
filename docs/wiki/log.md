@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `optimize-added-constants` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, the pass index and tracker, the existing `docs/wiki/binaryen/passes/optimize-added-constants/` folder, the sibling `optimize-added-constants-propagate` dossier, and `docs/wiki/raw/research/`, then chose removed plain `optimize-added-constants` because it was source-correct but still lacked the now-standard first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged-source context for `OptimizeAddedConstants.cpp`, `pass.cpp`, `pass.h`, and the plain low-memory / memory64 / no-memory tests; no teaching-relevant drift was found from the 2026-04-24 contract.
+- Added `docs/wiki/raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md` and `docs/wiki/binaryen/passes/optimize-added-constants/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test map, safety guide, WAT-shape catalog, and Starshine strategy so transformed shapes, upstream strategy, exact local removed-registry / option / HOT-memory code surfaces, analyzer/no-op sequencing, first mutating direct-fold scope, threshold negatives, constant-pointer overflow checks, Binaryen `--low-memory-unused` oracle lanes, and the open configurable-bound design question are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `optimize-added-constants` from `dossier` to `deep` while keeping it explicitly removed and unimplemented in Starshine today.
+
 ## [2026-04-27] health | refresh `global-effects` index hygiene
 
 - Ran a focused reference-hygiene check after adding the `global-effects` port-readiness bridge.

@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
+  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
@@ -18,6 +20,7 @@ related:
   - ./low-memory-threshold-overflow-and-offset-merge-rules.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../optimize-added-constants-propagate/index.md
   - ../precompute/index.md
   - ../tracker.md
@@ -29,7 +32,7 @@ related:
 
 - `optimize-added-constants` is an upstream Binaryen function pass.
 - It is currently **unimplemented** in Starshine and still lives in the removed-name registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- The refreshed provenance chain is captured in [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md) and the Starshine status bridge is [`./starshine-strategy.md`](./starshine-strategy.md).
+- The refreshed provenance chain is captured in [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md); the 2026-04-27 current-main / local-readiness recheck is [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md), and the Starshine status bridge is [`./starshine-strategy.md`](./starshine-strategy.md).
 - Binaryen `version_129` also exposes a public sibling name, [`../optimize-added-constants-propagate/index.md`](../optimize-added-constants-propagate/index.md), backed by the same implementation file.
 - The real pass is a **memory-address to load/store-offset** canonicalizer, not a generic arithmetic-tree optimizer.
 
@@ -68,6 +71,7 @@ So the plain pass is best read as:
 - Constant-pointer normalization is a separate path with unsigned-overflow checks, and memory64 changes the width of that proof rather than the low-memory bound itself.
 - It does **not** use the extra `LazyLocalGraph` propagation mode that the sibling pass enables.
 - Starshine currently preserves both pass spellings as removed names; the available local implementation surfaces are option plumbing plus general load/store `MemArg` infrastructure, not a hidden partial port.
+- The new readiness bridge [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) defines the safe future ladder: analyzer/no-op first, direct `Load` / `Store` fold, threshold negatives, constant-pointer overflow checks, then Binaryen-oracle compare with `--low-memory-unused`.
 
 ## Page map
 
@@ -81,6 +85,8 @@ So the plain pass is best read as:
   Beginner-friendly before/after shape catalog for the main positive, bailout, preserved, and easy-to-misread direct-address families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future port map: removed registry entry, low-memory option plumbing, HOT `Load` / `Store` + `MemArg` surfaces, binary/WAT roundtrip files, validation hooks, and the explicit propagate-sibling boundary.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge for a future Starshine port: exact local code surfaces, first mutating slice, required negative tests, validation ladder, and the open `low_memory_bound` parity-vs-extension decision.
 
 ## Current maintenance rule
 
@@ -88,9 +94,12 @@ So the plain pass is best read as:
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass for it.
 - Keep the relationship to the public sibling explicit instead of silently teaching the shared implementation file as if it only exposed one public behavior.
 - Keep the exact safety matrix explicit too: the real contract is not just “small constants go into offsets,” but “strictly-low-memory merged offsets plus separate unsigned-overflow-safe constant-pointer normalization.”
+- Future port-readiness or implementation work should cite [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) before moving the pass out of the removed registry.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md)
+- [`../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md`](../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md)
 - [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md`](../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md)

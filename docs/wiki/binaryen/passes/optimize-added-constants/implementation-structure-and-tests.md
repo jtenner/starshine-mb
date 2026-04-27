@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
+  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
@@ -12,13 +14,14 @@ related:
   - ./low-memory-threshold-overflow-and-offset-merge-rules.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../optimize-added-constants-propagate/index.md
 ---
 
 # `optimize-added-constants` implementation structure and tests
 
 This page is the file-and-test map for Binaryen `version_129` plain `optimize-added-constants`.
-The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md).
+The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md); the 2026-04-27 current-main and local-readiness recheck is [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md).
 
 ## Core source files
 
@@ -141,7 +144,7 @@ The tests also show the pass is not just a pretty-printer for offsets. It has re
 
 ## Porting takeaway
 
-If Starshine ever ports this pass, the source/test map and [`./starshine-strategy.md`](./starshine-strategy.md) suggest a clean design target:
+If Starshine ever ports this pass, the source/test map, [`./starshine-strategy.md`](./starshine-strategy.md), and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) suggest a clean design target:
 
 - start with direct load/store-address folding only,
 - preserve the low-memory and overflow boundaries exactly,

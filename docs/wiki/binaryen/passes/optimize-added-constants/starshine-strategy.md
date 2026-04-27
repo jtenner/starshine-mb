@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
+  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -27,6 +29,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./low-memory-threshold-overflow-and-offset-merge-rules.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../optimize-added-constants-propagate/index.md
   - ../precompute/index.md
   - ../tracker.md
@@ -45,7 +48,7 @@ The exact local status is:
 - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md) still lists `optimize-added-constants` and `optimize-added-constants-propagate` as removed Batch 1 candidates.
 - [`agent-todo.md`](../../../../../agent-todo.md) has no active dedicated `OAC` / `optimize-added-constants` implementation slice today.
 
-So the current Starshine strategy is a **status and port map**, not an implementation description.
+So the current Starshine strategy is a **status and port map**, not an implementation description. The implementation-readiness and validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## What a faithful port would need to preserve
 
@@ -122,7 +125,7 @@ A future implementation should start with focused WAT fixtures before fuzzing:
 8. no-memory module no-op,
 9. local-carrier no-op for the plain variant.
 
-Then validate parity with Binaryen using `--pass optimize-added-constants` and a `--low-memory-unused` configuration. The ordinary no-DWARF path does not currently make this pass a default parity blocker because the documented path does not run with low-memory-unused enabled.
+Then validate parity with Binaryen using `--pass optimize-added-constants` and a `--low-memory-unused` configuration. The ordinary no-DWARF path does not currently make this pass a default parity blocker because the documented path does not run with low-memory-unused enabled. The detailed validation ladder, including analyzer/no-op sequencing and threshold negatives, is now in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Current local gap summary
 
@@ -138,6 +141,8 @@ Starshine has useful infrastructure for this pass, but no actual pass:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md)
+- [`../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md`](../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md)
 - [`../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md`](../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

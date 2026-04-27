@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
+  - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0300-2026-04-24-optimize-added-constants-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
@@ -12,13 +14,14 @@ related:
   - ./implementation-structure-and-tests.md
   - ./low-memory-threshold-overflow-and-offset-merge-rules.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../optimize-added-constants-propagate/index.md
 ---
 
 # `optimize-added-constants` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's plain `optimize-added-constants` pass.
-For the source manifest and Starshine port map, see [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md) and [`./starshine-strategy.md`](./starshine-strategy.md).
+For the source manifest, current-main recheck, Starshine port map, and implementation-readiness ladder, see [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md), [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md), [`./starshine-strategy.md`](./starshine-strategy.md), and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Read this page with one mental model
 
