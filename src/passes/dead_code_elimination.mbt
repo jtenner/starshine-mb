@@ -956,21 +956,10 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
   node_use_cache : DeadCodeEliminationNodeUseCache,
   node_id : Int,
 ) -> Bool {
-  let mut trace_candidate = false
-  let trace_reason = fn(reason : String) {
-    if trace_candidate {
-      pipeline_trace_hook(
-        ctx.trace,
-        "dead-code-elimination",
-        "payload-forwarder-reject",
-        payload="node=\{node_id} reason=\{reason}",
-      )
-    }
-  }
+  let trace_reason = fn(reason : String) { ignore(reason) }
   let trace_shape = fn(kind : String, payload : String) {
-    if trace_candidate {
-      pipeline_trace_hook(ctx.trace, "dead-code-elimination", kind, payload~)
-    }
+    ignore(kind)
+    ignore(payload)
   }
   if node_id < 0 ||
     !@ir.hot_node_is_live(func, node_id) ||
@@ -1002,37 +991,8 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
     @ir.HotOp::Block => ()
     _ => return false
   }
-  trace_candidate = @ir.hot_local_count(func) == 1727 ||
-    @ir.hot_local_count(func) == 3 ||
-    @ir.hot_local_count(func) > 700
-  if trace_candidate {
-    let payload_tags : Array[String] = []
-    for root_idx = 0; root_idx < payload_root_count; root_idx = root_idx + 1 {
-      let root_id = @ir.hot_region_get(func, payload_body, root_idx)
-      payload_tags.push(
-        "\{root_idx}:\{@ir.hot_node_get(func, root_id).op}#\{root_id}",
-      )
-    }
-    trace_shape(
-      "payload-forwarder-shape",
-      "node=\{node_id} payload=\{payload_block} roots=\{payload_root_count} tags=\{payload_tags}",
-    )
-  }
   let forwarder_body = @ir.hot_region_body_ref(func, forwarder)
   let forwarder_root_count = @ir.hot_region_root_count(func, forwarder_body)
-  if trace_candidate {
-    let forwarder_tags : Array[String] = []
-    for root_idx = 0; root_idx < forwarder_root_count; root_idx = root_idx + 1 {
-      let root_id = @ir.hot_region_get(func, forwarder_body, root_idx)
-      forwarder_tags.push(
-        "\{root_idx}:\{@ir.hot_node_get(func, root_id).op}#\{root_id}",
-      )
-    }
-    trace_shape(
-      "payload-forwarder-forwarder-shape",
-      "node=\{node_id} forwarder=\{forwarder} roots=\{forwarder_root_count} tags=\{forwarder_tags}",
-    )
-  }
   if forwarder_root_count == 0 {
     trace_reason("empty-forwarder-body")
     return false
@@ -1151,39 +1111,15 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
           payload_if = inner_br
           direct_tail_if = true
         } else {
-          if trace_candidate {
-            pipeline_trace_hook(
-              ctx.trace,
-              "dead-code-elimination",
-              "payload-forwarder-inner-target",
-              payload="node=\{node_id} inner_br=\{inner_br} inner_target=\{@ir.hot_branch_target(func, inner_br)} payload_label=\{@ir.hot_control_node_label(func, payload_block)} forwarder_roots=\{forwarder_root_count}",
-            )
-          }
           trace_reason("inner-branch-target")
           return false
         }
       _ => {
-        if trace_candidate {
-          pipeline_trace_hook(
-            ctx.trace,
-            "dead-code-elimination",
-            "payload-forwarder-inner-target",
-            payload="node=\{node_id} inner_br=\{inner_br} inner_target=\{@ir.hot_branch_target(func, inner_br)} payload_label=\{@ir.hot_control_node_label(func, payload_block)} forwarder_roots=\{forwarder_root_count}",
-          )
-        }
         trace_reason("inner-branch-target")
         return false
       }
     }
   } else {
-    if trace_candidate {
-      pipeline_trace_hook(
-        ctx.trace,
-        "dead-code-elimination",
-        "payload-forwarder-inner-target",
-        payload="node=\{node_id} inner_br=\{inner_br} inner_op=\{@ir.hot_node_get(func, inner_br).op} inner_arity=\{@ir.hot_node_result_arity(func, inner_br)} inner_target=\{@ir.hot_branch_target(func, inner_br)} payload_label=\{@ir.hot_control_node_label(func, payload_block)} forwarder_roots=\{forwarder_root_count}",
-      )
-    }
     trace_reason("inner-branch-target")
     return false
   }
@@ -1326,14 +1262,6 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder(
     )
   }
   dead_code_elimination_invalidate_branch_user_cache(branch_user_cache)
-  if trace_candidate {
-    pipeline_trace_hook(
-      ctx.trace,
-      "dead-code-elimination",
-      "payload-forwarder-success",
-      payload="node=\{node_id}",
-    )
-  }
   true
 }
 
@@ -1352,24 +1280,6 @@ fn dead_code_elimination_try_rewrite_branch_payload_forwarder_in_value_subtree(
       ctx, func, branch_user_cache, node_use_cache, node_id,
     ) {
     return true
-  }
-  if @ir.hot_local_count(func) == 3 {
-    let payload_tags : Array[String] = []
-    let payload_count = dead_code_elimination_branch_payload_count(
-      func, node_id,
-    )
-    for child_idx = 0; child_idx < payload_count; child_idx = child_idx + 1 {
-      let child_id = @ir.hot_child_get(func, node_id, child_idx)
-      payload_tags.push(
-        "\{child_idx}:\{@ir.hot_node_get(func, child_id).op}#\{child_id}",
-      )
-    }
-    pipeline_trace_hook(
-      ctx.trace,
-      "dead-code-elimination",
-      "subtree-walk",
-      payload="node=\{node_id} op=\{@ir.hot_node_get(func, node_id).op} payloads=\{payload_tags}",
-    )
   }
   match @ir.hot_node_get(func, node_id).op {
     @ir.HotOp::Block | @ir.HotOp::Loop => {
@@ -1598,16 +1508,8 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
   idx : Int,
   node_id : Int,
 ) -> Bool {
-  let trace_split = fn(reason : String) {
-    if @ir.hot_local_count(func) == 3 || @ir.hot_local_count(func) > 700 {
-      pipeline_trace_hook(
-        ctx.trace,
-        "dead-code-elimination",
-        "split-wrapper",
-        payload="idx=\{idx} node=\{node_id} op=\{@ir.hot_node_get(func, node_id).op} arity=\{@ir.hot_node_result_arity(func, node_id)} reason=\{reason}",
-      )
-    }
-  }
+  ignore(idx)
+  let trace_split = fn(reason : String) { ignore(reason) }
   if node_id < 0 || !@ir.hot_node_is_live(func, node_id) {
     trace_split("precheck")
     return false
@@ -1643,21 +1545,6 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
   let outer_root_count = @ir.hot_region_root_count(func, outer_body)
   if outer_root_count == 0 ||
     (outer_root_count > 2 && !(@ir.hot_local_count(func) > 700)) {
-    if @ir.hot_local_count(func) == 3 || @ir.hot_local_count(func) > 700 {
-      let outer_tags : Array[String] = []
-      for root_idx = 0; root_idx < outer_root_count; root_idx = root_idx + 1 {
-        let root_id = @ir.hot_region_get(func, outer_body, root_idx)
-        outer_tags.push(
-          "\{root_idx}:\{@ir.hot_node_get(func, root_id).op}#\{root_id}",
-        )
-      }
-      pipeline_trace_hook(
-        ctx.trace,
-        "dead-code-elimination",
-        "split-wrapper-outer-shape",
-        payload="node=\{node_id} roots=\{outer_root_count} tags=\{outer_tags}",
-      )
-    }
     trace_split("outer-root-count")
     return false
   }
@@ -1677,23 +1564,6 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
   let outer_wrapper_root_count = @ir.hot_region_root_count(
     func, outer_wrapper_body,
   )
-  if @ir.hot_local_count(func) == 3 || @ir.hot_local_count(func) > 700 {
-    let root_tags : Array[String] = []
-    for root_idx = 0
-        root_idx < outer_wrapper_root_count
-        root_idx = root_idx + 1 {
-      let root_id = @ir.hot_region_get(func, outer_wrapper_body, root_idx)
-      root_tags.push(
-        "\{root_idx}:\{@ir.hot_node_get(func, root_id).op}#\{root_id}",
-      )
-    }
-    pipeline_trace_hook(
-      ctx.trace,
-      "dead-code-elimination",
-      "split-wrapper-shape",
-      payload="node=\{node_id} roots=\{outer_wrapper_root_count} tags=\{root_tags}",
-    )
-  }
   if outer_wrapper_root_count == 0 {
     trace_split("outer-wrapper-root-count")
     return false
@@ -1764,21 +1634,6 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
   }
   let payload_body = @ir.hot_region_body_ref(func, payload_block)
   let payload_root_count = @ir.hot_region_root_count(func, payload_body)
-  if @ir.hot_local_count(func) == 3 || @ir.hot_local_count(func) > 700 {
-    let payload_tags : Array[String] = []
-    for root_idx = 0; root_idx < payload_root_count; root_idx = root_idx + 1 {
-      let root_id = @ir.hot_region_get(func, payload_body, root_idx)
-      payload_tags.push(
-        "\{root_idx}:\{@ir.hot_node_get(func, root_id).op}#\{root_id}",
-      )
-    }
-    pipeline_trace_hook(
-      ctx.trace,
-      "dead-code-elimination",
-      "split-wrapper-payload-shape",
-      payload="node=\{node_id} payload=\{payload_block} roots=\{payload_root_count} tags=\{payload_tags}",
-    )
-  }
   if payload_root_count == 0 || payload_root_count > 2 {
     trace_split("payload-root-count")
     return false
@@ -1799,23 +1654,6 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
   let payload_forwarder_root_count = @ir.hot_region_root_count(
     func, payload_forwarder_body,
   )
-  if @ir.hot_local_count(func) == 3 || @ir.hot_local_count(func) > 700 {
-    let forwarder_tags : Array[String] = []
-    for root_idx = 0
-        root_idx < payload_forwarder_root_count
-        root_idx = root_idx + 1 {
-      let root_id = @ir.hot_region_get(func, payload_forwarder_body, root_idx)
-      forwarder_tags.push(
-        "\{root_idx}:\{@ir.hot_node_get(func, root_id).op}#\{root_id}",
-      )
-    }
-    pipeline_trace_hook(
-      ctx.trace,
-      "dead-code-elimination",
-      "split-wrapper-forwarder-shape",
-      payload="node=\{node_id} forwarder=\{payload_forwarder} roots=\{payload_forwarder_root_count} tags=\{forwarder_tags}",
-    )
-  }
   if payload_forwarder_root_count == 1 {
     let direct_br = @ir.hot_region_get(func, payload_forwarder_body, 0)
     if direct_br >= 0 && @ir.hot_node_is_live(func, direct_br) {
@@ -2043,34 +1881,6 @@ fn dead_code_elimination_try_rewrite_split_local_set_wrapper_forwarder(
         @ir.hot_child_set(func, node_id, 0, payload_block)
         pass_mark_mutated(ctx, func)
         dead_code_elimination_invalidate_branch_user_cache(branch_user_cache)
-        if @ir.hot_local_count(func) > 700 {
-          let new_outer_tags : Array[String] = []
-          let new_outer_body = @ir.hot_region_body_ref(func, value_id)
-          for root_idx = 0
-              root_idx < @ir.hot_region_root_count(func, new_outer_body)
-              root_idx = root_idx + 1 {
-            let root_id = @ir.hot_region_get(func, new_outer_body, root_idx)
-            new_outer_tags.push(
-              "\{root_idx}:\{@ir.hot_node_get(func, root_id).op}#\{root_id}",
-            )
-          }
-          let new_payload_tags : Array[String] = []
-          let new_payload_body = @ir.hot_region_body_ref(func, payload_block)
-          for root_idx = 0
-              root_idx < @ir.hot_region_root_count(func, new_payload_body)
-              root_idx = root_idx + 1 {
-            let root_id = @ir.hot_region_get(func, new_payload_body, root_idx)
-            new_payload_tags.push(
-              "\{root_idx}:\{@ir.hot_node_get(func, root_id).op}#\{root_id}",
-            )
-          }
-          pipeline_trace_hook(
-            ctx.trace,
-            "dead-code-elimination",
-            "split-wrapper-post",
-            payload="node=\{node_id} value=\{value_id} value_roots=\{new_outer_tags} payload=\{payload_block} payload_roots=\{new_payload_tags}",
-          )
-        }
         trace_split("void-if-lifted-payload")
         return true
       }
@@ -2816,74 +2626,6 @@ fn dead_code_elimination_visit_region(
           ctx, func, branch_user_cache, node_use_cache, node_id,
         ),
       )
-      if @ir.hot_local_count(func) > 700 {
-        let child_id = @ir.hot_child_get(func, node_id, 0)
-        let child_tags : Array[String] = []
-        if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
-          match @ir.hot_node_get(func, child_id).op {
-            @ir.HotOp::Block => {
-              let child_body = @ir.hot_region_body_ref(func, child_id)
-              for root_idx = 0
-                  root_idx < @ir.hot_region_root_count(func, child_body)
-                  root_idx = root_idx + 1 {
-                let root_id = @ir.hot_region_get(func, child_body, root_idx)
-                child_tags.push(
-                  "\{root_idx}:\{@ir.hot_node_get(func, root_id).op}#\{root_id}",
-                )
-              }
-            }
-            _ => ()
-          }
-        }
-        pipeline_trace_hook(
-          ctx.trace,
-          "dead-code-elimination",
-          "split-wrapper-followup",
-          payload="idx=\{idx} node=\{node_id} child=\{child_id} child_op=\{@ir.hot_node_get(func, child_id).op} child_roots=\{child_tags}",
-        )
-        if child_id >= 0 && @ir.hot_node_is_live(func, child_id) {
-          match @ir.hot_node_get(func, child_id).op {
-            @ir.HotOp::Block =>
-              if @ir.hot_region_root_count(
-                  func,
-                  @ir.hot_region_body_ref(func, child_id),
-                ) >
-                0 {
-                let first_root = @ir.hot_region_get(
-                  func,
-                  @ir.hot_region_body_ref(func, child_id),
-                  0,
-                )
-                if first_root >= 0 && @ir.hot_node_is_live(func, first_root) {
-                  match @ir.hot_node_get(func, first_root).op {
-                    @ir.HotOp::Block => {
-                      let first_tags : Array[String] = []
-                      let first_body = @ir.hot_region_body_ref(func, first_root)
-                      for root_idx = 0
-                          root_idx < @ir.hot_region_root_count(func, first_body)
-                          root_idx = root_idx + 1 {
-                        let root_id = @ir.hot_region_get(
-                          func, first_body, root_idx,
-                        )
-                        first_tags.push(
-                          "\{root_idx}:\{@ir.hot_node_get(func, root_id).op}#\{root_id}",
-                        )
-                      }
-                      pipeline_trace_hook(
-                        ctx.trace,
-                        "dead-code-elimination",
-                        "split-wrapper-followup-first",
-                        payload="idx=\{idx} node=\{node_id} first=\{first_root} first_roots=\{first_tags}",
-                      )
-                    }
-                    _ => ()
-                  }
-                }
-              }
-            _ => ()
-          }
-        }
-      }
       idx += 1
       continue
     }

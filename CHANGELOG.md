@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Cleanup: remove DCE debug-local trace gates
+
+- **remove stale local-count-specific debug tracing from `dead-code-elimination` forwarder rewrites while preserving rewrite behavior and focused pass coverage** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt).
+
 ## 2026-04-27 Refactor: share pass label-use scans
 
 - **factor shared branch-target label-use analysis into `pass_common`, add direct helper coverage, and update `merge-blocks` / `remove-unused-names` to reuse the helper instead of maintaining duplicate scans** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/pass_common.mbt`](./src/passes/pass_common.mbt), [`src/passes/pass_common_test.mbt`](./src/passes/pass_common_test.mbt), [`src/passes/merge_blocks.mbt`](./src/passes/merge_blocks.mbt), and [`src/passes/remove_unused_names.mbt`](./src/passes/remove_unused_names.mbt).
