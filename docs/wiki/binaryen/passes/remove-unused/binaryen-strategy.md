@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md
+  - ../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md
   - ../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md
   - ../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md
 related:
@@ -12,6 +14,7 @@ related:
   - ./historical-lineage-and-modern-supersession.md
   - ./module-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-module-elements/index.md
 ---
 
@@ -26,7 +29,7 @@ Use two different upstream source horizons here:
   - where Binaryen publicly registered `remove-unused-functions`
 - **modern oracle** for what Binaryen exposes now:
   - `version_129`
-  - current `main` spot-check on 2026-04-25 for registration drift
+  - current `main` spot-checks on 2026-04-25 and 2026-04-27 for registration drift
   - where Binaryen exposes `remove-unused-module-elements` but no `remove-unused` or `remove-unused-functions`
 
 That split is the whole point of this dossier.
@@ -114,7 +117,7 @@ It replaced the historical function-only public pass with a broader module-eleme
 
 ## What current Binaryen exposes instead
 
-Current `version_129` `pass.cpp`, with a narrow current-`main` spot check on 2026-04-25, registers these relevant names:
+Current `version_129` `pass.cpp`, with narrow current-`main` spot checks on 2026-04-25 and 2026-04-27, registers these relevant names:
 
 - `remove-unused-brs`
 - `remove-unused-module-elements`
@@ -187,6 +190,8 @@ For historical registry cleanup and naming honesty, the answer is:
 
 - document `remove-unused` as the stale alias of the old function-only pass lineage
 
+For the Starshine-specific decision matrix, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
 ## Most important preservation rules for the wiki
 
 1. Keep the historical upstream name `remove-unused-functions` explicit.
@@ -203,7 +208,9 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-remove-unused-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md`](../../../raw/binaryen/2026-04-25-remove-unused-primary-sources.md)
+- [`../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md`](../../../raw/research/0420-2026-04-27-remove-unused-port-readiness.md)
 - [`../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md`](../../../raw/research/0339-2026-04-25-remove-unused-source-bridge.md)
 - [`../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md`](../../../raw/research/0195-2026-04-21-remove-unused-binaryen-research.md)
 - <https://github.com/WebAssembly/binaryen/blob/5881b541a4b276dcd5576aa065e4fb860531fc7b/src/passes/pass.cpp>

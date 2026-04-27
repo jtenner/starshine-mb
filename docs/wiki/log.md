@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] health | refresh `remove-unused` touched-area links
+
+- Ran a focused touched-area hygiene check after adding the `remove-unused` port-readiness bridge.
+- Updated the existing Binaryen strategy, implementation/test-map, historical-lineage, and module-shape pages so the 2026-04-27 source recheck and `starshine-port-readiness-and-validation.md` are discoverable from every maintained `remove-unused` page, not only from the landing and Starshine strategy pages.
+
 ## [2026-04-27] research | deepen `remove-unused` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/remove-unused/` folder, and `docs/wiki/raw/research/`, then chose local boundary-only `remove-unused` because its lineage dossier was source-correct but still lacked a decision/validation bridge for the ambiguous historical alias.
