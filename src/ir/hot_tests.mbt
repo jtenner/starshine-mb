@@ -18,6 +18,15 @@ fn hot_test_roundtrip_body() -> Expr {
 }
 
 ///|
+test "hot_pop_values preserves stack order without touching prefix" {
+  let values = [1, 2, 3, 4]
+  let popped = hot_pop_values(values, 3)
+
+  assert_eq(popped, [2, 3, 4])
+  assert_eq(values, [1])
+}
+
+///|
 test "hot lift and lower canonicalizes typed bodies" {
   let func = hot_lift_body(
     hot_test_roundtrip_body(),

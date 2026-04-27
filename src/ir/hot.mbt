@@ -43,13 +43,9 @@ fn hot_pop_value(values : Array[NodeId]) -> NodeId {
 
 ///|
 fn hot_pop_values(values : Array[NodeId], count : Int) -> Array[NodeId] {
-  let rev : Array[NodeId] = []
-  for _ in 0..<count {
-    rev.push(hot_pop_value(values))
-  }
-  let out : Array[NodeId] = []
-  for id in rev.rev_iter() {
-    out.push(id)
+  let out = Array::make(count, HOT_NONE_NODE)
+  for slot = count - 1; slot >= 0; slot = slot - 1 {
+    out[slot] = hot_pop_value(values)
   }
   out
 }

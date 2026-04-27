@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Perf: reduce hot stack-pop allocation
+
+- **rewrite HOT value-stack popping to allocate only the ordered output array and add direct order-preservation coverage for the helper** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot.mbt`](./src/ir/hot.mbt), and [`src/ir/hot_tests.mbt`](./src/ir/hot_tests.mbt).
+
 ## 2026-04-27 Cleanup: remove DCE debug-local trace gates
 
 - **remove stale local-count-specific debug tracing from `dead-code-elimination` forwarder rewrites while preserving rewrite behavior and focused pass coverage** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt).
