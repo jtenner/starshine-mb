@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
+  - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md
@@ -11,6 +13,7 @@ related:
   - ./binaryen-strategy.md
   - ./metadata-naming-and-consumers.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
 ---
@@ -227,6 +230,7 @@ that later rewrite belongs to the consumer pass, not to `generate-global-effects
 | transitive wrapper chain | positive metadata update |
 | recursive call group | positive after fixed point stabilizes |
 | imported, indirect, or opaque target | conservative / limited precision |
+| analyzer-only Starshine first slice | summary-observable only; no consumer rewrite yet |
 | running the pass alone and printing WAT | often visible no-op |
 | later `vacuum` after generated summaries | downstream positive rewrite |
 | later `simplify-locals` after generated summaries | downstream positive motion opportunity |
@@ -237,9 +241,12 @@ that later rewrite belongs to the consumer pass, not to `generate-global-effects
 - transitive and recursive call precision should come from a real fixed point, not a one-hop shortcut
 - opaque/imported/indirect targets should stay conservative
 - later consumer behavior should be explained as a second step, not merged into the pass itself
+- a future Starshine first slice should validate summaries directly before enabling consumer rewrites; see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)
+- [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md`](../../../raw/research/0168-2026-04-21-global-effects-binaryen-research.md)

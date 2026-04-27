@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
+  - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
@@ -23,6 +25,7 @@ related:
   - ./metadata-naming-and-consumers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../discard-global-effects/index.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
@@ -39,6 +42,7 @@ related:
 - Its job is to compute per-function global-effect summaries that later passes can consult across calls.
 - The 2026-04-24 source capture adds an immutable primary-source manifest, records a current-`main` propagation refactor, and makes the stale upstream comment-vs-implementation wording explicit: the implementation writes per-function `Function.effects`, even though an owner-file header phrase still says `PassOptions`.
 - The 2026-04-25 follow-up gives the cleanup sibling [`../discard-global-effects/index.md`](../discard-global-effects/index.md) its own canonical home, so this page can focus on producing summaries while the sibling page covers clearing stale summaries.
+- The 2026-04-27 port-readiness bridge adds the missing local implementation ladder: analyzer-only first slice, per-function summary storage, SCC/fixed-point propagation choice, consumer sequencing, and paired Binaryen validation lanes.
 
 ## Why this pass matters
 
@@ -85,11 +89,13 @@ So the pass is best taught as:
   Beginner-friendly shape catalog showing which call/global patterns gain precision, which stay conservative, and why the WAT often stays textually unchanged.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future-port map: boundary-only registry entry, CLI parse coverage, local HOT effect-mask ingredients, missing module-level summary storage, and the reason a faithful port must be a module/call-graph metadata pass rather than a HOT peephole.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Concrete future implementation ladder: no-rewrite analyzer, summary model, solver choice, registry/dispatcher sequencing, consumer sequencing, Binaryen oracle lanes, and first-port definition of done.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `global-effects` / `generate-global-effects` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass for it.
+- Keep it explicitly marked as **unimplemented** until Starshine grows a real module-level metadata pass for it; a no-rewrite analyzer is acceptable only when it exposes real summaries and validation hooks, not as a disguised no-op.
 - Keep the naming split explicit:
   - local registry: `global-effects`
   - upstream public pass: `generate-global-effects`
@@ -98,6 +104,8 @@ So the pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)
+- [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)

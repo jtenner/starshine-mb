@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
+  - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
@@ -12,6 +14,7 @@ related:
   - ./metadata-naming-and-consumers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../discard-global-effects/index.md
   - ../simplify-locals/index.md
   - ../vacuum/index.md
@@ -141,7 +144,7 @@ The visible teaching drift is in implementation structure, not in the high-level
 - current `main` builds an explicit call graph, computes SCCs, processes components in reverse topological order, aggregates component effects, and applies component summaries back to functions.
 - both reviewed versions keep the durable story: shallow scan, conservative unknown effects, recursive-cycle conservatism, per-function effect metadata, and a discard sibling.
 
-When matching `version_129` oracle behavior, teach and test against the tagged release first. When reading upstream `main`, expect the SCC-shaped implementation.
+When matching `version_129` oracle behavior, teach and test against the tagged release first. When reading upstream `main`, expect the SCC-shaped implementation. The 2026-04-27 readiness bridge recommends an SCC-shaped Starshine analyzer as an implementation convenience, but only if the semantic contract is still compared against the selected Binaryen oracle.
 
 ## Key helper dependencies
 
@@ -159,7 +162,7 @@ A future Starshine port must preserve the role of these helpers and data structu
   - stores the resulting summary as explicit function metadata
 
 The correctness story is not contained in one tiny rewrite function.
-It depends on the pass, the effect model, and the consumer-side lookup all matching.
+It depends on the pass, the effect model, and the consumer-side lookup all matching. For local sequencing and validation, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Important positive families
 
@@ -240,6 +243,8 @@ If Starshine ever ports this and accidentally turns it into a direct code-rewrit
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)
+- [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)

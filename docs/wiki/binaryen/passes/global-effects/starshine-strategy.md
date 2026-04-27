@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
+  - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
@@ -20,6 +22,7 @@ related:
   - ./binaryen-strategy.md
   - ./metadata-naming-and-consumers.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../discard-global-effects/starshine-strategy.md
   - ../simplify-locals/index.md
   - ../heap-store-optimization/index.md
@@ -40,6 +43,8 @@ The exact local facts are:
 - [`src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt) proves `--global-effects` is accepted by CLI parsing and normalized to the `global-effects` pass flag.
 - no `src/passes/global_effects.mbt` owner file exists today.
 - no active HOT pass, module pass, preset slot, or `agent-todo.md` backlog slice exists for this pass today.
+
+The 2026-04-27 readiness bridge makes the next step explicit: keep this boundary-only until Starshine can at least build observable per-function summaries, then promote it as a module pass with dispatcher support and paired consumer validation.
 
 That means the local behavior is intentionally honest: users can spell the compatibility flag, but Starshine refuses to run it until a real implementation exists.
 
@@ -100,6 +105,7 @@ A future implementation should land as a module analysis/pass, likely near the p
 Minimum data model requirements:
 
 - one summary per defined function
+- separate global-read and global-write facts; the current coarse `EFFECT_MASK_GLOBAL_STATE` bit is not precise enough for full parity
 - direct-call edge collection from lowered module instructions or HOT-lifted function bodies
 - conservative markers for import calls, indirect calls, `call_ref`, unknown bodies, throws, traps, and calls whose target cannot be summarized
 - a summary lifecycle model so later transforms can invalidate or discard stale data
@@ -120,6 +126,8 @@ Minimum validation requirements:
 - consumer tests paired with `vacuum` or local movement passes once summaries are actually consumed
 - Binaryen parity checks using `--generate-global-effects --vacuum` and `--generate-global-effects --simplify-locals` shapes
 
+The detailed implementation order and validation ladder now live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
 ## Cross-links for the pass dossier
 
 Read this page with:
@@ -129,6 +137,7 @@ Read this page with:
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) for upstream `version_129` and current-`main` strategy notes
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the owner-file/test map
 - [`./metadata-naming-and-consumers.md`](./metadata-naming-and-consumers.md) for lifecycle, naming, and downstream-consumer caveats
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the no-rewrite analyzer first slice, summary model, solver choice, registry/dispatcher sequencing, and paired Binaryen validation lanes
 
 Neighboring consumer docs:
 
@@ -148,6 +157,8 @@ Until a module-level implementation exists, do not claim that Starshine:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)
+- [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
+  - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
   - ../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md
@@ -12,6 +14,7 @@ related:
   - ./binaryen-strategy.md
   - ./metadata-naming-and-consumers.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../discard-global-effects/index.md
   - ../simplify-locals/implementation-structure-and-tests.md
   - ../vacuum/effect-pruning-and-traps-never-happen.md
@@ -141,8 +144,12 @@ A future port should preserve:
 - the downstream consumer contract
 - the explicit possibility that summaries may need later invalidation/discard
 
+For the exact local owner-file, registry, dispatcher, summary-model, and validation sequencing proposal, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)
+- [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)
 - [`../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md`](../../../raw/research/0305-2026-04-24-global-effects-primary-sources-and-starshine-followup.md)

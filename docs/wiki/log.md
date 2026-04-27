@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `global-effects` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/global-effects/` folder, neighboring `discard-global-effects`, `simplify-locals`, and `vacuum` coverage, and `docs/wiki/raw/research/`, then chose boundary-only `global-effects` because its source-backed dossier still lacked a concrete implementation-readiness / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`, rechecking official Binaryen current-main and tagged `version_129` `GlobalEffects.cpp`, `pass.cpp`, `effects.h`, `wasm.h`, the Optimizer Cookbook lifecycle context, and the paired consumer lit surfaces; no teaching-relevant upstream drift was found from the 2026-04-24 / 2026-04-25 contract.
+- Added `docs/wiki/raw/research/0417-2026-04-27-global-effects-port-readiness.md` and `docs/wiki/binaryen/passes/global-effects/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test map, metadata/consumer guide, WAT-shape catalog, and Starshine strategy so transformed metadata shapes, upstream strategy, exact local boundary-only code surfaces, no-rewrite analyzer first slice, per-global read/write summary requirement, SCC/fixed-point choice, consumer sequencing, stale-summary risks, and Binaryen oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `global-effects` from `dossier` to `deep` while keeping it explicitly boundary-only and unimplemented in Starshine today.
+
 ## [2026-04-27] implementation | activate `directize`
 
 - Landed the active Starshine `directize` module pass for the default explicit Binaryen behavior, with module-wide table eligibility, imported/exported/mutated table bailouts, active element target collection, direct `call` / `return_call` rewrites, known-trap `unreachable` rewrites, subtype-compatible function checks, and narrow known-target `select` lowering with fresh locals.
