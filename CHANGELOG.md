@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Refactor: share raw structured-instruction traversal
+
+- **factor the common raw `block` / `loop` / `if` / `try_table` recursive rewrite shell into `pass_common` and reuse it from `untee` and `avoid-reinterprets`** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/pass_common.mbt`](./src/passes/pass_common.mbt), [`src/passes/untee.mbt`](./src/passes/untee.mbt), and [`src/passes/avoid_reinterprets.mbt`](./src/passes/avoid_reinterprets.mbt).
+
 ## 2026-04-27 Perf: reduce once-reduction branch-set churn
 
 - **change `once-reduction` branch dataflow joins to intersect into the live state bitset instead of allocating an intermediate bitset for each `if` join** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/once_reduction.mbt`](./src/passes/once_reduction.mbt).

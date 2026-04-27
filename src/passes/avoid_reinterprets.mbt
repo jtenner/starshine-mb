@@ -23,55 +23,7 @@ fn ar_rewrite_load_reinterpret_pair(
 
 ///|
 fn ar_rewrite_instr(instr : @lib.Instruction) -> (@lib.Instruction, Bool) {
-  match instr {
-    @lib.Block(block_type, @lib.Expr(body)) => {
-      let (next_body, changed) = ar_rewrite_instrs(body)
-      if changed {
-        (@lib.Instruction::block(block_type, @lib.Expr::new(next_body)), true)
-      } else {
-        (instr, false)
-      }
-    }
-    @lib.Loop(block_type, @lib.Expr(body)) => {
-      let (next_body, changed) = ar_rewrite_instrs(body)
-      if changed {
-        (@lib.Instruction::loop_(block_type, @lib.Expr::new(next_body)), true)
-      } else {
-        (instr, false)
-      }
-    }
-    @lib.If(block_type, then_body, else_body) => {
-      let (next_then, then_changed) = ar_rewrite_instrs(then_body)
-      let (next_else, else_changed) = match else_body {
-        Some(body) => {
-          let (next, changed) = ar_rewrite_instrs(body)
-          (Some(next), changed)
-        }
-        None => (None, false)
-      }
-      if then_changed || else_changed {
-        (@lib.Instruction::if_(block_type, next_then, next_else), true)
-      } else {
-        (instr, false)
-      }
-    }
-    @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
-      let (next_body, changed) = ar_rewrite_instrs(body)
-      if changed {
-        (
-          @lib.Instruction::try_table(
-            block_type,
-            catches,
-            @lib.Expr::new(next_body),
-          ),
-          true,
-        )
-      } else {
-        (instr, false)
-      }
-    }
-    _ => (instr, false)
-  }
+  pass_rewrite_structured_instr(instr, ar_rewrite_instrs)
 }
 
 ///|
