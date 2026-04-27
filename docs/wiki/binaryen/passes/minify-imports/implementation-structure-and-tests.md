@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
+  - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
 related:
@@ -11,6 +13,7 @@ related:
   - ./env-wasi-json-map-and-module-merge.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Implementation structure and tests for `minify-imports`
@@ -64,7 +67,7 @@ Future Starshine work should add local plain-mode tests even if upstream still l
 
 ## Suggested future Starshine test map
 
-If Starshine implements `minify-imports`, add tests around these phases:
+[`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) is the detailed local implementation ladder. If Starshine implements `minify-imports`, add tests around these phases:
 
 1. registry behavior for `minify-imports` is explicit;
 2. `env` function import gets a shorter base name;

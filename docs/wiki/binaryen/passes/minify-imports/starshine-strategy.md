@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
+  - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
   - ../../../../../src/passes/optimize.mbt
@@ -17,6 +19,7 @@ related:
   - ./env-wasi-json-map-and-module-merge.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../minify-imports-and-exports/starshine-strategy.md
   - ../tracker.md
 ---
@@ -29,14 +32,14 @@ Starshine currently has **no `minify-imports` implementation**. This page is a s
 
 Exact local status:
 
-- `src/passes/optimize.mbt:127-143` lists boundary-only names; `minify-imports` is absent.
-- `src/passes/optimize.mbt:146-156` lists removed names; `minify-imports` is absent.
-- `src/passes/optimize.mbt:462-465` reports absent names as `unknown pass flag ...`.
-- `src/passes/pass_manager.mbt:8661-8664` starts the active module-pass dispatcher; no minification case exists.
+- `src/passes/optimize.mbt:120-137` lists boundary-only names; `minify-imports` is absent.
+- `src/passes/optimize.mbt:141-148` lists removed names; `minify-imports` is absent.
+- `src/passes/optimize.mbt:479-491` reports absent names as `unknown pass flag ...` and boundary-only names with a distinct error.
+- `src/passes/pass_manager.mbt:8661-8685` starts the active module-pass dispatcher; no minification case exists.
 - There is no `src/passes/minify_imports.mbt` or shared `minify_imports_and_exports.mbt` owner file.
 - `agent-todo.md` has no active slice for this pass.
 
-The current strategy is **non-adoption plus explicit documentation**. The pass is tracked because Binaryen exposes it publicly and because the corrected contract is easy to misread: even plain `minify-imports` mutates import declarations.
+The current strategy is **non-adoption plus explicit documentation**. The pass is tracked because Binaryen exposes it publicly and because the corrected contract is easy to misread: even plain `minify-imports` mutates import declarations. [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) records the registry/reporting decision and first safe mutating slice if this status changes.
 
 ## Exact local code locations to read first
 
@@ -54,11 +57,11 @@ The current strategy is **non-adoption plus explicit documentation**. The pass i
   - import section and import encoding write module name, base name, then external type.
 - `src/wast/lower_to_lib.mbt:2924-3004`
   - WAT imports lower into `@lib.Import::new(module_name, field_name, ...)` across function/table/memory/global/tag imports.
-- `src/passes/optimize.mbt:127-156`
+- `src/passes/optimize.mbt:120-148`
   - current compatibility registries omit all minification names.
-- `src/passes/optimize.mbt:462-465`
-  - unknown-pass error path today.
-- `src/passes/pass_manager.mbt:8661-8664`
+- `src/passes/optimize.mbt:479-491`
+  - unknown-pass and boundary-only error paths today.
+- `src/passes/pass_manager.mbt:8661-8685`
   - current module-pass dispatcher landing zone if the pass becomes active.
 
 ## Future-port shape
@@ -67,7 +70,8 @@ A faithful local port should be treated as a module-declaration rewrite plus rep
 
 1. **Registry/API decision**
    - decide whether all three minification names remain unknown, become boundary-only, or become active;
-   - define how JSON map output is surfaced without mixing it with optimized wasm bytes.
+   - define how JSON map output is surfaced without mixing it with optimized wasm bytes;
+   - use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) as the detailed validation ladder.
 2. **Plain import rewrite**
    - walk `ImportSec` records;
    - select only module `env` and module names beginning `wasi_`;

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `minify-imports` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/minify-imports/` folder, sibling `minify-imports-and-exports` coverage, and `docs/wiki/raw/research/`, then chose upstream-only `minify-imports` because its source-corrected dossier still lacked the standard implementation-readiness / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md`, rechecking official Binaryen `version_129` and current-main `MinifyImportsAndExports.cpp`, `pass.cpp`, `passes.h`, `name.h`, the sibling minify lit fixture, and exact local Starshine registry/dispatcher/import-section/binary/WAT code surfaces; no teaching-relevant upstream drift was found from the 2026-04-26 corrected contract.
+- Added `docs/wiki/raw/research/0424-2026-04-27-minify-imports-port-readiness.md` and `docs/wiki/binaryen/passes/minify-imports/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, WAT-shape catalog, and Starshine strategy so transformed import-section shapes, upstream strategy, exact local unknown-pass behavior, registry/reporting choice, safe plain import-base rewrite slice, sibling negatives, and Binaryen oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; kept `minify-imports` classified as upstream-only and deep while making the future validation ladder explicit.
+
 ## [2026-04-27] research | deepen `dataflow-optimization` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/dataflow-optimization/` folder, and `docs/wiki/raw/research/`, then chose removed local `dataflow-optimization` / upstream `dfo` because its source-correct dossier still lacked the newer analyzer-first / validation bridge.

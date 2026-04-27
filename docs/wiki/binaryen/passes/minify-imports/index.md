@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
+  - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
   - ../../../raw/binaryen/2026-04-25-minify-imports-family-source-correction.md
@@ -19,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../minify-imports-and-exports/index.md
   - ../duplicate-import-elimination/index.md
 ---
@@ -53,13 +56,9 @@ Binaryen `--minify-imports` may rewrite the base name to a short name:
 (import "env" "a" (func $f))
 ```
 
-It also prints a JSON-shaped mapping, conceptually:
+It also prints a JSON-shaped mapping. In the corrected source contract, imports are reported as row arrays containing old module, old base, and new base values; exact ordering and escaping belong to the targeted Binaryen revision.
 
-```json
-{"imports":{"a":["env","very_long_function_name"]},"exports":{}}
-```
-
-The exact JSON order and generated names belong to Binaryen's source and must be checked against the targeted revision. The important beginner rule is that the plain pass really changes import declarations; host code that still asks for `env.very_long_function_name` will no longer link unless it applies the map.
+The important beginner rule is that the plain pass really changes import declarations; host code that still asks for `env.very_long_function_name` will no longer link unless it applies the map.
 
 ## Inputs and outputs
 
@@ -109,11 +108,11 @@ For Binaryen parity research:
 6. assert stdout is JSON-shaped and describes the old module/base plus new base mapping;
 7. separately run the `-and-exports` and `-and-modules` siblings to prove the broader surfaces.
 
-For a future Starshine port:
+For a future Starshine port, use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) as the implementation ladder:
 
 1. make registry behavior explicit instead of leaving accidental unknown-name behavior undocumented;
 2. add a module-pass/reporting API decision for JSON output;
-3. implement import-section mutation before any export sibling;
+3. implement plain import-section mutation before export-name or module-name siblings;
 4. add module map / binary roundtrip validation after mutation;
 5. compare against Binaryen on reduced fixtures and then on generated modules with imports.
 
@@ -124,13 +123,16 @@ For a future Starshine port:
 - [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md) - owner files and proof gaps.
 - [`wat-shapes.md`](wat-shapes.md) - concrete before/after shapes and negatives.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - safe future implementation slices and oracle lanes for the plain pass.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md)
+- [`../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md`](../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md`](../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md)
 - [`../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md`](../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md)
 - Binaryen `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImportsAndExports.cpp>
 - Binaryen pass registry: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 
 [^source-correction]: See [`../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md`](../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md) and [`../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md`](../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md). The older 2026-04-25 manifest remains provenance but is superseded for the plain-pass mechanics.
-[^starshine-code]: Current local status is grounded in `src/passes/optimize.mbt:127-143`, `src/passes/optimize.mbt:462-465`, and `src/passes/pass_manager.mbt:8661-8664`.
+[^starshine-code]: Current local status is grounded in `src/passes/optimize.mbt:120-148`, `src/passes/optimize.mbt:479-491`, and `src/passes/pass_manager.mbt:8661-8685`.

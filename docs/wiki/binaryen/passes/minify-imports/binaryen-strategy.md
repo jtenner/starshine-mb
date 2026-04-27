@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
+  - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
 related:
@@ -11,6 +13,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../minify-imports-and-exports/binaryen-strategy.md
 ---
 
@@ -50,15 +53,9 @@ After choosing the new base name, the pass mutates the import's base-name field.
 
 ## JSON output
 
-The pass emits a JSON-shaped map instead of one `old:new` text line. Conceptually, the import map says:
+The pass emits a JSON-shaped map instead of one `old:new` text line. In the corrected source contract, import entries are row arrays containing old module, old base, and new base values. For the two export-minifying siblings, export rows are populated too.
 
-```json
-{"imports":{"newBase":["oldModule","oldBase"]},"exports":{}}
-```
-
-For the two export-minifying siblings, the `exports` object is populated too.
-
-The exact key order and formatting belong to Binaryen's writer in the targeted revision. Starshine should not bake in the conceptual example as a conformance oracle.
+The exact key order, row ordering, escaping, and generated names belong to Binaryen's writer in the targeted revision. Starshine should not bake explanatory examples into conformance oracles.
 
 ## Sibling strategy split
 
@@ -78,6 +75,6 @@ This pass is therefore unlike internal cleanup passes such as local simplificati
 
 ## Test caveat
 
-The reviewed official pass-test surface did not include a dedicated plain-`minify-imports.wast` / expected-output pair. The contract above is source-backed by the shared owner, factory registration, and current-main recheck. A future Starshine port should use direct Binaryen oracle comparisons for the plain mode.
+The reviewed official pass-test surface did not include a dedicated plain-`minify-imports.wast` / expected-output pair. The contract above is source-backed by the shared owner, factory registration, and current-main recheck. A future Starshine port should use direct Binaryen oracle comparisons for the plain mode and follow the local staging plan in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 
 [^raw]: [`../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md`](../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md) records the exact official sources and the superseded 2026-04-25 claims.

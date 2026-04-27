@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
+  - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
 related:
@@ -11,6 +13,7 @@ related:
   - ./env-wasi-json-map-and-module-merge.md
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../minify-imports-and-exports/wat-shapes.md
 ---
 
@@ -124,7 +127,7 @@ Keep that shape out of plain-pass tests.
 
 ## Validation checklist
 
-For every positive shape, verify:
+For every positive shape, verify the checks below, then use [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) for the future local port order.
 
 - the module validates before and after;
 - qualifying import base names changed;

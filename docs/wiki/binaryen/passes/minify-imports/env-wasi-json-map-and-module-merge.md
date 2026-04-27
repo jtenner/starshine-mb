@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
+  - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
   - ../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md
 related:
@@ -10,6 +12,7 @@ related:
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-port-readiness-and-validation.md
   - ../minify-imports-and-exports/index.md
 ---
 
@@ -67,21 +70,12 @@ A faithful Starshine implementation must not accidentally restrict the plain pas
 
 ## JSON map shape
 
-Binaryen prints a map so boundary tooling can translate between old and new names. The conceptual shape is:
-
-```json
-{
-  "imports": {
-    "a": ["env", "very_long_func"]
-  },
-  "exports": {}
-}
-```
+Binaryen prints a map so boundary tooling can translate between old and new names. In the corrected source contract, import entries are row arrays carrying old module, old base, and new base values.
 
 Important caveats:
 
-- this is conceptual, not a byte-for-byte oracle;
-- exact ordering and escaping should be copied from the target Binaryen revision;
+- exact row ordering and escaping should be copied from the target Binaryen revision;
+- generated short names should come from Binaryen's minified-name generator;
 - stdout handling matters because Starshine usually writes optimized wasm/WAT as its primary output.
 
 ## `-and-modules` sibling behavior
@@ -110,7 +104,7 @@ Plain `minify-imports` must not do this.
 
 ## Starshine implementation consequence
 
-The future local port should be split into testable slices:
+The future local port should follow the detailed ladder in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) and split work into testable slices:
 
 1. parse and preserve import module/base strings through existing `@lib.Import` records;
 2. implement plain-mode `env` / `wasi_` base rewrites and JSON map output;
