@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
+  - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0354-2026-04-25-const-hoisting-current-main-code-map.md
   - ../../../../../src/passes/optimize.mbt
@@ -26,6 +28,7 @@ related:
   - ./size-model-and-boundaries.md
   - ./literal-bit-identity-zero-signs-and-nan-payloads.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/index.md
   - ../optimize-added-constants/index.md
   - ../merge-similar-functions/index.md
@@ -33,8 +36,8 @@ related:
 
 # Starshine Strategy For `const-hoisting`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md) and the current-main recheck in [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md), the current-main recheck in [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md), and the 2026-04-27 port-readiness capture in [`../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md).
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into. The step-by-step implementation and validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
 
@@ -134,6 +137,8 @@ It means the local story today is real preserved planning, but not yet active ex
 
 The current docs and the reviewed upstream contract strongly suggest that a future local `const-hoisting` port should be taught as a **small HOT literal-size pass**, not as a boundary/module transform.
 
+For the concrete first-slice plan, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). That page pins the implementation ladder to analyzer-only candidate reporting, exact scalar literal grouping, signed-LEB threshold tests, deterministic prelude insertion, and isolated Binaryen-oracle validation.
+
 Why:
 
 - upstream Binaryen runs it per function and marks it function-parallel
@@ -230,7 +235,7 @@ A future real implementation should validate in this order:
 4. only then consider broader local scheduling questions
    - because the current repo does not yet treat `const-hoisting` as part of the active no-DWARF default parity queue
 
-That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the exact proof families the reviewed upstream test file already exposes.
+That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the exact proof families the reviewed upstream test file already exposes. The maintained checklist version is now [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), so future implementation work should update that page as tests and code land.
 
 ## Bottom line
 

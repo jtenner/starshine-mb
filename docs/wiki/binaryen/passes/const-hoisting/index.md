@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md
+  - ../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md
   - ../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md
   - ../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md
   - ../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md
@@ -22,6 +24,7 @@ related:
   - ./literal-bit-identity-zero-signs-and-nan-payloads.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/index.md
   - ../optimize-added-constants/index.md
   - ../merge-similar-functions/index.md
@@ -52,7 +55,7 @@ A better beginner summary is:
 - `const-hoisting` is small, but it teaches an optimization idea that beginner readers often miss: **binary encoding size economics are not the same thing as runtime speed or generic constant folding**.
 - It sits naturally beside already-covered size and literal-neighbor passes like `precompute*`, `optimize-added-constants*`, `simplify-locals*`, and `merge-similar-functions`, but it solves a different problem from all of them.
 - The upstream implementation and tests are tiny enough to audit exactly, which makes it a good high-confidence source-backed addition.
-- The folder now also has immutable raw primary-source manifests, a 2026-04-25 current-main freshness bridge, and a dedicated Starshine status/port-strategy page, so readers no longer need to reconstruct release provenance or local port-planning from older research notes alone.
+- The folder now also has immutable raw primary-source manifests, a 2026-04-25 current-main freshness bridge, a 2026-04-27 implementation-readiness bridge, and dedicated Starshine status / validation pages, so readers no longer need to reconstruct release provenance or local port-planning from older research notes alone.
 
 ## Beginner summary
 
@@ -87,6 +90,7 @@ So this pass is best taught as:
 - `v128` constants are explicitly unsupported in `version_129`.
 - The pass inserts a function-entry prelude block and relies on later cleanup such as `merge-blocks` to smooth structure afterwards.
 - A focused 2026-04-25 current-`main` recheck found no teaching-relevant drift in the implementation, registration, helper, or dedicated lit surfaces, so the tagged `version_129` release remains a reliable oracle here.
+- A 2026-04-27 port-readiness recheck again found no teaching-relevant upstream drift and now pins the first Starshine slice to existing HOT scalar constants, local builders, fresh-local append support, and signed-LEB byte accounting surfaces.
 
 ## What this pass sounds like versus what it actually does
 
@@ -114,6 +118,8 @@ What it actually is in `version_129`:
   Beginner-friendly shape catalog showing the profitable literal families, the preserved small-literal families, and the main bailout surfaces.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Exact current Starshine status and port map, including the removed-registry location, runtime rejection path, still-missing active backlog slice, reusable HOT scalar-constant / local-builder / fresh-local / signed-LEB code surfaces, and neighboring local size-pass dossiers.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge for a future local port: analyzer-first candidate buckets, exact scalar literal grouping, byte-threshold tests, deterministic prelude insertion, negative shape list, and Binaryen-oracle validation ladder.
 
 ## Current maintenance rule
 
@@ -121,12 +127,14 @@ What it actually is in `version_129`:
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real pass for it.
 - Keep the split from `precompute` explicit: `precompute` creates constants, but `const-hoisting` decides whether repeated literal payloads should be compressed through locals.
 - Keep the split from generic locals optimization explicit too: this pass introduces fresh locals for size reasons, but it does not attempt broad locals cleanup or register-pressure reasoning.
-- Treat the raw primary-source manifests plus the Starshine page as the default provenance-and-navigation pair for future `const-hoisting` follow-ups.
+- Treat the raw primary-source manifests plus the Starshine strategy and validation pages as the default provenance-and-navigation pair for future `const-hoisting` follow-ups.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md`](../../../raw/binaryen/2026-04-23-const-hoisting-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-const-hoisting-current-main-recheck.md)
+- [`../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md`](../../../raw/research/0428-2026-04-27-const-hoisting-port-readiness.md)
 - [`../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md`](../../../raw/research/0182-2026-04-21-const-hoisting-binaryen-research.md)
 - [`../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md`](../../../raw/research/0225-2026-04-21-const-hoisting-literal-identity-followup.md)
 - [`../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md`](../../../raw/research/0276-2026-04-23-const-hoisting-primary-sources-and-starshine-followup.md)

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `const-hoisting` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/const-hoisting/` folder, and `docs/wiki/raw/research/`, then chose removed `const-hoisting` because its source-correct dossier still lacked the newer first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-const-hoisting-port-readiness-primary-sources.md`, rechecking official Binaryen current-main `ConstHoisting.cpp`, `pass.cpp`, `literal.h`, `wasm-binary.h`, `wasm-builder.h`, and `const-hoisting.wast` plus exact local Starshine registry, HOT scalar-constant, local builder, fresh-local, lower/lift, and signed-LEB encoding surfaces; no teaching-relevant upstream drift was found from the 2026-04-23 / 2026-04-25 contract.
+- Added `docs/wiki/raw/research/0428-2026-04-27-const-hoisting-port-readiness.md` and `docs/wiki/binaryen/passes/const-hoisting/starshine-port-readiness-and-validation.md`; refreshed the overview and Starshine strategy so transformed literal shapes, upstream strategy, exact local removed-name behavior, analyzer-first bucket discovery, byte-threshold tests, deterministic prelude insertion, required negatives, and Binaryen oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `const-hoisting` from `dossier` to `deep` while keeping it explicitly removed and unimplemented in Starshine today.
+
 ## [2026-04-27] research | deepen `type-un-finalizing` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/type-un-finalizing/` folder, sibling `type-finalizing` port-readiness coverage, and `docs/wiki/raw/research/`, then chose boundary-only `type-un-finalizing` because its source-backed sibling dossier still lacked the newer first-slice / validation bridge.
