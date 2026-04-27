@@ -1,10 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
-  - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
-  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
+  - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/lib/types.mbt
@@ -15,16 +15,15 @@ sources:
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
-  - ../../../../../agent-todo.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
-  - ./local-flow-type-floor-and-boundaries.md
+  - ./type-requirements-cfg-and-unsupported-families.md
   - ./wat-shapes.md
-  - ../simplify-locals/index.md
-  - ../type-refining/index.md
+  - ./starshine-port-readiness-and-validation.md
   - ../gufa/index.md
+  - ../type-refining/index.md
 ---
 
 # Starshine `type-generalizing` strategy
@@ -36,104 +35,84 @@ Starshine does **not** implement `type-generalizing` today.
 The current local truth is:
 
 - `src/passes/optimize.mbt` lists `type-generalizing` in `pass_registry_boundary_only_names()`.
-- The registry category is therefore `BoundaryOnly`, not `HotPass` and not `ModulePass`.
-- `run_hot_pipeline_expand_passes(...)` rejects boundary-only requests with the standard “boundary-only and is not implemented in the hot pipeline” error.
-- `optimize_preset_passes(...)` and `shrink_preset_passes(...)` do not include `type-generalizing`.
-- `src/passes/registry_test.mbt` locks the active preset list to implemented pass names; it does not prove a hidden `type-generalizing` implementation.
-- There is no `src/passes/type_generalizing.mbt` owner file.
-- `agent-todo.md` has no dedicated `type-generalizing` backlog slice.
+- The registry category is `BoundaryOnly`, not `HotPass` and not `ModulePass`.
+- `run_hot_pipeline_expand_passes(...)` rejects boundary-only requests with the standard boundary-only error.
+- `optimize` and `shrink` preset expansion lists do not include `type-generalizing`.
+- `src/passes/registry_test.mbt` locks active preset expansion to implemented pass names; it does not prove a hidden implementation.
+- No `src/passes/type_generalizing.mbt` owner file exists.
+- No active `agent-todo.md` slice currently tracks a `type-generalizing` implementation.
 
-So the correct Starshine strategy is a **status and future-port map**, not an implementation guide for code that already exists.
+So the correct Starshine strategy is a **boundary/status and future-port map**, not a code guide for an existing pass.
 
 ## Exact local code locations
 
 | Local surface | Code location | Why it matters |
 | --- | --- | --- |
-| Boundary-only registry name | `src/passes/optimize.mbt`, `pass_registry_boundary_only_names()` | Preserves the local `type-generalizing` spelling while preventing accidental execution |
-| Request rejection | `src/passes/optimize.mbt`, `run_hot_pipeline_expand_passes(...)` | Stops boundary-only names before the hot/module dispatcher |
-| Active preset omission | `src/passes/optimize.mbt`, `optimize_preset_passes(...)` and `shrink_preset_passes(...)` | Confirms no hidden default-pipeline role |
-| Registry/preset tests | `src/passes/registry_test.mbt` | Tests active category and preset honesty, but does not implement this pass |
-| Core type model | `src/lib/types.mbt` | Defines `ValType`, `RefType`, `HeapType`, `SubType`, `CompType`, and instruction constructors a future port would retag |
-| HOT opcode model | `src/ir/hot_core.mbt` | Contains local/control/call/ref op names used by function-local HOT passes |
-| HOT lift/lower | `src/ir/hot_lift.mbt`, `src/ir/hot_lower.mbt` | Likely landing zone if Starshine ports the corrected function-local algorithm as HOT work |
-| WAT lowering | `src/wast/lower_to_lib.mbt` | Converts local and reference/type instructions into `@lib.Instruction` forms |
-| Validator | `src/validate/typecheck.mbt` | Owns type-stack rules that a retagging pass must preserve |
-| Binary roundtrip | `src/binary/encode.mbt`, `src/binary/decode.mbt` | Keeps any new expression/type shapes serializable |
+| Registry category enum | `src/passes/optimize.mbt`, `HotPassRegistryCategory` | Defines `BoundaryOnly`, `HotPass`, `ModulePass`, `Removed`, and `Preset` categories |
+| Boundary-only entry builder | `src/passes/optimize.mbt`, `pass_registry_entry_boundary_only(...)` | Ensures boundary-only names have no descriptor and no expansion |
+| Boundary-only name list | `src/passes/optimize.mbt`, `pass_registry_boundary_only_names()` | Contains `type-generalizing` today |
+| Request rejection | `src/passes/optimize.mbt`, `run_hot_pipeline_expand_passes(...)` | Returns “boundary-only and is not implemented in the hot pipeline” before dispatch |
+| Active presets | `src/passes/optimize.mbt`, `optimize_preset_passes(...)` / `shrink_preset_passes(...)` | Do not include `type-generalizing` |
+| Registry and preset tests | `src/passes/registry_test.mbt` | Protect active pass categories and preset honesty |
+| Type model | `src/lib/types.mbt` | Defines value/reference/heap/type-section concepts a future implementation would need |
+| WAT lowering | `src/wast/lower_to_lib.mbt` | Converts textual GC/ref/local shapes into lib IR |
+| HOT model | `src/ir/hot_core.mbt`, `src/ir/hot_lift.mbt`, `src/ir/hot_lower.mbt` | Possible function-local analysis surfaces, though a faithful port may need richer CFG/stack requirements than HOT currently exposes |
+| Validator | `src/validate/typecheck.mbt` | Must validate generalized local declarations and retagged local get/tee result types |
+| Binary roundtrip | `src/binary/encode.mbt`, `src/binary/decode.mbt` | Must preserve rewritten local declaration and instruction type metadata |
 
 ## How Starshine should map the corrected Binaryen strategy
 
-The corrected Binaryen pass is local-flow/type-retagging work.
-A future Starshine port should therefore start near function/HOT infrastructure, not near closed-world module GC infrastructure.
+The corrected Binaryen pass is not a small HOT peephole. It is a CFG/type-requirement analysis with mutation at the local-declaration boundary.
 
-### Likely local landing zone
+A faithful Starshine implementation would need to model:
 
-The likely landing zone is a HOT or function-local pass that can:
+- function CFG edges and joins;
+- value-stack type requirements, not just local use-def pairs;
+- local declaration rewrite safety;
+- call and `call_ref` signature constraints;
+- global/table/ref/struct/array instruction constraints;
+- oracle-like facts for possible runtime contents, or an explicitly narrower first slice;
+- DCE-before-analysis or equivalent unreachable-code handling;
+- local get/tee type repair and final validation/refinalization.
 
-- see local.set/local.tee value flow,
-- compute compatible types using Starshine's type model,
-- retag expression/result metadata safely,
-- replace unsafe `local.get` retagging with a drop-plus-zero sequence,
-- and validate the final module.
+## What not to build first
 
-`src/ir/hot_lift.mbt` and `src/ir/hot_lower.mbt` already encode the boundary between `@lib.Instruction` and HOT nodes. That is the natural place to inspect before choosing whether this is easier as a HOT pass or a direct `@lib.Expr` walker.
+Do **not** port this as:
 
-### What not to build for this pass
+- a direct alias to `gufa`;
+- a type-section pass like `type-refining` or `type-merging`;
+- a simple local-set/local-tee evidence pass;
+- a `local.get` drop-plus-zero peephole;
+- a default preset pass.
 
-Do **not** plan this pass as:
-
-- a `ContentOracle` port,
-- a closed-world type-section pass,
-- a `struct.get` / `struct.set` rewrite,
-- a `call_ref` one-signature optimizer,
-- a `ref.cast` tightening or insertion pass.
-
-Those were stale claims in the older dossier, not supported by the reviewed `version_129` source.
-
-## Future implementation checklist
-
-Before promoting `type-generalizing` from boundary-only to implemented, require at least:
-
-1. an owner file, probably `src/passes/type_generalizing.mbt` or a clearly named function-local helper module;
-2. registry category change from `BoundaryOnly` to `HotPass` or `ModulePass` in `src/passes/optimize.mbt`;
-3. tests that prove registry category and explicit request behavior;
-4. positive local-flow retagging tests based on the official `type-generalizing.wast` shapes;
-5. a `local.get` drop-plus-zero test;
-6. nondefaultable, concrete, and unreachable no-op tests;
-7. final validation enabled for rewritten modules;
-8. pass-fuzz comparison against Binaryen's `experimental-type-generalizing` if the upstream hidden/test pass remains invocable in local tooling.
+Those choices either match superseded notes or overstate upstream's hidden not-yet-sound status.
 
 ## Current validation guidance
 
-Because Starshine has no implementation, the only current validation is documentation/status validation:
+Because Starshine has no implementation, current validation is status validation:
 
-- `type-generalizing` must remain rejected as boundary-only when requested directly.
-- It must not appear in `optimize` or `shrink` preset expansion.
-- Wiki pages must cite the 2026-04-24 source correction instead of the superseded 0191 mechanics.
-
-If a future port lands, use the repo's standard signoff:
-
-- quick: `moon info`, `moon fmt`, `moon test`
-- pass parity: `bun fuzz compare-pass --pass type-generalizing ...` or the nearest hidden-pass-compatible harness spelling, if Binaryen exposes it to the comparison tooling
+- direct requests for `type-generalizing` must fail as boundary-only;
+- presets must not expand to it;
+- no wiki page should imply a local owner file or active dispatcher exists;
+- future docs should cite the 2026-04-27 corrective manifest for mechanics.
 
 ## Relationship to neighboring Starshine code
 
-- `src/passes/simplify_locals.mbt` is a useful neighbor for local-flow cleanup style, but it is not an implementation of this pass.
-- `src/passes/heap2local.mbt` has examples of function-local heap/reference rewrites, but its escape/candidate logic is unrelated to the corrected `type-generalizing` contract.
-- `src/passes/duplicate_function_elimination.mbt` has robust type-index and heap-type remapping helpers, useful as implementation examples for type-aware rewrites but not as a semantic template.
-- `src/passes/type_refining.mbt` does not exist; the existing `type-refining` wiki page is another boundary-only status/port map.
+- `src/passes/simplify_locals.mbt` is useful as local-cleanup style, but it is not semantically close enough for this CFG/type-requirement solver.
+- `src/passes/global_refining.mbt` and `src/passes/global_struct_inference.mbt` are examples of type-sensitive module passes, but they rewrite different surfaces.
+- `src/passes/heap2local.mbt` and `src/passes/heap_store_optimization.mbt` show GC/reference-aware local rewrites, but they do not provide the backward requirement analysis needed here.
+- `src/validate/typecheck.mbt` is the critical safety backstop for any future mutation.
 
 ## Uncertainties and caveats
 
-- Binaryen registers this as a hidden/test pass. A future Starshine user-facing port may need a policy decision about whether the local `type-generalizing` alias should remain boundary-only, become an opt-in developer pass, or be dropped from public docs.
-- The best Starshine landing zone is not proven. HOT is plausible, but a direct expression walker may be simpler if the needed type metadata is not preserved conveniently through HOT lift/lower.
-- The old 0191 note remains in the archive for auditability, but its algorithmic content is superseded by the 2026-04-24 source correction.
+- Binaryen itself labels the pass not yet sound. Starshine may choose to keep the local name boundary-only indefinitely.
+- A faithful port may require infrastructure that is broader than a normal pass port: CFG, stack requirements, oracle facts, local declaration rewriting, and local-use type repair.
+- The safest first implementation slice is analysis-only; see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Source chain
 
-For the full source-backed chain, read in this order:
-
-1. [`../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md)
-2. [`../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md`](../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md)
+1. [`../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md`](../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md)
+2. [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
 3. [`./binaryen-strategy.md`](./binaryen-strategy.md)
-4. [`./local-flow-type-floor-and-boundaries.md`](./local-flow-type-floor-and-boundaries.md)
-5. [`./wat-shapes.md`](./wat-shapes.md)
+4. [`./type-requirements-cfg-and-unsupported-families.md`](./type-requirements-cfg-and-unsupported-families.md)
+5. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)

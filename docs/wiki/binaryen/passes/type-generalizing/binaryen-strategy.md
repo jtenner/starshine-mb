@@ -1,187 +1,162 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
+  - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
   - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
-  - ./local-flow-type-floor-and-boundaries.md
+  - ./type-requirements-cfg-and-unsupported-families.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
-  - ../type-refining/index.md
+  - ./starshine-port-readiness-and-validation.md
   - ../gufa/index.md
-  - ../gufa-cast-all/index.md
+  - ../type-refining/index.md
 supersedes:
-  - ../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
+  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
 ---
 
 # Binaryen `type-generalizing` strategy
 
-## Upstream source rule
+## Source rule
 
-Use Binaryen `version_129` as the source oracle for this corrected page.
-The core sources are captured in [`../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md).
+Use the 2026-04-27 source correction as the current oracle for this folder:
 
-Most important official files:
+- [`../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md`](../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md)
+- [`../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md`](../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md)
+
+The main official sources are Binaryen `version_129` and current `main`:
 
 - `src/passes/TypeGeneralizing.cpp`
 - `src/passes/pass.cpp`
 - `test/lit/passes/type-generalizing.wast`
-- `src/wasm/wasm-type.h` for the `Type` lattice helpers used by the pass
+
+The 2026-04-24 raw manifest is superseded for mechanics. It is still useful only as audit history for how the dossier got corrected twice.
 
 ## The pass in one sentence
 
-Binaryen `experimental-type-generalizing` is a small hidden/test function pass that retags defaultable expressions to a compatible local-flow type inferred from local-set/local-tee evidence, with a special drop-plus-zero rewrite when the expression being retagged is a `local.get`.
+Binaryen `experimental-type-generalizing` is a hidden, not-yet-sound function pass that runs nested DCE, solves a backward CFG type-requirement problem using local and value-stack requirements plus `ContentOracle` facts, then generalizes non-param reference locals and retags affected `local.get` / `local.tee` expressions with refinalization.
 
-## Biggest correction
+## Visibility and scheduler status
 
-The old dossier said this pass was a closed-world `ContentOracle` consumer over GC operations.
-That is stale for reviewed `version_129`.
+`pass.cpp` registers `experimental-type-generalizing` with `registerTestPass(...)` and describes it as not yet sound. That matters:
 
-The corrected source-backed facts are:
-
-- `pass.cpp` registers **one** hidden/test pass name: `experimental-type-generalizing`.
-- `TypeGeneralizing.cpp` exports **one** constructor: `createTypeGeneralizingPass()`.
-- The owner file has no `ContentOracle`, no `struct.get` / `struct.set` visitors, no `call_ref` visitor, no `ref.cast` visitor, and no pass-specific `ReFinalize` call.
-- No `experimental-type-generalizing-with-optimizing-casts` registration or dedicated lit file was found in the reviewed release.
-
-## Scheduler and visibility fact
-
-Binaryen wires this pass through `registerTestPass(...)`.
-That makes it useful for lit coverage and experiments, but it should not be taught as a default optimizer pass or as a normal public shrink pass.
-
-It is also outside Starshine's current no-DWARF parity path and the saved generated-artifact `-O4z` skipped-slot audit.
+- it is not part of Binaryen's normal public optimization roster;
+- it should not be treated as a stable shrink pass;
+- Starshine should not schedule it by default;
+- future Starshine parity work must expect upstream drift because the pass is explicitly experimental.
 
 ## High-level algorithm
 
-The implementation is compact enough to teach as one loop:
+### 1. Prepare the function
 
-1. Keep a map from local index to the type evidence observed for that local.
-2. Walk function expressions and scan child expression structure.
-3. `local.set` and `local.tee` update the local-index evidence with the type of the value being assigned.
-4. For each candidate expression, ignore unreachable, concrete, and nondefaultable cases.
-5. Compare the expression's current type against the collected local-flow evidence.
-6. Compute a compatible type using Binaryen's subtype and least-upper-bound operations.
-7. If the computed type is safe, retag the expression to that type.
-8. If the expression is a `local.get`, replace it with a sequence that drops the original get and materializes a default/zero value of the target type instead of mutating the get directly.
-9. Clear and rescan the local evidence as the walk crosses barriers or rewrites.
+For each function, Binaryen first runs nested `dce`. The owner source explains the reason: unreachable code can otherwise remain in shapes the CFG analysis does not materialize or handle. This pre-cleanup is part of the strategy.
 
-The result is a local-flow type cleanup, not a body-restructuring pass.
+Then the pass builds a function CFG. If CFG construction fails, the pass skips that function instead of pretending it can solve the requirements.
 
-## What the local evidence means
+### 2. Define the dataflow state
 
-The evidence map is keyed by local index because locals are the point where incompatible expression types tend to force splits or awkward typed control results.
+The backward analysis state records:
 
-`local.set` / `local.tee` are important because they say:
+- required types for locals;
+- required types for the value stack;
+- dependencies between basic blocks and locals so local requirement changes can trigger related block reanalysis.
 
-- this expression value flows into this local,
-- the local-flow type only needs to satisfy the observed assignment shape,
-- a more compatible type may be enough for the surrounding expression.
+This is why the pass is broader than local-set/local-tee evidence collection. It asks what every use requires and propagates those requirements backward.
 
-This is why the pass belongs near locals/type-flow teaching, not near whole-program GC oracle teaching.
+### 3. Seed entry and exit requirements
 
-## Candidate-expression gates
+At function exit, returned values must satisfy the declared result type.
 
-The pass refuses to act on several families:
+At function entry:
 
-- **unreachable** expressions: no useful concrete type cleanup is needed.
-- **concrete** expressions: these are scan barriers in the implementation.
-- **nondefaultable** expression types: the `local.get` fallback may need to create a zero/default value, so nondefaultable targets are unsafe.
-- **cases where the computed type is not a subtype-compatible improvement**: the pass keeps the original expression.
+- params keep their original declared types;
+- non-reference locals keep their original types;
+- reference locals may start from the relevant top heap type, then become constrained by uses.
 
-These gates are correctness constraints, not incidental implementation details.
+### 4. Transfer instruction requirements backward
 
-## The `local.get` special case
+The transfer function walks instructions backward and updates the requirement state. Important families include:
 
-A normal candidate expression can be retagged by changing its `type` field.
-A `local.get` is different: its result type is tied to the local declaration, so directly mutating the expression type would be inconsistent.
+- `local.get`, `local.set`, and `local.tee` for local requirement flow;
+- direct calls and indirect/reference calls for signature requirements;
+- `call_ref`, including bottom-target and signature-supertype behavior;
+- global gets/sets;
+- table gets/sets and table copy/fill/init/grow/size operations;
+- `select`, `drop`, `ref.null`, `ref.is_null`, `ref.as_non_null`, `ref.test`, `ref.cast`, `ref.eq`, `ref.func`, and related ref operations;
+- `struct.new`, `struct.get`, `struct.set`, descriptor operations, and array operations;
+- conversion and reinterpret operations that constrain scalar types.
 
-Binaryen handles that by replacing the expression with a sequence shaped like:
+The pass uses `ContentOracle` where runtime contents matter, so the old “no oracle surface” claim is wrong.
 
-```wat
-(block (result $chosen-type)
-  (drop (local.get $x))
-  (ref.null $chosen-type-or-other-zero))
-```
+### 5. Join and reanalyze to a fixed point
 
-The exact printed zero/default depends on the chosen type, but the invariant is stable:
+When multiple control-flow paths meet, the solver combines type requirements conservatively. If a local requirement changes, dependent blocks may need to run again.
 
-- preserve evaluation of the original `local.get` through `drop`,
-- then produce a default value of the retagged type.
+The key invariant is user-driven safety: a local may only become more general when every observed use can still type-check.
+
+### 6. Rewrite and refinalize
+
+After the analysis stabilizes, Binaryen rewrites non-param local declarations to the generalized types it computed.
+
+It then updates `local.get` and `local.tee` expression result types so they agree with changed local declarations. If those expression types changed, it runs `ReFinalize` on the function.
+
+This replaces the superseded 2026-04-24 story that `local.get` becomes a drop-plus-zero wrapper.
 
 ## Inputs and outputs
 
 Input:
 
-- one function body
-- typed Binaryen expression tree
-- local assignment evidence discovered while walking the tree
+- typed Binaryen functions;
+- Binaryen CFGs;
+- local declarations and expression result types;
+- module-level type information and oracle facts.
 
 Output:
 
-- the same function shape, except some defaultable expression result types may be retagged
-- `local.get` retagging requests become drop-plus-zero sequences
-- no module declarations, signatures, struct fields, call targets, or casts are changed by this pass
+- more-general non-param local declarations where all uses allow it;
+- repaired `local.get` / `local.tee` expression types;
+- refinalized function bodies when expression types changed;
+- no guaranteed body-size shrink and no public-pass stability promise.
 
 ## Correctness constraints
 
 A faithful implementation must preserve at least these constraints:
 
-1. Do not retag concrete or unreachable expressions.
-2. Do not synthesize zero/default values for nondefaultable types.
-3. Do not directly mutate `local.get` to a type inconsistent with its local declaration.
-4. Use subtype and LUB reasoning, not string/name equality.
-5. Reset or rescan local evidence after barriers and rewrites so stale evidence does not leak across unrelated shapes.
-6. Keep the pass function-local; do not invent closed-world module assumptions for this source contract.
+1. Do not generalize params past their declared entry requirements.
+2. Do not generalize scalar locals through the reference-type machinery.
+3. Do not weaken local declarations unless every use admits the chosen type.
+4. Respect call/call_ref signature requirements, including bottom and supertype cases.
+5. Respect global, table, struct, array, ref, and descriptor constraints.
+6. Treat unsupported TODO families as blockers, not as implicit positives.
+7. Run equivalent pre-cleanup or otherwise handle unreachable CFG shapes explicitly.
+8. Repair expression result types and refinalize after local declaration changes.
 
-## Notable edge cases
+## Main unsupported or risky families
 
-- **Local-get fallback:** this is the only source-backed case where a visible expression wrapper is created.
-- **Defaultability:** a type-flow cleanup can become invalid if the chosen type lacks a default value.
-- **Concrete typed expressions:** they stop the broad retagging story even when a human might think a nearby local shape is compatible.
-- **No GC-operation visitors:** `struct.get`, `struct.set`, `call_ref`, and `ref.cast` examples belong to other passes or future sources, not this one.
+The reviewed source has explicit TODO/unreachable surfaces for several families, including EH, tuple, string, continuation, some branch-on and pop forms, and atomic struct/array operations. Those are not wiki omissions; they are part of the upstream hidden/not-yet-sound status.
 
 ## Validation strategy
 
-For Binaryen parity research, validate against:
+For upstream comprehension:
 
-- `test/lit/passes/type-generalizing.wast` for source-backed before/after shapes.
-- `TypeGeneralizing.cpp` for the local evidence and candidate gate rules.
-- `pass.cpp` for the hidden/test registration status.
+- `TypeGeneralizing.cpp` is the owner of the algorithm.
+- `pass.cpp` proves hidden/test and not-yet-sound status.
+- `type-generalizing.wast` is the official behavior catalog.
 
-For any future Starshine port, add local tests that cover:
+For future Starshine implementation:
 
-- expression retagging where local-flow evidence permits it,
-- `local.get` drop-plus-zero materialization,
-- nondefaultable no-ops,
-- concrete/unreachable barriers,
-- registry rejection until the pass becomes active.
+- start with analysis-only tests, not mutation;
+- compare proposed local declarations against Binaryen on the official lit shapes;
+- only add mutation after local declaration rewriting, local-use retagging, refinalization/validation, and unsupported-family skipping are all explicit.
 
-## What a future Starshine port must preserve
+## Relationship to neighboring passes
 
-A faithful Starshine port should preserve at least eight things:
-
-1. local alias versus upstream hidden/test name split
-2. function-local implementation boundary
-3. local-set/local-tee evidence collection
-4. subtype/LUB-based compatible type selection
-5. concrete/unreachable/nondefaultable bailouts
-6. `local.get` drop-plus-zero replacement
-7. absence from active presets until implemented honestly
-8. source-correction warning against the old `ContentOracle` / cast-sibling story
-
-## Most important beginner correction
-
-If someone says:
-
-- “`type-generalizing` narrows GC field accesses and `call_ref` using a closed-world oracle”
-
-that is the stale 0191 interpretation.
-
-A better sentence is:
-
-- “Binaryen `experimental-type-generalizing` is a hidden/test local-flow pass that retags defaultable expressions based on local assignment type evidence.”
+- Compared with `gufa`, `type-generalizing` consumes oracle-style facts but writes local declarations rather than rewriting arbitrary expression contents.
+- Compared with `type-refining`, it generalizes local variables from use requirements rather than tightening struct field declarations.
+- Compared with `signature-refining`, it does not rewrite function signatures; calls are constraints, not the direct output.
+- Compared with `type-merging`, it does not merge heap type declarations.

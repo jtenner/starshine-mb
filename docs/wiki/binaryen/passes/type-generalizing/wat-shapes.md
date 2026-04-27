@@ -1,236 +1,165 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
+  - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
-  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
-  - ../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
-  - ./local-flow-type-floor-and-boundaries.md
+  - ./type-requirements-cfg-and-unsupported-families.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 supersedes:
-  - ../../../raw/research/0191-2026-04-21-type-generalizing-binaryen-research.md
+  - ../../../raw/research/0308-2026-04-24-type-generalizing-source-correction-and-starshine-followup.md
 ---
 
 # `type-generalizing` WAT and IR shape catalog
 
 ## How to read this page
 
-These are beginner-friendly shape sketches for the corrected Binaryen `version_129` pass.
-They show the important transformed or preserved families without pretending to be exact printer output.
+These shapes are sketches of the source-confirmed Binaryen `experimental-type-generalizing` contract. They do not try to reproduce exact printer output. The durable idea is:
 
-The durable point is:
+- uses impose type requirements;
+- the solver propagates requirements backward through a CFG;
+- safe locals can get more-general reference types;
+- `local.get` and `local.tee` expression result types are repaired after local declaration changes;
+- unsupported families are real hazards because upstream marks the pass not yet sound.
 
-- `type-generalizing` is about local-flow type cleanup and defaultable expression retagging,
-- not about closed-world GC field/call/cast rewrites.
-
-## Family 1: ordinary expression type retagging
+## Family 1: unconstrained reference local generalizes toward top
 
 ### Before
 
 ```wat
-(block (result (ref null $broad))
-  ... expression whose local-flow users only need a compatible narrower type ...)
+(func (local $x (ref null $Child))
+  ;; $x is only used where a broader heap type is acceptable
+  ...)
 ```
-
-Local-flow fact:
-
-- local assignment evidence lets Binaryen compute a compatible type using subtype/LUB reasoning.
 
 ### After
 
 ```wat
-(block (result (ref null $compatible))
-  ... same expression, retagged to the compatible type ...)
+(func (local $x anyref)
+  ;; uses still type-check with the generalized declaration
+  ...)
 ```
 
 ### Why it changes
 
-The pass can mutate the expression's visible type when the candidate is defaultable and the computed type is subtype-compatible with the original expression and local-flow uses.
+No use required `$Child` specifically. The backward requirement solver can choose a broader reference type for the non-param local.
 
-## Family 2: `local.get` cannot be retagged directly
+## Family 2: function result constrains the local
 
 ### Before
 
 ```wat
-(local.get $x) ;; declaration type belongs to $x
+(func (result (ref null $Child))
+  (local $x (ref null $Child))
+  (local.get $x))
 ```
-
-Local-flow fact:
-
-- the surrounding expression would be better typed as a compatible defaultable type that is not the local declaration type.
 
 ### After
 
 ```wat
-(block (result $compatible)
-  (drop (local.get $x))
-  ;; default/zero value of $compatible
-  (ref.null $compatible))
+(func (result (ref null $Child))
+  (local $x (ref null $Child))
+  (local.get $x))
+```
+
+### Why it stays
+
+The function exit requires the declared result type. The local feeding that result cannot be generalized past what the return requires.
+
+## Family 3: params stay anchored
+
+### Before
+
+```wat
+(func (param $p (ref null $Child))
+  (drop (local.get $p)))
+```
+
+### After
+
+```wat
+(func (param $p (ref null $Child))
+  (drop (local.get $p)))
+```
+
+### Why it stays
+
+Function parameters are ABI-visible declaration inputs. The pass anchors them to their original types at entry.
+
+## Family 4: `local.set` / `local.get` requirement propagation
+
+### Before
+
+```wat
+(func (local $x (ref null $Child))
+  (local.set $x (ref.null $Child))
+  (drop (local.get $x)))
+```
+
+### After
+
+```wat
+(func (local $x anyref)
+  (local.set $x (ref.null $Child))
+  (drop (local.get $x)))
+```
+
+### Why it may change
+
+The get is dropped, so it may impose only a broad requirement. The set value must still type-check against the generalized local declaration.
+
+## Family 5: `local.tee` result repair
+
+### Before
+
+```wat
+(func (local $x (ref null $Child))
+  (drop (local.tee $x (ref.null $Child))))
+```
+
+### After
+
+```wat
+(func (local $x anyref)
+  (drop (local.tee $x (ref.null $Child))))
 ```
 
 ### Why it changes
 
-A `local.get` result type is tied to the local declaration.
-Binaryen preserves evaluation of the original get through a `drop`, then produces a default/zero value of the chosen type.
+`local.tee` both writes a local and produces a value. When the local declaration changes, Binaryen updates the tee's expression result type and refinalizes if needed.
 
-Use `ref.null` here as a reference-type sketch; the exact zero/default form depends on the chosen Binaryen `Type`.
-
-## Family 3: local-set evidence collection
+## Family 6: direct call constrains argument types
 
 ### Before
 
 ```wat
-(local.set $x
-  (some-value))
+(type $takes-child (func (param (ref null $Child))))
+(func $callee (type $takes-child) ...)
+(func (local $x (ref null $Child))
+  (call $callee (local.get $x)))
 ```
 
 ### After
 
 ```wat
-(local.set $x
-  (some-value))
-```
-
-### Why it usually stays printed the same
-
-`local.set` is usually evidence for nearby retagging, not necessarily the visible rewrite target.
-It records that a value of a certain type flows into local `$x`.
-
-## Family 4: local-tee evidence collection
-
-### Before
-
-```wat
-(local.tee $x
-  (some-value))
-```
-
-### After
-
-```wat
-(local.tee $x
-  (some-value))
-```
-
-### Why it usually stays printed the same
-
-Like `local.set`, `local.tee` contributes type evidence for the local index.
-Its own printed shape may remain unchanged even when that evidence lets the pass retag a surrounding expression.
-
-## Family 5: weak evidence bailout
-
-### Before
-
-```wat
-(block (result (ref null $broad))
-  ... expression ...)
-```
-
-Local-flow fact:
-
-- the observed local evidence does not yield a compatible type that is safe to use.
-
-### After
-
-```wat
-(block (result (ref null $broad))
-  ... expression ...)
+(type $takes-child (func (param (ref null $Child))))
+(func $callee (type $takes-child) ...)
+(func (local $x (ref null $Child))
+  (call $callee (local.get $x)))
 ```
 
 ### Why it stays
 
-The pass is conservative.
-If subtype/LUB reasoning does not produce a safe target type, the original expression stays unchanged.
+The call parameter requires `(ref null $Child)`, so the local feeding it cannot be generalized beyond that requirement.
 
-## Family 6: nondefaultable bailout
-
-### Before
-
-```wat
-(local.get $x) ;; candidate would require a nondefaultable replacement type
-```
-
-### After
-
-```wat
-(local.get $x)
-```
-
-### Why it stays
-
-The `local.get` fallback may need to create a default/zero value.
-If no valid default exists for the chosen type, the pass must not rewrite.
-
-## Family 7: concrete or unreachable barrier
-
-### Before
-
-```wat
-;; concrete typed expression, or an expression already typed unreachable
-...
-```
-
-### After
-
-```wat
-;; unchanged by this pass
-...
-```
-
-### Why it stays
-
-The owner file treats these cases as no-op/barrier families for this pass.
-They are not the target of local-flow type generalization.
-
-## Family 8: `struct.get` is not transformed here
-
-### Before
-
-```wat
-(struct.get $t 0
-  (local.get $obj))
-```
-
-### After
-
-```wat
-(struct.get $t 0
-  (local.get $obj))
-```
-
-### Why it stays
-
-The earlier dossier claimed `struct.get` result narrowing, but the reviewed `TypeGeneralizing.cpp` file has no `struct.get` visitor.
-If a future source adds such behavior, it should be filed as new provenance, not assumed from this pass name.
-
-## Family 9: `struct.set` is not transformed here
-
-### Before
-
-```wat
-(struct.set $t 0
-  (local.get $obj)
-  (local.get $value))
-```
-
-### After
-
-```wat
-(struct.set $t 0
-  (local.get $obj)
-  (local.get $value))
-```
-
-### Why it stays
-
-The corrected pass does not retarget struct field declarations or field operands.
-
-## Family 10: `call_ref` is not transformed here
+## Family 7: `call_ref` is a real constraint surface
 
 ### Before
 
@@ -248,49 +177,126 @@ The corrected pass does not retarget struct field declarations or field operands
   (local.get $target))
 ```
 
-### Why it stays
+### Why it matters
 
-The previous one-signature `call_ref` story is stale for this pass.
-The reviewed owner file has no `call_ref` visitor and no impossible-target-to-`unreachable` rewrite.
+The pass walks function-reference signature requirements for `call_ref`. This is a constraint family, not a direct visible rewrite. The 2026-04-24 claim that `call_ref` was absent is superseded.
 
-## Family 11: `ref.cast` is not transformed here
+## Family 8: global and table requirements
 
 ### Before
 
 ```wat
-(ref.cast (ref $parent)
-  (local.get $x))
+(global.set $g (local.get $x))
+(table.set $t (i32.const 0) (local.get $f))
 ```
 
 ### After
 
 ```wat
-(ref.cast (ref $parent)
-  (local.get $x))
+(global.set $g (local.get $x))
+(table.set $t (i32.const 0) (local.get $f))
+```
+
+### Why it may stay or constrain
+
+The global and table declarations impose requirements on values written to them. Those requirements flow back to locals.
+
+## Family 9: struct field read/write constraints
+
+### Before
+
+```wat
+(struct.get $S 0 (local.get $obj))
+(struct.set $S 0 (local.get $obj) (local.get $value))
+```
+
+### After
+
+```wat
+(struct.get $S 0 (local.get $obj))
+(struct.set $S 0 (local.get $obj) (local.get $value))
+```
+
+### Why it matters
+
+Struct operations usually remain printed the same, but they constrain object and field value requirements. They are part of the source-confirmed pass surface.
+
+## Family 10: array constraints
+
+### Before
+
+```wat
+(array.get $A (local.get $arr) (i32.const 0))
+(array.set $A (local.get $arr) (i32.const 0) (local.get $value))
+```
+
+### After
+
+```wat
+(array.get $A (local.get $arr) (i32.const 0))
+(array.set $A (local.get $arr) (i32.const 0) (local.get $value))
+```
+
+### Why it matters
+
+Array element and aggregate requirements flow backward through locals and stack values. Some array atomic/load/store families are still unsupported hazards.
+
+## Family 11: ref cast/test constraints
+
+### Before
+
+```wat
+(ref.test (ref $Child) (local.get $x))
+(ref.cast (ref $Child) (local.get $y))
+```
+
+### After
+
+```wat
+(ref.test (ref $Child) (local.get $x))
+(ref.cast (ref $Child) (local.get $y))
+```
+
+### Why it matters
+
+These operations constrain operand types. The pass is not primarily a cast insertion/removal pass, but ref operations are part of the requirement model.
+
+## Family 12: unsupported feature bailout
+
+### Before
+
+```wat
+;; EH, tuple, string, continuation, atomic GC, or other source-TODO family
+...
+```
+
+### After
+
+```wat
+;; must be skipped, rejected, or left unchanged by a faithful subset
+...
 ```
 
 ### Why it stays
 
-No optimizing-casts sibling was found in the reviewed `version_129` source.
-This pass does not tighten existing casts and does not insert new casts.
+Upstream explicitly labels the pass not yet sound and has unsupported-family markers. Starshine should not invent optimistic rewrites for those families.
 
 ## Positive versus negative cheat sheet
 
 | Shape | Corrected result |
 | --- | --- |
-| defaultable expression with compatible local-flow evidence | may retag expression type |
-| `local.get` that would need a different compatible type | drop original get, then emit default/zero of chosen type |
-| `local.set` / `local.tee` | evidence source; often printed unchanged |
-| weak subtype/LUB proof | preserved |
-| nondefaultable target type | preserved |
-| concrete or unreachable candidate | preserved/barrier |
-| `struct.get`, `struct.set`, `call_ref`, `ref.cast` | not directly transformed by reviewed `version_129` pass |
+| Non-param ref local used only broadly | may generalize local declaration |
+| Param local | preserved at original declaration type |
+| Local feeding declared function result | constrained by result type |
+| Local feeding direct call | constrained by callee parameter type |
+| Local feeding `call_ref` | constrained by compatible signature requirements |
+| Local feeding global/table/struct/array/ref op | constrained by declaration or operation semantics |
+| `local.get` / `local.tee` after local declaration change | retag result type; refinalize if changed |
+| EH/tuple/string/continuation/atomic TODO families | unsupported hazard; do not treat as positive |
 
 ## What beginners should remember most
 
-If you only keep four shape rules in your head, keep these:
-
-1. The pass is local-flow type cleanup, not a GC oracle.
-2. `local.set` and `local.tee` feed the type evidence.
-3. `local.get` retagging becomes drop-plus-zero.
-4. The old `struct.get` / `call_ref` / cast story is stale for this pass.
+1. The pass generalizes local declarations, not heap type declarations.
+2. Uses constrain definitions through a backward CFG analysis.
+3. `ContentOracle`, `call_ref`, struct, and array surfaces are real.
+4. Upstream says the pass is not yet sound, so future ports need narrow guarded slices.

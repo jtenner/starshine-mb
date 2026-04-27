@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | re-correct `type-generalizing` strategy
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/type-generalizing/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `type-generalizing` because its dossier still carried a stale 2026-04-24 overcorrection.
+- Added `docs/wiki/raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md`, rechecking official Binaryen `version_129` and current-main `TypeGeneralizing.cpp`, `pass.cpp`, and `type-generalizing.wast`; the source confirms the real hidden/not-yet-sound pass is CFG/backward-analysis plus `ContentOracle`/call/ref/GC constraints, not a tiny local-set/local-tee retagging pass.
+- Added `docs/wiki/raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md` and `docs/wiki/binaryen/passes/type-generalizing/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, shape catalog, and Starshine strategy, and marked the old local-flow page superseded in favor of `type-requirements-cfg-and-unsupported-families.md`.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `type-generalizing` from `dossier` to `deep` while keeping it explicitly boundary-only and unimplemented in Starshine today.
+
 ## [2026-04-27] health | refresh `remove-unused` touched-area links
 
 - Ran a focused touched-area hygiene check after adding the `remove-unused` port-readiness bridge.
