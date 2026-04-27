@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] health | refresh `type-finalizing` touched-area links
+
+- Ran a focused touched-area hygiene check after adding the `type-finalizing` port-readiness bridge.
+- Updated the existing Binaryen strategy, implementation/test-map, leaf-boundary, and WAT-shape pages so the 2026-04-27 current-main manifest and [`starshine-port-readiness-and-validation.md`](binaryen/passes/type-finalizing/starshine-port-readiness-and-validation.md) are discoverable from every maintained `type-finalizing` page, not only from the overview and Starshine strategy pages.
+
 ## [2026-04-27] research | deepen `type-finalizing` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/type-finalizing/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `type-finalizing` because its source-correct dossier still lacked the now-standard first-slice / validation bridge.

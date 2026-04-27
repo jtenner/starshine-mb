@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
@@ -12,6 +13,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-types/closed-world-visibility-and-rec-group-rewrite.md
 ---
 
@@ -129,7 +131,7 @@ That makes it very different from neighbors like:
 
 ## Porting rule of thumb
 
-For the current Starshine port map and exact local code surfaces, see [`./starshine-strategy.md`](./starshine-strategy.md).
+For the current Starshine port map, exact local code surfaces, and future validation ladder, see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 A good future-port rule of thumb is:
 
