@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md
+  - ../../../raw/research/0419-2026-04-27-type-refining-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md
   - ../../../raw/research/0303-2026-04-24-type-refining-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -27,6 +29,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./normal-vs-gufa-and-fixups.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../gufa/index.md
   - ../remove-unused-types/index.md
   - ../global-refining/index.md
@@ -37,8 +40,9 @@ related:
 
 # Starshine Strategy For `type-refining`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md).
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-refining-primary-sources.md) and [`../../../raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
+For first-slice sequencing, validation fixtures, and Binaryen oracle lanes, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
 
@@ -53,6 +57,7 @@ The current Starshine strategy is deliberately limited:
 - keep its absence from the canonical open-world no-DWARF path explicit
 - keep the missing dedicated backlog slice explicit
 - document why a future port is module/type-graph work, not a HOT peephole
+- keep the analyzer-first implementation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) visible until a real owner file exists
 
 This is a **status-and-port-planning** page, not an implementation page.
 
@@ -253,6 +258,8 @@ See [`../constant-field-propagation/index.md`](../constant-field-propagation/ind
 
 ## Validation plan for the eventual port
 
+The maintained validation bridge is now [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). Keep the shorter checklist below as a status-page summary and update both pages together when local implementation status changes.
+
 A future implementation should validate in layers:
 
 1. registry behavior
@@ -294,7 +301,7 @@ A future implementation should validate in layers:
 - Should `type-refining` share one type-graph rewrite engine with `remove-unused-types`, `minimize-rec-groups`, `type-merging`, `unsubtyping`, `signature-pruning`, and `signature-refining`?
 - Should the first local implementation support only the normal direct-struct-traffic mode, or should it wait for GUFA/`ContentOracle`-equivalent infrastructure?
 - Should the registry add boundary-only `type-refining-gufa` now for naming honesty, or keep the sibling documented only through the `type-refining` and `gufa` pages until implementation planning starts?
-- Should WAT `struct.set` parsing/lowering be filled before implementation, or should early tests build `@lib.StructSet` fixtures directly?
+- Should WAT `struct.set` parsing/lowering be filled before implementation, or should early tests build `@lib.StructSet` fixtures directly? The current port-readiness bridge treats this as an explicit fixture caveat, not an implementation blocker for analyzer-only work.
 
 Keep those questions explicit until an implementation plan answers them.
 

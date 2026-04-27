@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `type-refining` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/type-refining/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `type-refining` because its source-backed dossier still lacked the newer analyzer-first / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md`, rechecking official Binaryen current-main `TypeRefining.cpp`, `pass.cpp`, and the dedicated `type-refining*` lit files; no teaching-relevant drift was found from the 2026-04-24 closed-world private-struct-field contract.
+- Added `docs/wiki/raw/research/0419-2026-04-27-type-refining-port-readiness.md` and `docs/wiki/binaryen/passes/type-refining/starshine-port-readiness-and-validation.md`; refreshed the overview and Starshine strategy so transformed shapes, upstream strategy, exact local boundary-only code surfaces, no-rewrite analyzer sequencing, narrow closed-world private-struct first mutation, WAT `struct.set` fixture caveat, Binaryen oracle lanes, and the open `type-refining-gufa` registry question are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `type-refining` from `dossier` to `deep` while keeping it explicitly boundary-only and unimplemented in Starshine today.
+
 ## [2026-04-27] research | deepen `optimize-added-constants` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, the pass index and tracker, the existing `docs/wiki/binaryen/passes/optimize-added-constants/` folder, the sibling `optimize-added-constants-propagate` dossier, and `docs/wiki/raw/research/`, then chose removed plain `optimize-added-constants` because it was source-correct but still lacked the now-standard first-slice / validation bridge.

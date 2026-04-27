@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Docs: deepen `type-refining` readiness
+
+- **add a Starshine port-readiness bridge for boundary-only `type-refining`, refresh the dossier/catalog wording around analyzer-first sequencing, narrow closed-world private-struct first mutation, WAT `struct.set` fixture caveat, Binaryen oracle lanes, and the open `type-refining-gufa` registry question, and file the supporting Binaryen current-main source ingest while leaving the pass boundary-only and unimplemented in Starshine** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md`](./docs/wiki/raw/binaryen/2026-04-27-type-refining-port-readiness-primary-sources.md), [`docs/wiki/raw/research/0419-2026-04-27-type-refining-port-readiness.md`](./docs/wiki/raw/research/0419-2026-04-27-type-refining-port-readiness.md), and [`docs/wiki/binaryen/passes/type-refining/`](./docs/wiki/binaryen/passes/type-refining/).
+
 ## 2026-04-27 Build: refresh passes API snapshot
 
 - **refresh the generated passes interface after exposing shared pass helpers and hiding the registry cache internals** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/pkg.generated.mbti`](./src/passes/pkg.generated.mbti).
