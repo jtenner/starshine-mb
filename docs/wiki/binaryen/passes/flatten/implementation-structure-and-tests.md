@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
+  - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
@@ -18,6 +20,7 @@ related:
   - ./flat-ir-contract-and-preludes.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals-notee-nostructure/index.md
   - ../local-cse/index.md
   - ../rereloop/index.md
@@ -46,7 +49,7 @@ Binaryen implements `flatten` in `src/passes/Flatten.cpp` as a function-parallel
 | Binaryen `src/ir/properties.h` | Already-flat and control-flow tests | Supplies the constant-expression and control-flow-structure decisions that shape prelude migration. |
 | Binaryen `src/ir/manipulation.h` | Expression copy helper surface | Supplies expression copying used by tricky `br_if` flowing-out versus branch-target temp cases. |
 
-Primary current-main URLs are captured in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md). The tagged `version_129` provenance remains [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md).
+Primary current-main URLs are captured in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md) and rechecked for port-readiness in [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md). The tagged `version_129` provenance remains [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md).
 
 ## Binaryen implementation structure
 
@@ -157,7 +160,7 @@ A future implementation should start with reduced shape tests before broad artif
 8. EH nested-pop repair;
 9. downstream cluster tests with `simplify-locals-notee-nostructure`, `local-cse`, `rereloop`, and `i64-to-i32-lowering`.
 
-After those are green, use the pass workflow from `AGENTS.md`: compare direct `--pass flatten` behavior against Binaryen where supported, then replay the saved `-O4z` slot and nested aggressive reruns.
+After those are green, use the pass workflow from `AGENTS.md`: compare direct `--pass flatten` behavior against Binaryen where supported, then replay the saved `-O4z` slot and nested aggressive reruns. The more detailed first-slice plan and removal-from-registry gates are now in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Non-goals to keep explicit
 
@@ -174,6 +177,8 @@ The source-backed contract is narrower and more structural: enforce Flat IR by s
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md)
+- [`../../../raw/research/0422-2026-04-27-flatten-port-readiness.md`](../../../raw/research/0422-2026-04-27-flatten-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md)
 - [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md)
 - [`../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md`](../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md)

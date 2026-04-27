@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
+  - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
@@ -23,6 +25,7 @@ related:
   - ./flat-ir-contract-and-preludes.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals-notee-nostructure/index.md
   - ../local-cse/index.md
   - ../tracker.md
@@ -44,8 +47,8 @@ related:
 
 ## Why it matters
 
-- The dossier already explained the upstream Binaryen contract, but it still lacked the now-standard owner-file / helper / lit-test / local-code map page that neighboring refreshed folders provide.
-- The 2026-04-25 current-main recheck found no teaching-relevant drift from the tagged `version_129` contract, so this run adds an implementation/test-map bridge rather than rewriting the strategy as a correction.
+- The dossier already explained the upstream Binaryen contract and later gained the now-standard owner-file / helper / lit-test / local-code map page that neighboring refreshed folders provide.
+- The 2026-04-25 and 2026-04-27 current-main rechecks found no teaching-relevant drift from the tagged `version_129` contract, so the latest work adds an implementation-readiness and validation bridge rather than rewriting the strategy as a correction.
 - The saved generated-artifact `-O4z` audit still records `flatten` as a real skipped top-level upstream slot:
   - slot `9`
 - The saved Binaryen debug log still shows it is bigger than a one-off top-level detail:
@@ -117,6 +120,8 @@ That is much closer to the real pass than “flatten removes nesting.”
   Beginner-friendly before/after shape catalog for nested arithmetic, value-carrying `block` / `if` / `loop` / `try`, tee removal, `br_if` / switch value carriers, preserved simple-child families, and hard bailout shapes.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Exact current Starshine status/port map for `flatten`: removed-name registry tracking, preserved `--flatten` CLI spelling, Batch 2 planning surfaces, the still-missing active backlog slice, and the downstream dossier cluster a future local port would need to serve.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Future implementation-readiness bridge: analyzer-first Flat IR classification, narrow first mutating slice, tee and branch-payload follow-ups, EH and unsupported-family gates, downstream cluster validation, and the criteria for moving `flatten` out of the removed-name registry.
 
 ## Current maintenance rule
 
@@ -129,6 +134,8 @@ That is much closer to the real pass than “flatten removes nesting.”
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md)
+- [`../../../raw/research/0422-2026-04-27-flatten-port-readiness.md`](../../../raw/research/0422-2026-04-27-flatten-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md)
 - [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md)
 - [`../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md`](../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md)
@@ -143,5 +150,6 @@ That is much closer to the real pass than “flatten removes nesting.”
 - [`../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json`](../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json)
 - [`../../../../../.artifacts/o4z-wasm-opt-debug.log`](../../../../../.artifacts/o4z-wasm-opt-debug.log)
 - Official Binaryen sources and release surfaces are captured immutably in:
+  - [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md)
   - [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md)
   - [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md)

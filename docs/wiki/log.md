@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `flatten` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/flatten/` folder, and `docs/wiki/raw/research/`, then chose removed `flatten` because it had source-correct overview/strategy/shape/status coverage but still lacked the standard first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`, rechecking official Binaryen current-main `Flatten.cpp`, `flat.h`, `pass.cpp`, `passes.h`, and the direct `flatten*` lit surfaces; no teaching-relevant drift was found from the 2026-04-25 contract.
+- Added `docs/wiki/raw/research/0422-2026-04-27-flatten-port-readiness.md` and `docs/wiki/binaryen/passes/flatten/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, Flat IR/preludes guide, WAT-shape catalog, and Starshine strategy so analyzer-first Flat IR classification, narrow first mutating slices, tee/branch/EH follow-ups, unsupported-family policy, downstream validation lanes, exact removed-registry / CLI-spelling / dispatcher-gap surfaces, and removal-from-removed-registry gates are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; kept `flatten` classified as removed and deep while making the future validation ladder explicit.
+
 ## [2026-04-27] research | re-correct `type-generalizing` strategy
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/type-generalizing/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `type-generalizing` because its dossier still carried a stale 2026-04-24 overcorrection.

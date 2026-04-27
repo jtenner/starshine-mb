@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
+  - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
@@ -14,6 +16,7 @@ related:
   - ./flat-ir-contract-and-preludes.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals-notee-nostructure/index.md
   - ../local-cse/index.md
 ---
@@ -43,6 +46,7 @@ Use this page together with the tagged raw primary-source manifest in [`../../..
   - the formal Flat IR rule surface in `flat.h`
   - the dedicated `flatten`, `flatten_all-features`, and `flatten-eh-legacy` lit files
 - As of `2026-04-25`, a focused current-main owner/test-map recheck still found no teaching-relevant drift from the `version_129` contract described in this dossier. The useful new detail is the proof-surface split now captured in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md): `flatten.wast` is a tiny smoke file, `flatten_all-features.wast` is the broad behavior proof, and `flatten-eh-legacy.wast` is the EH nested-pop proof surface.
+- As of `2026-04-27`, a port-readiness recheck in [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md) again found no teaching-relevant current-main drift. The new local guidance is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): begin with a no-rewrite Flat IR classifier, then add narrow value-spill/control-result rewrites before tees, branch payloads, EH repair, and unsupported-family policy.
 
 Primary source URLs:
 
@@ -475,6 +479,7 @@ A future Starshine port should preserve all of the following:
 - aggressive-only scheduler placement before `simplify-locals-notee-nostructure` and `local-cse`
 - an explicit documented policy for unsupported `BrOn*` / `TryTable`
 - explicit non-null test coverage for both currently working and still-open families
+- a Starshine validation ladder like [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), so the port proves the Flat IR classifier before claiming broad parity
 
 ## Bottom line
 

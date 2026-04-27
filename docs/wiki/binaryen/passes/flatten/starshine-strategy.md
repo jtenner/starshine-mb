@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
+  - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
@@ -24,6 +26,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flat-ir-contract-and-preludes.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals-notee-nostructure/index.md
   - ../local-cse/index.md
   - ../rereloop/index.md
@@ -34,7 +37,7 @@ related:
 
 # Starshine Strategy For `flatten`
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md), the 2026-04-25 current-main owner/test-map bridge in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md), and the local owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Use this page together with the 2026-04-27 port-readiness source capture in [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md), the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md), the 2026-04-25 current-main owner/test-map bridge in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md), and the local owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -51,7 +54,7 @@ The current local strategy is registry tracking plus batch planning:
 - keep the downstream dossier cluster honest about which later passes depend on a flattened world
 - record explicitly that the active backlog still lacks a dedicated `flatten` slice today
 
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+So this page is intentionally a **status-and-port-map** page rather than a fake implementation page. For the recommended implementation slices and validation gates, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Exact local code and doc map today
 
@@ -219,24 +222,15 @@ So the current repo status is best summarized as:
 
 ## Validation plan for the eventual port
 
-The current docs imply the right validation ladder.
-A future real implementation should validate in this order:
+The detailed validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
-1. reduced structural tests for the core flatness contract
-   - simple-child preservation
-   - value-carrying `block` / `if` / `loop` / `try` rewrites
-   - `local.tee` elimination
-   - carried `br_if` / `br_table` payload routing
-2. negative and boundary tests
-   - unsupported `BrOn*` / `TryTable` policy
-   - selective non-null families
-   - EH nested-pop repair
-3. cluster interaction tests
-   - `flatten -> simplify-locals-notee-nostructure -> local-cse`
-   - `flatten -> rereloop`
-   - `flatten -> i64-to-i32-lowering`
-4. artifact and oracle comparison
-   - once the active backlog grows a real `flatten` slice and the exact local slot becomes executable
+The short version is:
+
+1. prove a no-rewrite Flat IR classifier first;
+2. land simple spill, function-body return wrapping, and value-carrying `block` / `if` rewrites before broader families;
+3. add `local.tee`, `br`, `br_if`, and `br_table` payload channels with explicit two-temp `br_if` mismatch coverage;
+4. gate parity on legacy `try` / EH pop repair and an explicit `BrOn*` / `TryTable` policy;
+5. only then run downstream cluster lanes such as `flatten -> simplify-locals-notee-nostructure -> local-cse`, `flatten -> rereloop`, and `flatten -> i64-to-i32-lowering`.
 
 That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the real downstream contracts already documented in this repo.
 

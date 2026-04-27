@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
+  - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
@@ -14,13 +16,14 @@ related:
   - ./implementation-structure-and-tests.md
   - ./flat-ir-contract-and-preludes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `flatten` WAT shapes
 
 Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-flatten-primary-sources.md`](../../../raw/binaryen/2026-04-23-flatten-primary-sources.md), the current-main owner/test-map bridge in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md), and the proof-surface map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
-This page is a beginner-friendly shape catalog for the main `flatten` rewrite families. The broad direct upstream proof surface is `flatten_all-features.wast`; `flatten.wast` is only a small smoke file, and `flatten-eh-legacy.wast` carries the EH-specific proof lane.
+This page is a beginner-friendly shape catalog for the main `flatten` rewrite families. The broad direct upstream proof surface is `flatten_all-features.wast`; `flatten.wast` is only a small smoke file, and `flatten-eh-legacy.wast` carries the EH-specific proof lane. For the order in which Starshine should implement and validate these shapes, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The key question to ask in every case is:
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md
+  - ../../../raw/research/0422-2026-04-27-flatten-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-23-flatten-primary-sources.md
   - ../../../raw/research/0360-2026-04-25-flatten-current-main-and-test-map.md
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `flatten`: Flat IR contract and preludes
@@ -29,9 +32,9 @@ The real pass is defined by two things together:
 - the exact Flat IR contract in `src/ir/flat.h`
 - the exact `preludes` movement algorithm in `src/passes/Flatten.cpp`
 
-The 2026-04-25 current-main recheck in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md) found no teaching-relevant drift in those two surfaces from the tagged `version_129` dossier.
+The 2026-04-25 current-main recheck in [`../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md`](../../../raw/binaryen/2026-04-25-flatten-current-main-implementation-test-map.md) and the 2026-04-27 port-readiness recheck in [`../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-flatten-port-readiness-primary-sources.md) found no teaching-relevant drift in those two surfaces from the tagged `version_129` dossier.
 
-This page focuses on those two pieces.
+This page focuses on those two pieces. The local analyzer-first plan for proving this contract in Starshine is tracked separately in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The formal Flat IR contract
 
