@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
+  - ../../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -23,6 +25,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./leaf-types-public-boundaries-and-sibling-split.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../type-un-finalizing/index.md
   - ../remove-unused-types/index.md
   - ../type-merging/index.md
@@ -75,7 +78,7 @@ A faithful Starshine port should therefore be a module pass that rewrites type d
 
 ## Required future implementation shape
 
-A future implementation needs at least these pieces:
+For a step-by-step validation ladder, read [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). A future implementation needs at least these pieces:
 
 1. an owner file such as `src/passes/type_finalizing.mbt` or a shared `type_finality.mbt` sibling engine;
 2. a module-pass registry entry in `src/passes/optimize.mbt` instead of a boundary-only entry;
@@ -133,6 +136,8 @@ For the full source-backed chain, read in this order:
 
 1. [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md)
 2. [`../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md)
-3. [`./binaryen-strategy.md`](./binaryen-strategy.md)
-4. [`./leaf-types-public-boundaries-and-sibling-split.md`](./leaf-types-public-boundaries-and-sibling-split.md)
-5. [`./wat-shapes.md`](./wat-shapes.md)
+3. [`../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md)
+4. [`./binaryen-strategy.md`](./binaryen-strategy.md)
+5. [`./leaf-types-public-boundaries-and-sibling-split.md`](./leaf-types-public-boundaries-and-sibling-split.md)
+6. [`./wat-shapes.md`](./wat-shapes.md)
+7. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `type-finalizing` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/type-finalizing/` folder, and `docs/wiki/raw/research/`, then chose boundary-only `type-finalizing` because its source-correct dossier still lacked the now-standard first-slice / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md`, rechecking official Binaryen current-main `TypeFinalizing.cpp`, `pass.cpp`, and `type-finalizing.wast` plus exact local Starshine registry, type model, WAT parser/lowerer/printer, validator, and binary roundtrip surfaces; no teaching-relevant upstream drift was found from the 2026-04-24 contract.
+- Added `docs/wiki/raw/research/0426-2026-04-27-type-finalizing-port-readiness.md` and `docs/wiki/binaryen/passes/type-finalizing/starshine-port-readiness-and-validation.md`; refreshed the overview and Starshine strategy so transformed type-section shapes, upstream strategy, exact local boundary-only behavior, safe first slices, private-type visibility question, Binaryen oracle lanes, and sibling spelling split are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `type-finalizing` from `dossier` to `deep` while keeping it explicitly boundary-only and unimplemented in Starshine today.
+
 ## [2026-04-27] research | deepen `duplicate-function-elimination` validation bridge
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/duplicate-function-elimination/` folder, and `docs/wiki/raw/research/`, then chose active module pass `duplicate-function-elimination` because its core dossier was source-correct but still lacked a single beginner-to-advanced scheduler/validation bridge.

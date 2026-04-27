@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md
+  - ../../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md
   - ../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md
@@ -24,6 +26,7 @@ related:
   - ./leaf-types-public-boundaries-and-sibling-split.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-types/index.md
   - ../type-merging/index.md
   - ../unsubtyping/index.md
@@ -52,7 +55,7 @@ So this folder is another explicit, source-backed upstream-only registry expansi
 - The local boundary-only registry still names `type-finalizing`, but before this thread there was no dedicated living folder explaining what the pass actually does.
 - The pass sits directly beside already-documented GC/type neighbors like `remove-unused-types`, `type-merging`, and `unsubtyping`.
 - It is easy to misread from the name alone as a broad type optimizer.
-- The folder now has an immutable 2026-04-24 primary-source manifest and a dedicated Starshine status/port-strategy page.
+- The folder now has immutable 2026-04-24 and 2026-04-27 primary-source manifests, a dedicated Starshine status/port-strategy page, and a first-slice validation bridge.
 - The real `version_129` contract is much smaller and more specific:
   - rewrite only **private** heap types
   - only finalize **leaf** private types
@@ -101,6 +104,8 @@ So this pass is best taught as:
   Beginner-friendly module/WAT shape catalog for the main positive, preserved, and bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future-port map, with exact local registry, request-rejection, type-model, WAT, validator, and binary-code locations.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge for a future Starshine module pass: local surfaces, safe first slices, shape-to-validation checklist, Binaryen oracle lanes, and open design questions.
 
 ## Current maintenance rule
 
@@ -117,6 +122,8 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-finalizing-port-readiness-primary-sources.md)
+- [`../../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md`](../../../raw/research/0426-2026-04-27-type-finalizing-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-finalizing-primary-sources.md)
 - [`../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0310-2026-04-24-type-finalizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md`](../../../raw/research/0192-2026-04-21-type-finalizing-binaryen-research.md)
