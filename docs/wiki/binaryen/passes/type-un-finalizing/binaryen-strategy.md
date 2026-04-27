@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md
+  - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
   - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./private-boundaries-sibling-split-and-no-leaf-rule.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../type-finalizing/index.md
   - ../remove-unused-types/index.md
 ---
@@ -20,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the source oracle for this pass, anchored by the committed raw manifest [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md). The older 0193 research note remains historical background, but new summaries should cite the raw manifest and this living page first.
+Use Binaryen `version_129` as the source oracle for this pass, anchored by the committed raw manifest [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md). The 2026-04-27 current-main port-readiness manifest [`../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md) found no teaching-relevant owner/registration/lit drift and should be used for future Starshine implementation planning. The older 0193 research note remains historical background, but new summaries should cite the raw manifests and this living page first.
 
 The core sources are:
 
@@ -275,7 +278,7 @@ not as a complicated optimizer.
 
 ## Starshine status bridge
 
-Starshine currently preserves the local spelling `type-un-finalizing` only as a boundary-only registry name. It rejects direct requests before hot/module dispatch, has no owner file, and does not schedule the pass in `optimize` or `shrink` presets. The exact local follow-along map is [`./starshine-strategy.md`](./starshine-strategy.md).
+Starshine currently preserves the local spelling `type-un-finalizing` only as a boundary-only registry name. It rejects direct requests before hot/module dispatch, has no owner file, and does not schedule the pass in `optimize` or `shrink` presets. The exact local follow-along map is [`./starshine-strategy.md`](./starshine-strategy.md), and the future implementation / validation ladder is [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## What a future Starshine port must preserve
 

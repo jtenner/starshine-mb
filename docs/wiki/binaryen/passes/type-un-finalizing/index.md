@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md
+  - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
   - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
@@ -19,6 +21,7 @@ related:
   - ./private-boundaries-sibling-split-and-no-leaf-rule.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../type-finalizing/index.md
   - ../remove-unused-types/index.md
   - ../type-merging/index.md
@@ -35,7 +38,7 @@ related:
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-pass audit.
 - `agent-todo.md` currently has **no dedicated `type-un-finalizing` slice**.
 
-So this folder is another explicit, source-backed upstream-only registry expansion. As of the 2026-04-24 refresh, it is anchored by an immutable raw primary-source manifest and a dedicated Starshine status / future-port map rather than only the older 0193 research note.
+So this folder is another explicit, source-backed upstream-only registry expansion. As of the 2026-04-27 refresh, it is anchored by immutable raw primary-source manifests, a dedicated Starshine status / future-port map, and a port-readiness / validation bridge rather than only the older 0193 research note.
 
 ## Why this pass matters
 
@@ -92,6 +95,8 @@ So this pass is best taught as:
   Beginner-friendly module/WAT shape catalog for the main positive, preserved, and bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future-port map: local boundary-only registry entry, active request rejection, no owner file, no preset role, no backlog slice, and the exact type-section / parser / validator / binary surfaces a future port must reuse.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge for a future Starshine port: current boundary-only invariants, local type/WAT/validator/binary surfaces, first safe slices, shape-to-validation checklist, Binaryen oracle lanes, and open private-type / naming design questions.
 
 ## Current maintenance rule
 
@@ -109,6 +114,8 @@ So this pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md)
+- [`../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md`](../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md)
 - [`../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md`](../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md)

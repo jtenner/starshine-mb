@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md
+  - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
   - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -22,6 +24,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./private-boundaries-sibling-split-and-no-leaf-rule.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../type-finalizing/index.md
   - ../remove-unused-types/index.md
   - ../type-merging/index.md
@@ -108,7 +111,9 @@ Because Starshine has no implementation, current validation is status validation
 
 - `type-un-finalizing` must remain rejected as boundary-only when requested directly.
 - It must not appear in the `optimize` or `shrink` preset expansion.
-- Wiki pages should cite the 2026-04-24 raw manifest and this status page instead of only the older 0193 research note.
+- Wiki pages should cite the 2026-04-24 raw manifest, the 2026-04-27 port-readiness manifest, this status page, and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) instead of only the older 0193 research note.
+
+For a future implementation's first-slice ordering, shape-to-validation checklist, and Binaryen oracle lanes, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 If a future port lands, use the repo's standard signoff:
 
@@ -132,8 +137,11 @@ If a future port lands, use the repo's standard signoff:
 
 For the full source-backed chain, read in this order:
 
-1. [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md)
-2. [`../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md)
-3. [`./binaryen-strategy.md`](./binaryen-strategy.md)
-4. [`./private-boundaries-sibling-split-and-no-leaf-rule.md`](./private-boundaries-sibling-split-and-no-leaf-rule.md)
-5. [`./wat-shapes.md`](./wat-shapes.md)
+1. [`../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md)
+2. [`../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md`](../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md)
+3. [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md)
+4. [`../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md`](../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md)
+5. [`./binaryen-strategy.md`](./binaryen-strategy.md)
+6. [`./private-boundaries-sibling-split-and-no-leaf-rule.md`](./private-boundaries-sibling-split-and-no-leaf-rule.md)
+7. [`./wat-shapes.md`](./wat-shapes.md)
+8. [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)

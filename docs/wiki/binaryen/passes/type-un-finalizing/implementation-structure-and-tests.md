@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md
+  - ../../../raw/research/0427-2026-04-27-type-un-finalizing-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md
   - ../../../raw/research/0314-2026-04-24-type-un-finalizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0193-2026-04-21-type-un-finalizing-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./private-boundaries-sibling-split-and-no-leaf-rule.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../type-finalizing/implementation-structure-and-tests.md
   - ../remove-unused-types/implementation-structure-and-tests.md
 ---
@@ -20,7 +23,7 @@ related:
 
 ## Main upstream files
 
-Primary online source provenance is captured in [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md). The older 0193 research note is still useful historical context, but this page now treats the raw manifest as the source anchor.
+Primary online source provenance is captured in [`../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-un-finalizing-primary-sources.md), with a 2026-04-27 current-main implementation-readiness recheck in [`../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-type-un-finalizing-port-readiness-primary-sources.md). The older 0193 research note is still useful historical context, but this page now treats the raw manifests as the source anchors.
 
 | File | Kind | Why it matters |
 | --- | --- | --- |
@@ -176,7 +179,7 @@ It captures almost every real rule relevant here:
 
 ## Starshine local structure note
 
-Current Starshine has no matching owner file or tests for this sibling. The local structure readers should inspect today is [`./starshine-strategy.md`](./starshine-strategy.md): `src/passes/optimize.mbt` keeps `type-un-finalizing` boundary-only and rejects active requests, while the future implementation would need type-section, WAT, validator, and binary roundtrip support.
+Current Starshine has no matching owner file or tests for this sibling. The local structure readers should inspect today is [`./starshine-strategy.md`](./starshine-strategy.md): `src/passes/optimize.mbt` keeps `type-un-finalizing` boundary-only and rejects active requests, while the future implementation would need type-section, WAT, validator, and binary roundtrip support. For the recommended first slices and validation lanes, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Source URLs
 
