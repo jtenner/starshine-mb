@@ -51,6 +51,19 @@ test "pass_splice_region and pass_delete_detached_nodes mark mutation" {
 }
 
 ///|
+test "pass_compute_label_used marks branch and br_table targets" {
+  let func = pass_test_lift_first_func(
+    "(module (func (param i32) block local.get 0 br_table 0 0 end))",
+  )
+  let labels = pass_compute_label_used(func)
+  let root_block = @ir.hot_root_get(func, 0)
+  let label_id = @ir.hot_control_node_label(func, root_block)
+
+  assert_true(label_id >= 0)
+  assert_true(labels[label_id])
+}
+
+///|
 test "pass_test helpers run public pipeline code" {
   let optimized = match
     pass_test_run_pipeline("(module (func (result i32) nop i32.const 9))", [

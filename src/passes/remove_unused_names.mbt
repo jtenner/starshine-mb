@@ -40,66 +40,13 @@ fn remove_unused_names_same_control_block_type(
 }
 
 ///|
-fn remove_unused_names_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
-  let label_used = @bitset.BitSet::new(func.labels.length())
-  let mark_label = fn(label_id : Int) {
-    if label_id >= 0 && label_id < label_used.length() {
-      label_used[label_id] = true
-    }
-  }
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    let node = @ir.hot_node_get(func, node_id)
-    match node.op {
-      @ir.HotOp::Br
-      | @ir.HotOp::BrIf
-      | @ir.HotOp::BrOnNull
-      | @ir.HotOp::BrOnNonNull
-      | @ir.HotOp::BrOnCast
-      | @ir.HotOp::BrOnCastFail
-      | @ir.HotOp::Delegate => mark_label(node.imm0)
-      @ir.HotOp::BrTable => {
-        mark_label(@ir.hot_branch_table_default_target(func, node.imm0))
-        for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
-          mark_label(label_id)
-        }
-      }
-      @ir.HotOp::TryTable => {
-        let info = @ir.hot_catch_info_get(func, node.imm1)
-        for catch_ in info.catches {
-          let label_id = match catch_ {
-            @ir.HotCatchArm::CatchArm(_, label_id)
-            | @ir.HotCatchArm::CatchRefArm(_, label_id)
-            | @ir.HotCatchArm::CatchAllArm(label_id)
-            | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
-          }
-          mark_label(label_id)
-        }
-      }
-      _ => ()
-    }
-  }
-  label_used
-}
-
-///|
-fn remove_unused_names_label_is_used(
-  label_id : Int,
-  label_used : @bitset.BitSet,
-) -> Bool {
-  label_id >= 0 && label_id < label_used.length() && label_used[label_id]
-}
-
-///|
 fn remove_unused_names_any_removed_label_used(
   func : @ir.HotFunc,
   removed_ids : Array[Int],
   label_used : @bitset.BitSet,
 ) -> Bool {
   for removed_id in removed_ids {
-    if remove_unused_names_label_is_used(
+    if pass_label_is_used(
         @ir.hot_control_node_label(func, removed_id),
         label_used,
       ) {
@@ -337,7 +284,7 @@ fn remove_unused_names_visit_control_node(
     }
     @ir.HotOp::Loop => {
       let label_id = @ir.hot_control_node_label(func, node_id)
-      if remove_unused_names_label_is_used(label_id, label_used) {
+      if pass_label_is_used(label_id, label_used) {
         return changed
       }
       remove_unused_names_demote_loop(func, node_id)
@@ -355,7 +302,7 @@ fn remove_unused_names_run(
   if !remove_unused_names_has_candidate(func) {
     return HotPassResult::unchanged()
   }
-  let label_used = remove_unused_names_compute_label_used(func)
+  let label_used = pass_compute_label_used(func)
   let removed_ids : Array[Int] = []
   let peeled_roots : Array[Int] = []
   if !remove_unused_names_visit_region(

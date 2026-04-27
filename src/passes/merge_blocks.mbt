@@ -31,59 +31,6 @@ fn merge_blocks_has_candidate(func : @ir.HotFunc) -> Bool {
 }
 
 ///|
-fn merge_blocks_compute_label_used(func : @ir.HotFunc) -> @bitset.BitSet {
-  let label_used = @bitset.BitSet::new(func.labels.length())
-  let mark_label = fn(label_id : Int) {
-    if label_id >= 0 && label_id < label_used.length() {
-      label_used[label_id] = true
-    }
-  }
-  for node_id = 0; node_id < @ir.hot_node_count(func); node_id = node_id + 1 {
-    if !@ir.hot_node_is_live(func, node_id) {
-      continue
-    }
-    let node = @ir.hot_node_get(func, node_id)
-    match node.op {
-      @ir.HotOp::Br
-      | @ir.HotOp::BrIf
-      | @ir.HotOp::BrOnNull
-      | @ir.HotOp::BrOnNonNull
-      | @ir.HotOp::BrOnCast
-      | @ir.HotOp::BrOnCastFail
-      | @ir.HotOp::Delegate => mark_label(node.imm0)
-      @ir.HotOp::BrTable => {
-        mark_label(@ir.hot_branch_table_default_target(func, node.imm0))
-        for label_id in @ir.hot_branch_table_targets(func, node.imm0) {
-          mark_label(label_id)
-        }
-      }
-      @ir.HotOp::TryTable => {
-        let info = @ir.hot_catch_info_get(func, node.imm1)
-        for catch_ in info.catches {
-          let label_id = match catch_ {
-            @ir.HotCatchArm::CatchArm(_, label_id)
-            | @ir.HotCatchArm::CatchRefArm(_, label_id)
-            | @ir.HotCatchArm::CatchAllArm(label_id)
-            | @ir.HotCatchArm::CatchAllRefArm(label_id) => label_id
-          }
-          mark_label(label_id)
-        }
-      }
-      _ => ()
-    }
-  }
-  label_used
-}
-
-///|
-fn merge_blocks_label_is_used(
-  label_id : Int,
-  label_used : @bitset.BitSet,
-) -> Bool {
-  label_id >= 0 && label_id < label_used.length() && label_used[label_id]
-}
-
-///|
 fn merge_blocks_collect_region_roots(
   func : @ir.HotFunc,
   region_ref : @ir.HotRegionRef,
@@ -305,7 +252,7 @@ fn merge_blocks_flatten_region_root_block(
     _ => return false
   }
   let label_id = @ir.hot_control_node_label(func, block_id)
-  if merge_blocks_label_is_used(label_id, label_used) {
+  if pass_label_is_used(label_id, label_used) {
     return false
   }
   let param_count = merge_blocks_block_param_count(func, block_id, module_ctx)
@@ -370,7 +317,7 @@ fn merge_blocks_run(ctx : HotPassContext, func : @ir.HotFunc) -> HotPassResult {
   if !merge_blocks_has_candidate(func) {
     return HotPassResult::unchanged()
   }
-  let label_used = merge_blocks_compute_label_used(func)
+  let label_used = pass_compute_label_used(func)
   let use_def = @ir.use_def_build_node_uses(func)
   let flattened_roots : Array[Int] = []
   if !merge_blocks_visit_region(
