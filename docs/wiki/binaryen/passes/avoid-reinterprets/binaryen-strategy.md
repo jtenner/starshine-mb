@@ -46,18 +46,18 @@ That means the best mental model is:
 
 `src/passes/pass.cpp` registers `avoid-reinterprets` as a normal public pass.
 
-The local repo makes three scheduler facts explicit:
+The local repo makes these scheduler facts explicit:
 
-- it remains removed in [`src/passes/optimize.mbt#L144-L150`](../../../../../src/passes/optimize.mbt#L144-L150)
-- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43) still lists it as removed-until-hot-implementation work
+- it is now an active Starshine module pass for direct full-width load flips in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43) is now stale for this pass because it listed the name as removed-until-hot-implementation work
 - it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
-- [`./starshine-strategy.md`](./starshine-strategy.md) records the local request guard, missing backlog slice, and likely HOT-IR analysis questions
-- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) records the recommended future slice order: direct full-width `reinterpret(load)` flips first, indirect local-chain helper-local rewrites second
+- [`./starshine-strategy.md`](./starshine-strategy.md) records the active-partial local status and remaining indirect-analysis question
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) records the landed direct full-width `reinterpret(load)` slice and future indirect local-chain helper-local work
 
 So the scheduler truth is:
 
 - real public pass: yes
-- current local active pass: no
+- current local active pass: partial direct-load slice
 - default no-DWARF `-O` / `-Os` pass: no
 - explicit tracker-expansion dossier target: yes
 

@@ -33,8 +33,8 @@ Read every example below as:
 - what Binaryen directly preserves,
 - and what a faithful port must not overgeneralize.
 
-For current local status, see [`./starshine-strategy.md`](./starshine-strategy.md): Starshine does not implement these shapes yet and still rejects `avoid-reinterprets` as a removed registry entry.
-For a future implementation order, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): direct full-width load flips are the safe first slice; local-get helper-local rewrites need the single-load provenance proof first.
+For current local status, see [`./starshine-strategy.md`](./starshine-strategy.md): Starshine now implements the direct full-width load-flip shapes and still leaves local-get helper-local rewrites to future work.
+For implementation order, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): direct full-width load flips are the landed first slice; local-get helper-local rewrites need the single-load provenance proof first.
 
 ## Shape 1: direct full-width load flip
 

@@ -8669,10 +8669,13 @@ fn run_hot_pipeline_apply_module_pass(
     "pass:\{entry.name}",
   )
   let next = match entry.name {
+    "avoid-reinterprets" => avoid_reinterprets_run_module_pass(mod_)
     "untee" => untee_run_module_pass(mod_)
     "duplicate-function-elimination" =>
       dfe_run_module_pass_with_perf(mod_, options.perf)
     "remove-unused-module-elements" => rume_run_module_pass(mod_)
+    "remove-unused-nonfunction-module-elements" =>
+      rume_run_nonfunction_module_pass(mod_)
     "memory-packing" => memory_packing_run_module_pass(mod_)
     "once-reduction" => once_reduction_run_module_pass(mod_)
     "global-refining" => global_refining_run_module_pass(mod_)

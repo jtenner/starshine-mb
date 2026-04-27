@@ -7,8 +7,10 @@ sources:
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
   - ../../../raw/research/0281-2026-04-24-avoid-reinterprets-primary-sources-and-starshine-followup.md
+  - ../../../../../src/passes/avoid_reinterprets.mbt
+  - ../../../../../src/passes/avoid_reinterprets_test.mbt
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/registry_test.mbt
+  - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/ir/hot_builders.mbt
   - ../../../../../src/ir/hot_mutate.mbt
   - ../../../../../src/ir/use_def.mbt
@@ -32,143 +34,68 @@ related:
 # Starshine Strategy For `avoid-reinterprets`
 
 Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md) and [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main uncertainty a future parity port must resolve.
-For the first-slice plan and reduced validation ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The goal here is not to re-explain upstream Binaryen, but to show the current Starshine status, local code surfaces, and remaining parity boundary.
 
-## The honest current status
+## Current status
 
-`avoid-reinterprets` is still **unimplemented** in Starshine.
-There is no `src/passes/avoid_reinterprets.mbt` owner file today.
+`avoid-reinterprets` is now **active-partial** in Starshine.
+The landed implementation covers the safe first slice: direct full-width load-plus-reinterpret pairs.
+The harder Binaryen family, indirect `reinterpret(local.get <- load)` helper-local rewriting, remains future work because it needs a documented single-load provenance proof.
 
-The current Starshine strategy is deliberately limited:
+Current local facts:
 
-- preserve the pass spelling in the registry as a known removed name
-- reject active requests honestly instead of silently no-oping
-- keep the older Batch 1 port-intent breadcrumb visible
-- keep its absence from the canonical no-DWARF path explicit
-- keep the missing dedicated backlog slice explicit
-- document which existing HOT-IR utilities would likely matter to a future port without pretending they already implement Binaryen's proof
+- implementation owner: [`src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt)
+- focused tests: [`src/passes/avoid_reinterprets_test.mbt`](../../../../../src/passes/avoid_reinterprets_test.mbt)
+- active module-pass registry entry: [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- dispatcher arm: [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- no default `optimize` / `shrink` preset slot yet
+- no dedicated active `agent-todo.md` follow-up slice yet
 
-So this is a **status-and-port-planning** page, not an implementation page.
+## Landed scope
 
-## Exact local code map today
+The current pass rewrites these direct adjacent instruction pairs inside function bodies, including nested block/loop/if/try-table bodies:
 
-The fastest read-along path through the current Starshine status is:
+- `f32.load; i32.reinterpret_f32 -> i32.load`
+- `f64.load; i64.reinterpret_f64 -> i64.load`
+- `i32.load; f32.reinterpret_i32 -> f32.load`
+- `i64.load; f64.reinterpret_i64 -> f64.load`
 
-- removed pass-name tracking
-  - [`src/passes/optimize.mbt#L144-L150`](../../../../../src/passes/optimize.mbt#L144-L150)
-    - `pass_registry_removed_names()` includes `"avoid-reinterprets"`
-- registry entry construction for removed names
-  - [`src/passes/optimize.mbt#L274-L276`](../../../../../src/passes/optimize.mbt#L274-L276)
-    - each removed name becomes a `HotPassRegistryCategory::Removed` registry entry
-- active request guard for removed passes
-  - [`src/passes/optimize.mbt#L469-L471`](../../../../../src/passes/optimize.mbt#L469-L471)
-    - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is removed from the active hot pipeline registry`
-- generic removed-name regression coverage
-  - [`src/passes/registry_test.mbt#L160-L168`](../../../../../src/passes/registry_test.mbt#L160-L168)
-    - the current test proves removed names reject; it uses `de-nan`, not `avoid-reinterprets`, so the coverage is category-level rather than pass-specific
-- older pass-port planning breadcrumb
-  - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43)
-    - `avoid-reinterprets` is still listed under Batch 1 names removed until a hot implementation lands
-- canonical scheduler context by omission
-  - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
-    - the current canonical no-DWARF path page does not place `avoid-reinterprets` in the active default route
-- backlog context by omission
-  - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
-    - there is currently no dedicated `avoid-reinterprets` slice
+It intentionally preserves:
 
-That map is the durable local status today: the pass is known, intentionally unavailable, and not assigned to an active implementation slice.
-The 2026-04-26 port-readiness follow-up adds one planning rule on top of that status: a future implementation should start with direct full-width `reinterpret(load)` flips and postpone indirect `reinterpret(local.get)` helper-local rewrites until a Binaryen-compatible single-load provenance helper is designed.
+- partial loads such as `i32.load16_u`
+- reinterpret operations over constants or other non-load values
+- all indirect local-chain cases
 
-## Nearby HOT-IR surfaces a future port would likely use
+## Remaining Starshine-specific uncertainty
 
-The repo already has several low-level tools that would probably matter if `avoid-reinterprets` is ported later:
+Binaryen's indirect correctness proof is not just “this value came from a load.”
+It asks `LocalGraph` for a single reaching set, rejects entry/parameter values, follows only fallthrough values, rejects cycles, and checks that the source load is reachable and full-width.
 
-- node builders for the shapes Binaryen rewrites
-  - [`src/ir/hot_builders.mbt#L296-L333`](../../../../../src/ir/hot_builders.mbt#L296-L333)
-    - `hot_build_local_get`, `hot_build_local_set`, and `hot_build_local_tee`
-  - [`src/ir/hot_builders.mbt#L533-L546`](../../../../../src/ir/hot_builders.mbt#L533-L546)
-    - `hot_build_load`
-  - [`src/ir/hot_builders.mbt#L608-L618`](../../../../../src/ir/hot_builders.mbt#L608-L618)
-    - `hot_build_unary`
-- fresh local allocation
-  - [`src/ir/hot_mutate.mbt#L196-L201`](../../../../../src/ir/hot_mutate.mbt#L196-L201)
-    - `hot_append_body_local(...)` appends typed body locals and bumps the HOT revision
-- local read/write discovery
-  - [`src/ir/use_def.mbt`](../../../../../src/ir/use_def.mbt)
-    - the use-def layer records local reads and writes
-- SSA-like local value mapping
-  - [`src/ir/ssa_local.mbt`](../../../../../src/ir/ssa_local.mbt)
-    - the local SSA layer maps `local.get` nodes to value IDs and records write defs
-
-Those files are **not** a finished port.
-They only identify plausible building blocks for the future implementation.
-
-## The key Starshine-specific uncertainty
-
-Binaryen's correctness proof is not just “this value came from a load.”
-It specifically asks `LocalGraph` for a single reaching set, rejects entry/parameter values, follows only fallthrough values, rejects cycles, and then checks that the source load is reachable and full-width.
-
-Starshine does not currently have a documented `LocalGraph`-equivalent pass-local proof for `avoid-reinterprets`.
-The closest-looking local facilities are `use_def` and HOT local SSA, but the wiki should not blur that boundary.
-
-A future port must decide whether to:
+Starshine still needs to decide whether to:
 
 1. build a small pass-local reaching-set proof just for this pass,
 2. reuse HOT local SSA after documenting exact behavior for params, default values, merges, unreachable cycles, and wrapper fallthrough,
 3. or add a LocalGraph-like helper shared with future locals-family ports.
 
-Until that decision lands, the correct Starshine strategy is to keep the pass unavailable and preserve the Binaryen proof obligations in the dossier.
+Until that decision lands, the active pass should remain direct-only and outside presets.
 
-## What Starshine currently does for the pass name
+## Nearby HOT-IR surfaces for the future indirect slice
 
-### 1. The name is tracked, not forgotten
+The repo already has several low-level tools that will likely matter if the indirect family is ported later:
 
-`src/passes/optimize.mbt` keeps `avoid-reinterprets` in `pass_registry_removed_names()`.
-That means:
+- node builders for local and load/unary shapes:
+  - [`src/ir/hot_builders.mbt`](../../../../../src/ir/hot_builders.mbt)
+- fresh local allocation:
+  - [`src/ir/hot_mutate.mbt`](../../../../../src/ir/hot_mutate.mbt)
+- local read/write discovery:
+  - [`src/ir/use_def.mbt`](../../../../../src/ir/use_def.mbt)
+- SSA-like local value mapping:
+  - [`src/ir/ssa_local.mbt`](../../../../../src/ir/ssa_local.mbt)
 
-- the spelling remains discoverable in the local registry
-- older planning docs and new wiki pages can point at one consistent local status
-- future port work does not need to rediscover whether the repo meant to track this upstream pass
+Those files are **not** a finished indirect port.
+They identify plausible building blocks for the future single-load provenance proof.
 
-### 2. The active pipeline rejects it honestly
-
-When a user requests a removed pass name, `run_hot_pipeline_expand_passes(...)` rejects the request with a removed-pass error.
-That behavior matters because:
-
-- explicit pass requests do not silently pretend to optimize
-- the registry category remains executable documentation
-- future implementation work will have to change the category and tests intentionally
-
-### 3. The old Batch 1 map is only a breadcrumb
-
-The pass-port batch map still lists `avoid-reinterprets` under Batch 1 removed names, but `agent-todo.md` has no dedicated current slice for it.
-Treat that as a weak historical planning signal, not an active commitment.
-
-## What a future Starshine port must preserve
-
-A faithful port should preserve the source-backed contract from the rest of this folder:
-
-- direct full-width `reinterpret(load)` can become an opposite-typed load directly
-- indirect `reinterpret(local.get)` needs a single-load provenance proof first
-- the original typed load result must remain available for non-reinterpret users
-- multiple reinterpret users of one source load should share one alternate typed helper local
-- partial loads remain no-ops
-- unreachable loads remain no-ops
-- parameter/default-entry values remain no-ops unless an intentional extension is documented
-- multi-source local merges remain no-ops
-- non-fallthrough wrappers remain barriers
-- memory64 pointer helpers must use the memory's address type rather than hardcoded `i32`
-
-For the upstream details, use:
-
-- [`./binaryen-strategy.md`](./binaryen-strategy.md)
-- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-- [`./single-load-chains-and-bailouts.md`](./single-load-chains-and-bailouts.md)
-- [`./wat-shapes.md`](./wat-shapes.md)
-- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-
-## Nearby boundaries to keep distinct
+## Boundaries to keep distinct
 
 ### `alignment-lowering`
 
@@ -176,10 +103,8 @@ See [`../alignment-lowering/index.md`](../alignment-lowering/index.md).
 
 Both passes touch memory-adjacent syntax, but they prove different things:
 
-- `avoid-reinterprets` duplicates full-width loads to avoid reinterpret users
-- `alignment-lowering` legalizes weak alignment by splitting scalar loads/stores into smaller aligned accesses
-
-Do not merge them into a vague “memory cleanup” port plan.
+- `avoid-reinterprets` changes the loaded value type to avoid reinterpret users.
+- `alignment-lowering` legalizes weak alignment by splitting scalar loads/stores into smaller aligned accesses.
 
 ### `optimize-added-constants`
 
@@ -187,49 +112,26 @@ See [`../optimize-added-constants/index.md`](../optimize-added-constants/index.m
 
 Both can rewrite load syntax, but their operands and safety proofs differ:
 
-- `avoid-reinterprets` changes the loaded value type and may duplicate a same-address load
-- `optimize-added-constants` rewrites address arithmetic into memarg offsets under low-memory safety constraints
+- `avoid-reinterprets` changes the loaded value type and may later duplicate a same-address load.
+- `optimize-added-constants` rewrites address arithmetic into memarg offsets under low-memory safety constraints.
 
-Keeping the split explicit prevents accidental overgeneralization.
+## Validation ladder
 
-## Validation plan for the eventual port
+Current direct-slice evidence should include:
 
-A future implementation should validate in layers:
+1. focused WAT-shape tests for all four full-width direct pairs plus non-load no-ops;
+2. `moon test src/cmd` for CLI/dispatcher routing;
+3. `bun scripts/pass-fuzz-compare.ts --pass avoid-reinterprets --generator gen-valid --count 10000 --min-compared 10000 --out-dir .tmp/pass-fuzz-ar-genvalid-10000`;
+4. a mixed-generator compare-pass run, classifying command failures separately from semantic mismatches;
+5. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --avoid-reinterprets` using a native `cmd` binary when needed for runtime.
 
-1. registry behavior
-   - keep removed-pass rejection until the transform exists
-   - when the pass lands, update registry category, tests, and docs in the same change
-2. direct WAT-shape tests
-   - direct full-width `reinterpret(load)` flips for all four scalar pairs
-   - partial-load and non-load no-ops
-3. indirect WAT-shape tests
-   - one indirect reinterpret user
-   - multiple reinterpret users sharing one helper local
-   - mixed original and reinterpret users
-   - copy-chain positive
-   - merge/param/no-fallthrough bailouts
-   - memory64 pointer-temp typing
-4. source parity
-   - compare direct `--pass avoid-reinterprets` behavior against Binaryen for focused fixtures
-5. broader fuzzing only after the reduced rules are green
-   - the risky part is the reaching-set proof, so fuzzing should classify merge/default/wrapper failures explicitly
-
-The expanded slice order and validation matrix live in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Future indirect-slice validation must add positive and negative reduced fixtures for one indirect reinterpret user, multiple users sharing one helper local, mixed original/reinterpret users, copy chains, merge/param/no-fallthrough bailouts, and memory64 pointer-temp typing.
 
 ## Bottom line
 
-Current Starshine `avoid-reinterprets` strategy is honest removed-name tracking plus an explicit future-proofing map:
+Current Starshine `avoid-reinterprets` strategy is active but intentionally narrow:
 
-- the pass name is preserved at [`src/passes/optimize.mbt#L144-L150`](../../../../../src/passes/optimize.mbt#L144-L150)
-- active requests are rejected at [`src/passes/optimize.mbt#L469-L471`](../../../../../src/passes/optimize.mbt#L469-L471)
-- Batch 1 planning still mentions it at [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43)
-- the active backlog still has no dedicated slice
-- the likely local building blocks are HOT builders, fresh body-local allocation, use-def, and local SSA, but none of those should be mistaken for Binaryen's existing `LocalGraph` proof
-
-So the right mental model today is:
-
-- **no transform yet**
-- **clear removed-registry behavior**
-- **source-backed Binaryen contract**
-- **clear future proof obligation around single-load provenance**
-- **clear local uncertainty until a real implementation slice chooses the analysis shape**
+- **direct full-width `reinterpret(load)` flips are implemented**
+- **indirect `reinterpret(local.get <- load)` is not implemented**
+- **the pass is not in default presets**
+- **the future proof obligation is single-load provenance, not generic local propagation**

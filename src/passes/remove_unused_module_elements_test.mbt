@@ -776,6 +776,206 @@ fn rume_test_memarg_target(mod_ : @lib.Module) -> UInt raise {
 }
 
 ///|
+test "run_hot_pipeline applies remove-unused-nonfunction-module-elements without removing functions" {
+  let input =
+    #|(module
+    #|  (global $kept i32 (i32.const 11))
+    #|  (global $dead i32 (i32.const 13))
+    #|  (func $uses_kept (result i32) global.get $kept)
+    #|  (func $unused_func (result i32) i32.const 7))
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-nonfunction-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-nonfunction-module-elements pipeline success, got \{err}",
+      )
+  }
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section to keep both defined functions")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    None => fail("expected code section to keep both function bodies")
+  }
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    None => fail("expected only the function-referenced global to remain")
+  }
+  match optimized.code_sec {
+    Some(
+      @lib.CodeSec(
+        [
+          @lib.Func(_, @lib.Expr([@lib.GlobalGet(@lib.GlobalIdx(global_idx))])),
+          _,
+        ]
+      )
+    ) => assert_eq(global_idx, 0U)
+    _ => fail("expected surviving global use to be remapped to index 0")
+  }
+}
+
+///|
+test "remove-unused-nonfunction-module-elements keeps active segments with global offsets" {
+  let input =
+    #|(module
+    #|  (global $offset i32 (i32.const 0))
+    #|  (memory 1)
+    #|  (data (global.get $offset) "x"))
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-nonfunction-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-nonfunction-module-elements pipeline success, got \{err}",
+      )
+  }
+
+  match optimized.global_sec {
+    Some(@lib.GlobalSec(globals)) => assert_eq(globals.length(), 1)
+    None => fail("expected active offset global to remain")
+  }
+  match optimized.mem_sec {
+    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    None => fail("expected active data memory to remain")
+  }
+  match optimized.data_sec {
+    Some(@lib.DataSec(datas)) => assert_eq(datas.length(), 1)
+    None => fail("expected active data segment to remain")
+  }
+}
+
+///|
+test "remove-unused-nonfunction-module-elements keeps out-of-bounds active data traps" {
+  let input =
+    #|(module
+    #|  (memory 1)
+    #|  (data (i32.const -1) ""))
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-nonfunction-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-nonfunction-module-elements pipeline success, got \{err}",
+      )
+  }
+
+  match optimized.mem_sec {
+    Some(@lib.MemSec(mems)) => assert_eq(mems.length(), 1)
+    None => fail("expected trapping active data memory to remain")
+  }
+  match optimized.data_sec {
+    Some(@lib.DataSec(datas)) => assert_eq(datas.length(), 1)
+    None => fail("expected trapping active data segment to remain")
+  }
+}
+
+///|
+test "remove-unused-nonfunction-module-elements drops empty const-offset active elems on live table" {
+  let input = @lib.Module::new()
+    .with_import_sec(
+      @lib.ImportSec::new([
+        @lib.Import::new(
+          @lib.Name::from_string("env"),
+          @lib.Name::from_string("table"),
+          @lib.ExternType::table(rume_test_table_type()),
+        ),
+      ]),
+    )
+    .with_export_sec(
+      @lib.ExportSec::new([
+        @lib.Export::new(
+          @lib.Name::from_string("table"),
+          @lib.ExternIdx::table(@lib.TableIdx::new(0U)),
+        ),
+      ]),
+    )
+    .with_elem_sec(
+      @lib.ElemSec::new([
+        @lib.Elem::new(
+          @lib.ElemMode::active(
+            @lib.TableIdx::new(0U),
+            @lib.Expr::new([@lib.Instruction::i32_const(@lib.I32(0))]),
+          ),
+          @lib.ElemKind::funcs([]),
+        ),
+      ]),
+    )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), [
+      "remove-unused-nonfunction-module-elements",
+    ]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-nonfunction-module-elements pipeline success, got \{err}",
+      )
+  }
+
+  assert_eq(optimized.elem_sec, None)
+  match optimized.import_sec {
+    Some(@lib.ImportSec(imports)) => assert_eq(imports.length(), 1)
+    None => fail("expected live imported table to remain")
+  }
+}
+
+///|
+test "remove-unused-nonfunction-module-elements removes unused imported functions" {
+  let input =
+    #|(module
+    #|  (type $t (func))
+    #|  (import "env" "unused" (func $unused_import (type $t)))
+    #|  (func $defined (type $t) nop))
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-nonfunction-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-nonfunction-module-elements pipeline success, got \{err}",
+      )
+  }
+
+  assert_eq(optimized.import_sec, None)
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 1)
+    None => fail("expected defined function to remain")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 1)
+    None => fail("expected defined function body to remain")
+  }
+}
+
+///|
+test "remove-unused-nonfunction-module-elements drops noop start section but keeps start function" {
+  let input =
+    #|(module
+    #|  (func $start nop)
+    #|  (start $start)
+    #|  (func $unused (result i32) i32.const 1))
+  let optimized = match
+    pass_test_run_pipeline(input, ["remove-unused-nonfunction-module-elements"]) {
+    Ok(mod_) => mod_
+    Err(err) =>
+      fail(
+        "expected remove-unused-nonfunction-module-elements pipeline success, got \{err}",
+      )
+  }
+
+  match optimized.func_sec {
+    Some(@lib.FuncSec(type_idxs)) => assert_eq(type_idxs.length(), 2)
+    None => fail("expected function section to keep noop start and unused func")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec(funcs)) => assert_eq(funcs.length(), 2)
+    None => fail("expected code section to keep noop start and unused func")
+  }
+  assert_eq(optimized.start_sec, None)
+}
+
+///|
 test "run_hot_pipeline applies remove-unused-module-elements and rewrites module indices" {
   let optimized = match
     run_hot_pipeline(rume_test_rewrite_fixture(), HotPipelineOptions::new(), [

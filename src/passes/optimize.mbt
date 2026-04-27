@@ -135,14 +135,14 @@ fn pass_registry_boundary_only_names() -> Array[String] {
     "inline-main", "merge-similar-functions", "minimize-rec-groups", "type-merging",
     "monomorphize", "monomorphize-always", "gufa", "gufa-optimizing", "gufa-cast-all",
     "i64-to-i32-lowering", "reorder-types", "reorder-globals-always", "reorder-functions",
-    "reorder-functions-by-name", "remove-unused-types", "remove-unused", "remove-unused-non-function-elements",
+    "reorder-functions-by-name", "remove-unused-types", "remove-unused",
   ]
 }
 
 ///|
 fn pass_registry_removed_names() -> Array[String] {
   [
-    "avoid-reinterprets", "coalesce-locals", "code-folding", "const-hoisting", "dataflow-optimization",
+    "coalesce-locals", "code-folding", "const-hoisting", "dataflow-optimization",
     "local-cse", "local-subtyping", "loop-invariant-code-motion", "merge-locals",
     "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
     "precompute-propagate", "optimize-casts", "de-nan", "simplify-locals-no-tee",
@@ -236,9 +236,17 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       rse_summary(),
       rse_descriptor(),
     ),
+    pass_registry_entry_module(
+      "avoid-reinterprets",
+      avoid_reinterprets_summary(),
+    ),
     pass_registry_entry_module("untee", untee_summary()),
     pass_registry_entry_module("duplicate-function-elimination", dfe_summary()),
     pass_registry_entry_module("remove-unused-module-elements", rume_summary()),
+    pass_registry_entry_module(
+      "remove-unused-nonfunction-module-elements",
+      rume_nonfunction_summary(),
+    ),
     pass_registry_entry_module("memory-packing", memory_packing_summary()),
     pass_registry_entry_module("once-reduction", once_reduction_summary()),
     pass_registry_entry_module("global-refining", global_refining_summary()),

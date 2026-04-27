@@ -8,6 +8,18 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Wired registry, dispatcher, CLI adapter coverage, pass-fuzz support, public API snapshot, and focused tests for root tees, nested tees, unreachable input, and `if` bodies.
 - Refreshed the `untee` wiki status, pass catalog, and tracker row from removed/future-port language to active direct-pass status; direct validation evidence is green on focused Moon tests, `moon test src/passes`, `moon test src/cmd`, full `moon test`, `.tmp/pass-fuzz-untee-genvalid-10000-staged`, `.tmp/pass-fuzz-untee-keepgoing-staged`, and `/tmp/starshine-self-optimize-compare-starshine-debug-wasi-866306` after fixing the neighboring `optimize-instructions` i64 compare-form regression.
 
+## [2026-04-26] implementation | activate `remove-unused-nonfunction-module-elements`
+
+- Landed the active Starshine `remove-unused-nonfunction-module-elements` module pass by reusing full RUME with a defined-function-rooting policy mode, while leaving imported functions as ordinary reachability candidates.
+- Added focused tests for defined-function retention, imported-function removal, active global-offset segment retention, out-of-bounds active-data trap retention, empty in-bounds active-element pruning, and no-op start metadata cleanup; wired registry, dispatcher, and pass-fuzz support.
+- Refreshed the `remove-unused-non-function-elements` wiki pages and tracker row from boundary-only/future-port language to active module-pass status; current validation evidence is `.tmp/pass-fuzz-runfe-genvalid-10000-final`, `.tmp/pass-fuzz-runfe-10000-after-oob`, and `.tmp/self-opt-runfe-debug-final`.
+
+## [2026-04-26] implementation | activate `avoid-reinterprets` direct slice
+
+- Landed the active Starshine `avoid-reinterprets` module pass for direct full-width load-plus-reinterpret pairs and wired registry, dispatcher, CLI-visible pass support, compare harness support, and focused tests.
+- Updated the `avoid-reinterprets` wiki pages and tracker row to mark the pass active-partial: direct `reinterpret(load)` flips are implemented, while the indirect `reinterpret(local.get <- load)` helper-local family remains future work.
+- Captured validation evidence in `.tmp/pass-fuzz-ar-genvalid-10000`, `.tmp/pass-fuzz-ar-mixed-10000`, and `.tmp/self-opt-ar-debug-native`.
+
 ## [2026-04-26] research | deepen `monomorphize` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/monomorphize/` folder, neighboring `monomorphize-always` coverage, and `docs/wiki/raw/research/`, then chose boundary-only `monomorphize` because its source-correct dossier still lacked a dedicated first-slice / validation bridge.

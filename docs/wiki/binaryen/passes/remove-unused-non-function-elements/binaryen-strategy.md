@@ -297,11 +297,11 @@ A faithful port must also preserve these non-rewrites:
 
 ## Starshine mapping
 
-Current Starshine keeps the local spelling `remove-unused-non-function-elements` as a boundary-only registry name, not an active module pass. Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code locations and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the future implementation and validation ladder.
+Current Starshine exposes the upstream-compatible spelling `remove-unused-nonfunction-module-elements` as an active module pass. Use [`./starshine-strategy.md`](./starshine-strategy.md) for exact local code locations and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for implementation and validation evidence.
 
-## What a future Starshine port must preserve
+## What the Starshine port must preserve
 
-If Starshine ever implements this sibling honestly, preserve all of these rules together:
+The active Starshine sibling must preserve all of these rules together:
 
 1. use the same shared RUME-style module analyzer, not a new simplified sweep
 2. root all **defined** functions, not all functions

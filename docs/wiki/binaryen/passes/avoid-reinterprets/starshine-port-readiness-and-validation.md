@@ -39,8 +39,8 @@ It answers a narrower question than [`./starshine-strategy.md`](./starshine-stra
 
 > if Starshine later ports this removed pass, what should the first safe slice be, which local code should a developer read, and how should the port be validated without overgeneralizing Binaryen's contract?
 
-The pass is still **not implemented** in Starshine.
-The correct current behavior is still removed-registry tracking plus active request rejection.
+The first direct-load slice is now implemented in Starshine as an active module pass.
+The remaining implementation debt is the indirect `reinterpret(local.get <- load)` helper-local family.
 
 ## Beginner mental model
 
@@ -52,23 +52,19 @@ Two families matter:
 1. direct case: `reinterpret(load)` can become a load of the reinterpreted type;
 2. indirect case: `reinterpret(local.get)` can use a helper local only when the `local.get` is proven to come from one full-width source load.
 
-A faithful Starshine port should therefore start with the direct case before attempting the harder local-chain proof.
+Starshine has landed the direct case; a future slice should attempt the harder local-chain proof only after documenting the LocalGraph-equivalent provenance rule.
 
-## Current local status to preserve before implementation
+## Current local status
 
-Keep these facts true until an actual transform lands:
+- `avoid-reinterprets` is now an active module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- The dispatcher routes it through [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
+- The implementation lives in [`src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt).
+- Focused coverage lives in [`src/passes/avoid_reinterprets_test.mbt`](../../../../../src/passes/avoid_reinterprets_test.mbt).
+- It is intentionally not part of the default `optimize` / `shrink` presets yet.
 
-- `avoid-reinterprets` remains a removed name in [`src/passes/optimize.mbt:144-150`](../../../../../src/passes/optimize.mbt#L144-L150).
-- Removed names are emitted as removed registry entries at [`src/passes/optimize.mbt:274-276`](../../../../../src/passes/optimize.mbt#L274-L276).
-- Active requests fail at [`src/passes/optimize.mbt:469-471`](../../../../../src/passes/optimize.mbt#L469-L471).
-- The existing removed-name test is category-level, not pass-specific: [`src/passes/registry_test.mbt:160-168`](../../../../../src/passes/registry_test.mbt#L160-L168).
-- There is still no `src/passes/avoid_reinterprets.mbt` owner file and no active `agent-todo.md` slice for the pass.
+## Landed first implementation slice: direct load flips
 
-That is important because the pass should not silently no-op or appear in presets before a real implementation exists.
-
-## First safe implementation slice: direct load flips
-
-Start with direct `reinterpret(load)` shapes only.
+The current implementation handles direct `reinterpret(load)` shapes only.
 
 ### Target shape
 
@@ -133,7 +129,7 @@ Compare those fixtures against Binaryen with `wasm-opt --avoid-reinterprets` bef
 
 ## Second implementation slice: indirect local-get users
 
-Only after slice 1 is green should Starshine implement Binaryen's indirect family:
+The direct slice is green; the next Starshine slice should implement Binaryen's indirect family:
 
 ```wat
 (local.set $x (i32.load (i32.const 16)))

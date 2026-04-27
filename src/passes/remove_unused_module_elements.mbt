@@ -4,6 +4,11 @@ pub fn rume_summary() -> String {
 }
 
 ///|
+pub fn rume_nonfunction_summary() -> String {
+  "Remove unused non-function module elements while keeping all defined functions."
+}
+
+///|
 priv enum RumeItem {
   Func(UInt)
   Global(UInt)
@@ -285,6 +290,23 @@ fn rume_mark_func(
   }
   used_funcs[slot] = true
   queue.push(RumeItem::Func(raw))
+}
+
+///|
+fn rume_mark_defined_funcs(
+  queue : Array[RumeItem],
+  used_funcs : @bitset.BitSet,
+  func_imports : Int,
+) -> Unit {
+  let mut idx = func_imports
+  while idx < used_funcs.length() {
+    rume_mark_func(
+      queue,
+      used_funcs,
+      @lib.FuncIdx::new(idx.reinterpret_as_uint()),
+    )
+    idx += 1
+  }
 }
 
 ///|
@@ -765,6 +787,217 @@ fn rume_process_data(
 }
 
 ///|
+fn rume_const_offset_u64(offset : @lib.Expr) -> UInt64? {
+  match offset {
+    @lib.Expr([@lib.I32Const(@lib.I32(value))]) =>
+      Some(value.reinterpret_as_uint().to_uint64())
+    @lib.Expr([@lib.I64Const(@lib.I64(value))]) =>
+      Some(value.reinterpret_as_uint64())
+    _ => None
+  }
+}
+
+///|
+fn rume_elem_kind_len(kind : @lib.ElemKind) -> UInt64 {
+  match kind {
+    @lib.FuncsElemKind(funcs) => funcs.length().to_uint64()
+    @lib.FuncExprsElemKind(exprs) | @lib.TypedExprsElemKind(_, exprs) =>
+      exprs.length().to_uint64()
+  }
+}
+
+///|
+fn rume_table_type_min(table_type : @lib.TableType) -> UInt64 {
+  let @lib.TableType(_, limits) = table_type
+  match limits {
+    @lib.I32Limits(min, _) => min.to_uint64()
+    @lib.I64Limits(min, _) => min
+  }
+}
+
+///|
+fn rume_mem_type_min_bytes(mem_type : @lib.MemType) -> UInt64 {
+  let @lib.MemType(limits, _) = mem_type
+  match limits {
+    @lib.I32Limits(min, _) => min.to_uint64() << 16
+    @lib.I64Limits(min, _) => min << 16
+  }
+}
+
+///|
+fn rume_lookup_table_type(
+  mod_ : @lib.Module,
+  idx : @lib.TableIdx,
+) -> @lib.TableType? {
+  let @lib.TableIdx(raw_idx) = idx
+  let slot = raw_idx.reinterpret_as_int()
+  let mut cursor = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.TableExternType(table_type)) => {
+            if cursor == slot {
+              return Some(table_type)
+            }
+            cursor += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let def_idx = slot - cursor
+  if def_idx < 0 {
+    return None
+  }
+  match mod_.table_sec {
+    Some(@lib.TableSec(tables)) =>
+      match tables.get(def_idx) {
+        Some(@lib.Table(table_type, _)) => Some(table_type)
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
+fn rume_lookup_mem_type(mod_ : @lib.Module, idx : @lib.MemIdx) -> @lib.MemType? {
+  let @lib.MemIdx(raw_idx) = idx
+  let slot = raw_idx.reinterpret_as_int()
+  let mut cursor = 0
+  match mod_.import_sec {
+    Some(@lib.ImportSec(imports)) =>
+      for import_ in imports {
+        match import_ {
+          @lib.Import(_, _, @lib.MemExternType(mem_type)) => {
+            if cursor == slot {
+              return Some(mem_type)
+            }
+            cursor += 1
+          }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  let def_idx = slot - cursor
+  if def_idx < 0 {
+    return None
+  }
+  match mod_.mem_sec {
+    Some(@lib.MemSec(mems)) =>
+      match mems.get(def_idx) {
+        Some(mem_type) => Some(mem_type)
+        None => None
+      }
+    None => None
+  }
+}
+
+///|
+fn rume_range_exceeds_min(offset : UInt64, len : UInt64, min : UInt64) -> Bool {
+  offset > min || offset + len > min
+}
+
+///|
+fn rume_nonfunction_active_elem_requires_root(
+  mod_ : @lib.Module,
+  table_idx : @lib.TableIdx,
+  offset : @lib.Expr,
+  kind : @lib.ElemKind,
+) -> Bool {
+  match rume_const_offset_u64(offset) {
+    None => true
+    Some(offset_value) =>
+      match rume_lookup_table_type(mod_, table_idx) {
+        Some(table_type) =>
+          rume_range_exceeds_min(
+            offset_value,
+            rume_elem_kind_len(kind),
+            rume_table_type_min(table_type),
+          )
+        None => true
+      }
+  }
+}
+
+///|
+fn rume_nonfunction_active_data_requires_root(
+  mod_ : @lib.Module,
+  mem_idx : @lib.MemIdx,
+  offset : @lib.Expr,
+  bytes : Bytes,
+) -> Bool {
+  match rume_const_offset_u64(offset) {
+    None => true
+    Some(offset_value) =>
+      match rume_lookup_mem_type(mod_, mem_idx) {
+        Some(mem_type) =>
+          rume_range_exceeds_min(
+            offset_value,
+            bytes.length().to_uint64(),
+            rume_mem_type_min_bytes(mem_type),
+          )
+        None => true
+      }
+  }
+}
+
+///|
+fn rume_mark_nonfunction_active_offset_segments(
+  mod_ : @lib.Module,
+  queue : Array[RumeItem],
+  used_elems : @bitset.BitSet,
+  used_datas : @bitset.BitSet,
+) -> Unit {
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      let mut elem_idx = 0
+      while elem_idx < elems.length() {
+        match elems[elem_idx] {
+          @lib.Elem(@lib.Active(table_idx, offset), kind) =>
+            if rume_nonfunction_active_elem_requires_root(
+                mod_, table_idx, offset, kind,
+              ) {
+              rume_mark_elem(
+                queue,
+                used_elems,
+                @lib.ElemIdx::new(elem_idx.reinterpret_as_uint()),
+              )
+            }
+          _ => ()
+        }
+        elem_idx += 1
+      }
+    }
+    None => ()
+  }
+  match mod_.data_sec {
+    Some(@lib.DataSec(datas)) => {
+      let mut data_idx = 0
+      while data_idx < datas.length() {
+        match datas[data_idx] {
+          @lib.Data(@lib.Active(mem_idx, offset), bytes) =>
+            if rume_nonfunction_active_data_requires_root(
+                mod_, mem_idx, offset, bytes,
+              ) {
+              rume_mark_data(
+                queue,
+                used_datas,
+                @lib.DataIdx::new(data_idx.reinterpret_as_uint()),
+              )
+            }
+          _ => ()
+        }
+        data_idx += 1
+      }
+    }
+    None => ()
+  }
+}
+
+///|
 fn rume_mark_imported_parent_segments(
   mod_ : @lib.Module,
   table_imports : Int,
@@ -820,6 +1053,7 @@ fn rume_mark_imported_parent_segments(
 fn rume_collect_liveness_with_import_parent_policy(
   mod_ : @lib.Module,
   keep_import_parent_segments : Bool,
+  keep_all_funcs? : Bool = false,
 ) -> (
   @bitset.BitSet,
   @bitset.BitSet,
@@ -864,6 +1098,9 @@ fn rume_collect_liveness_with_import_parent_policy(
   let queue : Array[RumeItem] = []
   let drop_noop_start_sec = rume_has_binaryen_noop_start_sec(mod_)
 
+  if keep_all_funcs {
+    rume_mark_defined_funcs(queue, used_funcs, func_imports)
+  }
   if !drop_noop_start_sec {
     match mod_.start_sec {
       Some(@lib.StartSec(func_idx)) =>
@@ -891,6 +1128,11 @@ fn rume_collect_liveness_with_import_parent_policy(
   if keep_import_parent_segments {
     rume_mark_imported_parent_segments(
       mod_, table_imports, mem_imports, queue, used_elems, used_datas,
+    )
+  }
+  if keep_all_funcs {
+    rume_mark_nonfunction_active_offset_segments(
+      mod_, queue, used_elems, used_datas,
     )
   }
 
@@ -3240,6 +3482,54 @@ pub fn rume_run_module_pass(mod_ : @lib.Module) -> @lib.Module {
     used_elems,
     used_datas,
   ) = rume_collect_liveness(mod_)
+  rume_apply_module_rewrite(
+    mod_, used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems,
+    used_datas,
+  )
+}
+
+///|
+fn rume_prune_nonfunction_empty_const_active_elems(
+  mod_ : @lib.Module,
+  used_elems : @bitset.BitSet,
+) -> Unit {
+  match mod_.elem_sec {
+    Some(@lib.ElemSec(elems)) => {
+      let mut idx = 0
+      while idx < elems.length() {
+        match elems[idx] {
+          @lib.Elem(@lib.Active(table_idx, offset), kind) =>
+            if !rume_nonfunction_active_elem_requires_root(
+                mod_, table_idx, offset, kind,
+              ) &&
+              !rume_elem_init_has_effect(kind) {
+              used_elems[idx] = false
+            }
+          _ => ()
+        }
+        idx += 1
+      }
+    }
+    None => ()
+  }
+}
+
+///|
+pub fn rume_run_nonfunction_module_pass(mod_ : @lib.Module) -> @lib.Module {
+  let (
+    used_funcs,
+    used_globals,
+    used_tables,
+    used_mems,
+    used_tags,
+    used_elems,
+    used_datas,
+  ) = rume_collect_liveness_with_import_parent_policy(
+    mod_,
+    true,
+    keep_all_funcs=true,
+  )
+  rume_prune_nonfunction_empty_const_active_elems(mod_, used_elems)
   rume_apply_module_rewrite(
     mod_, used_funcs, used_globals, used_tables, used_mems, used_tags, used_elems,
     used_datas,

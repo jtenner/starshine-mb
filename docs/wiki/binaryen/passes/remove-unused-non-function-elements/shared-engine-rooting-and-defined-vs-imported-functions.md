@@ -186,7 +186,7 @@ The root policy changes, but the cleanup logic remains shared.
 
 ## Starshine implication
 
-Current Starshine does not expose this sibling yet. A future implementation should reuse the existing full-RUME module pass and add the defined-function root policy described here; see [`./starshine-strategy.md`](./starshine-strategy.md).
+Current Starshine exposes this sibling as `remove-unused-nonfunction-module-elements` by reusing the existing full-RUME module pass with the defined-function root policy described here; see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Bottom line
 
@@ -194,4 +194,4 @@ If you remember only one thing from this page, remember this:
 
 - the real sibling split is **defined functions versus everything else**, not **functions versus non-functions in the abstract**.
 
-That is the source-backed rule a future Starshine port must preserve.
+That is the source-backed rule the active Starshine port must preserve.

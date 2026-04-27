@@ -22,25 +22,26 @@ related:
   - ../remove-unused-module-elements/starshine-hot-ir-strategy.md
 ---
 
-# Starshine port readiness and validation for `remove-unused-non-function-elements`
+# Starshine implementation and validation for `remove-unused-non-function-elements`
 
 ## Current local truth
 
-Starshine does not implement this sibling today.
+Starshine implements this sibling as an active module pass.
 
 The current in-tree facts are:
 
-- local boundary-only registry spelling: `remove-unused-non-function-elements`
+- active Starshine registry / CLI spelling: `remove-unused-nonfunction-module-elements`
+- historical dossier label: `remove-unused-non-function-elements`
 - upstream Binaryen public spelling: `remove-unused-nonfunction-module-elements`
-- active module dispatcher case: none
-- dedicated owner file: none
+- active module dispatcher case: `rume_run_nonfunction_module_pass(mod_)`
+- dedicated owner file: reused `src/passes/remove_unused_module_elements.mbt`
 - reusable sibling substrate: active full [`remove-unused-module-elements`](../remove-unused-module-elements/index.md)
 
 The exact current code anchors are in [`./starshine-strategy.md`](./starshine-strategy.md). The short version is:
 
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) lists the local name in `pass_registry_boundary_only_names()` around lines 127-139 and rejects direct lower-level requests for boundary-only entries later in pass expansion.
-- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches active module passes around lines 8660-8680 and currently has a case for `remove-unused-module-elements`, but not this sibling.
-- [`src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt) already owns the local full-RUME liveness queue, section rewrite, type cleanup, and public `rume_run_module_pass(...)` entry point.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) registers `remove-unused-nonfunction-module-elements` as an active module pass beside full RUME.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) dispatches active module passes around lines 8660-8680 and now has cases for both `remove-unused-module-elements` and this sibling.
+- [`src/passes/remove_unused_module_elements.mbt`](../../../../../src/passes/remove_unused_module_elements.mbt) owns the local full-RUME liveness queue, section rewrite, type cleanup, public `rume_run_module_pass(...)`, and sibling `rume_run_nonfunction_module_pass(...)` entry point.
 
 ## Binaryen contract to preserve
 
@@ -59,11 +60,9 @@ That policy has four practical consequences:
 
 Do not implement this pass as a new non-function sweeper. It should be a small policy mode on the existing RUME liveness/rewrite path.
 
-## First safe Starshine slice: policy analysis without broad mutation
+## Landed Starshine slice: policy analysis without broad mutation
 
-Start with tests before code changes.
-
-A safe first slice is a no-rewrite or minimally exposed policy test layer around the liveness collector:
+The implementation followed the intended test-first shape around the liveness collector:
 
 - full RUME mode does **not** mark an unreachable defined helper live;
 - sibling mode does mark that helper live;
@@ -72,29 +71,18 @@ A safe first slice is a no-rewrite or minimally exposed policy test layer around
 
 Implementation shape:
 
-- add an internal policy, for example `RumeRootPolicy::{Ordinary, RootAllDefinedFunctions}` or a clear boolean named for upstream behavior;
-- thread it into `rume_collect_liveness_with_import_parent_policy(...)` or a nearby wrapper;
-- seed all defined function absolute indices only when sibling mode is selected;
-- keep `rume_collect_liveness(...)` and `rume_run_module_pass(...)` on ordinary full-RUME behavior.
-
-Avoid a public registry transition in this slice unless the tests also prove request rejection changes intentionally.
-
-## First mutating slice: reuse RUME rewrite unchanged
-
-Once the policy-level tests are green, expose a sibling module-pass entry point that reuses the existing rewrite pipeline:
-
-1. collect liveness with `RootAllDefinedFunctions`;
-2. call the same `rume_apply_module_rewrite(...)` used by full RUME;
-3. add the new dispatcher case only after the module-pass output tests are present;
-4. move the registry category from boundary-only to active module pass in the same atomic implementation change.
+- `rume_collect_liveness_with_import_parent_policy(...)` accepts a `keep_all_funcs` policy flag;
+- sibling mode seeds all defined function absolute indices but not imported functions;
+- `rume_run_nonfunction_module_pass(...)` calls the same `rume_apply_module_rewrite(...)` used by full RUME;
+- registry and dispatcher changes were made atomically with focused output tests.
 
 This shape keeps the sibling from drifting into a copied RUME fork.
 
-## Required tests for the mutating slice
+## Implemented focused tests
 
-Add focused tests beside full RUME tests in [`src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt) or a sibling test file.
+Focused tests live beside full RUME tests in [`src/passes/remove_unused_module_elements_test.mbt`](../../../../../src/passes/remove_unused_module_elements_test.mbt).
 
-Minimum positive and negative families:
+Covered positive and negative families:
 
 1. **Dead defined helper survives**
    - Input: an unexported, uncalled defined helper.
@@ -120,13 +108,12 @@ Minimum positive and negative families:
 
 The shape catalog in [`./module-shapes.md`](./module-shapes.md) has beginner-friendly examples for these families.
 
-## Validation ladder
+## Validation ladder and evidence
 
 Use a staged validation ladder rather than jumping straight to broad fuzzing.
 
 1. **Registry honesty**
-   - Before implementation, keep `remove-unused-non-function-elements` boundary-only and rejected.
-   - When implemented, add tests proving it is an active module pass and no longer hidden as boundary-only.
+   - `src/passes/registry_test.mbt` now proves `remove-unused-nonfunction-module-elements` is an active module pass.
 2. **Focused unit tests**
    - Cover the seven families above.
    - Include one paired full-RUME-vs-sibling differential test.
@@ -134,23 +121,18 @@ Use a staged validation ladder rather than jumping straight to broad fuzzing.
    - Compare local output against upstream `wasm-opt --remove-unused-nonfunction-module-elements` for the dedicated all-features fixture captured in the primary-source manifest.
    - Also run selected full-RUME sibling fixtures when they exercise inherited startup/export/segment/type behavior.
 4. **Pass-fuzz compare**
-   - Add an explicit pass-fuzz alias only after the CLI spelling decision is made.
-   - The oracle must use Binaryen's spelling: `--remove-unused-nonfunction-module-elements`.
+   - `scripts/lib/pass-fuzz-compare-task.ts` now lists `--remove-unused-nonfunction-module-elements`.
+   - The oracle uses Binaryen's spelling: `--remove-unused-nonfunction-module-elements`.
+   - Current evidence: `.tmp/pass-fuzz-runfe-genvalid-10000-final` reached `10000/10000` normalized matches; `.tmp/pass-fuzz-runfe-10000-after-oob` reached `9971/9971` normalized matches with `0` semantic mismatches and `29` command failures classified separately.
 5. **Preset safety**
    - Do not add the pass to presets merely because it exists.
    - The current docs record no no-DWARF or saved `-O4z` role for this sibling; preset scheduling would need separate evidence.
 
 ## CLI and naming decision
 
-The current local spelling drops `module` and hyphenates `non-function`; upstream does neither.
+The current active Starshine spelling matches upstream: `remove-unused-nonfunction-module-elements`.
 
-A future implementation should decide explicitly between:
-
-- keeping only the existing local spelling as the Starshine public name;
-- adding an upstream-compatible alias;
-- or keeping the alias only inside pass-fuzz comparison tooling.
-
-Do not silently treat `remove-unused` as a shortcut for this pass. The local `remove-unused` dossier is a separate historical-alias problem.
+The older local dashed spelling remains only as a historical dossier label. Do not silently treat `remove-unused` as a shortcut for this pass. The local `remove-unused` dossier is a separate historical-alias problem.
 
 ## Main risks
 
@@ -159,13 +141,13 @@ Do not silently treat `remove-unused` as a shortcut for this pass. The local `re
 - **Copying the rewrite engine.** A copied implementation would likely miss remaps for imports, exports, start, data count, annotations, element/data segments, and function types.
 - **Skipping inherited startup semantics.** Imported-parent active segments and startup-trapping initializers are inherited full-RUME obligations.
 
-## Exit criteria for a future port
+## Exit criteria status
 
-A future Starshine implementation is ready for signoff when:
+The Starshine implementation is ready for direct-pass signoff because:
 
-- the sibling is an active module pass under an intentional spelling policy;
+- the sibling is an active module pass under the upstream-compatible spelling;
 - full RUME and sibling differential tests both pass;
 - imported-function and defined-function behavior are tested separately;
-- non-function cleanup and type compaction remain active;
+- non-function cleanup and type compaction remain active through the shared RUME rewrite;
 - Binaryen oracle comparison uses `--remove-unused-nonfunction-module-elements`;
-- docs for the pass, tracker, and pass index are updated from boundary-only status to implemented status.
+- docs, tracker, and pass index have been updated from boundary-only status to implemented status.

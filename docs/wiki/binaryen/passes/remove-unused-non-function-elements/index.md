@@ -29,19 +29,19 @@ related:
 ## Role
 
 - `remove-unused-nonfunction-module-elements` is a real public Binaryen pass.
-- Starshine currently tracks the same concept under the local boundary-only alias `remove-unused-non-function-elements`.
-- It is currently **unimplemented** in Starshine's active optimizer; the current local status and future landing zone are mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
+- Starshine now exposes the upstream-compatible module pass spelling `remove-unused-nonfunction-module-elements`; the older local dashed name remains a historical dossier label, not the active CLI spelling.
+- It is implemented in Starshine's active optimizer as a sibling mode on the existing RUME machinery; the current local status and validation evidence are mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
 - The 2026-04-24 raw primary-source manifest is [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md); the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - It does **not** appear in the saved generated-artifact `-O4z` skipped-pass audit.
-- `agent-todo.md` currently has **no dedicated `remove-unused-non-function-elements` slice**.
+- `agent-todo.md` currently has **no dedicated `remove-unused-non-function-elements` slice**; the implemented slice reused the existing full-RUME code path directly.
 
-So this folder is another explicit, source-backed upstream-only registry expansion.
+So this folder is now the source-backed status page for the implemented upstream-compatible sibling pass.
 
 ## Why this pass matters
 
 - The main parity queues and the first tracker-expansion wave are already dossier-covered.
-- The local boundary-only registry still names `remove-unused-non-function-elements`; the original 0194 dossier made the upstream sibling understandable, the 2026-04-24 refresh added immutable provenance plus a Starshine follow-along map, and the 2026-04-26 bridge adds concrete port-readiness and validation sequencing.
+- The historical local registry once named `remove-unused-non-function-elements`; the original 0194 dossier made the upstream sibling understandable, the 2026-04-24 refresh added immutable provenance plus a Starshine follow-along map, and the 2026-04-26 implementation updated Starshine to the upstream-compatible active spelling.
 - It sits directly beside the already-documented `remove-unused-module-elements` engine and is easy to mis-teach as either:
   - just another spelling for full RUME, or
   - a pass that literally never changes anything related to functions.
@@ -92,21 +92,21 @@ So this pass is best taught as:
 - [`./module-shapes.md`](./module-shapes.md)
   Beginner-friendly module-shape catalog for the main positive, preserved, and surprising families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future-port map, including exact registry / dispatcher / reusable full-RUME code locations.
+  Current Starshine status, implementation map, and validation evidence, including exact registry / dispatcher / reusable full-RUME code locations.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Implementation-readiness bridge for a future Starshine sibling port: policy-first sequencing, required differential tests, Binaryen oracle spelling, and validation ladder.
+  Implementation and validation bridge: policy-first sequencing, required differential tests, Binaryen oracle spelling, and signoff ladder.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `remove-unused-non-function-elements` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary/module pass for it.
+- Keep it marked as an active Starshine module pass under the upstream-compatible spelling unless the registry status changes again.
 - Keep the split from neighboring passes explicit:
   - `remove-unused-module-elements` can delete dead defined functions
   - `remove-unused-nonfunction-module-elements` force-keeps defined functions before the shared cleanup
   - `remove-unused-types` is a different closed-world GC/type cleanup pass
 - Keep the local-vs-upstream naming split explicit too:
-  - local registry: `remove-unused-non-function-elements`
-  - upstream Binaryen public pass: `remove-unused-nonfunction-module-elements`
+  - historical local dossier label: `remove-unused-non-function-elements`
+  - active Starshine and upstream Binaryen public pass: `remove-unused-nonfunction-module-elements`
 
 ## Sources
 

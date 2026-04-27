@@ -114,6 +114,7 @@ const RESERVED_OPTIONS = new Set([
 ]);
 
 const SUPPORTED_PASS_FLAGS = new Set([
+  "--avoid-reinterprets",
   "--untee",
   "--ssa-nomerge",
   "--dead-code-elimination",
@@ -139,6 +140,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--duplicate-import-elimination",
   "--reorder-globals",
   "--remove-unused-module-elements",
+  "--remove-unused-nonfunction-module-elements",
 ]);
 
 const BINARYEN_FLAG_ALIASES = new Map<string, string>([

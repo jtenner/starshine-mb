@@ -31,41 +31,42 @@ related:
 
 ## Current status
 
-Starshine does **not** implement the Binaryen sibling pass yet.
+Starshine now implements the Binaryen sibling pass as an active module pass.
 
-The local state on 2026-04-24 is:
+The local state on 2026-04-26 is:
 
-- local registry spelling: `remove-unused-non-function-elements`
+- active registry / CLI spelling: `remove-unused-nonfunction-module-elements`
+- historical dossier label: `remove-unused-non-function-elements`
 - upstream Binaryen spelling: `remove-unused-nonfunction-module-elements`
-- registry category: **boundary-only**
+- registry category: **module pass**
 - active HOT pass: no
-- active module pass: no
+- active module pass: yes
 - preset member: no
-- dedicated owner file: no
+- dedicated owner file: reused `src/passes/remove_unused_module_elements.mbt`
 - active backlog slice: no dedicated slice found in `agent-todo.md`
 
-So this page is a status and port-strategy bridge, not a claim that the sibling already runs in Starshine. For the concrete first-slice sequence, required tests, Binaryen oracle spelling, and future signoff ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The implementation is a small policy mode on the existing RUME liveness/rewrite path: root every defined function, leave imported functions as ordinary reachability candidates, then reuse the same module rewrite. Validation evidence and the signoff ladder are summarized in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Exact local code locations
 
 ### Registry and request gating
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-  - `pass_registry_boundary_only_names()` lists `remove-unused-non-function-elements` beside `remove-unused` and `remove-unused-types` around lines 127-139.
-  - `pass_registry_entries()` converts every boundary-only name into a `HotPassRegistryCategory::BoundaryOnly` entry around lines 156-274.
-  - `expand_pass_entries_for_names(...)` rejects a direct lower-level pass request with `pass flag <name> is boundary-only and is not implemented in the hot pipeline` around lines 461-466.
+  - `pass_registry_entries()` registers `remove-unused-nonfunction-module-elements` as a `HotPassRegistryCategory::ModulePass` beside full `remove-unused-module-elements`.
+  - `pass_registry_boundary_only_names()` no longer carries the historical dashed sibling spelling.
+  - preset expansion still omits this sibling because it is not part of the documented no-DWARF optimize path.
 - [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt)
-  - CLI pass resolution only accepts `HotPass`, `ModulePass`, and `Preset` categories around lines 1972-1977, so the command path currently rejects this boundary-only spelling before it can run.
-  - Help output only prints `HotPass` and `Preset` entries around lines 2962-2967, so this boundary-only name is intentionally hidden from the user-facing pass list.
+  - CLI pass resolution accepts the new module-pass category entry, so `--remove-unused-nonfunction-module-elements` runs through the normal module-pass pipeline.
+  - Help output still lists only hot passes and presets, matching the existing module-pass help policy.
 - [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)
-  - The registry tests prove the category machinery for active, module, preset, and removed names. They do not currently include a dedicated assertion for this sibling name.
+  - The registry tests now assert that `remove-unused-nonfunction-module-elements` is an active module pass.
 
 ### Module dispatcher gap
 
 - [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
-  - The module-pass dispatcher handles active module passes around lines 8637-8647.
+  - The module-pass dispatcher handles active module passes around lines 8660-8680.
   - It dispatches full [`remove-unused-module-elements`](../remove-unused-module-elements/index.md) to `rume_run_module_pass(mod_)`.
-  - It has no case for `remove-unused-non-function-elements`, which matches the boundary-only registry status.
+  - It dispatches `remove-unused-nonfunction-module-elements` to `rume_run_nonfunction_module_pass(mod_)`.
 
 ### Reusable implementation surfaces
 
@@ -96,21 +97,13 @@ Binaryen's source-backed strategy for the sibling is tiny but semantically impor
 3. do **not** root imported functions by that special rule;
 4. then preserve all ordinary RUME roots and cleanup behavior.
 
-Current Starshine has item 1 for full RUME, but it has no switch for item 2.
+Current Starshine implements those items through `rume_collect_liveness_with_import_parent_policy(..., keep_all_funcs=true)` and `rume_run_nonfunction_module_pass(...)`.
 
-The cleanest future Starshine port would probably parameterize the local RUME liveness entry point rather than copy the pass:
-
-- add a sibling public module pass name in the active registry only when implemented;
-- add a `root_all_defined_functions` policy to the liveness seed phase;
-- seed all defined function absolute indices after the no-op-start decision and before or beside the ordinary export/start/imported-parent roots;
-- reuse the existing RUME traversal and rewrite stages;
-- add focused tests proving that dead defined functions stay while dead imported functions and dead non-function sections can still disappear.
-
-The 2026-04-26 port-readiness bridge makes that sequence more explicit: start with policy-level liveness tests, then expose a sibling module-pass entry point that calls the same rewrite path, and only then update registry/request behavior.
+The implementation deliberately reuses the existing RUME traversal and rewrite stages. Focused tests prove that dead defined functions stay, dead imported functions can still disappear, no-op start metadata can be dropped while the function body remains, active startup-visible segments with global offsets or trapping out-of-bounds offsets are retained, and empty in-bounds active element segments can still be removed.
 
 ## What Starshine must not do
 
-A future implementation should **not** be a new ad hoc non-function sweep.
+The implementation should **not** become a new ad hoc non-function sweep.
 That would likely miss inherited RUME obligations:
 
 - `FuncIdx`, `TableIdx`, `MemIdx`, `GlobalIdx`, `TagIdx`, `ElemIdx`, and `DataIdx` remapping;
@@ -124,9 +117,9 @@ That would likely miss inherited RUME obligations:
 It also should **not** interpret the local spelling as “keep every function declaration.”
 The upstream sibling protects defined function bodies; it still allows dead imported functions to disappear through the ordinary shared engine.
 
-## Validation plan for a future port
+## Validation evidence
 
-A faithful Starshine port should add tests before implementation:
+The implemented Starshine port added tests before and during implementation:
 
 1. **dead defined helper survives**: a module with an unreachable defined helper remains with that helper after `remove-unused-non-function-elements`.
 2. **dead non-function section vanishes**: dead memory/table/global/tag/data/elem sections still clean up.
@@ -134,15 +127,15 @@ A faithful Starshine port should add tests before implementation:
 4. **function types still compact**: type-section cleanup remains active.
 5. **no-op start metadata is separate**: a no-op start declaration can disappear while the start function body survives.
 6. **full RUME stays stricter**: the existing `remove-unused-module-elements` behavior still deletes dead defined helpers, proving the sibling policy did not leak into full RUME.
-7. **Binaryen parity**: compare the dedicated upstream all-features shape families against `wasm-opt --remove-unused-nonfunction-module-elements`.
+7. **Binaryen parity**: compare the direct pass against `wasm-opt --remove-unused-nonfunction-module-elements`.
 
 ## Current uncertainty
 
-- The wiki did not find a current Starshine backlog slice dedicated to this sibling.
-- The local boundary-only name may have been kept mostly for registry compatibility rather than near-term implementation.
-- Current Binaryen `main` still has the pass identity and dedicated test path, but the owner file has helper/container drift after `version_129`; this page intentionally anchors strategy to the stable `version_129` source capture.
+- The wiki still uses the historical dashed folder name to preserve existing research links; the active public pass spelling is upstream-compatible.
+- Current Binaryen `main` still has the pass identity and dedicated test path, but the owner file has helper/container drift after `version_129`; this page intentionally anchors strategy to the stable `version_129` source capture and the local oracle runs.
+- A pure `wasm-smith`-only exploratory lane still exposed rare Binaryen body-canonicalization noise unrelated to the module-element policy; the canonical mixed and `gen-valid` signoff lanes are mismatch-free on comparable cases.
 
 ## Bottom line
 
-Starshine has the right reusable full-RUME machinery, but it does not yet expose Binaryen's `remove-unused-nonfunction-module-elements` sibling.
-The future implementation should be a small, source-backed policy mode on the existing module liveness-and-rewrite pass: root all defined functions, then run the ordinary RUME engine.
+Starshine exposes Binaryen's `remove-unused-nonfunction-module-elements` sibling as an active module pass.
+The implementation is the intended small, source-backed policy mode on the existing module liveness-and-rewrite pass: root all defined functions, then run the ordinary RUME engine.

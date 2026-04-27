@@ -183,7 +183,7 @@ Do not silently widen this pass into any of these stronger claims:
 
 Those may be tempting future extensions,
 but they are not the reviewed Binaryen `version_129` contract.
-They are also not current Starshine behavior: Starshine still tracks the pass only as a removed registry name, as mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
+They are also not current Starshine behavior: Starshine currently implements only direct full-width load flips, while indirect local-chain rewrites remain future work as mapped in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## Sources
 

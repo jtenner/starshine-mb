@@ -8,6 +8,10 @@ import {
 }
 
 // Values
+pub fn avoid_reinterprets_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn avoid_reinterprets_summary() -> String
+
 pub fn code_pushing_descriptor() -> @ir.HotPassDescriptor
 
 pub fn code_pushing_summary() -> String
@@ -176,7 +180,11 @@ pub fn rse_summary() -> String
 
 pub fn rume_extract_functions(@lib.Module, Array[@lib.FuncIdx]) -> Result[@lib.Module, String]
 
+pub fn rume_nonfunction_summary() -> String
+
 pub fn rume_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn rume_run_nonfunction_module_pass(@lib.Module) -> @lib.Module
 
 pub fn rume_summary() -> String
 
