@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] health | refresh `global-effects` index hygiene
+
+- Ran a focused reference-hygiene check after adding the `global-effects` port-readiness bridge.
+- Updated the top-level wiki index's `global-effects` Binaryen-strategy summary so it no longer implies the 2026-04-24 source manifest is the only current anchor.
+- Added maintenance-rule notes in the pass index and tracker so future wiki-health runs do not treat `global-effects` analyzer-first sequencing, summary-storage model, solver choice, paired consumer validation, or stale-summary risks as still-open dossier gaps.
+
 ## [2026-04-27] research | deepen `global-effects` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/global-effects/` folder, neighboring `discard-global-effects`, `simplify-locals`, and `vacuum` coverage, and `docs/wiki/raw/research/`, then chose boundary-only `global-effects` because its source-backed dossier still lacked a concrete implementation-readiness / validation bridge.
