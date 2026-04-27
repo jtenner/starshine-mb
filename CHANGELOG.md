@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Docs: clarify HOT region body ownership
+
+- **document the intentional HOT region-ref asymmetry where blocks/loops own body roots directly but try-like nodes point at child region holders** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/ir/hot_region_edit.mbt`](./src/ir/hot_region_edit.mbt).
+
 ## 2026-04-27 Fix: use real root arity in DCE region queries
 
 - **remove the `-1` root-region arity sentinel from `dead-code-elimination` and use the HOT region arity API for root regions as well as nested regions** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt).

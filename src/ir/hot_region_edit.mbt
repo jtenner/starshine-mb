@@ -117,6 +117,9 @@ fn hot_region_optional_slot_ref(
 
 ///|
 pub fn hot_region_body_ref(func : HotFunc, control_id : NodeId) -> HotRegionRef {
+  // Blocks and loops own their body roots directly. Try-like nodes keep their
+  // body in an explicit region-holder child so catch regions can be represented
+  // uniformly beside it.
   match hot_node_get(func, control_id).op {
     HotOp::Block | HotOp::Loop => hot_region_ref_from_holder(func, control_id)
     HotOp::Try | HotOp::TryTable =>
