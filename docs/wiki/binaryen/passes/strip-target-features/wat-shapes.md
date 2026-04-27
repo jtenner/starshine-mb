@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
+  - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/binaryen/2026-04-25-strip-target-features-primary-sources.md
@@ -11,6 +13,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../strip-toolchain-annotations/wat-shapes.md
   - ../remove-relaxed-simd/wat-shapes.md
 ---
@@ -42,7 +45,7 @@ Emitted wasm:
   type/function/code/data/etc. sections
 ```
 
-The pass clears Binaryen's module metadata flag. It does not need to edit function bodies.
+The pass clears Binaryen's module metadata flag through the shared strip/emit owner. It does not need to edit function bodies.
 
 ## 2. Function bodies are unchanged
 
@@ -129,7 +132,25 @@ Binaryen module metadata:
 
 Running the pass when the metadata flag is already false should be harmless.
 
-## 6. Explicit non-goals
+## 6. The sibling `emit-target-features` shape is the inverse
+
+Before:
+
+```text
+Binaryen module metadata:
+  hasFeaturesSection = false
+```
+
+After `emit-target-features`:
+
+```text
+Binaryen module metadata:
+  hasFeaturesSection = true
+```
+
+Starshine does not currently register either public pass name. A future local implementation should decide both names deliberately because Binaryen implements them as two modes of the same owner.
+
+## 7. Explicit non-goals
 
 These should not be described as `strip-target-features` shapes:
 
@@ -148,4 +169,5 @@ A correct future Starshine port should prove at least:
 - arbitrary non-target custom sections are preserved;
 - all executable sections remain byte- or structure-equivalent;
 - the pass status is explicit in the registry instead of being accidentally unknown;
-- docs distinguish Binaryen module-metadata mutation from executable IR mutation.
+- docs distinguish Binaryen module-metadata mutation from executable IR mutation;
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) is refreshed if the local representation changes.

@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
+  - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/binaryen/2026-04-25-strip-target-features-primary-sources.md
@@ -16,6 +18,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../strip-toolchain-annotations/index.md
   - ../remove-relaxed-simd/index.md
   - ../late-pipeline-dispatch.md
@@ -27,12 +30,12 @@ related:
 
 `strip-target-features` is a public Binaryen pass that removes the module-level target-features metadata from later output. It is **not** a code optimizer and **not** a feature-lowering pass.
 
-The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. In `version_129` and current `main`, the pass reports that it mutates Binaryen IR/module state and clears `module->hasFeaturesSection`.
+The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode.
 
 It is currently **upstream-only** in Starshine:
 
-- it is not listed as active, boundary-only, or removed in `src/passes/optimize.mbt`;
-- explicit local pass requests fail as `unknown pass flag strip-target-features`;
+- neither `strip-target-features` nor sibling `emit-target-features` is listed as active, boundary-only, or removed in `src/passes/optimize.mbt`;
+- explicit local pass requests fail as `unknown pass flag strip-target-features` / `unknown pass flag emit-target-features`;
 - it is outside the canonical no-DWARF `-O` / `-Os` path and the saved generated-artifact `-O4z` queue;
 - `agent-todo.md` has no dedicated slice for it today.
 
@@ -76,6 +79,7 @@ The executable in-memory IR is otherwise unchanged, but Binaryen's module metada
 - Running the pass can make binary output differ even when every executable section is unchanged.
 - The old wiki wording that called this “option-only” is stale and superseded by the 2026-04-26 source-correction manifest.
 - A Starshine implementation over decoded `Module.custom_secs` would be architecturally different from Binaryen's `hasFeaturesSection` flag unless Starshine first adds first-class target-feature metadata.
+- The local port-readiness bridge keeps the safe first slices explicit: registry honesty, narrow opaque `target_features` custom-section deletion, then a larger first-class target-feature metadata model.
 - Starshine currently stores arbitrary custom sections as opaque `CustomSec` records and has no semantic target-features section model.
 
 ## Validation strategy
@@ -102,9 +106,12 @@ For a future Starshine port, add tests in this order:
 - [`implementation-structure-and-tests.md`](implementation-structure-and-tests.md) - owner files and validation surface.
 - [`wat-shapes.md`](wat-shapes.md) - before/after output metadata shapes.
 - [`starshine-strategy.md`](starshine-strategy.md) - current Starshine status and future landing zones.
+- [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) - safe first slices, validation ladder, and exact local code surfaces.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md)
+- [`../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md`](../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md`](../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md)
 - [`../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md`](../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md)
 - Binaryen `StripTargetFeatures.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/StripTargetFeatures.cpp>

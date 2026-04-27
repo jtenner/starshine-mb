@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
+  - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/binaryen/2026-04-25-strip-target-features-primary-sources.md
@@ -17,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ../strip-toolchain-annotations/index.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
 ---
 
@@ -28,22 +31,22 @@ Starshine currently has **no `strip-target-features` implementation**. This page
 
 The exact local status is:
 
-- `src/passes/optimize.mbt` has no `strip-target-features` entry in the boundary-only or removed registry-name arrays.
-- `src/passes/optimize.mbt` has no active `HotPass` or `ModulePass` entry for it in `pass_registry_entries()`.
-- `run_hot_pipeline_expand_passes(...)` reports unknown names as `unknown pass flag ...`, so an explicit `strip-target-features` request currently fails as unknown rather than boundary-only or removed.
+- `src/passes/optimize.mbt` has no `strip-target-features` or `emit-target-features` entry in the boundary-only or removed registry-name arrays.
+- `src/passes/optimize.mbt` has no active `HotPass` or `ModulePass` entry for either name in `pass_registry_entries()`.
+- `run_hot_pipeline_expand_passes(...)` reports unknown names as `unknown pass flag ...`, so explicit `strip-target-features` and `emit-target-features` requests currently fail as unknown rather than boundary-only or removed.
 - `agent-todo.md` has no dedicated backlog slice for the pass.
 
 That means Starshine's present strategy is **non-adoption plus documentation**. The wiki tracks the upstream pass because Binaryen exposes it publicly and because the late-pass chronology had already mentioned it without a canonical dossier.
 
 ## Exact local code locations to read first
 
-- `src/passes/optimize.mbt:96-126`
-  - boundary-only registry names; `strip-target-features` is absent.
-- `src/passes/optimize.mbt:129-141`
-  - removed registry names; `strip-target-features` is absent.
-- `src/passes/optimize.mbt:144-267`
-  - active hot/module/preset registry construction; no `strip-target-features` entry exists.
-- `src/passes/optimize.mbt:446-489`
+- `src/passes/optimize.mbt:127-139`
+  - boundary-only registry names; `strip-target-features` and `emit-target-features` are absent.
+- `src/passes/optimize.mbt:143-152`
+  - removed registry names; both names are absent.
+- `src/passes/optimize.mbt:153-292`
+  - active hot/module/preset registry construction; no target-feature metadata entry exists.
+- `src/passes/optimize.mbt:474-490`
   - request expansion and rejection behavior; unknown names fail before the boundary-only / removed guards.
 - `src/lib/types.mbt:350-424`
   - `Module.custom_secs` and opaque `CustomSec` storage; this is the closest current representation for decoded custom sections.
@@ -60,11 +63,13 @@ That means Starshine's present strategy is **non-adoption plus documentation**. 
 
 ## Why there is no straightforward Binaryen-style port today
 
-Binaryen's pass clears module metadata:
+Binaryen's shared strip/emit owner toggles module metadata from its mode bit:
 
 ```text
-module->hasFeaturesSection = false
+module->hasFeaturesSection = !isStripped
 ```
+
+For `strip-target-features`, `isStripped` is true, so this clears `hasFeaturesSection`.
 
 Starshine's visible local model is different:
 
@@ -78,10 +83,11 @@ So a Starshine port has an architecture decision before any code change:
 
 1. add first-class target-feature metadata and clear that metadata in a module pass;
 2. implement a module pass that deletes opaque `CustomSec(Name::new("target_features"), ...)` entries from decoded modules;
-3. add only a boundary-only or removed registry compatibility entry; or
-4. continue treating the pass as unknown and leave this as documented upstream-only behavior.
+3. add only a boundary-only or removed registry compatibility entry;
+4. continue treating the pass as unknown and leave this as documented upstream-only behavior; and
+5. decide whether sibling `emit-target-features` gets parallel status or remains explicitly unsupported.
 
-Option 2 may be useful, but it is not exactly Binaryen's implementation strategy.
+Option 2 may be useful, but it is not exactly Binaryen's implementation strategy. See [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md) for the validation ladder and safe first slices.
 
 ## If Starshine ever ports it
 
@@ -90,6 +96,7 @@ A faithful local port should be a **module/output metadata pass**, not a HOT pee
 Minimum acceptance criteria:
 
 - choose a public status deliberately: active module pass, boundary-only compatibility entry, removed compatibility entry, or continued unknown-name rejection;
+- document the sibling `emit-target-features` status at the same time;
 - define whether the pass owns first-class target-feature metadata, decoded opaque custom sections, or both;
 - remove or suppress only target-features metadata;
 - preserve arbitrary other custom sections, including `name` / producers-like metadata if present in the chosen representation;

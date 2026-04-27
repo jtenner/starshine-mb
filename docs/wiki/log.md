@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `strip-target-features` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/strip-target-features/` folder, and `docs/wiki/raw/research/`, then chose upstream-only `strip-target-features` because its corrected dossier still lacked the standard Starshine port-readiness / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md`, rechecking official Binaryen `version_129` and current-main `StripTargetFeatures.cpp`, `pass.cpp`, `passes.h`, `pass.h`, the WebAssembly custom-section spec, and exact local Starshine pass-registry / custom-section decode / encode / validation surfaces.
+- Added `docs/wiki/raw/research/0429-2026-04-27-strip-target-features-port-readiness.md` and `docs/wiki/binaryen/passes/strip-target-features/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, WAT-shape, and Starshine strategy so the shared `emit-target-features` / `strip-target-features` owner, inherited default-true `modifiesBinaryenIR()` behavior, target-feature metadata toggle, current local unknown-pass status, opaque-section landing zone, first-slice choices, and validation ladder are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; kept `strip-target-features` classified as upstream-only and deep while retiring the remaining local-readiness gap and the too-literal 2026-04-26 owner-file override wording.
+
 ## [2026-04-27] health | refresh `const-hoisting` touched-area links
 
 - Ran a focused touched-area hygiene check after adding the `const-hoisting` port-readiness bridge.

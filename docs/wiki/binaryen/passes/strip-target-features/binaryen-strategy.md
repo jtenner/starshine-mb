@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
+  - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/research/0390-2026-04-26-strip-target-features-source-correction.md
   - ../../../raw/binaryen/2026-04-25-strip-target-features-primary-sources.md
@@ -11,6 +13,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../strip-toolchain-annotations/index.md
   - ../remove-relaxed-simd/index.md
 ---
@@ -21,15 +24,18 @@ related:
 
 Binaryen's `strip-target-features` is a tiny module-metadata pass. The owner file's `version_129` and current-`main` contract is:
 
-- `modifiesBinaryenIR() == true`;
-- `run(PassRunner*, Module*)` does not inspect functions or expressions;
-- `run(...)` clears the module metadata flag: `module->hasFeaturesSection = false`.
+- it shares `src/passes/StripTargetFeatures.cpp` with the sibling `emit-target-features` pass;
+- `strip-target-features` constructs the shared owner in stripping mode;
+- `emit-target-features` constructs the same owner in emitting mode;
+- it inherits `Pass::modifiesBinaryenIR()`'s default true result;
+- `run(Module*)` does not inspect functions or expressions;
+- `run(...)` assigns the module metadata flag from the mode: stripping makes `module->hasFeaturesSection = false`, while emitting makes it true.
 
-This corrects the older 2026-04-25 dossier, which incorrectly described the pass as setting `runner->options.emitTargetFeatures = false` and leaving Binaryen IR unmodified.
+This corrects the older 2026-04-25 dossier, which incorrectly described the pass as setting `runner->options.emitTargetFeatures = false` and leaving Binaryen IR unmodified. It also refines the 2026-04-26 correction: the checked owner file does not need its own explicit `modifiesBinaryenIR()` override because the base pass default already reports mutation.
 
 ## Why the pass is module metadata, not instruction rewriting
 
-The target-features section is output metadata. Binaryen keeps a module-level flag for whether that metadata should be present. Clearing the flag is enough to make later binary output omit the `target_features` custom section.
+The target-features section is output metadata. Binaryen keeps a module-level flag for whether that metadata should be present. Clearing the flag is enough to make later binary output omit the `target_features` custom section; setting it is the sibling `emit-target-features` behavior.
 
 That explains the apparent tension in this pass:
 
@@ -66,10 +72,11 @@ Do not teach `strip-target-features` as any of these:
 
 - **not [`strip-toolchain-annotations`](../strip-toolchain-annotations/index.md):** it does not clear Binaryen code annotations such as `removableIfUnused` or `idempotent`;
 - **not [`remove-relaxed-simd`](../remove-relaxed-simd/index.md):** it does not rewrite feature-using opcodes to traps;
+- **not `emit-target-features`:** it shares the owner file but flips the same flag in the opposite direction;
 - **not memory64/table64 lowering:** it does not repair index widths;
 - **not validation repair:** removing metadata cannot make an unsupported feature valid on an older engine;
 - **not a generic custom-section stripper:** the source-backed behavior is specifically the target-features flag/section.
 
 ## Main caveat
 
-The corrected source-level contract is clear for `version_129` and current `main`, but this run did not chase the exact introductory commit for `hasFeaturesSection`. Treat the 2026-04-26 source-correction manifest as the current oracle and treat the 2026-04-25 `emitTargetFeatures` wording as superseded.
+The corrected source-level contract is clear for `version_129` and current `main`, but this run did not chase the exact introductory commit for `hasFeaturesSection` or audit the target-feature payload format. Treat the 2026-04-27 port-readiness manifest as the current oracle, keep the 2026-04-26 module-state correction, and treat the 2026-04-25 `emitTargetFeatures` wording plus the too-literal 2026-04-26 “owner file returns true” wording as superseded.
