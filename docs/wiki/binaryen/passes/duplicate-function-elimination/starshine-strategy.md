@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
+  - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md
   - ../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md
   - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
@@ -17,6 +19,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./type-compaction-and-metadata.md
+  - ./scheduler-validation-and-parity.md
   - ./parity.md
 ---
 
@@ -208,6 +211,8 @@ CLI coverage lives in `src/cmd/cmd_wbtest.mbt:4010-4036`, which proves the expli
 
 ## Practical validation rule
 
+For the full scheduler / iteration checklist, read [`scheduler-validation-and-parity.md`](./scheduler-validation-and-parity.md). It makes explicit that focused explicit-pass tests do not yet prove Binaryen-equivalent preset scheduling, because Starshine currently has one duplicate-elimination iteration and omits DFE from public `optimize` / `shrink` presets.
+
 When you need to validate or review current Starshine behavior, read the code in this order:
 
 1. `src/passes/optimize.mbt:231-240`
@@ -217,4 +222,4 @@ When you need to validate or review current Starshine behavior, read the code in
 5. `src/passes/duplicate_function_elimination.mbt:3172-3243`
 6. `src/passes/duplicate_function_elimination_test.mbt:99-848`
 
-That path gives the cleanest local explanation from registry -> dispatcher -> module-pass core -> rewrite surface -> extra cleanup -> proof tests.
+That path gives the cleanest local explanation from registry -> dispatcher -> module-pass core -> rewrite surface -> extra cleanup -> proof tests. After that, use [`scheduler-validation-and-parity.md`](./scheduler-validation-and-parity.md) to decide whether a change is preserving explicit-pass behavior, changing local extra cleanup, or trying to close the Binaryen scheduler/iteration gap.

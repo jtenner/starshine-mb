@@ -1,8 +1,10 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-22
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
+  - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
   - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
@@ -20,10 +22,13 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./type-compaction-and-metadata.md
+  - ./scheduler-validation-and-parity.md
   - ./starshine-strategy.md
 ---
 
 # `duplicate-function-elimination` Binaryen parity
+
+For the actionable validation ladder and scheduler decision points, see [`scheduler-validation-and-parity.md`](./scheduler-validation-and-parity.md). This page remains the high-level parity framing; the scheduler bridge is the checklist for future preset work.
 
 ## Durable conclusions
 
@@ -40,6 +45,7 @@ related:
   - once in global pre-passes
   - once again in global post-passes
 - For stronger optimize contexts, Binaryen also gives DFE a larger visible iteration budget than the current local one-round implementation.
+- The 2026-04-27 validation bridge records this as the remaining preset/scheduler signoff gap rather than a hidden failure of the explicit pass surface.
 
 ## Current in-tree status
 

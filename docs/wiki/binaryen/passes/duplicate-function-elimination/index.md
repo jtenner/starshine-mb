@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
+  - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
+  - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md
   - ../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md
   - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
@@ -29,6 +31,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./scheduler-validation-and-parity.md
   - ./type-compaction-and-metadata.md
   - ./parity.md
   - ../../no-dwarf-default-optimize-path.md
@@ -119,6 +122,8 @@ What it actually is in `version_129`:
   - Beginner-friendly shape catalog covering positive merge families, ref.func/global/export/start rewrites, iteration-driven transitive unlocks, and the main non-merge families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current in-tree Starshine strategy with the exact MoonBit registry/dispatcher/core-rewrite code map, plus the explicit reason this remains a module pass rather than a HOT pass. The 2026-04-26 health pass renamed this page from the stale `starshine-hot-ir-strategy.md` filename.
+- [`./scheduler-validation-and-parity.md`](./scheduler-validation-and-parity.md)
+  - Read-along validation bridge tying together upstream repeat-budget and two-slot scheduling, current Starshine one-iteration explicit-pass behavior, local extra cleanup, focused test surfaces, and the evidence required before public preset scheduling.
 - [`./type-compaction-and-metadata.md`](./type-compaction-and-metadata.md)
   - The crucial source-backed distinction between upstream DFE proper and the broader local type/name/metadata cleanup currently bundled into Starshine's pass, now with concrete local before/after shape families and exact owner-file locations.
 - [`./parity.md`](./parity.md)
@@ -126,7 +131,7 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-Narrow 2026-04-20 and 2026-04-26 checks found **no semantic post-`version_129` drift** on the dedicated DFE surface.
+Narrow 2026-04-20, 2026-04-26, and 2026-04-27 checks found **no semantic post-`version_129` drift** on the dedicated DFE surface.
 
 - All five `duplicate-function-elimination*` lit files are identical on current `main` and `version_129`.
 - The core pass file differs only by a tiny non-semantic container change:
@@ -145,10 +150,13 @@ So the durable rule is:
   - upstream `duplicate-function-elimination` is a small duplicate-function identity pass, not the whole local type/name cleanup bundle
 - When future work changes local DFE behavior, update the folder in the right place:
   - upstream contract changes go in `binaryen-strategy.md` or `implementation-structure-and-tests.md`
+  - scheduler, iteration, and validation decisions go in `scheduler-validation-and-parity.md`
   - local extra cleanup changes go in `type-compaction-and-metadata.md`, `starshine-strategy.md`, or `parity.md`
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md`](../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md)
+- [`../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md`](../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md)
 - [`../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md`](../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md)
 - [`../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md`](../../../raw/research/0399-2026-04-26-duplicate-function-elimination-strategy-health.md)
 - [`../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md)

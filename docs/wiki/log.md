@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `duplicate-function-elimination` validation bridge
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/duplicate-function-elimination/` folder, and `docs/wiki/raw/research/`, then chose active module pass `duplicate-function-elimination` because its core dossier was source-correct but still lacked a single beginner-to-advanced scheduler/validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md`, rechecking official Binaryen current-main DFE owner/scheduler/representative optimize-level test surfaces plus exact local registry, dispatcher, implementation, and focused-test code surfaces.
+- Added `docs/wiki/raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md` and `docs/wiki/binaryen/passes/duplicate-function-elimination/scheduler-validation-and-parity.md`; refreshed the overview, Starshine strategy, and parity pages so upstream repeat-budget / two-slot scheduling, current Starshine one-iteration explicit-pass behavior, local type/name/annotation cleanup, test surfaces, and preset-scheduling evidence requirements are connected without treating Starshine-local cleanup as Binaryen DFE proper.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; kept `duplicate-function-elimination` classified as active implemented and deep while making the remaining scheduler/iteration parity gap explicit.
+
 ## [2026-04-27] research | deepen `minify-imports` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/minify-imports/` folder, sibling `minify-imports-and-exports` coverage, and `docs/wiki/raw/research/`, then chose upstream-only `minify-imports` because its source-corrected dossier still lacked the standard implementation-readiness / validation bridge.
