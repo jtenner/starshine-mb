@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Perf: reduce once-reduction branch-set churn
+
+- **change `once-reduction` branch dataflow joins to intersect into the live state bitset instead of allocating an intermediate bitset for each `if` join** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/once_reduction.mbt`](./src/passes/once_reduction.mbt).
+
 ## 2026-04-27 Perf: avoid extra HOT region-splice copies
 
 - **rewrite non-root HOT region splices to rebuild directly from child storage and route root splices through the existing root helper, avoiding an intermediate region-root copy** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/ir/hot_region_edit.mbt`](./src/ir/hot_region_edit.mbt).

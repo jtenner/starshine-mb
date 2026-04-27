@@ -76,16 +76,21 @@ fn or_bool_array_union_into(
 }
 
 ///|
-fn or_bool_array_intersection(
+fn or_bool_array_intersection_into(
+  target : @bitset.BitSet,
   left : @bitset.BitSet,
   right : @bitset.BitSet,
-) -> @bitset.BitSet {
-  let limit = or_min_int(left.length(), right.length())
-  let out = @bitset.BitSet::new(limit)
+) -> Unit {
+  let limit = or_min_int(
+    target.length(),
+    or_min_int(left.length(), right.length()),
+  )
   for i = 0; i < limit; i = i + 1 {
-    out[i] = left[i] && right[i]
+    target[i] = left[i] && right[i]
   }
-  out
+  for i = limit; i < target.length(); i = i + 1 {
+    target[i] = false
+  }
 }
 
 ///|
@@ -263,10 +268,7 @@ fn or_analyze_instrs(
             )
           None => current
         }
-        let next = or_bool_array_intersection(then_set, else_set)
-        for i = 0; i < next.length(); i = i + 1 {
-          current[i] = next[i]
-        }
+        or_bool_array_intersection_into(current, then_set, else_set)
       }
       @lib.Loop(_, _) => ()
       @lib.TryTable(_, _, _) => ()
@@ -325,10 +327,7 @@ fn or_rewrite_instrs(
           None => current
         }
         instrs[idx] = @lib.Instruction::if_(block_type, then_body, else_body)
-        let next = or_bool_array_intersection(then_set, else_set)
-        for i = 0; i < next.length(); i = i + 1 {
-          current[i] = next[i]
-        }
+        or_bool_array_intersection_into(current, then_set, else_set)
       }
       @lib.Loop(block_type, @lib.Expr(body)) => {
         ignore(
