@@ -293,7 +293,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
 }
 
 ///|
-struct HotPassRegistryCache {
+priv struct HotPassRegistryCache {
   entries : Array[HotPassRegistryEntry]
   lookup : @hashmap.HashMap[String, Int]
   help_entries : Array[HotPassRegistryEntry]
@@ -321,6 +321,11 @@ fn HotPassRegistryCache::new() -> HotPassRegistryCache {
 
 ///|
 let pass_registry_cache : HotPassRegistryCache = HotPassRegistryCache::new()
+
+///|
+pub fn pass_registry_help_entries() -> Array[HotPassRegistryEntry] {
+  pass_registry_cache.help_entries
+}
 
 ///|
 fn pass_registry_lookup_index(name : String) -> Int? {

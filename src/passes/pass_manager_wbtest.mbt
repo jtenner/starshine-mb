@@ -67,7 +67,7 @@ test "pass registry cache indexes known flags and prefilters help entries" {
 
   let mut saw_optimize = false
   let mut saw_memory_packing = false
-  for entry in pass_registry_cache.help_entries {
+  for entry in pass_registry_help_entries() {
     match entry.category {
       HotPassRegistryCategory::HotPass | HotPassRegistryCategory::Preset => ()
       _ =>

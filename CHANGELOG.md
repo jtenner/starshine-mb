@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Cleanup: tighten pass registry cache API
+
+- **mark the pass-registry cache as private, expose help entries through a small accessor, and update whitebox coverage to avoid direct field coupling while clearing registry-cache warnings** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), and [`src/passes/pass_manager_wbtest.mbt`](./src/passes/pass_manager_wbtest.mbt).
+
 ## 2026-04-27 Safety: avoid unsafe float decode indexing
 
 - **replace guarded `unsafe_get` byte reads in binary F32/F64 decoding with ordinary indexed reads while preserving the existing bounds checks and binary tests** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/binary/decode.mbt`](./src/binary/decode.mbt).
