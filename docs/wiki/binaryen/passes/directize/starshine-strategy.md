@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
@@ -10,6 +10,8 @@ sources:
   - ../../../raw/binaryen/2026-04-22-directize-primary-sources.md
   - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/directize.mbt
+  - ../../../../../src/passes/directize_test.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../duplicate-import-elimination/index.md
@@ -39,35 +41,36 @@ For the first-slice order and validation ladder, use [`./starshine-port-readines
 
 ## The honest current status
 
-`directize` is still **unimplemented** in Starshine.
-There is no `src/passes/directize.mbt` owner file today.
+`directize` is now implemented in Starshine as an active explicit module pass in `src/passes/directize.mbt`, with direct Binaryen oracle evidence for the default pass behavior.
 
-That does **not** mean there is no Starshine strategy surface.
-The current local strategy is boundary-only status and landing-zone planning:
+The current local strategy is still deliberately conservative where the upstream pass is policy-sensitive:
 
-- keep the pass spelling tracked in the registry surface
-- keep the boundary-only classification explicit, because the pass needs whole-module table facts before function-local rewrites
-- keep active pipeline requests honest by rejecting the pass name instead of pretending it already exists
-- keep the canonical no-DWARF tail slot documented
-- keep the backlog slice focused on table eligibility, rewrite safety, and artifact proof
-- teach the surrounding late-tail dossiers a future port would have to compose with
+- keep the pass spelling tracked in the registry surface as an active module pass
+- preserve the boundary-shaped architecture by computing whole-module table facts before any function-body rewrite
+- rewrite compatible constant-index indirect calls through non-imported, non-exported, non-mutated known table entries
+- classify known holes, out-of-range entries, and wrong-type targets as traps and rewrite them to `unreachable`
+- lower the narrow known-target `select` shape to direct-call `if` arms with fresh locals
+- keep the canonical no-DWARF tail slot documented but out of presets until the neighboring `string-gathering -> reorder-globals -> directize` tail can be replayed together
+- leave optional `directize-initial-contents-immutable` pass-arg behavior for a future pass-arg surface
 
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
-The 2026-04-25 current-main source bridge does not change that local status; it only refreshes the upstream contract that a future local implementation must match.
+So this page is now an **implemented explicit-pass status-and-port-map** page. The earlier 2026-04-25 current-main source bridge remains the upstream contract for future preset and pass-arg work.
 
 ## Exact local code map today
 
 The fastest read-along path through the current Starshine status is:
 
-- tracked boundary-only pass-name status
-  - `src/passes/optimize.mbt:127-136`
-    - `pass_registry_boundary_only_names()` includes `"directize"`
-- active request guard for not-yet-ported boundary passes
-  - `src/passes/optimize.mbt:452-470`
-    - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
+- active module-pass registry status
+  - `src/passes/optimize.mbt`
+    - `pass_registry_entries()` includes `pass_registry_entry_module("directize", directize_summary())`
+- module-pass dispatch
+  - `src/passes/pass_manager.mbt`
+    - `run_hot_pipeline_apply_module_pass(...)` routes `"directize"` to `directize_run_module_pass(...)`
+- implementation and focused tests
+  - `src/passes/directize.mbt`
+  - `src/passes/directize_test.mbt`
 - backlog and delivery plan
   - `agent-todo.md:689-701`
-    - `DIR` slice under the Binaryen no-DWARF default optimize pathway parity section
+    - `DIR` slice under the Binaryen no-DWARF default optimize pathway parity section, now recording direct explicit-pass oracle evidence
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:34-35`
     - the final late-tail slot where `directize` follows `reorder-globals`
@@ -90,43 +93,36 @@ That code-and-doc map is the practical addition in this follow-up: readers can n
 
 ## What Starshine currently does for this pass name
 
-Today Starshine's behavior for `directize` is deliberately limited.
+Today Starshine's behavior for `directize` is an active Binaryen-shaped explicit module pass for the default pass behavior.
 
-### 1. The name is tracked, not forgotten
+### 1. The name is active, not forgotten
 
-`src/passes/optimize.mbt` keeps `directize` in `pass_registry_boundary_only_names()`.
+`src/passes/optimize.mbt` registers `directize` as a module pass.
 That means:
 
-- the project still treats `directize` as a real known pass
-- the spelling is preserved in the registry-level compatibility surface
+- the project treats `directize` as a real executable pass
+- the spelling is preserved in the registry-level compatibility surface and CLI pass parser
 - the pass remains visible in tracker and backlog work instead of silently falling out of planning
-- the current local classification already teaches an important semantic fact: this is not expected to fit naturally into the existing HOT-only function pipeline without added module/table analysis
+- the implementation keeps module/table analysis ahead of function-local rewrites
 
-That is the right current behavior for an unimplemented late boundary pass.
+### 2. The pass rewrites the default Binaryen directize families
 
-### 2. The active pipeline rejects the pass honestly
+`src/passes/directize.mbt` currently rewrites compatible `call_indirect` / `return_call_indirect` sites when the target expression is an immediate `i32.const` and the selected table entry is known from active element segments. It bails out for imported tables, exported tables, and runtime-mutated tables, and it leaves unknown entries indirect.
 
-The same file's `run_hot_pipeline_expand_passes(...)` path returns a specific boundary-only error when a user requests `directize`.
-That matters because it keeps three things honest at once:
+It also handles the two important non-direct-call target classes from the default pass contract:
 
-- explicit pass selection does not silently no-op
-- the CLI and API surface do not imply the pass already exists locally
-- the boundary-only classification remains executable documentation rather than dead metadata
+- known holes / out-of-range / wrong-type targets become `unreachable`
+- the narrow known-target `select` index shape becomes an `if` with direct-call arms and fresh locals for operands
 
-For this pass family, that is currently the most important in-repo behavior after name tracking.
+### 3. The remaining work is preset and option integration, not core default-pass parity
 
-### 3. The work is planned as a real parity slice, not an orphan idea
+`agent-todo.md` keeps `directize` under `DIR`, but the active remaining local work is now narrower:
 
-`agent-todo.md` already gives `directize` a real backlog slice under `DIR`.
-The current deliverables are framed around the right upstream concerns:
+- keep direct Binaryen oracle evidence current
+- add the final late-tail preset only after the neighboring `string-gathering -> reorder-globals -> directize` sequence is locally replayable
+- decide how Starshine should expose Binaryen-style pass args before adding `directize-initial-contents-immutable`
 
-- call-target eligibility
-- preserving table semantics, imports, and dynamic behavior
-- rewriting eligible callsites without breaking dependent signatures
-- boundary regressions over mixed direct/indirect table shapes
-- artifact comparison against Binaryen's final-tail output
-
-That backlog framing already matches the upstream dossier better than a vague “turn indirect calls into direct calls” summary would.
+That backlog framing keeps the implemented explicit pass separate from still-unscheduled tail integration.
 
 ## The right future Starshine implementation shape
 
@@ -139,7 +135,7 @@ Why:
 - its correctness depends on module-wide table facts before function-local rewriting starts
 - its rewrites can refine call result types and convert known traps into `unreachable`, so the eventual local implementation will need explicit rewrite plus repair logic instead of a cheap local pattern match
 
-So the local strategy should be thought of as:
+So the local strategy is:
 
 1. collect whole-module table and element knowledge first
 2. classify target expressions with the same `Known` / `Trap` / `Unknown` boundary the Binaryen dossier teaches
@@ -147,7 +143,7 @@ So the local strategy should be thought of as:
 4. preserve late-tail scheduler placement after the neighboring global/string/module cleanup passes
 5. keep validation and artifact proof focused on mixed known/unknown/trap table surfaces
 
-In other words, the future port should slot into a local late optimization ecosystem that is already documented.
+In other words, the implemented explicit pass is ready, while the future preset slot still has to fit into the documented late optimization ecosystem.
 
 ## The most important local dependency map
 
@@ -181,71 +177,60 @@ The current active Starshine HOT cluster covers passes like:
 - `merge-blocks`
 
 Those are valuable neighboring dossiers for style and validation habits, but `directize` does not naturally belong in that early/mid function-local cluster.
-Its current boundary-only classification is not arbitrary bookkeeping.
-It reflects the same architectural fact the Binaryen dossier teaches: module-wide table facts come first.
+Its module-pass classification is intentional: the Binaryen dossier teaches that module-wide table facts come first.
 
 ## What Starshine does **not** have yet
 
 A future contributor should be careful not to overread the current local surface.
-Starshine does **not** currently have:
+Starshine still does **not** currently have:
 
-- a `directize` MoonBit implementation file
-- local whole-module table flattening or immutable-initial-contents analysis for this pass
-- call-target classification logic equivalent to Binaryen's `Known` / `Trap` / `Unknown` split
-- `select`-to-branch call lowering for this pass
-- directize-specific reduced tests or CLI replay coverage beyond the tracked boundary-only status and backlog slice
+- the optional `directize-initial-contents-immutable` pass-arg mode
+- preset scheduling for the full no-DWARF late tail
+- a combined oracle replay for `string-gathering -> reorder-globals -> directize`, because `string-gathering` is still not active locally
 
 So the current repo status is best summarized as:
 
-- name tracked
-- boundary-only status tracked
-- request guard tracked
-- backlog tracked
-- scheduler slot documented
+- active module pass tracked
+- default explicit-pass directize behavior implemented
+- direct Binaryen oracle evidence recorded
+- scheduler slot documented but not preset-scheduled
 - parser / IR / binary / validation / HOT substrates mapped
-- transform itself not yet landed
+- remaining work is pass-arg and late-tail integration, not the core default explicit pass
 
-## Validation plan for the eventual port
+## Validation evidence and future validation plan
 
-The existing backlog plus the upstream dossier imply the right validation ladder.
-A future real implementation should validate in this order:
+Current direct evidence:
 
-1. reduced shape tests for the main upstream families
-   - direct-call positives
-   - trap-to-`unreachable` rewrites with side effects preserved
-   - mixed known-vs-unknown table entries
-   - narrow `select` lowering
-2. table-facts and legality negatives
-   - imported/exported/mutated table boundaries
-   - immutable-initial-contents mode
-   - non-flat element-layout bailouts
-   - wasm64 width correctness
-   - GC subtype compatibility versus trap cases
-3. scheduler-neighborhood interaction tests
-   - the full no-DWARF late tail ending in `reorder-globals -> directize`
-4. artifact and oracle comparison
-   - the `DIR` slice in `agent-todo.md`
-   - the canonical no-DWARF debug-artifact replay path
+1. local build/test gate
+   - `moon info`
+   - `moon fmt`
+   - `moon test src/passes`
+   - `moon test src/cmd`
+   - `moon test`
+2. focused Binaryen oracle lanes
+   - `.tmp/pass-fuzz-directize-genvalid-10000-final2`: `10000/10000` compared, `10000` normalized matches, `0` mismatches/failures
+   - `.tmp/pass-fuzz-directize-mixed-10000-final2`: `9975` comparable normalized matches, `0` mismatches, `25` Binaryen-side command failures
+3. debug artifact oracle lane
+   - `.tmp/self-opt-directize-debug-final2`: canonical wasm equality and normalized WAT equality on `tests/node/dist/starshine-debug-wasi.wasm`
 
-That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the in-repo workflow and the exact neighboring passes that should feed the port.
+Future changes should rerun those direct lanes when touching table facts, trap rewriting, select lowering, type matching, or local insertion. Preset scheduling should additionally replay the full late tail once `string-gathering` is active.
 
 ## Bottom line
 
-Current Starshine `directize` strategy is honest boundary-only tracking and landing-zone planning:
+Current Starshine `directize` strategy is an active explicit module pass plus late-tail landing-zone planning:
 
-- the pass name is intentionally preserved in `src/passes/optimize.mbt`
-- the same file keeps the active pipeline honest by rejecting boundary-only requests
-- `agent-todo.md` already treats it as a real late parity slice under `DIR`
-- the canonical slot is already documented in the no-DWARF optimizer notes
-- the surrounding `duplicate-import-elimination`, `simplify-globals-optimizing`, `remove-unused-module-elements`, `string-gathering`, and `reorder-globals` dossiers already define the practical landing zone for a future port
+- the pass name is intentionally preserved in `src/passes/optimize.mbt` as an active module pass
+- `src/passes/directize.mbt` implements default directize behavior for direct calls, known traps, and narrow select lowering
+- `agent-todo.md` records direct oracle evidence under `DIR`
+- the canonical slot is already documented in the no-DWARF optimizer notes but remains out of presets
+- the surrounding `duplicate-import-elimination`, `simplify-globals-optimizing`, `remove-unused-module-elements`, `string-gathering`, and `reorder-globals` dossiers already define the practical landing zone for scheduled tail integration
 
-So the right mental model today is not “nothing exists locally.”
-It is:
+So the right mental model today is:
 
-- **no transform yet**
-- **clear tracked status**
+- **explicit pass implemented**
+- **direct Binaryen oracle parity green**
 - **clear late-tail dependency story**
-- **clear neighboring implementation map for the eventual port**
+- **preset/pass-arg integration remains future work**
 
 ## Sources
 

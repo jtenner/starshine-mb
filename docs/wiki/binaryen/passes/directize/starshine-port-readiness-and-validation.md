@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
@@ -14,6 +14,8 @@ sources:
   - ./wat-shapes.md
   - ./starshine-strategy.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/directize.mbt
+  - ../../../../../src/passes/directize_test.mbt
   - ../../../../../src/wast/parser.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../src/lib/types.mbt
@@ -49,7 +51,7 @@ The goal here is narrower than either page:
 
 ## Current local status in one sentence
 
-Starshine does not implement `directize` yet; it tracks the pass as boundary-only and rejects active requests, but it already has the table, element, indirect-call, binary, validation, and HOT-roundtrip primitives a faithful module/boundary pass will need.
+Starshine now implements the default explicit `directize` module pass with Binaryen oracle evidence for direct calls, known traps, subtype-compatible checks, and narrow `select` lowering; remaining work is preset scheduling and optional `directize-initial-contents-immutable` pass-arg support.
 
 ## Why the first slice is not a peephole
 
@@ -80,12 +82,14 @@ would be teaching the wrong architecture. The first real local contract is table
 
 ### Pass registry and request behavior
 
-- `src/passes/optimize.mbt:127-136`
-  - `pass_registry_boundary_only_names()` includes `"directize"`.
-- `src/passes/optimize.mbt:452-470`
-  - active requests for boundary-only names return `pass flag {name} is boundary-only and is not implemented in the hot pipeline`.
+- `src/passes/optimize.mbt`
+  - `pass_registry_entries()` includes `pass_registry_entry_module("directize", directize_summary())`.
+- `src/passes/pass_manager.mbt`
+  - `run_hot_pipeline_apply_module_pass(...)` routes `"directize"` to `directize_run_module_pass(...)`.
+- `src/passes/directize.mbt`
+  - implements the module-facts-driven default directize pass for constant targets, known traps, and narrow known-target `select` lowering.
 
-This is the executable local truth today: known pass name, no transform.
+This is the executable local truth today: active explicit module pass with direct Binaryen oracle evidence for the default pass behavior.
 
 ### WAT and lib IR surfaces
 
@@ -143,13 +147,13 @@ The first pass tests should reuse validation aggressively. Known-trap rewrites a
 
 ### Slice 0: keep registry honesty green
 
-Before landing the pass, keep the current behavior:
+This slice is now landed for the explicit default pass:
 
-- `directize` remains boundary-only,
-- explicit requests still reject,
-- the tracker says no transform exists.
+- `directize` is an active module pass,
+- explicit requests run the module-pass path,
+- focused tests demonstrate constant known-target rewrites, mutable-table bailout, known-hole trap rewrite, and select lowering.
 
-The first code change should add failing tests that demonstrate the future pass will become active, not silently reinterpret the current boundary-only status as implementation.
+Future code changes should keep that active status honest by preserving Binaryen-matching behavior and not widening presets until the neighboring late tail is replayable.
 
 ### Slice 1: table facts and no-op proof
 
@@ -238,7 +242,14 @@ Minimum checks:
 
 ## Binaryen oracle validation ladder
 
-Use the official Binaryen files in this order:
+Current direct validation evidence is local and artifact-backed:
+
+1. `moon info`, `moon fmt`, `moon test src/passes`, `moon test src/cmd`, and full `moon test` are green.
+2. `.tmp/pass-fuzz-directize-genvalid-10000-final2` reports `10000/10000` normalized matches with `0` mismatches or command failures.
+3. `.tmp/pass-fuzz-directize-mixed-10000-final2` reports `9975` comparable normalized matches with `0` mismatches and `25` Binaryen-side command failures.
+4. `.tmp/self-opt-directize-debug-final2` reports canonical wasm equality and normalized WAT equality on `tests/node/dist/starshine-debug-wasi.wasm`.
+
+Use the official Binaryen files as the reduced-shape map when extending the pass:
 
 1. `directize_all-features.wast`
    - main direct, trap, imported/exported/mutated, immutable-mode, multi-table, and select families.
@@ -247,39 +258,28 @@ Use the official Binaryen files in this order:
 3. `directize-wasm64.wast`
    - full-width table index behavior.
 4. no-DWARF late-tail replay
-   - verify the neighborhood ending in `reorder-globals -> directize`.
-5. generated artifact compare
-   - use the `DIR` backlog slice and compare against Binaryen's final-tail output.
+   - verify the neighborhood ending in `reorder-globals -> directize` once all neighbors are active.
 
 ## What to avoid
 
-Do not claim parity if the implementation only handles constant-index happy paths.
-That would miss the source-backed correctness core:
+Do not widen presets solely because direct explicit-pass parity is green. The scheduled tail still depends on the neighboring `string-gathering -> reorder-globals -> directize` sequence.
 
-- ordinary imported/exported/mutated-table conservatism,
-- initial-contents immutability as a narrower opt-in,
-- hole versus beyond-known-prefix,
-- wrong-type targets as known traps,
-- side-effect preservation before `unreachable`,
-- refinalization / validation after edits,
-- unsupported `select` and nonconstant target bailouts.
+Do not silently conflate the default pass with `directize-initial-contents-immutable`. That Binaryen pass arg loosens table trust under a separate policy and should wait for an explicit Starshine pass-arg surface.
 
-Do not fold `call_ref` into this pass. Binaryen's `directize` source does not do that.
-If Starshine later wants `call_ref` directization, document it as a separate local extension or a different upstream parity target.
+Do not fold `call_ref` into this pass. Binaryen's `directize` source does not do that. If Starshine later wants `call_ref` directization, document it as a separate local extension or a different upstream parity target.
 
-## Open questions before implementation
+## Open questions after implementation
 
-- Should Starshine land `directize` as a pure module pass over `@lib.Module`, or as module facts plus a HOT rewrite phase?
 - Where should the pass argument for immutable initial contents be exposed?
-- What shared type-repair helper should own post-rewrite validation / refinalization equivalents for boundary passes?
 - Should table-info construction become reusable infrastructure for future table-layout or call-target passes?
+- What exact validation lane should gate adding the final no-DWARF tail preset once `string-gathering` is active?
 
 ## Bottom line
 
-The pass is now port-ready from a documentation standpoint:
+The default explicit pass is now implemented and oracle-checked:
 
 - Binaryen's strategy is source-backed,
 - transformed shapes are cataloged,
-- Starshine's current non-implementation is explicit,
+- Starshine's implementation is active as a module pass,
 - local code surfaces are mapped,
-- and the implementation can start with table facts, then target classification, then rewrites, instead of guessing from the short public pass summary.
+- and direct Binaryen comparison is green on focused fuzz and the debug artifact.

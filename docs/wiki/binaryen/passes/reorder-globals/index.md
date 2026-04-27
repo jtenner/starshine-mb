@@ -98,7 +98,7 @@ That is much closer to the real pass than either:
   - `reorder-globals` is an active direct module pass implemented in `src/passes/reorder_globals.mbt`
   - `reorder-globals-always` remains a boundary-only tracked name
 - The active pass implements the public production policy, including the `<128` total-global no-op, dependency-aware candidate ordering, true ULEB-size scoring, import-prefix preservation, and numeric `GlobalIdx` remapping across module/code/name surfaces.
-- The public optimize/shrink presets still do not schedule the late-tail slot because neighboring `string-gathering` and `directize` work remains unimplemented.
+- The public optimize/shrink presets still do not schedule the late-tail slot because neighboring `string-gathering` remains unimplemented; the active `directize` pass now has direct explicit-pass oracle signoff, but the full `string-gathering -> reorder-globals -> directize` tail still needs ordered replay before preset scheduling.
 
 Keep preserving the distinction between the public pass and the `always` helper instead of collapsing them accidentally.
 

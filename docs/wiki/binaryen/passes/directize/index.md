@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-04-27
 sources:
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
@@ -12,6 +12,8 @@ sources:
   - ../../../raw/research/0209-2026-04-21-directize-source-confirmation-followup.md
   - ../../../raw/research/0265-2026-04-22-directize-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/directize.mbt
+  - ../../../../../src/passes/directize_test.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json
@@ -35,7 +37,7 @@ related:
 ## Role
 
 - `directize` is an upstream Binaryen late boundary / module-shaped indirect-call cleanup pass.
-- It is currently **unimplemented** in Starshine.
+- Starshine now has an active explicit `directize` module pass with direct Binaryen oracle parity evidence for the default pass behavior.
 - In Binaryen `version_129`, it is the **last top-level pass** in the canonical no-DWARF optimize tail.
 - Its job is to replace some `call_indirect` / `return_call_indirect` sites with either:
   - a direct `call` / `return_call`, or
@@ -100,8 +102,13 @@ That is much closer to the real pass than either:
 
 ## Current repo caveat
 
-- The current Starshine pass registry already tracks `directize` as a missing late boundary-only name in `src/passes/optimize.mbt`.
-- A future port should preserve that this is boundary-shaped work even though the actual body rewrite happens function-by-function, because the correctness gate depends on module-wide table analysis first.
+- The current Starshine pass registry exposes `directize` as an active module pass in `src/passes/optimize.mbt`, implemented by `src/passes/directize.mbt`.
+- The implementation preserves the boundary-shaped table-analysis requirement by computing module-wide table facts before rewriting function bodies.
+- It rewrites compatible constant-index `call_indirect` / `return_call_indirect` sites through non-imported, non-exported, non-mutated tables with known active `ref.func` / function-index elements.
+- It classifies known holes, out-of-range targets, and wrong-type targets as traps and rewrites them to `unreachable` when the table facts prove the trap.
+- It lowers the narrow known-target `select` shape to an `if` with direct-call arms and fresh locals for operands, matching Binaryen's default directize shape on reduced fixtures.
+- Direct oracle evidence is recorded in `.tmp/pass-fuzz-directize-genvalid-10000-final2`, `.tmp/pass-fuzz-directize-mixed-10000-final2`, and `.tmp/self-opt-directize-debug-final2`.
+- The explicit remaining caveats are preset scheduling for the full `string-gathering -> reorder-globals -> directize` tail and the optional `directize-initial-contents-immutable` pass-arg behavior, which Starshine does not expose yet.
 
 ## Page map
 
@@ -114,14 +121,14 @@ That is much closer to the real pass than either:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after WAT shape catalog for direct-call positives, trap/unreachable rewrites, `select` lowering, mutation and flat-table bailouts, wasm64 width correctness, and GC subtype behavior.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Dedicated Starshine status-and-port-map page covering the current boundary-only registry story, request guard, backlog slice `DIR`, canonical no-DWARF tail slot, and the exact neighboring local dossiers a future port would need to compose with.
+  Dedicated Starshine status-and-port-map page covering the active module-pass implementation, direct oracle evidence, canonical no-DWARF tail slot, and the exact neighboring local dossiers the completed tail slot must compose with.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Implementation-readiness bridge for future Starshine work: local parser / IR / binary / validator / HOT prerequisite map, first-slice order, reduced-test families, Binaryen oracle order, and open design questions.
+  Implementation-readiness and validation bridge for Starshine work: local parser / IR / binary / validator / HOT prerequisite map, implemented default-pass status, reduced-test families, Binaryen oracle evidence, and remaining preset/pass-arg caveats.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `directize` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real late boundary/module pass with the correct table-info prepass, constant/`select` target handling, trap preservation, and refinalization behavior.
+- Keep the direct oracle evidence current when changing table facts, trap rewriting, select lowering, or type compatibility.
 - Keep the strategy page and the table-info page in sync whenever new evidence changes the answer to either:
   - “when does Binaryen know enough to directize?” or
   - “when does Binaryen intentionally leave the indirect call alone?”

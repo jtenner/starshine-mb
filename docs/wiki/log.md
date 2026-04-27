@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] implementation | activate `directize`
+
+- Landed the active Starshine `directize` module pass for the default explicit Binaryen behavior, with module-wide table eligibility, imported/exported/mutated table bailouts, active element target collection, direct `call` / `return_call` rewrites, known-trap `unreachable` rewrites, subtype-compatible function checks, and narrow known-target `select` lowering with fresh locals.
+- Wired registry, module-pass dispatcher, pass-fuzz list support, and focused tests for a constant known target, runtime mutation bailout, known-hole trap rewrite, and select lowering.
+- Refreshed the `directize` wiki status, port-readiness page, tracker counts, and backlog with direct validation evidence: `moon info`, `moon fmt`, `moon test src/passes`, `moon test src/cmd`, full `moon test`, `.tmp/pass-fuzz-directize-genvalid-10000-final2`, `.tmp/pass-fuzz-directize-mixed-10000-final2`, and `.tmp/self-opt-directize-debug-final2`; preset scheduling and `directize-initial-contents-immutable` pass-arg support remain follow-up.
+
 ## [2026-04-26] implementation | activate `untee`
 
 - Landed the active Starshine `untee` module pass for explicit `local.tee` desugaring into `local.set` plus `local.get`, including recursive structured-body traversal and direct flat `unreachable; local.tee` deletion.

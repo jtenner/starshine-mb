@@ -139,6 +139,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--duplicate-function-elimination",
   "--duplicate-import-elimination",
   "--reorder-globals",
+  "--directize",
   "--remove-unused-module-elements",
   "--remove-unused-nonfunction-module-elements",
 ]);

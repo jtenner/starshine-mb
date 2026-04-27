@@ -128,7 +128,7 @@ fn pass_registry_boundary_only_names() -> Array[String] {
   [
     "abstract-type-refining", "alignment-lowering", "constant-field-propagation",
     "constant-field-null-test-folding", "dead-argument-elimination", "dead-argument-elimination-optimizing",
-    "signature-pruning", "signature-refining", "directize", "global-struct-inference-desc-cast",
+    "signature-pruning", "signature-refining", "global-struct-inference-desc-cast",
     "global-type-optimization", "simplify-globals", "simplify-globals-optimizing",
     "global-effects", "propagate-globals-globally", "type-refining", "type-generalizing",
     "type-finalizing", "type-un-finalizing", "unsubtyping", "inlining", "inlining-optimizing",
@@ -257,6 +257,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     pass_registry_entry_module("reorder-locals", reorder_locals_summary()),
     pass_registry_entry_module("duplicate-import-elimination", die_summary()),
     pass_registry_entry_module("reorder-globals", reorder_globals_summary()),
+    pass_registry_entry_module("directize", directize_summary()),
     pass_registry_entry_preset(
       "optimize",
       "Run the default hot optimization preset.",
