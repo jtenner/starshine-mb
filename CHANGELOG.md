@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-27 Fix: use real root arity in DCE region queries
+
+- **remove the `-1` root-region arity sentinel from `dead-code-elimination` and use the HOT region arity API for root regions as well as nested regions** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`src/passes/dead_code_elimination.mbt`](./src/passes/dead_code_elimination.mbt).
+
 ## 2026-04-27 Docs: clarify HOT node flag canonicalization
 
 - **rename and document HOT node-builder flag parameters as canonicalized inputs so callers and tests reflect that node flags always derive from the opcode** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/ir/hot.mbt`](./src/ir/hot.mbt), and [`src/ir/hot_core.mbt`](./src/ir/hot_core.mbt).

@@ -227,7 +227,7 @@ fn dead_code_elimination_region_result_arity(
   region_ref : @ir.HotRegionRef,
 ) -> Int {
   if region_ref == @ir.HotRegionRef::root() {
-    return -1
+    return @ir.hot_region_result_arity(func, region_ref)
   }
   let holder = region_ref.holder
   match @ir.hot_node_get(func, holder).op {
