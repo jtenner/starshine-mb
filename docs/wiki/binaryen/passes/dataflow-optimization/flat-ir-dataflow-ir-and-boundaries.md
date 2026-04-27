@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-04-25
 sources:
+  - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
+  - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
   - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
@@ -15,6 +17,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../flatten/index.md
 ---
 
@@ -28,7 +31,7 @@ related:
 2. Binaryen **Flat IR**
 3. Binaryen **DataFlow IR**
 
-If those layers get mixed together, the pass becomes almost impossible to explain correctly. The 2026-04-25 current-main recheck found no reason to change this layer split: upstream still begins from flatness verification, then builds the separate DataFlow graph, then writes only proven constants back into the flat wasm.
+If those layers get mixed together, the pass becomes almost impossible to explain correctly. The 2026-04-25 and 2026-04-27 current-main rechecks found no reason to change this layer split: upstream still begins from flatness verification, then builds the separate DataFlow graph, then writes only proven constants back into the flat wasm. The Starshine port-readiness page keeps the resulting substrate choice explicit instead of assuming local HOT IR is already equivalent.
 
 ## Layer 1: ordinary Binaryen tree IR
 
@@ -197,6 +200,8 @@ If several of those answers are no, the right prediction is usually:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md)
+- [`../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md)
 - [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)

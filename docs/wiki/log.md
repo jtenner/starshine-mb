@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-27] research | deepen `dataflow-optimization` port readiness
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/dataflow-optimization/` folder, and `docs/wiki/raw/research/`, then chose removed local `dataflow-optimization` / upstream `dfo` because its source-correct dossier still lacked the newer analyzer-first / validation bridge.
+- Added `docs/wiki/raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`, rechecking official Binaryen current-main `DataFlowOpts.cpp`, `src/dataflow/*`, `flat.h`, `pass.cpp`, and the combo `flatten_simplify-locals-nonesting_dfo_O3.wast` proof surface; no teaching-relevant drift was found from the 2026-04-25 contract.
+- Added `docs/wiki/raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md` and `docs/wiki/binaryen/passes/dataflow-optimization/starshine-port-readiness-and-validation.md`; refreshed the overview, Binaryen strategy, implementation/test-map, Flat/DataFlow boundary guide, WAT-shape catalog, and Starshine strategy so transformed shapes, upstream strategy, exact removed-registry / request-rejection / no-substrate code surfaces, analyzer-only first slice, same-constant merge first mutation, supported all-constant expression folding, negative tests, and Binaryen oracle lanes are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md`; promoted `dataflow-optimization` from `dossier` to `deep` while keeping it explicitly removed and unimplemented in Starshine today.
+
 ## [2026-04-27] research | deepen `flatten` port readiness
 
 - Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/flatten/` folder, and `docs/wiki/raw/research/`, then chose removed `flatten` because it had source-correct overview/strategy/shape/status coverage but still lacked the standard first-slice / validation bridge.
