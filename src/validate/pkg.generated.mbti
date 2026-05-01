@@ -313,6 +313,7 @@ pub struct GenValidFeatureFacts {
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
   has_table_limit_variants : Bool
+  has_const_expr_variants : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidFeatureStats {
@@ -348,6 +349,7 @@ pub struct GenValidFeatureStats {
   nonzero_memarg : Int
   memory_limit_variants : Int
   table_limit_variants : Int
+  const_expr_variants : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
 pub fn GenValidFeatureStats::record(Self, GenValidFeatureFacts) -> Self
@@ -370,6 +372,7 @@ pub struct GenValidFeatureToggles {
   allow_branch_heavy_control : Bool
   allow_memory_limit_variants : Bool
   allow_table_limit_variants : Bool
+  allow_const_expr_variants : Bool
   allow_shared_memories : Bool
   allow_memory64 : Bool
 } derive(Eq, @debug.Debug)

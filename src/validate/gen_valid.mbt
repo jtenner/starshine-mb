@@ -91,6 +91,7 @@ pub struct GenValidFeatureToggles {
   allow_branch_heavy_control : Bool
   allow_memory_limit_variants : Bool
   allow_table_limit_variants : Bool
+  allow_const_expr_variants : Bool
   allow_shared_memories : Bool
   allow_memory64 : Bool
 } derive(Eq, Debug)
@@ -129,6 +130,8 @@ pub impl Show for GenValidFeatureToggles with output(self, logger) {
   self.allow_memory_limit_variants.output(logger)
   logger.write_string(", allow_table_limit_variants:")
   self.allow_table_limit_variants.output(logger)
+  logger.write_string(", allow_const_expr_variants:")
+  self.allow_const_expr_variants.output(logger)
   logger.write_string(", allow_shared_memories:")
   self.allow_shared_memories.output(logger)
   logger.write_string(", allow_memory64:")
@@ -154,6 +157,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_branch_heavy_control: true,
     allow_memory_limit_variants: true,
     allow_table_limit_variants: true,
+    allow_const_expr_variants: true,
     allow_shared_memories: true,
     allow_memory64: true,
   }
@@ -169,6 +173,7 @@ pub fn GenValidFeatureToggles::coverage_forced_default() -> GenValidFeatureToggl
     allow_branch_heavy_control: true,
     allow_memory_limit_variants: true,
     allow_table_limit_variants: true,
+    allow_const_expr_variants: true,
     allow_shared_memories: true,
     allow_memory64: true,
   }
@@ -328,6 +333,7 @@ pub struct GenValidFeatureFacts {
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
   has_table_limit_variants : Bool
+  has_const_expr_variants : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -364,6 +370,7 @@ pub struct GenValidFeatureStats {
   nonzero_memarg : Int
   memory_limit_variants : Int
   table_limit_variants : Int
+  const_expr_variants : Int
 } derive(Eq, Debug)
 
 ///|
@@ -432,6 +439,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.memory_limit_variants.output(logger)
   logger.write_string(", table_limit_variants: ")
   self.table_limit_variants.output(logger)
+  logger.write_string(", const_expr_variants: ")
+  self.const_expr_variants.output(logger)
   logger.write_char('}')
 }
 
@@ -470,6 +479,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     nonzero_memarg: 0,
     memory_limit_variants: 0,
     table_limit_variants: 0,
+    const_expr_variants: 0,
   }
 }
 
@@ -523,6 +533,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_memory_limit_variants),
     table_limit_variants: self.table_limit_variants +
     gen_valid_bool_count(facts.has_table_limit_variants),
+    const_expr_variants: self.const_expr_variants +
+    gen_valid_bool_count(facts.has_const_expr_variants),
   }
 }
 
@@ -1134,6 +1146,51 @@ fn gen_matching_global_idx(
     }
   }
   None
+}
+
+///|
+fn gen_matching_immutable_global_idx(
+  globals : Array[GlobalType],
+  vt : ValType,
+) -> GlobalIdx? {
+  for i = 0; i < globals.length(); i = i + 1 {
+    let GlobalType(global_vt, is_mut) = globals[i]
+    if global_vt == vt && !is_mut {
+      return Some(GlobalIdx::new(i.reinterpret_as_uint()))
+    }
+  }
+  None
+}
+
+///|
+fn gen_valid_const_expr_for_global(
+  ctx : GenValidContext,
+  vt : ValType,
+  prior_globals : Array[GlobalType],
+  func_idx : FuncIdx,
+  gc_type_plan : GenValidGcTypePlan,
+) -> Expr {
+  if ctx.config.features.allow_const_expr_variants {
+    match gen_matching_immutable_global_idx(prior_globals, vt) {
+      Some(idx) if vt == ValType::i32() &&
+        (ctx.config.mode == CoverageForced || ctx.random_bool()) =>
+        return Expr::new([Instruction::global_get(idx)])
+      _ => ()
+    }
+    if vt == ValType::funcref() &&
+      (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0) {
+      return Expr::new([Instruction::ref_func(func_idx)])
+    }
+    match vt {
+      RefTypeValType(HeapTypeRefType(true, _, HeapType(type_idx))) =>
+        if gen_valid_contains_type_idx(gc_type_plan.struct_type_idxs, type_idx) &&
+          (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0) {
+          return Expr::new([Instruction::struct_new_default(type_idx)])
+        }
+      _ => ()
+    }
+  }
+  gen_const_expr(ctx, vt)
 }
 
 ///|
@@ -3470,7 +3527,17 @@ fn gen_valid_choose_defined_func_count(ctx : GenValidContext) -> Int {
 }
 
 ///|
-fn gen_valid_active_i32_offset(ctx : GenValidContext) -> Expr {
+fn gen_valid_active_i32_offset(
+  ctx : GenValidContext,
+  global_idx? : GlobalIdx? = None,
+) -> Expr {
+  if ctx.config.features.allow_const_expr_variants &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0) {
+    match global_idx {
+      Some(idx) => return Expr::new([Instruction::global_get(idx)])
+      None => ()
+    }
+  }
   Expr::new([Instruction::i32_const(I32(ctx.random_int(4)))])
 }
 
@@ -3630,7 +3697,19 @@ fn gen_valid_table_init_expr(
   total_table_idx : Int,
   rt : RefType,
   func_idx : FuncIdx,
+  imported_global_types : Array[GlobalType],
 ) -> Expr? {
+  if ctx.config.features.allow_const_expr_variants &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0) {
+    match
+      gen_matching_immutable_global_idx(
+        imported_global_types,
+        ValType::ref_type(rt),
+      ) {
+      Some(idx) => return Some(Expr::new([Instruction::global_get(idx)]))
+      None => ()
+    }
+  }
   if ctx.config.features.allow_table_limit_variants &&
     ctx.config.mode == CoverageForced &&
     total_table_idx > 0 {
@@ -3659,7 +3738,12 @@ fn gen_valid_module_once_with_config(
     config.features.allow_imports,
     config.max_imports,
     config.section_bias.imports_percent,
-    5,
+    if config.features.allow_const_expr_variants &&
+      config.features.allow_globals {
+      6
+    } else {
+      5
+    },
   )
   let mut import_plan : GenValidImportPlan = {
     func_count: 0,
@@ -3688,6 +3772,15 @@ fn gen_valid_module_once_with_config(
     }
     if config.features.allow_tags && remaining_imports > 0 {
       import_plan = { ..import_plan, tag_count: 1 }
+      remaining_imports -= 1
+    }
+    if config.features.allow_const_expr_variants &&
+      config.features.allow_globals &&
+      remaining_imports > 0 {
+      import_plan = {
+        ..import_plan,
+        global_count: import_plan.global_count + 1,
+      }
       remaining_imports -= 1
     }
   }
@@ -3766,11 +3859,16 @@ fn gen_valid_module_once_with_config(
       1
     },
   )
-  let defined_global_count = gen_valid_choose_optional_count(
+  let defined_global_count = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,
     config.features.allow_globals,
     config.max_globals,
     config.section_bias.globals_percent,
+    if config.features.allow_const_expr_variants {
+      4
+    } else {
+      1
+    },
   )
   let defined_tag_count = gen_valid_choose_optional_count(
     ctx,
@@ -3926,7 +4024,15 @@ fn gen_valid_module_once_with_config(
   }
   let imported_global_types : Array[GlobalType] = []
   for i = 0; i < import_global_count; i = i + 1 {
-    let global_vt = if i == 0 &&
+    let global_vt = if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i == 0 {
+      ValType::i32()
+    } else if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i == 1 {
+      ValType::externref()
+    } else if i == 0 &&
       !gc_type_plan.exact_ref_types.is_empty() &&
       (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
       gc_type_plan.exact_ref_types[ctx.random_int(
@@ -3943,10 +4049,14 @@ fn gen_valid_module_once_with_config(
       }
       gen_valid_valtype_with_extra_refs(ctx, global_ref_types)
     }
-    let global_type = GlobalType::new(
-      global_vt,
-      ctx.config.mode == CoverageForced || ctx.random_bool(),
-    )
+    let is_mut = if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i <= 1 {
+      false
+    } else {
+      ctx.config.mode == CoverageForced || ctx.random_bool()
+    }
+    let global_type = GlobalType::new(global_vt, is_mut)
     imported_global_types.push(global_type)
     imports.push(
       Import::new(
@@ -3966,9 +4076,33 @@ fn gen_valid_module_once_with_config(
     )
   }
 
+  let first_defined_func_idx = FuncIdx::new(
+    import_func_count.reinterpret_as_uint(),
+  )
+
   let globals : Array[Global] = []
+  let global_types_for_inits = imported_global_types.copy()
   for i = 0; i < defined_global_count; i = i + 1 {
-    let vt = if i == 0 &&
+    let vt = if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i <= 1 {
+      ValType::i32()
+    } else if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i == 2 {
+      ValType::funcref()
+    } else if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i == 3 &&
+      !gc_type_plan.struct_type_idxs.is_empty() {
+      ValType::ref_type(
+        RefType::new(
+          true,
+          HeapType::new(gc_type_plan.struct_type_idxs[0]),
+          exact=true,
+        ),
+      )
+    } else if i == 0 &&
       !gc_type_plan.exact_ref_types.is_empty() &&
       (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
       gc_type_plan.exact_ref_types[ctx.random_int(
@@ -3985,16 +4119,25 @@ fn gen_valid_module_once_with_config(
       }
       gen_valid_valtype_with_extra_refs(ctx, global_ref_types)
     }
-    let is_mut = ctx.config.mode == CoverageForced || ctx.random_bool()
+    let is_mut = if ctx.config.features.allow_const_expr_variants &&
+      ctx.config.mode == CoverageForced &&
+      i <= 1 {
+      false
+    } else {
+      ctx.config.mode == CoverageForced || ctx.random_bool()
+    }
+    let global_type = GlobalType::new(vt, is_mut)
     globals.push(
-      Global::new(GlobalType::new(vt, is_mut), gen_const_expr(ctx, vt)),
+      Global::new(
+        global_type,
+        gen_valid_const_expr_for_global(
+          ctx, vt, global_types_for_inits, first_defined_func_idx, gc_type_plan,
+        ),
+      ),
     )
+    global_types_for_inits.push(global_type)
   }
-  let global_types = imported_global_types.copy()
-  for global in globals {
-    let Global(gt, _) = global
-    global_types.push(gt)
-  }
+  let global_types = global_types_for_inits
 
   let func_type_idxs : Array[TypeIdx] = []
   for i = 0; i < defined_func_count; i = i + 1 {
@@ -4006,10 +4149,6 @@ fn gen_valid_module_once_with_config(
       },
     )
   }
-  let first_defined_func_idx = FuncIdx::new(
-    import_func_count.reinterpret_as_uint(),
-  )
-
   let tables : Array[Table] = []
   for i = 0; i < defined_table_count; i = i + 1 {
     let total_table_idx = import_table_count + i
@@ -4019,7 +4158,7 @@ fn gen_valid_module_once_with_config(
       Table::new(
         table_type,
         gen_valid_table_init_expr(
-          ctx, total_table_idx, table_ref_type, first_defined_func_idx,
+          ctx, total_table_idx, table_ref_type, first_defined_func_idx, imported_global_types,
         ),
       ),
     )
@@ -4072,6 +4211,11 @@ fn gen_valid_module_once_with_config(
   }
 
   let total_func_count = import_func_count + defined_func_count
+  let const_i32_global_idx = if ctx.config.features.allow_const_expr_variants {
+    gen_matching_immutable_global_idx(global_types, ValType::i32())
+  } else {
+    None
+  }
   let tags : Array[TagType] = []
   for _ in 0..<defined_tag_count {
     tags.push(TagType::new(TypeIdx::new(0U)))
@@ -4102,7 +4246,10 @@ fn gen_valid_module_once_with_config(
       }
       let elem = if ctx.config.mode == CoverageForced && i == 0 {
         Elem::new(
-          ElemMode::active(TableIdx::new(0U), gen_valid_active_i32_offset(ctx)),
+          ElemMode::active(
+            TableIdx::new(0U),
+            gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx),
+          ),
           ElemKind::funcs([func_idx]),
         )
       } else if ctx.config.mode == CoverageForced && i == 1 {
@@ -4129,7 +4276,13 @@ fn gen_valid_module_once_with_config(
               (Some(table_idx), Some(rt)) if ValType::ref_type(rt) !=
                 ValType::funcref() =>
                 Elem::new(
-                  ElemMode::active(table_idx, gen_valid_active_i32_offset(ctx)),
+                  ElemMode::active(
+                    table_idx,
+                    gen_valid_active_i32_offset(
+                      ctx,
+                      global_idx=const_i32_global_idx,
+                    ),
+                  ),
                   ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
                 )
               _ => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
@@ -4156,7 +4309,13 @@ fn gen_valid_module_once_with_config(
         match (gc_table_choice, gc_table_ref_type) {
           (Some(table_idx), Some(rt)) =>
             Elem::new(
-              ElemMode::active(table_idx, gen_valid_active_i32_offset(ctx)),
+              ElemMode::active(
+                table_idx,
+                gen_valid_active_i32_offset(
+                  ctx,
+                  global_idx=const_i32_global_idx,
+                ),
+              ),
               ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
             )
           _ => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
@@ -4167,7 +4326,10 @@ fn gen_valid_module_once_with_config(
             Elem::new(
               ElemMode::active(
                 TableIdx::new(0U),
-                gen_valid_active_i32_offset(ctx),
+                gen_valid_active_i32_offset(
+                  ctx,
+                  global_idx=const_i32_global_idx,
+                ),
               ),
               ElemKind::funcs([func_idx]),
             )
@@ -4184,7 +4346,10 @@ fn gen_valid_module_once_with_config(
             Elem::new(
               ElemMode::active(
                 TableIdx::new(0U),
-                gen_valid_active_i32_offset(ctx),
+                gen_valid_active_i32_offset(
+                  ctx,
+                  global_idx=const_i32_global_idx,
+                ),
               ),
               ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
             )
@@ -4193,7 +4358,13 @@ fn gen_valid_module_once_with_config(
               (Some(table_idx), Some(rt)) if ValType::ref_type(rt) !=
                 ValType::funcref() =>
                 Elem::new(
-                  ElemMode::active(table_idx, gen_valid_active_i32_offset(ctx)),
+                  ElemMode::active(
+                    table_idx,
+                    gen_valid_active_i32_offset(
+                      ctx,
+                      global_idx=const_i32_global_idx,
+                    ),
+                  ),
                   ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
                 )
               _ => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
@@ -4242,7 +4413,10 @@ fn gen_valid_module_once_with_config(
     for i = 0; i < data_count; i = i + 1 {
       let data = if ctx.config.mode == CoverageForced && i == 0 {
         Data::new(
-          DataMode::active(MemIdx::new(0U), gen_valid_active_i32_offset(ctx)),
+          DataMode::active(
+            MemIdx::new(0U),
+            gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx),
+          ),
           b"gen-valid-active",
         )
       } else if ctx.config.mode == CoverageForced && i == 1 {
@@ -4258,7 +4432,10 @@ fn gen_valid_module_once_with_config(
           Data::new(DataMode::passive(), payload)
         } else {
           Data::new(
-            DataMode::active(MemIdx::new(0U), gen_valid_active_i32_offset(ctx)),
+            DataMode::active(
+              MemIdx::new(0U),
+              gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx),
+            ),
             payload,
           )
         }
@@ -4653,6 +4830,23 @@ fn gen_valid_table_type_has_limit_variant(
 }
 
 ///|
+fn gen_valid_const_expr_has_variant(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      GlobalGet(_)
+      | RefFunc(_)
+      | StructNew(_)
+      | StructNewDefault(_)
+      | StructNewDesc(_)
+      | StructNewDefaultDesc(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
 fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
   if gen_valid_instr_is_expanded_scalar_numeric(instr) {
     return GenValidInstrFacts::{
@@ -4858,6 +5052,7 @@ pub fn gen_valid_feature_facts(
   let mut has_nonzero_memarg = false
   let mut has_memory_limit_variants = false
   let mut has_table_limit_variants = false
+  let mut has_const_expr_variants = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -4915,6 +5110,12 @@ pub fn gen_valid_feature_facts(
         let Table(table_type, init_opt) = table
         has_table_limit_variants = has_table_limit_variants ||
           gen_valid_table_type_has_limit_variant(table_type, init_opt)
+        match init_opt {
+          Some(init) =>
+            has_const_expr_variants = has_const_expr_variants ||
+              gen_valid_const_expr_has_variant(init)
+          None => ()
+        }
       }
     }
     _ => ()
@@ -4937,6 +5138,8 @@ pub fn gen_valid_feature_facts(
           let Global(global_type, expr) = global
           let GlobalType(vt, _) = global_type
           let (has_ref, has_v128_fact) = gen_valid_scan_val_type(vt)
+          has_const_expr_variants = has_const_expr_variants ||
+            gen_valid_const_expr_has_variant(expr)
           let expr_facts = gen_valid_scan_expr(expr)
           uses_ref_types = uses_ref_types ||
             has_ref ||
@@ -4989,6 +5192,8 @@ pub fn gen_valid_feature_facts(
           let Elem(mode, kind) = elem
           match mode {
             Active(_, expr) => {
+              has_const_expr_variants = has_const_expr_variants ||
+                gen_valid_const_expr_has_variant(expr)
               let facts = gen_valid_scan_expr(expr)
               uses_ref_types = uses_ref_types || facts.uses_ref_types
               uses_v128 = uses_v128 || facts.uses_v128
@@ -5015,6 +5220,8 @@ pub fn gen_valid_feature_facts(
             FuncsElemKind(_) => ()
             FuncExprsElemKind(exprs) =>
               for expr in exprs {
+                has_const_expr_variants = has_const_expr_variants ||
+                  gen_valid_const_expr_has_variant(expr)
                 let facts = gen_valid_scan_expr(expr)
                 uses_ref_types = uses_ref_types || facts.uses_ref_types
                 uses_v128 = uses_v128 || facts.uses_v128
@@ -5039,6 +5246,8 @@ pub fn gen_valid_feature_facts(
               ignore(rt)
               uses_ref_types = true
               for expr in exprs {
+                has_const_expr_variants = has_const_expr_variants ||
+                  gen_valid_const_expr_has_variant(expr)
                 let facts = gen_valid_scan_expr(expr)
                 uses_ref_types = uses_ref_types || facts.uses_ref_types
                 uses_v128 = uses_v128 || facts.uses_v128
@@ -5073,6 +5282,8 @@ pub fn gen_valid_feature_facts(
           let Data(mode, _) = data
           match mode {
             Active(_, expr) => {
+              has_const_expr_variants = has_const_expr_variants ||
+                gen_valid_const_expr_has_variant(expr)
               let facts = gen_valid_scan_expr(expr)
               uses_ref_types = uses_ref_types || facts.uses_ref_types
               uses_v128 = uses_v128 || facts.uses_v128
@@ -5162,5 +5373,6 @@ pub fn gen_valid_feature_facts(
     has_nonzero_memarg,
     has_memory_limit_variants,
     has_table_limit_variants,
+    has_const_expr_variants,
   }
 }

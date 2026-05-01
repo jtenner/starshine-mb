@@ -3570,7 +3570,7 @@ pub fn validate_valid_feature_actual_count(
     NonzeroMemarg => stats.nonzero_memarg
     MemoryLimitVariants => stats.memory_limit_variants
     TableLimitVariants => stats.table_limit_variants
-    ConstExprVariants => 0
+    ConstExprVariants => stats.const_expr_variants
     BasicRefInstructions => 0
     I31ExternConversions => 0
     GcConstructors => 0
@@ -5673,6 +5673,213 @@ test "gen_valid table limit variants obey toggle" {
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_eq(validate_valid_feature_actual_count(stats, TableLimitVariants), 0)
+}
+
+///|
+priv struct ValidateTestConstExprForms {
+  global_get_in_global : Bool
+  prior_global_get_in_global : Bool
+  ref_func_in_global : Bool
+  gc_ref_in_global : Bool
+  global_get_in_table_init : Bool
+  global_get_in_elem_offset : Bool
+  global_get_in_data_offset : Bool
+}
+
+///|
+fn validate_test_const_expr_forms_empty() -> ValidateTestConstExprForms {
+  {
+    global_get_in_global: false,
+    prior_global_get_in_global: false,
+    ref_func_in_global: false,
+    gc_ref_in_global: false,
+    global_get_in_table_init: false,
+    global_get_in_elem_offset: false,
+    global_get_in_data_offset: false,
+  }
+}
+
+///|
+fn validate_test_expr_has_global_get(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      GlobalGet(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn validate_test_expr_has_ref_func(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      RefFunc(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn validate_test_expr_has_gc_const(expr : Expr) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      StructNew(_)
+      | StructNewDefault(_)
+      | StructNewDesc(_)
+      | StructNewDefaultDesc(_) => return true
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn validate_test_imported_global_count(mod : Module) -> Int {
+  match mod.import_sec {
+    Some(ImportSec(imports)) => {
+      let mut count = 0
+      for imp in imports {
+        let Import(_, _, extern_type) = imp
+        match extern_type {
+          GlobalExternType(_) => count += 1
+          _ => ()
+        }
+      }
+      count
+    }
+    None => 0
+  }
+}
+
+///|
+fn validate_test_expr_has_prior_global_get(
+  expr : Expr,
+  upper_bound : Int,
+) -> Bool {
+  let Expr(instrs) = expr
+  for instr in instrs {
+    match instr {
+      GlobalGet(idx) => {
+        let GlobalIdx(idx_u) = idx
+        if idx_u.reinterpret_as_int() < upper_bound {
+          return true
+        }
+      }
+      _ => ()
+    }
+  }
+  false
+}
+
+///|
+fn validate_test_const_expr_forms_module(
+  mod : Module,
+) -> ValidateTestConstExprForms {
+  let mut forms = validate_test_const_expr_forms_empty()
+  let imported_global_count = validate_test_imported_global_count(mod)
+  match mod.global_sec {
+    Some(GlobalSec(globals)) =>
+      for i = 0; i < globals.length(); i = i + 1 {
+        let Global(_, init) = globals[i]
+        forms = {
+          ..forms,
+          global_get_in_global: forms.global_get_in_global ||
+          validate_test_expr_has_global_get(init),
+          prior_global_get_in_global: forms.prior_global_get_in_global ||
+          validate_test_expr_has_prior_global_get(
+            init,
+            imported_global_count + i,
+          ),
+          ref_func_in_global: forms.ref_func_in_global ||
+          validate_test_expr_has_ref_func(init),
+          gc_ref_in_global: forms.gc_ref_in_global ||
+          validate_test_expr_has_gc_const(init),
+        }
+      }
+    None => ()
+  }
+  match mod.table_sec {
+    Some(TableSec(tables)) =>
+      for table in tables {
+        let Table(_, init_opt) = table
+        match init_opt {
+          Some(init) =>
+            forms = {
+              ..forms,
+              global_get_in_table_init: forms.global_get_in_table_init ||
+              validate_test_expr_has_global_get(init),
+            }
+          None => ()
+        }
+      }
+    None => ()
+  }
+  match mod.elem_sec {
+    Some(ElemSec(elems)) =>
+      for elem in elems {
+        let Elem(mode, _) = elem
+        match mode {
+          Active(_, offset) =>
+            forms = {
+              ..forms,
+              global_get_in_elem_offset: forms.global_get_in_elem_offset ||
+              validate_test_expr_has_global_get(offset),
+            }
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.data_sec {
+    Some(DataSec(datas)) =>
+      for data in datas {
+        let Data(mode, _) = data
+        match mode {
+          Active(_, offset) =>
+            forms = {
+              ..forms,
+              global_get_in_data_offset: forms.global_get_in_data_offset ||
+              validate_test_expr_has_global_get(offset),
+            }
+          Passive => ()
+        }
+      }
+    None => ()
+  }
+  forms
+}
+
+///|
+test "gen_valid coverage-forced emits const-expression variants" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf2600aUL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_const_expr_forms_module(mod)
+  assert_true(forms.global_get_in_global)
+  assert_true(forms.prior_global_get_in_global)
+  assert_true(forms.ref_func_in_global)
+  assert_true(forms.gc_ref_in_global)
+  assert_true(forms.global_get_in_table_init)
+  assert_true(forms.global_get_in_elem_offset)
+  assert_true(forms.global_get_in_data_offset)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, ConstExprVariants) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: ConstExprVariants, min_count: 1 },
+    ]),
+    [],
+  )
 }
 
 ///|
