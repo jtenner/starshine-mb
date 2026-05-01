@@ -132,6 +132,8 @@ pub fn validate_typesec(@lib.TypeSec?, Env) -> Result[Env, String]
 
 pub fn validate_valid_feature_actual_count(GenValidFeatureStats, ValidateValidFeatureKey) -> Int
 
+pub fn validate_valid_feature_ledger(GenValidFeatureStats, Array[ValidateValidFeatureFloor]) -> Array[ValidateValidFeatureLedgerEntry]
+
 pub fn validate_valid_run_config(String) -> Result[ValidateValidRunConfig, String]
 
 pub fn validation_error_diagnostic(ValidationError) -> ValidationDiagnostic
@@ -523,8 +525,53 @@ pub enum ValidateValidFeatureKey {
   Calls
   CallIndirect
   BranchHeavyControl
+  NumericFullOps
+  BrTable
+  StandaloneUnreachable
+  LocalTee
+  TypedSelect
+  TailCalls
+  ScalarMemoryWidths
+  NonzeroMemarg
+  MemoryLimitVariants
+  TableLimitVariants
+  ConstExprVariants
+  BasicRefInstructions
+  I31ExternConversions
+  GcConstructors
+  GcAccessors
+  StringOps
+  ExceptionTryTableMatrix
+  SimdPhase1
+  SimdPhase2
+  SimdPhase3
+  Atomics
+  SubtypingTopology
+  RichGcFieldPlans
+  ImportExportTopology
+  ElementSegmentRange
+  DataSegmentRange
+  NameCustomSections
+  InvalidAstStrategies
+  InvalidBinaryStrategies
+  WastArbitraryParity
 } derive(Eq, @debug.Debug)
 pub impl Show for ValidateValidFeatureKey
+
+pub struct ValidateValidFeatureLedgerEntry {
+  key : ValidateValidFeatureKey
+  label : String
+  actual_count : Int
+  required_min : Int
+  status : ValidateValidFeatureLedgerStatus
+} derive(Eq, @debug.Debug)
+
+pub enum ValidateValidFeatureLedgerStatus {
+  Covered
+  MissingOptional
+  MissingRequired
+} derive(Eq, @debug.Debug)
+pub impl Show for ValidateValidFeatureLedgerStatus
 
 pub struct ValidateValidFuzzStats {
   profile : String

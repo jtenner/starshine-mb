@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-30] implementation | add generator coverage ledger
+
+- Landed `[FZG]001` by adding a public validate-side feature ledger that reports stable rows for the current and planned generator-widening surfaces, including optional zero-count rows for future families and required-missing rows only when a profile explicitly asks for a floor.
+- Added focused validator tests for optional missing FZG rows and future-row floor failures.
+- Added [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) and indexed it so later FZG slices can attach exact counters and profile floors without rediscovering the reporting contract.
+
 ## [2026-04-27] health | refresh `reorder-locals` code pointers
 
 - Ran a focused touched-area reference-hygiene check after adding the `reorder-locals` validation bridge.

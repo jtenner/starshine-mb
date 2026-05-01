@@ -706,6 +706,107 @@ Suggested Tests
 4. Test against binaryen.
    - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
+#### FZG - Fuzzer Generator Widening
+
+Goal
+- Widen the valid, invalid-AST, invalid-binary, and WAST arbitrary module generators so fuzz inputs cover the instruction families, section topologies, type shapes, and cross-section interactions identified in the generator research.
+
+Why
+- Current fuzzing overrepresents small MVP-style modules plus selected GC/bulk-memory surfaces, while large instruction families and module-topology cases are absent. Wider generated inputs should expose validator, decoder, encoder, optimizer, and roundtrip bugs earlier.
+
+Required APIs
+- `src/validate/gen_valid.mbt` for typed valid-module generation and feature floors.
+- `src/validate/gen_invalid.mbt` plus invalid-strategy helpers for AST invalidation seeded from valid modules.
+- `src/fuzz/invalid_binary.mbt` for binary-level invalid generation.
+- `src/wast/arbitrary.mbt` for WAST/WAT roundtrip generation.
+- `src/validate/validate.mbt` fuzz-profile floors and surface-fact reporting.
+
+Invariants
+- Valid generator changes must continue to return modules accepted by `validate_module`.
+- New instruction families must be generated only when operand/result stack discipline, feature flags, and referenced index spaces are valid.
+- Invalid generators must start from valid bases unless a strategy is explicitly binary-malformed.
+- WAST arbitrary generation can remain text-roundtrip-oriented, but should not silently diverge from the richer valid-generator coverage model.
+
+Dependencies
+- Existing `GenValidConfig`, `GenValidFeatureToggles`, and `GenValidFeatureStats` surfaces.
+- Existing invalid strategy registries and stable IDs.
+- Current instruction enum in `src/lib/types.mbt`.
+
+Exit Criteria
+- Every slice below has focused tests or feature-floor assertions, and the natural/coverage-forced profiles can demonstrate nonzero coverage for all newly modeled feature families.
+- `moon info`, `moon fmt`, `moon test`, and targeted fuzz-profile smoke tests stay green.
+
+Suggested Tests
+- `moon test --package jtenner/starshine/validate`
+- `moon test --package jtenner/starshine/wast`
+- `moon test --package jtenner/starshine/wat`
+- `moon test --package jtenner/starshine/fuzz`
+- `bun scripts/pass-fuzz-compare.ts --generator gen-valid --count 1000 --max-failures 20 --out-dir .tmp/pass-fuzz-genvalid-wide-smoke`
+
+1. Establish generator coverage accounting before widening.
+   - [FZG]001 - Generator Coverage Ledger and Surface Facts - Add a durable coverage ledger for instruction families, section shapes, type-topology features, invalid strategies, and WAST-only surfaces before adding more cases.
+     - Status: complete. `src/validate/validate.mbt` now exposes `validate_valid_feature_ledger(stats, floors)`, a stable ledger over current smoke/CI/stress rows plus the planned FZG widening rows. Future rows report `MissingOptional` with count `0` until a profile explicitly adds a nonzero floor, while required missing rows still fail through `check_validate_valid_feature_floors`. Focused validator tests cover both optional missing rows and explicit future-floor failures. The living docs page is [`docs/wiki/fuzzing/generator-coverage-ledger.md`](docs/wiki/fuzzing/generator-coverage-ledger.md).
+     - Remaining follow-up: later FZG slices should attach exact counters for each generator surface as they add generation paths, replacing today's zero-count placeholders where appropriate.
+2. Expand core scalar and control instructions in the valid generator.
+   - [FZG]002 - Full Scalar Numeric Opcode Generation - Add type-directed valid generation for the missing scalar numeric opcodes: integer div/rem/shift/rotate, full signed/unsigned comparisons, float ceil/floor/trunc/nearest/sqrt/min/max/copysign, unsigned conversions, sign-extension variants, and saturating truncations.
+     - Invariants: avoid undefined traps unless deliberately wrapped by valid unreachable/trap-tolerant contexts; preserve exact operand/result typing.
+     - Suggested Tests: focused validator tests for representative generated expressions plus fixed-seed feature-floor tests.
+   - [FZG]003 - Core Control Surface Expansion - Generate `br_table`, standalone `unreachable`, `local.tee`, and typed `select` in `src/validate/gen_valid.mbt`.
+     - Invariants: label depths and block result arities must remain valid; `unreachable` must not leave fallthrough stack obligations unsatisfied unless bottom typing covers them.
+   - [FZG]004 - Tail-Call Instruction Generation - Add valid `return_call`, `return_call_indirect`, and `return_call_ref` generation with callable-signature matching.
+     - Dependencies: existing callable signature pool and declared `ref.func` handling.
+     - Invariants: tail-call results must match the current function return type exactly.
+3. Expand memory, table, global, and bulk-op variation.
+   - [FZG]005 - Memory Instruction and MemArg Variation - Generate all scalar load/store width/sign variants with varied valid align/offset values instead of only natural zero memargs and i32 load/store.
+     - Exit Criteria: feature facts observe narrow loads/stores and nonzero offsets/alignments while modules still validate.
+   - [FZG]006 - Memory Limit and Proposal Variants - Add generator support for zero-min, unbounded, shared, and memory64 memory shapes behind explicit config toggles.
+     - Invariants: shared memory must always have a max; memory64 instructions/types must be feature-gated consistently.
+   - [FZG]007 - Table Limit and Initialization Variants - Generate zero-min/unbounded tables, typed GC/externref tables, and table init expressions where the AST supports them.
+     - Invariants: active element/table initializers must match the target table reference type.
+   - [FZG]008 - Const-Expression Expansion - Generate valid `global.get` of prior immutable globals, `ref.func`, and safe GC/ref const-expression forms in globals, table initializers, element offsets, and data offsets.
+     - Invariants: const-expression index references must only point backward where the spec requires it.
+4. Expand reference, GC, string, and exception surfaces.
+   - [FZG]009 - Basic Ref Instruction Expansion - Generate `ref.is_null`, broader `ref.null` heap types including `none`/`nofunc`/`noextern` where valid, and more nullability combinations for `ref.test`, `ref.cast`, `br_on_cast`, and `br_on_cast_fail`.
+   - [FZG]010 - I31 and Extern Conversion Generation - Generate `ref.i31`, `i31.get_s`, `i31.get_u`, `any.convert_extern`, and `extern.convert_any` with valid source/target stack typing.
+   - [FZG]011 - GC Constructor and Accessor Expansion - Generate non-default `struct.new`, non-default `array.new`, `array.new_fixed`, packed `struct.get_s`/`struct.get_u`, packed `array.get_s`/`array.get_u`, `array.fill`, and `array.copy`.
+     - Dependencies: richer struct/array type plans from `[FZG]018`.
+   - [FZG]012 - String Instruction Expansion - Add valid generation for string measurement, comparison, hash, view, and iterator instructions supported by the AST and validator.
+     - Invariants: string-view lifetimes and iterator operand/result types must match the validator's model.
+   - [FZG]013 - Exception/Try-Table Matrix Expansion - Vary `try_table` block result types and catch lists beyond the current forced prelude shapes, including mixed catch/catch_ref/catch_all/catch_all_ref arrangements in natural mode.
+5. Add SIMD generation in phases.
+   - [FZG]014 - SIMD Phase 1 Constants, Splat, Lane, and Bitwise Ops - Add type-directed generation for v128 splats, lane extract/replace, `v128.not/and/andnot/or/xor/bitselect/any_true`, and simple drops/results.
+     - Exit Criteria: fixed-seed coverage observes each phase-1 SIMD family.
+   - [FZG]015 - SIMD Phase 2 Arithmetic and Comparisons - Generate integer and float SIMD arithmetic, comparisons, all_true, bitmask, saturating add/sub, min/max, avgr, and rounding ops.
+   - [FZG]016 - SIMD Phase 3 Memory and Shuffle Ops - Generate SIMD loads/stores, splat loads, lane loads/stores, zero loads, shuffle, swizzle, narrow/widen, dot/add-pairwise, and float demote/promote.
+     - Dependencies: `[FZG]005` memarg variation and memory presence.
+6. Add atomics only behind explicit proposal gating.
+   - [FZG]017 - Atomic Instruction Generation - Add `allow_atomics` and valid generation for atomic loads/stores, RMW, cmpxchg, wait/notify, and fence.
+     - Invariants: generated modules must include compatible shared memory when required, and atomics must respect natural alignment constraints.
+7. Widen type-section topology.
+   - [FZG]018 - Subtyping, Finality, and Rec-Group Topology - Generate subtype chains, `final` types, open subtypes, rec groups with 3+ subtypes, and cross-group type references.
+     - Invariants: recursive and absolute type indices must normalize and validate under the existing environment rules.
+   - [FZG]019 - Rich Struct and Array Field Plans - Generate structs with many fields, packed fields, mixed mutable/immutable fields, non-nullable typed refs, arrays with packed/ref fields, and field plans specifically suitable for packed get/set and array fill/copy tests.
+8. Widen section topology and cross-section interactions.
+   - [FZG]020 - Import/Export Topology Expansion - Generate multi-module imports, import re-exports, multiple exports of the same valid index under distinct names, export/import name collisions where legal, and imported starts with valid signatures.
+   - [FZG]021 - Element Segment Range Expansion - Generate multi-element segments, element expressions that use valid const-expression alternatives, active segments targeting nonzero tables, and typed segments for non-funcref table types.
+   - [FZG]022 - Data Segment Range Expansion - Generate larger payloads, active data targeting nonzero memories, zero-length active/passive data, and varied offset expressions.
+   - [FZG]023 - Valid Name and Custom Section Generation - Add valid name-section and non-name custom-section generation, including partial subsection presence and names for functions, locals, labels, types, tables, memories, globals, elems, datas, fields, and tags.
+     - Invariants: raw custom section named `name` should remain invalid-only unless represented through the structured `name_sec` field.
+9. Widen invalid generators from the new valid surfaces.
+   - [FZG]024 - Invalid AST Strategy Expansion for New Surfaces - Add invalid AST mutations for newly generated valid surfaces: bad subtype/super indices, invalid final/super relationships, invalid memory64/shared combinations, invalid SIMD lane indices, invalid atomic alignment/shared-memory requirements, invalid table/global/elem/data const expressions, and invalid name/custom section references.
+     - Dependencies: corresponding valid surfaces must exist first so each mutation can start from a validating base.
+   - [FZG]025 - Invalid Binary Strategy Expansion for New Surfaces - Add binary-level corruptions for new section/topology surfaces: malformed SIMD immediates, lane-index overflow, atomic opcode/memarg misuse, memory64/shared encoding errors, recursive-type encoding errors, name-section malformed subsection ordering/sizes, and custom-section UTF-8/payload edge cases.
+10. Bring WAST arbitrary generation closer to the valid generator.
+   - [FZG]026 - WAST Arbitrary Generator Parity Plan - Decide whether `src/wast/arbitrary.mbt` should call into the valid generator or share common instruction-family helpers, then document the chosen boundary.
+     - Exit Criteria: no duplicated stale opcode picker remains undocumented.
+   - [FZG]027 - WAST Arbitrary Surface Widening - Add WAST generation for GC types, tags/try_table/throw, memory/table bulk ops, ref casts, call_ref/tail-call forms, richer imports/exports, and representative SIMD/text syntax shapes.
+     - Invariants: generated WAST should still roundtrip through the existing WAST/WAT fuzz profiles.
+11. Tune profiles and signoff gates.
+   - [FZG]028 - Profile and Feature-Floor Retuning - Add smoke/ci/stress floor entries for every new feature family, keeping smoke cheap while making ci/stress catch coverage regressions.
+   - [FZG]029 - Generator Failure Diagnostics and Corpus Persistence - Improve generator/fuzzer diagnostics so invalid bases, validation failures, and missing feature floors write reproducible module/corpus artifacts.
+   - [FZG]030 - Wide-Generator Signoff Sweep - Run and record a dedicated wide-generator signoff after the slices above land, including valid fuzz, invalid-AST fuzz, invalid-binary fuzz, WAST/WAT roundtrip fuzz, and at least one pass-fuzz compare lane using `--generator gen-valid`.
+     - Exit Criteria: update `CHANGELOG.md`, `docs/wiki/`, and this backlog with final evidence and any explicit deferrals.
+
 ## v0.2.0 Backlog
 
 - [HOT]003 - Node-Package Worker Queue Port - Reuse the native hot-batch queue contract in the shipped Node package with `worker_threads` rather than WASI threads.

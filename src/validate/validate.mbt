@@ -3350,6 +3350,36 @@ pub enum ValidateValidFeatureKey {
   Calls
   CallIndirect
   BranchHeavyControl
+  NumericFullOps
+  BrTable
+  StandaloneUnreachable
+  LocalTee
+  TypedSelect
+  TailCalls
+  ScalarMemoryWidths
+  NonzeroMemarg
+  MemoryLimitVariants
+  TableLimitVariants
+  ConstExprVariants
+  BasicRefInstructions
+  I31ExternConversions
+  GcConstructors
+  GcAccessors
+  StringOps
+  ExceptionTryTableMatrix
+  SimdPhase1
+  SimdPhase2
+  SimdPhase3
+  Atomics
+  SubtypingTopology
+  RichGcFieldPlans
+  ImportExportTopology
+  ElementSegmentRange
+  DataSegmentRange
+  NameCustomSections
+  InvalidAstStrategies
+  InvalidBinaryStrategies
+  WastArbitraryParity
 } derive(Eq, Debug)
 
 ///|
@@ -3375,6 +3405,36 @@ pub impl Show for ValidateValidFeatureKey with output(self, logger) {
     Calls => logger.write_string("Calls")
     CallIndirect => logger.write_string("CallIndirect")
     BranchHeavyControl => logger.write_string("BranchHeavyControl")
+    NumericFullOps => logger.write_string("NumericFullOps")
+    BrTable => logger.write_string("BrTable")
+    StandaloneUnreachable => logger.write_string("StandaloneUnreachable")
+    LocalTee => logger.write_string("LocalTee")
+    TypedSelect => logger.write_string("TypedSelect")
+    TailCalls => logger.write_string("TailCalls")
+    ScalarMemoryWidths => logger.write_string("ScalarMemoryWidths")
+    NonzeroMemarg => logger.write_string("NonzeroMemarg")
+    MemoryLimitVariants => logger.write_string("MemoryLimitVariants")
+    TableLimitVariants => logger.write_string("TableLimitVariants")
+    ConstExprVariants => logger.write_string("ConstExprVariants")
+    BasicRefInstructions => logger.write_string("BasicRefInstructions")
+    I31ExternConversions => logger.write_string("I31ExternConversions")
+    GcConstructors => logger.write_string("GcConstructors")
+    GcAccessors => logger.write_string("GcAccessors")
+    StringOps => logger.write_string("StringOps")
+    ExceptionTryTableMatrix => logger.write_string("ExceptionTryTableMatrix")
+    SimdPhase1 => logger.write_string("SimdPhase1")
+    SimdPhase2 => logger.write_string("SimdPhase2")
+    SimdPhase3 => logger.write_string("SimdPhase3")
+    Atomics => logger.write_string("Atomics")
+    SubtypingTopology => logger.write_string("SubtypingTopology")
+    RichGcFieldPlans => logger.write_string("RichGcFieldPlans")
+    ImportExportTopology => logger.write_string("ImportExportTopology")
+    ElementSegmentRange => logger.write_string("ElementSegmentRange")
+    DataSegmentRange => logger.write_string("DataSegmentRange")
+    NameCustomSections => logger.write_string("NameCustomSections")
+    InvalidAstStrategies => logger.write_string("InvalidAstStrategies")
+    InvalidBinaryStrategies => logger.write_string("InvalidBinaryStrategies")
+    WastArbitraryParity => logger.write_string("WastArbitraryParity")
   }
 }
 
@@ -3398,6 +3458,31 @@ pub struct ValidateValidFeatureFloorFailure {
   key : ValidateValidFeatureKey
   min_count : Int
   actual_count : Int
+} derive(Eq, Debug)
+
+///|
+pub enum ValidateValidFeatureLedgerStatus {
+  Covered
+  MissingOptional
+  MissingRequired
+} derive(Eq, Debug)
+
+///|
+pub impl Show for ValidateValidFeatureLedgerStatus with output(self, logger) {
+  match self {
+    Covered => logger.write_string("Covered")
+    MissingOptional => logger.write_string("MissingOptional")
+    MissingRequired => logger.write_string("MissingRequired")
+  }
+}
+
+///|
+pub struct ValidateValidFeatureLedgerEntry {
+  key : ValidateValidFeatureKey
+  label : String
+  actual_count : Int
+  required_min : Int
+  status : ValidateValidFeatureLedgerStatus
 } derive(Eq, Debug)
 
 ///|
@@ -3475,7 +3560,133 @@ pub fn validate_valid_feature_actual_count(
     Calls => stats.calls
     CallIndirect => stats.call_indirect
     BranchHeavyControl => stats.branch_heavy_control
+    NumericFullOps => 0
+    BrTable => 0
+    StandaloneUnreachable => 0
+    LocalTee => 0
+    TypedSelect => 0
+    TailCalls => 0
+    ScalarMemoryWidths => 0
+    NonzeroMemarg => 0
+    MemoryLimitVariants => 0
+    TableLimitVariants => 0
+    ConstExprVariants => 0
+    BasicRefInstructions => 0
+    I31ExternConversions => 0
+    GcConstructors => 0
+    GcAccessors => 0
+    StringOps => 0
+    ExceptionTryTableMatrix => 0
+    SimdPhase1 => 0
+    SimdPhase2 => 0
+    SimdPhase3 => 0
+    Atomics => 0
+    SubtypingTopology => 0
+    RichGcFieldPlans => 0
+    ImportExportTopology => 0
+    ElementSegmentRange => 0
+    DataSegmentRange => 0
+    NameCustomSections => 0
+    InvalidAstStrategies => 0
+    InvalidBinaryStrategies => 0
+    WastArbitraryParity => 0
   }
+}
+
+///|
+fn validate_valid_feature_ledger_keys() -> Array[ValidateValidFeatureKey] {
+  [
+    Imports,
+    FuncExports,
+    TableExports,
+    MemExports,
+    GlobalExports,
+    TagExports,
+    Starts,
+    LacksStart,
+    Tables,
+    Mems,
+    Globals,
+    Tags,
+    Elems,
+    Datas,
+    DataCount,
+    RefTypes,
+    V128,
+    Calls,
+    CallIndirect,
+    BranchHeavyControl,
+    NumericFullOps,
+    BrTable,
+    StandaloneUnreachable,
+    LocalTee,
+    TypedSelect,
+    TailCalls,
+    ScalarMemoryWidths,
+    NonzeroMemarg,
+    MemoryLimitVariants,
+    TableLimitVariants,
+    ConstExprVariants,
+    BasicRefInstructions,
+    I31ExternConversions,
+    GcConstructors,
+    GcAccessors,
+    StringOps,
+    ExceptionTryTableMatrix,
+    SimdPhase1,
+    SimdPhase2,
+    SimdPhase3,
+    Atomics,
+    SubtypingTopology,
+    RichGcFieldPlans,
+    ImportExportTopology,
+    ElementSegmentRange,
+    DataSegmentRange,
+    NameCustomSections,
+    InvalidAstStrategies,
+    InvalidBinaryStrategies,
+    WastArbitraryParity,
+  ]
+}
+
+///|
+fn validate_valid_feature_required_min(
+  key : ValidateValidFeatureKey,
+  floors : Array[ValidateValidFeatureFloor],
+) -> Int {
+  for floor in floors {
+    if floor.key == key {
+      return floor.min_count
+    }
+  }
+  0
+}
+
+///|
+pub fn validate_valid_feature_ledger(
+  stats : GenValidFeatureStats,
+  floors : Array[ValidateValidFeatureFloor],
+) -> Array[ValidateValidFeatureLedgerEntry] {
+  let entries : Array[ValidateValidFeatureLedgerEntry] = []
+  for key in validate_valid_feature_ledger_keys() {
+    let actual_count = validate_valid_feature_actual_count(stats, key)
+    let required_min = validate_valid_feature_required_min(key, floors)
+    let status = if actual_count < required_min {
+      MissingRequired
+    } else if actual_count > 0 {
+      Covered
+    } else {
+      MissingOptional
+    }
+    entries.push({
+      key,
+      label: validate_valid_feature_key_label(key),
+      actual_count,
+      required_min,
+      status,
+    })
+  }
+  entries
 }
 
 ///|
@@ -3516,6 +3727,36 @@ fn validate_valid_feature_key_label(key : ValidateValidFeatureKey) -> String {
     Calls => "calls"
     CallIndirect => "call_indirect"
     BranchHeavyControl => "branch_heavy_control"
+    NumericFullOps => "numeric_full_ops"
+    BrTable => "br_table"
+    StandaloneUnreachable => "standalone_unreachable"
+    LocalTee => "local_tee"
+    TypedSelect => "typed_select"
+    TailCalls => "tail_calls"
+    ScalarMemoryWidths => "scalar_memory_widths"
+    NonzeroMemarg => "nonzero_memarg"
+    MemoryLimitVariants => "memory_limit_variants"
+    TableLimitVariants => "table_limit_variants"
+    ConstExprVariants => "const_expr_variants"
+    BasicRefInstructions => "basic_ref_instructions"
+    I31ExternConversions => "i31_extern_conversions"
+    GcConstructors => "gc_constructors"
+    GcAccessors => "gc_accessors"
+    StringOps => "string_ops"
+    ExceptionTryTableMatrix => "exception_try_table_matrix"
+    SimdPhase1 => "simd_phase1"
+    SimdPhase2 => "simd_phase2"
+    SimdPhase3 => "simd_phase3"
+    Atomics => "atomics"
+    SubtypingTopology => "subtyping_topology"
+    RichGcFieldPlans => "rich_gc_field_plans"
+    ImportExportTopology => "import_export_topology"
+    ElementSegmentRange => "element_segment_range"
+    DataSegmentRange => "data_segment_range"
+    NameCustomSections => "name_custom_sections"
+    InvalidAstStrategies => "invalid_ast_strategies"
+    InvalidBinaryStrategies => "invalid_binary_strategies"
+    WastArbitraryParity => "wast_arbitrary_parity"
   }
 }
 
@@ -4653,6 +4894,50 @@ test "check_validate_valid_feature_floors reports unmet minimums" {
     { key: Imports, min_count: 2, actual_count: 1 },
     { key: BranchHeavyControl, min_count: 3, actual_count: 0 },
   ])
+}
+
+///|
+test "validate_valid_feature_ledger reports optional missing FZG surfaces" {
+  let stats = { ..GenValidFeatureStats::empty(Natural), modules: 2, imports: 1 }
+  let ledger = validate_valid_feature_ledger(stats, [])
+  let mut saw_imports = false
+  let mut saw_numeric_full_ops = false
+  let mut saw_name_custom_sections = false
+  for entry in ledger {
+    if entry.key == Imports {
+      saw_imports = true
+      assert_eq(entry.actual_count, 1)
+      assert_eq(entry.required_min, 0)
+      assert_eq(entry.status, Covered)
+    }
+    if entry.key == NumericFullOps {
+      saw_numeric_full_ops = true
+      assert_eq(entry.actual_count, 0)
+      assert_eq(entry.required_min, 0)
+      assert_eq(entry.status, MissingOptional)
+    }
+    if entry.key == NameCustomSections {
+      saw_name_custom_sections = true
+      assert_eq(entry.actual_count, 0)
+      assert_eq(entry.required_min, 0)
+      assert_eq(entry.status, MissingOptional)
+    }
+  }
+  assert_true(saw_imports)
+  assert_true(saw_numeric_full_ops)
+  assert_true(saw_name_custom_sections)
+}
+
+///|
+test "check_validate_valid_feature_floors fails future FZG surfaces only when required" {
+  let stats = GenValidFeatureStats::empty(Natural)
+  assert_eq(check_validate_valid_feature_floors(stats, []), [])
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: NumericFullOps, min_count: 1 },
+    ]),
+    [{ key: NumericFullOps, min_count: 1, actual_count: 0 }],
+  )
 }
 
 ///|

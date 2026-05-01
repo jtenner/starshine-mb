@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-30 Fuzz: add generator coverage ledger
+
+- **land `[FZG]001` with a public validate-side generator coverage ledger, optional missing rows for planned widening surfaces, explicit floor failures only when profiles require them, focused validator tests, and a living wiki page documenting current zero-coverage rows and follow-up rules** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), and [`src/validate/validate.mbt`](./src/validate/validate.mbt).
+
 ## 2026-04-27 Docs: refresh `reorder-locals` pointers
 
 - **refresh stale `reorder-locals` Starshine strategy code-map line pointers for the registry, dispatcher, registry-category test, and CLI adapter after the validation bridge health check** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`docs/wiki/binaryen/passes/reorder-locals/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/reorder-locals/starshine-hot-ir-strategy.md).
