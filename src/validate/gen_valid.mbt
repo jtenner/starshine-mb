@@ -89,6 +89,9 @@ pub struct GenValidFeatureToggles {
   allow_call_indirect : Bool
   allow_tail_calls : Bool
   allow_branch_heavy_control : Bool
+  allow_memory_limit_variants : Bool
+  allow_shared_memories : Bool
+  allow_memory64 : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -121,6 +124,12 @@ pub impl Show for GenValidFeatureToggles with output(self, logger) {
   self.allow_tail_calls.output(logger)
   logger.write_string(", allow_branch_heavy_control:")
   self.allow_branch_heavy_control.output(logger)
+  logger.write_string(", allow_memory_limit_variants:")
+  self.allow_memory_limit_variants.output(logger)
+  logger.write_string(", allow_shared_memories:")
+  self.allow_shared_memories.output(logger)
+  logger.write_string(", allow_memory64:")
+  self.allow_memory64.output(logger)
 }
 
 ///|
@@ -140,6 +149,9 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_call_indirect: true,
     allow_tail_calls: true,
     allow_branch_heavy_control: true,
+    allow_memory_limit_variants: true,
+    allow_shared_memories: true,
+    allow_memory64: true,
   }
 }
 
@@ -151,6 +163,9 @@ pub fn GenValidFeatureToggles::coverage_forced_default() -> GenValidFeatureToggl
     allow_call_indirect: true,
     allow_tail_calls: true,
     allow_branch_heavy_control: true,
+    allow_memory_limit_variants: true,
+    allow_shared_memories: true,
+    allow_memory64: true,
   }
 }
 
@@ -306,6 +321,7 @@ pub struct GenValidFeatureFacts {
   has_tail_calls : Bool
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
+  has_memory_limit_variants : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -340,6 +356,7 @@ pub struct GenValidFeatureStats {
   tail_calls : Int
   scalar_memory_widths : Int
   nonzero_memarg : Int
+  memory_limit_variants : Int
 } derive(Eq, Debug)
 
 ///|
@@ -404,6 +421,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.scalar_memory_widths.output(logger)
   logger.write_string(", nonzero_memarg: ")
   self.nonzero_memarg.output(logger)
+  logger.write_string(", memory_limit_variants: ")
+  self.memory_limit_variants.output(logger)
   logger.write_char('}')
 }
 
@@ -440,6 +459,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     tail_calls: 0,
     scalar_memory_widths: 0,
     nonzero_memarg: 0,
+    memory_limit_variants: 0,
   }
 }
 
@@ -489,6 +509,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_scalar_memory_widths),
     nonzero_memarg: self.nonzero_memarg +
     gen_valid_bool_count(facts.has_nonzero_memarg),
+    memory_limit_variants: self.memory_limit_variants +
+    gen_valid_bool_count(facts.has_memory_limit_variants),
   }
 }
 
@@ -512,6 +534,7 @@ priv struct GenValidInstrFacts {
   has_tail_calls : Bool
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
+  has_memory_limit_variants : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -539,6 +562,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_tail_calls: false,
     has_scalar_memory_widths: false,
     has_nonzero_memarg: false,
+    has_memory_limit_variants: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -3439,6 +3463,72 @@ fn gen_valid_active_i32_offset(ctx : GenValidContext) -> Expr {
 }
 
 ///|
+fn gen_valid_memory_limits_i32(
+  min : UInt,
+  max : UInt?,
+  shared : Bool,
+) -> MemType {
+  MemType::new(Limits::i32(min, max), shared~)
+}
+
+///|
+fn gen_valid_memory_limits_i64(
+  min : UInt64,
+  max : UInt64?,
+  shared : Bool,
+) -> MemType {
+  MemType::new(Limits::i64(min, max), shared~)
+}
+
+///|
+fn gen_valid_mem_type(ctx : GenValidContext, total_mem_idx : Int) -> MemType {
+  let variants = ctx.config.features.allow_memory_limit_variants
+  let shared_enabled = ctx.config.features.allow_shared_memories
+  let memory64_enabled = ctx.config.features.allow_memory64
+  if total_mem_idx == 0 {
+    if variants && ctx.config.mode == CoverageForced {
+      gen_valid_memory_limits_i32(0U, None, false)
+    } else {
+      let min = if variants && ctx.random_int(5) == 0 { 0U } else { 1U }
+      let max = if variants && ctx.random_int(4) == 0 {
+        None
+      } else {
+        Some(min + 1U + ctx.random_int(4).reinterpret_as_uint())
+      }
+      gen_valid_memory_limits_i32(min, max, false)
+    }
+  } else if shared_enabled &&
+    ctx.config.mode == CoverageForced &&
+    total_mem_idx == 1 {
+    gen_valid_memory_limits_i32(1U, Some(2U), true)
+  } else if memory64_enabled &&
+    ctx.config.mode == CoverageForced &&
+    total_mem_idx == 2 {
+    gen_valid_memory_limits_i64(1UL, Some(2UL), false)
+  } else if shared_enabled && ctx.random_int(6) == 0 {
+    let min = if variants && ctx.random_int(3) == 0 { 0U } else { 1U }
+    let max = Some(min + 1U + ctx.random_int(4).reinterpret_as_uint())
+    gen_valid_memory_limits_i32(min, max, true)
+  } else if memory64_enabled && ctx.random_int(5) == 0 {
+    let min = if variants && ctx.random_int(3) == 0 { 0UL } else { 1UL }
+    let max = if variants && ctx.random_int(4) == 0 {
+      None
+    } else {
+      Some(min + 1UL + ctx.random_int(4).to_uint64())
+    }
+    gen_valid_memory_limits_i64(min, max, false)
+  } else {
+    let min = if variants && ctx.random_int(5) == 0 { 0U } else { 1U }
+    let max = if variants && ctx.random_int(4) == 0 {
+      None
+    } else {
+      Some(min + 1U + ctx.random_int(4).reinterpret_as_uint())
+    }
+    gen_valid_memory_limits_i32(min, max, false)
+  }
+}
+
+///|
 fn gen_valid_pick_type_idx(ctx : GenValidContext, type_count : Int) -> TypeIdx {
   TypeIdx::new(ctx.random_int(type_count).reinterpret_as_uint())
 }
@@ -3542,11 +3632,18 @@ fn gen_valid_module_once_with_config(
     config.max_tables,
     config.section_bias.tables_percent,
   )
-  let defined_mem_count = gen_valid_choose_optional_count(
+  let defined_mem_count = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,
     config.features.allow_mems,
     config.max_mems,
     config.section_bias.mems_percent,
+    if config.features.allow_memory_limit_variants ||
+      config.features.allow_shared_memories ||
+      config.features.allow_memory64 {
+      2
+    } else {
+      1
+    },
   )
   let defined_global_count = gen_valid_choose_optional_count(
     ctx,
@@ -3711,8 +3808,7 @@ fn gen_valid_module_once_with_config(
   }
   let imported_mems : Array[MemType] = []
   for i = 0; i < import_mem_count; i = i + 1 {
-    let max = (1 + ctx.random_int(4)).reinterpret_as_uint()
-    let mem_type = MemType::new(Limits::i32(1U, Some(max)))
+    let mem_type = gen_valid_mem_type(ctx, i)
     imported_mems.push(mem_type)
     imports.push(
       Import::new(
@@ -3842,9 +3938,8 @@ fn gen_valid_module_once_with_config(
 
   let mems : Array[MemType] = imported_mems.copy()
   let defined_mems : Array[MemType] = []
-  for _ in 0..<defined_mem_count {
-    let max = (1 + ctx.random_int(4)).reinterpret_as_uint()
-    let mem_type = MemType::new(Limits::i32(1U, Some(max)))
+  for i = 0; i < defined_mem_count; i = i + 1 {
+    let mem_type = gen_valid_mem_type(ctx, import_mem_count + i)
     defined_mems.push(mem_type)
     mems.push(mem_type)
   }
@@ -4307,6 +4402,8 @@ fn gen_valid_merge_instr_facts(
     has_scalar_memory_widths: left.has_scalar_memory_widths ||
     right.has_scalar_memory_widths,
     has_nonzero_memarg: left.has_nonzero_memarg || right.has_nonzero_memarg,
+    has_memory_limit_variants: left.has_memory_limit_variants ||
+    right.has_memory_limit_variants,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -4434,6 +4531,15 @@ fn gen_valid_scan_scalar_memory_instr(
     ..GenValidInstrFacts::empty(),
     has_scalar_memory_widths: narrow,
     has_nonzero_memarg: gen_valid_memarg_is_nonzero(ma),
+  }
+}
+
+///|
+fn gen_valid_mem_type_has_limit_variant(mt : MemType) -> Bool {
+  let MemType(lim, shared) = mt
+  match lim {
+    I32Limits(min, max) => min == 0 || max is None || shared
+    I64Limits(_) => true
   }
 }
 
@@ -4641,6 +4747,7 @@ pub fn gen_valid_feature_facts(
   let mut has_tail_calls = false
   let mut has_scalar_memory_widths = false
   let mut has_nonzero_memarg = false
+  let mut has_memory_limit_variants = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -4669,7 +4776,11 @@ pub fn gen_valid_feature_facts(
               uses_v128 = uses_v128 || false
               ignore(ref_type)
             }
-            MemExternType(_) => has_mems = true
+            MemExternType(mt) => {
+              has_mems = true
+              has_memory_limit_variants = has_memory_limit_variants ||
+                gen_valid_mem_type_has_limit_variant(mt)
+            }
             GlobalExternType(global_type) => {
               has_globals = true
               let GlobalType(vt, _) = global_type
@@ -4692,7 +4803,13 @@ pub fn gen_valid_feature_facts(
     _ => ()
   }
   match mod.mem_sec {
-    Some(MemSec(mems)) if !mems.is_empty() => has_mems = true
+    Some(MemSec(mems)) if !mems.is_empty() => {
+      has_mems = true
+      for mt in mems {
+        has_memory_limit_variants = has_memory_limit_variants ||
+          gen_valid_mem_type_has_limit_variant(mt)
+      }
+    }
     _ => ()
   }
   match mod.global_sec {
@@ -4926,5 +5043,6 @@ pub fn gen_valid_feature_facts(
     has_tail_calls,
     has_scalar_memory_widths,
     has_nonzero_memarg,
+    has_memory_limit_variants,
   }
 }

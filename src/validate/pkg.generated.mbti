@@ -311,6 +311,7 @@ pub struct GenValidFeatureFacts {
   has_tail_calls : Bool
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
+  has_memory_limit_variants : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidFeatureStats {
@@ -344,6 +345,7 @@ pub struct GenValidFeatureStats {
   tail_calls : Int
   scalar_memory_widths : Int
   nonzero_memarg : Int
+  memory_limit_variants : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
 pub fn GenValidFeatureStats::record(Self, GenValidFeatureFacts) -> Self
@@ -364,6 +366,9 @@ pub struct GenValidFeatureToggles {
   allow_call_indirect : Bool
   allow_tail_calls : Bool
   allow_branch_heavy_control : Bool
+  allow_memory_limit_variants : Bool
+  allow_shared_memories : Bool
+  allow_memory64 : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureToggles::coverage_forced_default() -> Self
 pub fn GenValidFeatureToggles::natural_default() -> Self

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-01] implementation | widen memory limit/proposal gen-valid surface
+
+- Completed `[FZG]006` by adding valid zero-min, unbounded, shared, and memory64 memory shapes to `gen-valid`, guarded by explicit feature toggles.
+- Attached `MemoryLimitVariants` to the public generator ledger and added focused validation/floor coverage for all four shapes plus a toggle-off regression.
+- Validated the widened corpus with `moon test --package jtenner/starshine/validate`, full `moon test`, and `.tmp/pass-fuzz-genvalid-fzg006-rume` (`remove-unused-module-elements` over 1000 `gen-valid` cases, `1000/1000` normalized matches).
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), `agent-todo.md`, and `CHANGELOG.md` with the new covered row and signoff evidence.
+
 ## [2026-05-01] implementation | widen scalar memory gen-valid surface
 
 - Completed `[FZG]005` by adding deterministic coverage-forced generation for every scalar load/store width/sign variant with varied valid nonzero memarg alignment or offset immediates.

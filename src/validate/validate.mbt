@@ -3568,7 +3568,7 @@ pub fn validate_valid_feature_actual_count(
     TailCalls => stats.tail_calls
     ScalarMemoryWidths => stats.scalar_memory_widths
     NonzeroMemarg => stats.nonzero_memarg
-    MemoryLimitVariants => 0
+    MemoryLimitVariants => stats.memory_limit_variants
     TableLimitVariants => 0
     ConstExprVariants => 0
     BasicRefInstructions => 0
@@ -5419,6 +5419,128 @@ test "gen_valid coverage-forced emits scalar memory widths and memarg variation"
     ]),
     [],
   )
+}
+
+///|
+priv struct ValidateTestMemoryLimitForms {
+  zero_min : Bool
+  unbounded : Bool
+  shared : Bool
+  memory64 : Bool
+  shared_without_max : Bool
+}
+
+///|
+fn validate_test_memory_limit_forms_empty() -> ValidateTestMemoryLimitForms {
+  {
+    zero_min: false,
+    unbounded: false,
+    shared: false,
+    memory64: false,
+    shared_without_max: false,
+  }
+}
+
+///|
+fn validate_test_memory_limit_forms_mem(
+  forms : ValidateTestMemoryLimitForms,
+  mt : MemType,
+) -> ValidateTestMemoryLimitForms {
+  let MemType(lim, shared) = mt
+  let (zero_min, unbounded, memory64) = match lim {
+    I32Limits(min, max) => (min == 0, max is None, false)
+    I64Limits(min, max) => (min == 0UL, max is None, true)
+  }
+  {
+    zero_min: forms.zero_min || zero_min,
+    unbounded: forms.unbounded || unbounded,
+    shared: forms.shared || shared,
+    memory64: forms.memory64 || memory64,
+    shared_without_max: forms.shared_without_max || (shared && unbounded),
+  }
+}
+
+///|
+fn validate_test_memory_limit_forms_module(
+  mod : Module,
+) -> ValidateTestMemoryLimitForms {
+  let mut forms = validate_test_memory_limit_forms_empty()
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for imp in imports {
+        let Import(_, _, extern_type) = imp
+        match extern_type {
+          MemExternType(mt) =>
+            forms = validate_test_memory_limit_forms_mem(forms, mt)
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.mem_sec {
+    Some(MemSec(mems)) =>
+      for mt in mems {
+        forms = validate_test_memory_limit_forms_mem(forms, mt)
+      }
+    None => ()
+  }
+  forms
+}
+
+///|
+test "gen_valid coverage-forced emits memory limit and proposal variants" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26006UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_memory_limit_forms_module(mod)
+  assert_true(forms.zero_min)
+  assert_true(forms.unbounded)
+  assert_true(forms.shared)
+  assert_true(forms.memory64)
+  assert_false(forms.shared_without_max)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(
+    validate_valid_feature_actual_count(stats, MemoryLimitVariants) > 0,
+  )
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: MemoryLimitVariants, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+test "gen_valid memory limit variants obey proposal toggles" {
+  let base = GenValidConfig::coverage_forced_default()
+  let config = GenValidConfig::{
+    ..base,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_memory_limit_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+    },
+  }
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26007UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected toggled gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_memory_limit_forms_module(mod)
+  assert_false(forms.zero_min)
+  assert_false(forms.unbounded)
+  assert_false(forms.shared)
+  assert_false(forms.memory64)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_eq(validate_valid_feature_actual_count(stats, MemoryLimitVariants), 0)
 }
 
 ///|
