@@ -4972,7 +4972,9 @@ test "gen_valid coverage-forced emits core control surface" {
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, BrTable) > 0)
-  assert_true(validate_valid_feature_actual_count(stats, StandaloneUnreachable) > 0)
+  assert_true(
+    validate_valid_feature_actual_count(stats, StandaloneUnreachable) > 0,
+  )
   assert_true(validate_valid_feature_actual_count(stats, LocalTee) > 0)
   assert_true(validate_valid_feature_actual_count(stats, TypedSelect) > 0)
   assert_eq(

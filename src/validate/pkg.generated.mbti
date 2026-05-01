@@ -304,6 +304,10 @@ pub struct GenValidFeatureFacts {
   has_call_indirect : Bool
   has_branch_heavy_control : Bool
   has_numeric_full_ops : Bool
+  has_br_table : Bool
+  has_standalone_unreachable : Bool
+  has_local_tee : Bool
+  has_typed_select : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidFeatureStats {
@@ -330,6 +334,10 @@ pub struct GenValidFeatureStats {
   call_indirect : Int
   branch_heavy_control : Int
   numeric_full_ops : Int
+  br_table : Int
+  standalone_unreachable : Int
+  local_tee : Int
+  typed_select : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
 pub fn GenValidFeatureStats::record(Self, GenValidFeatureFacts) -> Self

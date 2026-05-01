@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-01] implementation | widen core control gen-valid surface
+
+- Completed `[FZG]003` by wiring exact ledger/floor coverage for the deterministic coverage-forced core-control prelude covering `br_table`, standalone `unreachable`, `local.tee`, and typed `select` while keeping modules accepted by `validate_module`.
+- Attached exact ledger counters for `BrTable`, `StandaloneUnreachable`, `LocalTee`, and `TypedSelect`, plus focused validator/floor coverage for those rows.
+- Tightened the invalid-AST memory-name mutation to choose an index beyond imported plus defined memories after the widened fixed-seed corpus exposed the old defined-memory-only count.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so the current covered rows distinguish `[FZG]002` scalar numeric coverage from `[FZG]003` core-control coverage.
+
 ## [2026-04-30] implementation | implement `string-gathering`
 
 - Landed the active direct `string-gathering` module pass for the no-DWARF / O4z late-tail queue.

@@ -4272,10 +4272,7 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         has_standalone_unreachable: true,
       }
     LocalTee(_) =>
-      GenValidInstrFacts::{
-        ..GenValidInstrFacts::empty(),
-        has_local_tee: true,
-      }
+      GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), has_local_tee: true }
     V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), uses_v128: true }
     _ => GenValidInstrFacts::empty()

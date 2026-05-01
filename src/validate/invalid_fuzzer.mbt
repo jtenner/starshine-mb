@@ -1724,7 +1724,7 @@ fn validate_invalid_ast_mutate_invalid_label_name_section_index(
 fn validate_invalid_ast_mutate_invalid_memory_name_section_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
-  let bad_idx = (validate_invalid_ast_mem_entries(mod).length() + 1).reinterpret_as_uint()
+  let bad_idx = validate_invalid_ast_total_mem_count(mod).reinterpret_as_uint()
   let memory_names = NameMap::new([NameAssoc::new(bad_idx, Name::new("mem"))])
   {
     strategy: InvalidMemoryNameSectionIndex,
@@ -2951,6 +2951,39 @@ test "invalid memory name index strategy rejects with NameSection family" {
     ) {
     Ok(_) => ()
     Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid memory name index strategy counts imported memories" {
+  let base = Module::new().with_import_sec(
+    ImportSec::new([
+      Import::new(
+        Name::new("env"),
+        Name::new("mem0"),
+        ExternType::mem(MemType::new(Limits::i32(1U, Some(1U)))),
+      ),
+      Import::new(
+        Name::new("env"),
+        Name::new("mem1"),
+        ExternType::mem(MemType::new(Limits::i32(1U, Some(1U)))),
+      ),
+    ]),
+  )
+  match validate_module(base) {
+    Ok(_) => ()
+    Err(err) => fail("expected imported-memory base to validate: \{err}")
+  }
+  let mutation = validate_invalid_ast_mutate_invalid_memory_name_section_index(
+    base,
+  )
+  match validate_module(mutation.mutated_module) {
+    Ok(_) => fail("expected invalid memory name index mutation to reject")
+    Err(err) =>
+      assert_true(
+        validation_issue_family(validation_error_diagnostic(err).issue) ==
+        NameSectionFamily,
+      )
   }
 }
 
