@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-01] implementation | widen tail-call gen-valid surface
+
+- Completed `[FZG]004` by adding coverage-forced valid generation for `return_call`, `return_call_indirect`, and `return_call_ref` using callable signatures whose result lists exactly match the current function return type.
+- Added `allow_tail_calls` to `GenValidFeatureToggles`, attached a `tail_calls` feature-stat counter to the public ledger, and added focused validation/floor coverage that proves all three tail-call forms appear in a validating coverage-forced module.
+- Validated the widened corpus with `moon test --package jtenner/starshine/validate`, full `moon test`, and `.tmp/pass-fuzz-genvalid-fzg004-rume` (`remove-unused-module-elements` over 1000 `gen-valid` cases, `1000/1000` normalized matches).
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), `agent-todo.md`, and `CHANGELOG.md` with the new covered row and signoff evidence.
+
 ## [2026-05-01] implementation | widen core control gen-valid surface
 
 - Completed `[FZG]003` by wiring exact ledger/floor coverage for the deterministic coverage-forced core-control prelude covering `br_table`, standalone `unreachable`, `local.tee`, and typed `select` while keeping modules accepted by `validate_module`.

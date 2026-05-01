@@ -3565,7 +3565,7 @@ pub fn validate_valid_feature_actual_count(
     StandaloneUnreachable => stats.standalone_unreachable
     LocalTee => stats.local_tee
     TypedSelect => stats.typed_select
-    TailCalls => 0
+    TailCalls => stats.tail_calls
     ScalarMemoryWidths => 0
     NonzeroMemarg => 0
     MemoryLimitVariants => 0
@@ -4983,6 +4983,102 @@ test "gen_valid coverage-forced emits core control surface" {
       { key: StandaloneUnreachable, min_count: 1 },
       { key: LocalTee, min_count: 1 },
       { key: TypedSelect, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+fn validate_test_tail_call_forms_merge(
+  left : (Bool, Bool, Bool),
+  right : (Bool, Bool, Bool),
+) -> (Bool, Bool, Bool) {
+  let (left_direct, left_indirect, left_ref) = left
+  let (right_direct, right_indirect, right_ref) = right
+  (
+    left_direct || right_direct,
+    left_indirect || right_indirect,
+    left_ref || right_ref,
+  )
+}
+
+///|
+fn validate_test_tail_call_forms_expr(expr : Expr) -> (Bool, Bool, Bool) {
+  let Expr(instrs) = expr
+  let mut forms = (false, false, false)
+  for instr in instrs {
+    forms = validate_test_tail_call_forms_merge(
+      forms,
+      validate_test_tail_call_forms_instr(instr),
+    )
+  }
+  forms
+}
+
+///|
+fn validate_test_tail_call_forms_instr(
+  instr : Instruction,
+) -> (Bool, Bool, Bool) {
+  match instr {
+    ReturnCall(_) => (true, false, false)
+    ReturnCallIndirect(_, _) => (false, true, false)
+    ReturnCallRef(_) => (false, false, true)
+    Block(_, body) | Loop(_, body) => validate_test_tail_call_forms_expr(body)
+    If(_, then_body, else_body) => {
+      let mut forms = validate_test_tail_call_forms_expr(Expr::new(then_body))
+      match else_body {
+        Some(branch) =>
+          forms = validate_test_tail_call_forms_merge(
+            forms,
+            validate_test_tail_call_forms_expr(Expr::new(branch)),
+          )
+        None => ()
+      }
+      forms
+    }
+    TryTable(_, _, body) => validate_test_tail_call_forms_expr(body)
+    _ => (false, false, false)
+  }
+}
+
+///|
+fn validate_test_tail_call_forms_module(mod : Module) -> (Bool, Bool, Bool) {
+  let mut forms = (false, false, false)
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, body) = func
+        forms = validate_test_tail_call_forms_merge(
+          forms,
+          validate_test_tail_call_forms_expr(body),
+        )
+      }
+    None => ()
+  }
+  forms
+}
+
+///|
+test "gen_valid coverage-forced emits tail-call surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26004UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let (has_return_call, has_return_call_indirect, has_return_call_ref) = validate_test_tail_call_forms_module(
+    mod,
+  )
+  assert_true(has_return_call)
+  assert_true(has_return_call_indirect)
+  assert_true(has_return_call_ref)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, TailCalls) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: TailCalls, min_count: 1 },
     ]),
     [],
   )

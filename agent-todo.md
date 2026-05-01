@@ -751,6 +751,8 @@ Suggested Tests
      - Validation: `moon test --package jtenner/starshine/validate`, `moon info`, `moon fmt`, full `moon test`, and `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 1000 --max-failures 20 --out-dir .tmp/pass-fuzz-genvalid-fzg003-rume` are green; focused coverage lives in `gen_valid coverage-forced emits core control surface`.
      - Invariants: label depths and block result arities must remain valid; `unreachable` must not leave fallthrough stack obligations unsatisfied unless bottom typing covers them.
    - [FZG]004 - Tail-Call Instruction Generation - Add valid `return_call`, `return_call_indirect`, and `return_call_ref` generation with callable-signature matching.
+     - Status: complete. Coverage-forced `gen-valid` modules now emit direct, indirect, and ref tail-call forms using callable signatures whose results exactly match the current function; `GenValidFeatureToggles` includes `allow_tail_calls`, `GenValidFeatureStats` records `tail_calls`, and the `TailCalls` ledger row can satisfy explicit floors.
+     - Validation: `moon test --package jtenner/starshine/validate`, `moon info`, `moon fmt`, full `moon test`, and `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 1000 --max-failures 20 --out-dir .tmp/pass-fuzz-genvalid-fzg004-rume` are green; focused coverage lives in `gen_valid coverage-forced emits tail-call surface`.
      - Dependencies: existing callable signature pool and declared `ref.func` handling.
      - Invariants: tail-call results must match the current function return type exactly.
 3. Expand memory, table, global, and bulk-op variation.

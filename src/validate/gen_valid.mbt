@@ -87,6 +87,7 @@ pub struct GenValidFeatureToggles {
   allow_v128 : Bool
   allow_calls : Bool
   allow_call_indirect : Bool
+  allow_tail_calls : Bool
   allow_branch_heavy_control : Bool
 } derive(Eq, Debug)
 
@@ -116,6 +117,8 @@ pub impl Show for GenValidFeatureToggles with output(self, logger) {
   self.allow_calls.output(logger)
   logger.write_string(", allow_call_indirect:")
   self.allow_call_indirect.output(logger)
+  logger.write_string(", allow_tail_calls:")
+  self.allow_tail_calls.output(logger)
   logger.write_string(", allow_branch_heavy_control:")
   self.allow_branch_heavy_control.output(logger)
 }
@@ -135,6 +138,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_v128: true,
     allow_calls: true,
     allow_call_indirect: true,
+    allow_tail_calls: true,
     allow_branch_heavy_control: true,
   }
 }
@@ -145,6 +149,7 @@ pub fn GenValidFeatureToggles::coverage_forced_default() -> GenValidFeatureToggl
     ..GenValidFeatureToggles::natural_default(),
     allow_calls: true,
     allow_call_indirect: true,
+    allow_tail_calls: true,
     allow_branch_heavy_control: true,
   }
 }
@@ -298,6 +303,7 @@ pub struct GenValidFeatureFacts {
   has_standalone_unreachable : Bool
   has_local_tee : Bool
   has_typed_select : Bool
+  has_tail_calls : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -329,6 +335,7 @@ pub struct GenValidFeatureStats {
   standalone_unreachable : Int
   local_tee : Int
   typed_select : Int
+  tail_calls : Int
 } derive(Eq, Debug)
 
 ///|
@@ -387,6 +394,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.local_tee.output(logger)
   logger.write_string(", typed_select: ")
   self.typed_select.output(logger)
+  logger.write_string(", tail_calls: ")
+  self.tail_calls.output(logger)
   logger.write_char('}')
 }
 
@@ -420,6 +429,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     standalone_unreachable: 0,
     local_tee: 0,
     typed_select: 0,
+    tail_calls: 0,
   }
 }
 
@@ -464,6 +474,7 @@ pub fn GenValidFeatureStats::record(
     local_tee: self.local_tee + gen_valid_bool_count(facts.has_local_tee),
     typed_select: self.typed_select +
     gen_valid_bool_count(facts.has_typed_select),
+    tail_calls: self.tail_calls + gen_valid_bool_count(facts.has_tail_calls),
   }
 }
 
@@ -484,6 +495,7 @@ priv struct GenValidInstrFacts {
   has_standalone_unreachable : Bool
   has_local_tee : Bool
   has_typed_select : Bool
+  has_tail_calls : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -508,6 +520,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_standalone_unreachable: false,
     has_local_tee: false,
     has_typed_select: false,
+    has_tail_calls: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -1155,6 +1168,41 @@ fn gen_valid_declared_ref_callable_with_result(
         _ => None
       }
     None => None
+  }
+}
+
+///|
+fn gen_valid_declared_ref_callable_with_results(
+  funcs : Array[GenValidFuncSig],
+  declared_ref_func_idx : FuncIdx?,
+  results : Array[ValType],
+) -> GenValidFuncSig? {
+  match declared_ref_func_idx {
+    Some(func_idx) =>
+      match gen_valid_callable_by_idx(funcs, func_idx) {
+        Some(target) if target.results == results => Some(target)
+        _ => None
+      }
+    None => None
+  }
+}
+
+///|
+fn gen_valid_pick_callable_with_results(
+  ctx : GenValidContext,
+  funcs : Array[GenValidFuncSig],
+  results : Array[ValType],
+) -> GenValidFuncSig? {
+  let matches : Array[GenValidFuncSig] = []
+  for func in funcs {
+    if func.results == results {
+      matches.push(func)
+    }
+  }
+  if matches.is_empty() {
+    None
+  } else {
+    Some(matches[ctx.random_int(matches.length())])
   }
 }
 
@@ -2559,6 +2607,58 @@ fn gen_valid_append_core_control_ops(
 }
 
 ///|
+fn gen_valid_append_tail_call_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+  returns : Array[ValType],
+) -> Unit {
+  if !ctx.config.features.allow_tail_calls {
+    return
+  }
+  match gen_valid_pick_callable_with_results(ctx, env.funcs, returns) {
+    Some(target) if ctx.config.features.allow_calls => {
+      gen_valid_append_call_args(out, ctx, env, target.params)
+      out.push(Instruction::return_call(target.idx))
+    }
+    _ => ()
+  }
+  if ctx.config.features.allow_call_indirect && !env.tables.is_empty() {
+    let TableType(rt, _) = env.tables[0]
+    if ValType::ref_type(rt) == ValType::funcref() {
+      match gen_valid_pick_callable_with_results(ctx, env.funcs, returns) {
+        Some(target) => {
+          gen_valid_append_call_args(out, ctx, env, target.params)
+          out.push(Instruction::i32_const(I32(0)))
+          out.push(
+            Instruction::return_call_indirect(
+              target.type_idx,
+              TableIdx::new(0U),
+            ),
+          )
+        }
+        _ => ()
+      }
+    }
+  }
+  if ctx.config.features.allow_ref_types {
+    match
+      gen_valid_declared_ref_callable_with_results(
+        env.funcs,
+        env.declared_ref_func_idx,
+        returns,
+      ) {
+      Some(target) => {
+        gen_valid_append_call_args(out, ctx, env, target.params)
+        out.push(Instruction::ref_func(target.idx))
+        out.push(Instruction::return_call_ref(target.type_idx))
+      }
+      None => ()
+    }
+  }
+}
+
+///|
 fn gen_valid_append_expanded_scalar_numeric_ops(
   out : Array[Instruction],
 ) -> Unit {
@@ -2789,10 +2889,12 @@ fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
   env : GenValidBodyEnv,
+  returns : Array[ValType],
 ) -> Unit {
   gen_valid_append_gc_prelude(out, ctx, env)
   gen_valid_append_expanded_scalar_numeric_ops(out)
   gen_valid_append_core_control_ops(out, ctx, env)
+  gen_valid_append_tail_call_ops(out, ctx, env, returns)
   if ctx.config.features.allow_v128 {
     out.push(
       Instruction::v128_const(
@@ -3068,7 +3170,7 @@ fn gen_valid_build_func(
   }
   let body_instrs : Array[Instruction] = []
   if ctx.config.mode == CoverageForced {
-    gen_valid_append_coverage_prelude(body_instrs, ctx, env)
+    gen_valid_append_coverage_prelude(body_instrs, ctx, env, returns)
   }
   let stmt_count = if ctx.config.mode == CoverageForced {
     0
@@ -4039,6 +4141,7 @@ fn gen_valid_merge_instr_facts(
     right.has_standalone_unreachable,
     has_local_tee: left.has_local_tee || right.has_local_tee,
     has_typed_select: left.has_typed_select || right.has_typed_select,
+    has_tail_calls: left.has_tail_calls || right.has_tail_calls,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -4160,19 +4263,41 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
     }
   }
   match instr {
-    Call(_) | ReturnCall(_) =>
+    Call(_) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), has_call: true }
-    CallIndirect(_, _) | ReturnCallIndirect(_, _) =>
+    ReturnCall(_) =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        has_call: true,
+        has_tail_calls: true,
+        branch_ops: 1,
+      }
+    CallIndirect(_, _) =>
       GenValidInstrFacts::{
         ..GenValidInstrFacts::empty(),
         has_call_indirect: true,
         branch_ops: 1,
       }
-    CallRef(_) | ReturnCallRef(_) =>
+    ReturnCallIndirect(_, _) =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        has_call_indirect: true,
+        has_tail_calls: true,
+        branch_ops: 1,
+      }
+    CallRef(_) =>
       GenValidInstrFacts::{
         ..GenValidInstrFacts::empty(),
         uses_ref_types: true,
         has_call_indirect: true,
+        branch_ops: 1,
+      }
+    ReturnCallRef(_) =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        uses_ref_types: true,
+        has_call_indirect: true,
+        has_tail_calls: true,
         branch_ops: 1,
       }
     Br(_) | BrIf(_) =>
@@ -4307,6 +4432,7 @@ pub fn gen_valid_feature_facts(
   let mut has_standalone_unreachable = false
   let mut has_local_tee = false
   let mut has_typed_select = false
+  let mut has_tail_calls = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -4383,6 +4509,7 @@ pub fn gen_valid_feature_facts(
             expr_facts.has_standalone_unreachable
           has_local_tee = has_local_tee || expr_facts.has_local_tee
           has_typed_select = has_typed_select || expr_facts.has_typed_select
+          has_tail_calls = has_tail_calls || expr_facts.has_tail_calls
           control_nodes += expr_facts.control_nodes
           branch_ops += expr_facts.branch_ops
         }
@@ -4428,6 +4555,7 @@ pub fn gen_valid_feature_facts(
                 facts.has_standalone_unreachable
               has_local_tee = has_local_tee || facts.has_local_tee
               has_typed_select = has_typed_select || facts.has_typed_select
+              has_tail_calls = has_tail_calls || facts.has_tail_calls
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -4449,6 +4577,7 @@ pub fn gen_valid_feature_facts(
                   facts.has_standalone_unreachable
                 has_local_tee = has_local_tee || facts.has_local_tee
                 has_typed_select = has_typed_select || facts.has_typed_select
+                has_tail_calls = has_tail_calls || facts.has_tail_calls
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -4468,6 +4597,7 @@ pub fn gen_valid_feature_facts(
                   facts.has_standalone_unreachable
                 has_local_tee = has_local_tee || facts.has_local_tee
                 has_typed_select = has_typed_select || facts.has_typed_select
+                has_tail_calls = has_tail_calls || facts.has_tail_calls
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -4497,6 +4627,7 @@ pub fn gen_valid_feature_facts(
                 facts.has_standalone_unreachable
               has_local_tee = has_local_tee || facts.has_local_tee
               has_typed_select = has_typed_select || facts.has_typed_select
+              has_tail_calls = has_tail_calls || facts.has_tail_calls
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -4527,6 +4658,7 @@ pub fn gen_valid_feature_facts(
           facts.has_standalone_unreachable
         has_local_tee = has_local_tee || facts.has_local_tee
         has_typed_select = has_typed_select || facts.has_typed_select
+        has_tail_calls = has_tail_calls || facts.has_tail_calls
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
       }
@@ -4560,5 +4692,6 @@ pub fn gen_valid_feature_facts(
     has_standalone_unreachable,
     has_local_tee,
     has_typed_select,
+    has_tail_calls,
   }
 }

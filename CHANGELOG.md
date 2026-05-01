@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-01 Fuzz: widen tail-call gen-valid surface
+
+- **complete `[FZG]004` by adding coverage-forced valid generation for `return_call`, `return_call_indirect`, and `return_call_ref`, attaching the `TailCalls` ledger counter and `allow_tail_calls` toggle, proving all three forms validate under focused coverage, and refreshing the 1k `gen-valid` RUME compare smoke evidence** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), and [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti).
+
 ## 2026-05-01 Fuzz: widen core control gen-valid surface
 
 - **complete `[FZG]003` by wiring exact feature counters and floor coverage for coverage-forced `br_table`, standalone `unreachable`, `local.tee`, and typed `select` generation, refreshing the validate API snapshot, and fixing an imported-memory-aware invalid name-section mutation exposed by the widened corpus** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), and [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti).
