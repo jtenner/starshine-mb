@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-30 Fuzz: widen scalar numeric gen-valid surface
+
+- **land `[FZG]002` with coverage-forced generation for expanded scalar numeric opcode families, a `NumericFullOps` feature counter, focused validation/floor coverage, refreshed FZG ledger docs, and green 1k `gen-valid` RUME compare smoke evidence** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), and [`src/validate/validate.mbt`](./src/validate/validate.mbt).
+
 ## 2026-04-30 Fuzz: add generator coverage ledger
 
 - **land `[FZG]001` with a public validate-side generator coverage ledger, optional missing rows for planned widening surfaces, explicit floor failures only when profiles require them, focused validator tests, and a living wiki page documenting current zero-coverage rows and follow-up rules** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), and [`src/validate/validate.mbt`](./src/validate/validate.mbt).

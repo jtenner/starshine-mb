@@ -18,6 +18,7 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 - `src/validate/validate.mbt` owns the public ledger API: `validate_valid_feature_ledger(stats, floors)` returns one row per intended surface with a stable key, label, observed count, required minimum, and status.
 - `check_validate_valid_feature_floors(stats, floors)` still fails only for floors explicitly listed by a profile or caller. Missing future FZG families are reported as `MissingOptional` until a profile adds a nonzero floor.
 - Existing smoke/CI/stress profiles keep their previous floors. The new FZG rows are available for diagnostics and later floor retuning, but they are not required by default yet.
+- `[FZG]002` attaches the first widened-surface counter: `NumericFullOps` now counts modules whose instruction scan sees expanded scalar numeric opcodes.
 
 ## Ledger status meanings
 
@@ -33,11 +34,13 @@ The ledger now names the slice backlog's target surfaces up front: full scalar n
 
 ## Known zero-coverage rows as of 2026-04-30
 
-Most new FZG rows intentionally report `0` today because the generator has not been widened yet and because several existing private surface scans are not part of the public profile-floor counters. This is expected for `[FZG]001`: it establishes stable row names and failure semantics before later slices attach exact counters or generation paths.
+Most new FZG rows intentionally report `0` today because the generator has not been widened yet and because several existing private surface scans are not part of the public profile-floor counters. `[FZG]002` is the first exception: coverage-forced valid modules now emit a deterministic expanded scalar numeric prelude and report nonzero `numeric_full_ops` coverage.
 
-The coarse pre-existing counters still cover current smoke/CI/stress floors for sections, exports, starts, tables, memories, globals, tags, elems, datas, data-count, ref types, v128 constants, direct/indirect calls, and branch-heavy control. Later FZG slices should replace broad proxy rows with exact family counters when they add each generator surface.
+The coarse pre-existing counters still cover current smoke/CI/stress floors for sections, exports, starts, tables, memories, globals, tags, elems, datas, data-count, ref types, v128 constants, direct/indirect calls, branch-heavy control, and now expanded scalar numeric instructions. Later FZG slices should replace broad proxy rows with exact family counters when they add each generator surface.
 
 ## Validation anchors
 
 - `validate_valid_feature_ledger reports optional missing FZG surfaces` proves the ledger reports both covered existing rows and optional zero-count future rows.
 - `check_validate_valid_feature_floors fails future FZG surfaces only when required` proves missing future rows remain non-fatal unless a caller adds an explicit floor.
+- `gen_valid coverage-forced emits expanded scalar numeric surface` proves the `[FZG]002` prelude validates and satisfies an explicit `NumericFullOps` floor.
+- `.tmp/pass-fuzz-genvalid-wide-smoke-rume` is the first post-FZG002 compare smoke: `remove-unused-module-elements` over 1000 `gen-valid` cases reached `1000/1000` normalized matches.

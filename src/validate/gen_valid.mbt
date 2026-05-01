@@ -293,6 +293,7 @@ pub struct GenValidFeatureFacts {
   has_call : Bool
   has_call_indirect : Bool
   has_branch_heavy_control : Bool
+  has_numeric_full_ops : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -319,6 +320,7 @@ pub struct GenValidFeatureStats {
   calls : Int
   call_indirect : Int
   branch_heavy_control : Int
+  numeric_full_ops : Int
 } derive(Eq, Debug)
 
 ///|
@@ -367,6 +369,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.call_indirect.output(logger)
   logger.write_string(", branch_heavy_control: ")
   self.branch_heavy_control.output(logger)
+  logger.write_string(", numeric_full_ops: ")
+  self.numeric_full_ops.output(logger)
   logger.write_char('}')
 }
 
@@ -395,6 +399,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     calls: 0,
     call_indirect: 0,
     branch_heavy_control: 0,
+    numeric_full_ops: 0,
   }
 }
 
@@ -431,6 +436,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_call_indirect),
     branch_heavy_control: self.branch_heavy_control +
     gen_valid_bool_count(facts.has_branch_heavy_control),
+    numeric_full_ops: self.numeric_full_ops +
+    gen_valid_bool_count(facts.has_numeric_full_ops),
   }
 }
 
@@ -446,6 +453,7 @@ priv struct GenValidInstrFacts {
   uses_v128 : Bool
   has_call : Bool
   has_call_indirect : Bool
+  has_numeric_full_ops : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -465,6 +473,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     uses_v128: false,
     has_call: false,
     has_call_indirect: false,
+    has_numeric_full_ops: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -2462,12 +2471,250 @@ fn gen_valid_append_gc_prelude(
 }
 
 ///|
+fn gen_valid_append_scalar_numeric_drop(
+  out : Array[Instruction],
+  instrs : Array[Instruction],
+) -> Unit {
+  for instr in instrs {
+    out.push(instr)
+  }
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_expanded_scalar_numeric_ops(
+  out : Array[Instruction],
+) -> Unit {
+  gen_valid_append_scalar_numeric_drop(out, [
+    Instruction::i32_const(I32(0)),
+    Instruction::i32_eqz(),
+  ])
+  let i32_cmp_ops = [
+    Instruction::i32_eq(),
+    Instruction::i32_ne(),
+    Instruction::i32_lt_s(),
+    Instruction::i32_lt_u(),
+    Instruction::i32_gt_s(),
+    Instruction::i32_gt_u(),
+    Instruction::i32_le_s(),
+    Instruction::i32_le_u(),
+    Instruction::i32_ge_s(),
+    Instruction::i32_ge_u(),
+  ]
+  for op in i32_cmp_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::i32_const(I32(11)),
+      Instruction::i32_const(I32(3)),
+      op,
+    ])
+  }
+  let i32_binary_ops = [
+    Instruction::i32_div_s(),
+    Instruction::i32_div_u(),
+    Instruction::i32_rem_s(),
+    Instruction::i32_rem_u(),
+    Instruction::i32_shl(),
+    Instruction::i32_shr_s(),
+    Instruction::i32_shr_u(),
+    Instruction::i32_rotl(),
+    Instruction::i32_rotr(),
+  ]
+  for op in i32_binary_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::i32_const(I32(84)),
+      Instruction::i32_const(I32(3)),
+      op,
+    ])
+  }
+
+  gen_valid_append_scalar_numeric_drop(out, [
+    Instruction::i64_const(I64(0L)),
+    Instruction::i64_eqz(),
+  ])
+  let i64_cmp_ops = [
+    Instruction::i64_eq(),
+    Instruction::i64_ne(),
+    Instruction::i64_lt_s(),
+    Instruction::i64_lt_u(),
+    Instruction::i64_gt_s(),
+    Instruction::i64_gt_u(),
+    Instruction::i64_le_s(),
+    Instruction::i64_le_u(),
+    Instruction::i64_ge_s(),
+    Instruction::i64_ge_u(),
+  ]
+  for op in i64_cmp_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::i64_const(I64(99L)),
+      Instruction::i64_const(I64(5L)),
+      op,
+    ])
+  }
+  let i64_int_ops = [
+    Instruction::i64_div_s(),
+    Instruction::i64_div_u(),
+    Instruction::i64_rem_s(),
+    Instruction::i64_rem_u(),
+  ]
+  for op in i64_int_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::i64_const(I64(99L)),
+      Instruction::i64_const(I64(5L)),
+      op,
+    ])
+  }
+  let i64_shift_ops = [
+    Instruction::i64_shl(),
+    Instruction::i64_shr_s(),
+    Instruction::i64_shr_u(),
+    Instruction::i64_rotl(),
+    Instruction::i64_rotr(),
+  ]
+  for op in i64_shift_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::i64_const(I64(99L)),
+      Instruction::i64_const(I64(5L)),
+      op,
+    ])
+  }
+
+  let f32_unary_ops = [
+    Instruction::f32_ceil(),
+    Instruction::f32_floor(),
+    Instruction::f32_trunc(),
+    Instruction::f32_nearest(),
+    Instruction::f32_sqrt(),
+  ]
+  for op in f32_unary_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::f32_const(F32(Float::from_double(9.25))),
+      op,
+    ])
+  }
+  let f32_binary_ops = [
+    Instruction::f32_min(),
+    Instruction::f32_max(),
+    Instruction::f32_copysign(),
+  ]
+  for op in f32_binary_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::f32_const(F32(Float::from_double(9.25))),
+      Instruction::f32_const(F32(Float::from_double(2.5))),
+      op,
+    ])
+  }
+  let f32_cmp_ops = [
+    Instruction::f32_eq(),
+    Instruction::f32_ne(),
+    Instruction::f32_lt(),
+    Instruction::f32_gt(),
+    Instruction::f32_le(),
+    Instruction::f32_ge(),
+  ]
+  for op in f32_cmp_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::f32_const(F32(Float::from_double(9.25))),
+      Instruction::f32_const(F32(Float::from_double(2.5))),
+      op,
+    ])
+  }
+
+  let f64_unary_ops = [
+    Instruction::f64_ceil(),
+    Instruction::f64_floor(),
+    Instruction::f64_trunc(),
+    Instruction::f64_nearest(),
+    Instruction::f64_sqrt(),
+  ]
+  for op in f64_unary_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::f64_const(F64(16.75)),
+      op,
+    ])
+  }
+  let f64_binary_ops = [
+    Instruction::f64_min(),
+    Instruction::f64_max(),
+    Instruction::f64_copysign(),
+  ]
+  for op in f64_binary_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::f64_const(F64(16.75)),
+      Instruction::f64_const(F64(4.5)),
+      op,
+    ])
+  }
+  let f64_cmp_ops = [
+    Instruction::f64_eq(),
+    Instruction::f64_ne(),
+    Instruction::f64_lt(),
+    Instruction::f64_gt(),
+    Instruction::f64_le(),
+    Instruction::f64_ge(),
+  ]
+  for op in f64_cmp_ops {
+    gen_valid_append_scalar_numeric_drop(out, [
+      Instruction::f64_const(F64(16.75)),
+      Instruction::f64_const(F64(4.5)),
+      op,
+    ])
+  }
+
+  let conversion_ops = [
+    [
+      Instruction::f32_const(F32(Float::from_double(12.0))),
+      Instruction::i32_trunc_f32u(),
+    ],
+    [Instruction::f64_const(F64(12.0)), Instruction::i32_trunc_f64u()],
+    [Instruction::i32_const(I32(12)), Instruction::i64_extend_i32u()],
+    [
+      Instruction::f32_const(F32(Float::from_double(12.0))),
+      Instruction::i64_trunc_f32u(),
+    ],
+    [Instruction::f64_const(F64(12.0)), Instruction::i64_trunc_f64u()],
+    [Instruction::i32_const(I32(12)), Instruction::f32_convert_i32u()],
+    [Instruction::i64_const(I64(12L)), Instruction::f32_convert_i64u()],
+    [Instruction::i32_const(I32(12)), Instruction::f64_convert_i32u()],
+    [Instruction::i64_const(I64(12L)), Instruction::f64_convert_i64u()],
+    [Instruction::i32_const(I32(0x7f)), Instruction::i32_extend8s()],
+    [Instruction::i32_const(I32(0x7fff)), Instruction::i32_extend16s()],
+    [Instruction::i64_const(I64(0x7fL)), Instruction::i64_extend8s()],
+    [Instruction::i64_const(I64(0x7fffL)), Instruction::i64_extend16s()],
+    [Instruction::i64_const(I64(0x7fffffffL)), Instruction::i64_extend32s()],
+    [
+      Instruction::f32_const(F32(Float::from_double(12.0))),
+      Instruction::i32_trunc_sat_f32s(),
+    ],
+    [
+      Instruction::f32_const(F32(Float::from_double(12.0))),
+      Instruction::i32_trunc_sat_f32u(),
+    ],
+    [Instruction::f64_const(F64(12.0)), Instruction::i32_trunc_sat_f64s()],
+    [Instruction::f64_const(F64(12.0)), Instruction::i32_trunc_sat_f64u()],
+    [
+      Instruction::f32_const(F32(Float::from_double(12.0))),
+      Instruction::i64_trunc_sat_f32s(),
+    ],
+    [
+      Instruction::f32_const(F32(Float::from_double(12.0))),
+      Instruction::i64_trunc_sat_f32u(),
+    ],
+    [Instruction::f64_const(F64(12.0)), Instruction::i64_trunc_sat_f64s()],
+    [Instruction::f64_const(F64(12.0)), Instruction::i64_trunc_sat_f64u()],
+  ]
+  for instrs in conversion_ops {
+    gen_valid_append_scalar_numeric_drop(out, instrs)
+  }
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
   env : GenValidBodyEnv,
 ) -> Unit {
   gen_valid_append_gc_prelude(out, ctx, env)
+  gen_valid_append_expanded_scalar_numeric_ops(out)
   if ctx.config.features.allow_v128 {
     out.push(
       Instruction::v128_const(
@@ -3691,6 +3938,8 @@ fn gen_valid_merge_instr_facts(
     uses_v128: left.uses_v128 || right.uses_v128,
     has_call: left.has_call || right.has_call,
     has_call_indirect: left.has_call_indirect || right.has_call_indirect,
+    has_numeric_full_ops: left.has_numeric_full_ops ||
+    right.has_numeric_full_ops,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -3707,7 +3956,110 @@ fn gen_valid_scan_expr(expr : Expr) -> GenValidInstrFacts {
 }
 
 ///|
+fn gen_valid_instr_is_expanded_scalar_numeric(instr : Instruction) -> Bool {
+  match instr {
+    I32Eqz
+    | I32Eq
+    | I32Ne
+    | I32LtS
+    | I32LtU
+    | I32GtS
+    | I32GtU
+    | I32LeS
+    | I32LeU
+    | I32GeS
+    | I32GeU
+    | I64Eqz
+    | I64Eq
+    | I64Ne
+    | I64LtS
+    | I64LtU
+    | I64GtS
+    | I64GtU
+    | I64LeS
+    | I64LeU
+    | I64GeS
+    | I64GeU
+    | F32Eq
+    | F32Ne
+    | F32Lt
+    | F32Gt
+    | F32Le
+    | F32Ge
+    | F64Eq
+    | F64Ne
+    | F64Lt
+    | F64Gt
+    | F64Le
+    | F64Ge
+    | I32DivS
+    | I32DivU
+    | I32RemS
+    | I32RemU
+    | I32Shl
+    | I32ShrS
+    | I32ShrU
+    | I32Rotl
+    | I32Rotr
+    | I64DivS
+    | I64DivU
+    | I64RemS
+    | I64RemU
+    | I64Shl
+    | I64ShrS
+    | I64ShrU
+    | I64Rotl
+    | I64Rotr
+    | F32Ceil
+    | F32Floor
+    | F32Trunc
+    | F32Nearest
+    | F32Sqrt
+    | F32Min
+    | F32Max
+    | F32Copysign
+    | F64Ceil
+    | F64Floor
+    | F64Trunc
+    | F64Nearest
+    | F64Sqrt
+    | F64Min
+    | F64Max
+    | F64Copysign
+    | I32TruncF32U
+    | I32TruncF64U
+    | I64ExtendI32U
+    | I64TruncF32U
+    | I64TruncF64U
+    | F32ConvertI32U
+    | F32ConvertI64U
+    | F64ConvertI32U
+    | F64ConvertI64U
+    | I32Extend8S
+    | I32Extend16S
+    | I64Extend8S
+    | I64Extend16S
+    | I64Extend32S
+    | I32TruncSatF32S
+    | I32TruncSatF32U
+    | I32TruncSatF64S
+    | I32TruncSatF64U
+    | I64TruncSatF32S
+    | I64TruncSatF32U
+    | I64TruncSatF64S
+    | I64TruncSatF64U => true
+    _ => false
+  }
+}
+
+///|
 fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
+  if gen_valid_instr_is_expanded_scalar_numeric(instr) {
+    return GenValidInstrFacts::{
+      ..GenValidInstrFacts::empty(),
+      has_numeric_full_ops: true,
+    }
+  }
   match instr {
     Call(_) | ReturnCall(_) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), has_call: true }
@@ -3837,6 +4189,7 @@ pub fn gen_valid_feature_facts(
   let mut uses_v128 = false
   let mut has_call = false
   let mut has_call_indirect = false
+  let mut has_numeric_full_ops = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -3906,6 +4259,8 @@ pub fn gen_valid_feature_facts(
           uses_v128 = uses_v128 || has_v128_fact || expr_facts.uses_v128
           has_call = has_call || expr_facts.has_call
           has_call_indirect = has_call_indirect || expr_facts.has_call_indirect
+          has_numeric_full_ops = has_numeric_full_ops ||
+            expr_facts.has_numeric_full_ops
           control_nodes += expr_facts.control_nodes
           branch_ops += expr_facts.branch_ops
         }
@@ -3944,6 +4299,8 @@ pub fn gen_valid_feature_facts(
               uses_v128 = uses_v128 || facts.uses_v128
               has_call = has_call || facts.has_call
               has_call_indirect = has_call_indirect || facts.has_call_indirect
+              has_numeric_full_ops = has_numeric_full_ops ||
+                facts.has_numeric_full_ops
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -3958,6 +4315,8 @@ pub fn gen_valid_feature_facts(
                 uses_v128 = uses_v128 || facts.uses_v128
                 has_call = has_call || facts.has_call
                 has_call_indirect = has_call_indirect || facts.has_call_indirect
+                has_numeric_full_ops = has_numeric_full_ops ||
+                  facts.has_numeric_full_ops
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -3970,6 +4329,8 @@ pub fn gen_valid_feature_facts(
                 uses_v128 = uses_v128 || facts.uses_v128
                 has_call = has_call || facts.has_call
                 has_call_indirect = has_call_indirect || facts.has_call_indirect
+                has_numeric_full_ops = has_numeric_full_ops ||
+                  facts.has_numeric_full_ops
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -3992,6 +4353,8 @@ pub fn gen_valid_feature_facts(
               uses_v128 = uses_v128 || facts.uses_v128
               has_call = has_call || facts.has_call
               has_call_indirect = has_call_indirect || facts.has_call_indirect
+              has_numeric_full_ops = has_numeric_full_ops ||
+                facts.has_numeric_full_ops
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -4015,6 +4378,8 @@ pub fn gen_valid_feature_facts(
         uses_v128 = uses_v128 || facts.uses_v128
         has_call = has_call || facts.has_call
         has_call_indirect = has_call_indirect || facts.has_call_indirect
+        has_numeric_full_ops = has_numeric_full_ops ||
+          facts.has_numeric_full_ops
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
       }
@@ -4043,5 +4408,6 @@ pub fn gen_valid_feature_facts(
     has_call,
     has_call_indirect,
     has_branch_heavy_control: branch_ops > 0 || control_nodes >= 2,
+    has_numeric_full_ops,
   }
 }

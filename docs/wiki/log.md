@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-30] implementation | widen scalar numeric gen-valid surface
+
+- Landed `[FZG]002` by adding a deterministic coverage-forced scalar numeric prelude for integer div/rem/shift/rotate, integer and float comparisons, float ceil/floor/trunc/nearest/sqrt/min/max/copysign, unsigned conversions, sign-extension, and saturating truncation families.
+- Attached the first widened-surface ledger counter: `NumericFullOps` now reports nonzero coverage when the module scan sees expanded scalar numeric instructions, and a focused validator test proves a requested `NumericFullOps` floor passes on a validating coverage-forced module.
+- Signoff included `moon info`, full `moon test`, and a 1k `gen-valid` compare smoke through `remove-unused-module-elements` with `1000/1000` normalized matches.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md) so later FZG slices distinguish still-zero future rows from the now-covered scalar numeric row.
+
 ## [2026-04-30] implementation | add generator coverage ledger
 
 - Landed `[FZG]001` by adding a public validate-side feature ledger that reports stable rows for the current and planned generator-widening surfaces, including optional zero-count rows for future families and required-missing rows only when a profile explicitly asks for a floor.

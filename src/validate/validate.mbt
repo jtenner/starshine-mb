@@ -3560,7 +3560,7 @@ pub fn validate_valid_feature_actual_count(
     Calls => stats.calls
     CallIndirect => stats.call_indirect
     BranchHeavyControl => stats.branch_heavy_control
-    NumericFullOps => 0
+    NumericFullOps => stats.numeric_full_ops
     BrTable => 0
     StandaloneUnreachable => 0
     LocalTee => 0
@@ -4937,6 +4937,26 @@ test "check_validate_valid_feature_floors fails future FZG surfaces only when re
       { key: NumericFullOps, min_count: 1 },
     ]),
     [{ key: NumericFullOps, min_count: 1, actual_count: 0 }],
+  )
+}
+
+///|
+test "gen_valid coverage-forced emits expanded scalar numeric surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26002UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, NumericFullOps) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: NumericFullOps, min_count: 1 },
+    ]),
+    [],
   )
 }
 
