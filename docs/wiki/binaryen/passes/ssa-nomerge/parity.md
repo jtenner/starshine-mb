@@ -1,14 +1,17 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-01
 sources:
+  - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
+  - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
   - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
   - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
   - ../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./merge-shapes-and-canonical-slots.md
   - ./wat-shapes.md
   - ../../../../../src/ir/hot_lift.mbt
@@ -23,7 +26,7 @@ related:
 # `ssa-nomerge` Binaryen Parity
 
 This page is the current local signoff tracker.
-Use the strategy and shape pages in this folder for the upstream Binaryen algorithm itself; this page is about the repo's current evidence and remaining gaps.
+Use the strategy and shape pages in this folder for the upstream Binaryen algorithm itself; use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for owner-file and proof-surface navigation. This page is about the repo's current evidence and remaining gaps.
 
 ## Durable Conclusions
 
@@ -74,6 +77,8 @@ Use the strategy and shape pages in this folder for the upstream Binaryen algori
 
 ## Sources
 
+- Implementation/test-map refresh: [`../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md`](../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md)
+- Research note for this refresh: [`../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)
 - Archived research doc: [`../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md`](../../../raw/research/0076-2026-04-10-ssa-nomerge-parity-investigation.md)
 - Pass implementation: [`../../../../../src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt)
 - Pass manager guard: [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)

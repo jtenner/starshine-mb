@@ -1,11 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-05-01
 sources:
+  - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
+  - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
   - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
 related:
   - ./index.md
+  - ./implementation-structure-and-tests.md
   - ./merge-shapes-and-canonical-slots.md
   - ./wat-shapes.md
   - ./parity.md
@@ -16,7 +19,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the primary source oracle for this pass.
+Use Binaryen `version_129` as the primary source oracle for this pass. The 2026-05-01 implementation-source refresh in [`../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md`](../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md) adds the owner-file and test-surface map; [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) is the maintained explanatory page for that map.
 
 Primary files:
 
@@ -311,7 +314,7 @@ So the pass's type story is:
 
 ## What the dedicated official tests matter for
 
-The dedicated `ssa-nomerge_enable-simd` golden pair is the clearest source for the real contract.
+See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the source-owner and test-map view. The dedicated `ssa-nomerge_enable-simd` golden pair is the clearest source for the real contract.
 It shows:
 
 - straight-line set untangling

@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-01
 sources:
+  - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
+  - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
   - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
   - ../../../raw/binaryen/2026-04-21-ssa-nomerge-primary-sources.md
   - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
@@ -30,6 +32,7 @@ sources:
   - https://github.com/WebAssembly/binaryen/blob/main/test/passes/ssa-nomerge_enable-simd.txt
 related:
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./starshine-hot-ir-strategy.md
   - ./merge-shapes-and-canonical-slots.md
   - ./wat-shapes.md
@@ -127,6 +130,8 @@ What it actually is in `version_129`:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   - Deep dive into the actual `SSAify.cpp` structure, helper dependencies, scheduler placement, LocalGraph flow model, and the shared-`ssa` versus no-merge split.
+- [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+  - Source-owner and proof-surface map for upstream `SSAify.cpp`, `LocalGraph`, `ReFinalize`, pass registration, no-merge golden tests, and the exact current Starshine implementation/test files.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Exact MoonBit code map for the current local pass, covering the HOT-SSA roundtrip, predecessor-copy destruction path, raw structured and straight-line fallbacks, preset placement, and the main ways current Starshine differs from upstream Binaryen's true no-merge strategy.
 - [`./merge-shapes-and-canonical-slots.md`](./merge-shapes-and-canonical-slots.md)
@@ -161,6 +166,8 @@ So the durable rule is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md`](../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md)
+- [`../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md)
 - [`../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md`](../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md)
 - [`../../../../../src/passes/ssa_nomerge.mbt`](../../../../../src/passes/ssa_nomerge.mbt)
 - [`../../../../../src/passes/ssa_nomerge_test.mbt`](../../../../../src/passes/ssa_nomerge_test.mbt)

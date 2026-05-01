@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-01] research | deepen `ssa-nomerge` implementation map
+
+- Re-read `AGENTS.md`, `docs/README.md`, `docs/wiki/`, `docs/wiki/index.md`, `docs/wiki/log.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, the existing `docs/wiki/binaryen/passes/ssa-nomerge/` folder, and `docs/wiki/raw/research/`, then chose active hot pass `ssa-nomerge` because it had strategy and shape coverage but lacked the standard implementation/test-map page.
+- Added [`raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md`](raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md), citing official Binaryen `version_129` `SSAify.cpp`, `LocalGraph`, `ReFinalize`, pass registration, the dedicated no-merge golden pair, shared `ssa.wast`, and LocalGraph gtests plus exact local Starshine implementation/test surfaces.
+- Added [`raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md) and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md); refreshed the overview, Binaryen strategy, Starshine strategy, and parity page so upstream owner files, proof surfaces, local HOT-SSA destruction, raw fallbacks, CLI artifact tests, and the Starshine-vs-Binaryen representation split are connected.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so `ssa-nomerge` is discoverable as a deep implemented hot-pass dossier with implementation/test-map coverage.
+
 ## [2026-05-01] implementation | widen basic ref gen-valid surface
 
 - Completed `[FZG]009` by adding coverage-forced valid generation for `ref.is_null`, `ref.null none`, `ref.null nofunc`, `ref.null noextern`, nullable and nonnullable `ref.test`/`ref.cast`, and nullable/nonnullable-target `br_on_cast`/`br_on_cast_fail`.

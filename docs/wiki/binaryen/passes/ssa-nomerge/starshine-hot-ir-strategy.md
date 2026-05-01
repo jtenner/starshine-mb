@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-01
 sources:
+  - ../../../raw/binaryen/2026-05-01-ssa-nomerge-implementation-primary-sources.md
+  - ../../../raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md
   - ../../../raw/research/0240-2026-04-21-ssa-nomerge-starshine-strategy-followup.md
   - ../../../raw/binaryen/2026-04-21-ssa-nomerge-primary-sources.md
   - ../../../raw/research/0141-2026-04-20-ssa-nomerge-binaryen-research.md
@@ -15,6 +17,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./implementation-structure-and-tests.md
   - ./merge-shapes-and-canonical-slots.md
   - ./wat-shapes.md
   - ./parity.md
@@ -55,7 +58,7 @@ So the safe teaching headline is:
 
 ## Current local code map
 
-The easiest way to follow the in-tree implementation is this file map:
+The easiest way to follow the in-tree implementation is this file map. The same map is also summarized with upstream proof surfaces in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md):
 
 - `src/passes/ssa_nomerge.mbt:2`
   - `ssa_nomerge_descriptor()` declares the public pass name, required analyses, and invalidation set
@@ -242,7 +245,7 @@ It is:
 
 ## Current local tests and what they prove
 
-The focused tests in `src/passes/ssa_nomerge_test.mbt` currently prove these local contracts:
+The focused tests in `src/passes/ssa_nomerge_test.mbt` currently prove these local contracts. For the exact test-map table, including CLI artifact replay surfaces, see [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md):
 
 - straight-line local writes can stay canonical on simple shapes
 - repeated straight-line aliases can move onto fresh locals
@@ -259,6 +262,8 @@ The CLI tests in `src/cmd/cmd_wbtest.mbt` add two higher-level proofs:
 
 - the checked-in debug artifact still replays successfully under `--ssa-nomerge`
 - the extracted `Func 523` slice no longer records the old writeback type-mismatch skip that earlier parity notes had singled out
+
+The 2026-05-01 implementation-source refresh keeps this as Starshine-local validation evidence, not as proof that the local strategy is a direct clone of upstream `SSAify(false)`.
 
 ## Practical maintenance rule
 
