@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-01 Fuzz: widen scalar memory gen-valid surface
+
+- **complete `[FZG]005` by adding coverage-forced and natural valid generation for scalar load/store width and sign variants with nonzero memarg alignment/offset coverage, attaching `ScalarMemoryWidths` and `NonzeroMemarg` ledger counters, proving every scalar memory form validates under focused coverage, and refreshing the 1k `gen-valid` RUME compare smoke evidence** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), and [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti).
+
 ## 2026-05-01 Fuzz: widen tail-call gen-valid surface
 
 - **complete `[FZG]004` by adding coverage-forced valid generation for `return_call`, `return_call_indirect`, and `return_call_ref`, attaching the `TailCalls` ledger counter and `allow_tail_calls` toggle, proving all three forms validate under focused coverage, and refreshing the 1k `gen-valid` RUME compare smoke evidence** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), and [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti).

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-01] implementation | widen scalar memory gen-valid surface
+
+- Completed `[FZG]005` by adding deterministic coverage-forced generation for every scalar load/store width/sign variant with varied valid nonzero memarg alignment or offset immediates.
+- Attached `ScalarMemoryWidths` and `NonzeroMemarg` to the public generator ledger and added focused validation/floor coverage for those rows.
+- Validated the widened corpus with `moon test --package jtenner/starshine/validate` and `.tmp/pass-fuzz-genvalid-fzg005-rume` (`remove-unused-module-elements` over 1000 `gen-valid` cases, `1000/1000` normalized matches).
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), `agent-todo.md`, and `CHANGELOG.md` with the new covered rows and signoff evidence.
+
 ## [2026-05-01] implementation | widen tail-call gen-valid surface
 
 - Completed `[FZG]004` by adding coverage-forced valid generation for `return_call`, `return_call_indirect`, and `return_call_ref` using callable signatures whose result lists exactly match the current function return type.

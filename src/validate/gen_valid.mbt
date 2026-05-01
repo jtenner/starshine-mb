@@ -304,6 +304,8 @@ pub struct GenValidFeatureFacts {
   has_local_tee : Bool
   has_typed_select : Bool
   has_tail_calls : Bool
+  has_scalar_memory_widths : Bool
+  has_nonzero_memarg : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -336,6 +338,8 @@ pub struct GenValidFeatureStats {
   local_tee : Int
   typed_select : Int
   tail_calls : Int
+  scalar_memory_widths : Int
+  nonzero_memarg : Int
 } derive(Eq, Debug)
 
 ///|
@@ -396,6 +400,10 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.typed_select.output(logger)
   logger.write_string(", tail_calls: ")
   self.tail_calls.output(logger)
+  logger.write_string(", scalar_memory_widths: ")
+  self.scalar_memory_widths.output(logger)
+  logger.write_string(", nonzero_memarg: ")
+  self.nonzero_memarg.output(logger)
   logger.write_char('}')
 }
 
@@ -430,6 +438,8 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     local_tee: 0,
     typed_select: 0,
     tail_calls: 0,
+    scalar_memory_widths: 0,
+    nonzero_memarg: 0,
   }
 }
 
@@ -475,6 +485,10 @@ pub fn GenValidFeatureStats::record(
     typed_select: self.typed_select +
     gen_valid_bool_count(facts.has_typed_select),
     tail_calls: self.tail_calls + gen_valid_bool_count(facts.has_tail_calls),
+    scalar_memory_widths: self.scalar_memory_widths +
+    gen_valid_bool_count(facts.has_scalar_memory_widths),
+    nonzero_memarg: self.nonzero_memarg +
+    gen_valid_bool_count(facts.has_nonzero_memarg),
   }
 }
 
@@ -496,6 +510,8 @@ priv struct GenValidInstrFacts {
   has_local_tee : Bool
   has_typed_select : Bool
   has_tail_calls : Bool
+  has_scalar_memory_widths : Bool
+  has_nonzero_memarg : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -521,6 +537,8 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_local_tee: false,
     has_typed_select: false,
     has_tail_calls: false,
+    has_scalar_memory_widths: false,
+    has_nonzero_memarg: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -1088,6 +1106,11 @@ fn gen_valid_memarg() -> MemArg {
 }
 
 ///|
+fn gen_valid_memarg_varied(align_pow : UInt, offset : UInt64) -> MemArg {
+  MemArg::new(U32(align_pow), None, U64(offset))
+}
+
+///|
 fn gen_valid_body_env_child(
   env : GenValidBodyEnv,
   add_void_label? : Bool = false,
@@ -1322,6 +1345,157 @@ fn gen_valid_append_memory_bulk_ops(
   }
   ignore(ctx)
   true
+}
+
+///|
+fn gen_valid_append_scalar_memory_load_drop(
+  out : Array[Instruction],
+  load : Instruction,
+) -> Unit {
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(load)
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_scalar_memory_store(
+  out : Array[Instruction],
+  value : Instruction,
+  store : Instruction,
+) -> Unit {
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(value)
+  out.push(store)
+}
+
+///|
+fn gen_valid_append_scalar_memory_ops(out : Array[Instruction]) -> Unit {
+  let i32_load_ma = gen_valid_memarg_varied(2U, 4UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i32_load(i32_load_ma),
+  )
+  let i64_load_ma = gen_valid_memarg_varied(3U, 8UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i64_load(i64_load_ma),
+  )
+  let f32_load_ma = gen_valid_memarg_varied(2U, 12UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::f32_load(f32_load_ma),
+  )
+  let f64_load_ma = gen_valid_memarg_varied(3U, 16UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::f64_load(f64_load_ma),
+  )
+
+  let i32_load8s_ma = gen_valid_memarg_varied(0U, 20UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i32_load8s(i32_load8s_ma),
+  )
+  let i32_load8u_ma = gen_valid_memarg_varied(0U, 21UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i32_load8u(i32_load8u_ma),
+  )
+  let i32_load16s_ma = gen_valid_memarg_varied(1U, 22UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i32_load16s(i32_load16s_ma),
+  )
+  let i32_load16u_ma = gen_valid_memarg_varied(1U, 24UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i32_load16u(i32_load16u_ma),
+  )
+  let i64_load8s_ma = gen_valid_memarg_varied(0U, 26UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i64_load8s(i64_load8s_ma),
+  )
+  let i64_load8u_ma = gen_valid_memarg_varied(0U, 27UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i64_load8u(i64_load8u_ma),
+  )
+  let i64_load16s_ma = gen_valid_memarg_varied(1U, 28UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i64_load16s(i64_load16s_ma),
+  )
+  let i64_load16u_ma = gen_valid_memarg_varied(1U, 30UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i64_load16u(i64_load16u_ma),
+  )
+  let i64_load32s_ma = gen_valid_memarg_varied(2U, 32UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i64_load32s(i64_load32s_ma),
+  )
+  let i64_load32u_ma = gen_valid_memarg_varied(2U, 36UL)
+  gen_valid_append_scalar_memory_load_drop(
+    out,
+    Instruction::i64_load32u(i64_load32u_ma),
+  )
+
+  let i32_store_ma = gen_valid_memarg_varied(2U, 40UL)
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::i32_const(I32(1)),
+    Instruction::i32_store(i32_store_ma),
+  )
+  let i64_store_ma = gen_valid_memarg_varied(3U, 48UL)
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::i64_const(I64(2L)),
+    Instruction::i64_store(i64_store_ma),
+  )
+  let f32_store_ma = gen_valid_memarg_varied(2U, 56UL)
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::f32_const(F32(Float::from_double(3.0))),
+    Instruction::f32_store(f32_store_ma),
+  )
+  let f64_store_ma = gen_valid_memarg_varied(3U, 64UL)
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::f64_const(F64(4.0)),
+    Instruction::f64_store(f64_store_ma),
+  )
+  let i32_store8_ma = gen_valid_memarg_varied(0U, 72UL)
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::i32_const(I32(5)),
+    Instruction::i32_store8(i32_store8_ma),
+  )
+  let i32_store16_ma = gen_valid_memarg_varied(1U, 74UL)
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::i32_const(I32(6)),
+    Instruction::i32_store16(i32_store16_ma),
+  )
+  let i64_store8_ma = gen_valid_memarg_varied(0U, 76UL)
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::i64_const(I64(7L)),
+    Instruction::i64_store8(i64_store8_ma),
+  )
+  let i64_store16_ma = gen_valid_memarg_varied(1U, 78UL)
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::i64_const(I64(8L)),
+    Instruction::i64_store16(i64_store16_ma),
+  )
+  let i64_store32_ma = gen_valid_memarg_varied(2U, 80UL)
+  gen_valid_append_scalar_memory_store(
+    out,
+    Instruction::i64_const(I64(9L)),
+    Instruction::i64_store32(i64_store32_ma),
+  )
 }
 
 ///|
@@ -2198,15 +2372,9 @@ fn append_void_stmt(
       }
     6 =>
       if !env.mems.is_empty() {
-        let memarg = gen_valid_memarg()
         out.push(Instruction::memory_size(MemIdx::new(0U)))
         out.push(Instruction::drop())
-        out.push(Instruction::i32_const(I32(0)))
-        out.push(Instruction::i32_const(I32(1)))
-        out.push(Instruction::i32_store(memarg))
-        out.push(Instruction::i32_const(I32(0)))
-        out.push(Instruction::i32_load(memarg))
-        out.push(Instruction::drop())
+        gen_valid_append_scalar_memory_ops(out)
       } else {
         out.push(Instruction::nop())
       }
@@ -2944,18 +3112,12 @@ fn gen_valid_append_coverage_prelude(
     }
   }
   if !env.mems.is_empty() {
-    let memarg = gen_valid_memarg()
     out.push(Instruction::memory_size(MemIdx::new(0U)))
     out.push(Instruction::drop())
     out.push(Instruction::i32_const(I32(1)))
     out.push(Instruction::memory_grow(MemIdx::new(0U)))
     out.push(Instruction::drop())
-    out.push(Instruction::i32_const(I32(0)))
-    out.push(Instruction::i32_const(I32(7)))
-    out.push(Instruction::i32_store(memarg))
-    out.push(Instruction::i32_const(I32(0)))
-    out.push(Instruction::i32_load(memarg))
-    out.push(Instruction::drop())
+    gen_valid_append_scalar_memory_ops(out)
     ignore(gen_valid_append_memory_bulk_ops(out, ctx, env))
   }
   if !env.tables.is_empty() {
@@ -4142,6 +4304,9 @@ fn gen_valid_merge_instr_facts(
     has_local_tee: left.has_local_tee || right.has_local_tee,
     has_typed_select: left.has_typed_select || right.has_typed_select,
     has_tail_calls: left.has_tail_calls || right.has_tail_calls,
+    has_scalar_memory_widths: left.has_scalar_memory_widths ||
+    right.has_scalar_memory_widths,
+    has_nonzero_memarg: left.has_nonzero_memarg || right.has_nonzero_memarg,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -4255,6 +4420,24 @@ fn gen_valid_instr_is_expanded_scalar_numeric(instr : Instruction) -> Bool {
 }
 
 ///|
+fn gen_valid_memarg_is_nonzero(ma : MemArg) -> Bool {
+  let MemArg(U32(align_pow), _, U64(offset)) = ma
+  align_pow.reinterpret_as_int() > 0 || offset > 0
+}
+
+///|
+fn gen_valid_scan_scalar_memory_instr(
+  ma : MemArg,
+  narrow : Bool,
+) -> GenValidInstrFacts {
+  GenValidInstrFacts::{
+    ..GenValidInstrFacts::empty(),
+    has_scalar_memory_widths: narrow,
+    has_nonzero_memarg: gen_valid_memarg_is_nonzero(ma),
+  }
+}
+
+///|
 fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
   if gen_valid_instr_is_expanded_scalar_numeric(instr) {
     return GenValidInstrFacts::{
@@ -4308,6 +4491,29 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         has_br_table: true,
         branch_ops: 1,
       }
+    I32Load(ma)
+    | I64Load(ma)
+    | F32Load(ma)
+    | F64Load(ma)
+    | I32Store(ma)
+    | I64Store(ma)
+    | F32Store(ma)
+    | F64Store(ma) => gen_valid_scan_scalar_memory_instr(ma, false)
+    I32Load8S(ma)
+    | I32Load8U(ma)
+    | I32Load16S(ma)
+    | I32Load16U(ma)
+    | I64Load8S(ma)
+    | I64Load8U(ma)
+    | I64Load16S(ma)
+    | I64Load16U(ma)
+    | I64Load32S(ma)
+    | I64Load32U(ma)
+    | I32Store8(ma)
+    | I32Store16(ma)
+    | I64Store8(ma)
+    | I64Store16(ma)
+    | I64Store32(ma) => gen_valid_scan_scalar_memory_instr(ma, true)
     BrOnNull(_)
     | BrOnNonNull(_)
     | BrOnCast(_, _, _, _)
@@ -4433,6 +4639,8 @@ pub fn gen_valid_feature_facts(
   let mut has_local_tee = false
   let mut has_typed_select = false
   let mut has_tail_calls = false
+  let mut has_scalar_memory_widths = false
+  let mut has_nonzero_memarg = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -4510,6 +4718,10 @@ pub fn gen_valid_feature_facts(
           has_local_tee = has_local_tee || expr_facts.has_local_tee
           has_typed_select = has_typed_select || expr_facts.has_typed_select
           has_tail_calls = has_tail_calls || expr_facts.has_tail_calls
+          has_scalar_memory_widths = has_scalar_memory_widths ||
+            expr_facts.has_scalar_memory_widths
+          has_nonzero_memarg = has_nonzero_memarg ||
+            expr_facts.has_nonzero_memarg
           control_nodes += expr_facts.control_nodes
           branch_ops += expr_facts.branch_ops
         }
@@ -4556,6 +4768,10 @@ pub fn gen_valid_feature_facts(
               has_local_tee = has_local_tee || facts.has_local_tee
               has_typed_select = has_typed_select || facts.has_typed_select
               has_tail_calls = has_tail_calls || facts.has_tail_calls
+              has_scalar_memory_widths = has_scalar_memory_widths ||
+                facts.has_scalar_memory_widths
+              has_nonzero_memarg = has_nonzero_memarg ||
+                facts.has_nonzero_memarg
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -4578,6 +4794,10 @@ pub fn gen_valid_feature_facts(
                 has_local_tee = has_local_tee || facts.has_local_tee
                 has_typed_select = has_typed_select || facts.has_typed_select
                 has_tail_calls = has_tail_calls || facts.has_tail_calls
+                has_scalar_memory_widths = has_scalar_memory_widths ||
+                  facts.has_scalar_memory_widths
+                has_nonzero_memarg = has_nonzero_memarg ||
+                  facts.has_nonzero_memarg
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -4598,6 +4818,10 @@ pub fn gen_valid_feature_facts(
                 has_local_tee = has_local_tee || facts.has_local_tee
                 has_typed_select = has_typed_select || facts.has_typed_select
                 has_tail_calls = has_tail_calls || facts.has_tail_calls
+                has_scalar_memory_widths = has_scalar_memory_widths ||
+                  facts.has_scalar_memory_widths
+                has_nonzero_memarg = has_nonzero_memarg ||
+                  facts.has_nonzero_memarg
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -4628,6 +4852,10 @@ pub fn gen_valid_feature_facts(
               has_local_tee = has_local_tee || facts.has_local_tee
               has_typed_select = has_typed_select || facts.has_typed_select
               has_tail_calls = has_tail_calls || facts.has_tail_calls
+              has_scalar_memory_widths = has_scalar_memory_widths ||
+                facts.has_scalar_memory_widths
+              has_nonzero_memarg = has_nonzero_memarg ||
+                facts.has_nonzero_memarg
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -4659,6 +4887,9 @@ pub fn gen_valid_feature_facts(
         has_local_tee = has_local_tee || facts.has_local_tee
         has_typed_select = has_typed_select || facts.has_typed_select
         has_tail_calls = has_tail_calls || facts.has_tail_calls
+        has_scalar_memory_widths = has_scalar_memory_widths ||
+          facts.has_scalar_memory_widths
+        has_nonzero_memarg = has_nonzero_memarg || facts.has_nonzero_memarg
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
       }
@@ -4693,5 +4924,7 @@ pub fn gen_valid_feature_facts(
     has_local_tee,
     has_typed_select,
     has_tail_calls,
+    has_scalar_memory_widths,
+    has_nonzero_memarg,
   }
 }

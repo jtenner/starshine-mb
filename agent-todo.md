@@ -757,6 +757,8 @@ Suggested Tests
      - Invariants: tail-call results must match the current function return type exactly.
 3. Expand memory, table, global, and bulk-op variation.
    - [FZG]005 - Memory Instruction and MemArg Variation - Generate all scalar load/store width/sign variants with varied valid align/offset values instead of only natural zero memargs and i32 load/store.
+     - Status: complete. Coverage-forced `gen-valid` modules now emit every scalar load/store width/sign variant (`i32`/`i64`/`f32`/`f64` full-width ops plus all narrow integer load/store forms) with varied valid nonzero memarg alignment or offset immediates, and natural memory statements reuse the widened scalar-memory prelude instead of only `i32.load`/`i32.store` with zero memargs. `GenValidFeatureStats` now records `scalar_memory_widths` and `nonzero_memarg`, and both `ScalarMemoryWidths` and `NonzeroMemarg` ledger rows can satisfy explicit floors.
+     - Validation: `moon test --package jtenner/starshine/validate`, `moon info`, `moon fmt`, and `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 1000 --max-failures 20 --out-dir .tmp/pass-fuzz-genvalid-fzg005-rume` are green; focused coverage lives in `gen_valid coverage-forced emits scalar memory widths and memarg variation`.
      - Exit Criteria: feature facts observe narrow loads/stores and nonzero offsets/alignments while modules still validate.
    - [FZG]006 - Memory Limit and Proposal Variants - Add generator support for zero-min, unbounded, shared, and memory64 memory shapes behind explicit config toggles.
      - Invariants: shared memory must always have a max; memory64 instructions/types must be feature-gated consistently.

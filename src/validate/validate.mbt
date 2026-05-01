@@ -3566,8 +3566,8 @@ pub fn validate_valid_feature_actual_count(
     LocalTee => stats.local_tee
     TypedSelect => stats.typed_select
     TailCalls => stats.tail_calls
-    ScalarMemoryWidths => 0
-    NonzeroMemarg => 0
+    ScalarMemoryWidths => stats.scalar_memory_widths
+    NonzeroMemarg => stats.nonzero_memarg
     MemoryLimitVariants => 0
     TableLimitVariants => 0
     ConstExprVariants => 0
@@ -5079,6 +5079,343 @@ test "gen_valid coverage-forced emits tail-call surface" {
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: TailCalls, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+priv struct ValidateTestMemoryForms {
+  i32_load : Bool
+  i64_load : Bool
+  f32_load : Bool
+  f64_load : Bool
+  i32_load8s : Bool
+  i32_load8u : Bool
+  i32_load16s : Bool
+  i32_load16u : Bool
+  i64_load8s : Bool
+  i64_load8u : Bool
+  i64_load16s : Bool
+  i64_load16u : Bool
+  i64_load32s : Bool
+  i64_load32u : Bool
+  i32_store : Bool
+  i64_store : Bool
+  f32_store : Bool
+  f64_store : Bool
+  i32_store8 : Bool
+  i32_store16 : Bool
+  i64_store8 : Bool
+  i64_store16 : Bool
+  i64_store32 : Bool
+  nonzero_memarg : Bool
+}
+
+///|
+fn validate_test_memory_forms_empty() -> ValidateTestMemoryForms {
+  {
+    i32_load: false,
+    i64_load: false,
+    f32_load: false,
+    f64_load: false,
+    i32_load8s: false,
+    i32_load8u: false,
+    i32_load16s: false,
+    i32_load16u: false,
+    i64_load8s: false,
+    i64_load8u: false,
+    i64_load16s: false,
+    i64_load16u: false,
+    i64_load32s: false,
+    i64_load32u: false,
+    i32_store: false,
+    i64_store: false,
+    f32_store: false,
+    f64_store: false,
+    i32_store8: false,
+    i32_store16: false,
+    i64_store8: false,
+    i64_store16: false,
+    i64_store32: false,
+    nonzero_memarg: false,
+  }
+}
+
+///|
+fn validate_test_memory_forms_merge(
+  left : ValidateTestMemoryForms,
+  right : ValidateTestMemoryForms,
+) -> ValidateTestMemoryForms {
+  {
+    i32_load: left.i32_load || right.i32_load,
+    i64_load: left.i64_load || right.i64_load,
+    f32_load: left.f32_load || right.f32_load,
+    f64_load: left.f64_load || right.f64_load,
+    i32_load8s: left.i32_load8s || right.i32_load8s,
+    i32_load8u: left.i32_load8u || right.i32_load8u,
+    i32_load16s: left.i32_load16s || right.i32_load16s,
+    i32_load16u: left.i32_load16u || right.i32_load16u,
+    i64_load8s: left.i64_load8s || right.i64_load8s,
+    i64_load8u: left.i64_load8u || right.i64_load8u,
+    i64_load16s: left.i64_load16s || right.i64_load16s,
+    i64_load16u: left.i64_load16u || right.i64_load16u,
+    i64_load32s: left.i64_load32s || right.i64_load32s,
+    i64_load32u: left.i64_load32u || right.i64_load32u,
+    i32_store: left.i32_store || right.i32_store,
+    i64_store: left.i64_store || right.i64_store,
+    f32_store: left.f32_store || right.f32_store,
+    f64_store: left.f64_store || right.f64_store,
+    i32_store8: left.i32_store8 || right.i32_store8,
+    i32_store16: left.i32_store16 || right.i32_store16,
+    i64_store8: left.i64_store8 || right.i64_store8,
+    i64_store16: left.i64_store16 || right.i64_store16,
+    i64_store32: left.i64_store32 || right.i64_store32,
+    nonzero_memarg: left.nonzero_memarg || right.nonzero_memarg,
+  }
+}
+
+///|
+fn validate_test_memarg_nonzero(ma : MemArg) -> Bool {
+  let MemArg(U32(align_pow), _, U64(offset)) = ma
+  align_pow.reinterpret_as_int() > 0 || offset > 0
+}
+
+///|
+fn validate_test_memory_forms_expr(expr : Expr) -> ValidateTestMemoryForms {
+  let Expr(instrs) = expr
+  let mut forms = validate_test_memory_forms_empty()
+  for instr in instrs {
+    forms = validate_test_memory_forms_merge(
+      forms,
+      validate_test_memory_forms_instr(instr),
+    )
+  }
+  forms
+}
+
+///|
+fn validate_test_memory_forms_instr(
+  instr : Instruction,
+) -> ValidateTestMemoryForms {
+  match instr {
+    I32Load(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i32_load: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Load(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_load: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    F32Load(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        f32_load: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    F64Load(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        f64_load: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I32Load8S(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i32_load8s: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I32Load8U(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i32_load8u: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I32Load16S(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i32_load16s: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I32Load16U(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i32_load16u: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Load8S(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_load8s: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Load8U(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_load8u: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Load16S(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_load16s: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Load16U(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_load16u: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Load32S(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_load32s: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Load32U(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_load32u: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I32Store(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i32_store: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Store(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_store: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    F32Store(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        f32_store: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    F64Store(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        f64_store: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I32Store8(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i32_store8: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I32Store16(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i32_store16: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Store8(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_store8: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Store16(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_store16: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    I64Store32(ma) =>
+      {
+        ..validate_test_memory_forms_empty(),
+        i64_store32: true,
+        nonzero_memarg: validate_test_memarg_nonzero(ma),
+      }
+    Block(_, body) | Loop(_, body) => validate_test_memory_forms_expr(body)
+    If(_, then_body, else_body) => {
+      let mut forms = validate_test_memory_forms_expr(Expr::new(then_body))
+      match else_body {
+        Some(branch) =>
+          forms = validate_test_memory_forms_merge(
+            forms,
+            validate_test_memory_forms_expr(Expr::new(branch)),
+          )
+        None => ()
+      }
+      forms
+    }
+    TryTable(_, _, body) => validate_test_memory_forms_expr(body)
+    _ => validate_test_memory_forms_empty()
+  }
+}
+
+///|
+fn validate_test_memory_forms_module(mod : Module) -> ValidateTestMemoryForms {
+  let mut forms = validate_test_memory_forms_empty()
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, body) = func
+        forms = validate_test_memory_forms_merge(
+          forms,
+          validate_test_memory_forms_expr(body),
+        )
+      }
+    None => ()
+  }
+  forms
+}
+
+///|
+test "gen_valid coverage-forced emits scalar memory widths and memarg variation" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26005UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_memory_forms_module(mod)
+  assert_true(forms.i32_load)
+  assert_true(forms.i64_load)
+  assert_true(forms.f32_load)
+  assert_true(forms.f64_load)
+  assert_true(forms.i32_load8s)
+  assert_true(forms.i32_load8u)
+  assert_true(forms.i32_load16s)
+  assert_true(forms.i32_load16u)
+  assert_true(forms.i64_load8s)
+  assert_true(forms.i64_load8u)
+  assert_true(forms.i64_load16s)
+  assert_true(forms.i64_load16u)
+  assert_true(forms.i64_load32s)
+  assert_true(forms.i64_load32u)
+  assert_true(forms.i32_store)
+  assert_true(forms.i64_store)
+  assert_true(forms.f32_store)
+  assert_true(forms.f64_store)
+  assert_true(forms.i32_store8)
+  assert_true(forms.i32_store16)
+  assert_true(forms.i64_store8)
+  assert_true(forms.i64_store16)
+  assert_true(forms.i64_store32)
+  assert_true(forms.nonzero_memarg)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(
+    validate_valid_feature_actual_count(stats, ScalarMemoryWidths) > 0,
+  )
+  assert_true(validate_valid_feature_actual_count(stats, NonzeroMemarg) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: ScalarMemoryWidths, min_count: 1 },
+      { key: NonzeroMemarg, min_count: 1 },
     ]),
     [],
   )

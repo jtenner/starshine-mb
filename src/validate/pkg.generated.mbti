@@ -309,6 +309,8 @@ pub struct GenValidFeatureFacts {
   has_local_tee : Bool
   has_typed_select : Bool
   has_tail_calls : Bool
+  has_scalar_memory_widths : Bool
+  has_nonzero_memarg : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidFeatureStats {
@@ -340,6 +342,8 @@ pub struct GenValidFeatureStats {
   local_tee : Int
   typed_select : Int
   tail_calls : Int
+  scalar_memory_widths : Int
+  nonzero_memarg : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
 pub fn GenValidFeatureStats::record(Self, GenValidFeatureFacts) -> Self
