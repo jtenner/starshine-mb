@@ -335,6 +335,7 @@ pub struct GenValidFeatureFacts {
   has_table_limit_variants : Bool
   has_const_expr_variants : Bool
   has_basic_ref_instructions : Bool
+  has_i31_extern_conversions : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -373,6 +374,7 @@ pub struct GenValidFeatureStats {
   table_limit_variants : Int
   const_expr_variants : Int
   basic_ref_instructions : Int
+  i31_extern_conversions : Int
 } derive(Eq, Debug)
 
 ///|
@@ -445,6 +447,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.const_expr_variants.output(logger)
   logger.write_string(", basic_ref_instructions: ")
   self.basic_ref_instructions.output(logger)
+  logger.write_string(", i31_extern_conversions: ")
+  self.i31_extern_conversions.output(logger)
   logger.write_char('}')
 }
 
@@ -485,6 +489,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     table_limit_variants: 0,
     const_expr_variants: 0,
     basic_ref_instructions: 0,
+    i31_extern_conversions: 0,
   }
 }
 
@@ -542,6 +547,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_const_expr_variants),
     basic_ref_instructions: self.basic_ref_instructions +
     gen_valid_bool_count(facts.has_basic_ref_instructions),
+    i31_extern_conversions: self.i31_extern_conversions +
+    gen_valid_bool_count(facts.has_i31_extern_conversions),
   }
 }
 
@@ -567,6 +574,7 @@ priv struct GenValidInstrFacts {
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
   has_basic_ref_instructions : Bool
+  has_i31_extern_conversions : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -596,6 +604,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_nonzero_memarg: false,
     has_memory_limit_variants: false,
     has_basic_ref_instructions: false,
+    has_i31_extern_conversions: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -3256,6 +3265,34 @@ fn gen_valid_append_basic_ref_ops(
 }
 
 ///|
+fn gen_valid_append_i31_extern_conversion_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+) -> Unit {
+  if !ctx.config.features.allow_ref_types {
+    return
+  }
+  out.push(Instruction::i32_const(I32(7)))
+  out.push(Instruction::ref_i31())
+  out.push(Instruction::drop())
+
+  out.push(Instruction::i32_const(I32(8)))
+  out.push(Instruction::ref_i31())
+  out.push(Instruction::i31_get_s())
+  out.push(Instruction::drop())
+
+  out.push(Instruction::i32_const(I32(9)))
+  out.push(Instruction::ref_i31())
+  out.push(Instruction::i31_get_u())
+  out.push(Instruction::drop())
+
+  out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::extern_())))
+  out.push(Instruction::any_convert_extern())
+  out.push(Instruction::extern_convert_any())
+  out.push(Instruction::drop())
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -3264,6 +3301,7 @@ fn gen_valid_append_coverage_prelude(
 ) -> Unit {
   gen_valid_append_gc_prelude(out, ctx, env)
   gen_valid_append_basic_ref_ops(out, ctx)
+  gen_valid_append_i31_extern_conversion_ops(out, ctx)
   gen_valid_append_expanded_scalar_numeric_ops(out)
   gen_valid_append_core_control_ops(out, ctx, env)
   gen_valid_append_tail_call_ops(out, ctx, env, returns)
@@ -4788,6 +4826,8 @@ fn gen_valid_merge_instr_facts(
     right.has_memory_limit_variants,
     has_basic_ref_instructions: left.has_basic_ref_instructions ||
     right.has_basic_ref_instructions,
+    has_i31_extern_conversions: left.has_i31_extern_conversions ||
+    right.has_i31_extern_conversions,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -5135,6 +5175,12 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
           instr,
         ),
       }
+    RefI31 | I31GetS | I31GetU | AnyConvertExtern | ExternConvertAny =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        uses_ref_types: true,
+        has_i31_extern_conversions: true,
+      }
     RefFunc(_)
     | StringConst(_)
     | ThrowRef
@@ -5195,6 +5241,7 @@ pub fn gen_valid_feature_facts(
   let mut has_table_limit_variants = false
   let mut has_const_expr_variants = false
   let mut has_basic_ref_instructions = false
+  let mut has_i31_extern_conversions = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -5303,6 +5350,8 @@ pub fn gen_valid_feature_facts(
             expr_facts.has_nonzero_memarg
           has_basic_ref_instructions = has_basic_ref_instructions ||
             expr_facts.has_basic_ref_instructions
+          has_i31_extern_conversions = has_i31_extern_conversions ||
+            expr_facts.has_i31_extern_conversions
           control_nodes += expr_facts.control_nodes
           branch_ops += expr_facts.branch_ops
         }
@@ -5357,6 +5406,8 @@ pub fn gen_valid_feature_facts(
                 facts.has_nonzero_memarg
               has_basic_ref_instructions = has_basic_ref_instructions ||
                 facts.has_basic_ref_instructions
+              has_i31_extern_conversions = has_i31_extern_conversions ||
+                facts.has_i31_extern_conversions
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -5387,6 +5438,8 @@ pub fn gen_valid_feature_facts(
                   facts.has_nonzero_memarg
                 has_basic_ref_instructions = has_basic_ref_instructions ||
                   facts.has_basic_ref_instructions
+                has_i31_extern_conversions = has_i31_extern_conversions ||
+                  facts.has_i31_extern_conversions
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -5415,6 +5468,8 @@ pub fn gen_valid_feature_facts(
                   facts.has_nonzero_memarg
                 has_basic_ref_instructions = has_basic_ref_instructions ||
                   facts.has_basic_ref_instructions
+                has_i31_extern_conversions = has_i31_extern_conversions ||
+                  facts.has_i31_extern_conversions
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -5453,6 +5508,8 @@ pub fn gen_valid_feature_facts(
                 facts.has_nonzero_memarg
               has_basic_ref_instructions = has_basic_ref_instructions ||
                 facts.has_basic_ref_instructions
+              has_i31_extern_conversions = has_i31_extern_conversions ||
+                facts.has_i31_extern_conversions
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -5489,6 +5546,8 @@ pub fn gen_valid_feature_facts(
         has_nonzero_memarg = has_nonzero_memarg || facts.has_nonzero_memarg
         has_basic_ref_instructions = has_basic_ref_instructions ||
           facts.has_basic_ref_instructions
+        has_i31_extern_conversions = has_i31_extern_conversions ||
+          facts.has_i31_extern_conversions
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
       }
@@ -5529,5 +5588,6 @@ pub fn gen_valid_feature_facts(
     has_table_limit_variants,
     has_const_expr_variants,
     has_basic_ref_instructions,
+    has_i31_extern_conversions,
   }
 }

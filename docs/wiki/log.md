@@ -16,6 +16,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md`](raw/research/0431-2026-05-01-ssa-nomerge-implementation-structure.md) and [`binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md`](binaryen/passes/ssa-nomerge/implementation-structure-and-tests.md); refreshed the overview, Binaryen strategy, Starshine strategy, and parity page so upstream owner files, proof surfaces, local HOT-SSA destruction, raw fallbacks, CLI artifact tests, and the Starshine-vs-Binaryen representation split are connected.
 - Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so `ssa-nomerge` is discoverable as a deep implemented hot-pass dossier with implementation/test-map coverage.
 
+## [2026-05-01] implementation | widen i31/extern gen-valid surface
+
+- Completed `[FZG]010` by adding coverage-forced valid generation for `ref.i31`, `i31.get_s`, `i31.get_u`, `any.convert_extern`, and `extern.convert_any` behind the existing `allow_ref_types` gate.
+- Attached `I31ExternConversions` to the public generator ledger and added focused validation/floor coverage for the widened i31/extern conversion surface.
+- Validated the widened corpus with `moon test --package jtenner/starshine/validate`, full `moon test`, and `.tmp/pass-fuzz-genvalid-fzg010-rume` (`remove-unused-module-elements` over 1000 `gen-valid` cases, `1000/1000` normalized matches).
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), `agent-todo.md`, and `CHANGELOG.md` with the new covered row and signoff evidence.
+
 ## [2026-05-01] implementation | widen basic ref gen-valid surface
 
 - Completed `[FZG]009` by adding coverage-forced valid generation for `ref.is_null`, `ref.null none`, `ref.null nofunc`, `ref.null noextern`, nullable and nonnullable `ref.test`/`ref.cast`, and nullable/nonnullable-target `br_on_cast`/`br_on_cast_fail`.

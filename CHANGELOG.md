@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-01 Fuzz: widen i31/extern gen-valid surface
+
+- **complete `[FZG]010` by adding coverage-forced valid generation for `ref.i31`, `i31.get_s`, `i31.get_u`, `any.convert_extern`, and `extern.convert_any`; attaching the `I31ExternConversions` ledger counter; proving focused coverage; and refreshing the 1k `gen-valid` RUME compare smoke evidence** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), and [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti).
+
 ## 2026-05-01 Fuzz: widen basic ref gen-valid surface
 
 - **complete `[FZG]009` by adding coverage-forced valid generation for `ref.is_null`, bottom-heap `ref.null` forms, nullable and nonnullable `ref.test`/`ref.cast`, and nullable/nonnullable-target `br_on_cast`/`br_on_cast_fail`; attaching the `BasicRefInstructions` ledger counter; proving focused coverage; and refreshing the 1k `gen-valid` RUME compare smoke evidence** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), and [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti).

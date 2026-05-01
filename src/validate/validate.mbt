@@ -3572,7 +3572,7 @@ pub fn validate_valid_feature_actual_count(
     TableLimitVariants => stats.table_limit_variants
     ConstExprVariants => stats.const_expr_variants
     BasicRefInstructions => stats.basic_ref_instructions
-    I31ExternConversions => 0
+    I31ExternConversions => stats.i31_extern_conversions
     GcConstructors => 0
     GcAccessors => 0
     StringOps => 0
@@ -6069,6 +6069,132 @@ test "gen_valid coverage-forced emits basic ref instruction surface" {
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: BasicRefInstructions, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+priv struct ValidateTestI31ExternForms {
+  ref_i31 : Bool
+  i31_get_s : Bool
+  i31_get_u : Bool
+  any_convert_extern : Bool
+  extern_convert_any : Bool
+}
+
+///|
+fn validate_test_i31_extern_forms_empty() -> ValidateTestI31ExternForms {
+  {
+    ref_i31: false,
+    i31_get_s: false,
+    i31_get_u: false,
+    any_convert_extern: false,
+    extern_convert_any: false,
+  }
+}
+
+///|
+fn validate_test_i31_extern_forms_merge(
+  left : ValidateTestI31ExternForms,
+  right : ValidateTestI31ExternForms,
+) -> ValidateTestI31ExternForms {
+  {
+    ref_i31: left.ref_i31 || right.ref_i31,
+    i31_get_s: left.i31_get_s || right.i31_get_s,
+    i31_get_u: left.i31_get_u || right.i31_get_u,
+    any_convert_extern: left.any_convert_extern || right.any_convert_extern,
+    extern_convert_any: left.extern_convert_any || right.extern_convert_any,
+  }
+}
+
+///|
+fn validate_test_i31_extern_forms_expr(
+  expr : Expr,
+) -> ValidateTestI31ExternForms {
+  let Expr(instrs) = expr
+  let mut forms = validate_test_i31_extern_forms_empty()
+  for instr in instrs {
+    forms = validate_test_i31_extern_forms_merge(
+      forms,
+      validate_test_i31_extern_forms_instr(instr),
+    )
+  }
+  forms
+}
+
+///|
+fn validate_test_i31_extern_forms_instr(
+  instr : Instruction,
+) -> ValidateTestI31ExternForms {
+  match instr {
+    RefI31 => { ..validate_test_i31_extern_forms_empty(), ref_i31: true }
+    I31GetS => { ..validate_test_i31_extern_forms_empty(), i31_get_s: true }
+    I31GetU => { ..validate_test_i31_extern_forms_empty(), i31_get_u: true }
+    AnyConvertExtern =>
+      { ..validate_test_i31_extern_forms_empty(), any_convert_extern: true }
+    ExternConvertAny =>
+      { ..validate_test_i31_extern_forms_empty(), extern_convert_any: true }
+    Block(_, body) | Loop(_, body) => validate_test_i31_extern_forms_expr(body)
+    If(_, then_body, else_body) => {
+      let mut forms = validate_test_i31_extern_forms_expr(Expr::new(then_body))
+      match else_body {
+        Some(branch) =>
+          forms = validate_test_i31_extern_forms_merge(
+            forms,
+            validate_test_i31_extern_forms_expr(Expr::new(branch)),
+          )
+        None => ()
+      }
+      forms
+    }
+    TryTable(_, _, body) => validate_test_i31_extern_forms_expr(body)
+    _ => validate_test_i31_extern_forms_empty()
+  }
+}
+
+///|
+fn validate_test_i31_extern_forms_module(
+  mod : Module,
+) -> ValidateTestI31ExternForms {
+  let mut forms = validate_test_i31_extern_forms_empty()
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, body) = func
+        forms = validate_test_i31_extern_forms_merge(
+          forms,
+          validate_test_i31_extern_forms_expr(body),
+        )
+      }
+    None => ()
+  }
+  forms
+}
+
+///|
+test "gen_valid coverage-forced emits i31 and extern conversion surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26010UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_i31_extern_forms_module(mod)
+  assert_true(forms.ref_i31)
+  assert_true(forms.i31_get_s)
+  assert_true(forms.i31_get_u)
+  assert_true(forms.any_convert_extern)
+  assert_true(forms.extern_convert_any)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(
+    validate_valid_feature_actual_count(stats, I31ExternConversions) > 0,
+  )
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: I31ExternConversions, min_count: 1 },
     ]),
     [],
   )
