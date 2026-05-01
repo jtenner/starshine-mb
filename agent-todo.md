@@ -774,6 +774,9 @@ Suggested Tests
      - Invariants: const-expression index references must only point backward where the spec requires it.
 4. Expand reference, GC, string, and exception surfaces.
    - [FZG]009 - Basic Ref Instruction Expansion - Generate `ref.is_null`, broader `ref.null` heap types including `none`/`nofunc`/`noextern` where valid, and more nullability combinations for `ref.test`, `ref.cast`, `br_on_cast`, and `br_on_cast_fail`.
+     - Status: complete. Coverage-forced `gen-valid` modules now emit `ref.is_null`, `ref.null none`, `ref.null nofunc`, `ref.null noextern`, nullable and nonnullable `ref.test`/`ref.cast`, and nullable/nonnullable-target `br_on_cast`/`br_on_cast_fail` forms behind the existing `allow_ref_types` gate. `GenValidFeatureStats` now records `basic_ref_instructions`, and the `BasicRefInstructions` ledger row can satisfy explicit floors.
+     - Validation: `moon test --package jtenner/starshine/validate`, `moon info`, `moon fmt`, full `moon test`, and `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 1000 --max-failures 20 --out-dir .tmp/pass-fuzz-genvalid-fzg009-rume` are green; focused coverage lives in `gen_valid coverage-forced emits basic ref instruction surface`.
+     - Invariants: nullability combinations must validate under the reference type hierarchy, and bottom heap `ref.null` forms must remain guarded by `allow_ref_types`.
    - [FZG]010 - I31 and Extern Conversion Generation - Generate `ref.i31`, `i31.get_s`, `i31.get_u`, `any.convert_extern`, and `extern.convert_any` with valid source/target stack typing.
    - [FZG]011 - GC Constructor and Accessor Expansion - Generate non-default `struct.new`, non-default `array.new`, `array.new_fixed`, packed `struct.get_s`/`struct.get_u`, packed `array.get_s`/`array.get_u`, `array.fill`, and `array.copy`.
      - Dependencies: richer struct/array type plans from `[FZG]018`.

@@ -3571,7 +3571,7 @@ pub fn validate_valid_feature_actual_count(
     MemoryLimitVariants => stats.memory_limit_variants
     TableLimitVariants => stats.table_limit_variants
     ConstExprVariants => stats.const_expr_variants
-    BasicRefInstructions => 0
+    BasicRefInstructions => stats.basic_ref_instructions
     I31ExternConversions => 0
     GcConstructors => 0
     GcAccessors => 0
@@ -5877,6 +5877,198 @@ test "gen_valid coverage-forced emits const-expression variants" {
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: ConstExprVariants, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+priv struct ValidateTestBasicRefForms {
+  ref_is_null : Bool
+  ref_null_none : Bool
+  ref_null_nofunc : Bool
+  ref_null_noextern : Bool
+  ref_test_nullable : Bool
+  ref_test_nonnullable : Bool
+  ref_cast_nullable : Bool
+  ref_cast_nonnullable : Bool
+  br_on_cast_nullable_target : Bool
+  br_on_cast_nonnullable_target : Bool
+  br_on_cast_fail_nullable_target : Bool
+  br_on_cast_fail_nonnullable_target : Bool
+}
+
+///|
+fn validate_test_basic_ref_forms_empty() -> ValidateTestBasicRefForms {
+  {
+    ref_is_null: false,
+    ref_null_none: false,
+    ref_null_nofunc: false,
+    ref_null_noextern: false,
+    ref_test_nullable: false,
+    ref_test_nonnullable: false,
+    ref_cast_nullable: false,
+    ref_cast_nonnullable: false,
+    br_on_cast_nullable_target: false,
+    br_on_cast_nonnullable_target: false,
+    br_on_cast_fail_nullable_target: false,
+    br_on_cast_fail_nonnullable_target: false,
+  }
+}
+
+///|
+fn validate_test_basic_ref_forms_merge(
+  left : ValidateTestBasicRefForms,
+  right : ValidateTestBasicRefForms,
+) -> ValidateTestBasicRefForms {
+  {
+    ref_is_null: left.ref_is_null || right.ref_is_null,
+    ref_null_none: left.ref_null_none || right.ref_null_none,
+    ref_null_nofunc: left.ref_null_nofunc || right.ref_null_nofunc,
+    ref_null_noextern: left.ref_null_noextern || right.ref_null_noextern,
+    ref_test_nullable: left.ref_test_nullable || right.ref_test_nullable,
+    ref_test_nonnullable: left.ref_test_nonnullable ||
+    right.ref_test_nonnullable,
+    ref_cast_nullable: left.ref_cast_nullable || right.ref_cast_nullable,
+    ref_cast_nonnullable: left.ref_cast_nonnullable ||
+    right.ref_cast_nonnullable,
+    br_on_cast_nullable_target: left.br_on_cast_nullable_target ||
+    right.br_on_cast_nullable_target,
+    br_on_cast_nonnullable_target: left.br_on_cast_nonnullable_target ||
+    right.br_on_cast_nonnullable_target,
+    br_on_cast_fail_nullable_target: left.br_on_cast_fail_nullable_target ||
+    right.br_on_cast_fail_nullable_target,
+    br_on_cast_fail_nonnullable_target: left.br_on_cast_fail_nonnullable_target ||
+    right.br_on_cast_fail_nonnullable_target,
+  }
+}
+
+///|
+fn validate_test_basic_ref_forms_ref_null(
+  rt : RefType,
+) -> ValidateTestBasicRefForms {
+  match rt.get_heap_type() {
+    AbsHeapTypeHeapType(NoneAbsHeapType) =>
+      { ..validate_test_basic_ref_forms_empty(), ref_null_none: true }
+    AbsHeapTypeHeapType(NoFuncAbsHeapType) =>
+      { ..validate_test_basic_ref_forms_empty(), ref_null_nofunc: true }
+    AbsHeapTypeHeapType(NoExternAbsHeapType) =>
+      { ..validate_test_basic_ref_forms_empty(), ref_null_noextern: true }
+    _ => validate_test_basic_ref_forms_empty()
+  }
+}
+
+///|
+fn validate_test_basic_ref_forms_expr(expr : Expr) -> ValidateTestBasicRefForms {
+  let Expr(instrs) = expr
+  let mut forms = validate_test_basic_ref_forms_empty()
+  for instr in instrs {
+    forms = validate_test_basic_ref_forms_merge(
+      forms,
+      validate_test_basic_ref_forms_instr(instr),
+    )
+  }
+  forms
+}
+
+///|
+fn validate_test_basic_ref_forms_instr(
+  instr : Instruction,
+) -> ValidateTestBasicRefForms {
+  match instr {
+    RefIsNull => { ..validate_test_basic_ref_forms_empty(), ref_is_null: true }
+    RefNull(rt) => validate_test_basic_ref_forms_ref_null(rt)
+    RefTest(nullable, _) =>
+      {
+        ..validate_test_basic_ref_forms_empty(),
+        ref_test_nullable: nullable,
+        ref_test_nonnullable: !nullable,
+      }
+    RefCast(nullable, _) =>
+      {
+        ..validate_test_basic_ref_forms_empty(),
+        ref_cast_nullable: nullable,
+        ref_cast_nonnullable: !nullable,
+      }
+    BrOnCast(_, CastOp(_, target_nullable), _, _) =>
+      {
+        ..validate_test_basic_ref_forms_empty(),
+        br_on_cast_nullable_target: target_nullable,
+        br_on_cast_nonnullable_target: !target_nullable,
+      }
+    BrOnCastFail(_, CastOp(_, target_nullable), _, _) =>
+      {
+        ..validate_test_basic_ref_forms_empty(),
+        br_on_cast_fail_nullable_target: target_nullable,
+        br_on_cast_fail_nonnullable_target: !target_nullable,
+      }
+    Block(_, body) | Loop(_, body) => validate_test_basic_ref_forms_expr(body)
+    If(_, then_body, else_body) => {
+      let mut forms = validate_test_basic_ref_forms_expr(Expr::new(then_body))
+      match else_body {
+        Some(branch) =>
+          forms = validate_test_basic_ref_forms_merge(
+            forms,
+            validate_test_basic_ref_forms_expr(Expr::new(branch)),
+          )
+        None => ()
+      }
+      forms
+    }
+    TryTable(_, _, body) => validate_test_basic_ref_forms_expr(body)
+    _ => validate_test_basic_ref_forms_empty()
+  }
+}
+
+///|
+fn validate_test_basic_ref_forms_module(
+  mod : Module,
+) -> ValidateTestBasicRefForms {
+  let mut forms = validate_test_basic_ref_forms_empty()
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, body) = func
+        forms = validate_test_basic_ref_forms_merge(
+          forms,
+          validate_test_basic_ref_forms_expr(body),
+        )
+      }
+    None => ()
+  }
+  forms
+}
+
+///|
+test "gen_valid coverage-forced emits basic ref instruction surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf2600bUL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_basic_ref_forms_module(mod)
+  assert_true(forms.ref_is_null)
+  assert_true(forms.ref_null_none)
+  assert_true(forms.ref_null_nofunc)
+  assert_true(forms.ref_null_noextern)
+  assert_true(forms.ref_test_nullable)
+  assert_true(forms.ref_test_nonnullable)
+  assert_true(forms.ref_cast_nullable)
+  assert_true(forms.ref_cast_nonnullable)
+  assert_true(forms.br_on_cast_nullable_target)
+  assert_true(forms.br_on_cast_nonnullable_target)
+  assert_true(forms.br_on_cast_fail_nullable_target)
+  assert_true(forms.br_on_cast_fail_nonnullable_target)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(
+    validate_valid_feature_actual_count(stats, BasicRefInstructions) > 0,
+  )
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: BasicRefInstructions, min_count: 1 },
     ]),
     [],
   )

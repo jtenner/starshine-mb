@@ -334,6 +334,7 @@ pub struct GenValidFeatureFacts {
   has_memory_limit_variants : Bool
   has_table_limit_variants : Bool
   has_const_expr_variants : Bool
+  has_basic_ref_instructions : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -371,6 +372,7 @@ pub struct GenValidFeatureStats {
   memory_limit_variants : Int
   table_limit_variants : Int
   const_expr_variants : Int
+  basic_ref_instructions : Int
 } derive(Eq, Debug)
 
 ///|
@@ -441,6 +443,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.table_limit_variants.output(logger)
   logger.write_string(", const_expr_variants: ")
   self.const_expr_variants.output(logger)
+  logger.write_string(", basic_ref_instructions: ")
+  self.basic_ref_instructions.output(logger)
   logger.write_char('}')
 }
 
@@ -480,6 +484,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     memory_limit_variants: 0,
     table_limit_variants: 0,
     const_expr_variants: 0,
+    basic_ref_instructions: 0,
   }
 }
 
@@ -535,6 +540,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_table_limit_variants),
     const_expr_variants: self.const_expr_variants +
     gen_valid_bool_count(facts.has_const_expr_variants),
+    basic_ref_instructions: self.basic_ref_instructions +
+    gen_valid_bool_count(facts.has_basic_ref_instructions),
   }
 }
 
@@ -559,6 +566,7 @@ priv struct GenValidInstrFacts {
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
+  has_basic_ref_instructions : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -587,6 +595,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_scalar_memory_widths: false,
     has_nonzero_memarg: false,
     has_memory_limit_variants: false,
+    has_basic_ref_instructions: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -3146,6 +3155,107 @@ fn gen_valid_append_expanded_scalar_numeric_ops(
 }
 
 ///|
+fn gen_valid_append_basic_ref_is_null(
+  out : Array[Instruction],
+  ht : HeapType,
+) -> Unit {
+  out.push(Instruction::ref_null(ht))
+  out.push(Instruction::ref_is_null())
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_basic_ref_test_cast_pair(
+  out : Array[Instruction],
+  source_ht : HeapType,
+  target_ht : HeapType,
+  target_nullable : Bool,
+) -> Unit {
+  out.push(Instruction::ref_null(source_ht))
+  out.push(Instruction::ref_test(target_nullable, target_ht))
+  out.push(Instruction::drop())
+
+  out.push(Instruction::ref_null(source_ht))
+  out.push(Instruction::ref_cast(target_nullable, target_ht))
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_basic_ref_br_on_cast_pair(
+  out : Array[Instruction],
+  source_nullable : Bool,
+  target_nullable : Bool,
+) -> Unit {
+  let any = HeapType::abs(AbsHeapType::any())
+  let i31 = HeapType::abs(AbsHeapType::i31())
+  let block_ref = RefType::new(source_nullable, any)
+  let source_instrs : Array[Instruction] = [Instruction::ref_null(any)]
+  if !source_nullable {
+    source_instrs.push(Instruction::ref_as_non_null())
+  }
+  source_instrs.push(
+    Instruction::br_on_cast(
+      LabelIdx::new(0U),
+      source_nullable,
+      any,
+      target_nullable,
+      i31,
+    ),
+  )
+  out.push(
+    Instruction::block(
+      BlockType::val_type(ValType::ref_type(block_ref)),
+      Expr::new(source_instrs),
+    ),
+  )
+  out.push(Instruction::drop())
+
+  let fail_instrs : Array[Instruction] = [Instruction::ref_null(any)]
+  if !source_nullable {
+    fail_instrs.push(Instruction::ref_as_non_null())
+  }
+  fail_instrs.push(
+    Instruction::br_on_cast_fail(
+      LabelIdx::new(0U),
+      source_nullable,
+      any,
+      target_nullable,
+      i31,
+    ),
+  )
+  out.push(
+    Instruction::block(
+      BlockType::val_type(ValType::ref_type(block_ref)),
+      Expr::new(fail_instrs),
+    ),
+  )
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_basic_ref_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+) -> Unit {
+  if !ctx.config.features.allow_ref_types {
+    return
+  }
+  let any = HeapType::abs(AbsHeapType::any())
+  gen_valid_append_basic_ref_is_null(out, any)
+  gen_valid_append_basic_ref_is_null(out, HeapType::abs(AbsHeapType::none()))
+  gen_valid_append_basic_ref_is_null(out, HeapType::abs(AbsHeapType::no_func()))
+  gen_valid_append_basic_ref_is_null(
+    out,
+    HeapType::abs(AbsHeapType::no_extern()),
+  )
+  gen_valid_append_basic_ref_test_cast_pair(out, any, any, true)
+  gen_valid_append_basic_ref_test_cast_pair(out, any, any, false)
+  gen_valid_append_basic_ref_br_on_cast_pair(out, true, true)
+  gen_valid_append_basic_ref_br_on_cast_pair(out, true, false)
+  gen_valid_append_basic_ref_br_on_cast_pair(out, false, false)
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -3153,6 +3263,7 @@ fn gen_valid_append_coverage_prelude(
   returns : Array[ValType],
 ) -> Unit {
   gen_valid_append_gc_prelude(out, ctx, env)
+  gen_valid_append_basic_ref_ops(out, ctx)
   gen_valid_append_expanded_scalar_numeric_ops(out)
   gen_valid_append_core_control_ops(out, ctx, env)
   gen_valid_append_tail_call_ops(out, ctx, env, returns)
@@ -4675,6 +4786,8 @@ fn gen_valid_merge_instr_facts(
     has_nonzero_memarg: left.has_nonzero_memarg || right.has_nonzero_memarg,
     has_memory_limit_variants: left.has_memory_limit_variants ||
     right.has_memory_limit_variants,
+    has_basic_ref_instructions: left.has_basic_ref_instructions ||
+    right.has_basic_ref_instructions,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -4847,6 +4960,25 @@ fn gen_valid_const_expr_has_variant(expr : Expr) -> Bool {
 }
 
 ///|
+fn gen_valid_instr_is_basic_ref_instruction(instr : Instruction) -> Bool {
+  match instr {
+    RefNull(rt) =>
+      match rt.get_heap_type() {
+        AbsHeapTypeHeapType(NoneAbsHeapType)
+        | AbsHeapTypeHeapType(NoFuncAbsHeapType)
+        | AbsHeapTypeHeapType(NoExternAbsHeapType) => true
+        _ => false
+      }
+    RefIsNull
+    | RefTest(_, _)
+    | RefCast(_, _)
+    | BrOnCast(_, _, _, _)
+    | BrOnCastFail(_, _, _, _) => true
+    _ => false
+  }
+}
+
+///|
 fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
   if gen_valid_instr_is_expanded_scalar_numeric(instr) {
     return GenValidInstrFacts::{
@@ -4923,13 +5055,17 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
     | I64Store8(ma)
     | I64Store16(ma)
     | I64Store32(ma) => gen_valid_scan_scalar_memory_instr(ma, true)
-    BrOnNull(_)
-    | BrOnNonNull(_)
-    | BrOnCast(_, _, _, _)
-    | BrOnCastFail(_, _, _, _) =>
+    BrOnNull(_) | BrOnNonNull(_) =>
       GenValidInstrFacts::{
         ..GenValidInstrFacts::empty(),
         uses_ref_types: true,
+        branch_ops: 1,
+      }
+    BrOnCast(_, _, _, _) | BrOnCastFail(_, _, _, _) =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        uses_ref_types: true,
+        has_basic_ref_instructions: true,
         branch_ops: 1,
       }
     Block(bt, body) | Loop(bt, body) => {
@@ -4991,13 +5127,18 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         has_typed_select: true,
       }
     }
-    RefNull(_)
-    | RefFunc(_)
+    RefNull(_) | RefIsNull | RefTest(_, _) | RefCast(_, _) =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        uses_ref_types: true,
+        has_basic_ref_instructions: gen_valid_instr_is_basic_ref_instruction(
+          instr,
+        ),
+      }
+    RefFunc(_)
     | StringConst(_)
     | ThrowRef
     | RefGetDesc(_)
-    | RefTest(_, _)
-    | RefCast(_, _)
     | RefTestDesc(_, _)
     | RefCastDescEq(_, _) =>
       GenValidInstrFacts::{
@@ -5053,6 +5194,7 @@ pub fn gen_valid_feature_facts(
   let mut has_memory_limit_variants = false
   let mut has_table_limit_variants = false
   let mut has_const_expr_variants = false
+  let mut has_basic_ref_instructions = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -5159,6 +5301,8 @@ pub fn gen_valid_feature_facts(
             expr_facts.has_scalar_memory_widths
           has_nonzero_memarg = has_nonzero_memarg ||
             expr_facts.has_nonzero_memarg
+          has_basic_ref_instructions = has_basic_ref_instructions ||
+            expr_facts.has_basic_ref_instructions
           control_nodes += expr_facts.control_nodes
           branch_ops += expr_facts.branch_ops
         }
@@ -5211,6 +5355,8 @@ pub fn gen_valid_feature_facts(
                 facts.has_scalar_memory_widths
               has_nonzero_memarg = has_nonzero_memarg ||
                 facts.has_nonzero_memarg
+              has_basic_ref_instructions = has_basic_ref_instructions ||
+                facts.has_basic_ref_instructions
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -5239,6 +5385,8 @@ pub fn gen_valid_feature_facts(
                   facts.has_scalar_memory_widths
                 has_nonzero_memarg = has_nonzero_memarg ||
                   facts.has_nonzero_memarg
+                has_basic_ref_instructions = has_basic_ref_instructions ||
+                  facts.has_basic_ref_instructions
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -5265,6 +5413,8 @@ pub fn gen_valid_feature_facts(
                   facts.has_scalar_memory_widths
                 has_nonzero_memarg = has_nonzero_memarg ||
                   facts.has_nonzero_memarg
+                has_basic_ref_instructions = has_basic_ref_instructions ||
+                  facts.has_basic_ref_instructions
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -5301,6 +5451,8 @@ pub fn gen_valid_feature_facts(
                 facts.has_scalar_memory_widths
               has_nonzero_memarg = has_nonzero_memarg ||
                 facts.has_nonzero_memarg
+              has_basic_ref_instructions = has_basic_ref_instructions ||
+                facts.has_basic_ref_instructions
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -5335,6 +5487,8 @@ pub fn gen_valid_feature_facts(
         has_scalar_memory_widths = has_scalar_memory_widths ||
           facts.has_scalar_memory_widths
         has_nonzero_memarg = has_nonzero_memarg || facts.has_nonzero_memarg
+        has_basic_ref_instructions = has_basic_ref_instructions ||
+          facts.has_basic_ref_instructions
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
       }
@@ -5374,5 +5528,6 @@ pub fn gen_valid_feature_facts(
     has_memory_limit_variants,
     has_table_limit_variants,
     has_const_expr_variants,
+    has_basic_ref_instructions,
   }
 }

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-01] implementation | widen basic ref gen-valid surface
+
+- Completed `[FZG]009` by adding coverage-forced valid generation for `ref.is_null`, `ref.null none`, `ref.null nofunc`, `ref.null noextern`, nullable and nonnullable `ref.test`/`ref.cast`, and nullable/nonnullable-target `br_on_cast`/`br_on_cast_fail`.
+- Attached `BasicRefInstructions` to the public generator ledger and added focused validation/floor coverage for the widened basic reference instruction surface.
+- Validated the widened corpus with `moon test --package jtenner/starshine/validate` and `.tmp/pass-fuzz-genvalid-fzg009-rume` (`remove-unused-module-elements` over 1000 `gen-valid` cases, `1000/1000` normalized matches).
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), `agent-todo.md`, and `CHANGELOG.md` with the new covered row and signoff evidence.
+
 ## [2026-05-01] implementation | widen const-expression gen-valid surface
 
 - Completed `[FZG]008` by adding valid const-expression variation to `gen-valid`: immutable imported and previously-defined globals feed `global.get`, `ref.func` appears in a global initializer, a safe struct default constructor appears in a global initializer, table initializers can use immutable ref globals, and active element/data offsets can use immutable `i32` globals.
