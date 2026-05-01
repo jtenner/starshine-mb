@@ -1,9 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-30
 sources:
   - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
+  - ../../../raw/binaryen/2026-04-30-rereloop-current-main-refresh.md
   - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/flatten_rereloop.wast

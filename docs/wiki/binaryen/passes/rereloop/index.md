@@ -1,9 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-04-30
 sources:
   - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
+  - ../../../raw/binaryen/2026-04-30-rereloop-current-main-refresh.md
   - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
@@ -88,7 +89,7 @@ So this pass is best taught as:
 - Dead-end CFG blocks are patched with explicit `return` or `unreachable` before rendering.
 - Rendering always allocates an `i32` helper local for the generic `RelooperBuilder` label variable.
 - If a result-typed function renders to an apparent `none` body, the pass appends `unreachable` and then runs `ReFinalize`.
-- A narrow 2026-04-24 current-main spot check did not surface teaching-relevant drift in the opened `ReReloop.cpp` and `flatten_rereloop.wast` surfaces.
+- A narrow 2026-04-30 current-main spot check did not surface teaching-relevant drift in the opened `ReReloop.cpp` and `flatten_rereloop.wast` surfaces.
 - Current Starshine tracks only the local `re-reloop` spelling as a removed pass name, parses the explicit `--re-reloop` CLI flag, rejects it before writing output, hides it from help, and has no owner file or active backlog slice.
 
 ## What this pass sounds like versus what it actually does
