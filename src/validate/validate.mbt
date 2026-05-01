@@ -3569,7 +3569,7 @@ pub fn validate_valid_feature_actual_count(
     ScalarMemoryWidths => stats.scalar_memory_widths
     NonzeroMemarg => stats.nonzero_memarg
     MemoryLimitVariants => stats.memory_limit_variants
-    TableLimitVariants => 0
+    TableLimitVariants => stats.table_limit_variants
     ConstExprVariants => 0
     BasicRefInstructions => 0
     I31ExternConversions => 0
@@ -5541,6 +5541,138 @@ test "gen_valid memory limit variants obey proposal toggles" {
   let facts = gen_valid_feature_facts(mod, config.mode)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_eq(validate_valid_feature_actual_count(stats, MemoryLimitVariants), 0)
+}
+
+///|
+priv struct ValidateTestTableLimitForms {
+  zero_min : Bool
+  unbounded : Bool
+  externref_table : Bool
+  gc_table : Bool
+  init_expr : Bool
+}
+
+///|
+fn validate_test_table_limit_forms_empty() -> ValidateTestTableLimitForms {
+  {
+    zero_min: false,
+    unbounded: false,
+    externref_table: false,
+    gc_table: false,
+    init_expr: false,
+  }
+}
+
+///|
+fn validate_test_table_limit_forms_ref(rt : RefType) -> (Bool, Bool) {
+  let vt = ValType::ref_type(rt)
+  (
+    vt == ValType::externref(),
+    vt != ValType::funcref() && vt != ValType::externref(),
+  )
+}
+
+///|
+fn validate_test_table_limit_forms_table(
+  forms : ValidateTestTableLimitForms,
+  table : Table,
+) -> ValidateTestTableLimitForms {
+  let Table(TableType(rt, lim), init_opt) = table
+  let (zero_min, unbounded) = match lim {
+    I32Limits(min, max) => (min == 0U, max is None)
+    I64Limits(min, max) => (min == 0UL, max is None)
+  }
+  let (externref_table, gc_table) = validate_test_table_limit_forms_ref(rt)
+  {
+    zero_min: forms.zero_min || zero_min,
+    unbounded: forms.unbounded || unbounded,
+    externref_table: forms.externref_table || externref_table,
+    gc_table: forms.gc_table || gc_table,
+    init_expr: forms.init_expr || init_opt is Some(_),
+  }
+}
+
+///|
+fn validate_test_table_limit_forms_module(
+  mod : Module,
+) -> ValidateTestTableLimitForms {
+  let mut forms = validate_test_table_limit_forms_empty()
+  match mod.import_sec {
+    Some(ImportSec(imports)) =>
+      for imp in imports {
+        let Import(_, _, extern_type) = imp
+        match extern_type {
+          TableExternType(table_type) =>
+            forms = validate_test_table_limit_forms_table(
+              forms,
+              Table::new(table_type, None),
+            )
+          _ => ()
+        }
+      }
+    None => ()
+  }
+  match mod.table_sec {
+    Some(TableSec(tables)) =>
+      for table in tables {
+        forms = validate_test_table_limit_forms_table(forms, table)
+      }
+    None => ()
+  }
+  forms
+}
+
+///|
+test "gen_valid coverage-forced emits table limit and initializer variants" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26008UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_table_limit_forms_module(mod)
+  assert_true(forms.zero_min)
+  assert_true(forms.unbounded)
+  assert_true(forms.externref_table)
+  assert_true(forms.gc_table)
+  assert_true(forms.init_expr)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(
+    validate_valid_feature_actual_count(stats, TableLimitVariants) > 0,
+  )
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: TableLimitVariants, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+test "gen_valid table limit variants obey toggle" {
+  let base = GenValidConfig::coverage_forced_default()
+  let config = GenValidConfig::{
+    ..base,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_table_limit_variants: false,
+    },
+  }
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26009UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected toggled gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_table_limit_forms_module(mod)
+  assert_false(forms.zero_min)
+  assert_false(forms.unbounded)
+  assert_false(forms.init_expr)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_eq(validate_valid_feature_actual_count(stats, TableLimitVariants), 0)
 }
 
 ///|

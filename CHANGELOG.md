@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-01 Fuzz: widen table limit/initializer gen-valid surface
+
+- **complete `[FZG]007` by adding coverage-forced and natural valid generation for zero-min and unbounded table limits, externref and GC/reference-typed tables, and table initializer expressions behind `allow_table_limit_variants`; attaching the `TableLimitVariants` ledger counter; proving toggle/floor coverage; and refreshing the 1k `gen-valid` RUME compare smoke evidence** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), and [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti).
+
 ## 2026-05-01 Fuzz: widen memory limit/proposal gen-valid surface
 
 - **complete `[FZG]006` by adding coverage-forced and natural valid generation for zero-min, unbounded, shared, and memory64 memory shapes behind explicit toggles, attaching the `MemoryLimitVariants` ledger counter, proving proposal toggles and shared-memory max invariants with focused coverage, and refreshing the 1k `gen-valid` RUME compare smoke evidence** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), and [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti).

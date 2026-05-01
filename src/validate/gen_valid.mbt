@@ -90,6 +90,7 @@ pub struct GenValidFeatureToggles {
   allow_tail_calls : Bool
   allow_branch_heavy_control : Bool
   allow_memory_limit_variants : Bool
+  allow_table_limit_variants : Bool
   allow_shared_memories : Bool
   allow_memory64 : Bool
 } derive(Eq, Debug)
@@ -126,6 +127,8 @@ pub impl Show for GenValidFeatureToggles with output(self, logger) {
   self.allow_branch_heavy_control.output(logger)
   logger.write_string(", allow_memory_limit_variants:")
   self.allow_memory_limit_variants.output(logger)
+  logger.write_string(", allow_table_limit_variants:")
+  self.allow_table_limit_variants.output(logger)
   logger.write_string(", allow_shared_memories:")
   self.allow_shared_memories.output(logger)
   logger.write_string(", allow_memory64:")
@@ -150,6 +153,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_tail_calls: true,
     allow_branch_heavy_control: true,
     allow_memory_limit_variants: true,
+    allow_table_limit_variants: true,
     allow_shared_memories: true,
     allow_memory64: true,
   }
@@ -164,6 +168,7 @@ pub fn GenValidFeatureToggles::coverage_forced_default() -> GenValidFeatureToggl
     allow_tail_calls: true,
     allow_branch_heavy_control: true,
     allow_memory_limit_variants: true,
+    allow_table_limit_variants: true,
     allow_shared_memories: true,
     allow_memory64: true,
   }
@@ -322,6 +327,7 @@ pub struct GenValidFeatureFacts {
   has_scalar_memory_widths : Bool
   has_nonzero_memarg : Bool
   has_memory_limit_variants : Bool
+  has_table_limit_variants : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -357,6 +363,7 @@ pub struct GenValidFeatureStats {
   scalar_memory_widths : Int
   nonzero_memarg : Int
   memory_limit_variants : Int
+  table_limit_variants : Int
 } derive(Eq, Debug)
 
 ///|
@@ -423,6 +430,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.nonzero_memarg.output(logger)
   logger.write_string(", memory_limit_variants: ")
   self.memory_limit_variants.output(logger)
+  logger.write_string(", table_limit_variants: ")
+  self.table_limit_variants.output(logger)
   logger.write_char('}')
 }
 
@@ -460,6 +469,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     scalar_memory_widths: 0,
     nonzero_memarg: 0,
     memory_limit_variants: 0,
+    table_limit_variants: 0,
   }
 }
 
@@ -511,6 +521,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_nonzero_memarg),
     memory_limit_variants: self.memory_limit_variants +
     gen_valid_bool_count(facts.has_memory_limit_variants),
+    table_limit_variants: self.table_limit_variants +
+    gen_valid_bool_count(facts.has_table_limit_variants),
   }
 }
 
@@ -3529,6 +3541,109 @@ fn gen_valid_mem_type(ctx : GenValidContext, total_mem_idx : Int) -> MemType {
 }
 
 ///|
+fn gen_valid_table_limits_i32(
+  ctx : GenValidContext,
+  total_table_idx : Int,
+) -> Limits {
+  if ctx.config.features.allow_table_limit_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx == 1 {
+    Limits::i32(0U, Some(3U))
+  } else if ctx.config.features.allow_table_limit_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx == 2 {
+    Limits::i32(1U, None)
+  } else {
+    let min = if ctx.config.features.allow_table_limit_variants &&
+      ctx.random_int(5) == 0 {
+      0U
+    } else {
+      1U
+    }
+    let max = if ctx.config.features.allow_table_limit_variants &&
+      ctx.random_int(4) == 0 {
+      None
+    } else {
+      Some(min + 1U + ctx.random_int(4).reinterpret_as_uint())
+    }
+    Limits::i32(min, max)
+  }
+}
+
+///|
+fn gen_valid_table_ref_type(
+  ctx : GenValidContext,
+  total_table_idx : Int,
+  gc_type_plan : GenValidGcTypePlan,
+) -> RefType {
+  if total_table_idx == 0 ||
+    !ctx.config.features.allow_ref_types ||
+    !ctx.config.features.allow_table_limit_variants {
+    RefType::new(true, HeapType::abs(AbsHeapType::func()))
+  } else if ctx.config.features.allow_table_limit_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx == 1 {
+    RefType::new(true, HeapType::abs(AbsHeapType::extern_()))
+  } else if ctx.config.features.allow_table_limit_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx == 2 {
+    if !gc_type_plan.concrete_ref_types.is_empty() {
+      match gc_type_plan.concrete_ref_types[0] {
+        RefTypeValType(rt) => rt
+        _ => RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+      }
+    } else {
+      RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+    }
+  } else if ctx.config.features.allow_table_limit_variants &&
+    ctx.random_int(6) == 0 {
+    RefType::new(true, HeapType::abs(AbsHeapType::extern_()))
+  } else if !gc_type_plan.concrete_ref_types.is_empty() &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
+    match
+      gc_type_plan.concrete_ref_types[ctx.random_int(
+        gc_type_plan.concrete_ref_types.length(),
+      )] {
+      RefTypeValType(rt) => rt
+      _ => RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+    }
+  } else {
+    RefType::new(true, HeapType::abs(AbsHeapType::eq()))
+  }
+}
+
+///|
+fn gen_valid_table_type(
+  ctx : GenValidContext,
+  total_table_idx : Int,
+  gc_type_plan : GenValidGcTypePlan,
+) -> TableType {
+  TableType::new(
+    gen_valid_table_ref_type(ctx, total_table_idx, gc_type_plan),
+    gen_valid_table_limits_i32(ctx, total_table_idx),
+  )
+}
+
+///|
+fn gen_valid_table_init_expr(
+  ctx : GenValidContext,
+  total_table_idx : Int,
+  rt : RefType,
+  func_idx : FuncIdx,
+) -> Expr? {
+  if ctx.config.features.allow_table_limit_variants &&
+    ctx.config.mode == CoverageForced &&
+    total_table_idx > 0 {
+    Some(gen_valid_elem_ref_expr(ctx, rt, func_idx~))
+  } else if ctx.config.features.allow_table_limit_variants &&
+    ctx.random_int(5) == 0 {
+    Some(gen_valid_elem_ref_expr(ctx, rt, func_idx~))
+  } else {
+    None
+  }
+}
+
+///|
 fn gen_valid_pick_type_idx(ctx : GenValidContext, type_count : Int) -> TypeIdx {
   TypeIdx::new(ctx.random_int(type_count).reinterpret_as_uint())
 }
@@ -3626,11 +3741,17 @@ fn gen_valid_module_once_with_config(
   let import_tag_count = import_plan.tag_count
 
   let defined_func_count = gen_valid_choose_defined_func_count(ctx)
-  let defined_table_count = gen_valid_choose_optional_count(
+  let defined_table_count = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,
     config.features.allow_tables,
     config.max_tables,
     config.section_bias.tables_percent,
+    if config.features.allow_table_limit_variants &&
+      config.features.allow_ref_types {
+      3
+    } else {
+      1
+    },
   )
   let defined_mem_count = gen_valid_choose_optional_count_with_coverage_floor(
     ctx,
@@ -3781,22 +3902,7 @@ fn gen_valid_module_once_with_config(
   }
   let imported_tables : Array[TableType] = []
   for i = 0; i < import_table_count; i = i + 1 {
-    let max = (1 + ctx.random_int(4)).reinterpret_as_uint()
-    let table_ref_type = if i == 0 || !ctx.config.features.allow_ref_types {
-      RefType::new(true, HeapType::abs(AbsHeapType::func()))
-    } else if !gc_type_plan.concrete_ref_types.is_empty() &&
-      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
-      match
-        gc_type_plan.concrete_ref_types[ctx.random_int(
-          gc_type_plan.concrete_ref_types.length(),
-        )] {
-        RefTypeValType(rt) => rt
-        _ => RefType::new(true, HeapType::abs(AbsHeapType::eq()))
-      }
-    } else {
-      RefType::new(true, HeapType::abs(AbsHeapType::eq()))
-    }
-    let table_type = TableType::new(table_ref_type, Limits::i32(1U, Some(max)))
+    let table_type = gen_valid_table_type(ctx, i, gc_type_plan)
     imported_tables.push(table_type)
     imports.push(
       Import::new(
@@ -3906,27 +4012,15 @@ fn gen_valid_module_once_with_config(
 
   let tables : Array[Table] = []
   for i = 0; i < defined_table_count; i = i + 1 {
-    let max = (1 + ctx.random_int(4)).reinterpret_as_uint()
     let total_table_idx = import_table_count + i
-    let table_ref_type = if total_table_idx == 0 ||
-      !ctx.config.features.allow_ref_types {
-      RefType::new(true, HeapType::abs(AbsHeapType::func()))
-    } else if !gc_type_plan.concrete_ref_types.is_empty() &&
-      (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0) {
-      match
-        gc_type_plan.concrete_ref_types[ctx.random_int(
-          gc_type_plan.concrete_ref_types.length(),
-        )] {
-        RefTypeValType(rt) => rt
-        _ => RefType::new(true, HeapType::abs(AbsHeapType::eq()))
-      }
-    } else {
-      RefType::new(true, HeapType::abs(AbsHeapType::eq()))
-    }
+    let table_type = gen_valid_table_type(ctx, total_table_idx, gc_type_plan)
+    let TableType(table_ref_type, _) = table_type
     tables.push(
       Table::new(
-        TableType::new(table_ref_type, Limits::i32(1U, Some(max))),
-        None,
+        table_type,
+        gen_valid_table_init_expr(
+          ctx, total_table_idx, table_ref_type, first_defined_func_idx,
+        ),
       ),
     )
   }
@@ -4544,6 +4638,21 @@ fn gen_valid_mem_type_has_limit_variant(mt : MemType) -> Bool {
 }
 
 ///|
+fn gen_valid_table_type_has_limit_variant(
+  table_type : TableType,
+  init_opt : Expr?,
+) -> Bool {
+  let TableType(rt, lim) = table_type
+  let limit_variant = match lim {
+    I32Limits(min, max) => min == 0 || max is None
+    I64Limits(min, max) => min == 0UL || max is None
+  }
+  limit_variant ||
+  ValType::ref_type(rt) != ValType::funcref() ||
+  init_opt is Some(_)
+}
+
+///|
 fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
   if gen_valid_instr_is_expanded_scalar_numeric(instr) {
     return GenValidInstrFacts::{
@@ -4748,6 +4857,7 @@ pub fn gen_valid_feature_facts(
   let mut has_scalar_memory_widths = false
   let mut has_nonzero_memarg = false
   let mut has_memory_limit_variants = false
+  let mut has_table_limit_variants = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -4774,6 +4884,8 @@ pub fn gen_valid_feature_facts(
               let TableType(ref_type, _) = table_type
               uses_ref_types = uses_ref_types || true
               uses_v128 = uses_v128 || false
+              has_table_limit_variants = has_table_limit_variants ||
+                gen_valid_table_type_has_limit_variant(table_type, None)
               ignore(ref_type)
             }
             MemExternType(mt) => {
@@ -4799,6 +4911,11 @@ pub fn gen_valid_feature_facts(
     Some(TableSec(tables)) if !tables.is_empty() => {
       has_tables = true
       uses_ref_types = true
+      for table in tables {
+        let Table(table_type, init_opt) = table
+        has_table_limit_variants = has_table_limit_variants ||
+          gen_valid_table_type_has_limit_variant(table_type, init_opt)
+      }
     }
     _ => ()
   }
@@ -5044,5 +5161,6 @@ pub fn gen_valid_feature_facts(
     has_scalar_memory_widths,
     has_nonzero_memarg,
     has_memory_limit_variants,
+    has_table_limit_variants,
   }
 }
