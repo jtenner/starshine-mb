@@ -3561,10 +3561,10 @@ pub fn validate_valid_feature_actual_count(
     CallIndirect => stats.call_indirect
     BranchHeavyControl => stats.branch_heavy_control
     NumericFullOps => stats.numeric_full_ops
-    BrTable => 0
-    StandaloneUnreachable => 0
-    LocalTee => 0
-    TypedSelect => 0
+    BrTable => stats.br_table
+    StandaloneUnreachable => stats.standalone_unreachable
+    LocalTee => stats.local_tee
+    TypedSelect => stats.typed_select
     TailCalls => 0
     ScalarMemoryWidths => 0
     NonzeroMemarg => 0
@@ -4955,6 +4955,32 @@ test "gen_valid coverage-forced emits expanded scalar numeric surface" {
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: NumericFullOps, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+test "gen_valid coverage-forced emits core control surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26003UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, BrTable) > 0)
+  assert_true(validate_valid_feature_actual_count(stats, StandaloneUnreachable) > 0)
+  assert_true(validate_valid_feature_actual_count(stats, LocalTee) > 0)
+  assert_true(validate_valid_feature_actual_count(stats, TypedSelect) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: BrTable, min_count: 1 },
+      { key: StandaloneUnreachable, min_count: 1 },
+      { key: LocalTee, min_count: 1 },
+      { key: TypedSelect, min_count: 1 },
     ]),
     [],
   )

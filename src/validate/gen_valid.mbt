@@ -294,6 +294,10 @@ pub struct GenValidFeatureFacts {
   has_call_indirect : Bool
   has_branch_heavy_control : Bool
   has_numeric_full_ops : Bool
+  has_br_table : Bool
+  has_standalone_unreachable : Bool
+  has_local_tee : Bool
+  has_typed_select : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -321,6 +325,10 @@ pub struct GenValidFeatureStats {
   call_indirect : Int
   branch_heavy_control : Int
   numeric_full_ops : Int
+  br_table : Int
+  standalone_unreachable : Int
+  local_tee : Int
+  typed_select : Int
 } derive(Eq, Debug)
 
 ///|
@@ -371,6 +379,14 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.branch_heavy_control.output(logger)
   logger.write_string(", numeric_full_ops: ")
   self.numeric_full_ops.output(logger)
+  logger.write_string(", br_table: ")
+  self.br_table.output(logger)
+  logger.write_string(", standalone_unreachable: ")
+  self.standalone_unreachable.output(logger)
+  logger.write_string(", local_tee: ")
+  self.local_tee.output(logger)
+  logger.write_string(", typed_select: ")
+  self.typed_select.output(logger)
   logger.write_char('}')
 }
 
@@ -400,6 +416,10 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     call_indirect: 0,
     branch_heavy_control: 0,
     numeric_full_ops: 0,
+    br_table: 0,
+    standalone_unreachable: 0,
+    local_tee: 0,
+    typed_select: 0,
   }
 }
 
@@ -438,6 +458,12 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_branch_heavy_control),
     numeric_full_ops: self.numeric_full_ops +
     gen_valid_bool_count(facts.has_numeric_full_ops),
+    br_table: self.br_table + gen_valid_bool_count(facts.has_br_table),
+    standalone_unreachable: self.standalone_unreachable +
+    gen_valid_bool_count(facts.has_standalone_unreachable),
+    local_tee: self.local_tee + gen_valid_bool_count(facts.has_local_tee),
+    typed_select: self.typed_select +
+    gen_valid_bool_count(facts.has_typed_select),
   }
 }
 
@@ -454,6 +480,10 @@ priv struct GenValidInstrFacts {
   has_call : Bool
   has_call_indirect : Bool
   has_numeric_full_ops : Bool
+  has_br_table : Bool
+  has_standalone_unreachable : Bool
+  has_local_tee : Bool
+  has_typed_select : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -474,6 +504,10 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_call: false,
     has_call_indirect: false,
     has_numeric_full_ops: false,
+    has_br_table: false,
+    has_standalone_unreachable: false,
+    has_local_tee: false,
+    has_typed_select: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -2482,6 +2516,49 @@ fn gen_valid_append_scalar_numeric_drop(
 }
 
 ///|
+fn gen_valid_append_core_control_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !ctx.config.features.allow_branch_heavy_control {
+    return
+  }
+
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::i32_const(I32(1)),
+        Instruction::br_table([LabelIdx::new(0U)], LabelIdx::new(0U)),
+      ]),
+    ),
+  )
+
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([Instruction::unreachable_()]),
+    ),
+  )
+
+  match gen_matching_local_idx(env.local_types, ValType::i32()) {
+    Some(idx) => {
+      out.push(Instruction::i32_const(I32(7)))
+      out.push(Instruction::local_tee(idx))
+      out.push(Instruction::drop())
+    }
+    None => ()
+  }
+
+  out.push(Instruction::i32_const(I32(11)))
+  out.push(Instruction::i32_const(I32(22)))
+  out.push(Instruction::i32_const(I32(1)))
+  out.push(Instruction::select(types=Some([ValType::i32()])))
+  out.push(Instruction::drop())
+}
+
+///|
 fn gen_valid_append_expanded_scalar_numeric_ops(
   out : Array[Instruction],
 ) -> Unit {
@@ -2715,6 +2792,7 @@ fn gen_valid_append_coverage_prelude(
 ) -> Unit {
   gen_valid_append_gc_prelude(out, ctx, env)
   gen_valid_append_expanded_scalar_numeric_ops(out)
+  gen_valid_append_core_control_ops(out, ctx, env)
   if ctx.config.features.allow_v128 {
     out.push(
       Instruction::v128_const(
@@ -2921,6 +2999,22 @@ fn gen_valid_build_func(
     local_ref_types.push(vt)
   }
   let locals = gen_local_types(ctx, extra_ref_types=local_ref_types)
+  if ctx.config.mode == CoverageForced {
+    let mut has_i32_local = false
+    for vt in accepts {
+      if vt == ValType::i32() {
+        has_i32_local = true
+      }
+    }
+    for vt in locals {
+      if vt == ValType::i32() {
+        has_i32_local = true
+      }
+    }
+    if !has_i32_local {
+      locals.push(ValType::i32())
+    }
+  }
   if ctx.config.mode == Natural {
     for vt in returns {
       match vt {
@@ -3940,6 +4034,11 @@ fn gen_valid_merge_instr_facts(
     has_call_indirect: left.has_call_indirect || right.has_call_indirect,
     has_numeric_full_ops: left.has_numeric_full_ops ||
     right.has_numeric_full_ops,
+    has_br_table: left.has_br_table || right.has_br_table,
+    has_standalone_unreachable: left.has_standalone_unreachable ||
+    right.has_standalone_unreachable,
+    has_local_tee: left.has_local_tee || right.has_local_tee,
+    has_typed_select: left.has_typed_select || right.has_typed_select,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -4076,8 +4175,14 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         has_call_indirect: true,
         branch_ops: 1,
       }
-    Br(_) | BrIf(_) | BrTable(_, _) =>
+    Br(_) | BrIf(_) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), branch_ops: 1 }
+    BrTable(_, _) =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        has_br_table: true,
+        branch_ops: 1,
+      }
     BrOnNull(_)
     | BrOnNonNull(_)
     | BrOnCast(_, _, _, _)
@@ -4143,6 +4248,7 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         ..GenValidInstrFacts::empty(),
         uses_ref_types,
         uses_v128,
+        has_typed_select: true,
       }
     }
     RefNull(_)
@@ -4160,6 +4266,16 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
       }
     Throw(_) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), branch_ops: 1 }
+    Unreachable =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        has_standalone_unreachable: true,
+      }
+    LocalTee(_) =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        has_local_tee: true,
+      }
     V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), uses_v128: true }
     _ => GenValidInstrFacts::empty()
@@ -4190,6 +4306,10 @@ pub fn gen_valid_feature_facts(
   let mut has_call = false
   let mut has_call_indirect = false
   let mut has_numeric_full_ops = false
+  let mut has_br_table = false
+  let mut has_standalone_unreachable = false
+  let mut has_local_tee = false
+  let mut has_typed_select = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -4261,6 +4381,11 @@ pub fn gen_valid_feature_facts(
           has_call_indirect = has_call_indirect || expr_facts.has_call_indirect
           has_numeric_full_ops = has_numeric_full_ops ||
             expr_facts.has_numeric_full_ops
+          has_br_table = has_br_table || expr_facts.has_br_table
+          has_standalone_unreachable = has_standalone_unreachable ||
+            expr_facts.has_standalone_unreachable
+          has_local_tee = has_local_tee || expr_facts.has_local_tee
+          has_typed_select = has_typed_select || expr_facts.has_typed_select
           control_nodes += expr_facts.control_nodes
           branch_ops += expr_facts.branch_ops
         }
@@ -4301,6 +4426,11 @@ pub fn gen_valid_feature_facts(
               has_call_indirect = has_call_indirect || facts.has_call_indirect
               has_numeric_full_ops = has_numeric_full_ops ||
                 facts.has_numeric_full_ops
+              has_br_table = has_br_table || facts.has_br_table
+              has_standalone_unreachable = has_standalone_unreachable ||
+                facts.has_standalone_unreachable
+              has_local_tee = has_local_tee || facts.has_local_tee
+              has_typed_select = has_typed_select || facts.has_typed_select
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -4317,6 +4447,11 @@ pub fn gen_valid_feature_facts(
                 has_call_indirect = has_call_indirect || facts.has_call_indirect
                 has_numeric_full_ops = has_numeric_full_ops ||
                   facts.has_numeric_full_ops
+                has_br_table = has_br_table || facts.has_br_table
+                has_standalone_unreachable = has_standalone_unreachable ||
+                  facts.has_standalone_unreachable
+                has_local_tee = has_local_tee || facts.has_local_tee
+                has_typed_select = has_typed_select || facts.has_typed_select
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -4331,6 +4466,11 @@ pub fn gen_valid_feature_facts(
                 has_call_indirect = has_call_indirect || facts.has_call_indirect
                 has_numeric_full_ops = has_numeric_full_ops ||
                   facts.has_numeric_full_ops
+                has_br_table = has_br_table || facts.has_br_table
+                has_standalone_unreachable = has_standalone_unreachable ||
+                  facts.has_standalone_unreachable
+                has_local_tee = has_local_tee || facts.has_local_tee
+                has_typed_select = has_typed_select || facts.has_typed_select
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -4355,6 +4495,11 @@ pub fn gen_valid_feature_facts(
               has_call_indirect = has_call_indirect || facts.has_call_indirect
               has_numeric_full_ops = has_numeric_full_ops ||
                 facts.has_numeric_full_ops
+              has_br_table = has_br_table || facts.has_br_table
+              has_standalone_unreachable = has_standalone_unreachable ||
+                facts.has_standalone_unreachable
+              has_local_tee = has_local_tee || facts.has_local_tee
+              has_typed_select = has_typed_select || facts.has_typed_select
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -4380,6 +4525,11 @@ pub fn gen_valid_feature_facts(
         has_call_indirect = has_call_indirect || facts.has_call_indirect
         has_numeric_full_ops = has_numeric_full_ops ||
           facts.has_numeric_full_ops
+        has_br_table = has_br_table || facts.has_br_table
+        has_standalone_unreachable = has_standalone_unreachable ||
+          facts.has_standalone_unreachable
+        has_local_tee = has_local_tee || facts.has_local_tee
+        has_typed_select = has_typed_select || facts.has_typed_select
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
       }
@@ -4409,5 +4559,9 @@ pub fn gen_valid_feature_facts(
     has_call_indirect,
     has_branch_heavy_control: branch_ops > 0 || control_nodes >= 2,
     has_numeric_full_ops,
+    has_br_table,
+    has_standalone_unreachable,
+    has_local_tee,
+    has_typed_select,
   }
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-04-30 Pass: implement `string-gathering`
+
+- **land active direct `string-gathering` module pass with registry/dispatcher/CLI/harness wiring, focused hoist/dedup/remap/scan-order tests, direct 10k compare-pass evidence, and debug-artifact self-opt parity while leaving late-tail preset replay as follow-up** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/binaryen/passes/string-gathering/`](./docs/wiki/binaryen/passes/string-gathering/), [`src/passes/string_gathering.mbt`](./src/passes/string_gathering.mbt), [`src/passes/string_gathering_test.mbt`](./src/passes/string_gathering_test.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/cmd/cmd_wbtest.mbt`](./src/cmd/cmd_wbtest.mbt), and [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts).
+
 ## 2026-04-30 Fuzz: widen scalar numeric gen-valid surface
 
 - **land `[FZG]002` with coverage-forced generation for expanded scalar numeric opcode families, a `NumericFullOps` feature counter, focused validation/floor coverage, refreshed FZG ledger docs, and green 1k `gen-valid` RUME compare smoke evidence** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), and [`src/validate/validate.mbt`](./src/validate/validate.mbt).

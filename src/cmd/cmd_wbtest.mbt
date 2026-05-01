@@ -4167,6 +4167,42 @@ test "run_cmd_with_adapter applies duplicate-import-elimination to wasm inputs" 
 }
 
 ///|
+test "run_cmd_with_adapter accepts string-gathering as an active module pass" {
+  let source =
+    #|(module
+    #|  (func (result i32) i32.const 7)
+    #|)
+    #|,
+  let wasm = encode_module_bytes(@passes.pass_test_module_from_wat(source))
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["sg.wasm"] },
+    file_exists=fn(path) { path == "sg.wasm" },
+    read_file=fn(path) {
+      if path == "sg.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--string-gathering", "--out", "out.wasm", "sg.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["string-gathering"])
+  assert_eq(writes.length(), 1)
+}
+
+///|
 test "run_cmd_with_adapter accepts reorder-globals as an active module pass" {
   let source =
     #|(module

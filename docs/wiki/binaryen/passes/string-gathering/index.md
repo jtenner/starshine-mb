@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-30
 sources:
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
   - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
@@ -9,7 +9,11 @@ sources:
   - ../../../raw/research/0124-2026-04-20-string-gathering-binaryen-research.md
   - ../../../raw/research/0206-2026-04-21-string-gathering-source-confirmation-followup.md
   - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
+  - ../../../../../src/passes/string_gathering.mbt
+  - ../../../../../src/passes/string_gathering_test.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
   - ../../../strings/string-const-surface.md
@@ -37,7 +41,7 @@ related:
 ## Role
 
 - `string-gathering` is an upstream Binaryen late module / boundary-shaped cleanup pass.
-- It is currently **unimplemented** in Starshine.
+- It is now implemented in Starshine as an active direct module pass; ordered late-tail preset scheduling remains deferred.
 - In Binaryen `version_129`, it runs only when strings are enabled and the optimize level is high enough.
 - Its job is very specific: hoist or reuse canonical immutable globals for `string.const` values, then replace ordinary `string.const` uses with `global.get` of those globals.
 
@@ -49,7 +53,7 @@ The earlier folder already had a good working explanation of the pass, but it st
 - a dedicated Starshine strategy page
 - and one compact source-confirmed page for the real owner-file map, implementation phases, and test-vs-source coverage boundary
 
-That follow-up closed those gaps without overturning the basic earlier picture. The 2026-04-25 refresh adds a current-main no-drift / port-readiness bridge and a dedicated Starshine validation ladder so future work can move from registry honesty to module-pass implementation without redoing the Binaryen research.
+That follow-up closed those gaps without overturning the basic earlier picture. The 2026-04-25 refresh added a current-main no-drift / port-readiness bridge and a dedicated Starshine validation ladder; the 2026-04-30 landing then turned that research into an active direct module pass without redoing the Binaryen source work.
 
 ## Why it matters
 
@@ -64,7 +68,7 @@ That follow-up closed those gaps without overturning the basic earlier picture. 
   - slot `54`
 - The saved Binaryen debug log shows it is small but real:
   - `0.00280223` seconds in the captured generated-artifact run
-- The backlog already tracks it as slice `SG` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- The backlog tracks the direct implementation evidence and remaining late-tail follow-up as slice `SG` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
 - The repo’s own string-constant surface page already called this out as the next durable string follow-up after literal plumbing.
 
 ## Beginner summary
@@ -104,13 +108,10 @@ That is much closer to the real pass than either:
 
 ## Current repo caveat
 
-- The tracker and backlog both clearly treat `string-gathering` as a real missing late-module pass.
-- But the literal name currently appears in **neither** `src/passes/optimize.mbt`’s `pass_registry_boundary_only_names()` array nor `pass_registry_removed_names()`.
-- Treat that as current repo bookkeeping debt to resolve before implementation, not as evidence that the Binaryen pass is unimportant.
-- The local-status bridge for that bookkeeping gap and the existing string-literal plumbing lives in [`./starshine-strategy.md`](./starshine-strategy.md).
-- The implementation-readiness ladder lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md), with registry honesty as Slice 0.
-
-That “bookkeeping debt” conclusion is an inference from the scheduler docs, backlog slice, string-plumbing code, and saved `-O4z` audit all agreeing that the pass matters.
+- The direct pass is active in `src/passes/string_gathering.mbt`, registered in `src/passes/optimize.mbt`, dispatched from `src/passes/pass_manager.mbt`, and accepted by the compare harness.
+- The first Starshine implementation intentionally creates fresh canonical string globals instead of reusing existing eligible string globals; add reuse only if string-heavy oracle inputs require it.
+- Binary wasm inputs with string proposal result types still expose decoder coverage gaps outside this pass (`DecodeAt(InvalidValType, ...)`), so focused behavior coverage currently uses the WAT/pipeline path while artifact and generator lanes cover ordinary decoded wasm.
+- Public `optimize` / `shrink` preset scheduling is still deferred until the neighboring late-tail passes can be replayed together.
 
 ## Page map
 
@@ -123,14 +124,14 @@ That “bookkeeping debt” conclusion is an inference from the scheduler docs, 
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after WAT and module-shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Exact current Starshine status and code-map page: the still-missing registry entry, the active `SG` backlog slices, the existing `string.const` / `stringrefs` encode-decode plumbing, and the future late-module landing boundary with `reorder-globals`.
+  Exact current Starshine status and code-map page: the active direct module pass, the remaining `SG` follow-up slices, the existing `string.const` / `stringrefs` encode-decode plumbing, and the still-separate late-tail boundary with `reorder-globals`.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Dedicated future-port ladder: registry honesty first, then exact `string.const` site collection, canonical defining-global selection, non-defining-site rewrites, validity-first reorder, feature-gated scheduler integration, and Binaryen oracle comparison.
+  Current validation ledger: landed registry/module-pass/direct-site collection work, focused reduced tests, direct Binaryen oracle/artifact evidence, and the remaining preset-neighborhood / decoder / optional reuse follow-up.
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `string-gathering` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real late module pass with the correct string scan, reuse rules, and ordering behavior.
+- Treat this folder as the canonical home for future `string-gathering` research, maintenance, and remaining follow-up planning.
+- Keep it explicitly marked as **implemented as a direct module pass** while the remaining gaps stay visible: existing-global reuse only if oracle inputs demand it, broader standalone string-proposal decoder coverage, and honest late-tail preset replay.
 - Keep the strategy page and the reuse/order page in sync whenever new evidence changes the answer to either:
   - “which globals can be reused?” or
   - “when must gathered globals move earlier?”

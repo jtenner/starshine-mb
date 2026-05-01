@@ -211,6 +211,10 @@ pub fn ssa_nomerge_descriptor() -> @ir.HotPassDescriptor
 
 pub fn ssa_nomerge_summary() -> String
 
+pub fn string_gathering_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn string_gathering_summary() -> String
+
 pub fn tuple_optimization_descriptor() -> @ir.HotPassDescriptor
 
 pub fn tuple_optimization_exact_slot_prereqs_ready() -> Bool

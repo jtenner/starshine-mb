@@ -256,6 +256,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
     ),
     pass_registry_entry_module("reorder-locals", reorder_locals_summary()),
     pass_registry_entry_module("duplicate-import-elimination", die_summary()),
+    pass_registry_entry_module("string-gathering", string_gathering_summary()),
     pass_registry_entry_module("reorder-globals", reorder_globals_summary()),
     pass_registry_entry_module("directize", directize_summary()),
     pass_registry_entry_preset(

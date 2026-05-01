@@ -1,13 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-30
 sources:
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
   - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
+  - ../../../../../src/passes/string_gathering.mbt
+  - ../../../../../src/passes/string_gathering_test.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
   - ../../../../../src/wast/lower_to_lib.mbt
@@ -31,79 +36,84 @@ related:
 
 # Starshine port readiness and validation for `string-gathering`
 
-Use this page after reading the status/code-map page in [`./starshine-strategy.md`](./starshine-strategy.md). That page says what exists today; this page says what the first faithful Starshine slices should look like and how to validate them.
+Use this page after reading the status/code-map page in [`./starshine-strategy.md`](./starshine-strategy.md). That page says what exists today; this page now records which first slices have landed and what remains to validate before preset scheduling.
 
 The 2026-04-25 primary-source bridge in [`../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`](../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md) found no teaching-relevant current-`main` drift from the tagged `version_129` contract. The port-readiness plan below therefore keeps [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) as the tagged oracle and uses the new bridge only for freshness and local code-map anchors.
 
 ## Current readiness summary
 
-`string-gathering` is **not implemented** in Starshine.
+`string-gathering` is implemented as an active direct Starshine module pass.
 
-Current local state is still unusual compared with many other late-tail pass gaps:
+Landed local state:
 
 - the no-DWARF wiki and `agent-todo.md` track the pass;
 - Starshine has useful `string.const` / `stringrefs` literal infrastructure;
-- but the public pass registry does **not** list `string-gathering` as boundary-only or removed yet.
+- `src/passes/string_gathering.mbt` owns the direct module rewrite;
+- the registry, dispatcher, CLI acceptance, and pass-fuzz harness surfaces are wired;
+- focused tests cover direct hoisting, deduplication, global remapping, scan order, no-op behavior, and nested structured bodies;
+- direct debug-artifact compare and 10k generator lanes are green.
 
-So the first useful local slice is not the full rewrite. It is registry honesty.
+Remaining readiness is late-tail scheduling proof, not direct-pass existence.
 
-## Slice 0: make the public pass spelling honest
+## Slice 0: make the public pass spelling honest — landed
 
 ### Goal
 
-Teach Starshine that `string-gathering` is a known upstream/local-planned pass before any transform lands.
+Expose `string-gathering` as an honest active pass everywhere users and validation tooling expect it.
 
 ### Current code anchors
 
-- [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
-  - `pass_registry_boundary_only_names()` lists many no-DWARF and late-boundary pass names, but currently omits `string-gathering`.
-- [`src/passes/optimize.mbt#L144-L151`](../../../../../src/passes/optimize.mbt#L144-L151)
-  - `pass_registry_removed_names()` also omits `string-gathering`.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+  - active module-pass registry entry
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+  - module-pass dispatcher arm
+- [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+  - explicit CLI acceptance coverage
+- [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
+  - compare harness pass allowlist
 - [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md#L34-L35`](../../no-dwarf-default-optimize-path.md#L34-L35)
-  - the canonical post-pass phase still includes `string-gathering` before `reorder-globals` and `directize`.
-- [`agent-todo.md#L563-L577`](../../../../../agent-todo.md#L563-L577)
-  - the `SG` slice already tracks string collection, canonicalization, feature gating, global order, and artifact parity.
+  - canonical late-tail slot before `reorder-globals` and `directize`
 
 ### Acceptance criteria
 
-Before implementing the transform, a small registry-only change should make this true:
+The landed direct pass makes this true:
 
-- `pass_registry_lookup("string-gathering")` returns a known entry;
-- explicit pass requests fail with the same boundary-only message used by other planned-but-unimplemented late passes;
-- `--help` / registry listing behavior stays consistent with whatever boundary-only policy the optimizer registry currently uses;
-- the wiki and tracker stop describing the registry omission as current debt.
+- `pass_registry_lookup("string-gathering")` returns an active module-pass entry;
+- explicit pass requests execute through the module-pass dispatcher;
+- CLI and compare tooling accept the pass spelling;
+- the wiki and backlog no longer describe the registry omission as current debt.
 
 ### Why this matters
 
-Without this slice, users and future agents see `string-gathering` in the no-DWARF path and backlog but get an unknown-pass failure from the active registry. That is a documentation/UX mismatch, not a Binaryen strategy question.
+This closes the earlier documentation and UX mismatch between the no-DWARF plan and the active pass registry.
 
-## Slice 1: add a minimal module-pass owner with no rewrite drift
+## Slice 1: land the direct module-pass owner — landed
 
 ### Goal
 
-Create the future landing zone without changing module behavior prematurely.
+Create the real late-tail landing zone as a module pass, not as a HOT-only peephole.
 
-### Suggested owner shape
+### Landed owner shape
 
-A future implementation should be a late **module pass**, not a HOT-only peephole:
+The current implementation in [`src/passes/string_gathering.mbt`](../../../../../src/passes/string_gathering.mbt):
 
-- Binaryen scans whole-module string sites;
-- it rewrites module-level globals as well as function bodies;
-- it may reorder global declarations for validity;
-- it must run immediately before `reorder-globals` in the no-DWARF tail.
+- scans whole-module direct string sites with function bodies visited before module expression sites;
+- rewrites module-level globals as well as function bodies;
+- inserts fresh immutable string globals after imported globals and before existing defined globals;
+- keeps the internal reorder validity-first and separate from downstream layout work.
 
-### Minimum local surfaces to wire
+### Landed local surfaces
 
-- a dedicated pass owner file, likely `src/passes/string_gathering.mbt`;
-- registry category change from boundary-only to module pass when behavior exists;
-- dispatcher integration in the same style as other module passes;
-- tests proving empty/no-string modules remain byte-equivalent or structurally unchanged.
+- dedicated owner file
+- active module-pass registry category
+- dispatcher integration
+- empty/no-string module no-op coverage
 
 ### Non-goal for this slice
 
 Do not fuse this with `reorder-globals`. Binaryen deliberately keeps the validity-first reorder in `string-gathering` separate from the stronger final layout work in [`../reorder-globals/index.md`](../reorder-globals/index.md).
 
-## Slice 2: collect exact `string.const` sites by literal payload
+## Slice 2: collect exact `string.const` sites by literal payload — landed for direct sites
 
 ### Goal
 
@@ -127,10 +137,11 @@ Match Binaryen's exact-slot mental model closely enough that later rewrites cann
 ### Acceptance criteria
 
 - collect every direct `Instruction::StringConst(bytes)` in defined function bodies;
-- collect direct `StringConst` sites inside defined global initializers;
-- decide and document whether Starshine's first slice supports other module-expression surfaces immediately or defers them explicitly;
+- collect direct `StringConst` sites inside table initializers, defined global initializers, element expressions, data offsets, and function bodies reached by the current raw module walker;
 - deduplicate by literal bytes, not by textual spelling or generated section index;
 - preserve the original literal payloads exactly.
+
+These direct-site criteria are covered by `src/passes/string_gathering_test.mbt`. Existing-global reuse remains a separate follow-up if future string-heavy oracle inputs require it.
 
 ### Caveat
 
@@ -244,13 +255,13 @@ Cover the direct official shape families first:
 
 ### 2. Registry and CLI request tests
 
-Cover the transition from current registry debt to honest unimplemented status and then to implemented status:
+Current coverage should prove the landed active state, not the old transition story:
 
-- unknown today;
-- boundary-only rejection after Slice 0;
-- module-pass success after the transform lands.
+- registry lookup returns an active module-pass entry;
+- explicit CLI requests succeed;
+- compare-harness pass selection accepts `string-gathering`.
 
-Keep this transition documented in [`./starshine-strategy.md`](./starshine-strategy.md) and [`../tracker.md`](../tracker.md).
+Keep the old transition retired in [`./starshine-strategy.md`](./starshine-strategy.md) and [`../tracker.md`](../tracker.md).
 
 ### 3. Late-tail integration tests
 
@@ -271,17 +282,18 @@ The most important checks are:
 Use the backlog's `[SG]002` intent:
 
 - compare focused reduced modules against Binaryen `--string-gathering`;
-- then replay the saved no-DWARF/debug-artifact late-tail path once registry and scheduler wiring exist.
+- keep the landed direct evidence current (`.tmp/pass-fuzz-string-gathering-genvalid-10000-native`, `.tmp/pass-fuzz-string-gathering-10000-native-keepgoing`, `.tmp/self-opt-string-gathering-debug`);
+- then replay the saved no-DWARF/debug-artifact late-tail path once preset scheduling wiring exists.
 
 ## Beginner-to-advanced takeaway
 
 For beginners, `string-gathering` means “turn repeated literal string constants into reads from one immutable string global.”
 
-For advanced Starshine port work, the real checklist is sharper:
+For advanced Starshine follow-up work, the real checklist is sharper:
 
-- fix registry honesty first;
-- scan exact literal sites;
-- reuse only direct immutable non-null defining globals;
+- keep registry/dispatcher/CLI/harness truth intact;
+- scan exact direct literal sites;
+- decide with evidence whether existing direct immutable non-null globals must be reused;
 - preserve defining initializer slots;
 - rewrite other direct literals to `global.get`;
 - reorder only enough for validity;

@@ -8683,6 +8683,7 @@ fn run_hot_pipeline_apply_module_pass(
       global_struct_inference_run_module_pass(mod_, options.closed_world)
     "reorder-locals" => reorder_locals_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
+    "string-gathering" => string_gathering_run_module_pass(mod_)
     "reorder-globals" => reorder_globals_run_module_pass(mod_)
     "directize" => directize_run_module_pass(mod_)
     _ => return Err("unsupported module pass \{entry.name}")

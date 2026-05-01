@@ -562,21 +562,16 @@ Observed unique-pass order
    - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
 
 #### SG - String Gathering
-1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L303](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L303)
-2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [SG]001 - String Collection and Canonicalization Rules - Port the string-gathering transformation that runs immediately before `reorder-globals` on string-enabled modules.
-     - Deliverables: collect the string data Binaryen hoists or canonicalizes; preserve string feature semantics and global users; define unsupported string layouts explicitly.
-     - Doc: [0066#L303](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L303)
-   - [SG]002 - Feature Gate, Global Order, and Artifact Parity - Validate the pass only runs when strings are enabled and confirm the resulting global layout matches Binaryen.
-     - Deliverables: add feature-gated scheduler tests and focused string regressions; verify interaction with `reorder-globals`; compare `--string-gathering` output on the debug artifact.
-     - Doc: [0066#L303](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L303)
-3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
-4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
+1. Direct pass is now active and artifact-comparable.
+   - `string-gathering` is registered as an active module pass, dispatched through the module-pass path, exposed through the native `cmd` surface, and accepted by the pass-fuzz compare harness.
+   - The pass collects direct `string.const` payloads from defined function bodies before module-level expression sites, deduplicates by literal bytes, inserts immutable string globals after imported globals and before existing defined globals, rewrites gathered uses to `global.get`, and remaps existing defined-global traffic through the inserted globals.
+   - Focused regressions cover registry status, no-string no-op behavior, function literal hoisting, byte-level deduplication, imported/defined global remapping, export/name/raw-name remapping hygiene, function-before-global scan order, and nested structured function bodies.
+   - Fresh evidence: `moon test src/passes`, `moon test src/cmd`, `moon info`, `moon fmt`, and full `moon test` are green; `.tmp/pass-fuzz-string-gathering-genvalid-10000-native` is `10000/10000` normalized matches with `0` mismatches/failures; `.tmp/pass-fuzz-string-gathering-10000-native-keepgoing` is `9975` comparable normalized matches with `0` mismatches and `25` Binaryen-side command failures; `.tmp/self-opt-string-gathering-debug` reports canonical and normalized WAT equality on `tests/node/dist/starshine-debug-wasi.wasm`.
+   - Doc: [string-gathering Starshine strategy](/home/jtenner/Projects/starshine-mb/docs/wiki/binaryen/passes/string-gathering/starshine-strategy.md)
+2. Remaining follow-up.
+   - Keep preset scheduling deferred until the surrounding late tail (`simplify-globals-optimizing -> remove-unused-module-elements -> string-gathering -> reorder-globals -> directize`) can be replayed as an ordered neighborhood.
+   - Binary wasm inputs with string proposal result types still expose a decoder coverage gap (`DecodeAt(InvalidValType, ...)`) outside this module-pass rewrite; focused WAT/pipeline tests cover the transform while the checked debug artifact and generator lanes remain comparable.
+   - If Binaryen reuse of existing canonical string globals becomes necessary for string-heavy binary inputs, add that as a follow-up parity slice with reduced fixtures.
 
 ### MoonBit formal verification rollout (`moon prove`)
 

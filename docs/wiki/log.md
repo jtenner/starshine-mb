@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-04-30] implementation | implement `string-gathering`
+
+- Landed the active direct `string-gathering` module pass for the no-DWARF / O4z late-tail queue.
+- Added `src/passes/string_gathering.mbt` plus focused behavior tests for registry status, no-op behavior, string literal hoisting, byte-level deduplication, imported/defined global remapping, function-before-global scan order, and nested structured bodies.
+- Wired registry, dispatcher, CLI adapter coverage, generated pass API snapshot, and pass-fuzz harness support while keeping public preset scheduling deferred until the surrounding late tail can be replayed honestly.
+- Updated `agent-todo.md`, `CHANGELOG.md`, and the `string-gathering` wiki pages/tracker with direct pass-fuzz and debug-artifact compare evidence.
+
 ## [2026-04-30] implementation | widen scalar numeric gen-valid surface
 
 - Landed `[FZG]002` by adding a deterministic coverage-forced scalar numeric prelude for integer div/rem/shift/rotate, integer and float comparisons, float ceil/floor/trunc/nearest/sqrt/min/max/copysign, unsigned conversions, sign-extension, and saturating truncation families.

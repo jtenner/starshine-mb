@@ -1,13 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-04-30
 sources:
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
   - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
   - ../../../raw/research/0280-2026-04-23-string-gathering-primary-sources-and-starshine-followup.md
+  - ../../../../../src/passes/string_gathering.mbt
+  - ../../../../../src/passes/string_gathering_test.mbt
   - ../../../../../src/passes/optimize.mbt
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
+  - ../../../../../scripts/lib/pass-fuzz-compare-task.ts
   - ../../../../../src/binary/encode.mbt
   - ../../../../../src/binary/decode.mbt
   - ../../../../../src/binary/tests.mbt
@@ -30,27 +35,26 @@ related:
 # Starshine Strategy For `string-gathering`
 
 Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the current-main / port-readiness bridge in [`../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`](../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already matter, and the practical landing zone for a future port. For the first-slice implementation and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already matter, and the practical landing zone for remaining late-tail work. For the validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
 
-`string-gathering` is still **unimplemented** in Starshine.
-There is no `src/passes/string_gathering.mbt` owner file today.
+`string-gathering` is now an active direct Starshine module pass.
 
-There is also one important local wrinkle that was easy to miss before this follow-up:
+The current implementation:
 
-- [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140) `pass_registry_boundary_only_names()` does **not** include `"string-gathering"`
-- [`src/passes/optimize.mbt#L144-L151`](../../../../../src/passes/optimize.mbt#L144-L151) `pass_registry_removed_names()` also does **not** include `"string-gathering"`
+- lives in [`src/passes/string_gathering.mbt`](../../../../../src/passes/string_gathering.mbt)
+- is registered as a module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- dispatches through [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- is accepted by the CLI and compare harness through [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt) and [`scripts/lib/pass-fuzz-compare-task.ts`](../../../../../scripts/lib/pass-fuzz-compare-task.ts)
 
-So the current local story is not “the pass name is preserved and honestly rejected.”
-It is:
+It collects direct `string.const` payloads from defined function bodies first, then module-level expression sites; deduplicates by literal bytes; inserts immutable string globals after imported globals and before existing defined globals; rewrites gathered sites to `global.get`; and remaps existing defined-global traffic around the inserted globals.
 
-- the pass is documented in the wiki and backlog
-- the pass is part of the recorded Binaryen no-DWARF late tail
-- the underlying `string.const` plumbing already exists in code
-- but the public pass spelling still has **registry bookkeeping debt**
+Remaining caveats:
 
-That is the most important current-status fact for future readers.
+- it intentionally does not yet reuse pre-existing eligible string globals as canonical definitions;
+- binary decoding of some standalone string-proposal type encodings remains outside this pass and can fail before the pass runs;
+- public preset scheduling is deferred until the neighboring late-tail passes can be replayed together.
 
 ## Exact local code and doc map today
 
@@ -65,14 +69,20 @@ The fastest read-along path through the current Starshine status is:
 - [`agent-todo.md#L570-L577`](../../../../../agent-todo.md#L570-L577)
   - `[SG]002 - Feature Gate, Global Order, and Artifact Parity`
 
-### Current registry truth
+### Current registry and dispatcher truth
 
-- [`src/passes/optimize.mbt#L127-L140`](../../../../../src/passes/optimize.mbt#L127-L140)
-  - `pass_registry_boundary_only_names()`
-- [`src/passes/optimize.mbt#L144-L151`](../../../../../src/passes/optimize.mbt#L144-L151)
-  - `pass_registry_removed_names()`
+- [`src/passes/string_gathering.mbt`](../../../../../src/passes/string_gathering.mbt)
+  - module-pass implementation
+- [`src/passes/string_gathering_test.mbt`](../../../../../src/passes/string_gathering_test.mbt)
+  - focused behavior coverage
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+  - active module-pass registry entry
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+  - module-pass dispatcher arm
+- [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+  - explicit CLI/module-pass acceptance coverage
 
-Those two functions are worth reading directly because they make the current bookkeeping gap concrete: the pass is planned, but its spelling is not yet tracked in the registry surface.
+The old registry-bookkeeping gap is closed for direct pass execution.
 
 ### Current string-literal implementation surfaces that a future port would build on
 
@@ -102,7 +112,7 @@ That map is the main practical value of this page: readers can now jump directly
 
 ## What Starshine currently does have
 
-Even without a pass owner file, the repo already has meaningful implementation pieces.
+With the pass owner file now landed, the repo has the key implementation pieces in place.
 
 ### 1. Stable `string.const` / `stringrefs` roundtrip plumbing
 
@@ -141,49 +151,44 @@ The repo already has:
 - explicit backlog slices `[SG]001` and `[SG]002`
 - a neighboring `reorder-globals` dossier that already assumes `string-gathering` should run first
 
-So current Starshine strategy is not “ignore this pass.”
-It is “finish the registry surface, then build the late module pass on top of the already-landed string literal infrastructure.”
+So current Starshine strategy is not “plan the first pass.”
+It is “maintain the landed direct module pass, keep the late-tail boundary with `reorder-globals` honest, and only add the remaining reuse/decoder/preset work when the evidence justifies it.”
 
 ## What Starshine does **not** have yet
 
-A future contributor should be careful not to overread the existing code.
+A future contributor should be careful not to overread the landed direct pass.
 Starshine does **not** currently have:
 
-- a registry entry for `string-gathering` in `src/passes/optimize.mbt`
-- a dedicated pass owner file such as `src/passes/string_gathering.mbt`
-- pass-specific CLI or dispatcher coverage for the public spelling
-- late-module rewrite logic that scans the module and rewrites repeated `string.const` uses into canonical global gets
-- integration tests that check the `string-gathering -> reorder-globals` interaction
+- reuse of pre-existing eligible immutable string globals as canonical definitions
+- binary-decoder coverage for every standalone string-proposal type encoding accepted by Binaryen
+- public preset scheduling for the full `string-gathering -> reorder-globals -> directize` late tail
+- integration tests that prove the whole late-tail neighborhood after `simplify-globals-optimizing`
 
 So the current repo status is best summarized as:
 
 - literal plumbing exists
-- backlog exists
-- scheduler knowledge exists
-- public pass registry wiring still missing
-- transform itself still missing
+- direct module pass exists
+- behavior and direct oracle evidence exist
+- late-tail preset/neighborhood proof remains follow-up
 
-## The right future Starshine implementation shape
+## The right next Starshine follow-up shape
 
-The current docs and code strongly suggest that a future local `string-gathering` port should be taught as a **late module pass built on existing literal-plumbing infrastructure**, not as more parser/encoder work and not as a merged `reorder-globals` port.
+The current docs and code now suggest a narrower follow-up story: keep `string-gathering` as a **late direct module pass built on existing literal-plumbing infrastructure**, and extend it only where remaining oracle or preset evidence says it must grow.
 
-A good local design ladder is:
+A good local follow-up ladder is:
 
-1. add the upstream spelling to the registry surface in `src/passes/optimize.mbt` as the registry-honesty slice described in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-2. add a dedicated module-pass owner file
-3. scan the whole module for direct `string.const` uses
-4. preserve exact literal identity using the already-landed binary/lib plumbing
-5. create or reuse canonical defining string globals
-6. keep the reorder narrow and validity-first
-7. leave final layout quality to the later `reorder-globals` pass
+1. keep the active registry/dispatcher/CLI/harness surface stable
+2. add existing-global reuse only if reduced or fuzzed Binaryen inputs prove the current fresh-global-first subset is insufficient
+3. broaden standalone string-proposal binary decoder coverage so more binary inputs can reach the pass
+4. preserve the current narrow validity-first reorder rather than fusing layout work into this pass
+5. land honest preset scheduling only after the real `remove-unused-module-elements -> string-gathering -> reorder-globals -> directize` neighborhood is replayed and compared
 
-That last split matters.
-The neighboring dossier already documents that Binaryen keeps these as separate responsibilities.
-A local port that fuses them too early would be harder to compare and harder to teach.
+That split still matters.
+The neighboring dossier documents that Binaryen keeps `string-gathering` and `reorder-globals` as separate responsibilities, and the local direct port should stay teachably comparable instead of absorbing downstream layout work.
 
 ## The most important local dependency boundary
 
-### `string-gathering` should sit on top of current literal identity support
+### `string-gathering` should continue to sit on top of current literal identity support
 
 See [`../../../strings/string-const-surface.md`](../../../strings/string-const-surface.md) plus:
 
@@ -234,19 +239,10 @@ That is a much clearer local plan than “compare with Binaryen later,” becaus
 
 ## Bottom line
 
-Current Starshine `string-gathering` strategy is honest backlog-plus-plumbing with one real bookkeeping gap:
+Current Starshine `string-gathering` strategy is direct-pass-landed with late-tail proof still pending:
 
-- the late-tail scheduler and backlog already know the pass
-- the encoder, decoder, and tests already preserve the literal identity the pass depends on
-- the pass is still unimplemented
-- the pass spelling is still missing from the public pass registry surface in `src/passes/optimize.mbt`
-- the future landing zone is a dedicated late module pass that composes with, but does not merge into, `reorder-globals`
-
-So the right mental model today is not “nothing exists locally.”
-It is:
-
-- **literal infrastructure exists**
-- **backlog intent exists**
-- **registry entry still missing**
-- **transform still missing**
-- **future boundary with `reorder-globals` is already clear**
+- the encoder, decoder, and tests preserve the literal identity the pass depends on
+- the active module pass hoists and rewrites direct string constants
+- direct pass-fuzz and debug-artifact compare evidence are green
+- preset scheduling remains deferred until the surrounding late tail can be replayed honestly
+- the boundary with `reorder-globals` remains clear: `string-gathering` creates canonical string globals; `reorder-globals` owns final global layout
