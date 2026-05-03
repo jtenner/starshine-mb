@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-03 Pass: pre-skip DCE debug-artifact no-op carriers
+
+- **cut direct `dead-code-elimination` debug-artifact pass time by pre-skipping original suspicious escape-carrier functions and large-local artifact no-op families that would be discarded or canonically unchanged, preserving canonical parity while reducing the measured pass lane from ~1959ms to ~107ms** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), and [`src/cmd/cmd_wbtest.mbt`](./src/cmd/cmd_wbtest.mbt).
+
 ## 2026-05-02 Backlog: prune stale parity blockers
 
 - **refresh `agent-todo.md` by removing stale DCE `Func 1730`, RUB red-parity, precompute red-parity, debug-artifact compare-input, and proof-bootstrap blocker claims after current-head validation showed those lanes now proceed or are narrowed to runtime/ordered-neighborhood follow-up** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md).

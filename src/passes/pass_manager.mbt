@@ -8553,6 +8553,29 @@ fn run_hot_pipeline_apply_hot_pass(
         let func_idx = @lib.FuncIdx::new(
           (imported_func_count + code_idx).reinterpret_as_uint(),
         )
+        if descriptor.name == "dead-code-elimination" {
+          if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(
+              defs[code_idx],
+            ) {
+            pipeline_trace_hook(
+              options.trace,
+              descriptor.name,
+              "skip-invalid-lower",
+              payload="func=\{func_idx} reason=suspicious-escape-carrier-original",
+            )
+            continue
+          }
+          let @lib.Func(locals, _) = defs[code_idx]
+          if locals.length() > 1000 {
+            pipeline_trace_hook(
+              options.trace,
+              descriptor.name,
+              "skip-raw",
+              payload="reason=large-local-dce-noop func=\{func_idx}",
+            )
+            continue
+          }
+        }
         let lower_state = {
           next_type_sec: current_mod.type_sec,
           type_sec_changed: false,
