@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
+  - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
@@ -14,6 +16,7 @@ related:
   - ./variant-surface.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals/index.md
   - ../../no-dwarf-default-optimize-path.md
 ---
@@ -32,7 +35,7 @@ related:
   - `src/ir/linear-execution.h`
   - `src/ir/properties.h`
 - The shipped behavior examples come from the dedicated no-structure and nearby-variant tests under `test/passes/`.
-- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**. A focused 2026-04-25 current-`main` check on `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `pass.h`, `opt-utils.h`, and the dedicated no-structure test files found no teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md).
+- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**. A focused 2026-05-04 current-`main` recheck on `SimplifyLocals.cpp`, `pass.cpp`, `passes.h`, `pass.h`, `opt-utils.h`, and the dedicated no-structure test files found no teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md).
 
 Primary source URLs:
 

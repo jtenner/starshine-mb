@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
+  - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
 related:
@@ -13,6 +15,7 @@ related:
   - ./variant-surface.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals/implementation-structure-and-tests.md
   - ../simplify-locals/index.md
 ---
@@ -33,7 +36,7 @@ Use that sibling for the complete five-variant family; use this page when you on
 ## Freshness note
 
 Use Binaryen `version_129` as the stable source oracle.
-The 2026-04-25 current-`main` spot check in [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md) found no teaching-relevant drift for the checked no-structure surfaces: implementation file, public registration, scheduler placement, pass-runner fixup contract, nested optimization helper, and dedicated proof files.
+The 2026-05-04 current-`main` recheck in [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md) found no teaching-relevant drift for the checked no-structure surfaces: implementation file, public registration, scheduler placement, pass-runner fixup contract, nested optimization helper, and dedicated proof files.
 
 ## Upstream file map
 

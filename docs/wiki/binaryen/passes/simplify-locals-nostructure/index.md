@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
+  - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
@@ -19,6 +21,7 @@ related:
   - ./variant-surface.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-locals/index.md
   - ../tuple-optimization/index.md
   - ../reorder-locals/index.md
@@ -43,7 +46,7 @@ related:
   - top-level slot `22`
 - The repo backlog already treats it as a real parity blocker under slice `SLNS` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
 - The current Starshine tuple-slot gate also treats it as a real missing neighbor: `tuple_optimization_exact_slot_prereqs_ready()` stays false until both `code-pushing` and `simplify-locals-no-structure` stop being removed placeholders.
-- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**. A focused 2026-04-25 current-`main` implementation/test-map bridge found no teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md).
+- The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**. A focused 2026-05-04 current-`main` recheck found no teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md).
 
 ## Beginner summary
 
@@ -72,7 +75,7 @@ That is narrower than “full simplify-locals.”
   - one-armed `if` speculative else-side `local.get` insertion
 - The first fixpoint cycle is still stricter than later ones: it only sinks easy single-use locals.
 - The main analysis is deliberately linear-trace based and uses directional effect invalidation instead of whole-function CFG reasoning.
-- Current Starshine still has **no transform** for this pass, but the dossier now has a dedicated implementation/test-map page plus status / port-map page tying together upstream proof files, removed-name registry, tuple-slot blocker, backlog slice, scheduler note, dispatcher gap, and neighboring MoonBit implementation files.
+- Current Starshine still has **no transform** for this pass, but the dossier now has dedicated implementation/test-map, status / port-map, and validation pages tying together upstream proof files, removed-name registry, tuple-slot blocker, backlog slice, scheduler note, dispatcher gap, and neighboring MoonBit implementation files.
 
 ## Page map
 
@@ -86,6 +89,8 @@ That is narrower than “full simplify-locals.”
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future port map: removed-name registry tracking, tuple exact-slot blocker coverage, backlog slice `SLNS`, canonical no-DWARF slot, and the practical MoonBit local-cleanup / local-index rewrite files that a future port would compose with.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge: first slice, negative tests, scheduler honesty, and Binaryen oracle lanes.
 
 ## Current maintenance rule
 

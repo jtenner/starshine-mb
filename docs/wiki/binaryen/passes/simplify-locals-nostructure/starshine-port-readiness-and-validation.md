@@ -9,102 +9,94 @@ sources:
   - ../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
+  - ../../../../../src/cmd/cmd.mbt
+  - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/reorder_locals.mbt
-  - ../../../../../src/passes/pass_manager_wbtest.mbt
-  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../tuple-optimization/index.md
   - ../simplify-locals/index.md
+  - ../simplify-locals-notee-nostructure/index.md
+  - ../simplify-locals-nonesting/index.md
   - ../reorder-locals/index.md
   - ../coalesce-locals/index.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
-  - ./starshine-port-readiness-and-validation.md
   - ./variant-surface.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../tuple-optimization/index.md
   - ../simplify-locals/index.md
+  - ../simplify-locals-notee-nostructure/index.md
+  - ../simplify-locals-nonesting/index.md
   - ../reorder-locals/index.md
   - ../coalesce-locals/index.md
 ---
 
-# Starshine Strategy For `simplify-locals-nostructure`
+# Starshine `simplify-locals-nostructure` port readiness and validation
 
-Use this page together with the current source bridge in [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md), the earlier raw bridge in [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md), and the earlier raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
+## Why this page exists
 
-## The honest current status
+The landing, strategy, variant, and WAT-shape pages explain what Binaryen does.
+This page answers the follow-along question:
 
-`simplify-locals-nostructure` is still **unimplemented** in Starshine.
-There is no `src/passes/simplify_locals_nostructure.mbt` owner file today.
+- what is the smallest honest local slice?
+- what must stay disabled so the sibling does not become full `simplify-locals`?
+- what tests and oracle lanes prove the no-structure contract?
 
-That does **not** mean there is no Starshine strategy surface.
-The current local strategy is registry, slot-blocker, and port planning:
+## Current hold point
 
-- keep the local removed-name spelling tracked in the registry surface
-- keep the tuple exact-slot blocker explicit in code and tests
-- keep the canonical no-DWARF slot documented
-- keep the backlog slice focused on early local cleanup without structural return rewrites
-- teach the surrounding local cleanup files a future port would need to compose with
+Starshine still treats `simplify-locals-nostructure` as a removed compatibility name, not an active pass.
+The state to preserve until implementation starts is:
 
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
-
-See the companion [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) page for the validation ladder, recommended first slices, and oracle plan.
+- upstream Binaryen spelling: `simplify-locals-nostructure`
+- current local spelling: `simplify-locals-no-structure`
+- current local category: removed
+- current CLI behavior: rejected as an unknown executable pass flag by the command-layer category gate
+- current lower-level pipeline behavior: rejected as removed if it reaches the hot-pass expander
+- current owner: none
+- current preset role: none
 
 ## Exact local code map today
 
 The fastest read-along path through the current Starshine status is:
 
 - tracked but removed pass-name status and exact-slot blocker helper
-  - `src/passes/optimize.mbt:143-151`
+  - `src/passes/optimize.mbt`
     - `pass_registry_removed_names()` includes `"simplify-locals-no-structure"`
-  - `src/passes/optimize.mbt:377-381`
     - `tuple_optimization_exact_slot_prereqs_ready()` stays false until both `code-pushing` and `simplify-locals-no-structure` stop being removed placeholders
-  - `src/passes/optimize.mbt:385-407`
-    - optimize/shrink presets deliberately avoid claiming the exact tuple slot while this neighbor is missing
+    - the optimize/shrink preset lists stay honest instead of claiming the exact tuple slot prematurely
 - direct regression proving the slot is still blocked
-  - `src/passes/optimize_test.mbt:202-209`
-    - `test "tuple-optimization exact preset slot remains unavailable while no-structure neighbor is missing"`
-- backlog and delivery plan
-  - `agent-todo.md`
-    - `#### SLNS - Simplify Locals No-Structure`
-    - `[SLNS]001 - Early Local Simplification Core`
-    - `[SLNS]002 - Early-Slot Regression and Artifact Proof`
-- canonical scheduler context
+  - `src/passes/optimize_test.mbt`
+    - the tuple-slot blocker regression keeps the current no-structure neighbor missing on purpose
+- command-layer rejection for removed names
+  - `src/cmd/cmd.mbt`
+    - the CLI category gate still rejects the removed spelling instead of treating it as a runnable hot pass
+- scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
-    - the early local-cleanup slot where `simplify-locals-nostructure` belongs after `tuple-optimization` and before `vacuum -> reorder-locals`
-- exact neighboring implementation files already worth reading
-  - `src/passes/pass_manager.mbt:8701-8704`
-    - dispatches active neighboring hot passes but has no dispatcher case for `simplify-locals-no-structure`
-  - `src/passes/simplify_locals.mbt:2-16`
-    - full `simplify-locals` descriptor and summary; useful context but not a no-structure owner file
-  - `src/passes/simplify_locals.mbt:70-227`
-    - sinkable/effect-conflict data structures a future no-structure port would likely narrow and reuse
-  - `src/passes/simplify_locals.mbt:995-1012`, `src/passes/simplify_locals.mbt:2416-2508`, and `src/passes/simplify_locals.mbt:4132-4162`
-    - current full-pass conflict invalidation, structured-control boundary handling, and main-cycle setup
+    - the early locals-cleanup slot where this pass belongs after `tuple-optimization` and before `vacuum -> reorder-locals`
+- the nearest landed implementation surfaces a future port would compose with
+  - `src/passes/simplify_locals.mbt`
+    - current full `simplify-locals` descriptor, summary, sinkability logic, and cleanup phases
   - `src/passes/reorder_locals.mbt`
-    - `rl_scan_instruction(...)`, `rl_rewrite_instrs_in_place(...)`, and `reorder_locals_run_module_pass(...)` remain future local-index rewrite context
-- exact current regression and replay surfaces worth following
-  - `src/passes/pass_manager_wbtest.mbt`
-    - `test "raw simplify-locals adjacent local tees preserve writes read inside later if bodies"`
-    - `test "raw simplify-locals rewrites dupable copies into the next escaping if condition"`
-    - `test "raw simplify-locals pure suffix collapses terminal dupable local wrappers across safe middle statements"`
-  - `src/cmd/cmd_wbtest.mbt`
-    - `test "run_cmd_with_adapter print-func sees simplify-locals remove debug artifact Func 71 const fanout webs"`
-    - the `--dead-code-elimination --vacuum --optimize-instructions --simplify-locals` replay lane
-- exact neighboring living dossiers that define the future slot and local landing zone
+    - later local-index rewrite context for the same cleanup neighborhood
+  - `src/passes/pass_manager.mbt`
+    - active neighboring hot-pass dispatcher coverage, but no dedicated `simplify-locals-nostructure` case yet
+- exact neighborhood dossiers that define the future slot
   - [`../tuple-optimization/index.md`](../tuple-optimization/index.md)
   - [`../simplify-locals/index.md`](../simplify-locals/index.md)
+  - [`../simplify-locals-notee-nostructure/index.md`](../simplify-locals-notee-nostructure/index.md)
+  - [`../simplify-locals-nonesting/index.md`](../simplify-locals-nonesting/index.md)
   - [`../reorder-locals/index.md`](../reorder-locals/index.md)
   - [`../coalesce-locals/index.md`](../coalesce-locals/index.md)
 
-That code-and-doc map is refreshed by the 2026-04-25 implementation/test-map follow-up: readers can now jump directly from the upstream algorithm to exact local status, the current dispatcher gap, and the future landing zone.
+That map is refreshed by the 2026-05-04 current-main recheck: readers can jump directly from the upstream algorithm to exact local status, the tuple-slot honesty rule, and the nearest landed MoonBit locals cleanup surfaces.
 
 ## What Starshine currently does for this pass name
 
@@ -112,10 +104,10 @@ Today Starshine's behavior for `simplify-locals-nostructure` is deliberately lim
 
 ### 1. The name is tracked, not forgotten
 
-`src/passes/optimize.mbt` keeps the local spelling `simplify-locals-no-structure` in `pass_registry_removed_names()`.
+`src/passes/optimize.mbt` keeps the local spelling `simplify-locals-no-structure` in the removed-name registry.
 That means:
 
-- the project still treats the upstream pass as a real known missing pass
+- the project still treats the upstream pass as a real missing pass
 - the local compatibility spelling is preserved in the registry surface
 - the pass remains visible in tracker and backlog work instead of silently falling out of planning
 
@@ -131,9 +123,7 @@ That helper requires both:
 
 to become active before Starshine will claim the exact Binaryen tuple slot publicly.
 
-`src/passes/optimize_test.mbt:202-209` then locks that honesty rule in place with:
-
-- `test "tuple-optimization exact preset slot remains unavailable while no-structure neighbor is missing"`
+The current tuple-slot regression in `src/passes/optimize_test.mbt` locks that honesty rule in place.
 
 So the repo already treats `simplify-locals-nostructure` as a real scheduling blocker, not just as a name on a wish list.
 
@@ -183,7 +173,7 @@ So the local strategy should be thought of as:
    - single-use sinks into existing consumers
    - later tee creation for multi-use locals
    - overwrite cleanup and dead-local cleanup
-   - no block / `if` / loop return synthesis
+   - no block / `if` / loop result synthesis
 2. preserve the same correctness boundaries locally
    - first-cycle single-use-only rule
    - later tee-enabled sinking
@@ -213,13 +203,12 @@ Why it matters locally:
 
 ### Existing Starshine `simplify-locals` code is the nearest landed local reasoning surface
 
-See [`../simplify-locals/index.md`](../simplify-locals/index.md), `src/passes/simplify_locals.mbt`, and `src/passes/pass_manager_wbtest.mbt`.
+See [`../simplify-locals/index.md`](../simplify-locals/index.md), `src/passes/simplify_locals.mbt`, and `src/passes/pass_manager.mbt`.
 
 Why:
 
-- `simplify_locals_new_sinkables(...)` already models local sink candidates in HOT form
-- `simplify_locals_sinkables_may_conflict(...)` already expresses a local conflict story that future early no-structure work will need to preserve in narrower form
-- the current raw simplify-locals tests already exercise local traffic, overwrite barriers, and condition-boundary cases that are close to the kinds of safety questions a future early port will face
+- the current HOT locals helper surfaces already model sink candidates, conflict checks, and cleanup phases in MoonBit form
+- the current full-pass tests already exercise local traffic, overwrite barriers, and condition-boundary cases that are close to the kinds of safety questions a future early port will face
 
 So the current local implementation map for `simplify-locals-nostructure` begins here, even before a dedicated owner file exists.
 
@@ -231,7 +220,7 @@ Why:
 
 - an eventual `simplify-locals-nostructure` port will reduce and reshape local traffic before the first reorder pass
 - Starshine already has a module pass that scans local users and rewrites local indices in one canonical place
-- `rl_scan_instruction(...)`, `rl_rewrite_instrs_in_place(...)`, and `reorder_locals_run_module_pass(...)` give future contributors an in-repo model for local-index rewrites and local metadata stability work
+- `reorder_locals` gives future contributors an in-repo model for local-index rewrites and local metadata stability work
 
 That does not make `reorder-locals` an implementation of this pass, but it does make it an important local read-along file.
 
@@ -286,24 +275,47 @@ A future real implementation should validate in this order:
 4. artifact and oracle comparison
    - the `SLNS` slice in `agent-todo.md`
    - the canonical no-DWARF debug-artifact replay path once the exact slot becomes locally representable
+   - pass-targeted Binaryen comparison against `--simplify-locals-nostructure`
 
 That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the in-repo workflow and the exact neighboring code surfaces.
 
-## Bottom line
+## What not to do
 
-Current Starshine `simplify-locals-nostructure` strategy is honest registry and slot-blocker planning:
+Do not start by routing this name to the active full `simplify-locals` implementation.
+That would immediately violate the Binaryen contract because the active pass has structure rewrites and ordinary nested sinks that the no-structure variant must reject.
 
-- the pass is intentionally preserved in `src/passes/optimize.mbt` under the local removed-name spelling `simplify-locals-no-structure`
-- the tuple-slot gate and optimize-test regression already treat it as a real missing prerequisite for honest preset placement
-- the backlog already treats it as a real early local-cleanup parity slice under `SLNS`
-- the canonical slot is already documented in the no-DWARF optimizer notes
-- the surrounding `simplify-locals`, `reorder-locals`, and `coalesce-locals` dossiers plus the current MoonBit files already define the practical landing zone for a future port
+Do not add the pass to `optimize` or `shrink` presets during the first port.
+The source-backed role is a tuple-neighbor / explicit-pipeline sibling, not part of the current Starshine no-DWARF preset.
 
-So the right mental model today is not “nothing exists locally.”
-It is:
+Do not hide the local spelling mismatch.
+The current repo says `simplify-locals-no-structure`; the upstream pass says `simplify-locals-nostructure`.
+A faithful port should make that choice visible in tests.
 
-- **no transform yet**
-- **clear tracked status**
-- **clear slot-blocker role for tuple parity**
-- **clear slot in the early cleanup cluster**
-- **clear neighboring implementation map for the eventual port**
+## Sources
+
+- [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
+- [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md)
+- [`../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md)
+- [`../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
+- [`../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md`](../../../raw/research/0263-2026-04-22-simplify-locals-nostructure-primary-sources-and-starshine-followup.md)
+- [`../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md`](../../../raw/research/0117-2026-04-20-simplify-locals-nostructure-binaryen-research.md)
+- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/SimplifyLocals.cpp>
+- Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
+- Binaryen `version_129` after-inlining helper: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h>
+- Binaryen `version_129` helper sources:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/local-utils.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/effects.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/equivalent_sets.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/linear-execution.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/properties.h>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/branch-utils.h>
+- Binaryen `version_129` dedicated tests:
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nostructure.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nostructure.txt>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-notee-nostructure.txt>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals-nonesting.txt>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/simplify-locals.txt>

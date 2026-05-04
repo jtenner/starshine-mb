@@ -2,6 +2,14 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `simplify-locals-nostructure` source anchors
+
+- Revisited `docs/wiki/binaryen/passes/simplify-locals-nostructure/` as part of a wiki-maintenance pass: updated the overview, Binaryen strategy, implementation/test-map, variant-surface, WAT-shape, Starshine strategy, and catalog pages with a consistent `2026-05-04` `last_reviewed` stamp and a new current-main raw source recheck.
+- Added `docs/wiki/raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md` and `docs/wiki/raw/research/0433-2026-05-04-simplify-locals-nostructure-current-main-recheck.md` as the new current-main no-drift checkpoints for the dossier.
+- Added `docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-port-readiness-and-validation.md` so the folder now has the usual implementation-readiness bridge alongside the strategy page.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the refreshed provenance is discoverable from the shared catalogs.
+- Recorded unchanged contract status: `simplify-locals-nostructure` still matches the source-backed `SimplifyLocals<true, false, true>` contract on the reviewed surfaces, and the 2026-05-04 recheck did not surface teaching-relevant drift.
+
 ## [2026-05-04] health | refresh `gufa-cast-all` source anchors
 
 - Revisited `docs/wiki/binaryen/passes/gufa-cast-all/` as part of a wiki-maintenance pass: updated the overview, Binaryen strategy, implementation/test-map, cast-boundary page, WAT-shape, Starshine strategy, and catalog pages with a consistent `2026-05-04` `last_reviewed` stamp and a new current-main raw source recheck.
