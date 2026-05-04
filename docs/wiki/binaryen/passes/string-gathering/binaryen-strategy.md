@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
+  - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
   - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
@@ -22,12 +24,12 @@ related:
 
 # Binaryen `string-gathering` strategy
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the current-main / port-readiness bridge in [`../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`](../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md).
-On 2026-04-23 the reviewed official Binaryen GitHub release page for `version_129` showed publish date **2026-04-01**. A focused 2026-04-25 current-`main` check did not surface a teaching-relevant contract drift beyond the claims below.
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the 2026-05-04 current-main recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md).
+On 2026-04-23 the reviewed official Binaryen GitHub release page for `version_129` showed publish date **2026-04-01**. A focused 2026-05-04 current-`main` recheck did not surface a teaching-relevant contract drift beyond the claims below.
 
 ## Upstream source rule
 
-- Use Binaryen `version_129` as the tagged source oracle for this pass, with the 2026-04-25 current-main bridge as a freshness check.
+- Use Binaryen `version_129` as the tagged source oracle for this pass, with the 2026-05-04 current-main recheck as a freshness check.
 - The core implementation lives in `src/passes/StringLowering.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp`.
 - Pass construction is declared in `src/passes/passes.h`.

@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-30
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
+  - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
   - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
@@ -53,7 +55,7 @@ The earlier folder already had a good working explanation of the pass, but it st
 - a dedicated Starshine strategy page
 - and one compact source-confirmed page for the real owner-file map, implementation phases, and test-vs-source coverage boundary
 
-That follow-up closed those gaps without overturning the basic earlier picture. The 2026-04-25 refresh added a current-main no-drift / port-readiness bridge and a dedicated Starshine validation ladder; the 2026-04-30 landing then turned that research into an active direct module pass without redoing the Binaryen source work.
+That follow-up closed those gaps without overturning the basic earlier picture. The 2026-04-25 refresh added a current-main no-drift / port-readiness bridge and a dedicated Starshine validation ladder; the 2026-04-30 landing then turned that research into an active direct module pass, and the 2026-05-04 recheck refreshed the exact local code anchors without changing the contract.
 
 ## Why it matters
 
@@ -88,6 +90,7 @@ That is much closer to the real pass than either:
 ## Current durable takeaways
 
 - `string-gathering` is a **module-wide structural rewrite**, not a function-local peephole.
+- The 2026-05-04 current-main recheck refreshed the exact local line anchors and still found no teaching-relevant upstream drift.
 - In `version_129`, the implementation lives inside `src/passes/StringLowering.cpp` as a standalone `StringGathering` pass struct.
 - `StringLowering` subclasses `StringGathering` and runs it first, so this pass is also the shared first phase of full string lowering.
 - [`string-lifting`](../string-lifting/index.md) is the opposite-direction sibling that raises known JS-string imports and helper calls back into wasm strings; it is related to the string family but does not replace this canonicalization pass.

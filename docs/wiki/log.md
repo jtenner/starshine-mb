@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `string-gathering` source anchors
+
+- Revisited `docs/wiki/binaryen/passes/string-gathering/` as part of a wiki-maintenance pass: updated the overview, Binaryen strategy, implementation/test-map, reuse/order, WAT-shape, Starshine strategy, and port-readiness pages with a consistent `2026-05-04` `last_reviewed` stamp and exact local code anchors.
+- Added `docs/wiki/raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md` and `docs/wiki/raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md` as the new current-main no-drift / anchor-refresh checkpoints for the `string-gathering` dossier.
+- Updated `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md` so the refreshed provenance is discoverable from both catalogs.
+- Recorded unchanged contract status: `string-gathering` remains the active direct pass, still separate from `reorder-globals`, and no teaching-relevant current-main drift was found.
+
 ## [2026-04-30] health | refresh `rereloop` wiki consistency
 
 - Revisited `docs/wiki/binaryen/passes/rereloop/` as part of a wiki-maintenance pass: updated the pass's overview, Binaryen strategy, Starshine strategy, boundaries, and WAT-shape pages with a consistent `2026-04-30` `last_reviewed` stamp and a new immutable current-main source manifest.

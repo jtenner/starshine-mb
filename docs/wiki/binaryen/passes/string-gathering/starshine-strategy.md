@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-30
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md
+  - ../../../raw/research/0431-2026-05-04-string-gathering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md
   - ../../../raw/research/0377-2026-04-25-string-gathering-port-readiness.md
   - ../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md
@@ -34,7 +36,7 @@ related:
 
 # Starshine Strategy For `string-gathering`
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the current-main / port-readiness bridge in [`../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md`](../../../raw/binaryen/2026-04-25-string-gathering-current-main-and-port-readiness.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md`](../../../raw/binaryen/2026-04-23-string-gathering-primary-sources.md) and the 2026-05-04 current-main recheck in [`../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-string-gathering-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already matter, and the practical landing zone for remaining late-tail work. For the validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
@@ -71,18 +73,27 @@ The fastest read-along path through the current Starshine status is:
 
 ### Current registry and dispatcher truth
 
-- [`src/passes/string_gathering.mbt`](../../../../../src/passes/string_gathering.mbt)
-  - module-pass implementation
-- [`src/passes/string_gathering_test.mbt`](../../../../../src/passes/string_gathering_test.mbt)
-  - focused behavior coverage
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- [`src/passes/string_gathering.mbt#L573-L601`](../../../../../src/passes/string_gathering.mbt#L573-L601)
+  - module-pass implementation and rewrite entry point
+- [`src/passes/string_gathering_test.mbt#L37-L43`](../../../../../src/passes/string_gathering_test.mbt#L37-L43)
+  - registry lookup test
+- [`src/passes/string_gathering_test.mbt#L48-L57`](../../../../../src/passes/string_gathering_test.mbt#L48-L57)
+  - no-op behavior test
+- [`src/passes/optimize.mbt#L259-L259`](../../../../../src/passes/optimize.mbt#L259-L259)
   - active module-pass registry entry
-- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- [`src/passes/pass_manager.mbt#L8709-L8709`](../../../../../src/passes/pass_manager.mbt#L8709-L8709)
   - module-pass dispatcher arm
-- [`src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
+- [`src/cmd/cmd_wbtest.mbt#L4170-L4201`](../../../../../src/cmd/cmd_wbtest.mbt#L4170-L4201)
   - explicit CLI/module-pass acceptance coverage
 
 The old registry-bookkeeping gap is closed for direct pass execution.
+
+### Current owner and scan anchors
+
+- [`src/passes/string_gathering.mbt#L2-L3`](../../../../../src/passes/string_gathering.mbt#L2-L3)
+  - public summary string and pass spelling
+- [`src/passes/string_gathering.mbt#L160-L166`](../../../../../src/passes/string_gathering.mbt#L160-L166)
+  - function-body-before-module-code collection order
 
 ### Current string-literal implementation surfaces that a future port would build on
 
