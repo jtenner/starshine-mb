@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md
+  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
@@ -29,6 +31,7 @@ related:
   - ../dae-optimizing/starshine-strategy.md
   - ../inlining-optimizing/starshine-strategy.md
   - ../simplify-globals-optimizing/starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Starshine `precompute-propagate` strategy today
@@ -50,6 +53,8 @@ Current Starshine status:
 So the honest current strategy is:
 
 - **preserve the public pass name as an unavailable compatibility / planning marker, keep the docs explicit about the upstream sibling contract, and treat a future local port as a new propagation layer on top of the plain `precompute` infrastructure rather than as a registry alias.**
+
+For the concrete first-slice plan and validation ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Exact local code map
 

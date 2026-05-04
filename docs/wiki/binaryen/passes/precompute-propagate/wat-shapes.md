@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md
+  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
@@ -15,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./local-worklist-fallthrough-and-merge-boundaries.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/index.md
 ---
 

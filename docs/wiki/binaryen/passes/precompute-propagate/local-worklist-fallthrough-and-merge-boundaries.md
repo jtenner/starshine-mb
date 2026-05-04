@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md
+  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
@@ -15,12 +17,13 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/propagation-partial-precompute-and-gc-identity.md
 ---
 
 # `precompute-propagate`: local worklist, fallthrough, and merge boundaries
 
-This page is the middle layer of the `precompute-propagate` dossier. It cites the 2026-04-24 raw primary-source manifest for the tagged `version_129` contract and the 2026-04-25 current-main/code-map manifest for the fresh no-drift recheck.
+This page is the middle layer of the `precompute-propagate` dossier. It cites the 2026-04-24 raw primary-source manifest for the tagged `version_129` contract, the 2026-04-25 current-main/code-map manifest, and the 2026-05-04 current-main freshness recheck.
 
 The landing page and strategy page already explain the big idea:
 

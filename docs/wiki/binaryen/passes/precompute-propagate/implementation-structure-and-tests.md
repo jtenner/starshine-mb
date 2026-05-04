@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md
+  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
@@ -15,12 +17,13 @@ related:
   - ./local-worklist-fallthrough-and-merge-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/index.md
 ---
 
 # `precompute-propagate`: implementation structure and tests
 
-This page is the file-and-test map for Binaryen `version_129` `precompute-propagate`. The committed tagged-source manifest for the reviewed official URLs is [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md), and the 2026-04-25 current-main/code-map refresh is [`../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md).
+This page is the file-and-test map for Binaryen `version_129` `precompute-propagate`. The committed tagged-source manifest for the reviewed official URLs is [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md), the 2026-04-25 current-main/code-map refresh is [`../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md), and the 2026-05-04 current-main freshness recheck is [`../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md).
 
 ## Core source files
 
@@ -137,7 +140,7 @@ Those tests matter here because the propagate variant is not allowed to violate 
 
 ## Current-main recheck result
 
-The 2026-04-25 primary-source recheck found no teaching-relevant drift in the current `main` surfaces that matter for this pass: `Precompute.cpp`, `pass.cpp`, `opt-utils.h`, `local-graph.h`, `properties.h`, `wasm-interpreter.h`, and the two dedicated propagate lit files still support the same contract described here. Keep `version_129` as the tagged oracle, but cite the 2026-04-25 manifest when readers need the freshest official source and exact local Starshine code-map anchors.
+The 2026-05-04 primary-source recheck found no teaching-relevant drift in the current `main` surfaces that matter for this pass: `Precompute.cpp`, `pass.cpp`, `opt-utils.h`, `local-graph.h`, `properties.h`, `wasm-interpreter.h`, and the two dedicated propagate lit files still support the same contract described here. Keep `version_129` as the tagged oracle, but cite the 2026-05-04 manifest when readers need the freshest official source and exact local Starshine bridge anchors.
 
 ## What this source map says about the real contract
 

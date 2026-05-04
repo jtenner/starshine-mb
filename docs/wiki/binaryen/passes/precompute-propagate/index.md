@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md
+  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
@@ -20,6 +22,7 @@ related:
   - ./local-worklist-fallthrough-and-merge-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/index.md
   - ../dae-optimizing/index.md
   - ../inlining-optimizing/index.md
@@ -46,7 +49,7 @@ related:
   - `simplify-globals-optimizing` is easier to teach once the contrast is explicit: it reruns the default function pipeline **without** prepending `precompute-propagate`.
 - The earlier worklist follow-up closed the dossier's biggest algorithm teaching gap with a dedicated page for the exact `propagateLocals(...)` contract.
 - The 2026-04-24 follow-up closed the original provenance and local-follow-along gap with an immutable raw primary-source manifest and a dedicated Starshine status / port-strategy page.
-- The 2026-04-25 refresh adds a current-main no-drift/code-map manifest and exact Starshine line ranges, so this folder should be treated as a deep dossier rather than only a landing dossier.
+- The 2026-05-04 refresh adds a current-main no-drift manifest and a dedicated Starshine port-readiness bridge, so this folder should be treated as a deep dossier rather than only a landing dossier.
 
 ## Beginner summary
 
@@ -102,7 +105,7 @@ So the pass is best taught as:
   - different public pass name
   - different scheduler usage
   - different reachable fixed points because of the extra propagation phase
-- Treat [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md) as the tagged-source provenance anchor and [`../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md) as the current-main / local-code-map refresh anchor.
+- Treat [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md) as the tagged-source provenance anchor and [`../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md) as the current-main freshness anchor.
 - Keep the exact local-worklist contract explicit too:
   - not generic SCCP
   - not an unbounded fixed-point loop
@@ -115,6 +118,8 @@ So the pass is best taught as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md)
+- [`../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md)
 - [`../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md`](../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md)
 - [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md)

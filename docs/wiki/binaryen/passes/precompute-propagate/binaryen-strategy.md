@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md
+  - ../../../raw/research/0440-2026-05-04-precompute-propagate-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md
   - ../../../raw/research/0375-2026-04-25-precompute-propagate-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md
@@ -15,6 +17,7 @@ related:
   - ./local-worklist-fallthrough-and-merge-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/index.md
   - ../dae-optimizing/index.md
   - ../inlining-optimizing/index.md
@@ -27,7 +30,7 @@ related:
 
 - Use Binaryen `version_129` as the tagged source oracle for this pass.
 - Use [`../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-24-precompute-propagate-primary-sources.md) as the tagged-source manifest for the exact official URLs and original 2026-04-24 spot check.
-- Use [`../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md`](../../../raw/binaryen/2026-04-25-precompute-propagate-current-main-and-code-map.md) for the 2026-04-25 current-`main` no-teaching-drift recheck and exact Starshine code-map anchors.
+- Use [`../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-precompute-propagate-current-main-recheck.md) for the 2026-05-04 current-`main` no-teaching-drift recheck and exact Starshine bridge anchors.
 - The core implementation is `src/passes/Precompute.cpp`.
 - Public registration comes from `src/passes/pass.cpp`.
 - The most important scheduler neighbor for this variant is `src/passes/opt-utils.h`, because that file shows where Binaryen prepends `precompute-propagate` during nested post-inlining cleanup.
