@@ -74,6 +74,7 @@ That last point is the big difference from `dae-optimizing`: **plain DAE does no
 - The plain pass shares the same upstream file and much of the same lit neighborhood as `dae-optimizing`, but it deliberately omits the final `optimizeAfterInlining(...)` rerun.
 - There is no single dedicated plain `dae.wast`; the real proof surface is split across `dae_tnh.wast`, `dae-gc.wast`, `dae-gc-refine-params.wast`, and `dae-gc-refine-return.wast`, with neighboring optimizing files acting as sibling-boundary evidence rather than the main plain-pass oracle.
 - The 2026-05-04 current-main recheck found no teaching-relevant drift from the tagged source story, and it keeps the future Starshine implementation ladder explicit: analyzer-only candidate classification first, scalar direct-call parameter deletion second, and constant actual / GC refinement / dropped-result / localization families later.
+- The Starshine status page now pins the exact local boundary-only / rejection anchors in `src/passes/optimize.mbt` so readers can jump straight from the pass name to the current registry and hot-pipeline gate in this repo.
 
 ## Page map
 

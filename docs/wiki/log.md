@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] implementation | activate `simplify-locals-notee-nostructure`
+
+- Promoted Binaryen's exact `simplify-locals-notee-nostructure` spelling from saved-`-O4z` missing pass to an active direct Starshine HOT pass.
+- Wired registry, dispatcher, pass-fuzz listing, and focused pass tests; the shared locals engine now has an `allowTee=false` mode so this sibling can sink single-use locals without creating fresh `local.tee`s or structure-result rewrites.
+- Refreshed the pass dossier, Starshine strategy, port-readiness page, shared index, and tracker to record active-partial direct-pass status while keeping the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` preset neighborhood deferred.
+
+## [2026-05-04] health | sharpen `dead-argument-elimination` code anchors
+
+- Tightened the plain `dead-argument-elimination` dossier with exact `src/passes/optimize.mbt` line anchors for the boundary-only registry list, boundary-only entry builder, and hot-pipeline rejection path.
+- Refreshed the Starshine strategy and port-readiness pages, plus the shared wiki catalogs, so the exact local code-map anchors are visible from the living dossier.
+- Recorded unchanged local status: Starshine still keeps plain DAE boundary-only, with no exact `dae` alias and no active preset role.
+
 ## [2026-05-04] health | refresh `reorder-functions` current-main bridge
 
 - Rechecked `reorder-functions` against current `main` and found no teaching-relevant drift from the existing static-count declaration-order contract.

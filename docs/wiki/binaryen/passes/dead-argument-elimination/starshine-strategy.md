@@ -55,9 +55,9 @@ There is no current Starshine owner file for the pass.
 ## Registry and request behavior
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-  - `pass_registry_boundary_only_names()` lists `dead-argument-elimination` and `dead-argument-elimination-optimizing`.
-  - `pass_registry_entries()` appends boundary-only names as `HotPassRegistryCategory::BoundaryOnly` entries.
-  - `run_hot_pipeline_expand_passes(...)` rejects boundary-only entries with the error text `pass flag {name} is boundary-only and is not implemented in the hot pipeline`.
+  - `pass_registry_boundary_only_names()` at lines `127-130` lists `dead-argument-elimination` and `dead-argument-elimination-optimizing`.
+  - `pass_registry_entries()` at lines `302-303` appends boundary-only names as `HotPassRegistryCategory::BoundaryOnly` entries.
+  - `run_hot_pipeline_expand_passes(...)` at lines `487-503` rejects boundary-only entries with the error text `pass flag {name} is boundary-only and is not implemented in the hot pipeline`.
   - `optimize_preset_passes(...)` and `shrink_preset_passes(...)` list currently implemented hot/module passes only; they do not include plain DAE today.
 
 - [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt)

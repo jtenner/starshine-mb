@@ -125,8 +125,9 @@ If a future plain pass starts matching every optimizing golden, check whether it
 Current reusable code surfaces:
 
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-  - boundary-only registry entry;
-  - request rejection path;
+  - lines `127-130` name the boundary-only DAE pair in the registry list;
+  - lines `302-303` append those names as boundary-only entries;
+  - lines `487-503` are the request-rejection path;
   - future module-pass registry and preset-spelling decision point.
 - [`src/lib/types.mbt`](../../../../../src/lib/types.mbt)
   - `Instruction::call_ref(...)` and `Instruction::return_call_ref(...)` constructors;
