@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | sync `simplify-locals-nostructure` catalogs after direct-pass activation
+
+- Revisited `docs/wiki/binaryen/passes/simplify-locals-nostructure/` and the shared pass catalogs after the direct-pass status flipped active in the living dossier: refreshed the pass index / tracker source lists around the existing 2026-05-04 current-main recheck raw source so the active alias, direct parity evidence, and current-main freshness are visible from the catalog layer.
+- Updated `docs/wiki/binaryen/passes/index.md` and `docs/wiki/binaryen/passes/tracker.md` so the old removed-name wording no longer lingers in the shared catalogs.
+- Recorded unchanged contract status: Starshine treats `simplify-locals-nostructure` as an active direct hot pass with alias `simplify-locals-no-structure`, while public preset placement still remains conservative until the broader ordered local-neighborhood replay is claimed.
+
 ## [2026-05-04] health | refresh `dead-argument-elimination` current-main freshness
 
 - Revisited `docs/wiki/binaryen/passes/dead-argument-elimination/` as part of a wiki-maintenance pass: added a fresh 2026-05-04 current-main recheck raw manifest plus a matching research note, then refreshed the overview, Binaryen strategy, implementation/test-map, WAT-shape, Starshine strategy, and Starshine validation bridge pages so the new freshness layer is discoverable from the living dossier.
