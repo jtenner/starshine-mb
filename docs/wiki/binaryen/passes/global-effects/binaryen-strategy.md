@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md
+  - ../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
   - ../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
@@ -137,14 +139,14 @@ Without this pass, later passes must be more conservative around calls.
 
 ## Current-`main` drift
 
-The 2026-04-24 primary-source capture also spot-checked current Binaryen `main`.
+The 2026-04-24 primary-source capture also spot-checked current Binaryen `main`, and the 2026-05-04 recheck keeps that same teaching shape.
 The visible teaching drift is in implementation structure, not in the high-level contract:
 
 - `version_129` uses a deferred reachability propagation style over function infos.
 - current `main` builds an explicit call graph, computes SCCs, processes components in reverse topological order, aggregates component effects, and applies component summaries back to functions.
 - both reviewed versions keep the durable story: shallow scan, conservative unknown effects, recursive-cycle conservatism, per-function effect metadata, and a discard sibling.
 
-When matching `version_129` oracle behavior, teach and test against the tagged release first. When reading upstream `main`, expect the SCC-shaped implementation. The 2026-04-27 readiness bridge recommends an SCC-shaped Starshine analyzer as an implementation convenience, but only if the semantic contract is still compared against the selected Binaryen oracle.
+When matching `version_129` oracle behavior, teach and test against the tagged release first. When reading upstream `main`, expect the SCC-shaped implementation. The 2026-04-27 readiness bridge recommends an SCC-shaped Starshine analyzer as an implementation convenience, but only if the semantic contract is still compared against the selected Binaryen oracle; the 2026-05-04 recheck did not change that guidance.
 
 ## Key helper dependencies
 
@@ -243,6 +245,8 @@ If Starshine ever ports this and accidentally turns it into a direct code-rewrit
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)
 - [`../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md`](../../../raw/research/0417-2026-04-27-global-effects-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)

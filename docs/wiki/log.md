@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `global-effects` current-main bridge
+
+- Revisited `docs/wiki/binaryen/passes/global-effects/` after a fresh current-main source recheck confirmed the existing metadata-only / `Function.effects` contract still matches current `main` on the reviewed surfaces.
+- Added `docs/wiki/raw/binaryen/2026-05-04-global-effects-current-main-recheck.md` and `docs/wiki/raw/research/0438-2026-05-04-global-effects-current-main-recheck.md`, then refreshed the landing page, Binaryen strategy, implementation/test-map, metadata-naming guide, Starshine strategy, and Starshine port-readiness page so the new freshness bridge is visible from the whole dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the new current-main recheck is discoverable from the shared catalogs.
+- Recorded unchanged contract status: Starshine still treats `global-effects` as boundary-only, and the follow-up port guidance remains analyzer-first summary production, separate read/write facts, SCC-friendly propagation, consumer sequencing, and explicit invalidation/discard planning.
+
 ## [2026-05-04] health | refresh `remove-relaxed-simd` current-main bridge
 
 - Revisited `docs/wiki/binaryen/passes/remove-relaxed-simd/` after a fresh current-main source recheck confirmed the existing trap-replacement / child-effect-preservation contract still matches current `main`.
