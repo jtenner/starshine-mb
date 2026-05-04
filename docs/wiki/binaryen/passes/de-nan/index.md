@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
+  - ../../../raw/research/0434-2026-05-04-de-nan-current-main-recheck.md
   - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
@@ -19,6 +21,7 @@ related:
   - ./helper-functions-fallthrough-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../precompute/index.md
   - ../global-effects/index.md
   - ../simplify-locals/index.md
@@ -79,7 +82,7 @@ So this pass is best taught as:
 - The helper functions are added after the walk so they are not instrumented themselves.
 - The `v128` helper path is unusually careful: it extracts `f32x4` lanes and checks them individually instead of relying on vector equality, specifically to avoid self-interference on reruns.
 - The 2026-04-24 raw primary-source manifest records the official `version_129` release provenance, the source/test URLs reviewed for this pass, and the first narrow current-`main` drift check.
-- The 2026-04-25 current-main recheck confirms no teaching-relevant drift: registration, helper strategy, skip families, dedicated lit proof surface, and Starshine's removed-registry status still match the living dossier.
+- The 2026-05-04 current-main recheck confirms no teaching-relevant drift: registration, helper strategy, skip families, dedicated lit proof surface, and Starshine's removed-registry status still match the living dossier.
 - The dedicated Starshine strategy page now records that current Starshine preserves `de-nan` only as a removed registry entry with explicit request rejection, category tests, no owner file, and no active backlog slice.
 
 ## What this pass sounds like versus what it actually does
@@ -108,6 +111,8 @@ What it actually is in `version_129`:
   Beginner-friendly shape catalog showing the main positive, preserved, and bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and port-planning bridge: exact removed-registry / request-rejection / test code locations, no owner file, no active backlog slice, and why a faithful future port is probably module-owned instrumentation rather than an ordinary HOT peephole.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Compact validation bridge: the removed-registry hold point, exact local code map, and the shape/compare ladder a future implementation would need.
 
 ## Current maintenance rule
 

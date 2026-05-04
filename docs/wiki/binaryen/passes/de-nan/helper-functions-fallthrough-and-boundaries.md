@@ -18,6 +18,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Helper functions, fallthrough, and boundaries in `de-nan` / `denan`

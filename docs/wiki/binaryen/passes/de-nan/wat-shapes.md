@@ -17,6 +17,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./helper-functions-fallthrough-and-boundaries.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `de-nan` / `denan` WAT shape catalog

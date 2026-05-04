@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | connect `de-nan` port-readiness bridge
+
+- Revisited `docs/wiki/binaryen/passes/de-nan/` as part of a wiki-maintenance pass: added the missing `starshine-port-readiness-and-validation.md` bridge, then refreshed the landing, Binaryen strategy, implementation/test-map, helper-boundary, WAT-shape, and Starshine strategy pages so the validation ladder is discoverable from every maintained page in the dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the refreshed `de-nan` provenance and the new port-readiness bridge stay visible from the shared catalogs.
+- Recorded unchanged contract status: `de-nan` is still only a removed registry entry in Starshine, and the future port still needs module-owned instrumentation with helper-call effects, entry-param sanitization, result-fallthrough skipping, and nonfunction-context legality handled explicitly.
+
 ## [2026-05-04] health | retire stale `simplify-locals-nostructure` neighbor wording
 
 - Revisited `docs/wiki/binaryen/passes/code-pushing/` and `docs/wiki/binaryen/passes/tuple-optimization/` after the direct `simplify-locals-nostructure` landing: removed the stale “missing neighbor” wording, clarified that the local no-structure pass is now active, and kept public preset omission framed as an ordered-neighborhood / exact-slot proof question instead of an availability gap.
