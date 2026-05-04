@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | correct `merge-blocks` upstream contract and add Starshine strategy page
+
+- Revisited `docs/wiki/binaryen/passes/merge-blocks/` after a fresh current-main source refresh showed the upstream pass is still the block-merging / loop-tail-merging family rather than the stale named-block deblocking model.
+- Added `docs/wiki/raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md` and `docs/wiki/raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md`, then refreshed the landing page, Binaryen strategy, implementation/test-map, WAT-shape catalog, dedicated Starshine strategy page, and exact Starshine code-map page so the corrected contract and local code anchors are visible from the dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the refreshed contract and new Starshine strategy page are discoverable from the shared catalogs.
+- Recorded unchanged local status: Starshine `merge-blocks` remains an active HOT-region cleanup pass; the correction only changes the upstream Binaryen teaching frame.
+
 ## [2026-05-04] health | refresh `tuple-optimization` strategy and current-main bridge
 
 - Revisited `docs/wiki/binaryen/passes/tuple-optimization/` as part of a wiki-maintenance pass: added a new 2026-05-04 current-main recheck raw manifest plus a matching research note, then refreshed the landing page, Binaryen strategy, implementation/test map, WAT-shape catalog, scheduler/gates page, parity page, reduced-repros page, implementation map, and the new Starshine strategy page so the direct-pass status, exact code anchors, and freshness bridge are all visible from the dossier.

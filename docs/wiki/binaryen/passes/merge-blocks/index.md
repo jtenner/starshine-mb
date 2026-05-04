@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
+  - ../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md
   - ../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
   - ../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md
@@ -21,6 +23,7 @@ related:
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ../late-pipeline-dispatch.md
   - ../../no-dwarf-default-optimize-path.md
@@ -34,32 +37,32 @@ supersedes:
 ## Role
 
 - `merge-blocks` is an active implemented **hot pass** in Starshine.
-- In upstream Binaryen `version_129`, it is a named-block deblocking pass with branch-retargeting proof, `if`-arm cleanup, terminal wrapper-name cleanup, and post-edit refinalization.
-- In current Starshine, it is a HOT-region-root cleanup pass that flattens branch-free block roots into their parent regions while preserving typed-carrier and writeback stability.
+- In upstream Binaryen `version_129`, it is a block-merging and loop-tail-merging pass with helper-driven cleanup for `drop(block ...)`, `if` conditions, and `throw` operands.
+- In current Starshine, it is a HOT-region cleanup pass that flattens branch-free block roots into their parent regions while preserving typed-carrier and writeback stability.
 
-## 2026-04-25 correction
+## 2026-05-04 correction
 
 The previous Binaryen side of this dossier taught the wrong beginner model:
 
-- tail-child-only flattening;
-- unnamed child blocks as a positive family;
-- same-name-only named child merging.
+- named-block deblocking;
+- branch retargeting as the core proof;
+- `if`-arm and terminal-name cleanup as the main contract.
 
-The official Binaryen sources and lit test contradict that model. The corrected source-backed model is:
+The refreshed current-main source shows a different contract:
 
-- Binaryen targets named block layers;
-- nameless wrappers are covered as a no-merge family in the official lit file;
-- different child names can be removed when branch users can be recursively retargeted to the parent name without crossing invalidating effects;
-- `visitIf(...)`, `visitThrow(...)`, `visitRethrow(...)`, and `visitReturn(...)` are part of the owner-file surface;
-- the focused 2026-04-25 current-main check found no teaching-relevant drift from this corrected `version_129` interpretation.
+- Binaryen merges safe child blocks into parent block lists;
+- Binaryen merges safe loop tails;
+- Binaryen moves safe work out of `drop(block ...)`, `if` conditions, and `throw` operands;
+- `ProblemFinder` is part of the dropped-block cleanup path, not a named-label retargeting engine;
+- the focused 2026-05-04 current-main refresh matched `version_129` on the reviewed surfaces.
 
-This correction partially supersedes the older research notes for Binaryen strategy interpretation only. The older notes remain useful for historical scheduler context and for the 2026-04-22 Starshine-status correction.
+This correction partially supersedes the older research notes for Binaryen strategy interpretation only. The older notes remain useful for historical scheduler context and for the local Starshine status story.
 
 ## Why it matters
 
 `merge-blocks` is a real late cleanup pass in both upstream Binaryen and current Starshine, but the proof obligations differ.
 
-Binaryen needs a name-retargeting proof because removing a named block changes branch target names. Starshine avoids that class of proof by refusing every block whose label is still used anywhere in the function.
+Binaryen uses helper-driven local motion over AST expressions. Starshine avoids branch-name retargeting entirely by refusing every block whose label is still used anywhere in the function.
 
 Starshine schedules `merge-blocks` twice in both public presets after `simplify-locals` and around later branch/name cleanup. That repeated placement makes it a structural enabler:
 
@@ -72,7 +75,7 @@ Starshine schedules `merge-blocks` twice in both public presets after `simplify-
 
 For Binaryen:
 
-- “If a named block wrapper can be removed and all branches using its name can safely be retargeted to the surrounding name, remove the wrapper, update name uses, and refinalize.”
+- “Merge safe child blocks upward, clean up safe loop tails, and move safe work out of `drop(block ...)`, `if`, and `throw` shapes.”
 
 For Starshine:
 
@@ -85,13 +88,14 @@ Those are related strategies, but not the same implementation.
 ### Binaryen inputs
 
 - Function-local Binaryen AST expressions.
-- Named block layers and branch-name users.
+- Child blocks, loop tails, and branch-free motion candidates.
 - Helper analysis from branch utilities and effect analysis.
 
 ### Binaryen outputs
 
-- Fewer redundant named block layers.
-- Updated scope-name uses when a child name is changed to a parent name.
+- Fewer redundant child blocks.
+- Simpler loop bodies.
+- Safer `drop(block ...)`, `if`, and `throw` shapes.
 - Refinalized rewritten expressions.
 
 ### Starshine inputs
@@ -109,50 +113,53 @@ Those are related strategies, but not the same implementation.
 
 ### Correctness constraints
 
-- Do not retarget branches unless every branch user remains semantically safe. Binaryen proves this recursively; Starshine avoids it by bailing out on used labels.
-- Do not erase effects by making a branch skip work it could not previously skip.
-- Preserve type contracts. Binaryen refinalizes; Starshine uses typed-carrier guards and later writeback validation.
-- Preserve terminal/unreachable semantics, including local dead-value materialization before `unreachable` in Starshine.
+- Do not move code across a boundary if it changes effect order.
+- Do not assume every child block can be absorbed.
+- Do not skip refinalization after edits.
+- Do not erase local dead values before `unreachable` in Starshine.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  - Corrected deep dive into Binaryen `version_129`: `ProblemFinder`, branch-user collection, `canChangeTo(...)`, block/if/terminal visitors, and refinalization.
+  - Corrected deep dive into the current upstream helper-driven motion pass.
 - [`./wat-shapes.md`](./wat-shapes.md)
-  - Beginner-friendly shape catalog covering named block positives, different-name retargeting positives, `if`/terminal families, nameless no-merges, ambiguity bailouts, and effect barriers.
+  - Beginner-friendly shape catalog covering block splicing, loop tails, `drop(block ...)`, `if`-condition motion, `throw` motion, and negative families.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
   - Source-confirmed owner-file, helper, lit-test, and exact Starshine line-range map.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - High-level Starshine strategy overview with exact code locations.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Exact MoonBit owner-file and helper map for the active HOT pass, including label-use gating, typed-carrier guards, dead-`unreachable` suffix repair, preset placement, tests, and CLI exposure.
+  - Exact MoonBit owner-file and helper map for the active HOT pass.
 
 ## Current local status summary
 
 - The explicit Starshine pass exists and is wired into the pass manager and CLI.
 - `src/passes/registry_test.mbt` classifies it as an active hot pass.
 - `src/passes/optimize_test.mbt` proves that both public presets replay it twice in the late cleanup cluster.
-- `src/passes/merge_blocks_test.mbt` is a substantial direct proof surface for branch-target safety, typed carriers, `unreachable` suffix repair, and Binaryen-stable lowering families.
+- `src/passes/merge_blocks_test.mbt` is a substantial direct proof surface for live-label gating, typed carriers, `unreachable` suffix repair, and Binaryen-stable lowering families.
 - `src/ir/hot_lower_test.mbt` also acts as neighboring evidence because several writeback tests explicitly anchor their expected shape to “merge-blocks wants Binaryen-stable output.”
 
 ## Validation guidance
 
 For documentation work, validate by cross-reading:
 
-1. [`../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md)
+1. [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
 2. [`./binaryen-strategy.md`](./binaryen-strategy.md)
 3. [`./wat-shapes.md`](./wat-shapes.md)
 4. [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-5. [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+5. [`./starshine-strategy.md`](./starshine-strategy.md)
+6. [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
 
 For implementation work, run at minimum the pass and command test lanes, then a pass-targeted Binaryen comparison if behavior changes.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
+- [`../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md)
-- [`../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md`](../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md)
 - [`../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md`](../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md)
+- [`../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md`](../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md)
 - [`../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md`](../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md`](../../../raw/research/0111-2026-04-20-merge-blocks-binaryen-research.md)
 - [`../../../../../src/passes/merge_blocks.mbt`](../../../../../src/passes/merge_blocks.mbt)
 - [`../../../../../src/passes/merge_blocks_test.mbt`](../../../../../src/passes/merge_blocks_test.mbt)
-- Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeBlocks.cpp>
-- Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/merge-blocks.wast>
