@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
@@ -9,6 +9,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ./variant-surface.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
@@ -101,6 +102,8 @@ The closest local code surfaces are documented in [`./starshine-strategy.md`](./
 - `src/cmd/cmd.mbt` rejects removed names at the CLI pipeline layer
 - `src/passes/pass_manager.mbt` dispatches only active full `simplify-locals`
 - `src/passes/simplify_locals.mbt` is the likely future policy-mode landing zone but has no sibling mode yet
+
+The companion [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) page turns that absence into a concrete validation ladder.
 
 ## Sources
 

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | add `simplify-locals-notee-nostructure` validation bridge
+
+- Revisited `docs/wiki/binaryen/passes/simplify-locals-notee-nostructure/` as part of a wiki-maintenance pass: added a dedicated port-readiness / validation bridge, aligned the folder's page map and cross-links, and refreshed the shared catalogs so the missing companion page is now discoverable.
+- Added `docs/wiki/binaryen/passes/simplify-locals-notee-nostructure/starshine-port-readiness-and-validation.md` using the existing immutable raw primary-source manifest and the current Starshine status / implementation pages as the source base.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `simplify-locals-notee-nostructure` landing / strategy / implementation pages so the validation bridge is cross-linked from the maintained dossier.
+- Recorded unchanged contract status: `simplify-locals-notee-nostructure` is still unimplemented in Starshine, still uses the local removed alias `simplify-locals-no-tee-no-structure`, and still needs a future no-tee / no-structure port before any implementation claim changes.
+
 ## [2026-05-04] health | refresh `simplify-locals-nostructure` source anchors
 
 - Revisited `docs/wiki/binaryen/passes/simplify-locals-nostructure/` as part of a wiki-maintenance pass: updated the overview, Binaryen strategy, implementation/test-map, variant-surface, WAT-shape, Starshine strategy, and catalog pages with a consistent `2026-05-04` `last_reviewed` stamp and a new current-main raw source recheck.
@@ -3656,3 +3663,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Threaded the 2026-04-18 ordered-audit follow-up into `docs/wiki/binaryen/passes/remove-unused-brs/parity.md`, `docs/wiki/binaryen/passes/optimize-instructions/index.md`, `docs/wiki/binaryen/passes/precompute/index.md`, and `docs/wiki/binaryen/passes/vacuum/index.md`, plus the matching active slice in `agent-todo.md`, so the slot-specific corruption notes and cleanup checklist stay surfaced in the living docs.
 - Added `tooling/cli-startup-path.md` from `0092` as the compact startup-path note, explicitly marking the older registry/help/config concerns as superseded while keeping path normalization and bucketed glob scanning as the live follow-up surface.
 - Shortened the root wiki catalog entries in `docs/wiki/index.md` and the Binaryen pass-folder map in `docs/wiki/binaryen/passes/index.md` so the entrypoints point at the detailed pages instead of re-listing their full rosters.
+
+## [2026-05-04] implement | land active simplify-locals-nostructure direct pass
+
+- Moved `simplify-locals-nostructure` from removed/planned status to active direct hot-pass status, with `simplify-locals-no-structure` kept as a compatibility alias.
+- Recorded the implementation shape: reuse the landed `simplify_locals.mbt` local-sink/dead-cleanup cycles while disabling structure-result rewrites, plus sharing existing raw simplify-locals artifact gates for runtime.
+- Updated the pass tracker and Starshine strategy page with direct oracle evidence: `10000/10000` gen-valid matches, `9975/10000` mixed-generator comparable matches with no mismatches, and debug-artifact self-opt normalized/canonical-function parity.
+- Left public `optimize` / `shrink` preset placement as ordered-neighborhood follow-up until the tuple/no-structure/vacuum/reorder-local slot is replayed end to end.

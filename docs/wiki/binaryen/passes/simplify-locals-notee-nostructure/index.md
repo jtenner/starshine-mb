@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
   - ../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md
   - ../../../raw/research/0333-2026-04-25-simplify-locals-notee-nostructure-primary-sources-and-starshine-followup.md
@@ -20,8 +20,10 @@ related:
   - ./variant-surface.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../flatten/index.md
   - ../local-cse/index.md
+  - ../simplify-locals-notee/index.md
   - ../simplify-locals-nostructure/index.md
   - ../tracker.md
 ---
@@ -33,7 +35,7 @@ related:
 - `simplify-locals-notee-nostructure` is an upstream Binaryen aggressive locals-cleanup pass.
 - It is currently **unimplemented** in Starshine and still appears only as a removed-name placeholder in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - The upstream Binaryen / saved-audit spelling is `simplify-locals-notee-nostructure`, while the current Starshine removed-name placeholder is spelled `simplify-locals-no-tee-no-structure`.
-- The dossier is now anchored by the immutable primary-source manifest in [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md) and the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+- The dossier is now anchored by the immutable primary-source manifest in [`../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-25-simplify-locals-notee-nostructure-primary-sources.md), the Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md), and the companion validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - In Binaryen `version_129`, it is **not** part of the canonical no-DWARF `-O` / `-Os` path.
 - Instead, `pass.cpp` inserts it only in the more aggressive `optimizeLevel >= 4` function prelude:
   - `flatten`
@@ -99,6 +101,8 @@ That is much closer to the real pass than â€œfull simplify-locals, but smaller.â
   Beginner-friendly before/after shape catalog for single-use temp sinks, preserved multi-use locals, dead-overwrite cleanup, late equivalent-get canonicalization, trap / `try` barriers, and the main bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and port map: local removed alias only, exact upstream spelling absent, CLI/dispatcher rejection, no owner file or backlog slice, and the active full `simplify-locals` HOT code as the likely future policy-mode landing zone rather than a current implementation.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge: spelling policy, no-rewrite skeleton, negative tests, oracle ladder, and the smallest honest future port slices.
 
 ## Current maintenance rule
 
