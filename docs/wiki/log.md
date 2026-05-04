@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `reorder-types` current-main freshness
+
+- Rechecked `reorder-types` against current `main` and found no teaching-relevant drift from the existing GC-only, `--closed-world`, private-type layout contract.
+- Added `docs/wiki/raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md` and `docs/wiki/raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`.
+- Refreshed the landing page, Binaryen strategy, implementation/test map, cost-model/boundaries page, WAT-shape catalog, Starshine strategy, `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the current-main freshness layer is visible from the living dossier and shared catalogs.
+- Recorded unchanged local status: Starshine still treats `reorder-types` as boundary-only with no owner file, no module dispatcher case, and no active backlog slice.
+
 ## [2026-05-04] health | refresh `global-effects` current-main bridge
 
 - Revisited `docs/wiki/binaryen/passes/global-effects/` after a fresh current-main source recheck confirmed the existing metadata-only / `Function.effects` contract still matches current `main` on the reviewed surfaces.

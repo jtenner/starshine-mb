@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md
+  - ../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
   - ../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md
@@ -21,7 +23,7 @@ related:
 
 ## The real teaching problem
 
-The pass now has a precise source-backed shape, anchored by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md):
+The pass now has a precise source-backed shape, anchored by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md) and the 2026-05-04 current-main recheck [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md):
 
 1. which **private** types may move?
 2. which topological orders are **legal**?
@@ -170,6 +172,7 @@ The shipped `reorder-types.wast` proves at least four important boundaries:
 ## Porting checklist
 
 Use [`./starshine-strategy.md`](./starshine-strategy.md) for the current local code-location map.
+The 2026-05-04 current-main recheck did not change these boundaries.
 Before implementing `reorder-types` in Starshine, answer these in code and tests:
 
 - Are you counting only used IR heap types?
@@ -182,9 +185,15 @@ Before implementing `reorder-types` in Starshine, answer these in code and tests
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md)
+- [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)
 - [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderTypes.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/ir/type-updating.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/ir/module-utils.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/reorder-types.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderTypes.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/type-updating.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.cpp>

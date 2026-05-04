@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md
+  - ../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md
   - ../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md
@@ -21,8 +23,8 @@ related:
 
 ## Scheduler placement and activation
 
-The 2026-04-24 raw manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md).
-It anchors this page to the official Binaryen `version_129` release page, tagged owner files, helper files, dedicated lit file, and a narrow current-`main` drift spot check.
+The 2026-04-24 raw manifest is [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md), and the 2026-05-04 current-main recheck is [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md).
+It anchors this page to the official Binaryen `version_129` release page, tagged owner files, helper files, dedicated lit file, and the current-main freshness layer.
 
 Source-confirmed scheduler facts:
 
@@ -240,6 +242,7 @@ It rewrites code, declarations, locals, and type metadata across the whole modul
 ## Future Starshine port rules
 
 The local status and code-location map live in [`./starshine-strategy.md`](./starshine-strategy.md).
+The 2026-05-04 current-main recheck did not change these port rules.
 A future port should:
 
 - Keep the pass module-scoped.
@@ -255,12 +258,24 @@ A future port should:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-reorder-types-current-main-recheck.md)
+- [`../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-reorder-types-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-types-primary-sources.md)
 - [`../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md`](../../../raw/research/0309-2026-04-24-reorder-types-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md`](../../../raw/research/0199-2026-04-21-reorder-types-source-confirmation-followup.md)
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/ReorderTypes.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/ir/type-updating.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/ir/type-updating.h>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/ir/module-utils.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/ir/module-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/wasm-type-ordering.h>
+- <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/reorder-types.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReorderTypes.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/type-updating.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/type-updating.h>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/module-utils.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/src/wasm-type-ordering.h>
+- <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/reorder-types.wast>
