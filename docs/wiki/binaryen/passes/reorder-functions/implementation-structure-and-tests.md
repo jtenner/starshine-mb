@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
@@ -18,6 +20,7 @@ related:
   - ./count-surfaces-ordering-and-omissions.md
   - ./module-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Upstream implementation structure and test map for `reorder-functions`
@@ -116,11 +119,11 @@ It also indirectly supports the shared rule that function-body content is not be
 
 ## Freshness check
 
-I compared `version_129` and current `main` `ReorderFunctions.cpp`.
+I compared `version_129` and current `main` `ReorderFunctions.cpp` again on 2026-05-04.
 
 Durable result:
 
-- no implementation drift was observed in the reviewed file
+- no implementation drift was observed in the reviewed implementation and sibling test surfaces
 
 So a future reader can safely treat the `version_129` source as current for the documented behavior here unless a later deliberate follow-up records new drift.
 

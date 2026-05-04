@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
@@ -17,6 +19,7 @@ related:
   - ./count-surfaces-ordering-and-omissions.md
   - ./module-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md
   - ../reorder-types/index.md
@@ -32,6 +35,7 @@ related:
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - `agent-todo.md` currently has **no dedicated `reorder-functions` slice**.
 - [`./starshine-strategy.md`](./starshine-strategy.md) is the dedicated local status page: Starshine knows the name, rejects active requests as boundary-only, has no owner file or dispatcher case, and would need a module-level function-index permutation/remap pass for a future port.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) is the companion implementation ladder: it spells out the permutation/remap surfaces and the minimum validation order.
 - Official Binaryen also exposes a sibling pass, `reorder-functions-by-name`, from the same source file.
 
 ## Why this pass matters
@@ -94,6 +98,9 @@ So this pass is best taught as:
   Beginner-friendly module-order shape catalog showing the positive, preserved, and surprising ordering families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine boundary-only status plus the future module-pass code map: registry, dispatcher gap, preset omission, numeric `FuncIdx` remap requirements, and reusable DFE remap surfaces.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  New bridge page for the local module-pass gap, exact remap surfaces, and the minimum validation ladder.
+
 
 ## Current maintenance rule
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
@@ -16,6 +18,7 @@ related:
   - ./count-surfaces-ordering-and-omissions.md
   - ./module-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md
   - ../reorder-types/index.md
@@ -48,7 +51,9 @@ The descriptions already tell the honest story:
 
 That “access frequency” is still **static**, not profile-guided.
 
-For the most compact owner/boundary recap, see [`./count-surfaces-ordering-and-omissions.md`](./count-surfaces-ordering-and-omissions.md). For the current local non-implementation and future Starshine module-pass map, see [`./starshine-strategy.md`](./starshine-strategy.md).
+For the most compact owner/boundary recap, see [`./count-surfaces-ordering-and-omissions.md`](./count-surfaces-ordering-and-omissions.md). For the current local non-implementation and future Starshine module-pass map, see [`./starshine-strategy.md`](./starshine-strategy.md). For the implementation ladder and validation order, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+
+A 2026-05-04 current-main recheck of `ReorderFunctions.cpp`, `pass.cpp`, and the sibling lit surface found no teaching-relevant drift from the source-backed contract already described here.
 
 ## Phase 1: seed every function with count `0`
 

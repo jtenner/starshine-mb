@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0179-2026-04-21-reorder-functions-binaryen-research.md
@@ -13,6 +15,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md
 ---
@@ -33,6 +36,8 @@ Each example focuses on which functions get extra static-use counts from the rea
 - element segment contents
 
 Unless noted otherwise, the order examples below are **inferences from the reviewed source comparator**, not copied oracle output.
+
+The family layout below was rechecked against current main on 2026-05-04 and still matches the source-backed teaching model.
 
 ## Positive family 1: one heavily called helper moves earlier
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
   - ../../../raw/research/0297-2026-04-24-reorder-functions-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -20,6 +22,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./count-surfaces-ordering-and-omissions.md
   - ./module-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-functions-by-name/index.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md
@@ -35,11 +38,11 @@ Starshine does **not** implement `reorder-functions` today.
 
 The exact local status is:
 
-- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) registers `reorder-functions` as a **boundary-only** pass name.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt):137 registers `reorder-functions` as a **boundary-only** pass name.
 - The same boundary-only list also registers the sibling `reorder-functions-by-name`.
-- Boundary-only names are known pass names, but `run_hot_pipeline_expand_passes(...)` rejects them with the standard boundary-only error instead of running a transformation.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt):482, 552 rejects boundary-only names in `run_hot_pipeline_expand_passes(...)` instead of running a transformation.
 - The active `optimize` and `shrink` preset arrays in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) do not include `reorder-functions`.
-- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) has no `run_hot_pipeline_apply_module_pass(...)` case for `reorder-functions`.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt):8692 has no `run_hot_pipeline_apply_module_pass(...)` case for `reorder-functions`.
 - [`agent-todo.md`](../../../../../agent-todo.md) has no dedicated active implementation slice for `reorder-functions`.
 
 So the current local strategy is honest non-implementation: keep the name recognizable, reject active requests clearly, and document the future module-pass shape before adding code.
@@ -144,6 +147,8 @@ The current validation surfaces are indirect:
 - absence from active presets,
 - absence from module-pass dispatch in `src/passes/pass_manager.mbt`,
 - this wiki page and the raw primary-source manifest documenting the intended future shape.
+
+For the porting ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 When implemented, the minimum local tests should cover:
 

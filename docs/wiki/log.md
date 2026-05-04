@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `reorder-functions` current-main bridge
+
+- Rechecked `reorder-functions` against current `main` and found no teaching-relevant drift from the existing static-count declaration-order contract.
+- Added `docs/wiki/raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md` and `docs/wiki/raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md`, then added `docs/wiki/binaryen/passes/reorder-functions/starshine-port-readiness-and-validation.md` and refreshed the landing page, Binaryen strategy, implementation/test map, module-shape catalog, Starshine strategy, `docs/wiki/index.md`, and `docs/wiki/binaryen/passes/index.md` so the new freshness bridge is visible from the living dossier and shared catalogs.
+- Recorded unchanged local status: Starshine still treats `reorder-functions` as boundary-only with no owner file, no module dispatcher case, and no active backlog slice.
+
 ## [2026-05-04] health | refresh `reorder-types` current-main freshness
 
 - Rechecked `reorder-types` against current `main` and found no teaching-relevant drift from the existing GC-only, `--closed-world`, private-type layout contract.
