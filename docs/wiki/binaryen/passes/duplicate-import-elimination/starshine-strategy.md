@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
-  - ../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0269-2026-04-23-duplicate-import-elimination-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -25,12 +25,12 @@ related:
 
 # Starshine Strategy For `duplicate-import-elimination`
 
-Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md).
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md) and [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas future maintenance or late-preset work must hook into.
 
 ## The honest current status
 
-As of 2026-04-25, `duplicate-import-elimination` is implemented in Starshine as a small active module pass with the source-confirmed Binaryen `version_129` function-import-only contract.
+As of 2026-05-04, `duplicate-import-elimination` is implemented in Starshine as a small active module pass with the source-confirmed Binaryen `version_129` function-import-only contract.
 
 The current local strategy is no longer boundary-only tracking. The pass now:
 
@@ -108,7 +108,7 @@ The implementation follows the corrected Binaryen `version_129` contract:
 - full late-tail preset replay is still future work
 - non-function import deduplication is explicitly gated on future Binaryen evidence or deliberate Starshine divergence
 
-That matters because older local planning text used to be broader than upstream and described table/global/memory import-user patching as if it belonged to the reviewed contract. The 2026-04-25 current-main recheck keeps that older broad interpretation stale: the upstream pass is still function-import-only, keyed by `(module, base)`, gated by exact function-type equality, and limited to the function-name rewrite surface described in [`./identity-and-rewrite-surface.md`](./identity-and-rewrite-surface.md).
+That matters because older local planning text used to be broader than upstream and described table/global/memory import-user patching as if it belonged to the reviewed contract. The 2026-05-04 current-main recheck keeps that older broad interpretation stale: the upstream pass is still function-import-only, keyed by `(module, base)`, gated by exact function-type equality, and limited to the function-name rewrite surface described in [`./identity-and-rewrite-surface.md`](./identity-and-rewrite-surface.md).
 
 ## The right Starshine implementation shape
 

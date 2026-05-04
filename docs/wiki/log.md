@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `duplicate-import-elimination` source anchors
+
+- Revisited `docs/wiki/binaryen/passes/duplicate-import-elimination/` as part of a wiki-maintenance pass: updated the overview, Binaryen strategy, implementation/test-map, identity/rewrite-surface, WAT-shape, Starshine strategy, and catalog pages with a consistent `2026-05-04` `last_reviewed` stamp and the current raw source bridge.
+- Added `docs/wiki/raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md` as the new current-main no-drift checkpoint for the dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the refreshed provenance is discoverable from the shared catalogs.
+- Recorded unchanged contract status: `duplicate-import-elimination` still matches the function-import-only `version_129` contract on the reviewed surfaces, and no teaching-relevant current-main drift was found.
+
 ## [2026-05-04] health | refresh `string-gathering` source anchors
 
 - Revisited `docs/wiki/binaryen/passes/string-gathering/` as part of a wiki-maintenance pass: updated the overview, Binaryen strategy, implementation/test-map, reuse/order, WAT-shape, Starshine strategy, and port-readiness pages with a consistent `2026-05-04` `last_reviewed` stamp and exact local code anchors.

@@ -1,9 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
-  - ../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-duplicate-import-elimination-primary-sources.md
   - ../../../raw/research/0123-2026-04-20-duplicate-import-elimination-binaryen-research.md
   - ../../../raw/research/0205-2026-04-21-duplicate-import-elimination-source-confirmation-followup.md
@@ -31,7 +31,7 @@ related:
   - `test/passes/duplicate-import-elimination.wast`
   - `test/passes/duplicate-import-elimination.txt`
 
-Primary source URLs captured on 2026-04-23 and rechecked against current `main` on 2026-04-25:
+Primary source URLs captured on 2026-04-23 and rechecked against current `main` on 2026-05-04:
 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DuplicateImportElimination.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
@@ -40,7 +40,7 @@ Primary source URLs captured on 2026-04-23 and rechecked against current `main` 
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/passes/duplicate-import-elimination.txt>
 
-A narrow 2026-04-25 spot check of current Binaryen `main`, captured in [`../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-duplicate-import-elimination-current-main-recheck.md), did not surface teaching-relevant drift on the reviewed implementation, helper, registration, or dedicated-test surfaces.
+A narrow 2026-05-04 spot check of current Binaryen `main`, captured in [`../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-duplicate-import-elimination-current-main-recheck.md), did not surface teaching-relevant drift on the reviewed implementation, helper, registration, or dedicated-test surfaces.
 
 ## Main correction
 
