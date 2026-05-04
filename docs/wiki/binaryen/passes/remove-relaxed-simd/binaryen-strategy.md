@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md
+  - ../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md
@@ -36,7 +38,7 @@ This avoids pretending that one deterministic SIMD sequence is a faithful substi
 The same tag declares `createRemoveRelaxedSIMDPass()` in `src/passes/passes.h` and implements the pass in `src/passes/RemoveRelaxedSIMD.cpp`.
 The tagged changelog records the pass as a `version_126` addition.
 
-Current `main`, rechecked again on 2026-04-26 for port readiness, keeps the same public pass spelling, constructor, owner file, trap-replacement strategy, refinalization shape, and dedicated lit filename. The fresh recheck is captured in [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md).
+Current `main`, rechecked again on 2026-05-04 for freshness, keeps the same public pass spelling, constructor, owner file, trap-replacement strategy, refinalization shape, and dedicated lit filename. The fresh recheck is captured in [`../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md).
 
 ## Core rewrite algorithm
 
@@ -123,7 +125,7 @@ Binaryen therefore refinalizes after walking each function in the reviewed owner
 
 ## Current-main check
 
-The current-`main` files reviewed on 2026-04-25 still present the same core teaching-level contract as `version_129`:
+The current-`main` files reviewed on 2026-05-04 still present the same core teaching-level contract as `version_129`:
 
 - same owner file name;
 - same public pass spelling;
@@ -142,6 +144,8 @@ Before porting, source-confirm whether Starshine should add a separate metadata 
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md)
+- [`../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md)

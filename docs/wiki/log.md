@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `remove-relaxed-simd` current-main bridge
+
+- Revisited `docs/wiki/binaryen/passes/remove-relaxed-simd/` after a fresh current-main source recheck confirmed the existing trap-replacement / child-effect-preservation contract still matches current `main`.
+- Added `docs/wiki/raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md` and `docs/wiki/raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md`, then refreshed the landing page, Binaryen strategy, implementation/test-map, Starshine strategy, WAT-shape catalog, and Starshine port-readiness page so the freshness bridge is visible from the whole dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the new current-main recheck is discoverable from the shared catalogs.
+- Recorded unchanged contract status: Starshine still has no registered `remove-relaxed-simd` pass, and the follow-up port guidance remains registry honesty, child-effect preservation, typed `v128` trap contexts, ordinary-SIMD preservation, and explicit dot-product spelling decisions.
+
 ## [2026-05-04] health | correct `merge-blocks` upstream contract and add Starshine strategy page
 
 - Revisited `docs/wiki/binaryen/passes/merge-blocks/` after a fresh current-main source refresh showed the upstream pass is still the block-merging / loop-tail-merging family rather than the stale named-block deblocking model.
