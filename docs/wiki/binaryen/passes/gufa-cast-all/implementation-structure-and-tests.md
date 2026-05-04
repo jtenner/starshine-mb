@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md
+  - ../../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md
   - ../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md
@@ -169,10 +171,11 @@ That is useful because a reader could otherwise wrongly assume the two siblings 
 
 ## Current-main spot check
 
-For this dossier, the following public surfaces were checked as freshness guards:
+For this dossier, the following public surfaces were rechecked as freshness guards on 2026-05-04:
 
-- `src/passes/GUFA.cpp`,
-- `test/lit/passes/gufa-cast-all.wast`.
+- `src/passes/pass.cpp`
+- `src/passes/GUFA.cpp`
+- `test/lit/passes/gufa-cast-all.wast`
 
 On the reviewed surfaces, current `main` still matched the `version_129` behavior this dossier teaches closely enough that the tagged release remains a stable oracle for the sibling. That is a reviewed-surface inference, not a full-file identity proof.
 

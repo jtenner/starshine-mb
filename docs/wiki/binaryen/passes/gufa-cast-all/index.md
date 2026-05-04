@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md
+  - ../../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md
   - ../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md
@@ -55,6 +57,7 @@ So the pass is best read as:
 ## Current durable takeaways
 
 - Binaryen `version_129` implements `gufa-cast-all` in the shared [`GUFA.cpp`](https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/GUFA.cpp) engine with `optimizing = false` and `castAll = true`.
+- The 2026-05-04 current-main recheck confirmed the same shared-engine split and `addNewCasts(func)` shape still hold on the reviewed surfaces.
 - The whole-program proof engine is still `ContentOracle` from [`possible-contents.h`](https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/possible-contents.h).
 - After a changed function is rewritten, Binaryen refinalizes it, and the cast-all-only `addNewCasts(func)` walk can insert fresh `ref.cast` nodes.
 - `addNewCasts` is GC-gated, only uses castable reference-typed sites, requires a real subtype improvement, and downgrades exact targets when custom descriptors are unavailable.

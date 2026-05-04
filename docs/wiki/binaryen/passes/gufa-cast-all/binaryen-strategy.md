@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md
+  - ../../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md
   - ../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0190-2026-04-21-gufa-cast-all-binaryen-research.md
@@ -20,9 +22,12 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass, with the 2026-04-24 raw manifest as the durable reviewed-source set:
+Use Binaryen `version_129` as the current source oracle for this pass, with the 2026-05-04 current-main recheck as the freshness check and the 2026-04-24 raw manifest as the durable reviewed-source set:
 
+- [`../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md)
+
+The 2026-05-04 recheck did not change the teaching contract; it only refreshed the source anchor.
 
 The core implementation is the shared `src/passes/GUFA.cpp` engine. Public registration comes from `src/passes/pass.cpp`, whole-program facts come from `src/ir/possible-contents.h`, and the strongest dedicated behavior file is `test/lit/passes/gufa-cast-all.wast`.
 

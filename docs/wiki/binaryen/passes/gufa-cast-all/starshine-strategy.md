@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md
+  - ../../../raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-cast-all-primary-sources.md
   - ../../../raw/research/0312-2026-04-24-gufa-cast-all-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -67,8 +69,8 @@ That means a faithful Starshine port needs module-level value/type evidence befo
 
 | Local surface | Current role for this pass |
 | --- | --- |
-| `src/passes/optimize.mbt` | Boundary-only registry entry for `gufa-cast-all`; lower-level expansion rejects boundary-only names with an honest not-implemented message. |
-| `src/cmd/cmd.mbt` | Command pass parsing admits only hot/module/preset names, so explicit CLI requests are rejected before dispatch. |
+| `src/passes/optimize.mbt#L127-L137`, `#L488-L497` | Boundary-only registry entry for `gufa-cast-all`; lower-level expansion rejects boundary-only names with an honest not-implemented message. |
+| `src/cmd/cmd.mbt#L616-L618` | Command pass parsing admits only hot/module/preset names, so explicit CLI requests are rejected before dispatch. |
 | `src/passes/pass_manager.mbt` | Active HOT dispatcher; contains no GUFA-family case and no post-refinalize cast-all phase. |
 | `src/lib/types.mbt` | Defines `Instruction::RefCast`, `Instruction::RefCastDescEq`, and constructor helpers; future code can represent inserted casts here. |
 | `src/ir/hot_core.mbt` | Defines HOT `RefCast` / `RefCastDescEq` opcodes, so the HOT IR can carry cast nodes. |
@@ -124,3 +126,5 @@ A useful first validation ladder would be:
 ## Current local conclusion
 
 Starshine should keep `gufa-cast-all` as boundary-only until the whole-program GUFA oracle exists. The local IR, WAT, validator, and binary layers can already carry many ordinary and descriptor cast shapes, but those lower-level surfaces are only prerequisites. They are not a cast-all implementation by themselves.
+
+The 2026-05-04 recheck only refreshed the provenance and exact local line anchors; it did not change the boundary-only conclusion.

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `gufa-cast-all` source anchors
+
+- Revisited `docs/wiki/binaryen/passes/gufa-cast-all/` as part of a wiki-maintenance pass: updated the overview, Binaryen strategy, implementation/test-map, cast-boundary page, WAT-shape, Starshine strategy, and catalog pages with a consistent `2026-05-04` `last_reviewed` stamp and a new current-main raw source recheck.
+- Added `docs/wiki/raw/binaryen/2026-05-04-gufa-cast-all-current-main-recheck.md` and `docs/wiki/raw/research/0432-2026-05-04-gufa-cast-all-current-main-recheck.md` as the new current-main no-drift checkpoints for the dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the refreshed provenance is discoverable from the shared catalogs.
+- Recorded unchanged contract status: `gufa-cast-all` still matches the source-backed `version_129` algorithm on the reviewed surfaces, and the 2026-05-04 recheck did not surface teaching-relevant drift.
+
 ## [2026-05-04] health | refresh `duplicate-function-elimination` source anchors
 
 - Revisited `docs/wiki/binaryen/passes/duplicate-function-elimination/` as part of a wiki-maintenance pass: updated the overview, Binaryen strategy, implementation/test-map, WAT-shape, Starshine strategy, scheduler/validation bridge, parity page, and type-compaction split with a consistent `2026-05-04` `last_reviewed` stamp and a new current-main raw source recheck.
