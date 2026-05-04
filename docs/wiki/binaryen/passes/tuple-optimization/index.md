@@ -80,10 +80,7 @@ It is a source-backed clarification pass over a real existing dossier.
 ## Current status summary
 
 - The explicit Starshine pass exists and is wired into the pass manager and CLI.
-- The public `optimize` and `shrink` presets still intentionally omit it because the exact Binaryen slot requires real neighbors on both sides:
-  - `code-pushing`
-  - `tuple-optimization`
-  - `simplify-locals-nostructure`
+- The public `optimize` and `shrink` presets still intentionally omit it because exact preset-slot parity and runtime-budget proof are still open, even though the neighboring `code-pushing` and `simplify-locals-nostructure` surfaces are now represented locally.
 - Current reduced native-compare coverage is green.
 - Current full-artifact comparison is canonically green on the per-function fallback surface, but exact preset-slot parity and runtime budget are still open.
 - Raw normalized WAT text is still too strict to use as the only tuple-opt parity oracle.

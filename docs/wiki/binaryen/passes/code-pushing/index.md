@@ -67,7 +67,7 @@ Keep the useful part of the 2026-04-25 warning: do not teach arbitrary two-live-
 
 - Binaryen schedules `code-pushing` in the canonical no-DWARF function pipeline between `precompute` and the tuple/local-cleanup neighborhood.
 - The saved generated-artifact `-O4z` audit recorded it as top-level skipped slot `20` before Starshine grew the current direct subset.
-- Starshine's `tuple-optimization` exact-slot story still depends on this pass and `simplify-locals-nostructure` being represented honestly.
+- Starshine's `tuple-optimization` exact-slot story still depends on this pass and the now-active `simplify-locals-nostructure` neighbor being represented honestly in the scheduler and preset replay.
 - The pass is easy to over-broaden. Correctness depends on SFA local proofs, effect invalidation, trap policy, GC/reference behavior, EH, and post-if read rules.
 
 ## Inputs and outputs

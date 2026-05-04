@@ -67,7 +67,7 @@ What is intentionally still missing:
 
 - preset inclusion in `optimize`
 - preset inclusion in `shrink`
-- exact preset-level multivalue slot coverage once the surrounding Binaryen neighbors are present in-tree
+- exact preset-level multivalue slot coverage and ordered replay proof for the surrounding Binaryen neighborhood
 
 ## Why Presets Still Omit The Pass
 
@@ -75,15 +75,15 @@ Starshine has an explicit helper:
 
 - `tuple_optimization_exact_slot_prereqs_ready()`
 
-Today that helper requires:
+Today that helper checks the two neighbor passes and now resolves true in-tree:
 
-- `code-pushing` to exist as a real hot pass
-- `simplify-locals-no-structure` to exist as a real hot pass
+- `code-pushing`
+- `simplify-locals-no-structure` / `simplify-locals-nostructure`
 
 Current result:
 
-- that helper does not unlock preset inclusion yet
-- the `optimize` and `shrink` preset builders still intentionally ignore it and return a pass list without tuple-opt
+- the helper no longer blocks on pass availability
+- the `optimize` and `shrink` preset builders still intentionally ignore it pending ordered-neighborhood replay and exact slot proof
 
 Why this is the correct temporary behavior:
 

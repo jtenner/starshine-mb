@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | retire stale `simplify-locals-nostructure` neighbor wording
+
+- Revisited `docs/wiki/binaryen/passes/code-pushing/` and `docs/wiki/binaryen/passes/tuple-optimization/` after the direct `simplify-locals-nostructure` landing: removed the stale “missing neighbor” wording, clarified that the local no-structure pass is now active, and kept public preset omission framed as an ordered-neighborhood / exact-slot proof question instead of an availability gap.
+- Updated the `code-pushing` and `tuple-optimization` living pages so their scheduler explanations now match the active `simplify-locals-nostructure` status and the remaining preset-parity work.
+
 ## [2026-05-04] health | add `simplify-locals-notee-nostructure` validation bridge
 
 - Revisited `docs/wiki/binaryen/passes/simplify-locals-notee-nostructure/` as part of a wiki-maintenance pass: added a dedicated port-readiness / validation bridge, aligned the folder's page map and cross-links, and refreshed the shared catalogs so the missing companion page is now discoverable.

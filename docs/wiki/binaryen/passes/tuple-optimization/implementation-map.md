@@ -57,9 +57,9 @@ related:
   - registry entry in `pass_registry_entries()`
 - `src/passes/optimize.mbt:374-379`
   - `tuple_optimization_exact_slot_prereqs_ready()`
-  - current exact-slot gate that still depends on missing neighbors
+  - current exact-slot gate now resolves against the active `code-pushing` and `simplify-locals-nostructure` neighbors
 - `src/passes/optimize.mbt:380-392`
-  - explicit comment and code keeping `tuple-optimization` out of public presets for now
+  - explicit comment and code keeping `tuple-optimization` out of public presets for now, pending ordered-neighborhood replay proof
 - `src/passes/registry_test.mbt:172-185`
   - focused registry acceptance test
 

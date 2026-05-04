@@ -46,7 +46,7 @@ The current implementation is deliberately narrower than Binaryen:
    - A block next to an `unreachable` parent context can be flattened when branch and multivalue guards prove the splice safe.
    - This is local cleanup bundled in the current pass, not a source-confirmed upstream Binaryen `code-pushing` family.
 
-The pass is **not** in the public `optimize` / `shrink` presets yet. That is intentional: the exact Binaryen scheduler slot still depends on broader `code-pushing` parity and the missing `simplify-locals-nostructure` neighbor.
+The pass is **not** in the public `optimize` / `shrink` presets yet. That is intentional: the exact Binaryen scheduler slot still depends on broader `code-pushing` parity and ordered replay around `simplify-locals-nostructure`, which is now active locally.
 
 ## Exact local code map
 
@@ -127,7 +127,7 @@ Reason:
 
 - the canonical Binaryen no-DWARF slot places `code-pushing` before `tuple-optimization`;
 - `tuple_optimization_exact_slot_prereqs_ready()` still requires both `code-pushing` and `simplify-locals-no-structure` to be active before claiming the exact slot;
-- `simplify-locals-nostructure` remains missing locally;
+- `simplify-locals-nostructure` is now active locally; the remaining question is ordered preset replay, not implementation availability.
 - and current `code-pushing` is still only a conservative subset.
 
 So the honest local status is:
@@ -160,7 +160,7 @@ Read these together with this page:
 - [`../tuple-optimization/index.md`](../tuple-optimization/index.md)
   - intended downstream consumer once exact-slot gating is honest.
 - [`../simplify-locals-nostructure/index.md`](../simplify-locals-nostructure/index.md)
-  - missing right neighbor for the exact Binaryen early cleanup cluster.
+  - now-active right neighbor for the exact Binaryen early cleanup cluster; preset placement still needs ordered replay proof.
 
 ## Bottom line
 
