@@ -17,6 +17,37 @@ pub fn simplify_locals_summary() -> String {
 }
 
 ///|
+pub fn simplify_locals_nostructure_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new("simplify-locals-nostructure", requires=[], invalidates=[
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::dominance(),
+    @ir.HotAnalysis::liveness(),
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+    @ir.HotAnalysis::loop_info(),
+    @ir.HotAnalysis::ssa(),
+  ])
+}
+
+///|
+fn simplify_locals_nostructure_alias_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new("simplify-locals-no-structure", requires=[], invalidates=[
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::dominance(),
+    @ir.HotAnalysis::liveness(),
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+    @ir.HotAnalysis::loop_info(),
+    @ir.HotAnalysis::ssa(),
+  ])
+}
+
+///|
+pub fn simplify_locals_nostructure_summary() -> String {
+  "Run the no-structure SimplifyLocals variant: sink local traffic and dead writes without synthesizing block/if/loop result rewrites."
+}
+
+///|
 priv struct SimplifyLocalsEffects {
   mask : @ir.EffectMask
   local_reads : Array[Int]
@@ -4345,9 +4376,10 @@ fn simplify_locals_run_dead_cleanup(
 }
 
 ///|
-fn simplify_locals_run(
+fn simplify_locals_run_with_options(
   ctx : HotPassContext,
   func : @ir.HotFunc,
+  allow_structure_rewrites : Bool,
 ) -> HotPassResult {
   let mut first_cycle = true
   let mut changed = false
@@ -4413,33 +4445,35 @@ fn simplify_locals_run(
       continue
     }
 
-    let structure_start_us = perf_start_timer_opt(
-      ctx.perf,
-      "detail:simplify-locals:structure",
-    )
-    let structure_detached : Array[Int] = []
-    let structure_changed = simplify_locals_run_structure_rewrites(
-      func, structure_detached,
-    )
-    perf_stop_timer_opt(
-      ctx.perf,
-      "detail:simplify-locals:structure",
-      structure_start_us,
-    )
-    let structure_delete_start_us = perf_start_timer_opt(
-      ctx.perf,
-      "detail:simplify-locals:delete-structure-detached",
-    )
-    simplify_locals_delete_detached_nodes(func, structure_detached)
-    perf_stop_timer_opt(
-      ctx.perf,
-      "detail:simplify-locals:delete-structure-detached",
-      structure_delete_start_us,
-    )
+    if allow_structure_rewrites {
+      let structure_start_us = perf_start_timer_opt(
+        ctx.perf,
+        "detail:simplify-locals:structure",
+      )
+      let structure_detached : Array[Int] = []
+      let structure_changed = simplify_locals_run_structure_rewrites(
+        func, structure_detached,
+      )
+      perf_stop_timer_opt(
+        ctx.perf,
+        "detail:simplify-locals:structure",
+        structure_start_us,
+      )
+      let structure_delete_start_us = perf_start_timer_opt(
+        ctx.perf,
+        "detail:simplify-locals:delete-structure-detached",
+      )
+      simplify_locals_delete_detached_nodes(func, structure_detached)
+      perf_stop_timer_opt(
+        ctx.perf,
+        "detail:simplify-locals:delete-structure-detached",
+        structure_delete_start_us,
+      )
 
-    if structure_changed {
-      changed = true
-      continue
+      if structure_changed {
+        changed = true
+        continue
+      }
     }
 
     let local_count = @ir.hot_local_count(func)
@@ -4512,4 +4546,20 @@ fn simplify_locals_run(
   }
   pass_mark_mutated(ctx, func)
   HotPassResult::changed()
+}
+
+///|
+fn simplify_locals_run(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> HotPassResult {
+  simplify_locals_run_with_options(ctx, func, true)
+}
+
+///|
+fn simplify_locals_nostructure_run(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> HotPassResult {
+  simplify_locals_run_with_options(ctx, func, false)
 }

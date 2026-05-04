@@ -199,8 +199,8 @@ test "run_hot_pipeline stages nested branch-exit triple-result roots through spl
 }
 
 ///|
-test "tuple-optimization exact preset slot remains unavailable while no-structure neighbor is missing" {
-  assert_false(tuple_optimization_exact_slot_prereqs_ready())
+test "tuple-optimization exact preset prereqs see no-structure pass but presets stay conservative" {
+  assert_true(tuple_optimization_exact_slot_prereqs_ready())
   assert_false(
     optimize_preset_passes(HotPipelineOptions::new()).contains(
       "tuple-optimization",

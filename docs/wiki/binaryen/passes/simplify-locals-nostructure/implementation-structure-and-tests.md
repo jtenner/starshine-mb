@@ -205,28 +205,24 @@ Use neighbor tests only for contrast.
 
 ## Starshine follow-along map
 
-Starshine does not currently implement this pass.
-The current local code map is still useful because it shows exactly how the missing pass is tracked.
+Starshine now implements this pass as an active direct hot pass.
 
 | Local surface | Current role |
 | --- | --- |
-| `src/passes/optimize.mbt:143-151` | `simplify-locals-no-structure` is a removed-name registry entry |
-| `src/passes/optimize.mbt:377-381` | tuple exact-slot helper stays false until the no-structure neighbor becomes active |
-| `src/passes/optimize.mbt:385-407` | optimize/shrink preset lists stay honest instead of scheduling the exact tuple slot prematurely |
-| `src/passes/optimize_test.mbt:202-209` | regression for the current slot-blocker state |
-| `src/passes/pass_manager.mbt:8701-8704` | active neighbor dispatch exists for `code-pushing`, `tuple-optimization`, full `simplify-locals`, and `merge-blocks`, but not this removed variant |
-| `src/passes/simplify_locals.mbt:2-16` | full `simplify-locals` descriptor and summary; nearest landed local implementation, not the missing variant |
-| `src/passes/simplify_locals.mbt:70-227` | current sinkable/effect-conflict data structures a future no-structure port would likely narrow and reuse |
-| `src/passes/simplify_locals.mbt:995-1012` | current full-pass conflict invalidation surface |
-| `src/passes/simplify_locals.mbt:2416-2508` | current full-pass structured-control scanning boundary |
-| `src/passes/simplify_locals.mbt:4132-4162` | current full-pass main-cycle setup and get-counting surface |
-| `agent-todo.md:284-293` | `SLNS` backlog slice and deliverables |
+| `src/passes/optimize.mbt` | active hot entries for `simplify-locals-nostructure` and alias `simplify-locals-no-structure`; presets remain conservative |
+| `src/passes/optimize_test.mbt` | regression that the no-structure neighbor is active while public presets still avoid premature tuple-slot scheduling |
+| `src/passes/pass_manager.mbt` | dispatches both spellings to the no-structure runner and shares raw simplify-locals artifact gates |
+| `src/passes/simplify_locals.mbt` | owns the no-structure descriptor, alias descriptor, summary, and runner; reuses local sink/dead cleanup while disabling structure-result rewrites |
+| `src/passes/simplify_locals_nostructure_test.mbt` | focused positive and no-structure negative tests |
+| `scripts/lib/pass-fuzz-compare-task.ts` | compare-pass harness canonical/alias support |
+| `scripts/lib/self-optimize-compare-task.ts` | debug-artifact compare canonical/alias support |
+| `agent-todo.md` | direct slice evidence plus remaining ordered-neighborhood preset follow-up |
 
-The key local caveat is that these surfaces are evidence of tracking and reusable infrastructure, not evidence of an implemented no-structure transform.
+The key local caveat is now preset scope, not direct implementation: the direct pass is oracle-checked, but public `optimize` / `shrink` placement waits on ordered-neighborhood replay.
 
-## Validation checklist for a future Starshine port
+## Validation checklist for Starshine preset follow-up
 
-A faithful Starshine port should add proof in this order:
+Direct pass proof is landed. Future preset work should add proof in this order:
 
 1. **Variant identity tests**
    - tee-enabled multi-use positive;

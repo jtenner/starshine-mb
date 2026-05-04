@@ -129,6 +129,8 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--precompute",
   "--code-pushing",
   "--simplify-locals",
+  "--simplify-locals-nostructure",
+  "--simplify-locals-no-structure",
   "--merge-blocks",
   "--redundant-set-elimination",
   "--memory-packing",
@@ -149,6 +151,7 @@ const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--dead-code-elimination", "--dce"],
   ["--global-struct-inference", "--gsi"],
   ["--redundant-set-elimination", "--rse"],
+  ["--simplify-locals-no-structure", "--simplify-locals-nostructure"],
 ]);
 
 const HELP_TEXT = [

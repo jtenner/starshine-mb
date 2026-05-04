@@ -205,6 +205,10 @@ pub fn shrink_preset_passes(HotPipelineOptions) -> Array[String]
 
 pub fn simplify_locals_descriptor() -> @ir.HotPassDescriptor
 
+pub fn simplify_locals_nostructure_descriptor() -> @ir.HotPassDescriptor
+
+pub fn simplify_locals_nostructure_summary() -> String
+
 pub fn simplify_locals_summary() -> String
 
 pub fn ssa_nomerge_descriptor() -> @ir.HotPassDescriptor

@@ -45,6 +45,14 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("simplify-locals-nostructure"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
+    pass_registry_category("simplify-locals-no-structure"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("merge-blocks"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -130,6 +138,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let hso = heap_store_optimization_descriptor()
   let h2l = heap2local_descriptor()
   let locals = simplify_locals_descriptor()
+  let locals_nostructure = simplify_locals_nostructure_descriptor()
   let merge_blocks = merge_blocks_descriptor()
   let rse = rse_descriptor()
   let rub = remove_unused_brs_descriptor()
@@ -153,6 +162,8 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(@ir.hot_pass_requires(h2l), [@ir.HotAnalysis::use_def()])
   assert_eq(locals.name, "simplify-locals")
   assert_eq(@ir.hot_pass_requires(locals), [])
+  assert_eq(locals_nostructure.name, "simplify-locals-nostructure")
+  assert_eq(@ir.hot_pass_requires(locals_nostructure), [])
   assert_eq(merge_blocks.name, "merge-blocks")
   assert_eq(@ir.hot_pass_requires(merge_blocks), [])
   assert_eq(rse.name, "redundant-set-elimination")

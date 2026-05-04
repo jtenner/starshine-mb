@@ -276,21 +276,12 @@ Observed unique-pass order
    - If a parity gap only appears in explicit HOT tuple pseudo-op unit coverage, slice that follow-up separately instead of bundling it into the first HOT-native port.
 
 #### SLNS - Simplify Locals No-Structure
-1. Research exact functionality in document.
-   - Research exactly how it works with a document: [0066#L223](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L223)
-2. Slice gameplan in `agent-todo.md` and determine deliverables.
-   - [SLNS]001 - Early Local Simplification Core - Port the local-traffic reductions Binaryen runs before it is willing to reshape structure.
-     - Deliverables: simplify sets, gets, and dead locals without creating new structured returns; preserve later coalescing opportunities; integrate with current local analyses.
-     - Doc: [0066#L223](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L223)
-   - [SLNS]002 - Early-Slot Regression and Artifact Proof - Lock the no-structure contract into tests and compare the early local-cleanup prefix against Binaryen.
-     - Deliverables: add regressions for tee-like traffic and tuple scratch locals; confirm structure is intentionally preserved; replay parity for the pass on the debug artifact.
-     - Doc: [0066#L223](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L223)
-3. Do work.
-   - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
-   - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.
-4. Test against binaryen.
-   - Add edge-case and regression tests beside the implementing file and any scheduler or dispatcher coverage needed for the pass.
-   - Compare Starshine vs Binaryen with `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --<pass>` and any required ordered-prefix replay.
+1. Direct pass landed.
+   - [SLNS]001 and [SLNS]002 are complete for explicit `--simplify-locals-nostructure`: registry/dispatcher/CLI/harness alias wiring is active, `src/passes/simplify_locals_nostructure_test.mbt` locks straight-line cleanup plus no-structure negative behavior, and the implementation reuses `simplify_locals.mbt` local-sink/dead-cleanup cycles while disabling structure-result rewrites.
+   - Fresh oracle evidence: `.tmp/pass-fuzz-slns-genvalid-10000-after-raw` is `10000/10000` normalized matches with `0` mismatches / validation failures / command failures; `.tmp/pass-fuzz-slns-10000-keepgoing-after-raw` is `9975/10000` comparable mixed-generator matches with `0` mismatches and `25` Binaryen-side command failures; `.tmp/self-opt-slns-direct-rerun` is normalized-WAT and canonical-function equal on `tests/node/dist/starshine-debug-wasi.wasm`.
+2. Remaining active work.
+   - Keep the direct pass out of public `optimize` / `shrink` presets until ordered-neighborhood replay proves the exact `tuple-optimization -> simplify-locals-nostructure -> vacuum -> reorder-locals` slot.
+   - Revisit preset placement together with later local-neighborhood passes (`coalesce-locals`, `local-cse`) instead of treating the direct pass alone as full no-DWARF / O4z preset proof.
 
 #### VQ - Vacuum
 1. Research exact functionality in document.

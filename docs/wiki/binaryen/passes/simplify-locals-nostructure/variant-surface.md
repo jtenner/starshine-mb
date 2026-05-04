@@ -284,9 +284,9 @@ So the early and late simplify-locals passes are meant to be different tools, no
 
 Current Starshine still does **not** implement this variant, but the local planning story is already precise enough to matter:
 
-- `src/passes/optimize.mbt` tracks the local spelling `simplify-locals-no-structure` in the removed-name registry
-- the same file keeps `tuple_optimization_exact_slot_prereqs_ready()` false until this missing right neighbor lands
-- `src/passes/optimize_test.mbt` locks that honesty rule in place with the tuple-slot blocker regression
+- `src/passes/optimize.mbt` registers upstream spelling `simplify-locals-nostructure` as active and keeps local spelling `simplify-locals-no-structure` as an alias
+- the same file now lets `tuple_optimization_exact_slot_prereqs_ready()` see the no-structure neighbor as active while keeping public presets conservative
+- `src/passes/optimize_test.mbt` locks that honesty rule in place with the conservative-preset regression
 - [`./starshine-strategy.md`](./starshine-strategy.md) now ties that blocker story to the practical MoonBit landing zone in `src/passes/simplify_locals.mbt`, `src/passes/reorder_locals.mbt`, `src/passes/pass_manager_wbtest.mbt`, and `src/cmd/cmd_wbtest.mbt`
 
 So the variant surface is now linked directly to the local port-planning story instead of floating as an upstream-only note.

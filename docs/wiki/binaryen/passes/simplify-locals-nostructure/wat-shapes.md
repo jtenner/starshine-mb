@@ -442,8 +442,8 @@ This is handled by `UnneededSetRemover`, not the main sink loop.
 
 Current Starshine does **not** implement these rewrites yet, but the local planning story is now explicit:
 
-- the local removed-name spelling is tracked in `src/passes/optimize.mbt`
-- the tuple exact-slot gate and its optimize-test regression already treat this pass as a real missing neighbor
+- the local alias spelling is active in `src/passes/optimize.mbt`
+- the tuple exact-slot gate sees this pass as active while optimize/shrink preset tests still require ordered-neighborhood proof before scheduling
 - the practical local landing zone now lives in [`./starshine-strategy.md`](./starshine-strategy.md), which points future work at `src/passes/simplify_locals.mbt`, `src/passes/reorder_locals.mbt`, `src/passes/pass_manager_wbtest.mbt`, and `src/cmd/cmd_wbtest.mbt`
 
 So these shapes are now tied directly to the future MoonBit port path instead of only to upstream Binaryen.

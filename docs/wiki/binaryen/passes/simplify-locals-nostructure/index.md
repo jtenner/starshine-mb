@@ -35,8 +35,8 @@ related:
 ## Role
 
 - `simplify-locals-nostructure` is an upstream Binaryen early locals-cleanup pass.
-- It is currently **unimplemented** in Starshine and still lives only as a removed-name placeholder in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- The upstream Binaryen name is `simplify-locals-nostructure`, while the current removed-name placeholder in Starshine is spelled `simplify-locals-no-structure`.
+- It is now an active direct hot pass in Starshine, implemented in [`../../../../../src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt) and registered in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- The upstream Binaryen name is `simplify-locals-nostructure`, while Starshine also accepts compatibility spelling `simplify-locals-no-structure` as an alias.
 - Despite the name, Binaryen `version_129` does **not** use this pass for “flat locals only” or “no tee.” The real contract is narrower: run the shared simplify-locals engine with teeing still enabled and structure-building rewrites disabled.
 
 ## Why it matters
@@ -44,8 +44,8 @@ related:
 - The canonical Binaryen no-DWARF `-O` / `-Os` function pipeline runs `simplify-locals-nostructure` after `code-pushing` plus `tuple-optimization` and before `vacuum` plus the first `reorder-locals`.
 - The saved generated-artifact `-O4z` audit records it as a real skipped top-level upstream slot:
   - top-level slot `22`
-- The repo backlog already treats it as a real parity blocker under slice `SLNS` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
-- The current Starshine tuple-slot gate also treats it as a real missing neighbor: `tuple_optimization_exact_slot_prereqs_ready()` stays false until both `code-pushing` and `simplify-locals-no-structure` stop being removed placeholders.
+- The repo backlog records the direct `SLNS` slice as landed and keeps ordered preset-neighborhood replay as the remaining follow-up in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
+- The current Starshine tuple-slot gate now sees the no-structure pass as active, but the public presets still stay conservative until the broader ordered local neighborhood is proven.
 - The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**. A focused 2026-05-04 current-`main` recheck found no teaching-relevant drift beyond the current dossier claims. See [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md).
 
 ## Beginner summary
@@ -75,27 +75,27 @@ That is narrower than “full simplify-locals.”
   - one-armed `if` speculative else-side `local.get` insertion
 - The first fixpoint cycle is still stricter than later ones: it only sinks easy single-use locals.
 - The main analysis is deliberately linear-trace based and uses directional effect invalidation instead of whole-function CFG reasoning.
-- Current Starshine still has **no transform** for this pass, but the dossier now has dedicated implementation/test-map, status / port-map, and validation pages tying together upstream proof files, removed-name registry, tuple-slot blocker, backlog slice, scheduler note, dispatcher gap, and neighboring MoonBit implementation files.
+- Current Starshine has a direct transform for this pass: it reuses the existing local-sink/dead-cleanup cycles from full `simplify-locals` while disabling structure-result rewrites, and its direct oracle evidence is recorded in the strategy page.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
   Deep dive into the actual Binaryen `version_129` implementation: template identity, first-cycle versus later-cycle behavior, linear-trace sink state, effect barriers, late equivalent-get canonicalization, final dead-set cleanup, and scheduler placement.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  Source-confirmed owner/helper/test map for the no-structure variant, including the current-main no-drift bridge, `pass.h` nondefaultable-local fixup postcondition, and exact Starshine registry / slot-blocker / dispatcher-gap line ranges.
+  Source-confirmed owner/helper/test map for the no-structure variant, including the current-main no-drift bridge, `pass.h` nondefaultable-local fixup postcondition, and exact Starshine registry / slot-blocker / dispatcher line ranges.
 - [`./variant-surface.md`](./variant-surface.md)
   Focused guide to the easiest part of the pass to misunderstand: what “no structure” actually toggles, what it surprisingly leaves on, and how it differs from `simplify-locals`, `simplify-locals-notee-nostructure`, and `simplify-locals-nonesting`.
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future port map: removed-name registry tracking, tuple exact-slot blocker coverage, backlog slice `SLNS`, canonical no-DWARF slot, and the practical MoonBit local-cleanup / local-index rewrite files that a future port would compose with.
+  Current Starshine status: active hot pass plus alias, implementation shape, direct parity evidence, canonical no-DWARF slot, and conservative preset-neighborhood follow-up.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation-readiness bridge: first slice, negative tests, scheduler honesty, and Binaryen oracle lanes.
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `simplify-locals-nostructure` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
+- Treat this folder as the canonical home for `simplify-locals-nostructure` research, direct-pass validation, and preset-neighborhood planning.
+- Keep direct-pass evidence and ordered-preset status separate: the pass is active, but public `optimize` / `shrink` placement still needs ordered replay.
 - New `simplify-locals-nostructure` findings should update the strategy, implementation/test-map, variant-surface, and Starshine pages together so the upstream algorithm, source proof surface, variant boundary, and local port story stay aligned.
 
 ## Sources

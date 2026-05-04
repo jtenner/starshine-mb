@@ -89,6 +89,7 @@ const BINARYEN_FLAG_ALIASES = new Map<string, string>([
   ["--dead-argument-elimination-optimizing", "--dae-optimizing"],
   ["--global-struct-inference", "--gsi"],
   ["--redundant-set-elimination", "--rse"],
+  ["--simplify-locals-no-structure", "--simplify-locals-nostructure"],
 ]);
 
 const STARSHINE_FLAG_ALIASES = new Map<string, string>([
@@ -97,6 +98,7 @@ const STARSHINE_FLAG_ALIASES = new Map<string, string>([
   ["--dce", "--dead-code-elimination"],
   ["--gsi", "--global-struct-inference"],
   ["--rse", "--redundant-set-elimination"],
+  ["--simplify-locals-no-structure", "--simplify-locals-nostructure"],
 ]);
 
 const UNSUPPORTED_PRESET_FLAGS = new Set(["--optimize", "--shrink"]);

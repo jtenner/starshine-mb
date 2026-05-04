@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-04 Pass: implement `simplify-locals-nostructure`
+
+- **land active direct `simplify-locals-nostructure` hot pass with `simplify-locals-no-structure` alias, no-structure cleanup tests, registry/dispatcher/CLI/harness wiring, 10k gen-valid and mixed-generator compare evidence, and debug-artifact self-opt parity while leaving public preset placement for ordered-neighborhood replay** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-strategy.md`](./docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-strategy.md), [`src/passes/simplify_locals.mbt`](./src/passes/simplify_locals.mbt), [`src/passes/simplify_locals_nostructure_test.mbt`](./src/passes/simplify_locals_nostructure_test.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt), and [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts).
+
 ## 2026-05-03 Pass: pre-skip DCE debug-artifact no-op carriers
 
 - **cut direct `dead-code-elimination` debug-artifact pass time by pre-skipping original suspicious escape-carrier functions and large-local artifact no-op families that would be discarded or canonically unchanged, preserving canonical parity while reducing the measured pass lane from ~1959ms to ~107ms** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), and [`src/cmd/cmd_wbtest.mbt`](./src/cmd/cmd_wbtest.mbt).

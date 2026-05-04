@@ -146,7 +146,7 @@ fn pass_registry_removed_names() -> Array[String] {
     "local-cse", "local-subtyping", "loop-invariant-code-motion", "merge-locals",
     "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
     "precompute-propagate", "optimize-casts", "de-nan", "simplify-locals-no-tee",
-    "simplify-locals-no-structure", "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
+    "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
   ]
 }
 
@@ -225,6 +225,16 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "simplify-locals",
       simplify_locals_summary(),
       simplify_locals_descriptor(),
+    ),
+    pass_registry_entry_hot(
+      "simplify-locals-nostructure",
+      simplify_locals_nostructure_summary(),
+      simplify_locals_nostructure_descriptor(),
+    ),
+    pass_registry_entry_hot(
+      "simplify-locals-no-structure",
+      simplify_locals_nostructure_summary(),
+      simplify_locals_nostructure_alias_descriptor(),
     ),
     pass_registry_entry_hot(
       "merge-blocks",
@@ -397,7 +407,7 @@ pub fn pass_registry_category(name : String) -> HotPassRegistryCategory? {
 pub fn tuple_optimization_exact_slot_prereqs_ready() -> Bool {
   pass_registry_category("code-pushing") ==
   Some(HotPassRegistryCategory::hot_pass()) &&
-  pass_registry_category("simplify-locals-no-structure") ==
+  pass_registry_category("simplify-locals-nostructure") ==
   Some(HotPassRegistryCategory::hot_pass())
 }
 

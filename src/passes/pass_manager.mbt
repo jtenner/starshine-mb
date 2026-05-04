@@ -4302,7 +4302,9 @@ fn run_hot_pipeline_raw_simplify_locals(
   descriptor : @ir.HotPassDescriptor,
   options : HotPipelineOptions,
 ) -> HotPipelineFuncResult? {
-  if descriptor.name != "simplify-locals" {
+  if descriptor.name != "simplify-locals" &&
+    descriptor.name != "simplify-locals-nostructure" &&
+    descriptor.name != "simplify-locals-no-structure" {
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
@@ -7815,7 +7817,9 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
   func : @lib.Func,
   descriptor_name : String,
 ) -> @lib.Func {
-  if descriptor_name != "simplify-locals" {
+  if descriptor_name != "simplify-locals" &&
+    descriptor_name != "simplify-locals-nostructure" &&
+    descriptor_name != "simplify-locals-no-structure" {
     return func
   }
   let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(func)
@@ -7826,7 +7830,9 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
 fn run_hot_pipeline_lower_options_for_descriptor(
   descriptor_name : String,
 ) -> @ir.HotLowerOptions {
-  if descriptor_name == "simplify-locals" {
+  if descriptor_name == "simplify-locals" ||
+    descriptor_name == "simplify-locals-nostructure" ||
+    descriptor_name == "simplify-locals-no-structure" {
     @ir.HotLowerOptions::new(
       preserve_if_arm_single_nops=true,
       preserve_dead_local_tee_drops=true,
@@ -8246,7 +8252,9 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
       None => None
     }
   }
-  if descriptor_name == "simplify-locals" {
+  if descriptor_name == "simplify-locals" ||
+    descriptor_name == "simplify-locals-nostructure" ||
+    descriptor_name == "simplify-locals-no-structure" {
     if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
         result.func,
       ) {
@@ -8765,6 +8773,8 @@ pub fn hot_pass_run(
     "code-pushing" => code_pushing_run(ctx, func)
     "tuple-optimization" => tuple_optimization_run(ctx, func)
     "simplify-locals" => simplify_locals_run(ctx, func)
+    "simplify-locals-nostructure" | "simplify-locals-no-structure" =>
+      simplify_locals_nostructure_run(ctx, func)
     "merge-blocks" => merge_blocks_run(ctx, func)
     "redundant-set-elimination" => rse_run(ctx, func)
     _ => return Err("unsupported hot pass \{descriptor.name}")
