@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md
+  - ../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md
   - ../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md
   - ../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md
@@ -71,7 +73,7 @@ That last point is the big difference from `dae-optimizing`: **plain DAE does no
 - The implementation is iterative and can perform a localization-only round so a later removal becomes legal.
 - The plain pass shares the same upstream file and much of the same lit neighborhood as `dae-optimizing`, but it deliberately omits the final `optimizeAfterInlining(...)` rerun.
 - There is no single dedicated plain `dae.wast`; the real proof surface is split across `dae_tnh.wast`, `dae-gc.wast`, `dae-gc-refine-params.wast`, and `dae-gc-refine-return.wast`, with neighboring optimizing files acting as sibling-boundary evidence rather than the main plain-pass oracle.
-- The 2026-04-26 current-main port-readiness recheck found no teaching-relevant drift from the tagged source story, but it clarified the future Starshine implementation ladder: analyzer-only candidate classification first, scalar direct-call parameter deletion second, and constant actual / GC refinement / dropped-result / localization families later.
+- The 2026-05-04 current-main recheck found no teaching-relevant drift from the tagged source story, and it keeps the future Starshine implementation ladder explicit: analyzer-only candidate classification first, scalar direct-call parameter deletion second, and constant actual / GC refinement / dropped-result / localization families later.
 
 ## Page map
 
@@ -89,14 +91,16 @@ That last point is the big difference from `dae-optimizing`: **plain DAE does no
 ## Current maintenance rule
 
 - Treat [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md) as the immutable tagged primary-source manifest for this folder.
-- Treat [`../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md) as the focused current-main / Starshine-readiness recheck.
+- Treat [`../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md) as the focused current-main / Starshine-readiness freshness layer above the 2026-04-26 bridge.
 - Treat this folder as the canonical home for future `dead-argument-elimination` / `dae` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary pass for it.
 - Keep the relationship to [`../dae-optimizing/index.md`](../dae-optimizing/index.md) explicit instead of silently folding plain DAE facts into the optimizing dossier.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-dead-argument-elimination-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dead-argument-elimination-port-readiness-primary-sources.md)
+- [`../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md`](../../../raw/research/0435-2026-05-04-dead-argument-elimination-current-main-recheck.md)
 - [`../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md`](../../../raw/research/0406-2026-04-26-dead-argument-elimination-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md`](../../../raw/binaryen/2026-04-24-dead-argument-elimination-primary-sources.md)
 - [`../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md`](../../../raw/research/0293-2026-04-24-dead-argument-elimination-primary-sources-and-starshine-followup.md)

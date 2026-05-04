@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `dead-argument-elimination` current-main freshness
+
+- Revisited `docs/wiki/binaryen/passes/dead-argument-elimination/` as part of a wiki-maintenance pass: added a fresh 2026-05-04 current-main recheck raw manifest plus a matching research note, then refreshed the overview, Binaryen strategy, implementation/test-map, WAT-shape, Starshine strategy, and Starshine validation bridge pages so the new freshness layer is discoverable from the living dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the newer current-main freshness layer is visible from the shared catalogs.
+- Recorded unchanged contract status: plain `dead-argument-elimination` still shares `DeadArgumentElimination.cpp` with `dae-optimizing`, still treats `dae2.wast` as a separate sibling, and still has no teaching-relevant current-main drift.
+
 ## [2026-05-04] health | connect `de-nan` port-readiness bridge
 
 - Revisited `docs/wiki/binaryen/passes/de-nan/` as part of a wiki-maintenance pass: added the missing `starshine-port-readiness-and-validation.md` bridge, then refreshed the landing, Binaryen strategy, implementation/test-map, helper-boundary, WAT-shape, and Starshine strategy pages so the validation ladder is discoverable from every maintained page in the dossier.
