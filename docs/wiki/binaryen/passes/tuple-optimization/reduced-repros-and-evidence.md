@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
+  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - ../../../../../src/passes/tuple_optimization_wbtest.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
@@ -12,6 +14,7 @@ sources:
 related:
   - ./index.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
 ---

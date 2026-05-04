@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
+  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md
   - ../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
@@ -18,6 +20,7 @@ related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./scheduler-and-gates.md
   - ./parity.md
   - ../../no-dwarf-default-optimize-path.md
@@ -39,7 +42,7 @@ Core upstream files:
 - `src/wasm/wasm-validator.cpp`
 - `test/lit/passes/tuple-optimization.wast`
 
-A narrow 2026-04-22 freshness check found no drift in the core tuple-opt pass file or dedicated lit file on current `main`, and no relevant drift in the tuple-specific scheduler / peephole sections that frame this pass.
+A narrow 2026-05-04 freshness check found no drift in the core tuple-opt pass file or dedicated lit file on current `main`, and no relevant drift in the tuple-specific scheduler / peephole sections that frame this pass.
 
 ## High-level intent
 

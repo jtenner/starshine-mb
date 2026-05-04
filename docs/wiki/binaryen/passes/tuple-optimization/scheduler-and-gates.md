@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-10
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
+  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/optimize_test.mbt
@@ -10,6 +12,7 @@ sources:
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
   - ../../no-dwarf-default-optimize-path.md
@@ -50,6 +53,8 @@ Why the gate is exact and important:
 - running it outside that feature envelope would just add analysis overhead and potential false positives
 
 ## Current Starshine Surface
+
+For the in-tree code map, see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./implementation-map.md`](./implementation-map.md).
 
 Starshine currently has two different truths at once:
 

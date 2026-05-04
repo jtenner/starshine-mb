@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
+  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-tuple-optimization-primary-sources.md
   - ../../../raw/research/0254-2026-04-22-tuple-optimization-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
@@ -28,6 +30,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./implementation-map.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./scheduler-and-gates.md
   - ./reduced-repros-and-evidence.md
@@ -55,7 +58,7 @@ The tracker no longer had any pass with wiki status `none`, so this thread had t
   - `precompute -> code-pushing -> tuple-optimization -> simplify-locals-nostructure`
 - it also still appears repeatedly in the saved generated-artifact optimize log, including later nested `precompute-propagate -> code-pushing -> tuple-optimization` reruns
 - the existing folder already had the required living pass pages, but it still lacked an immutable raw primary-source manifest tying the reviewed official release page, source files, and dedicated lit file together in the raw-source system
-- several living pages still relied on 2026-04-20 / 2026-04-21 freshness wording without one compact 2026-04-22 provenance anchor that connected those upstream surfaces directly to the exact Starshine code map
+- several living pages still relied on 2026-04-20 / 2026-04-21 freshness wording without one compact 2026-05-04 provenance anchor that connected those upstream surfaces directly to the exact Starshine code map
 - this refresh therefore closes a provenance-and-navigation gap, not a missing-overview or missing-strategy gap
 
 So this refresh is not a tracker-status promotion.
@@ -105,8 +108,10 @@ That broader reading is not what the source file or test suite implement today.
   - The upstream file map, helper dependencies, validation/finalize neighbors, official lit families, the immutable raw primary-source anchor, and the narrow current-main freshness note.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly catalog of the official positive and negative tuple-local shapes Binaryen rewrites or deliberately leaves alone, plus the HOT-native equivalents Starshine sees after lift.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - The current in-tree Starshine strategy page: exact direct-pass status, HOT-native strategy summary, and the shortest path to the code map.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - The current in-tree HOT-native Starshine algorithm, now refreshed with the exact owner-file and line-location map for the main analysis, rewrite, wiring, and test surfaces.
+  - The deeper HOT-native implementation dossier, including the exact owner-file and line-location map for the main analysis, rewrite, wiring, and test surfaces.
 - [`./implementation-map.md`](./implementation-map.md)
   - Exact MoonBit owner-file map for registry wiring, analysis clusters, rewrite clusters, cleanup clusters, and the focused wbtest / CLI / native-oracle lanes.
 - [`./scheduler-and-gates.md`](./scheduler-and-gates.md)
@@ -118,8 +123,8 @@ That broader reading is not what the source file or test suite implement today.
 
 ## Freshness note
 
-The reviewed official Binaryen release page on 2026-04-22 showed `version_129` with publish date **2026-04-01**.
-A narrow 2026-04-22 comparison against current GitHub `main` found:
+The reviewed official Binaryen release page on 2026-05-04 still showed `version_129` as the stable oracle, and the fresh current-main bridge keeps that provenance explicit.
+A narrow 2026-05-04 comparison against current GitHub `main` found:
 
 - `src/passes/TupleOptimization.cpp` unchanged from `version_129`
 - the relevant `pass.cpp` scheduler / registration lines unchanged

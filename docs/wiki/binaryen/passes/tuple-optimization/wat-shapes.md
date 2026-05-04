@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
+  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0144-2026-04-20-tuple-optimization-binaryen-research.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/tuple-optimization.wast
@@ -14,6 +16,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./scheduler-and-gates.md
 ---
@@ -40,6 +43,8 @@ Starshine's lifted HOT input often looks different:
 - a spill ladder of scalar locals
 - copy groups rebuilt from those scalar locals
 - optional host `local.tee` traffic
+
+For the in-tree Starshine strategy and code map, see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./implementation-map.md`](./implementation-map.md).
 
 Those differences are representation differences.
 The semantic question is still the same:

@@ -1,8 +1,10 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-11
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
+  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0076-2026-04-01-tuple-optimization-binaryen-port-plan.md
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/tuple_optimization.mbt
@@ -14,6 +16,7 @@ sources:
   - ../../../../../CHANGELOG.md
 related:
   - ./index.md
+  - ./starshine-strategy.md
   - ./scheduler-and-gates.md
   - ./reduced-repros-and-evidence.md
   - ../../no-dwarf-default-optimize-path.md

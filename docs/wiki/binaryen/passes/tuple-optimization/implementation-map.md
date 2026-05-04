@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-tuple-optimization-current-main-recheck.md
+  - ../../../raw/research/0434-2026-05-04-tuple-optimization-current-main-recheck.md
   - ../../../raw/research/0239-2026-04-21-tuple-optimization-starshine-code-map-followup.md
   - ../../../../../src/passes/tuple_optimization.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -13,6 +15,7 @@ sources:
   - ../../../../../src/cmd/cmd_native_wbtest.mbt
 related:
   - ./index.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md

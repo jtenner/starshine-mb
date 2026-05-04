@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `tuple-optimization` strategy and current-main bridge
+
+- Revisited `docs/wiki/binaryen/passes/tuple-optimization/` as part of a wiki-maintenance pass: added a new 2026-05-04 current-main recheck raw manifest plus a matching research note, then refreshed the landing page, Binaryen strategy, implementation/test map, WAT-shape catalog, scheduler/gates page, parity page, reduced-repros page, implementation map, and the new Starshine strategy page so the direct-pass status, exact code anchors, and freshness bridge are all visible from the dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and the tuple-opt living pages so the current-main bridge and the new Starshine strategy page are discoverable from the shared catalogs instead of only from the implementation map.
+- Recorded unchanged contract status: Starshine still treats `tuple-optimization` as an active direct hot pass with explicit-pass oracle evidence, while public preset placement remains intentionally deferred until the exact Binaryen slot can be represented honestly.
+
 ## [2026-05-04] health | sync `simplify-locals-nostructure` catalogs after direct-pass activation
 
 - Revisited `docs/wiki/binaryen/passes/simplify-locals-nostructure/` and the shared pass catalogs after the direct-pass status flipped active in the living dossier: refreshed the pass index / tracker source lists around the existing 2026-05-04 current-main recheck raw source so the active alias, direct parity evidence, and current-main freshness are visible from the catalog layer.
