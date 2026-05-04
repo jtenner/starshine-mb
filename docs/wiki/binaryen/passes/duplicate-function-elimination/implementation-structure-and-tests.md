@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
   - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
@@ -171,7 +172,7 @@ not an invisible implementation detail.
 
 ## Current-main freshness note
 
-A narrow 2026-04-20 source check found only a tiny non-semantic code drift in the owning pass file:
+A narrow 2026-05-04 source check found only the same tiny non-semantic code drift in the owning pass file:
 
 - `std::set<Name>` became `std::unordered_set<Name>` for the duplicate-name set
 

@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ../../../raw/binaryen/2026-04-26-duplicate-function-elimination-current-main-and-starshine-strategy-health.md
@@ -131,9 +132,10 @@ What it actually is in `version_129`:
 
 ## Freshness note
 
-Narrow 2026-04-20, 2026-04-26, and 2026-04-27 checks found **no semantic post-`version_129` drift** on the dedicated DFE surface.
+Narrow 2026-04-20, 2026-04-26, 2026-04-27, and 2026-05-04 checks found **no semantic post-`version_129` drift** on the dedicated DFE surface.
 
 - All five `duplicate-function-elimination*` lit files are identical on current `main` and `version_129`.
+- The 2026-05-04 current-main recheck kept that result unchanged.
 - The core pass file differs only by a tiny non-semantic container change:
   - `std::set<Name>` -> `std::unordered_set<Name>` for the duplicate-name set.
 

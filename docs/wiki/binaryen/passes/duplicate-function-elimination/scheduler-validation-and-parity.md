@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-duplicate-function-elimination-validation-primary-sources.md
   - ../../../raw/research/0425-2026-04-27-duplicate-function-elimination-validation-bridge.md
   - ./index.md
@@ -63,7 +64,7 @@ For a small hand-written module, check these outcomes first:
 
 ### 1. Upstream contract to preserve
 
-Binaryen current `main` still matches the source-backed contract captured in this folder:
+Binaryen current `main` still matches the source-backed contract captured in this folder, and the 2026-05-04 recheck did not change that conclusion:
 
 - choose an option-dependent repeat budget;
 - hash defined functions by type/body/semantic annotations;

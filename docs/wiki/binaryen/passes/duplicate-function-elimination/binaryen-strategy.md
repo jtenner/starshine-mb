@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-duplicate-function-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-duplicate-function-elimination-primary-sources.md
   - ../../../raw/research/0242-2026-04-22-duplicate-function-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0147-2026-04-20-duplicate-function-elimination-binaryen-research.md
@@ -240,7 +241,7 @@ If local code does those things, that is a **local extension around DFE**, not t
 
 ## Current freshness note
 
-A narrow 2026-04-20 check found no semantic post-`version_129` drift on the dedicated DFE surface.
+A narrow 2026-05-04 check still found no semantic post-`version_129` drift on the dedicated DFE surface.
 
 - current `main` changes the duplicate-name container from `std::set<Name>` to `std::unordered_set<Name>`
 - the dedicated lit files are unchanged

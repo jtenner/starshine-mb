@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-04] health | refresh `duplicate-function-elimination` source anchors
+
+- Revisited `docs/wiki/binaryen/passes/duplicate-function-elimination/` as part of a wiki-maintenance pass: updated the overview, Binaryen strategy, implementation/test-map, WAT-shape, Starshine strategy, scheduler/validation bridge, parity page, and type-compaction split with a consistent `2026-05-04` `last_reviewed` stamp and a new current-main raw source recheck.
+- Added `docs/wiki/raw/binaryen/2026-05-04-duplicate-function-elimination-current-main-recheck.md` as the new current-main no-drift checkpoint for the dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the refreshed provenance is discoverable from the shared catalogs.
+- Recorded unchanged contract status: `duplicate-function-elimination` still matches the source-backed `version_129` algorithm on the reviewed surfaces, and the only checked current-main drift remains the non-semantic `std::set<Name>` -> `std::unordered_set<Name>` container change.
+
 ## [2026-05-04] health | refresh `duplicate-import-elimination` source anchors
 
 - Revisited `docs/wiki/binaryen/passes/duplicate-import-elimination/` as part of a wiki-maintenance pass: updated the overview, Binaryen strategy, implementation/test-map, identity/rewrite-surface, WAT-shape, Starshine strategy, and catalog pages with a consistent `2026-05-04` `last_reviewed` stamp and the current raw source bridge.
