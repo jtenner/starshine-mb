@@ -1,4 +1,5 @@
 ///|
+/// WAST arbitrary generation keeps local text-shape opcode pickers instead of calling typed `gen_valid`; keep duplicated coverage aligned with `docs/wiki/fuzzing/wast-arbitrary-parity-plan.md`.
 fn rand_bounded(max_exclusive : UInt, st : RandomState) -> UInt {
   if max_exclusive == 0 {
     0

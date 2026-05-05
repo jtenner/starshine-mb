@@ -40,6 +40,7 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 - `[FZG]021` attaches the element-segment-range counter: `ElementSegmentRange` reports nonzero coverage when element segments use multiple elements, active segments target a nonzero table, or typed expression segments cover non-`funcref` reference types. Coverage-forced modules now force a multi-element active segment and prefer a nonzero typed table target when one is available.
 - `[FZG]022` attaches the data-segment-range counter: `DataSegmentRange` reports nonzero coverage when data segments include larger payloads, active segments target a nonzero memory, or zero-length payloads appear across active/passive modes. Coverage-forced modules now force those data shapes when memories are available.
 - `[FZG]023` attaches the name/custom-section counter: `NameCustomSections` reports nonzero coverage when generated modules contain a structured name section or a non-`name` custom section. Coverage-forced modules now emit a valid structured name section for available module/type/function/table/memory/global/elem/data/tag spaces plus a non-name custom section behind `allow_name_custom_sections`.
+- `[FZG]026` is documented separately in [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md): WAST arbitrary generation remains a text-roundtrip generator instead of calling `gen_valid` directly, but duplicated opcode pickers must stay tied to the FZG ledger vocabulary.
 
 ## Ledger status meanings
 
@@ -51,7 +52,7 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 
 ## Intended FZG rows
 
-The ledger now names the slice backlog's target surfaces up front: full scalar numeric ops, core control additions (`br_table`, standalone `unreachable`, `local.tee`, typed `select`), tail calls, memory op/memarg and memory/table limit variants, const expressions, basic refs, i31/extern conversions, GC constructors/accessors, string ops, exception/try-table matrices, SIMD phases 1-3, atomics, subtyping and rich GC field plans, import/export topology, element/data segment range expansion, name/custom sections, invalid AST/binary strategies, and WAST arbitrary parity.
+The ledger now names the slice backlog's target surfaces up front: full scalar numeric ops, core control additions (`br_table`, standalone `unreachable`, `local.tee`, typed `select`), tail calls, memory op/memarg and memory/table limit variants, const expressions, basic refs, i31/extern conversions, GC constructors/accessors, string ops, exception/try-table matrices, SIMD phases 1-3, atomics, subtyping and rich GC field plans, import/export topology, element/data segment range expansion, name/custom sections, invalid AST/binary strategies, and WAST arbitrary parity. The WAST parity boundary is documented, but coverage remains to be widened under `[FZG]027`.
 
 ## Known zero-coverage rows as of 2026-05-01
 

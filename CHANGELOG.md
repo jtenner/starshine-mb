@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: document WAST arbitrary parity plan
+
+- **complete FZG026 by documenting that WAST arbitrary generation stays independent from `gen_valid` while sharing the FZG coverage vocabulary and making duplicated opcode pickers explicit** by **@OpenAI**. Updated [`src/wast/arbitrary.mbt`](./src/wast/arbitrary.mbt), [`docs/wiki/fuzzing/wast-arbitrary-parity-plan.md`](./docs/wiki/fuzzing/wast-arbitrary-parity-plan.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: widen name/custom section generation
 
 - **complete FZG023 by generating valid structured name sections and non-name custom sections, with `NameCustomSections` feature accounting and ledger docs** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).

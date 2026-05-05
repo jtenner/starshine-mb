@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] fuzz | document WAST arbitrary parity boundary
+
+- Added `docs/wiki/fuzzing/wast-arbitrary-parity-plan.md` for `[FZG]026`, deciding that WAST arbitrary generation remains independent from `gen_valid` while sharing the FZG coverage vocabulary.
+- Documented the stale-picker rule: duplicated text-shape opcode pickers in `src/wast/arbitrary.mbt` are allowed only when their lag from valid-generator coverage is explicit in the parity plan or generator coverage ledger.
+- Added a source comment in `src/wast/arbitrary.mbt` pointing future generator edits at the parity boundary.
+
 ## [2026-05-05] health | refresh `directize` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-directize-current-main-recheck.md` plus `docs/wiki/raw/research/0476-2026-05-05-directize-current-main-recheck.md` after rechecking current `main` `Directize.cpp`, `pass.cpp`, `passes.h`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, and the dedicated `directize*` lit files against the existing `version_129` contract.

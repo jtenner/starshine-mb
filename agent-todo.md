@@ -791,8 +791,6 @@ Suggested Tests
      - Dependencies: corresponding valid surfaces must exist first so each mutation can start from a validating base.
    - [FZG]025 - Invalid Binary Strategy Expansion for New Surfaces - Add binary-level corruptions for new section/topology surfaces: malformed SIMD immediates, lane-index overflow, atomic opcode/memarg misuse, memory64/shared encoding errors, recursive-type encoding errors, name-section malformed subsection ordering/sizes, and custom-section UTF-8/payload edge cases.
 10. Bring WAST arbitrary generation closer to the valid generator.
-   - [FZG]026 - WAST Arbitrary Generator Parity Plan - Decide whether `src/wast/arbitrary.mbt` should call into the valid generator or share common instruction-family helpers, then document the chosen boundary.
-     - Exit Criteria: no duplicated stale opcode picker remains undocumented.
    - [FZG]027 - WAST Arbitrary Surface Widening - Add WAST generation for GC types, tags/try_table/throw, memory/table bulk ops, ref casts, call_ref/tail-call forms, richer imports/exports, and representative SIMD/text syntax shapes.
      - Invariants: generated WAST should still roundtrip through the existing WAST/WAT fuzz profiles.
 11. Tune profiles and signoff gates.
