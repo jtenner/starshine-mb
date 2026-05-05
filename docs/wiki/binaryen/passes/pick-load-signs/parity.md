@@ -1,12 +1,14 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
+  - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
+  - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
   - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
-  - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
   - ../../../raw/research/0069-2026-03-26-pick-load-signs.md
   - ../../../raw/research/0079-2026-04-11-pass-fuzz-health-round-two.md
   - ../../../../../src/passes/pick_load_signs.mbt
@@ -22,6 +24,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
 ---
 
@@ -75,10 +78,11 @@ Current practical reading:
 
 ## Freshness note
 
-A narrow 2026-04-22 direct comparison found no visible drift here:
+A narrow 2026-05-05 current-main recheck found no visible drift here:
 
 - `PickLoadSigns.cpp` is identical on Binaryen `version_129` and current `main`
 - `pick-load-signs_sign-ext.wast` is also identical
+- the new raw manifest records the refreshed 2026-05-05 bridge explicitly
 
 So there is no post-`version_129` trunk-drift caveat to maintain for this pass right now.
 

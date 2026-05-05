@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
+  - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
   - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
@@ -30,6 +32,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
   - ../tracker.md
@@ -43,7 +46,7 @@ related:
 ## Role
 
 - `pick-load-signs` is an active implemented **hot pass** in Starshine.
-- This folder is already a deep dossier, and the 2026-04-22 follow-up closes the remaining provenance-and-navigation gap: it adds an immutable raw primary-source manifest and refreshes the Starshine side with an exact MoonBit registry / dispatcher / raw-skip / rewrite / test map.
+- This folder is already a deep dossier, and the 2026-05-05 bridge refresh closes the remaining freshness gap: it adds a current-main raw manifest and a dedicated Starshine strategy page, while keeping the deeper HOT implementation map in sync.
 - In upstream Binaryen `version_129`, the public `pass.cpp` description is only:
   - `pick load signs based on their uses`
 
@@ -125,14 +128,18 @@ What it actually is in `version_129`:
   - Beginner-friendly shape catalog covering direct sign-ext positives, mask and shift-pair positives, branch/tee/atomic bailouts, and the important non-goals.
 - [`./parity.md`](./parity.md)
   - Current in-tree Starshine parity state, focused evidence, and the explicit local-vs-upstream scope difference.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Concise Starshine status and code-map page for the active hot pass, including the registry, scheduler, raw-skip, test, and replay surfaces.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current Starshine HOT-IR strategy: exact MoonBit registry / dispatcher / raw-skip / rewrite / test ownership, the broader local i64 recognition surface, and the honest split between coded i64 support and explicitly isolated local tests.
+  - Deeper HOT-IR implementation note: exact MoonBit registry / dispatcher / raw-skip / rewrite / test ownership, the broader local i64 recognition surface, and the honest split between coded i64 support and explicitly isolated local tests.
+- [`../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md)
+  - Current-main refresh manifest for this folder's freshness bridge.
 - [`../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md`](../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md)
   - Immutable manifest of the official Binaryen release/source/test URLs reviewed for this folder on 2026-04-22.
 
 ## Freshness note
 
-A narrow 2026-04-22 direct source comparison found **no visible drift** here:
+A narrow 2026-05-05 current-main recheck found **no visible drift** here:
 
 - the reviewed `src/passes/PickLoadSigns.cpp` release and current-`main` surfaces still match on the teaching-relevant mechanics captured in this folder
 - the dedicated lit file `pick-load-signs_sign-ext.wast` also still matches between the reviewed release and current `main`
@@ -156,9 +163,12 @@ Keep that difference explicit instead of silently smoothing it away.
   - upstream `pick-load-signs` is a narrow AST-context pass, not a generic all-width load-sign canonicalizer
 - Keep the local-vs-upstream i64 scope difference explicit until it is either removed or intentionally documented as a standing divergence.
 - Keep the no-memory skip, exact `local.set(load ...)` producer rule, all-uses-recognized rule, and atomic-load bailout explicit whenever future docs or code changes touch this pass.
+- Keep the concise Starshine strategy page and the deeper HOT note aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md)
+- [`../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md)
 - [`../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md`](../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md)
 - [`../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md`](../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md)
 - [`../../../raw/research/0069-2026-03-26-pick-load-signs.md`](../../../raw/research/0069-2026-03-26-pick-load-signs.md)
@@ -182,3 +192,6 @@ Keep that difference explicit instead of silently smoothing it away.
 - Narrow freshness-check surfaces:
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/PickLoadSigns.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/pick-load-signs_sign-ext.wast>
+- Starshine strategy / HOT detail:
+  - [`./starshine-strategy.md`](./starshine-strategy.md)
+  - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)

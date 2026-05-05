@@ -1,12 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
+  - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./parity.md
   - ../../no-dwarf-default-optimize-path.md
@@ -15,6 +18,7 @@ related:
 # `pick-load-signs` WAT shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's `pick-load-signs` pass.
+It now also points at the 2026-05-05 current-main bridge in [`../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md), which found no teaching-relevant drift on the reviewed surfaces.
 
 ## Read this page with one mental model
 

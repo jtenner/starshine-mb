@@ -1,17 +1,20 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
+  - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
+  - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
   - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
-  - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
   - ./parity.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
 ---
 
@@ -144,7 +147,7 @@ The better model is:
 
 ## Current-main freshness note
 
-A narrow 2026-04-22 spot check found no visible drift on the most important checked surfaces:
+A narrow 2026-05-05 current-main recheck found no visible drift on the most important checked surfaces:
 
 - `src/passes/PickLoadSigns.cpp`
 - `test/lit/passes/pick-load-signs_sign-ext.wast`

@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
+  - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
+  - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
   - ../../../raw/research/0136-2026-04-20-pick-load-signs-binaryen-research.md
   - ../../../raw/research/0228-2026-04-21-pick-load-signs-implementation-followup.md
   - ../../../raw/research/0244-2026-04-22-pick-load-signs-primary-sources-and-code-map-followup.md
-  - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
   - ../../../../../src/passes/pick_load_signs.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -20,12 +22,14 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./parity.md
+  - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
 # Starshine `pick-load-signs` HOT-IR strategy
 
 This page describes the **current local implementation**, not upstream Binaryen's AST pass.
+For the concise Starshine status and code-map layer, start with [`./starshine-strategy.md`](./starshine-strategy.md).
 For the upstream contract, start with [`./binaryen-strategy.md`](./binaryen-strategy.md).
 
 ## Current local surface

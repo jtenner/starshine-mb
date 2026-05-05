@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `pick-load-signs` strategy and current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md` plus `docs/wiki/raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md` after rechecking current `main` `PickLoadSigns.cpp`, `pass.cpp`, `opt-utils.h`, `properties.h`, and `pick-load-signs_sign-ext.wast` against the existing Binaryen `version_129` source anchors.
+- Added a dedicated `docs/wiki/binaryen/passes/pick-load-signs/starshine-strategy.md` page and refreshed the landing page, Binaryen strategy, implementation/test-map, WAT-shape, parity, and HOT-IR detail pages so the folder now separates upstream semantics from current Starshine status more cleanly.
+- Recorded unchanged contract status: current `main` still matches the narrow upstream `version_129` contract on the reviewed surfaces, while Starshine keeps the broader i64 HOT implementation and its explicit parity watchpoint.
+
 ## [2026-05-05] health | refresh `code-pushing` current-main bridge and source cleanup
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md` plus `docs/wiki/raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md` after rechecking current `main` `CodePushing.cpp` and `pass.cpp` against the existing Binaryen `version_129` source anchors.
