@@ -283,8 +283,8 @@ Current Starshine `coalesce-locals` strategy is direct-pass parity plus honest p
 - the upstream spelling is intentionally active in `src/passes/optimize.mbt`
 - the backlog records `CL` as landed with remaining artifact-oracle caveats
 - the canonical two-slot no-DWARF story is already documented in the optimizer notes
-- the direct pass has focused tests, CLI coverage, full `moon test`, 10k `gen-valid` Binaryen compare evidence, and debug/optimized artifact self-opt canonical-function equality
-- the optimized artifact self-opt lane is currently slower than Binaryen and remains a runtime follow-up
+- the direct pass has focused tests, CLI coverage, full `moon test`, 10k `gen-valid` Binaryen compare evidence, debug/optimized artifact self-opt canonical-function equality, and direct-pass artifact timing at least as fast as Binaryen after the live-count interference guard
+- total optimized-artifact wall time is still slightly above Binaryen, but the pass-local runtime issue is retired
 - the docs keep one important honesty rule explicit: no public preset slot should be claimed before the surrounding locals-neighborhood replay is validated
 
 So the right mental model today is “active direct pass, preset placement still pending.”

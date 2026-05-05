@@ -395,21 +395,33 @@ fn cl_compute_interferences(
     }
   }
   let live = liveness.live_at_entry.copy()
+  let mut live_count = 0
+  for is_live in live {
+    if is_live {
+      live_count += 1
+    }
+  }
   for action_idx = 0; action_idx < actions.length(); action_idx = action_idx + 1 {
     let action = actions[action_idx]
     match action.kind {
       CLActionKind::Get => {
-        live[action.local_idx] = true
-        for other = 0; other < total_locals; other = other + 1 {
-          if other != action.local_idx &&
-            live[other] &&
-            current_values[other] != current_values[action.local_idx] {
-            cl_add_interference(interferences, action.local_idx, other)
+        if !live[action.local_idx] {
+          live[action.local_idx] = true
+          live_count += 1
+        }
+        if live_count > 1 {
+          for other = 0; other < total_locals; other = other + 1 {
+            if other != action.local_idx &&
+              live[other] &&
+              current_values[other] != current_values[action.local_idx] {
+              cl_add_interference(interferences, action.local_idx, other)
+            }
           }
         }
         remaining_gets[action.local_idx] -= 1
-        if remaining_gets[action.local_idx] == 0 {
+        if remaining_gets[action.local_idx] == 0 && live[action.local_idx] {
           live[action.local_idx] = false
+          live_count -= 1
         }
       }
       CLActionKind::Set | CLActionKind::Tee => {
@@ -419,15 +431,23 @@ fn cl_compute_interferences(
           interner,
         )
         if liveness.effective[action_idx] {
-          for other = 0; other < total_locals; other = other + 1 {
-            if other != action.local_idx &&
-              live[other] &&
-              current_values[other] != new_value {
-              cl_add_interference(interferences, action.local_idx, other)
+          if live_count > 0 {
+            for other = 0; other < total_locals; other = other + 1 {
+              if other != action.local_idx &&
+                live[other] &&
+                current_values[other] != new_value {
+                cl_add_interference(interferences, action.local_idx, other)
+              }
             }
+          }
+          if !live[action.local_idx] {
+            live_count += 1
           }
           live[action.local_idx] = true
         } else {
+          if live[action.local_idx] {
+            live_count -= 1
+          }
           live[action.local_idx] = false
         }
         current_values[action.local_idx] = new_value

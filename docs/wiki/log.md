@@ -6,7 +6,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Promoted `coalesce-locals` from removed-name tracking to an active direct module pass with registry, dispatcher, CLI, and pass-fuzz harness wiring.
 - Added focused tests for active registration, non-overlap merging, interference negatives, redundant local copy cleanup, dead set/tee cleanup, and CLI adapter behavior.
-- Recorded direct evidence: full `moon test` passes; `.tmp/pass-fuzz-cl-genvalid-10000-after-live-fix` is `10000/10000` normalized matches; `.tmp/pass-fuzz-cl-mixed-1000-after-live-fix` had `950/950` comparable mixed-generator matches with zero mismatches; `.tmp/self-opt-cl-debug-after-live-fix` and `.tmp/self-opt-cl-optimized-after-live-fix` are canonical-function equal against Binaryen 128.
+- Recorded direct evidence: full `moon test` passes; `.tmp/pass-fuzz-cl-genvalid-10000-livecount` is `10000/10000` normalized matches; `.tmp/pass-fuzz-cl-mixed-1000-livecount` had `950/950` comparable mixed-generator matches with zero mismatches; `.tmp/self-opt-cl-debug-livecount` and `.tmp/self-opt-cl-optimized-livecount` are canonical-function equal against Binaryen 128, and the optimized-artifact direct pass timer is now faster than Binaryen after the live-count interference guard.
 
 ## [2026-05-05] health | refresh `code-folding` current-main bridge
 
