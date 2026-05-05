@@ -230,7 +230,7 @@ test "preset expansion stays on implemented active pass names" {
 ///|
 test "run_hot_pipeline accepts flatten as an active module pass" {
   let input = pass_test_module_from_wat(
-    "(module (func (local i32) i32.const 1 local.set 0 local.get 0 drop))",
+    "(module (func (block (i32.const 1) drop)))",
   )
 
   let optimized = match
@@ -249,7 +249,7 @@ test "run_hot_pipeline accepts flatten as an active module pass" {
         ]
       )
     ) => ()
-    other => fail("expected flattened local set/get body, got \{other}")
+    other => fail("expected flattened block body, got \{other}")
   }
 }
 
