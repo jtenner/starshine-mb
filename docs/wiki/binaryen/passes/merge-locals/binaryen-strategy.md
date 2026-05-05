@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
+  - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
@@ -14,6 +16,7 @@ related:
   - ./local-graph-and-copy-influences.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../coalesce-locals/index.md
 ---
 
@@ -21,7 +24,7 @@ related:
 
 ## Source rule
 
-Use Binaryen `version_129` plus the 2026-05-04 current-`main` recheck as the source oracle for this page.
+Use Binaryen `version_129` plus the 2026-05-05 current-`main` recheck as the source oracle for this page.
 The corrected source-backed owner surface is:
 
 - `src/passes/MergeLocals.cpp`
@@ -31,6 +34,7 @@ The corrected source-backed owner surface is:
 - `test/lit/passes/merge-locals.wast`
 
 The living dossier is about copy-shaped local traffic balancing, not one-set-local merging.
+The 2026-05-05 recheck keeps that correction fresh without changing the source-backed contract.
 The earlier overread that centered `computeInfluences()`, one-set candidate discovery, and fresh-temp canonicalization is superseded for this pass.
 
 ## High-level intent

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
+  - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../coalesce-locals/index.md
 ---
 
@@ -29,6 +32,7 @@ The easiest way to misread `merge-locals` is to choose one wrong extreme:
 
 The reviewed Binaryen implementation is in between.
 It starts from a concrete copy-shaped local traffic pair, uses `LocalGraph` set influences to decide which side should own the influenced gets, and then verifies the rewrite against a post-graph snapshot.
+The 2026-05-05 freshness layer keeps that reading current without changing the contract.
 
 ## The central question
 

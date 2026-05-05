@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
+  - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./local-graph-and-copy-influences.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../coalesce-locals/index.md
 ---
 

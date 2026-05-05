@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
+  - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
@@ -20,6 +22,7 @@ related:
   - ./local-graph-and-copy-influences.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../optimize-casts/index.md
   - ../local-subtyping/index.md
   - ../coalesce-locals/index.md
@@ -48,7 +51,7 @@ So the beginner mental model is **copy-shape local traffic balancing with graph-
   - [`../optimize-casts/index.md`](../optimize-casts/index.md)
   - [`../local-subtyping/index.md`](../local-subtyping/index.md)
   - [`../coalesce-locals/index.md`](../coalesce-locals/index.md)
-- The 2026-05-04 source correction matters because the earlier living page taught a stale one-set/fresh-temp model that does not match the reviewed `MergeLocals.cpp` contract.
+- The 2026-05-05 current-main recheck keeps that correction fresh without changing the reviewed `MergeLocals.cpp` contract.
 
 ## Inputs and outputs
 
@@ -90,7 +93,7 @@ It does **not** rewrite function signatures, heap types, globals, imports, expor
 
 ## Starshine status
 
-Current Starshine has no `src/passes/merge_locals.mbt` owner file and no `agent-todo.md` slice for this pass.
+Current Starshine has no `src/passes/merge_locals.mbt` owner file, no `agent-todo.md` slice for this pass, and no dedicated port-readiness bridge before this update.
 The local status is intentionally limited to:
 
 - removed-name tracking: [`../../../../../src/passes/optimize.mbt:144-151`](../../../../../src/passes/optimize.mbt)
@@ -113,9 +116,12 @@ The local status is intentionally limited to:
 - [`./local-graph-and-copy-influences.md`](./local-graph-and-copy-influences.md) - Focused guide to the graph/influence mechanics behind copy retargeting.
 - [`./wat-shapes.md`](./wat-shapes.md) - Before/after shape catalog for beginners and port authors.
 - [`./starshine-strategy.md`](./starshine-strategy.md) - Exact current Starshine status and future port map.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - First-slice analyzer, validation ladder, and exact local code surfaces for a future port.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md)
+- [`../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md`](../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md)
 - [`../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md`](../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md)

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
+  - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
@@ -19,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./local-graph-and-copy-influences.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../optimize-casts/index.md
   - ../local-subtyping/index.md
   - ../coalesce-locals/index.md
@@ -37,6 +40,8 @@ Current Starshine strategy is therefore:
 - reject explicit requests honestly
 - keep the pass visible in port planning and the wiki
 - avoid pretending an equivalent local transform exists
+
+For the first-slice analyzer and validation ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Exact local code and doc map
 

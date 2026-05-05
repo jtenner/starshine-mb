@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `merge-locals` current-main bridge and add port-readiness page
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md` plus `docs/wiki/raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md` after rechecking current `main` `MergeLocals.cpp`, `pass.cpp`, and `merge-locals.wast` against the corrected copy-shape contract.
+- Added `docs/wiki/binaryen/passes/merge-locals/starshine-port-readiness-and-validation.md` and refreshed the `merge-locals` landing page, Binaryen strategy, implementation/test-map, LocalGraph guide, WAT-shape catalog, Starshine strategy, wiki index, pass catalog, and tracker so the 2026-05-05 freshness layer and the new port-readiness bridge are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same copy-shaped local.set/local.get / `LocalGraph` / orientation / rollback story, and Starshine still keeps `merge-locals` removed until a deliberate port lands.
+
 ## [2026-05-05] health | refresh `rereloop` current-main bridge and add readiness page
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-rereloop-current-main-recheck.md` plus `docs/wiki/raw/research/0484-2026-05-05-rereloop-current-main-recheck.md` after rechecking official Binaryen `main` `ReReloop.cpp`, `pass.cpp`, `Relooper.{h,cpp}`, `flat.h`, and the dedicated `flatten_rereloop` fixtures against the corrected contract.

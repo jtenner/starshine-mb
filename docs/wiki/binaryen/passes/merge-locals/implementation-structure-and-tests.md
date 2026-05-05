@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md
+  - ../../../raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
@@ -14,6 +16,7 @@ related:
   - ./local-graph-and-copy-influences.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `merge-locals` implementation structure and tests
@@ -70,8 +73,8 @@ It visibly anchors the conservative `between-unreachable` family, which is enoug
 
 ## Current-main check
 
-The 2026-05-04 primary-source recheck compared the same owner, registration, helper, and test surfaces on current `main`.
-No teaching-relevant drift was found from the corrected `version_129` contract.
+The 2026-05-05 current-main recheck compared the same owner, registration, helper, and test surfaces on current `main`.
+No teaching-relevant drift was found from the corrected `version_129` contract, and the new freshness layer only extends the provenance.
 
 ## Starshine implementation/test status
 
@@ -99,3 +102,4 @@ A faithful Starshine implementation should add tests in this order:
 6. Binaryen pass-targeted parity comparison
 
 Until those exist, keep `merge-locals` documented as removed/unimplemented locally.
+See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the exact first-slice bridge.
