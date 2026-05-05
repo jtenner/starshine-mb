@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `global-type-optimization` current-main bridge and add port-readiness bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md` plus `docs/wiki/raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md` after rechecking current `main` `GlobalTypeOptimization.cpp`, `pass.cpp`, and `gto_and_cfp_in_O.wast` against the existing `version_129` contract.
+- Refreshed the `global-type-optimization` overview, Binaryen strategy, implementation/test-map, field-removal, WAT-shape, Starshine strategy, new Starshine port-readiness bridge, shared catalogs, and wiki index / tracker entries so the new 2026-05-05 freshness layer and the missing local module/type-graph bridge are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same closed-world `gto` struct-layout cleanup story, and Starshine still keeps `global-type-optimization` boundary-only while the future module/type-graph port remains explicit.
+
 ## [2026-05-05] health | refresh `signext-lowering` current-main bridge and source anchors
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md` plus `docs/wiki/raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md` after rechecking current `main` `SignExtLowering.cpp`, `pass.cpp`, `passes.h`, and `signext-lowering.wast` against the existing `version_129` contract.
