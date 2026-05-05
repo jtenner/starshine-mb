@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
+  - ../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
@@ -90,6 +92,8 @@ Read [`./starshine-strategy.md`](./starshine-strategy.md) for the local strategy
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md)
+- [`../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
 - [`../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md)

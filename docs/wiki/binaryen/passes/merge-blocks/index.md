@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
+  - ../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
@@ -134,6 +136,7 @@ Those are related strategies, but not the same implementation.
 ## Current local status summary
 
 - The explicit Starshine pass exists and is wired into the pass manager and CLI.
+- The 2026-05-05 anchor recheck only corrected local line-map references; the upstream helper-driven contract stayed the same.
 - `src/passes/registry_test.mbt` classifies it as an active hot pass.
 - `src/passes/optimize_test.mbt` proves that both public presets replay it twice in the late cleanup cluster.
 - `src/passes/merge_blocks_test.mbt` is a substantial direct proof surface for live-label gating, typed carriers, `unreachable` suffix repair, and Binaryen-stable lowering families.
@@ -143,17 +146,21 @@ Those are related strategies, but not the same implementation.
 
 For documentation work, validate by cross-reading:
 
-1. [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
-2. [`./binaryen-strategy.md`](./binaryen-strategy.md)
-3. [`./wat-shapes.md`](./wat-shapes.md)
-4. [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-5. [`./starshine-strategy.md`](./starshine-strategy.md)
-6. [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
+1. [`../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md)
+2. [`../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md)
+3. [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
+4. [`./binaryen-strategy.md`](./binaryen-strategy.md)
+5. [`./wat-shapes.md`](./wat-shapes.md)
+6. [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+7. [`./starshine-strategy.md`](./starshine-strategy.md)
+8. [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
 
 For implementation work, run at minimum the pass and command test lanes, then a pass-targeted Binaryen comparison if behavior changes.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md)
+- [`../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
 - [`../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md)

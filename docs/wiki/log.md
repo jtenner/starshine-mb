@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `merge-blocks` current-main anchors
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md` plus `docs/wiki/raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md` after rechecking current-main Binaryen `MergeBlocks.cpp`, `pass.cpp`, `merge-blocks.wast`, and the shared helper surfaces against the existing `version_129` contract.
+- Refreshed the `merge-blocks` overview, Binaryen strategy, WAT-shape catalog, implementation/test-map, Starshine strategy, Starshine HOT code-map, index, pass catalog, tracker, and changelog so the exact Starshine code anchors now match the current `src/passes/*` line map.
+- Recorded unchanged contract status: upstream `merge-blocks` still uses helper-driven block/loop-tail motion, and Starshine still stays HOT-region-root-only with the same live-label and typed-carrier rules.
+
 ## [2026-05-05] health | refresh `gufa` current-main bridge and add port-readiness bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-gufa-current-main-recheck.md` plus `docs/wiki/raw/research/0471-2026-05-05-gufa-current-main-recheck.md` after rechecking current `main` `pass.cpp`, `GUFA.cpp`, `possible-contents.h`, and the three dedicated lit surfaces against the existing `version_129` contract.

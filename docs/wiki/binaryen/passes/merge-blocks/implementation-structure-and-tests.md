@@ -1,14 +1,17 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
+  - ../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md
   - ../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md
   - ../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md
   - ../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md
   - ../../../raw/research/0357-2026-04-25-merge-blocks-source-correction-and-code-map.md
   - ../../../raw/research/0255-2026-04-22-merge-blocks-primary-sources-and-starshine-followup.md
+  - ../../../../../src/passes/pass_common.mbt
   - ../../../../../src/passes/merge_blocks.mbt
   - ../../../../../src/passes/merge_blocks_test.mbt
   - ../../../../../src/passes/optimize.mbt
@@ -95,26 +98,28 @@ Exact local code map:
 
 | Lines | Surface | Role |
 | --- | --- | --- |
-| `src/passes/merge_blocks.mbt:2-17` | `merge_blocks_descriptor()` | Active HOT descriptor and invalidated analysis set. |
-| `src/passes/merge_blocks.mbt:20-31` | `merge_blocks_has_candidate(...)` | Cheap live-`Block` scan before doing deeper work. |
-| `src/passes/merge_blocks.mbt:34-80` | `merge_blocks_compute_label_used(...)` | Whole-function label-use scan across branches, br tables, delegates, and try-table catches. |
-| `src/passes/merge_blocks.mbt:85-90` | `merge_blocks_label_is_used(...)` | Live-label guard used by the flattener. |
-| `src/passes/merge_blocks.mbt:93-136` | region/type helpers | Root collection plus typed block-param resolution. |
-| `src/passes/merge_blocks.mbt:141-184` | `merge_blocks_rewrite_dead_unreachable_suffix_roots(...)` | Converts dead value roots before `unreachable` into explicit `drop`s before flattening. |
-| `src/passes/merge_blocks.mbt:187-284` | `merge_blocks_visit_control_node(...)` | Recurses through block, loop, if, try, and try-table regions. |
-| `src/passes/merge_blocks.mbt:287-333` | `merge_blocks_flatten_region_root_block(...)` | Main HOT root-block splice helper and typed-carrier guard. |
-| `src/passes/merge_blocks.mbt:336-366` | `merge_blocks_visit_region(...)` | Region root traversal and repeated splice attempts. |
-| `src/passes/merge_blocks.mbt:369-386` | `merge_blocks_run(...)` | Pass entry point, use-def construction, mutation marking, result reporting. |
+| `src/passes/pass_common.mbt:2-45` | `pass_compute_label_used(...)` / `pass_label_is_used(...)` | Shared whole-function label-use collection and live-label bailout helper. |
+| `src/passes/merge_blocks.mbt:2-13` | `merge_blocks_descriptor()` | Active HOT descriptor and invalidated analysis set. |
+| `src/passes/merge_blocks.mbt:20-32` | `merge_blocks_has_candidate(...)` | Cheap live-`Block` scan before doing deeper work. |
+| `src/passes/merge_blocks.mbt:34-45` | `merge_blocks_collect_region_roots(...)` | Region-root collection helper. |
+| `src/passes/merge_blocks.mbt:47-57` | `merge_blocks_control_block_type(...)` | Block-result type extraction. |
+| `src/passes/merge_blocks.mbt:59-77` | `merge_blocks_block_param_count(...)` | Typed block-param count through `HotModuleContext`. |
+| `src/passes/merge_blocks.mbt:79-86` | `merge_blocks_block_has_params(...)` | Boolean typed-parameter gate. |
+| `src/passes/merge_blocks.mbt:88-132` | `merge_blocks_rewrite_dead_unreachable_suffix_roots(...)` | Converts dead value roots before `unreachable` into explicit `drop`s before flattening. |
+| `src/passes/merge_blocks.mbt:134-232` | `merge_blocks_visit_control_node(...)` | Recurses through block, loop, `if`, `try`, and `try-table` regions. |
+| `src/passes/merge_blocks.mbt:234-281` | `merge_blocks_flatten_region_root_block(...)` | Main HOT root-block splice helper and typed-carrier guard. |
+| `src/passes/merge_blocks.mbt:283-314` | `merge_blocks_visit_region(...)` | Region root traversal and repeated splice attempts. |
+| `src/passes/merge_blocks.mbt:316-335` | `merge_blocks_run(...)` | Pass entry point, use-def construction, mutation marking, result reporting. |
 
 ## Starshine registry and dispatcher map
 
 | File/lines | Role |
 | --- | --- |
-| `src/passes/optimize.mbt:232-234` | Active hot-pass registry entry for `merge-blocks`. |
-| `src/passes/optimize.mbt:255-268` | Public preset expansions schedule `merge-blocks` twice in the late cleanup cluster. |
-| `src/passes/optimize.mbt:394-408` | Static preset arrays keep the same repeated placement. |
-| `src/passes/pass_manager.mbt:7813` | HOT lower/writeback option surface for `merge-blocks`. |
-| `src/passes/pass_manager.mbt:8704` | Dispatcher calls `merge_blocks_run(ctx, func)`. |
+| `src/passes/optimize.mbt:249-251` | Active hot-pass registry entry for `merge-blocks`. |
+| `src/passes/optimize.mbt:288-291` / `300-303` | Public preset expansions schedule `merge-blocks` twice in the late cleanup cluster. |
+| `src/passes/optimize.mbt:444-447` / `458-461` | Static preset arrays keep the same repeated placement. |
+| `src/passes/pass_manager.mbt:9002` | Dispatcher calls `merge_blocks_run(ctx, func)`. |
+
 
 ## Starshine direct tests
 
@@ -139,10 +144,11 @@ Important lanes:
 
 | File/lines | Evidence |
 | --- | --- |
-| `src/passes/registry_test.mbt:48` | `merge-blocks` is classified as an active hot pass. |
-| `src/passes/registry_test.mbt:135-159` | Descriptor and preset expansion coverage. |
-| `src/passes/optimize_test.mbt:340-384` | `optimize` and `shrink` replay both late `merge-blocks` slots. |
-| `src/passes/optimize_test.mbt:406-447` | `simplify-locals` output reaches the late `merge-blocks` cleanup cluster. |
+| `src/passes/registry_test.mbt:64` | `merge-blocks` is classified as an active hot pass. |
+| `src/passes/registry_test.mbt:189-190` | Descriptor coverage. |
+| `src/passes/registry_test.mbt:206-207` / `214-215` | Preset-array coverage for repeated `merge-blocks` slots. |
+| `src/passes/optimize_test.mbt:382-403` / `407-428` | `optimize` and `shrink` replay both late `merge-blocks` slots. |
+| `src/passes/optimize_test.mbt:469-512` | `simplify-locals` output reaches the late `merge-blocks` cleanup cluster. |
 | `src/cmd/cmd_wbtest.mbt:1959-1993` | Direct `--merge-blocks` CLI acceptance and output validation. |
 | `src/ir/hot_lower_test.mbt:1861-2506` | Neighboring lower/writeback tests that explicitly preserve Binaryen-stable shapes for the local pass. |
 
@@ -167,9 +173,12 @@ For docs-only updates, this page's evidence is source and test-map based. For fu
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md)
+- [`../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
 - [`../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/research/0436-2026-05-04-merge-blocks-current-main-refresh.md)
 - [`../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-blocks-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md`](../../../raw/binaryen/2026-04-22-merge-blocks-primary-sources.md)
+- [`../../../../../src/passes/pass_common.mbt`](../../../../../src/passes/pass_common.mbt)
 - [`../../../../../src/passes/merge_blocks.mbt`](../../../../../src/passes/merge_blocks.mbt)
 - [`../../../../../src/passes/merge_blocks_test.mbt`](../../../../../src/passes/merge_blocks_test.mbt)

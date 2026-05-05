@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Wiki: refresh `merge-blocks` current-main anchors
+
+- **add a 2026-05-05 current-main anchor recheck manifest, matching research note, and Starshine code-map anchor refresh for the `merge-blocks` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md), [`docs/wiki/raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](./docs/wiki/raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md), [`docs/wiki/binaryen/passes/merge-blocks/`](./docs/wiki/binaryen/passes/merge-blocks/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
+
 ## 2026-05-05 Wiki: refresh `gufa` current-main bridge
 
 - **add a 2026-05-05 current-main recheck manifest, matching research note, and port-readiness bridge for the `gufa` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-gufa-current-main-recheck.md), [`docs/wiki/raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](./docs/wiki/raw/research/0471-2026-05-05-gufa-current-main-recheck.md), [`docs/wiki/binaryen/passes/gufa/`](./docs/wiki/binaryen/passes/gufa/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
