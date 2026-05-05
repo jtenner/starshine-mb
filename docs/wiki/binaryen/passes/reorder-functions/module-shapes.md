@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
@@ -37,7 +39,7 @@ Each example focuses on which functions get extra static-use counts from the rea
 
 Unless noted otherwise, the order examples below are **inferences from the reviewed source comparator**, not copied oracle output.
 
-The family layout below was rechecked against current main on 2026-05-04 and still matches the source-backed teaching model.
+The family layout below was rechecked against current main on 2026-05-05 and still matches the source-backed teaching model.
 
 ## Positive family 1: one heavily called helper moves earlier
 
