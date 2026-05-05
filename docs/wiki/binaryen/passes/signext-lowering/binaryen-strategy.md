@@ -1,8 +1,10 @@
 ---
 kind: strategy
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
+  - ../../../raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
@@ -19,7 +21,7 @@ related:
 
 # Binaryen strategy for `signext-lowering`
 
-Binaryen implements `signext-lowering` as a small feature-lowering pass, not as a broad optimizer. The reviewed `version_129` implementation lives in `src/passes/SignExtLowering.cpp`; registration and factory plumbing live in `src/passes/pass.cpp` and `src/passes/passes.h`; the dedicated instruction-shape proof is `test/lit/passes/signext-lowering.wast`. The primary-source manifests are [`../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md) and [`../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md`](../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md).
+Binaryen implements `signext-lowering` as a small feature-lowering pass, not as a broad optimizer. The reviewed `version_129` implementation lives in `src/passes/SignExtLowering.cpp`; registration and factory plumbing live in `src/passes/pass.cpp` and `src/passes/passes.h`; the dedicated instruction-shape proof is `test/lit/passes/signext-lowering.wast`. The primary-source manifests are [`../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md), [`../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md`](../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md), and the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md).
 
 ## Execution shape
 
@@ -95,7 +97,7 @@ Those belong to neighboring Binaryen passes such as `optimize-instructions` and 
 
 ## Current-main freshness
 
-A focused 2026-04-26 recheck of Binaryen `main` found no teaching-relevant drift from `version_129` or from the 2026-04-25 dossier: the owner file still uses the same five-opcode, shift-pair, feature-disable strategy, and the dedicated lit proof still checks the same output instruction families. This is not a guarantee that no small formatting or infrastructure change happened elsewhere; it only supports using the `version_129` behavior as the stable teaching contract for this dossier.
+A focused 2026-05-05 recheck of Binaryen `main` found no teaching-relevant drift from `version_129` or from the 2026-04-25 / 2026-04-26 dossier: the owner file still uses the same five-opcode, shift-pair, feature-disable strategy, and the dedicated lit proof still checks the same output instruction families. This is not a guarantee that no small formatting or infrastructure change happened elsewhere; it only supports using the `version_129` behavior as the stable teaching contract for this dossier.
 
 ## Non-goals
 

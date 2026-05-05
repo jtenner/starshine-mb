@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `signext-lowering` current-main bridge and source anchors
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md` plus `docs/wiki/raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md` after rechecking current `main` `SignExtLowering.cpp`, `pass.cpp`, `passes.h`, and `signext-lowering.wast` against the existing `version_129` contract.
+- Refreshed the `signext-lowering` overview, Binaryen strategy, implementation/test-map, WAT-shape catalog, Starshine strategy, Starshine port-readiness bridge, shared catalogs, and wiki index / tracker entries so the new 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same five-opcode shift-pair feature-lowering story, and Starshine still keeps `signext-lowering` removed from the registry while the feature-metadata decision remains explicit.
+
 ## [2026-05-05] health | refresh `optimize-added-constants` source anchors and Starshine code map
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md` plus `docs/wiki/raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md` after rechecking the shared `OptimizeAddedConstants.cpp` owner file, public registration, low-memory threshold, and plain-pass tests against the existing `version_129` contract.

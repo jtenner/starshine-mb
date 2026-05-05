@@ -1,8 +1,10 @@
 ---
 kind: strategy
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
+  - ../../../raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
   - ../../../raw/research/0396-2026-04-26-signext-lowering-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md
@@ -39,7 +41,7 @@ This page maps what exists today, what is missing, and how a faithful future por
 
 ## Current public-pass status
 
-As of 2026-04-25:
+As of 2026-05-05:
 
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) does not include `signext-lowering` in active, module, boundary-only, removed, or preset registry lists.
 - [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) has no module or HOT dispatcher case for `signext-lowering`.
