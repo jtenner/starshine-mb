@@ -1,32 +1,22 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
+  - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadArgumentElimination.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/opt-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/param-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/return-utils.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/lubs.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/src/ir/type-updating.h
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae-optimizing.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae-refine-params-and-optimize.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae-gc.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae-gc-refine-params.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae-gc-refine-return.wast
-  - https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/dae_tnh.wast
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./signature-updates-and-nested-reruns.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dead-argument-elimination/implementation-structure-and-tests.md
   - ../precompute-propagate/implementation-structure-and-tests.md
   - ../inlining-optimizing/implementation-structure-and-tests.md
@@ -34,116 +24,164 @@ related:
 
 # `dae-optimizing` implementation structure and tests
 
-This page is the compact owner-file and proof-surface map for Binaryen `version_129` `dae-optimizing`.
+## Why this page exists
 
-The current implementation/test-map source bridge is [`../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md). It records official tagged and current-main source URLs plus the dedicated lit files reviewed on 2026-04-25. The recheck found no teaching-relevant drift from the `version_129` contract.
+`dae-optimizing` is easy to misfile mentally as either:
 
-## Biggest source-confirmation result
+- “plain DAE but in a late slot”,
+- or “just another test file near DAE”.
 
-`dae-optimizing` is not a second implementation of DAE.
+This page keeps the source roles explicit so future work does not blur:
 
-It is:
+- what belongs to the shared `dae` / `dae-optimizing` engine,
+- what belongs to the optimizing-only nested rerun suffix,
+- and what the unusually wide `dae-optimizing.wast` family is actually proving.
 
-- the shared `DeadArgumentElimination.cpp` direct-call boundary engine,
-- registered as the public optimizing sibling in `pass.cpp`,
-- with an extra `OptUtils::optimizeAfterInlining(...)` cleanup replay from `opt-utils.h` when productive changes happen.
+## Upstream file map
 
-That means the implementation map has to keep two things visible at once:
+The 2026-05-05 current-main recheck did not find teaching-relevant drift from this map; it keeps the local first-slice / validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) and leaves the earlier 2026-04-25 bridge as the detailed implementation-readiness companion.
 
-1. the shared DAE boundary-rewrite engine; and
-2. the optimizing-only nested function-cleanup suffix.
+| File | What it contributes | Why it matters for a port |
+| --- | --- | --- |
+| `src/passes/DeadArgumentElimination.cpp` | The entire `dae-optimizing` engine: analysis data structures, graph-building walk, reverse-graph prep, fixed point, optimizer, type updater, replacement-type generation, and stats hooks | This is the real oracle for `dae-optimizing` semantics; see the 2026-04-25 manifest for reviewed owner locations |
+| `src/passes/pass.cpp` | Registers `dae-optimizing` as a public pass next to `dae` | Proves the sibling is public and separate, not hidden |
+| `src/passes/opt-utils.h` | The optimizing-only cleanup suffix called on changed functions | Critical because the optimizer replay is part of the pass contract |
+| `test/lit/passes/dae-optimizing.wast` | The canonical behavior surface for direct positives, refinement positives, dropped-return repairs, and optimizing cleanup examples | The file is big because the pass surface is big |
+| `test/lit/passes/dae-refine-params-and-optimize.wast` | Shared proof that optimizing cleanup immediately follows boundary refinement | Connects signature changes to scheduler behavior |
+| `test/lit/passes/dae-gc.wast` | Shared GC/reference-typed boundary behavior | Proves the refinement side of the pass |
+| `test/lit/passes/dae-gc-refine-params.wast` | Focused param-refinement proof | Proves the live-param narrowing family |
+| `test/lit/passes/dae-gc-refine-return.wast` | Focused result-refinement proof | Proves the outgoing-side narrowing family |
+| `test/lit/passes/dae_tnh.wast` | Sharp control/value corner cases | Proves dropped-return and `call; unreachable` repair behavior |
 
-## Core source files
+## Exact source anchors
 
-## `src/passes/DeadArgumentElimination.cpp`
+- [`../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md`](../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md) keeps the reviewed upstream file pages and the current-main recheck together.
+- `DeadArgumentElimination.cpp` is the main contract surface for the shared boundary rewrite engine.
+- `pass.cpp` is the public registration proof that `dae-optimizing` is a separate pass name.
+- `opt-utils.h` is the optimizing-only nested rerun suffix.
+- `dae-optimizing.wast` is the canonical behavior surface for positives, bailouts, and nested-cleanup-visible output.
 
-This is the main owner file for both public siblings:
+## What `DeadArgumentElimination.cpp` contributes
 
-- plain `dae`, and
-- `dae-optimizing`.
+Unlike plain `dae`, the `dae-optimizing` implementation does not lean on a separate helper family for its core algorithmic story.
+Most of the real logic is in this one file.
 
-For the optimizing sibling, this file proves the shared core:
+## Header comment
 
-- `DAEFunctionInfo` stores per-function facts such as unused params, direct calls, dropped calls, tail-call state, and unseen-call state;
-- `DAEScanner` gathers direct-call, dropped-call, tail-call, `call_ref` / indirect-call conservatism, `ref.func` escape, and used-param facts;
-- module-level maps connect callees, callers, all calls, dropped calls, tail callees, localization retry targets, and functions worth later cleanup;
-- the rewrite loop refines params, refines returns, applies constant actuals, removes params, removes dropped returns, and records hard calls for localization and retry;
-- the `optimize` mode bit decides whether productive changes enqueue the optimizing cleanup behavior.
+The file starts by stating its intended algorithm and its current non-goals.
+That comment is worth treating as part of the contract because it clearly says:
 
-Read this file when the question is:
+- backward fixed point over used params is in scope,
+- result optimization is not yet,
+- constant and type propagation are not yet.
 
-- “What does DAE actually prove before changing a signature?”
-- “When are exports, imports, `ref.func`, tail calls, or indirect/call-ref flows barriers?”
-- “Why can the pass refine types and materialize constants instead of only deleting params?”
+## `DAEFunctionInfo`
 
-## `src/passes/pass.cpp`
+Per-function analysis state:
 
-This file proves the public pass-name split:
+- direct and indirect forwarding maps,
+- param usage bits,
+- param-reading gets,
+- referenced status,
+- continuation-type usage,
+- intrinsic blocker flag,
+- replacement type.
 
-- `dae`
-- `dae-optimizing`
-- `dae2`
+## `RootFuncTypeInfo`
 
-For this folder, `pass.cpp` matters because it shows that `dae-optimizing` is a real public Binaryen pass name, not a local shorthand for plain DAE.
+Per-root-function-type-tree analysis state:
 
-It also supports the local naming caveat in [`./starshine-strategy.md`](./starshine-strategy.md): current Starshine uses descriptive boundary-only names, while Binaryen and the saved audit use the upstream `dae-optimizing` spelling.
+- tree-wide param usages,
+- referenced functions in the tree,
+- reverse caller-param edges for indirect/reference callers.
 
-## `src/passes/opt-utils.h`
+This is the easiest source clue that `dae-optimizing` is not only a direct-call pass.
 
-This file owns the optimizing-only suffix.
+## `DAE`
 
-`dae-optimizing` calls the post-inlining cleanup helper on changed functions. That helper:
+The main pass class.
+Major methods include:
 
-- runs only on the affected function set,
-- prepends `precompute-propagate`, and
-- reruns the default function optimization pipeline.
+- `run(...)`
+  - orchestrates analyze → prepare → fixed point → optimize;
+- `analyzeModule()`
+  - seeds direct/function-type-tree facts and blocker roots;
+- `prepareReverseGraph()`
+  - reverses the forwarding graph;
+- `computeFixedPoint()`
+  - propagates use backward through the reverse graph;
+- `optimize()`
+  - runs body optimization and, if enabled, the nested cleanup suffix;
+- `makeUnreferencedFunctionTypes(...)`
+  - manufactures or reuses replacement types for unreferenced functions.
 
-This is not polish. It is part of the public optimizing variant's behavior and explains why the saved `-O4z` debug log shows many nested function passes inside a single top-level `dae-optimizing` interval.
+## `GraphBuilder`
 
-## Helper ownership files
+The function-parallel analysis walker.
+It is where Binaryen:
 
-## `src/passes/param-utils.h`
+- detects direct forwarding,
+- detects indirect/reference forwarding,
+- identifies `if`-condition uses,
+- applies effect-based forwarding limits,
+- records `ref.func` references,
+- records continuation-type usage,
+- marks `call.without.effects` users.
 
-This is the boundary-rewrite helper center.
+## `Optimizer`
 
-It owns or supports:
+The mutating walker that actually:
 
-- finding used params,
-- applying all-callers-same constant actuals,
-- removing parameters from callee and call sites,
-- preserving evaluation order during callsite edits,
-- and localizing hard call operands before retrying parameter removal.
+- renumbers params/locals,
+- removes dead operands,
+- removes forwarded expression trees,
+- preserves surrounding structure,
+- and installs replacement/original types at the right stage.
 
-When future Starshine work reaches callsite repair, this helper is as important as the main pass file.
+## `DAETypeUpdater`
 
-## `src/ir/return-utils.h`
+The part that rebuilds types and computes old-to-new type maps when referenced-function optimization is enabled.
 
-This helper owns return removal in the callee body.
+## The plain-vs-`dae-optimizing` split is intentionally large
 
-It matters because dropped-result cleanup is not only a caller-side `drop(call)` rewrite. The callee's body and return sites have to be made consistent with the new result type.
+This matters for future readers.
 
-## `src/ir/lubs.h`
+Plain `dae` / `dae-optimizing` live in:
 
-This helper owns least-upper-bound reasoning used by DAE for:
+- `DeadArgumentElimination.cpp`
+- `param-utils.h`
+- `return-utils.h`
+- `lubs.h`
+- `type-updating.h`
 
-- GC reference parameter refinement from all direct-call operands,
-- and result refinement from returned values.
+`dae-optimizing` lives primarily in:
 
-This is the shortest source-backed proof that `dae-optimizing` is also a signature-refinement pass, not just dead-parameter deletion.
+- `DeadArgumentElimination.cpp`
 
-## `src/ir/type-updating.h`
+with a very different analysis structure plus the optimizing replay suffix.
 
-This helper owns the type-repair surface after param or result changes.
+## What the helper headers actually contribute
 
-It matters because changing a function type can require repairs to:
+## `param-utils.h`
 
-- direct call expression types,
-- `local.get` / `local.set` / `local.tee` traffic in the callee,
-- and surrounding expression types after refinalization.
+Essential for used-param discovery, constants, safe param deletion, and localization retry.
 
-## `src/ir/utils.h`
+## `return-utils.h`
 
-This helper participates in small expression and control-flow repair details around DAE's boundary rewrites. Treat it as support for preserving expression typing and unreachable behavior, not as the main optimization owner.
+Owns return removal in the callee body.
+
+## `lubs.h`
+
+Owns least-upper-bound reasoning used by DAE for reference-param refinement and result refinement.
+
+## `type-updating.h`
+
+Owns the type-repair surface after param or result changes.
+
+## `opt-utils.h`
+
+Owns the optimizing replay suffix.
+It matters because the DAE changes are expected to feed the nested cleanup replay on touched functions.
 
 ## Official tests and what they prove
 
@@ -156,8 +194,6 @@ It is best used to confirm that:
 - the public `dae-optimizing` pass is wired;
 - core DAE boundary rewrites are visible through the optimizing pass;
 - the optimizing suffix cleans up new debris enough to affect final WAT output.
-
-It should not be read as the entire shared DAE proof surface by itself.
 
 ## `test/lit/passes/dae-refine-params-and-optimize.wast`
 
@@ -213,13 +249,12 @@ It is where readers should look for:
 | File | Why it matters | Main thing it proves |
 | --- | --- | --- |
 | `src/passes/DeadArgumentElimination.cpp` | Core owner | Shared DAE boundary engine plus optimizing-mode hook |
-| `src/passes/pass.cpp` | Public registration | `dae` and `dae-optimizing` are separate public names; `dae2` is neighboring but separate |
+| `src/passes/pass.cpp` | Public registration | `dae` and `dae-optimizing` are separate public names |
 | `src/passes/opt-utils.h` | Optimizing suffix | `dae-optimizing` reruns post-inlining cleanup on changed functions |
 | `src/passes/param-utils.h` | Call/param repair | Used-param discovery, constants, safe param deletion, localization retry |
 | `src/ir/return-utils.h` | Callee result repair | Dropped-return elimination rewrites returns, not only callers |
 | `src/ir/lubs.h` | Type precision | Param/result LUB refinement is part of the pass |
 | `src/ir/type-updating.h` | Validation repair | Signature edits require local/call/body type repair |
-| `src/ir/utils.h` | Expression repair support | Small typing/control helpers around rewritten shapes |
 | `test/lit/passes/dae-optimizing.wast` | Main optimizing file | Public optimizing behavior and visible cleanup |
 | `test/lit/passes/dae-refine-params-and-optimize.wast` | Refinement + cleanup | Param refinement plus optimizing cleanup interaction |
 | `test/lit/passes/dae-gc.wast` | Broad shared-core GC oracle | GC constants, refinement, and conservative boundaries |
@@ -250,6 +285,6 @@ Wrong. `dae2` is a separately registered experimental pass and has its own dossi
 A faithful Starshine port needs two implementation layers:
 
 1. a shared module-boundary DAE core mirroring `DeadArgumentElimination.cpp` and its helper dependencies; and
-2. an optimizing-mode scheduler hook mirroring `OptUtils::optimizeAfterInlining(...)` for the changed-function set.
+2. an optimizing-mode scheduler hook mirroring the nested cleanup suffix for the changed-function set.
 
-The current local status page remains the source of truth for Starshine: [`./starshine-strategy.md`](./starshine-strategy.md). As of 2026-04-25, Starshine still has only the descriptive boundary-only name `dead-argument-elimination-optimizing`; exact upstream `dae-optimizing` is not a local alias yet.
+The current local status page remains the source of truth for Starshine: [`./starshine-strategy.md`](./starshine-strategy.md). As of 2026-05-05, Starshine still has only the descriptive boundary-only name `dead-argument-elimination-optimizing`; exact upstream `dae-optimizing` is not a local alias yet.

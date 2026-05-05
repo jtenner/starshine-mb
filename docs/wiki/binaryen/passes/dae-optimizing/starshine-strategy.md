@@ -1,17 +1,21 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
+  - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
-  - ../../../../../src/passes/registry_test.mbt
-  - ../../no-dwarf-default-optimize-path.md
-  - ../../../raw/research/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md
-  - ../../../../../.artifacts/self-opt-pass-audit-o4z-generated-2026-04-18/skipped-unimplemented-slots.json
+  - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/cmd/cmd.mbt
+  - ../../../../../src/lib/types.mbt
+  - ../../../../../src/validate/typecheck.mbt
+  - ../../../../../src/validate/validate.mbt
+  - ../../../../../src/wast/
   - ../../../../../agent-todo.md
 related:
   - ./index.md
@@ -19,18 +23,16 @@ related:
   - ./implementation-structure-and-tests.md
   - ./signature-updates-and-nested-reruns.md
   - ./wat-shapes.md
-  - ../dead-argument-elimination/index.md
-  - ../inlining-optimizing/starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
+  - ../dead-argument-elimination/starshine-strategy.md
   - ../precompute-propagate/index.md
-  - ../local-cse/index.md
-  - ../code-folding/index.md
 ---
 
-# Starshine `dae-optimizing` strategy and status
+# Starshine strategy for `dae-optimizing`
 
 ## Current status
 
-Starshine does **not** currently implement Binaryen `dae-optimizing`.
+Starshine does **not** currently implement Binaryen's exact upstream `dae-optimizing` pass.
 
 The important local distinction is naming:
 
@@ -44,6 +46,8 @@ Because [`run_hot_pipeline_expand_passes(...)`](../../../../../src/passes/optimi
 - `dae-optimizing` is the upstream/audit/backlog spelling, but not currently a local registry entry unless an alias is added later.
 
 That mismatch is a documentation and planning caveat for future work, not evidence that the pass is already partially implemented.
+
+For a concrete future implementation sequence and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). This status page stays focused on current local truth.
 
 ## Exact local code map
 
@@ -100,7 +104,7 @@ Minimum required pieces:
 
 4. **Nested cleanup scheduler**
    - track every function whose body or boundary changed;
-   - prepend the `precompute-propagate` sibling before the default function cleanup pipeline, matching Binaryen's `OptUtils::optimizeAfterInlining(...)` contract;
+   - prepend the `precompute-propagate` sibling before the default function cleanup pipeline, matching Binaryen's optimizing replay contract;
    - keep this nested lane separate from `simplify-globals-optimizing`, whose nested cleanup contract is intentionally different.
 
 5. **Name compatibility decision**
@@ -115,6 +119,7 @@ Use the Binaryen dossier as the behavior checklist:
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the upstream owner-file, helper, and lit-proof map.
 - [`./signature-updates-and-nested-reruns.md`](./signature-updates-and-nested-reruns.md) for boundary safety, localization, result removal, and rerun caveats.
 - [`./wat-shapes.md`](./wat-shapes.md) for beginner-friendly positive and negative shapes to convert into focused tests.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the first-slice analyzer, mutating, and nested-rerun plan.
 - [`../dead-argument-elimination/implementation-structure-and-tests.md`](../dead-argument-elimination/implementation-structure-and-tests.md) for the shared upstream owner-file and proof-surface map.
 
 Concrete future tests should cover at least:
@@ -127,9 +132,3 @@ Concrete future tests should cover at least:
 - dropped-return removal and uninhabitable-result repair;
 - nested cleanup replay on touched functions;
 - registry behavior for whichever local spelling decision is chosen.
-
-## Current non-goals
-
-- Do not claim current Starshine matches Binaryen `dae-optimizing` parity; it does not.
-- Do not fold this work into plain `dead-argument-elimination` without preserving the optimizing-only nested rerun split.
-- Do not describe `dae-optimizing` as already present in the local registry under the exact upstream spelling until `src/passes/optimize.mbt` actually adds that alias.

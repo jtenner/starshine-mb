@@ -1,28 +1,26 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
+  - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
-  - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
-related:
   - ./index.md
   - ./binaryen-strategy.md
-  - ./implementation-structure-and-tests.md
   - ./signature-updates-and-nested-reruns.md
-  - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dead-argument-elimination/wat-shapes.md
-  - ../local-cse/index.md
-  - ../simplify-locals/index.md
+  - ../dae2/wat-shapes.md
 ---
 
 # `dae-optimizing` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's `dae-optimizing` pass.
-The 2026-04-25 follow-up added a current-main implementation/test-map bridge and a dedicated owner/test page. Use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for upstream file/test provenance and [`./starshine-strategy.md`](./starshine-strategy.md) for the local code-map and naming caveat before turning any shape here into local tests.
+The 2026-05-05 current-main recheck keeps these families current. Use [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for upstream file/test provenance and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the first-slice bridge before turning any shape here into local tests.
 
 ## Read this page with one mental model
 
@@ -268,300 +266,225 @@ After, conceptually:
 )
 ```
 
-Why it rewrites:
+Why this matters:
 
-- all returned values prove a narrower result type
-- direct call expression typing must update too
-- surrounding expressions may need refinalization afterward
+- the pass can refine the outgoing boundary too
+- nested cleanup then removes any debris left by the boundary rewrite
 
-So DAE edits results as well as params.
+## Shape 7: dropped results can disappear when every caller drops them
 
-## Shape 7: if every direct caller drops the result, the result may disappear entirely
+Before, conceptually:
+
+```wat
+(func $f (result i32)
+  (i32.const 9)
+)
+
+(func $g
+  (drop (call $f))
+)
+```
+
+After, conceptually:
+
+```wat
+(func $f
+  (nop)
+)
+
+(func $g
+  (call $f)
+)
+```
+
+Why this rewrites:
+
+- all owned direct callers drop the result
+- the function result is removable
+- the caller and callee boundaries can shrink together
+
+## Shape 8: `call; unreachable` repair keeps uninhabited-result facts alive
+
+Before, conceptually:
+
+```wat
+(func $f (result (ref null nofunc))
+  (unreachable)
+)
+
+(func $g
+  (drop (call $f))
+)
+```
+
+After, conceptually:
+
+```wat
+(func $g
+  (call $f)
+  (unreachable)
+)
+```
+
+Why it matters:
+
+- the old dropped call encoded a stronger control-flow fact than “ignore the value”
+- Binaryen preserves that fact after removing the result
+
+## Shape 9: export and escape surfaces block signature rewrites
 
 Before:
 
 ```wat
+(func $f (param $x i32)
+  (drop (local.get $x))
+)
+(export "f" (func $f))
+```
+
+After:
+
+```wat
+;; preserved
+```
+
+Why it stays:
+
+- the function is still externally visible
+- Binaryen treats it as having unseen calls
+
+The same basic bailout family applies to `ref.func` escapes.
+
+## Shape 10: tail calls limit result removal
+
+Before, conceptually:
+
+```wat
 (func $f (result i32)
-  (i32.const 42)
+  (i32.const 0)
 )
 
 (func $g
-  (drop (call $f))
-)
-
-(func $h
-  (drop (call $f))
+  (return_call $f)
 )
 ```
 
-After, conceptually:
+After:
 
 ```wat
-(func $f
-  (drop (i32.const 42))
-)
-
-(func $g
-  (call $f)
-)
-
-(func $h
-  (call $f)
-)
+;; may stay unchanged if tail-call constraints block full result removal
 ```
 
-Why it rewrites:
+Why it stays:
 
-- every observed direct caller already throws the result away
-- DAE removes the result from the callee and the surrounding `drop` from callers
+- the optimizing pass keeps tail-call legality conservative
+- “all direct callers drop the result” is necessary, not always sufficient
 
-This is a second major family, not just a minor afterthought.
-
-## Shape 8: dropped uninhabitable results may become `call; unreachable`
+## Shape 11: operand localization keeps effects alive
 
 Before, conceptually:
 
 ```wat
-(func $f (result none)
-  (unreachable)
-)
-
-(func $g
-  (drop (call $f))
-)
-```
-
-After, conceptually:
-
-```wat
-(func $f
-  (unreachable)
-)
-
-(func $g
-  (call $f)
-  (unreachable)
-)
-```
-
-Why Binaryen does this:
-
-- the old call site carried a strong “normal execution does not continue” fact
-- blindly deleting the `drop` could weaken the caller’s control-flow meaning
-- so DAE repairs the caller with an explicit `unreachable`
-
-This is one of the most important easy-to-miss correctness details.
-
-## Shape 9: an exported function is a negative case even if the param looks dead
-
-Before and after stay the same in the important part:
-
-```wat
-(func $f (export "f") (param $x i32) (param $y i32)
-  (drop (local.get $x))
-)
-```
-
-Why Binaryen keeps the old boundary:
-
-- exports are treated as unseen calls
-- external callers may still use the old ABI
-- so DAE refuses signature-changing rewrites
-
-This is a core closed-world rule.
-
-## Shape 10: `ref.func` escape is also a negative case
-
-Before and after stay the same in the important part:
-
-```wat
-(func $f (param $x i32) (param $y i32)
-  (drop (local.get $x))
-)
-
-(func $g (result funcref)
-  (ref.func $f)
-)
-```
-
-Why Binaryen keeps the old boundary:
-
-- the function now escapes as a reference
-- DAE no longer owns the whole call surface through direct calls alone
-
-So escape analysis matters here, not just callee body liveness.
-
-## Shape 11: imports stay fixed
-
-Before and after stay the same:
-
-```wat
-(import "env" "f" (func $f (param i32 i32)))
-
-(func $g
-  (call $f (i32.const 1) (i32.const 2))
-)
-```
-
-Why Binaryen leaves it alone:
-
-- imported boundaries are out of scope for signature-changing DAE
-
-## Shape 12: `call_ref` and `call_indirect` do not get the easy direct-call rewrite story
-
-Before and after stay the same in the important part, conceptually:
-
-```wat
-(func $g (param $fp (ref null func))
-  (call_ref (local.get $fp) (i32.const 1) (i32.const 2))
-)
-```
-
-Why this matters:
-
-- DAE is mainly designed around known direct callees
-- indirect-style calls are conservatism signals here, not the main rewrite surface
-
-## Shape 13: effectful or nested unused operands may need localization before removal
-
-Before, conceptually:
-
-```wat
-(func $f (param $x i32) (param $y i32)
-  (drop (local.get $x))
+(func $f (param $x i32)
+  (nop)
 )
 
 (func $g
   (call $f
-    (i32.const 10)
     (call $side_effect)
   )
 )
 ```
 
-A possible intermediate shape is:
+After, conceptually:
 
 ```wat
 (func $g
-  (local $tmp i32)
   (local.set $tmp (call $side_effect))
-  (call $f
-    (i32.const 10)
-    (local.get $tmp)
-  )
+  (call $f)
 )
 ```
 
-And only later can the dead boundary slot disappear entirely.
+Why it rewrites this way:
 
-Why this family matters:
+- the argument must still be evaluated
+- but the call boundary can shrink only after localization
 
-- parameter removal is not always safe in one step
-- Binaryen has a specific repair path through call localization first
+This is the path that makes hard operands safe.
 
-Important honesty note:
-
-- this page treats that intermediate localization shape conceptually from the source design and helper API
-- the exact localized WAT form can vary depending on caller structure and later cleanup
-
-## Shape 14: all callers dropped is not enough when tail calls interfere
-
-Before and after may stay the same in the important part, conceptually:
-
-```wat
-(func $f (result i32)
-  ...
-)
-
-(func $g (result i32)
-  (return_call $f)
-)
-```
-
-Why Binaryen can bail out:
-
-- tail-call relationships are tracked separately
-- complete result removal is more conservative than ordinary result-type refinement
-
-So a good rule is:
-
-- dropped-result removal has its own extra safety gate
-
-## Shape 15: optimizing cleanup can remove new casts after type refinement
+## Shape 12: the optimizing replay can remove the debris the boundary rewrite created
 
 Before, conceptually:
 
 ```wat
-(func $f (param $x (ref null eq))
-  (drop (ref.cast (ref null func) (local.get $x)))
-)
-```
-
-After DAE boundary refinement, the function may conceptually become:
-
-```wat
-(func $f (param $x (ref null func))
-  (drop (ref.cast (ref null func) (local.get $x)))
-)
-```
-
-And after the optimizing nested rerun, the cast can disappear:
-
-```wat
-(func $f (param $x (ref null func))
+(func $f (param $x i32)
+  (local $tmp i32)
+  (local.set $tmp (i32.const 7))
   (drop (local.get $x))
 )
 ```
 
-Why this matters:
-
-- `dae-optimizing` is not just the boundary rewrite itself
-- later nested cleanup is often where the visible simplification payoff appears
-
-The dedicated `dae-refine-params-and-optimize` test exists for exactly this kind of interaction.
-
-## Shape 16: low-payoff one-caller chains are intentionally not chased forever
-
-Conceptually, imagine:
+After, conceptually:
 
 ```wat
-(func $a (param $x i32) ...)
-(func $b ... (call $a ...))
-(func $c ... (call $b ...))
-(func $d ... (call $c ...))
+(func $f
+  (nop)
+)
 ```
 
-Even if each boundary might improve step by step, Binaryen does not insist on walking the whole chain greedily in one DAE invocation.
+Why it matters:
 
-Why this matters:
+- boundary changes can introduce temporaries or obvious cleanup opportunities
+- `dae-optimizing` does not stop at the boundary rewrite
+- the nested cleanup replay is part of the visible contract
 
-- the pass contains a practical “not worth it right now” heuristic
-- inlining or a later DAE run may clean the next link more profitably
+## Shape 13: recursive forwarding cycles can still disappear
 
-This is less a single WAT rewrite than a scheduling shape, but it is still part of the real behavior contract.
+Before:
 
-## Important interaction families
+```wat
+(func $f (param $x i32)
+  (call $f
+    (local.get $x)))
+```
 
-## Interaction 1: DAE can create local-cleanup work
+After, conceptually:
 
-When DAE materializes constants or localizes call operands, it often creates new local traffic.
+```wat
+(func $f
+  (local $x i32)
+  (call $f))
+```
 
-That is one reason the optimizing helper reruns cleanup passes afterward.
+Why it rewrites:
 
-## Interaction 2: DAE can unlock cast cleanup
+- the param is only forwarded around a cycle
+- nothing outside the cycle gives it a real use
+- so the backward fixed point leaves it unused
 
-When DAE narrows a ref-typed param or result, later passes may remove casts, tests, or dead subtype plumbing that used to be necessary.
+## Shape 14: mutual recursion can optimize the same way
 
-## Interaction 3: DAE precedes `inlining-optimizing`
+Before, conceptually:
 
-Because it runs first in the late global optimizing cluster, DAE can simplify boundaries before the inliner makes later cost and usefulness decisions.
+```wat
+(func $a (param $x i32)
+  (call $b (local.get $x)))
+(func $b (param $y i32)
+  (call $a (local.get $y)))
+```
 
-That ordering is part of the real pipeline story.
+After, conceptually:
 
-## One good rule of thumb
+```wat
+(func $a
+  (local $x i32)
+  (call $b))
+(func $b
+  (local $y i32)
+  (call $a))
+```
 
-A good beginner summary is:
+Why it rewrites:
 
-> `dae-optimizing` rewrites function boundaries only when Binaryen still owns the direct-call surface, then reruns cleanup so the rewritten boundary actually pays off.
-
-That is the real shape story Binaryen `version_129` implements.
+- the whole cycle is only forwarding,
+- so all the relevant params stay dead together.

@@ -2,7 +2,16 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `dae-optimizing` source anchors and add port-readiness bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md` plus `docs/wiki/raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md` after rechecking current `main` `DeadArgumentElimination.cpp`, `pass.cpp`, `opt-utils.h`, and the optimizing DAE lit surface against the corrected contract.
+- Added `docs/wiki/binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md` and refreshed the `dae-optimizing` landing page, Binaryen strategy, implementation/test-map, signature / nested-rerun guide, WAT-shape catalog, Starshine strategy, wiki index, pass catalog, and tracker so the 2026-05-05 freshness layer and the new implementation-readiness bridge are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same shared `DeadArgumentElimination.cpp` engine plus optimizing-only nested cleanup replay, and Starshine still keeps the pass unimplemented under the descriptive local spelling caveat.
+
 ## [2026-05-05] health | refresh `dae2` source anchors and raw bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md` plus `docs/wiki/raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md` after rechecking current `main` `DeadArgumentElimination.cpp`, `pass.cpp`, `opt-utils.h`, and the optimizing DAE lit surface against the corrected contract.
+- Added `docs/wiki/binaryen/passes/dae-optimizing/starshine-port-readiness-and-validation.md` and refreshed the `dae-optimizing` landing page, Binaryen strategy, implementation/test-map, signature / nested-rerun guide, WAT-shape catalog, Starshine strategy, wiki index, pass catalog, and tracker so the 2026-05-05 freshness layer and the new implementation-readiness bridge are visible from the living dossier.
 
 - Added `docs/wiki/raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md` to capture the exact upstream Binaryen file pages reviewed for `dae2` and keep the current-main recheck tied to the living dossier.
 - Refreshed the `dae2` landing page, Binaryen strategy, implementation/test-map, pass catalog, and root wiki index so the folder now points readers at the source-anchor refresh note alongside the immutable manifest, current-main recheck, and the existing Starshine first-slice / validation bridge.

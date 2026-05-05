@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/research/0366-2026-04-25-dae-optimizing-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0285-2026-04-24-dae-optimizing-primary-sources-and-starshine-followup.md
+  - ../../../raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md
   - ../../../raw/research/0120-2026-04-20-dae-optimizing-binaryen-research.md
 related:
   - ./index.md
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../dead-argument-elimination/implementation-structure-and-tests.md
   - ../local-cse/index.md
   - ../simplify-locals/index.md
@@ -23,12 +26,14 @@ related:
 # `dae-optimizing`: signature updates and nested reruns
 
 This page focuses on the parts of Binaryen `dae-optimizing` that are easiest to misunderstand.
-It should be read with the current source manifests, implementation/test-map page, and Starshine status bridge when planning local work:
+It should be read with the current source manifests, implementation/test-map page, Starshine status bridge, and readiness bridge when planning local work:
 
 - [`../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md`](../../../raw/binaryen/2026-04-24-dae-optimizing-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-dae-optimizing-current-main-and-test-map.md)
+- [`../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md)
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 
 It covers:
 
@@ -36,6 +41,7 @@ It covers:
 - how it changes params and results
 - why call localization exists
 - why the optimizing rerun is part of the real pass contract
+- how the 2026-05-05 freshness layer keeps the same contract visible without changing it
 
 ## The big beginner warning
 
