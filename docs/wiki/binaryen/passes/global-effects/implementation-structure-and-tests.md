@@ -37,6 +37,15 @@ related:
 | `test/lit/passes/vacuum-global-effects.wast` | A real downstream consumer case where generated summaries make later `vacuum` cleanup stronger | This is the clearest reviewed behavior proof for the pass's cleanup value. |
 | `test/lit/passes/global-effects_simplify-locals.wast` | A direct comparison of `simplify-locals` with and without generated summaries | This proves a movement/locals-cleanup consumer family beyond `vacuum`. |
 
+## Current-main source anchors
+
+- `GlobalEffects.cpp#L1006-L1035` - stale `PassOptions` comment, `FuncInfo` setup, and the shallow per-function summary shell
+- `GlobalEffects.cpp#L1046-L1155` - parallel body scan plus direct-call and unknown-call classification
+- `GlobalEffects.cpp#L1329-L1530` - SCC/component propagation, recursive-cycle trap marking, and per-function writeback
+- `pass.cpp#L2558-L2561` - the producer registration block
+- `pass.cpp#L3687-L3692` - the explicit note that the pass is still not part of the default optimize sequence
+- `effects.h#L3479-L3525` - direct-call consumer lookup on `Call` nodes
+
 ## `GlobalEffects.cpp`
 
 This file establishes the pass contract.
@@ -152,6 +161,8 @@ For the exact local owner-file, registry, dispatcher, summary-model, and validat
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md`](../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md)

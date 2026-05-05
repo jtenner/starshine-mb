@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `global-effects` source anchors and raw manifest
+
+- Updated the `global-effects` raw current-main recheck with exact 2026-05-05 upstream line anchors for `GlobalEffects.cpp`, `pass.cpp`, and `effects.h` so the source archive now names the reviewed current-main locations explicitly.
+- Refreshed the living `global-effects` Binaryen strategy, implementation/test-map, metadata/consumer, WAT-shape, Starshine strategy, and Starshine readiness pages so their source lists now include the 2026-05-05 recheck alongside the earlier 2026-05-04 and 2026-04-27 manifests.
+- Kept the contract unchanged: Binaryen still teaches the same metadata-producing `generate-global-effects` contract, and Starshine still keeps `global-effects` boundary-only until a real module-level analyzer exists.
+
 ## [2026-05-05] health | add `local-subtyping` port-readiness bridge
 
 - Added `docs/wiki/binaryen/passes/local-subtyping/starshine-port-readiness-and-validation.md` to turn the existing `local-subtyping` dossier into a complete upstream-vs-future-port set: overview, implementation map, corrected Binaryen strategy, LUB/dominance guide, WAT-shape catalog, Starshine status, and implementation-readiness bridge.

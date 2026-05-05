@@ -37,6 +37,15 @@ This file captures a 2026-05-05 current-`main` recheck of the upstream `global-e
   - `version_129`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/vacuum-global-effects.wast>
   - `version_129`: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/global-effects_simplify-locals.wast>
 
+## Current-main line anchors from the 2026-05-05 spotcheck
+
+- `GlobalEffects.cpp#L1006-L1035` - stale `PassOptions` comment, `FuncInfo` setup, and the shallow per-function summary shell
+- `GlobalEffects.cpp#L1046-L1155` - parallel body scan plus direct-call and unknown-call classification
+- `GlobalEffects.cpp#L1329-L1530` - SCC propagation, recursive-cycle trap marking, and per-function `Function.effects` writeback
+- `pass.cpp#L2558-L2561` - public `generate-global-effects` registration
+- `pass.cpp#L3687-L3692` - explicit note that the pass still stays out of the default global optimization post-pass sequence
+- `effects.h#L3479-L3525` - direct-call effect lookup on the consumer side
+
 ## Recheck result
 
 The reviewed current-`main` sources still support the same teaching-level contract as the existing dossier:
