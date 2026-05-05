@@ -65,10 +65,6 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
-    pass_registry_category("flatten"),
-    Some(HotPassRegistryCategory::module_pass()),
-  )
-  assert_eq(
     pass_registry_category("redundant-set-elimination"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -224,32 +220,6 @@ test "preset expansion stays on implemented active pass names" {
       other =>
         fail("expected optimize preset pass category for \{name}, got \{other}")
     }
-  }
-}
-
-///|
-test "run_hot_pipeline accepts flatten as an active module pass" {
-  let input = pass_test_module_from_wat(
-    "(module (func (block (i32.const 1) drop)))",
-  )
-
-  let optimized = match
-    run_hot_pipeline(input, HotPipelineOptions::new(), ["flatten"]) {
-    Ok(mod) => mod
-    Err(err) => fail("expected flatten pipeline success, got \{err}")
-  }
-  match optimized.code_sec {
-    Some(
-      @lib.CodeSec(
-        [
-          @lib.Func(
-            _,
-            @lib.Expr([@lib.Instruction::I32Const(_), @lib.Instruction::Drop])
-          ),
-        ]
-      )
-    ) => ()
-    other => fail("expected flattened block body, got \{other}")
   }
 }
 
