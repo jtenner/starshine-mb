@@ -59,6 +59,14 @@ pub fn heap_store_optimization_summary() -> String
 
 pub fn hot_pass_run(HotPassContext, @ir.HotFunc) -> Result[HotPassResult, String]
 
+pub fn local_cse_descriptor() -> @ir.HotPassDescriptor
+
+pub fn local_cse_run(HotPassContext, @ir.HotFunc) -> HotPassResult
+
+pub fn local_cse_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn local_cse_summary() -> String
+
 pub fn local_subtyping_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn local_subtyping_summary() -> String

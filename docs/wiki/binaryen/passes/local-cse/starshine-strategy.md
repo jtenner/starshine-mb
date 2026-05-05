@@ -41,43 +41,38 @@ related:
 # Starshine Strategy For `local-cse`
 
 Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the concrete neighboring implementation areas future preset-slot work will need.
 
 ## The honest current status
 
-`local-cse` is still **unimplemented** in Starshine.
-There is no `src/passes/local_cse.mbt` or `src/passes/local-cse.mbt` owner file today.
+`local-cse` is now implemented in Starshine with a dedicated owner file, tests, registry entry, dispatcher route, fuzz-harness support, and direct debug-artifact self-optimize evidence.
 
-That does **not** mean there is no Starshine strategy surface.
-The current local strategy is boundary and port planning:
+The active local strategy is still deliberately slot-honest:
 
-- keep the upstream pass spelling tracked in the registry surface
-- keep the pass in the canonical no-DWARF parity and backlog documents
-- point future work at the exact local cleanup and local-index-rewrite code that already solves the nearest effect, local-traffic, and test problems
-- keep the exact upstream slot honest instead of claiming preset placement before the missing neighbors land
-
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+- keep the upstream pass spelling active in the registry surface
+- keep public `optimize` / `shrink` placement gated until the surrounding missing Binaryen-neighbor slots are representable
+- grow the implementation from same-window temp-localizing reuse without recasting it as a whole-function GVN pass
+- keep direct `--local-cse` parity evidence separate from later ordered-neighborhood proof
 
 ## Exact local code map today
 
 The fastest read-along path through the current Starshine status is:
 
-- tracked but removed pass-name status
-  - `src/passes/optimize.mbt:145-146`
-    - `pass_registry_removed_names()` includes `"local-cse"`
-- active request behavior
-  - `src/passes/optimize.mbt:522-524`
-    - removed pass flags are rejected before dispatch
-- dispatcher absence
+- active pass implementation and tests
+  - `src/passes/local_cse.mbt`
+  - `src/passes/local_cse_test.mbt`
+- active registry and dispatcher surface
+  - `src/passes/optimize.mbt`
+    - `local-cse` is registered as an active module pass
   - `src/passes/pass_manager.mbt`
-    - no module-pass case appears in the dispatch block for `local-cse`, and there is still no `src/passes/local_cse.mbt` owner file
-  - `src/passes/optimize_test.mbt:440-452`
-    - the regression surface keeps `local-cse` removed, keeps `flatten` removed, and keeps the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate false
-- backlog and delivery plan
+    - routes `local-cse` through `local_cse_run_module_pass(...)`
+  - `src/passes/optimize_test.mbt`
+    - keeps the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate false while `flatten` remains unavailable
+- completed backlog and release note
   - `agent-todo.md`
-    - `#### LCSE - Local CSE`
-    - `[LCSE]001 - Local Expression Equivalence`
-    - `[LCSE]002 - Mid-Pipeline Regression and Artifact Compare`
+    - the LCSE implementation slice has been pruned
+  - `CHANGELOG.md`
+    - records the 2026-05-05 `local-cse` landing
 - canonical scheduler context
   - `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
     - the late-cluster slot where `local-cse` belongs after `coalesce-locals` and before full `simplify-locals`
@@ -87,8 +82,8 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544`
     - local-use scanning, in-place local-index rewriting, and module-pass entry logic
 - exact current regression and replay surfaces worth following
-  - `src/passes/optimize_test.mbt:440-452`
-    - proves the `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate stays false while the surrounding status remains removed
+  - `src/passes/optimize_test.mbt`
+    - proves the `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate stays false while `flatten` remains removed
   - `src/passes/pass_manager_wbtest.mbt`
     - `test "raw simplify-locals adjacent local tees preserve writes read inside later if bodies"`
     - `test "raw simplify-locals rewrites dupable copies into the next escaping if condition"`
@@ -107,30 +102,21 @@ That code-and-doc map is the main practical addition in this dossier: readers ca
 
 ## What Starshine currently does for this pass name
 
-Today Starshine's behavior for `local-cse` is deliberately limited.
+Today Starshine's behavior for `local-cse` is active but deliberately scoped.
 
-### 1. The name is tracked, not forgotten
+### 1. The name is active, not merely tracked
 
-`src/passes/optimize.mbt:145-146` keeps the upstream spelling `local-cse` in `pass_registry_removed_names()`.
+`src/passes/optimize.mbt` registers the upstream spelling `local-cse` as an active module pass, and `src/passes/pass_manager.mbt` dispatches it through `local_cse_run_module_pass(...)`.
 That means:
 
-- the project still treats `local-cse` as a real known pass
-- the name is preserved in the registry-level compatibility surface
-- the pass remains visible in tracker and backlog work instead of silently falling out of planning
+- direct `--local-cse` requests execute instead of rejecting as removed
+- the pass remains separate from public presets until neighbor-slot proof is ready
+- the completed LCSE backlog slice has moved to `CHANGELOG.md`
 
-That is the right current behavior for an unimplemented parity pass.
+### 2. The landed work is a direct parity slice
 
-### 2. The work is planned as a parity slice, not an orphan idea
-
-`agent-todo.md` already gives `local-cse` a real backlog slice under `LCSE`.
-The current deliverables point in the right general direction:
-
-- expression-equivalence rules for local computations
-- explicit effect and GC-side-effect preservation
-- repeated-load, local, and barrier regressions
-- artifact-level proof in the intended mid-pipeline slot
-
-The current docs should keep that slice connected to the exact Binaryen contract:
+The implementation covers same-window temp-localizing reuse for repeated local arithmetic trees, preserves barrier resets for local writes/calls in the raw path, and is protected by direct pass tests plus fuzz/self-optimize evidence.
+The docs should keep that slice connected to the exact Binaryen contract:
 
 - repeated **whole-tree** reuse, not arbitrary subtree extraction
 - limited linear windows, not whole-function GVN
@@ -155,7 +141,7 @@ That is why current preset placement should stay honest.
 
 ## The right future Starshine implementation shape
 
-The current docs and neighboring code strongly suggest that a future local `local-cse` port should be taught as a **late HOT local-tree reuse pass with temp locals**, not as an isolated generic optimizer.
+The current implementation should continue to be taught as a **late local-tree reuse pass with temp locals**, not as an isolated generic optimizer.
 
 Why:
 
@@ -183,7 +169,7 @@ So the local strategy should be thought of as:
    - ordinary `coalesce-locals -> local-cse -> simplify-locals`
    - local-index and CLI proof surfaces already maintained in-tree
 
-In other words, the future port should slot into a cleanup ecosystem that partly exists already.
+In other words, the direct pass should keep growing inside a cleanup ecosystem that partly exists already.
 
 ## The most important local dependency map
 
@@ -219,7 +205,7 @@ Why:
 - the current raw simplify-locals tests already exercise local traffic, overwrite barriers, and condition-boundary cases that are close to the kinds of safety questions a future `local-cse` port will face
 - full `simplify-locals` is also the immediate cleanup consumer after the ordinary late `local-cse` slot
 
-So the current local implementation map for `local-cse` begins here, even before a dedicated owner file exists.
+So the current local implementation map for `local-cse` continues to include these neighboring cleanup files alongside the dedicated owner file.
 
 ### Existing Starshine `reorder-locals` code is the nearest landed local-index rewrite surface
 
@@ -251,7 +237,7 @@ So the current repo status is best summarized as:
 - backlog tracked
 - scheduler slot documented
 - neighboring local cleanup and rewrite files implemented
-- transform itself not yet landed
+- public preset scheduling for the exact upstream neighborhoods
 
 ## Validation plan for the eventual port
 
@@ -285,7 +271,7 @@ Current Starshine `local-cse` strategy is honest boundary tracking plus port pla
 - the upstream spelling is intentionally preserved in `src/passes/optimize.mbt`
 - the backlog already treats `local-cse` as a real missing parity slice under `LCSE`
 - the canonical early and late slots are already documented in the no-DWARF optimizer notes
-- the surrounding implementation files already exist and define the practical landing zone for a future port, especially `simplify_locals.mbt`, `reorder_locals.mbt`, `pass_manager_wbtest.mbt`, and `cmd_wbtest.mbt`
+- the surrounding implementation files already exist and define the practical landing zone for future neighborhood work, especially `simplify_locals.mbt`, `reorder_locals.mbt`, `pass_manager_wbtest.mbt`, and `cmd_wbtest.mbt`
 - the docs now keep one important honesty rule explicit: no exact Starshine slot should be claimed before the missing upstream-neighbor equivalents land locally
 
 So the right mental model today is not “nothing exists locally.”

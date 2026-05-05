@@ -47,10 +47,10 @@ For the exact upstream algorithm and source/test map, read:
 
 ## Current readiness status
 
-Starshine still treats `local-cse` as **removed**.
-There is no owner file, no dispatcher case, and no active port slice yet.
+Starshine now treats `local-cse` as an active direct pass.
+The owner file, dispatcher case, direct tests, fuzz-harness support, and debug-artifact direct compare evidence have landed.
 
-That is the honest state to keep until the missing neighbors exist and the first real transform lands.
+The honest remaining state is preset-slot restraint until the missing neighbors and ordered neighborhoods are representable.
 
 ## What already exists locally
 
@@ -58,9 +58,9 @@ The nearest local surfaces are:
 
 | Surface | Why it matters |
 | --- | --- |
-| `src/passes/optimize.mbt` | Keeps `local-cse` in the removed registry, preserves the known pass spelling, and blocks active requests cleanly. |
-| `src/passes/pass_manager.mbt` | Has no `local-cse` dispatcher case, so no transform can run by accident. |
-| `src/passes/optimize_test.mbt:440-452` | Keeps the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate false while the pass remains removed. |
+| `src/passes/optimize.mbt` | Registers `local-cse` as an active direct pass surface while keeping preset scheduling gated. |
+| `src/passes/pass_manager.mbt` | Dispatches the active `local-cse` module pass. |
+| `src/passes/optimize_test.mbt` | Keeps the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate false while `flatten` remains removed. |
 | `src/passes/simplify_locals.mbt` | Already models local effect/conflict checks and cleanup behavior close to the pass's safety questions. |
 | `src/passes/reorder_locals.mbt` | Already handles local-index rewriting and is the closest landed example of temp-local bookkeeping work. |
 | `src/passes/pass_manager_wbtest.mbt` | Already carries nearby replay tests for simplify-locals boundary behavior. |
@@ -110,9 +110,9 @@ Add focused tests for the source-backed families in [`./wat-shapes.md`](./wat-sh
 
 Before any optimizer-slot claim, prove that:
 
-- the pass name is still tracked as removed
-- explicit `--local-cse` requests fail cleanly
-- the current catalog text still points at the real implementation gap
+- the pass name is active for direct execution
+- explicit `--local-cse` requests execute cleanly
+- the current catalog text points at the active implementation and the remaining preset-neighborhood gap
 - the surrounding `flatten -> simplify-locals-notee-nostructure -> local-cse` gate stays false in the local regression surface
 
 ### 3. Pass-targeted parity
@@ -127,5 +127,5 @@ That means the validation story should stay conservative until the `flatten -> s
 ## Bottom line
 
 `local-cse` is still documentation plus port planning.
-The current repo already has the nearby local machinery that a future port will need, but it does not yet have the pass itself.
+The current repo now has the direct pass plus nearby local machinery for future neighborhood/preset work.
 Keep this page as the implementation-readiness bridge until that changes.

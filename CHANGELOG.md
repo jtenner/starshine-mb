@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Passes: implement local-cse
+
+- **complete LCSE001/LCSE002 by adding the active `local-cse` pass surface, same-window arithmetic tree reuse through temp locals, registry/dispatcher/CLI/fuzz-harness support, focused regressions, direct gen-valid fuzz parity, and debug-artifact self-optimize evidence while pruning the completed backlog slice** by **@OpenAI**. Updated [`src/passes/local_cse.mbt`](./src/passes/local_cse.mbt), [`src/passes/local_cse_test.mbt`](./src/passes/local_cse_test.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), [`docs/wiki/binaryen/passes/local-cse/`](./docs/wiki/binaryen/passes/local-cse/), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Passes: implement local-subtyping
 
 - **complete LS001/LS002 by adding the module `local-subtyping` pass, registry/dispatcher/CLI/fuzz-harness support, GC local narrowing regressions, and direct fuzz plus debug-artifact compare evidence while pruning the completed backlog slice** by **@OpenAI**. Updated [`src/passes/local_subtyping.mbt`](./src/passes/local_subtyping.mbt), [`src/passes/local_subtyping_test.mbt`](./src/passes/local_subtyping_test.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt), [`src/cmd/cmd_wbtest.mbt`](./src/cmd/cmd_wbtest.mbt), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).

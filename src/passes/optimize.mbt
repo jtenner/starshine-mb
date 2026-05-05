@@ -142,8 +142,8 @@ fn pass_registry_boundary_only_names() -> Array[String] {
 ///|
 fn pass_registry_removed_names() -> Array[String] {
   [
-    "const-hoisting", "dataflow-optimization", "local-cse", "loop-invariant-code-motion",
-    "merge-locals", "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
+    "const-hoisting", "dataflow-optimization", "loop-invariant-code-motion", "merge-locals",
+    "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
     "precompute-propagate", "de-nan", "simplify-locals-no-tee", "simplify-locals-no-tee-no-structure",
     "simplify-locals-no-nesting",
   ]
@@ -250,6 +250,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       simplify_locals_notee_nostructure_summary(),
       simplify_locals_notee_nostructure_descriptor(),
     ),
+    pass_registry_entry_module("local-cse", local_cse_summary()),
     pass_registry_entry_hot(
       "merge-blocks",
       merge_blocks_summary(),

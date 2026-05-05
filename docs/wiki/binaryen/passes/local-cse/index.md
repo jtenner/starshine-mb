@@ -33,7 +33,7 @@ related:
 ## Role
 
 - `local-cse` is an upstream Binaryen local-cleanup pass.
-- It is currently **unimplemented** in Starshine and still appears under the removed pass names in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is now implemented in Starshine as an active direct pass in [`../../../../../src/passes/local_cse.mbt`](../../../../../src/passes/local_cse.mbt) and is registered under the active module-pass surface in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - Despite the name, Binaryen `version_129` does **not** use it as a whole-function or CFG-wide common-subexpression pass.
 - The real job is narrower: find repeated whole expression trees inside one local execution window, save the first result in a fresh temp local, and reuse that value later with `local.get`.
 
@@ -97,14 +97,14 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Dedicated Starshine status/port map for this still-unimplemented pass: exact registry/backlog/scheduler surfaces, concrete neighboring MoonBit files and test lanes, and the main honesty rule that preset placement should stay blocked until the missing Binaryen-neighbor equivalents land locally.
+  Dedicated Starshine status/port map for this active direct pass: exact implementation, registry, dispatcher, scheduler, neighboring MoonBit files and test lanes, and the main honesty rule that preset placement should stay blocked until the missing Binaryen-neighbor equivalents land locally.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
   Implementation-readiness bridge: the nearest local landing zone, conservative validation ladder, and the exact cluster-replay checks to defer until the missing neighbors exist.
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `local-cse` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
+- Treat this folder as the canonical home for `local-cse` behavior, parity, and slot-planning notes.
+- Keep the active Starshine implementation status in sync with `src/passes/local_cse.mbt`, `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, and `agent-todo.md`.
 - New `local-cse` findings should update the strategy page, implementation/test-map page, and windows/barriers page together so the algorithm explanation, proof-surface map, and control-flow safety story stay aligned.
 
 ## Sources

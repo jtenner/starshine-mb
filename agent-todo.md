@@ -112,14 +112,6 @@ Observed unique-pass order
 - [CL]003 - Ordered-Slot Replay
   - Deliverables: keep direct pass parity green and replay the exact slots after `local-subtyping`, `reorder-locals`, and surrounding cleanup passes are available.
 
-#### LCSE - Local CSE
-
-- [LCSE]001 - Local Expression Equivalence
-  - Deliverables: define effect-safe equivalence classes for local computations; preserve trap ordering and GC side effects; integrate with current effects analysis.
-
-- [LCSE]002 - Mid-Pipeline Regression and Artifact Compare
-  - Deliverables: cover repeated loads, locals, and effect barriers; verify the pass stays in the mid-function slot; replay `--local-cse` parity against Binaryen.
-
 #### SL - Simplify Locals
 
 - [SL]004 - Slot Validation and Artifact Replay

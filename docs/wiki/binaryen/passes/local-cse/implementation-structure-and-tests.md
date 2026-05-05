@@ -113,17 +113,17 @@ Evidence caveat: idempotent-call positives and GC-generative allocation negative
 
 ## Current Starshine file map
 
-Starshine does not implement `local-cse` yet. The relevant local files are status, scheduler, or prerequisite surfaces:
+Starshine now implements `local-cse`. The relevant local files are implementation, scheduler, or prerequisite surfaces:
 
 | Local file | Exact role today |
 | --- | --- |
-| `src/passes/optimize.mbt:145-146` | `pass_registry_removed_names()` includes `local-cse`, so active requests are intentionally rejected rather than silently ignored. |
-| `src/passes/optimize.mbt:522-524` | Removed-name requests return the active-pipeline rejection error before any pass dispatch. |
-| `src/passes/pass_manager.mbt` | Module-pass dispatch still has no `local-cse` case, and there is still no `src/passes/local_cse.mbt` owner file. |
-| `src/passes/optimize_test.mbt:440-452` | The Starshine regression surface keeps `local-cse` removed, keeps `flatten` removed, and proves the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate stays false. |
+| `src/passes/local_cse.mbt` | Active Starshine implementation for direct `local-cse` execution. |
+| `src/passes/optimize.mbt` | Registry entry exposes `local-cse` as an active module pass. |
+| `src/passes/pass_manager.mbt` | Module-pass dispatch routes `local-cse` to `local_cse_run_module_pass(...)`. |
+| `src/passes/optimize_test.mbt` | The Starshine regression surface keeps the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate false while `flatten` remains removed. |
 | `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:176`, `src/passes/simplify_locals.mbt:4132` | Existing HOT local cleanup has sinkable/effect-conflict machinery and the full `simplify-locals` entry point, but it is the downstream cleanup neighbor rather than a CSE implementation. |
 | `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Existing module pass shows local-use scanning, in-place local-index rewrite, and module-pass entry logic a future temp-localizing port will need to compose with. |
-| `agent-todo.md:403-415` | `LCSE` backlog slice records expression-equivalence and mid-pipeline artifact-compare deliverables. |
+| `agent-todo.md` / `CHANGELOG.md` | The LCSE backlog slice has been pruned and the 2026-05-05 landing is recorded in the changelog. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | Canonical no-DWARF path records the late `coalesce-locals -> local-cse -> simplify-locals` neighborhood. |
 
 ## What this page rules out
