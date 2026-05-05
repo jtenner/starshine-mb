@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md
+  - ../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md
   - ../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0174-2026-04-21-merge-similar-functions-binaryen-research.md
@@ -22,6 +24,7 @@ related:
   - ./profitability-indirection-and-type-barriers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen strategy for `merge-similar-functions`
@@ -373,7 +376,7 @@ Too many synthetic params kills the merge.
 
 ## Current-main drift check
 
-A current-main diff check found no diff in `src/passes/MergeSimilarFunctions.cpp` compared with `version_129`.
+A 2026-05-05 current-main recheck found no diff in `src/passes/MergeSimilarFunctions.cpp` compared with `version_129`.
 
 That is narrow evidence, but it is enough to keep `version_129` as the main oracle for this dossier.
 

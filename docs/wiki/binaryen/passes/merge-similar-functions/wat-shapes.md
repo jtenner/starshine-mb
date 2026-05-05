@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md
+  - ../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md
   - ../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0174-2026-04-21-merge-similar-functions-binaryen-research.md
@@ -19,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./profitability-indirection-and-type-barriers.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # WAT shape catalog for `merge-similar-functions`
@@ -332,7 +335,7 @@ When reading candidate output, ask these questions in order:
 
 If the answer to any of the first five becomes “no,” expect a bailout.
 
-For current Starshine behavior, remember that these Binaryen output shapes are **future-port targets only**. Starshine currently tracks `merge-similar-functions` as a boundary-only known name and rejects direct requests before any helper/thunk rewrite runs; see [`./starshine-strategy.md`](./starshine-strategy.md).
+For current Starshine behavior, remember that these Binaryen output shapes are **future-port targets only**. Starshine currently tracks `merge-similar-functions` as a removed known name and rejects direct requests before any helper/thunk rewrite runs; see [`./starshine-strategy.md`](./starshine-strategy.md) and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Sources
 

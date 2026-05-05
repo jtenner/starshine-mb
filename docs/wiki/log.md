@@ -8,6 +8,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added focused tests for active registration, non-overlap merging, interference negatives, redundant local copy cleanup, dead set/tee cleanup, and CLI adapter behavior.
 - Recorded direct evidence: full `moon test` passes; `.tmp/pass-fuzz-cl-genvalid-10000-livecount` is `10000/10000` normalized matches; `.tmp/pass-fuzz-cl-mixed-1000-livecount` had `950/950` comparable mixed-generator matches with zero mismatches; `.tmp/self-opt-cl-debug-livecount` and `.tmp/self-opt-cl-optimized-livecount` are canonical-function equal against Binaryen 128, and the optimized-artifact direct pass timer is now faster than Binaryen after the live-count interference guard.
 
+## [2026-05-05] health | refresh `merge-similar-functions` status and current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md` plus `docs/wiki/raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md` after rechecking official Binaryen `main` `MergeSimilarFunctions.cpp`, `pass.cpp`, helper headers, and dedicated lit tests.
+- Added `docs/wiki/binaryen/passes/merge-similar-functions/starshine-port-readiness-and-validation.md` and refreshed the landing page, Binaryen strategy, implementation/test-map, mechanics, profitability, WAT-shape, Starshine strategy, shared index, tracker, and wiki catalog pages so the dossier now says the pass is removed-registry in Starshine rather than boundary-only.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the corrected status and new port-readiness bridge are discoverable from the shared catalogs.
+- Recorded unchanged local status: Starshine still keeps `merge-similar-functions` unimplemented, with no owner file, no dispatcher case, and no active backlog slice.
+
 ## [2026-05-05] health | refresh `code-folding` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-code-folding-current-main-recheck.md` plus `docs/wiki/raw/research/0442-2026-05-05-code-folding-current-main-recheck.md` after rechecking official Binaryen `main` `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`.

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md
+  - ../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md
   - ../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -19,6 +21,7 @@ related:
   - ./equivalence-classes-param-derivation-and-thunk-rewrites.md
   - ./profitability-indirection-and-type-barriers.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
 ---
 
@@ -30,7 +33,7 @@ Starshine does **not** implement `merge-similar-functions` today.
 
 The local status is:
 
-- registry category: **boundary-only**
+- registry category: **removed**
 - explicit CLI/pass request behavior: rejected before pass execution
 - active hot owner file: **none**
 - active module owner file: **none**
@@ -62,11 +65,11 @@ This file is the source of truth for the current local pass status.
 
 Relevant surfaces:
 
-- `pass_registry_boundary_only_names()` includes `"merge-similar-functions"`.
-- `pass_registry_entries()` maps boundary-only names through `pass_registry_entry_boundary_only(...)`.
-- Boundary-only entries have no `HotPassDescriptor` and no module-pass owner hook.
-- `run_hot_pipeline_expand_passes(...)` rejects boundary-only requests with:
-  - `pass flag {name} is boundary-only and is not implemented in the hot pipeline`
+- `pass_registry_removed_names()` includes `"merge-similar-functions"`.
+- `pass_registry_entries()` maps removed names through `pass_registry_entry_removed(...)`.
+- Removed entries have no `HotPassDescriptor` and no module-pass owner hook.
+- `run_hot_pipeline_expand_passes(...)` rejects removed requests with:
+  - `pass flag {name} is removed from the active hot pipeline registry`
 - `optimize_preset_passes(...)` does not include `merge-similar-functions`.
 - `shrink_preset_passes(...)` also does not include `merge-similar-functions`.
 
@@ -86,7 +89,7 @@ Relevant surfaces:
 - `make_optimize_options(...)` carries `shrink_level`, `monomorphize_min_benefit`, `closed_world`, low-memory options, traps policy, validation policy, and stack-function-pass controls.
 - There is no `merge-similar-functions` option, planner, dispatcher hook, or helper-generation path.
 
-So `--merge-similar-functions` can be parsed as a pass-like flag, but the registry rejects it as boundary-only. It is not silently ignored and it is not run as part of local `--shrink`.
+So `--merge-similar-functions` can be parsed as a pass-like flag, but the registry rejects it as removed. It is not silently ignored and it is not run as part of local `--shrink`.
 
 ## Pipeline and pass-manager surfaces
 
@@ -129,7 +132,7 @@ This older registry map lists `merge-similar-functions` in Batch 4 compatibility
 
 ### `agent-todo.md`
 
-At the 2026-04-25 review point, there is no active `merge-similar-functions` slice. Future work should add one before implementing the pass so the required module rewrite, validation, and parity gates are explicit.
+At the 2026-05-05 review point, there is no active `merge-similar-functions` slice. Future work should add one before implementing the pass so the required module rewrite, validation, and parity gates are explicit.
 
 ## Current request behavior
 
@@ -142,7 +145,7 @@ Expected behavior for a direct request:
 is rejection before any pass mutates the module:
 
 ```text
-pass flag merge-similar-functions is boundary-only and is not implemented in the hot pipeline
+pass flag merge-similar-functions is removed from the active hot pipeline registry and is not implemented in the hot pipeline
 ```
 
 This is the correct current behavior. It keeps the known Binaryen pass name visible without pretending Starshine implements the transformation.
@@ -230,5 +233,8 @@ Until a real port lands, do not claim Starshine supports:
 - Core mechanics: [`./equivalence-classes-param-derivation-and-thunk-rewrites.md`](./equivalence-classes-param-derivation-and-thunk-rewrites.md)
 - Profitability and type barriers: [`./profitability-indirection-and-type-barriers.md`](./profitability-indirection-and-type-barriers.md)
 - Shape catalog: [`./wat-shapes.md`](./wat-shapes.md)
-- Raw source manifest: [`../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md`](../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md)
-- Research follow-up: [`../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md`](../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md)
+- Port readiness: [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+- Raw source manifest: [`../../../raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md)
+- Research follow-up: [`../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md`](../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md)
+- Legacy raw source manifest: [`../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md`](../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md)
+- Legacy research follow-up: [`../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md`](../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md)

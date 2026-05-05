@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-merge-similar-functions-current-main-recheck.md
+  - ../../../raw/research/0443-2026-05-05-merge-similar-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-similar-functions-primary-sources.md
   - ../../../raw/research/0332-2026-04-25-merge-similar-functions-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0174-2026-04-21-merge-similar-functions-binaryen-research.md
@@ -19,6 +21,7 @@ related:
   - ./profitability-indirection-and-type-barriers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
 ---
 
@@ -27,14 +30,14 @@ related:
 ## Role
 
 - `merge-similar-functions` is a real public Binaryen pass.
-- It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **boundary-only** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is currently **unimplemented** in Starshine's active optimizer and still lives in the local **removed** registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - It is also still listed in the local Batch 4 registry map in [`../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md).
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - Official Binaryen instead schedules it in the late global post-pass phase when **`shrinkLevel >= 2`**, placing it near size-focused neighbors like `duplicate-function-elimination`, `duplicate-import-elimination`, and `simplify-globals*`.
 
 ## Why this pass matters
 
-- The original no-DWARF queue, the saved generated-artifact `-O4z` queue, and the first widened upstream-only registry wave are already dossier-covered, so this folder is an explicit source-backed expansion for another real local boundary-only entry.
+- The original no-DWARF queue, the saved generated-artifact `-O4z` queue, and the first widened upstream-only registry wave are already dossier-covered, so this folder is an explicit source-backed expansion for another real local removed-registry entry.
 - `agent-todo.md` currently has **no dedicated `merge-similar-functions` slice**.
 - The pass sits directly beside already-documented late module neighbors, but it solves a different problem from `duplicate-function-elimination`: it merges **near-duplicates by inventing parameters and thunks**, not exact duplicates.
 - It is relevant to future `-Oz` / `-O4z` / shrink-family parity work even though it is outside the current no-DWARF `-O` / `-Os` page.
@@ -55,7 +58,7 @@ That gap mattered because a future port can easily go wrong by:
 
 This refreshed dossier now closes that mechanics gap.
 
-The 2026-04-25 follow-up closes the remaining provenance and local-status gap: the folder now has an immutable raw Binaryen source manifest and a dedicated Starshine strategy page that maps the current boundary-only registry entry to exact local code locations.
+The 2026-05-05 refresh closes the remaining provenance and local-status gap: the folder now has an immutable current-main bridge, a dedicated Starshine strategy page, and a port-readiness / validation bridge that maps the removed-name registry to exact local code locations.
 
 ## Beginner summary
 
@@ -86,8 +89,8 @@ So this pass is best taught as:
 - Helper construction must shift the original non-param locals upward after synthetic params are appended.
 - Call-target parameterization uses `ref.func` thunk payloads plus `call_ref` / `return_call_ref` in the shared helper.
 - Profitability and the `255` synthetic-param limit are first-class bailout rules, not mere polish.
-- A current-main spot check found the same implementation file contents as `version_129` on the reviewed surface.
-- Starshine currently keeps the pass as a boundary-only known name: explicit requests are rejected before execution, no module owner file exists, and no active backlog slice is open.
+- A 2026-05-05 current-main recheck found the same implementation file contents as `version_129` on the reviewed surface.
+- Starshine currently keeps the pass as a removed-registry known name: explicit requests are rejected before execution, no module owner file exists, and no active backlog slice is open.
 
 ## Page map
 
@@ -102,7 +105,7 @@ So this pass is best taught as:
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly shape catalog showing the main positive, mixed, and bailout WAT families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future-port map: boundary-only registry entry, request rejection, no owner/dispatcher/preset/backlog state, reusable module representation surfaces, and the module-level helper/thunk rewrite phases a faithful port would need.
+  Current Starshine status and future-port map: removed-registry entry, request rejection, no owner/dispatcher/preset/backlog state, reusable module representation surfaces, and the module-level helper/thunk rewrite phases a faithful port would need.
 
 ## Current maintenance rule
 
@@ -111,7 +114,7 @@ So this pass is best taught as:
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it belongs to the shrink-family late global post-pass story, not the repo's current no-DWARF `-O` / `-Os` path.
 - Keep the split from `duplicate-function-elimination` explicit too: exact duplicates belong to DFE, near-duplicates-with-synthetic-params belong here.
 - Keep the mechanics fact explicit too: the real contract is not just “helper plus thunks,” but a source-backed hash-then-classify-then-diff-derive-then-clone-and-shift-locals algorithm.
-- Keep the Starshine status explicit too: the local codebase currently tracks this only as a boundary name, not as a scheduled module pass.
+- Keep the Starshine status explicit too: the local codebase currently tracks this only as a removed registry name, not as a scheduled module pass.
 
 ## Sources
 
