@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Proofs: close PRV001 policy docs
+
+- **complete PRV001 by documenting the current `src/validate_proof` proof boundary, bootstrap/Why3 assumptions, direct `src/validate` blocker, and CI/local invocation policy while keeping broad proof gates deferred** by **@OpenAI**. Updated [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Passes: harden post-SSA cleanup replay
 
 - **complete HOT001 by extending fail-closed suspicious escape-carrier lowering guards to simplify-locals family writeback, keeping the `dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals` ordered post-SSA cleanup chain protected against prefix-specific invalid lowers** by **@OpenAI**. Updated [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).

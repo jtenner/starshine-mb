@@ -59,6 +59,9 @@ related:
     - `moon prove src/validate/env.mbt`
     - `moon prove src/validate/match.mbt`
   - only later `moon prove src/validate`
+- Keep CI proof gating opt-in until the direct `src/validate` blocker is cleared. Required CI/local proof checks should be limited to proof-enabled packages or files that are expected to prove cleanly on the documented Why3/Z3 setup; broad root-level `moon prove` remains a future policy decision, not a current release gate.
+- Treat `src/validate_proof` as the current committed proof boundary: it is intentionally proof-enabled, contains standalone arithmetic/index lemmas, and is safe to run in CI or local signoff with `moon prove src/validate_proof`.
+- Treat direct `src/validate` proving as experimental only: enabling proof in `src/validate/moon.pkg` is a temporary local investigation step until the historical `jtenner/starshine/lib` WhyML lowering failure is removed or documented as obsolete by a fresh successful targeted run.
 - When the Why3 output is opaque, debug with compiler-level emission through `moonc prove -emit-only` and explicit WhyML/report output paths instead of turning the whole workflow inside out.
 - Keep `moon` commands serialized in normal developer workflows because this repo already treats `_build/.moon-lock` contention as real.
 - Defer first-wave proofs for:

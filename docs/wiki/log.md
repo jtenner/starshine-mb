@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] maintain | close PRV001 proof documentation policy
+
+- Updated `validation/moonbit-prove-strategy.md` with the explicit PRV001 proof policy: `src/validate_proof` is the current committed proof boundary and safe CI/local proof target, while direct `src/validate` proving remains an opt-in local investigation until the historical `jtenner/starshine/lib` WhyML lowering blocker is cleared.
+- Kept broad root-level `moon prove` out of the required gate; `moon prove src/validate_proof` remains the current proof signoff command.
+
 ## [2026-05-05] health | refresh `de-nan` current-main bridge and stale anchors
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-de-nan-current-main-recheck.md` plus `docs/wiki/raw/research/0478-2026-05-05-de-nan-current-main-recheck.md` after rechecking Binaryen `main` `DeNaN.cpp`, `pass.cpp`, `properties.h`, `names.h`, `wasm-builder.h`, `pass.h`, and `denan.wast` against the existing oracle.

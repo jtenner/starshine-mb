@@ -212,9 +212,6 @@ Suggested Tests
 - `moon test`
 - `moon info && moon fmt`
 
-- [PRV]001 - Documentation/CI Policy Cleanup
-  - Deliverables: document the current `src/validate_proof` package boundary, bootstrap steps, direct `src/validate` blocker, and CI/local invocation policy. The proof-enabled package already proves cleanly; do not redo bootstrap work unless the toolchain shifts.
-
 - [PRV]002 - `Env` / `LabelStack` Proof Kernel
   - Deliverables: extend the helper kernel to remaining stack-from-top label lookup and rectype-resolution invariants; keep `env_tests` green.
 
