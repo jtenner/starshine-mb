@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
+  - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
@@ -44,7 +46,7 @@ This is the single most important teaching point.
 `wasm.h` shows that a `Function` can store optional `effects` metadata.
 `generate-global-effects` writes that field.
 
-One source wording caveat is now explicit in the raw manifests: the `GlobalEffects.cpp` header still says the pass stores effects on `PassOptions`, but the reviewed implementation and `wasm.h` model show `Function.effects` writeback. The 2026-05-04 recheck did not change that teaching call; treat the `PassOptions` wording as stale unless upstream changes the actual data model.
+One source wording caveat is now explicit in the raw manifests: the `GlobalEffects.cpp` header still says the pass stores effects on `PassOptions`, but the reviewed implementation and `wasm.h` model show `Function.effects` writeback. The 2026-05-05 recheck did not change that teaching call; treat the `PassOptions` wording as stale unless upstream changes the actual data model.
 
 So the pass may leave the visible WAT unchanged while still changing later optimizer decisions.
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-global-effects-current-main-recheck.md
+  - ../../../raw/research/0480-2026-05-05-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/research/0438-2026-05-04-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-global-effects-port-readiness-primary-sources.md
@@ -28,7 +30,7 @@ related:
 
 | File | What it proves | Why it matters |
 | --- | --- | --- |
-| `src/passes/GlobalEffects.cpp` | The actual pass algorithm: shallow per-function effect scan, static-call reachability / current-main SCC propagation (confirmed again on 2026-05-04), conservative unknown-call and recursion handling, and storage into `Function.effects` | This is the main implementation oracle. |
+| `src/passes/GlobalEffects.cpp` | The actual pass algorithm: shallow per-function effect scan, static-call reachability / current-main SCC propagation (confirmed again on 2026-05-05), conservative unknown-call and recursion handling, and storage into `Function.effects` | This is the main implementation oracle. |
 | `src/passes/pass.cpp` | Public pass registration under the upstream name `generate-global-effects`, sibling [`discard-global-effects`](../discard-global-effects/index.md), and the explicit note that the pass is not currently scheduled in the default optimization sequence | This is the main scheduler and naming oracle. |
 | `src/ir/effects.h` | Consumer-side handoff: `EffectAnalyzer` on a direct `Call` may incorporate a callee's stored `effects` summary | This explains why the pass matters downstream. |
 | `src/wasm.h` | `Function` really stores an optional `effects` pointer as explicit metadata | This proves the pass is metadata-producing, not IR-rewriting. |
