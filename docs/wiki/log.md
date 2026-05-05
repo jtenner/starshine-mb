@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | tighten `merge-similar-functions` Starshine code anchors
+
+- Refreshed `docs/wiki/binaryen/passes/merge-similar-functions/starshine-strategy.md` so the removed-registry, runtime rejection, and preset-omission claims now point at exact local anchors in `src/passes/optimize.mbt` (`pass_registry_entry_removed`, `pass_registry_removed_names`, `pass_registry_entries`, `run_hot_pipeline_expand_passes`, `optimize_preset_passes`, and `shrink_preset_passes`).
+- Kept the existing current-main raw source bridge and upstream strategy pages intact; this pass still reads as Starshine removed-registry only, with no owner file and no active backlog slice.
+- No new implementation work was added; this was a reference-hygiene update to make the current status easier to follow.
+
 ## [2026-05-05] health | refresh `signature-refining` current-main bridge and stale-anchor cleanup
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md` plus `docs/wiki/raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md` after rechecking current `main` `SignatureRefining.cpp`, `pass.cpp`, and the dedicated `signature-refining.wast` surface.

@@ -57,6 +57,14 @@ For the Binaryen side of that contract, see:
 
 ## Exact local code map
 
+Starshine's current implementation evidence is negative: the pass exists only as registry/status plumbing and preset omission, not as a transform body.
+
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt#L98-L103) defines `pass_registry_entry_removed(...)`, the shared removed-pass wrapper.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt#L128-L138) lists `merge-similar-functions` inside `pass_registry_removed_names()`.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt#L307-L312) turns removed names into registry entries.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt#L520-L524) rejects explicit requests with the removed-registry error.
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt#L434-L463) omits the pass from both preset builders.
+
 ## Registry and request gating
 
 ### `src/passes/optimize.mbt`
