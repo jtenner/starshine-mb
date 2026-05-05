@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `constant-field-null-test-folding` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md` plus `docs/wiki/raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md` after rechecking current `main` `ConstantFieldPropagation.cpp`, `pass.cpp`, `cfp.wast`, and `cfp-reftest.wast` against the existing sibling contract.
+- Refreshed the `constant-field-null-test-folding` dossier, the sibling `cfp-reftest` Binaryen strategy / implementation / shape / Starshine pages, the shared catalogs, and the wiki index so the sibling-specific freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same shared CFP engine plus narrow two-bucket `ref.test` rescue path, and Starshine still keeps the sibling boundary-only until a closed-world module analysis exists.
+
 ## [2026-05-05] health | tighten `tuple-optimization` freshness wording and source bridge
 
 - Reworded the living `tuple-optimization` landing and Binaryen-strategy pages so their freshness note now matches the 2026-05-04 current-main bridge instead of the older 2026-04-22 check language.

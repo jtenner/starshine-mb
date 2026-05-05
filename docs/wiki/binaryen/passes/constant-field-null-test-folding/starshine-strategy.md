@@ -3,6 +3,8 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
@@ -182,6 +184,10 @@ Until that architecture exists, keep `constant-field-null-test-folding` boundary
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
+- [`../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md)
+- [`../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md)
 - [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
 - [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md)

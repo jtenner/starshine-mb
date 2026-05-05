@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
   - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
@@ -22,7 +24,7 @@ related:
 
 | File | Why it matters |
 | --- | --- |
-| `src/passes/ConstantFieldPropagation.cpp` | Core implementation for both plain `cfp` and variant `cfp-reftest`; contains the mode bit, the ordinary field-fact engine, and the narrow `optimizeUsingRefTest(...)` path; the 2026-04-25 current-`main` spot check found only mechanical early-stop drift in this path, not a different teaching contract |
+| `src/passes/ConstantFieldPropagation.cpp` | Core implementation for both plain `cfp` and variant `cfp-reftest`; contains the mode bit, the ordinary field-fact engine, and the narrow `optimizeUsingRefTest(...)` path; the 2026-05-05 current-main recheck still found the same teaching contract, with the same two-bucket rescue path and no new semantic drift |
 | `src/passes/pass.cpp` | Registers the public pass names `cfp` and `cfp-reftest`, proving that the variant is a real upstream CLI surface rather than only an internal option |
 | `src/ir/possible-constant.h` | Defines the tiny replacement domain that still constrains the variant: one literal, one immutable global, or unknown |
 | `src/ir/struct-utils.h` | Provides the struct field scanning and value-propagation helpers the variant inherits from ordinary CFP |
@@ -152,6 +154,8 @@ A future Starshine port should preserve all of these source-backed facts:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
+- [`../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md)
 - [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
 - [`../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)

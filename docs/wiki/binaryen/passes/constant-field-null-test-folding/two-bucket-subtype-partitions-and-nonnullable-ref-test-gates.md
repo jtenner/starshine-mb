@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
   - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md
@@ -265,6 +267,8 @@ A future Starshine port should preserve all of these exact behaviors:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
+- [`../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](../../../raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md`](../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md)
 - [`../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md`](../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md)
 - [`../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md`](../../../raw/research/0216-2026-04-21-constant-field-null-test-folding-source-confirmation-followup.md)
