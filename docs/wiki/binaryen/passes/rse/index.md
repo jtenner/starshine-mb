@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
+  - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-rse-source-correction.md
@@ -10,6 +12,7 @@ sources:
   - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
   - ../../../raw/research/0259-2026-04-22-rse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0114-2026-04-20-rse-binaryen-research.md
+  - ../../../../../src/passes/rse.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/ir/use_def.mbt
@@ -48,6 +51,7 @@ It also does not use Binaryen `LocalGraph` or liveness in `version_129`; the dat
 
 - The canonical Binaryen no-DWARF function pipeline runs `rse` very late, just before the final cleanup cluster.
 - The saved generated-artifact `-O4z` audit records it as a real skipped upstream slot: top-level slot `46`.
+- A 2026-05-05 current-main recheck stayed aligned with the corrected CFG/value-flow contract on the reviewed surfaces.
 - Earlier local and structural cleanup passes can expose repeated same-value writes and equivalent local values; `rse` is the late pass that removes the redundant write shell.
 - The following `vacuum` pass is part of the payoff because removed plain `local.set`s may become `drop(value)` debris.
 
@@ -123,11 +127,13 @@ The current durable claim is:
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - owner files, registration, helpers, and official test surfaces.
 - [`./cfg-and-value-tracking.md`](./cfg-and-value-tracking.md) - how block start/end values, merge values, and local retargeting work.
 - [`./wat-shapes.md`](./wat-shapes.md) - beginner-friendly before/after and bailout shapes.
-- [`./starshine-strategy.md`](./starshine-strategy.md) - current active direct-pass status and remaining faithful port map.
-- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - landed first-slice evidence, remaining CFG/refined-get work, and validation ladder.
+- [`./starshine-strategy.md`](./starshine-strategy.md) - current active direct-pass status, exact Starshine code-map anchors, and remaining faithful port map.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) - landed first-slice evidence, exact local registry/dispatcher/test anchors, remaining CFG/refined-get work, and validation ladder.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md)
+- [`../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md`](../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md`](../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md)
 - [`../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md`](../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RedundantSetElimination.cpp>

@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `rse` current-main bridge and exact local code map
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-rse-current-main-recheck.md` plus `docs/wiki/raw/research/0463-2026-05-05-rse-current-main-recheck.md` after rechecking current `main` `RedundantSetElimination.cpp`, `pass.cpp`, `rse_all-features.wast`, and `rse-gc.wast` against the corrected `version_129` contract.
+- Refreshed the `rse` landing page, Binaryen strategy, implementation/test-map, CFG/value-tracking, WAT-shape, Starshine strategy, and Starshine port-readiness pages so the new 2026-05-05 freshness bridge and the exact local registry/dispatcher/owner/test anchors are visible from the living dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the refreshed provenance and exact local code map are visible from the shared catalogs.
+- Recorded unchanged contract status: current `main` stayed aligned with the same CFG/value-flow same-value-shell-removal story on the reviewed surfaces, and Starshine still keeps the direct active slice plus the remaining CFG/refined-get follow-up.
+
 ## [2026-05-05] health | refresh `type-merging` current-main bridge and add Starshine port-readiness page
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-type-merging-current-main-recheck.md` plus `docs/wiki/raw/research/0462-2026-05-05-type-merging-current-main-recheck.md` after rechecking current `main` `TypeMerging.cpp`, `pass.cpp`, and `type-merging.wast` against the existing `version_129` contract.

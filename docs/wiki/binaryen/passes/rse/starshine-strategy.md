@@ -1,12 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
+  - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
+  - ../../../../../src/passes/rse.mbt
+  - ../../../../../src/passes/rse_test.mbt
+  - ../../../../../src/passes/registry_test.mbt
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../../../../src/ir/use_def.mbt
   - ../../../../../src/ir/hot_module_context.mbt
   - ../../../../../src/ir/ssa_local.mbt
@@ -30,8 +36,8 @@ related:
 
 # Starshine Strategy For `rse`
 
-Use this page with the corrected primary-source capture in [`../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md`](../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md).
-The most important 2026-04-26 change is that the future Starshine port needs a **small CFG/value-flow substrate**, not the stale straight-line-only plan from 2026-04-25.
+Use this page with the current-main bridge in [`../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md) and the corrected primary-source capture in [`../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md`](../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md).
+The most important teaching point remains the same: the future Starshine port needs a **small CFG/value-flow substrate**, not the stale straight-line-only plan from 2026-04-25.
 
 ## Honest current status
 
@@ -39,10 +45,12 @@ The most important 2026-04-26 change is that the future Starshine port needs a *
 
 Current local behavior:
 
-- `src/passes/rse.mbt` owns the descriptor, HOT same-value write rewrite, raw lowered-function fast path helper, and summary.
-- `src/passes/optimize.mbt` registers `"redundant-set-elimination"` as an active hot pass instead of a removed name.
-- `src/passes/pass_manager.mbt` dispatches the hot pass and runs the raw fast path before hot lift for large lowered functions.
-- `src/cmd/cmd_wbtest.mbt`, `src/passes/rse_test.mbt`, and `src/passes/registry_test.mbt` cover CLI, direct HOT behavior, and registry classification.
+- `src/passes/rse.mbt:2-8` owns the descriptor.
+- `src/passes/rse.mbt:12-16` owns the summary.
+- `src/passes/rse.mbt:692-700` owns the raw lowered-function fast path helper.
+- `src/passes/optimize.mbt:253-256` registers `"redundant-set-elimination"` as an active hot pass instead of a removed name.
+- `src/passes/pass_manager.mbt:7324-7334` dispatches the hot pass and runs the raw fast path before hot lift for large lowered functions.
+- `src/cmd/cmd_wbtest.mbt:3922-3959`, `src/passes/rse_test.mbt:41-71`, and `src/passes/registry_test.mbt:189-193` cover CLI, direct HOT behavior, and registry classification.
 - The pass remains **direct-only**; the late no-DWARF preset slot is not scheduled yet.
 
 ## Corrected local strategy
@@ -76,12 +84,19 @@ That is a CFG-aware local-value cleanup pass, not a generic liveness dead-store 
 
 ### Owner file
 
-- `src/passes/rse.mbt`
-  - Owns the active direct-pass descriptor and summary.
-  - Owns the HOT same-value `local.set` / `local.tee` rewrite used by focused tests.
+- `src/passes/rse.mbt:2-8`
+  - Owns the active direct-pass descriptor.
+- `src/passes/rse.mbt:12-16`
+  - Owns the summary.
+- `src/passes/rse.mbt:692-700`
   - Owns the raw lowered-function value tracker used to keep the debug-artifact lane fast.
+- `src/passes/optimize.mbt:253-256`
+  - Registers the active hot-pass name.
+- `src/passes/pass_manager.mbt:7324-7334`
+  - Runs `rse_run_raw_func` before hot lift for `redundant-set-elimination`.
+- `src/passes/rse_test.mbt:41-71`
+  - Owns the focused same-value set/tee tests.
   - Should own future fixed-point CFG merge and refined local-get retargeting work.
-  - Focused tests live in `src/passes/rse_test.mbt`.
 
 ### Existing Starshine analysis surfaces to read
 

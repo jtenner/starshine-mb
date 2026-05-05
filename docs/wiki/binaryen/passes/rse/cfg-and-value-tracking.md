@@ -1,12 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
+  - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-rse-source-correction.md
+  - ../../../../../src/passes/rse.mbt
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -44,6 +47,7 @@ That is enough to answer the pass's two real questions:
 ## CFG flow, not LocalGraph/liveness
 
 The implementation builds a CFG and flows facts through blocks.
+The 2026-05-05 current-main recheck stayed aligned with that shape.
 It does **not** use Binaryen `LocalGraph` or liveness to prove arbitrary writes dead.
 
 The distinction matters:

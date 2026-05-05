@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
+  - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
   - ../../../raw/research/0382-2026-04-26-rse-cfg-source-correction-and-port-readiness.md
   - ../../../raw/binaryen/2026-04-22-rse-primary-sources.md
@@ -21,8 +23,8 @@ related:
 
 ## Upstream source rule
 
-Use [`../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md`](../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md) as the current provenance anchor.
-It re-read official Binaryen `version_129` plus current `main` on 2026-04-26 and supersedes the 2026-04-25 straight-line-only overcorrection.
+Use [`../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md) as the current provenance anchor.
+It rechecked the reviewed Binaryen `main` source against the corrected `version_129` contract on 2026-05-05 and keeps the earlier 2026-04-26 CFG/value-flow correction in force rather than replacing it.
 
 Primary source URLs:
 
@@ -39,6 +41,7 @@ Primary source URLs:
 ## High-level intent
 
 Binaryen uses `rse` to remove writes that assign a local the same value number it already holds and to retarget some local reads to more precise equivalent locals.
+The 2026-05-05 current-main recheck stayed aligned with that corrected contract on the reviewed surfaces.
 The strategy has three phases:
 
 1. build a CFG-oriented list of local gets/sets per block;
