@@ -782,7 +782,6 @@ Suggested Tests
 5. Add SIMD generation in phases.
 6. Add atomics only behind explicit proposal gating.
 7. Widen type-section topology.
-   - [FZG]019 - Rich Struct and Array Field Plans - Generate structs with many fields, packed fields, mixed mutable/immutable fields, non-nullable typed refs, arrays with packed/ref fields, and field plans specifically suitable for packed get/set and array fill/copy tests.
 8. Widen section topology and cross-section interactions.
    - [FZG]020 - Import/Export Topology Expansion - Generate multi-module imports, import re-exports, multiple exports of the same valid index under distinct names, export/import name collisions where legal, and imported starts with valid signatures.
    - [FZG]021 - Element Segment Range Expansion - Generate multi-element segments, element expressions that use valid const-expression alternatives, active segments targeting nonzero tables, and typed segments for non-funcref table types.

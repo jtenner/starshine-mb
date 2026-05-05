@@ -3582,7 +3582,7 @@ pub fn validate_valid_feature_actual_count(
     SimdPhase3 => stats.simd_phase3
     Atomics => stats.atomics
     SubtypingTopology => stats.subtyping_topology
-    RichGcFieldPlans => 0
+    RichGcFieldPlans => stats.rich_gc_field_plans
     ImportExportTopology => 0
     ElementSegmentRange => 0
     DataSegmentRange => 0
@@ -6884,6 +6884,30 @@ test "gen_valid coverage-forced emits subtyping topology surface" {
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: SubtypingTopology, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+test "gen_valid coverage-forced emits rich GC field plans" {
+  let config = GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_type_defs: 24,
+  }
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26019UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  assert_true(facts.has_rich_gc_field_plans)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, RichGcFieldPlans) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: RichGcFieldPlans, min_count: 1 },
     ]),
     [],
   )

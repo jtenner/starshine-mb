@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: account rich GC field plans
+
+- **complete FZG019 by wiring `RichGcFieldPlans` into gen-valid feature accounting and ledger docs for generated rich struct/array field-plan surfaces** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Wiki: refresh `constant-field-null-test-folding` current-main bridge
 
 - **add a 2026-05-05 current-main recheck manifest, matching research note, and sibling freshness-layer refresh for the `constant-field-null-test-folding` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md), [`docs/wiki/raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md`](./docs/wiki/raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md), [`docs/wiki/binaryen/passes/constant-field-null-test-folding/`](./docs/wiki/binaryen/passes/constant-field-null-test-folding/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).

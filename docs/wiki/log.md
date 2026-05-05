@@ -376,6 +376,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated `docs/wiki/index.md` and the rereloop folder source lists so the new spot-check provenance is discoverable from all maintained entry points.
 - Recorded unchanged local status: still removed-name tracking (`re-reloop`) with active request rejection, no owner file, and no active backlog slice.
 
+## [2026-05-05] implementation | attach rich GC field-plan ledger coverage
+
+- Completed `[FZG]019` by attaching `RichGcFieldPlans` to `GenValidFeatureStats` and the public validate feature ledger.
+- The coverage-forced type-section scan now reports rich GC field plans from generated multi-field structs plus packed/ref struct and array field plans, with focused floor coverage in `gen_valid coverage-forced emits rich GC field plans`.
+- Validation evidence: `moon fmt` and `moon info` passed with existing warnings; `moon test --package jtenner/starshine/validate` is currently blocked by existing fixed-seed coverage-forced generator validation failures (`No type exists for TypeIdx`, descriptor/describes agreement, and struct field-index issues) across pre-existing FZG tests.
+
 ## [2026-05-05] implementation | widen GC constructor/accessor gen-valid surface
 
 - Completed `[FZG]011` by adding coverage-forced valid generation for non-default `struct.new`, non-default `array.new`, `array.new_fixed`, packed `struct.get_s`/`struct.get_u`, packed `array.get_s`/`array.get_u`, `array.fill`, and `array.copy` behind the existing `allow_ref_types` gate.

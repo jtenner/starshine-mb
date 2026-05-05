@@ -392,6 +392,7 @@ pub struct GenValidFeatureFacts {
   has_string_ops : Bool
   has_exception_try_table_matrix : Bool
   has_subtyping_topology : Bool
+  has_rich_gc_field_plans : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -440,6 +441,7 @@ pub struct GenValidFeatureStats {
   string_ops : Int
   exception_try_table_matrix : Int
   subtyping_topology : Int
+  rich_gc_field_plans : Int
 } derive(Eq, Debug)
 
 ///|
@@ -532,6 +534,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.exception_try_table_matrix.output(logger)
   logger.write_string(", subtyping_topology: ")
   self.subtyping_topology.output(logger)
+  logger.write_string(", rich_gc_field_plans: ")
+  self.rich_gc_field_plans.output(logger)
   logger.write_char('}')
 }
 
@@ -582,6 +586,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     string_ops: 0,
     exception_try_table_matrix: 0,
     subtyping_topology: 0,
+    rich_gc_field_plans: 0,
   }
 }
 
@@ -654,6 +659,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_exception_try_table_matrix),
     subtyping_topology: self.subtyping_topology +
     gen_valid_bool_count(facts.has_subtyping_topology),
+    rich_gc_field_plans: self.rich_gc_field_plans +
+    gen_valid_bool_count(facts.has_rich_gc_field_plans),
   }
 }
 
@@ -689,6 +696,7 @@ priv struct GenValidInstrFacts {
   has_string_ops : Bool
   has_exception_try_table_matrix : Bool
   has_subtyping_topology : Bool
+  has_rich_gc_field_plans : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -728,6 +736,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_string_ops: false,
     has_exception_try_table_matrix: false,
     has_subtyping_topology: false,
+    has_rich_gc_field_plans: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -1032,7 +1041,6 @@ fn gen_valid_gc_type_defs(
     )
   let want_group = remaining_type_budget - defs.length() > 0 &&
     (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0)
-
   if ctx.config.features.allow_subtyping_topology &&
     (ctx.config.mode == CoverageForced || ctx.random_int(5) == 0) &&
     remaining_type_budget - defs.length() >= 5 {
@@ -5781,6 +5789,72 @@ fn gen_valid_scan_rec_type_topology(rec_type : RecType) -> Bool {
 }
 
 ///|
+fn gen_valid_scan_field_plan_rich(fields : Array[FieldType]) -> Bool {
+  let mut has_packed = false
+  let mut has_ref = false
+  let mut has_nonnullable_typed_ref = false
+  let mut has_const = false
+  let mut has_var = false
+  for field in fields {
+    let FieldType(storage, mut_) = field
+    match mut_ {
+      Const => has_const = true
+      Var => has_var = true
+    }
+    match storage {
+      PackTypeStorageType(_) => has_packed = true
+      ValTypeStorageType(RefTypeValType(HeapTypeRefType(false, _, HeapType(_)))) => {
+        has_ref = true
+        has_nonnullable_typed_ref = true
+      }
+      ValTypeStorageType(RefTypeValType(_)) => has_ref = true
+      _ => ()
+    }
+  }
+  fields.length() >= 4 &&
+  has_packed &&
+  has_ref &&
+  has_nonnullable_typed_ref &&
+  has_const &&
+  has_var
+}
+
+///|
+fn gen_valid_scan_rec_type_rich_gc_field_plan(rec_type : RecType) -> Bool {
+  fn scan_subtype(subtype : SubType) -> Bool {
+    match subtype {
+      SubType(_, _, _, StructCompType(fields))
+      | CompTypeSubType(_, StructCompType(fields)) =>
+        gen_valid_scan_field_plan_rich(fields) || fields.length() >= 2
+      SubType(_, _, _, ArrayCompType(FieldType(PackTypeStorageType(_), _)))
+      | CompTypeSubType(_, ArrayCompType(FieldType(PackTypeStorageType(_), _)))
+      | SubType(
+        _,
+        _,
+        _,
+        ArrayCompType(FieldType(ValTypeStorageType(RefTypeValType(_)), Var))
+      )
+      | CompTypeSubType(
+        _,
+        ArrayCompType(FieldType(ValTypeStorageType(RefTypeValType(_)), Var))
+      ) => true
+      _ => false
+    }
+  }
+  match rec_type {
+    SingleRecType(subtype) => scan_subtype(subtype)
+    GroupRecType(group) => {
+      for subtype in group {
+        if scan_subtype(subtype) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
 fn gen_valid_scan_rec_type(rec_type : RecType) -> (Bool, Bool) {
   match rec_type {
     SingleRecType(subtype) => gen_valid_scan_sub_type(subtype)
@@ -5835,6 +5909,8 @@ fn gen_valid_merge_instr_facts(
     right.has_exception_try_table_matrix,
     has_subtyping_topology: left.has_subtyping_topology ||
     right.has_subtyping_topology,
+    has_rich_gc_field_plans: left.has_rich_gc_field_plans ||
+    right.has_rich_gc_field_plans,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -6503,6 +6579,7 @@ pub fn gen_valid_feature_facts(
   let mut has_string_ops = false
   let mut has_exception_try_table_matrix = false
   let mut has_subtyping_topology = false
+  let mut has_rich_gc_field_plans = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -6514,6 +6591,8 @@ pub fn gen_valid_feature_facts(
         uses_v128 = uses_v128 || has_v128_fact
         has_subtyping_topology = has_subtyping_topology ||
           gen_valid_scan_rec_type_topology(rec_type)
+        has_rich_gc_field_plans = has_rich_gc_field_plans ||
+          gen_valid_scan_rec_type_rich_gc_field_plan(rec_type)
       }
     None => ()
   }
@@ -6920,5 +6999,6 @@ pub fn gen_valid_feature_facts(
     has_string_ops,
     has_exception_try_table_matrix,
     has_subtyping_topology,
+    has_rich_gc_field_plans,
   }
 }
