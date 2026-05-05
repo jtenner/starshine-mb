@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | tighten `tuple-optimization` freshness wording and source bridge
+
+- Reworded the living `tuple-optimization` landing and Binaryen-strategy pages so their freshness note now matches the 2026-05-04 current-main bridge instead of the older 2026-04-22 check language.
+- Kept the immutable 2026-04-22 raw primary-source manifest intact as the provenance anchor for `version_129`, and left the exact Starshine code-map pages unchanged because they were already current.
+- No implementation work was needed; this was reference hygiene to keep the tuple dossier's current-main wording consistent with the captured source dates.
+
 ## [2026-05-05] health | refresh `constant-field-propagation` current-main bridge and port-readiness
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md` plus `docs/wiki/raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md` after rechecking current `main` `ConstantFieldPropagation.cpp`, `pass.cpp`, `cfp.wast`, and `cfp-reftest.wast` against the existing `version_129` contract.

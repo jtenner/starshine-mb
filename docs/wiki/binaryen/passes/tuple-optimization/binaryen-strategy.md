@@ -31,7 +31,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the primary source oracle for this pass.
-The reviewed official Binaryen release page on 2026-04-22 showed publish date **2026-04-01**, and the raw primary-source capture for this pass now records that provenance explicitly.
+The reviewed official Binaryen release page on 2026-05-04 still shows `version_129` as the stable oracle, and the raw primary-source capture for this pass still records the 2026-04-22 provenance explicitly.
 
 Core upstream files:
 

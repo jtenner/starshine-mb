@@ -77,7 +77,7 @@ It is a source-backed clarification pass over a real existing dossier.
   - It does **not** depend on CFG, effects, liveness, dominance, or refinalization helpers.
 - The real payoff comes later.
   - `tuple-optimization` exposes scalar locals so later local passes can remove dead lanes and dead copies.
-- A narrow 2026-04-22 freshness check found no current-main drift in the core upstream pass file, the dedicated lit suite, or the tuple-specific scheduler / peephole sections relevant to this dossier.
+- A narrow 2026-05-04 freshness check found no current-main drift in the core upstream pass file, the dedicated lit suite, or the tuple-specific scheduler / peephole sections relevant to this dossier.
 - The dossier now also has an immutable raw primary-source manifest recording that the reviewed official Binaryen `version_129` release page on 2026-04-22 showed publish date **2026-04-01**.
 
 ## Current status summary
