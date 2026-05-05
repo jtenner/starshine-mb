@@ -59,6 +59,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
     "invalid-export-global-index-module", "invalid-export-memory-index-module", "invalid-export-tag-index-module",
     "invalid-tag-name-section-index-module", "invalid-imported-tag-type-index-module",
     "datacount-mismatch-too-small-module", "datacount-mismatch-too-large-module",
+    "malformed-simd-immediate", "simd-lane-index-overflow", "malformed-custom-section-payload",
   ])
   assert_eq(
     registry.map(fn(spec) {
@@ -72,7 +73,7 @@ test "validate_invalid_binary_registry exposes curated stage-aware strategies" {
       "decode", "validate-code", "validate-name", "validate-name", "decode", "decode",
       "validate-name", "validate-name", "validate-name", "validate-name", "validate-export",
       "validate-export", "validate-export", "validate-export", "validate-name", "validate-import",
-      "validate-datacount", "validate-datacount",
+      "validate-datacount", "validate-datacount", "decode", "decode", "decode",
     ],
   )
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
@@ -926,6 +927,19 @@ test "gen_invalid_binary_generate supports invalid imported-tag-type modules" {
           )
         }
       }
+  }
+}
+
+///|
+test "invalid binary FZG025 decodes new binary-surface corruptions as invalid" {
+  for
+    strategy in [
+      "malformed-simd-immediate", "simd-lane-index-overflow", "malformed-custom-section-payload",
+    ] {
+    match invalid_binary_expect_strategy_rejects(strategy, 0x5f09UL, "decode") {
+      Ok(_) => ()
+      Err(msg) => fail(msg)
+    }
   }
 }
 

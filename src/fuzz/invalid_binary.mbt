@@ -71,6 +71,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportedTagTypeIndexModule
   DataCountMismatchTooSmallModule
   DataCountMismatchTooLargeModule
+  MalformedSimdImmediate
+  SimdLaneIndexOverflow
+  MalformedCustomSectionPayload
 } derive(Eq, Debug)
 
 ///|
@@ -398,6 +401,9 @@ fn validate_invalid_binary_strategy_label(
       "invalid-imported-tag-type-index-module"
     DataCountMismatchTooSmallModule => "datacount-mismatch-too-small-module"
     DataCountMismatchTooLargeModule => "datacount-mismatch-too-large-module"
+    MalformedSimdImmediate => "malformed-simd-immediate"
+    SimdLaneIndexOverflow => "simd-lane-index-overflow"
+    MalformedCustomSectionPayload => "malformed-custom-section-payload"
   }
 }
 
@@ -683,6 +689,27 @@ pub fn validate_invalid_binary_registry() -> Array[
       "encoded module with datacount larger than data segment count",
       ValidateRejected("datacount"),
     ),
+    validate_invalid_binary_strategy_spec(
+      MalformedSimdImmediate,
+      "malformed-simd-immediate",
+      "SIMD opcode with malformed immediate encoding",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      SimdLaneIndexOverflow,
+      "simd-lane-index-overflow",
+      "SIMD lane instruction with out-of-range lane index",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
+    validate_invalid_binary_strategy_spec(
+      MalformedCustomSectionPayload,
+      "malformed-custom-section-payload",
+      "custom section whose declared name length exceeds its payload",
+      DecodeRejected,
+      required_in_smoke=false,
+    ),
   ]
 }
 
@@ -743,6 +770,9 @@ fn validate_invalid_binary_strategy_index(
     InvalidImportedTagTypeIndexModule => 37
     DataCountMismatchTooSmallModule => 38
     DataCountMismatchTooLargeModule => 39
+    MalformedSimdImmediate => 40
+    SimdLaneIndexOverflow => 41
+    MalformedCustomSectionPayload => 42
   }
 }
 
@@ -1317,6 +1347,107 @@ fn validate_invalid_binary_mutate_invalid_custom_section_name_utf8(
 }
 
 ///|
+fn validate_invalid_binary_minimal_code_with_instr(
+  instr : Array[Byte],
+) -> Bytes {
+  let body_size = instr.length() + 2
+  let code_payload_size = body_size + 2
+  let out : Array[Byte] = [
+    (0x00).to_byte(),
+    (0x61).to_byte(),
+    (0x73).to_byte(),
+    (0x6d).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x01).to_byte(),
+    (0x04).to_byte(),
+    (0x01).to_byte(),
+    (0x60).to_byte(),
+    (0x00).to_byte(),
+    (0x00).to_byte(),
+    (0x03).to_byte(),
+    (0x02).to_byte(),
+    (0x01).to_byte(),
+    (0x00).to_byte(),
+    (0x0a).to_byte(),
+    code_payload_size.to_byte(),
+    (0x01).to_byte(),
+    body_size.to_byte(),
+    (0x00).to_byte(),
+  ]
+  for byte in instr {
+    out.push(byte)
+  }
+  out.push((0x0b).to_byte())
+  Bytes::from_array(out)
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_simd_immediate(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedSimdImmediate,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0xfd).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+        (0x80).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_simd_lane_index_overflow(
+  _mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  Ok(
+    validate_invalid_binary_mutation(
+      SimdLaneIndexOverflow,
+      DecodeRejected,
+      true,
+      validate_invalid_binary_minimal_code_with_instr([
+        (0x41).to_byte(),
+        (0x00).to_byte(),
+        (0xfd).to_byte(),
+        (0x15).to_byte(),
+        (0x10).to_byte(),
+      ]),
+    ),
+  )
+}
+
+///|
+fn validate_invalid_binary_mutate_malformed_custom_section_payload(
+  mod : Module,
+) -> Result[ValidateInvalidBinaryMutation, String] {
+  let encoded = match validate_invalid_binary_encode_seed_module(mod) {
+    Ok(v) => v
+    Err(msg) => return Err(msg)
+  }
+  let mutated = encoded.to_array()
+  mutated.push((0).to_byte())
+  mutated.push((1).to_byte())
+  mutated.push((2).to_byte())
+  Ok(
+    validate_invalid_binary_mutation(
+      MalformedCustomSectionPayload,
+      DecodeRejected,
+      true,
+      Bytes::from_array(mutated),
+    ),
+  )
+}
+
+///|
 fn validate_invalid_binary_mutate_invalid_func_type_index(
   mod : Module,
 ) -> Result[ValidateInvalidBinaryMutation, String] {
@@ -1474,6 +1605,12 @@ pub fn apply_validate_invalid_binary_strategy(
       validate_invalid_binary_mutate_reserved_section_id(base)
     InvalidCustomSectionNameUtf8 =>
       validate_invalid_binary_mutate_invalid_custom_section_name_utf8(base)
+    MalformedSimdImmediate =>
+      validate_invalid_binary_mutate_malformed_simd_immediate(base)
+    SimdLaneIndexOverflow =>
+      validate_invalid_binary_mutate_simd_lane_index_overflow(base)
+    MalformedCustomSectionPayload =>
+      validate_invalid_binary_mutate_malformed_custom_section_payload(base)
     InvalidStartSignatureModule => {
       let ast_strategy = match
         validate_invalid_binary_required_ast_strategy("invalid-start-signature") {

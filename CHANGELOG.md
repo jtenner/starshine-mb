@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: add invalid binary surface corruptions
+
+- **complete FZG025 by adding invalid-binary strategies for malformed SIMD immediates, SIMD lane-index overflow, and malformed custom-section payload sizing** by **@OpenAI**. Updated [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Wiki: refresh `remove-unused-types` current-main bridge
 
 - **add a 2026-05-05 current-main recheck manifest, matching research note, and freshness-layer refresh for the `remove-unused-types` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md), [`docs/wiki/raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md`](./docs/wiki/raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md), [`docs/wiki/binaryen/passes/remove-unused-types/`](./docs/wiki/binaryen/passes/remove-unused-types/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).

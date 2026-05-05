@@ -310,6 +310,9 @@ pub enum ValidateInvalidBinaryStrategyId {
   InvalidImportedTagTypeIndexModule
   DataCountMismatchTooSmallModule
   DataCountMismatchTooLargeModule
+  MalformedSimdImmediate
+  SimdLaneIndexOverflow
+  MalformedCustomSectionPayload
 } derive(Eq, @debug.Debug)
 
 pub struct ValidateInvalidBinaryStrategySpec {
