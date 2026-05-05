@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Pass: implement `code-folding`
+
+- **land active direct `code-folding` hot pass for branch-free identical void suffixes in `if` arms, with full-arm condition-drop folding, registry/dispatcher/CLI/harness wiring, focused pipeline tests, wasm-smith compare evidence, focused self-opt parity, and regenerated debug-artifact self-opt canonical-function parity while recording broader branchy/typed folding as follow-up** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`src/passes/code_folding.mbt`](./src/passes/code_folding.mbt), [`src/passes/code_folding_test.mbt`](./src/passes/code_folding_test.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt), and [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts).
+
 ## 2026-05-05 Pass: tighten `vacuum` cleanup parity
 
 - **extend the active `vacuum` hot pass beyond `nop` sweeping by removing dropped nontrapping pure scalar results, preserving potentially trapping conversions, unwrapping block-only `unreachable` roots, and proving the first repaired Binaryen parity slice with focused tests plus 10k `gen-valid` compare evidence** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/binaryen/passes/vacuum/`](./docs/wiki/binaryen/passes/vacuum/), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), and [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt).

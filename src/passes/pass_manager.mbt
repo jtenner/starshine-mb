@@ -8991,6 +8991,7 @@ pub fn hot_pass_run(
     "pick-load-signs" => pick_load_signs_run(ctx, func)
     "precompute" => precompute_run(ctx, func)
     "code-pushing" => code_pushing_run(ctx, func)
+    "code-folding" => code_folding_run(ctx, func)
     "tuple-optimization" => tuple_optimization_run(ctx, func)
     "simplify-locals" => simplify_locals_run(ctx, func)
     "simplify-locals-nostructure" | "simplify-locals-no-structure" =>

@@ -128,6 +128,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--tuple-optimization",
   "--precompute",
   "--code-pushing",
+  "--code-folding",
   "--simplify-locals",
   "--simplify-locals-nostructure",
   "--simplify-locals-no-structure",

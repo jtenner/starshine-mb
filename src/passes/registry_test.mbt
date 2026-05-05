@@ -37,6 +37,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("code-folding"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("tuple-optimization"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -141,6 +145,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let opt = optimize_instructions_descriptor()
   let precompute = precompute_descriptor()
   let code_pushing = code_pushing_descriptor()
+  let code_folding = code_folding_descriptor()
   let pls = pick_load_signs_descriptor()
   let tuple = tuple_optimization_descriptor()
   let hso = heap_store_optimization_descriptor()
@@ -161,6 +166,8 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(@ir.hot_pass_requires(precompute), [])
   assert_eq(code_pushing.name, "code-pushing")
   assert_eq(@ir.hot_pass_requires(code_pushing), [])
+  assert_eq(code_folding.name, "code-folding")
+  assert_eq(@ir.hot_pass_requires(code_folding), [])
   assert_eq(pls.name, "pick-load-signs")
   assert_eq(@ir.hot_pass_requires(pls), [@ir.HotAnalysis::use_def()])
   assert_eq(tuple.name, "tuple-optimization")

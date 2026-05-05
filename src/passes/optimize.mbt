@@ -142,11 +142,10 @@ fn pass_registry_boundary_only_names() -> Array[String] {
 ///|
 fn pass_registry_removed_names() -> Array[String] {
   [
-    "coalesce-locals", "code-folding", "const-hoisting", "dataflow-optimization",
-    "local-cse", "local-subtyping", "loop-invariant-code-motion", "merge-locals",
-    "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
-    "precompute-propagate", "optimize-casts", "de-nan", "simplify-locals-no-tee",
-    "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
+    "coalesce-locals", "const-hoisting", "dataflow-optimization", "local-cse", "local-subtyping",
+    "loop-invariant-code-motion", "merge-locals", "flatten", "re-reloop", "optimize-added-constants",
+    "optimize-added-constants-propagate", "precompute-propagate", "optimize-casts",
+    "de-nan", "simplify-locals-no-tee", "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
   ]
 }
 
@@ -215,6 +214,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       "code-pushing",
       code_pushing_summary(),
       code_pushing_descriptor(),
+    ),
+    pass_registry_entry_hot(
+      "code-folding",
+      code_folding_summary(),
+      code_folding_descriptor(),
     ),
     pass_registry_entry_hot(
       "tuple-optimization",
