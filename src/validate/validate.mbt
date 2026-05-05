@@ -3586,7 +3586,7 @@ pub fn validate_valid_feature_actual_count(
     ImportExportTopology => stats.import_export_topology
     ElementSegmentRange => stats.element_segment_range
     DataSegmentRange => stats.data_segment_range
-    NameCustomSections => 0
+    NameCustomSections => stats.name_custom_sections
     InvalidAstStrategies => 0
     InvalidBinaryStrategies => 0
     WastArbitraryParity => 0
@@ -6997,6 +6997,38 @@ test "gen_valid coverage-forced emits data segment range surface" {
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: DataSegmentRange, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+test "gen_valid coverage-forced emits name and custom section surface" {
+  let config = GenValidConfig::portable_coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26023UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  assert_true(mod.name_sec is Some(_))
+  let mut has_non_name_custom = false
+  for custom in mod.custom_secs {
+    let @lib.CustomSec(name, _) = custom
+    if name != Name::new("name") {
+      has_non_name_custom = true
+    }
+  }
+  assert_true(has_non_name_custom)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  assert_true(facts.has_name_custom_sections)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(
+    validate_valid_feature_actual_count(stats, NameCustomSections) > 0,
+  )
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: NameCustomSections, min_count: 1 },
     ]),
     [],
   )

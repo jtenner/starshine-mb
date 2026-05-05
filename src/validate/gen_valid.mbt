@@ -96,6 +96,7 @@ pub struct GenValidFeatureToggles {
   allow_memory64 : Bool
   allow_atomics : Bool
   allow_subtyping_topology : Bool
+  allow_name_custom_sections : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -142,6 +143,8 @@ pub impl Show for GenValidFeatureToggles with output(self, logger) {
   self.allow_atomics.output(logger)
   logger.write_string(", allow_subtyping_topology:")
   self.allow_subtyping_topology.output(logger)
+  logger.write_string(", allow_name_custom_sections:")
+  self.allow_name_custom_sections.output(logger)
 }
 
 ///|
@@ -168,6 +171,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_memory64: true,
     allow_atomics: true,
     allow_subtyping_topology: true,
+    allow_name_custom_sections: true,
   }
 }
 
@@ -186,6 +190,7 @@ pub fn GenValidFeatureToggles::coverage_forced_default() -> GenValidFeatureToggl
     allow_memory64: true,
     allow_atomics: true,
     allow_subtyping_topology: true,
+    allow_name_custom_sections: true,
   }
 }
 
@@ -396,6 +401,7 @@ pub struct GenValidFeatureFacts {
   has_import_export_topology : Bool
   has_element_segment_range : Bool
   has_data_segment_range : Bool
+  has_name_custom_sections : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -448,6 +454,7 @@ pub struct GenValidFeatureStats {
   import_export_topology : Int
   element_segment_range : Int
   data_segment_range : Int
+  name_custom_sections : Int
 } derive(Eq, Debug)
 
 ///|
@@ -548,6 +555,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.element_segment_range.output(logger)
   logger.write_string(", data_segment_range: ")
   self.data_segment_range.output(logger)
+  logger.write_string(", name_custom_sections: ")
+  self.name_custom_sections.output(logger)
   logger.write_char('}')
 }
 
@@ -602,6 +611,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     import_export_topology: 0,
     element_segment_range: 0,
     data_segment_range: 0,
+    name_custom_sections: 0,
   }
 }
 
@@ -682,6 +692,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_element_segment_range),
     data_segment_range: self.data_segment_range +
     gen_valid_bool_count(facts.has_data_segment_range),
+    name_custom_sections: self.name_custom_sections +
+    gen_valid_bool_count(facts.has_name_custom_sections),
   }
 }
 
@@ -5708,6 +5720,88 @@ fn gen_valid_module_once_with_config(
   if !datas.is_empty() {
     mod = mod.with_data_sec(DataSec::new(datas))
   }
+  if config.features.allow_name_custom_sections &&
+    (config.mode == CoverageForced || ctx.random_int(3) == 0) {
+    let func_name_entries : Array[NameAssoc] = []
+    if !funcs.is_empty() {
+      func_name_entries.push(NameAssoc::new(0U, Name::new("fzg_func0")))
+    }
+    let type_name_entries : Array[NameAssoc] = []
+    if !type_defs.is_empty() {
+      type_name_entries.push(NameAssoc::new(0U, Name::new("fzg_type0")))
+    }
+    let table_name_entries : Array[NameAssoc] = []
+    if total_table_count > 0 {
+      table_name_entries.push(NameAssoc::new(0U, Name::new("fzg_table0")))
+    }
+    let memory_name_entries : Array[NameAssoc] = []
+    if total_mem_count > 0 {
+      memory_name_entries.push(NameAssoc::new(0U, Name::new("fzg_memory0")))
+    }
+    let global_name_entries : Array[NameAssoc] = []
+    if total_global_count > 0 {
+      global_name_entries.push(NameAssoc::new(0U, Name::new("fzg_global0")))
+    }
+    let elem_name_entries : Array[NameAssoc] = []
+    if !elems.is_empty() {
+      elem_name_entries.push(NameAssoc::new(0U, Name::new("fzg_elem0")))
+    }
+    let data_name_entries : Array[NameAssoc] = []
+    if !datas.is_empty() {
+      data_name_entries.push(NameAssoc::new(0U, Name::new("fzg_data0")))
+    }
+    let tag_name_entries : Array[NameAssoc] = []
+    if total_tag_count > 0 {
+      tag_name_entries.push(NameAssoc::new(0U, Name::new("fzg_tag0")))
+    }
+    let name_sec = NameSec::new(
+      module_name=Some(Name::new("fzg_module")),
+      func_names=if func_name_entries.is_empty() {
+        None
+      } else {
+        Some(NameMap::new(func_name_entries))
+      },
+      type_names=if type_name_entries.is_empty() {
+        None
+      } else {
+        Some(NameMap::new(type_name_entries))
+      },
+      table_names=if table_name_entries.is_empty() {
+        None
+      } else {
+        Some(NameMap::new(table_name_entries))
+      },
+      memory_names=if memory_name_entries.is_empty() {
+        None
+      } else {
+        Some(NameMap::new(memory_name_entries))
+      },
+      global_names=if global_name_entries.is_empty() {
+        None
+      } else {
+        Some(NameMap::new(global_name_entries))
+      },
+      elem_names=if elem_name_entries.is_empty() {
+        None
+      } else {
+        Some(NameMap::new(elem_name_entries))
+      },
+      data_names=if data_name_entries.is_empty() {
+        None
+      } else {
+        Some(NameMap::new(data_name_entries))
+      },
+      tag_names=if tag_name_entries.is_empty() {
+        None
+      } else {
+        Some(NameMap::new(tag_name_entries))
+      },
+    )
+    mod = mod.with_name_sec(name_sec)
+    mod = mod.with_custom_secs([
+      @lib.CustomSec::new(Name::new("fzg.custom"), b"valid-fzg-custom"),
+    ])
+  }
   mod.with_export_sec(ExportSec::new(exports))
 }
 
@@ -6630,8 +6724,19 @@ pub fn gen_valid_feature_facts(
   let mut has_import_export_topology = false
   let mut has_element_segment_range = false
   let mut has_data_segment_range = false
+  let mut has_name_custom_sections = false
   let mut control_nodes = 0
   let mut branch_ops = 0
+
+  for custom in mod.custom_secs {
+    let @lib.CustomSec(name, _) = custom
+    if name != Name::new("name") {
+      has_name_custom_sections = true
+    }
+  }
+  if mod.name_sec is Some(_) {
+    has_name_custom_sections = true
+  }
 
   match mod.type_sec {
     Some(TypeSec(rec_types)) =>
@@ -7151,5 +7256,6 @@ pub fn gen_valid_feature_facts(
     has_import_export_topology,
     has_element_segment_range,
     has_data_segment_range,
+    has_name_custom_sections,
   }
 }

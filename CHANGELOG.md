@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: widen name/custom section generation
+
+- **complete FZG023 by generating valid structured name sections and non-name custom sections, with `NameCustomSections` feature accounting and ledger docs** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: widen data segment range generation
 
 - **complete FZG022 by generating and accounting larger data payloads, zero-length active/passive data segments, active data against nonzero memories, and varied active offsets in gen-valid** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
