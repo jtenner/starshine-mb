@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: persist pass-fuzz failure metadata
+
+- **complete FZG029 by writing self-describing `failure-metadata.json` manifests beside persisted pass-fuzz failure artifacts for easier replay of command failures, invalid bases, validation failures, and mismatches** by **@OpenAI**. Updated [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: retune gen-valid feature floors
 
 - **complete FZG028 by adding smoke/ci/stress feature-floor entries for every completed gen-valid widening family, with cheap smoke floors and stricter ci/stress floors** by **@OpenAI**. Updated [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).

@@ -786,7 +786,6 @@ Suggested Tests
 9. Widen invalid generators from the new valid surfaces.
 10. Bring WAST arbitrary generation closer to the valid generator.
 11. Tune profiles and signoff gates.
-   - [FZG]029 - Generator Failure Diagnostics and Corpus Persistence - Improve generator/fuzzer diagnostics so invalid bases, validation failures, and missing feature floors write reproducible module/corpus artifacts.
    - [FZG]030 - Wide-Generator Signoff Sweep - Run and record a dedicated wide-generator signoff after the slices above land, including valid fuzz, invalid-AST fuzz, invalid-binary fuzz, WAST/WAT roundtrip fuzz, and at least one pass-fuzz compare lane using `--generator gen-valid`.
      - Exit Criteria: update `CHANGELOG.md`, `docs/wiki/`, and this backlog with final evidence and any explicit deferrals.
 

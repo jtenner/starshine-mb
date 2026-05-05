@@ -466,6 +466,7 @@ function persistFailureArtifacts(
   workDir: string,
   wasmToolsBin: string,
   repoRoot: string,
+  passFlags: string[],
 ): string {
   const failureDir = path.join(
     outDir,
@@ -474,11 +475,13 @@ function persistFailureArtifacts(
   );
   fs.mkdirSync(failureDir, { recursive: true });
   fs.writeFileSync(path.join(failureDir, "failure.txt"), `${detail}\n`);
+  const artifacts: string[] = [];
   for (const entry of fs.readdirSync(workDir)) {
     const source = path.join(workDir, entry);
     const target = path.join(failureDir, entry);
     if (fs.statSync(source).isFile()) {
       fs.copyFileSync(source, target);
+      artifacts.push(entry);
     }
   }
   const inputPath = path.join(failureDir, "input.wasm");
@@ -492,8 +495,26 @@ function persistFailureArtifacts(
     }
     if (result.status === 0) {
       fs.writeFileSync(path.join(failureDir, "input.print.wat"), result.stdout ?? "");
+      artifacts.push("input.print.wat");
     }
   }
+  fs.writeFileSync(
+    path.join(failureDir, "failure-metadata.json"),
+    JSON.stringify(
+      {
+        caseIndex,
+        generator,
+        detail,
+        artifacts: artifacts.sort(),
+        replay: {
+          input: "input.wasm",
+          passFlags,
+        },
+      },
+      null,
+      2,
+    ) + "\n",
+  );
   return failureDir;
 }
 
@@ -856,6 +877,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
               workDir,
               options.wasmToolsBin,
               repoRoot,
+              options.passFlags,
             ),
           );
           writeJsonlLine(casesPath, {
@@ -882,6 +904,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             workDir,
             options.wasmToolsBin,
             repoRoot,
+            options.passFlags,
           ),
         );
         writeJsonlLine(casesPath, {
@@ -925,6 +948,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             workDir,
             options.wasmToolsBin,
             repoRoot,
+            options.passFlags,
           ),
         );
         writeJsonlLine(casesPath, {
@@ -951,6 +975,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             workDir,
             options.wasmToolsBin,
             repoRoot,
+            options.passFlags,
           ),
         );
         writeJsonlLine(casesPath, {
@@ -991,6 +1016,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             workDir,
             options.wasmToolsBin,
             repoRoot,
+            options.passFlags,
           ),
         );
         writeJsonlLine(casesPath, {
@@ -1031,6 +1057,7 @@ export async function runPassFuzzCompare(argv: string[]): Promise<void> {
             workDir,
             options.wasmToolsBin,
             repoRoot,
+            options.passFlags,
           ),
         );
         writeJsonlLine(casesPath, {

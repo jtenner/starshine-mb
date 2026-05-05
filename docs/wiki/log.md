@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] fuzz | persist pass-fuzz failure metadata
+
+- Completed `[FZG]029` by adding `failure-metadata.json` to every `pass-fuzz-compare` persisted failure directory.
+- Recorded case index, generator, failure detail, copied artifacts, relative replay input, and pass flags so command failures, invalid bases, validation failures, and mismatches are easier to replay from the saved corpus.
+
 ## [2026-05-05] fuzz | retune gen-valid feature floors
 
 - Completed `[FZG]028` by adding explicit smoke/ci/stress floors for every completed gen-valid widening family from `[FZG]002` through `[FZG]023`.

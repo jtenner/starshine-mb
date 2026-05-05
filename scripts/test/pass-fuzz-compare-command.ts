@@ -723,6 +723,22 @@ process.exit(0);
     assert(entry.detail.includes("synthetic starshine failure"), `expected command stderr in detail, got ${entry.detail}`);
   }
 
+  const metadataPath = path.join(outDir, "failures", "case-000001-gen-valid", "failure-metadata.json");
+  assert(fs.existsSync(metadataPath), `expected persisted failure metadata at ${metadataPath}`);
+  const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8")) as {
+    caseIndex: number;
+    generator: string;
+    detail: string;
+    artifacts: string[];
+    replay: { input: string; passFlags: string[] };
+  };
+  assert(metadata.caseIndex === 1, `unexpected failure metadata case index ${metadata.caseIndex}`);
+  assert(metadata.generator === "gen-valid", `unexpected failure metadata generator ${metadata.generator}`);
+  assert(metadata.detail.includes("synthetic starshine failure"), `expected failure detail in metadata, got ${metadata.detail}`);
+  assert(metadata.artifacts.includes("input.wasm"), `expected input.wasm in artifact manifest, got ${metadata.artifacts.join(",")}`);
+  assert(metadata.replay.input === "input.wasm", `expected relative replay input, got ${metadata.replay.input}`);
+  assert(JSON.stringify(metadata.replay.passFlags) === JSON.stringify(["--remove-unused-brs"]), `unexpected replay pass flags ${JSON.stringify(metadata.replay.passFlags)}`);
+
   const starshineLogs = fs.readFileSync(starshineLog, "utf8").trim().split("\n").filter(Boolean);
   assert(starshineLogs.length === 3, `expected 3 Starshine runs before cutoff, got ${starshineLogs.length}`);
 }
