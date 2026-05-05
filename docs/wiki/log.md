@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `dead-code-elimination` current-main bridge and Starshine strategy page
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md` plus `docs/wiki/raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md` after rechecking current `main` `DeadCodeElimination.cpp`, `pass.cpp`, and the dedicated `dce` lit surfaces.
+- Refreshed the `dead-code-elimination` overview, Binaryen strategy, implementation/test-map, WAT-shape catalog, Starshine strategy, Starshine HOT code-map, and shared catalog entries so the fresh provenance and the local HOT-vs-upstream split are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same small `TypeUpdater`-centered unreachable-shape contract and no teaching-relevant drift was found.
+
 ## [2026-05-05] health | refresh `heap-store-optimization` code anchors and current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md` plus `docs/wiki/raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md` after rechecking current `main` `HeapStoreOptimization.cpp`, `pass.cpp`, and the dedicated lit test.

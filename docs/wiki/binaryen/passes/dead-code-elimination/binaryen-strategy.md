@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
+  - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
   - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
@@ -18,6 +20,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./typed-control-voidification-and-eh.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
@@ -55,7 +58,7 @@ Primary dedicated tests:
 - `test/lit/passes/dce-stack-switching.wast`
 
 The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
-A narrow source spot check found no teaching-relevant drift between `version_129` and current `main` in `src/passes/DeadCodeElimination.cpp`.
+A 2026-05-05 current-main recheck found no teaching-relevant drift between `version_129` and current `main` in `src/passes/DeadCodeElimination.cpp`.
 
 ## Public pass identity and placement
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
+  - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DeadCodeElimination.cpp
@@ -16,6 +18,8 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./typed-control-voidification-and-eh.md
+  - ./starshine-strategy.md
+  - ./starshine-hot-ir-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -23,6 +27,7 @@ related:
 
 This page now follows the source-confirmed `version_129` implementation.
 The older local shape catalog over-attributed broad dead-result simplification to DCE.
+The 2026-05-05 current-main recheck kept that contract unchanged.
 The real pass is mainly about **unreachable shapes**.
 
 ## Read this page with one mental model

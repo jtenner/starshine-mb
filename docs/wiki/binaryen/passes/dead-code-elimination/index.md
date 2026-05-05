@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
+  - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
   - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0134-2026-04-20-dead-code-elimination-binaryen-research.md
@@ -31,6 +33,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./typed-control-voidification-and-eh.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ../tracker.md
   - ../../no-dwarf-default-optimize-path.md
@@ -125,13 +128,15 @@ Those older claims were the main documentation gap this follow-up closes.
   - Focused guide to the actual control-type and EH rules the source does implement: type-to-`unreachable` changes, not a generic voidification engine.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog for the real `version_129` rewrite surface.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine strategy overview and the exact code-map entry point for the HOT rewrite family.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine HOT-region strategy, exact MoonBit code map, raw-skip/writeback guard story, and remaining parity/perf work.
+  - Exact MoonBit code map, raw-skip/writeback guard story, and remaining parity/perf work.
 
 ## Freshness note
 
 The reviewed official Binaryen GitHub `version_129` release page was re-checked on 2026-04-22 and showed publish date **2026-04-01**.
-A narrow `version_129` versus current-`main` spot check on `src/passes/DeadCodeElimination.cpp`, `pass.cpp`, and representative `dce` lit files did not surface a new teaching-relevant contract drift.
+A 2026-05-05 current-main recheck on `src/passes/DeadCodeElimination.cpp`, `pass.cpp`, and representative `dce` lit files did not surface a new teaching-relevant contract drift.
 So the tagged source remains a strong current oracle for this folder.
 
 ## Current maintenance rule

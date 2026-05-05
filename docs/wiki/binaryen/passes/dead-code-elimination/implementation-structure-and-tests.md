@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md
+  - ../../../raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-dead-code-elimination-primary-sources.md
   - ../../../raw/research/0250-2026-04-22-dead-code-elimination-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0203-2026-04-21-dead-code-elimination-source-confirmation-followup.md
@@ -19,6 +21,7 @@ related:
   - ./binaryen-strategy.md
   - ./typed-control-voidification-and-eh.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -27,6 +30,7 @@ related:
 This page closes a real teaching gap in the older dossier.
 The earlier pages described a much broader pass with helper walkers, effect-driven dead-result pruning, flattening, and refinalization.
 A direct re-read of Binaryen `version_129` shows the real pass is much smaller and more specific.
+The 2026-05-05 current-main recheck keeps that source map fresh without changing the contract story.
 
 ## Why this follow-up was needed
 
