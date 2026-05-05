@@ -296,7 +296,8 @@ Observed unique-pass order
    - Research exactly how it works with a document: [0066#L228](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L228)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [VQ]001 - Cleanup Semantics Audit - Audit the existing vacuum pass against Binaryen's repeated garbage-collection role after earlier rewrites.
-     - Deliverables: confirm which empty blocks, nops, and detached residue Binaryen drops; preserve typed block correctness; tighten any mismatches in the current pass.
+     - Status: the first parity slice is landed. `vacuum` now removes dropped nontrapping pure scalar/ref/tuple expressions and unwraps block-only `unreachable` roots in addition to recursive `nop` cleanup. Focused tests cover dropped pure arithmetic while preserving local writes plus block-only `unreachable`; `.tmp/pass-fuzz-vacuum-genvalid-10000-after-drop-block` is `10000/10000` normalized matches with `0` mismatches / validation failures / command failures, and `.tmp/pass-fuzz-vacuum-1000-after-drop-block` reached `131/131` comparable mixed-generator matches with `0` mismatches before the Binaryen-side command-failure cap (`9` generic Binaryen command failures, `1` rec-group-zero).
+     - Remaining deliverables: continue confirming additional empty-structure and detached-residue families Binaryen drops; preserve typed block correctness.
      - Doc: [0066#L228](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L228)
    - [VQ]002 - Repeated-Slot Regression Matrix - Add pipeline coverage that proves all four vacuum slots remain valid as surrounding passes land.
      - Deliverables: write regressions around empty structures and detached nodes; verify slot ordering in the public preset; replay pass parity against Binaryen on the artifact.

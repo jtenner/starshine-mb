@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../raw/research/0249-2026-04-22-vacuum-primary-sources-and-code-map-followup.md
@@ -58,15 +58,18 @@ That exact code map is the main practical addition in this refresh: readers can 
 
 ## Current local implementation
 
-The current in-tree `vacuum` implementation is intentionally much smaller than upstream Binaryen.
+The current in-tree `vacuum` implementation is intentionally much smaller than upstream Binaryen, but it now includes the first Binaryen-parity cleanup slice beyond `nop` sweeping.
 The real rewrite logic is one recursive HOT helper in `src/passes/pass_manager.mbt`:
 
 - `hot_pass_remove_region_nops(ctx, func, region_ref)`
 
-That helper walks a region root list and does only two things:
+That helper walks a region root list and now does three things:
 
-1. if the current root is `HotOp::Nop`, it splices that root out of the region and deletes the detached nodes
-2. if the current root owns nested regions, it recurses into them
+1. if the current root is `HotOp::Nop`, it splices that root out of the region and deletes the detached node
+2. if the current root is `drop` of a removable nontrapping pure scalar/ref/tuple expression, it removes the dropped expression while preserving potentially trapping conversions such as non-saturating float-to-int truncations
+3. if the current root is a `block` whose only payload is `unreachable`, it unwraps the block to the payload `unreachable`
+
+Then, if the current root owns nested regions, the helper recurses into them.
 
 The recursion surface is explicit and limited:
 
@@ -80,7 +83,7 @@ The dispatch arm then reports:
 - `HotPassResult::changed()` if any explicit `nop` entry was removed
 - `HotPassResult::unchanged()` otherwise
 
-There is no hidden second-phase cleanup engine for this pass in-tree today.
+There is still no hidden second-phase cleanup engine for this pass in-tree today.
 
 ## What Starshine already does well
 
@@ -88,6 +91,7 @@ The current local strategy is small, but it is not useless.
 It already gives the repo a few concrete wins:
 
 - cheap cleanup of explicit HOT `nop` residue after other hot passes
+- Binaryen-aligned removal of dropped nontrapping pure scalar expressions
 - a straightforward fit with the `HotFunc` / region-reference ownership model
 - honest invalidation of broad HOT analyses after mutation
 - stable tracing and perf observability in the main hot pipeline
@@ -107,6 +111,10 @@ The local tests are small but meaningful.
 
 `src/passes/optimize_test.mbt` currently gives the cleanest direct pass-local proof points:
 
+- `vacuum removes dropped pure scalar expressions`
+  - proves the effect-aware dropped-result slice removes pure arithmetic while preserving local writes
+- `vacuum unwraps block that only contains unreachable`
+  - proves the block-only-`unreachable` cleanup shape Binaryen emits on the generated scalar corpus
 - `vacuum cleans simplify-locals structured return residue in the late cleanup pair`
   - proves that explicit `nop` cleanup helps a real late local-cleanup pipeline shape
 - `vacuum roundtrips dead simd prefixes before unreachable`
@@ -148,11 +156,16 @@ That is the concrete proof surface behind the older artifact notes that retired 
 The safest one-line contrast is:
 
 - **Binaryen `vacuum`:** effect-aware unused-result pruning plus structural cleanup, TNH handling, and mandatory refinalization
-- **Starshine `vacuum`:** recursive explicit-`nop` trimming in HOT regions, plus pipeline-level validation/writeback hygiene around that trimming
+- **Starshine `vacuum`:** recursive explicit-`nop` trimming, dropped nontrapping pure-result pruning, block-only `unreachable` unwrapping, and pipeline-level validation/writeback hygiene around those rewrites
+
+Direct oracle evidence for the current slice:
+
+- `.tmp/pass-fuzz-vacuum-genvalid-10000-after-drop-block`: `10000/10000` direct `gen-valid` normalized matches, `0` mismatches, `0` validation failures, `0` command failures
+- `.tmp/pass-fuzz-vacuum-1000-after-drop-block`: `131/131` comparable mixed-generator matches before Binaryen-side command failures hit the cap
 
 Current Starshine does **not** yet model upstream behaviors such as:
 
-- effect-aware dropped-wrapper elimination
+- generalized effect-aware dropped-wrapper elimination beyond the current nontrapping pure scalar/ref/tuple subset
 - multi-child effect preservation through dropped-child rebuilding
 - constant or unreachable `if` collapse
 - branch-hint flips when an `if` is inverted
@@ -196,13 +209,13 @@ For the current implementation, they are part of the honest contract.
 
 If Starshine wants closer Binaryen parity, the likely path is still staged:
 
-1. keep the current recursive `nop` sweep
-2. move the pass into a dedicated owner file once the helper surface grows
-3. add effect-aware dropped-wrapper elimination
-4. add the easy structural cases
+1. keep the current recursive `nop`, dropped-pure-result, and block-only-`unreachable` slice green
+2. move the pass into a dedicated owner file once the helper surface grows further
+3. broaden effect-aware dropped-wrapper elimination
+4. add the remaining easy structural cases
    - constant / unreachable `if`
    - drop-of-tee to set
-   - trivial block and loop cleanup
+   - trivial block and loop cleanup beyond block-only `unreachable`
 5. add branch-result-aware and EH-aware cleanup only with explicit legality proofs
 6. add whatever HOT writeback or refinalization-equivalent discipline is needed for broader GC and EH-sensitive rewrites
 
@@ -219,5 +232,5 @@ Its exact local implementation is now easy to follow:
 
 That makes the local subset easy to teach honestly:
 
-- **what it does today:** remove explicit HOT `nop` region entries and keep the pipeline safe
-- **what it does not do yet:** most of Binaryen `vacuum`
+- **what it does today:** remove explicit HOT `nop` region entries, remove dropped nontrapping pure scalar/ref/tuple results, unwrap block-only `unreachable`, and keep the pipeline safe
+- **what it does not do yet:** the broader Binaryen `vacuum` rewrite family

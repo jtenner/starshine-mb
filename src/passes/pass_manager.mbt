@@ -289,6 +289,63 @@ pub fn pipeline_verify_checkpoint(
 }
 
 ///|
+fn vacuum_convert_is_nontrapping(instr : @lib.Instruction?) -> Bool {
+  match instr {
+    Some(
+      @lib.Instruction::I32WrapI64
+      | @lib.Instruction::I64ExtendI32S
+      | @lib.Instruction::I64ExtendI32U
+      | @lib.Instruction::F32ConvertI32S
+      | @lib.Instruction::F32ConvertI32U
+      | @lib.Instruction::F32ConvertI64S
+      | @lib.Instruction::F32ConvertI64U
+      | @lib.Instruction::F32DemoteF64
+      | @lib.Instruction::F64ConvertI32S
+      | @lib.Instruction::F64ConvertI32U
+      | @lib.Instruction::F64ConvertI64S
+      | @lib.Instruction::F64ConvertI64U
+      | @lib.Instruction::F64PromoteF32
+      | @lib.Instruction::I32ReinterpretF32
+      | @lib.Instruction::I64ReinterpretF64
+      | @lib.Instruction::F32ReinterpretI32
+      | @lib.Instruction::F64ReinterpretI64
+      | @lib.Instruction::I32TruncSatF32S
+      | @lib.Instruction::I32TruncSatF32U
+      | @lib.Instruction::I32TruncSatF64S
+      | @lib.Instruction::I32TruncSatF64U
+      | @lib.Instruction::I64TruncSatF32S
+      | @lib.Instruction::I64TruncSatF32U
+      | @lib.Instruction::I64TruncSatF64S
+      | @lib.Instruction::I64TruncSatF64U
+    ) => true
+    _ => false
+  }
+}
+
+///|
+fn vacuum_can_remove_dropped_node(
+  func : @ir.HotFunc,
+  node_id : @ir.NodeId,
+) -> Bool {
+  let node = @ir.hot_node_get(func, node_id)
+  let is_removable_shape = match node.op {
+    @ir.HotOp::Const
+    | @ir.HotOp::Unary
+    | @ir.HotOp::Binary
+    | @ir.HotOp::Compare
+    | @ir.HotOp::RefNull
+    | @ir.HotOp::RefIsNull
+    | @ir.HotOp::RefFunc
+    | @ir.HotOp::TupleMake
+    | @ir.HotOp::TupleExtract => true
+    @ir.HotOp::Convert =>
+      vacuum_convert_is_nontrapping(@ir.hot_node_exact_instr(func, node_id))
+    _ => false
+  }
+  is_removable_shape && @ir.effects_is_pure(@ir.effects_for_node(func, node_id))
+}
+
+///|
 fn hot_pass_remove_region_nops(
   ctx : HotPassContext,
   func : @ir.HotFunc,
@@ -306,7 +363,33 @@ fn hot_pass_remove_region_nops(
         changed = true
         continue
       }
-      @ir.HotOp::Block | @ir.HotOp::Loop =>
+      @ir.HotOp::Drop if @ir.hot_child_count(func, node_id) == 1 => {
+        let child_id = @ir.hot_child_get(func, node_id, 0)
+        if vacuum_can_remove_dropped_node(func, child_id) {
+          let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [])
+          pass_delete_detached_nodes(ctx, func, removed)
+          changed = true
+          continue
+        }
+      }
+      @ir.HotOp::Block => {
+        let body_ref = @ir.hot_region_body_ref(func, node_id)
+        changed = hot_pass_remove_region_nops(ctx, func, body_ref) || changed
+        if @ir.hot_region_root_count(func, body_ref) == 1 {
+          let only_child = @ir.hot_region_get(func, body_ref, 0)
+          match @ir.hot_node_get(func, only_child).op {
+            @ir.HotOp::Unreachable => {
+              let removed = pass_splice_region(ctx, func, region_ref, idx, 1, [
+                only_child,
+              ])
+              pass_delete_detached_nodes(ctx, func, removed)
+              changed = true
+            }
+            _ => ()
+          }
+        }
+      }
+      @ir.HotOp::Loop =>
         changed = hot_pass_remove_region_nops(
             ctx,
             func,

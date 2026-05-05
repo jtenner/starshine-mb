@@ -1,7 +1,7 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-22-vacuum-primary-sources.md
   - ../../../raw/research/0130-2026-04-20-vacuum-binaryen-research.md
@@ -69,8 +69,10 @@ That includes more than `nop` removal, but less than full dead-code elimination.
   - the function body itself
 - The pass depends heavily on effect analysis, helper-based dropped-child rebuilding, and post-rewrite refinalization.
 - The canonical no-DWARF scheduler uses it as repeated cleanup glue between other local and late cleanup passes, not as a one-shot finalizer.
-- Current Starshine only implements the smallest slice of the upstream behavior:
+- Current Starshine still implements a focused subset of upstream behavior, but it now covers the first effect-aware cleanup slice:
   - recursive `nop` region-entry trimming
+  - dropped pure scalar result pruning for nontrapping numeric/ref/tuple shapes
+  - unwrapping blocks whose only payload is `unreachable`
 - A fresh 2026-04-20 source check corrected an earlier repo-local note:
   - the 2026-02-27 explicit-`unreachable` preservation change belongs to Chromium commit `f284d54...`, not `9ee4a25...`
   - that change is already present in Binaryen `version_129`
@@ -111,7 +113,7 @@ That difference matters a lot if Starshine ever wants real Binaryen parity.
 - Treat the corrected 2026-04-20 freshness note as the current durable answer:
   - `version_129` already contains the explicit-`unreachable` preservation safeguard
   - the previously cited `9ee4...` commit is actually a `RemoveUnusedBrs` change
-- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond recursive `nop` trimming.
+- Keep the Binaryen strategy page and the Starshine strategy page in sync whenever the in-tree implementation grows beyond the current `nop`, dropped-pure-result, and block-only-`unreachable` cleanup slice.
 
 ## Sources
 

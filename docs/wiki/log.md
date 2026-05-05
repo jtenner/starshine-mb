@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] implementation | tighten `vacuum` cleanup parity
+
+- Extended Starshine's active `vacuum` hot pass beyond recursive `nop` cleanup with dropped nontrapping pure-result pruning and block-only `unreachable` unwrapping.
+- Added focused pass tests for dropped pure arithmetic with preserved local writes and block-only `unreachable` cleanup.
+- Recorded green direct evidence: `.tmp/pass-fuzz-vacuum-genvalid-10000-after-drop-block` is `10000/10000` normalized matches, and `.tmp/pass-fuzz-vacuum-1000-after-drop-block` has `131/131` comparable mixed-generator matches before Binaryen-side command failures hit the cap.
+
 ## [2026-05-04] health | deepen `precompute-propagate` with readiness bridge
 
 - Added a 2026-05-04 current-main recheck raw manifest plus a matching research note for upstream Binaryen `precompute-propagate`.
