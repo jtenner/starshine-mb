@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `dataflow-optimization` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md` plus `docs/wiki/raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md` after rechecking official Binaryen current-main `DataFlowOpts.cpp`, `graph.h`, `node.h`, `users.h`, `utils.h`, `flat.h`, `pass.cpp`, and the combo `flatten_simplify-locals-nonesting_dfo_O3.wast` surface.
+- Refreshed the `dataflow-optimization` overview, Binaryen strategy, implementation/test-map, Flat/DataFlow boundaries, WAT-shape catalog, Starshine strategy, and Starshine port-readiness pages so the new 2026-05-05 provenance is visible from the living dossier.
+- Fixed stale local code-map anchors in the Starshine pages: the removed-pass guard now points at `src/passes/optimize.mbt#L522-L524`, and the removed-registry spelling anchor now points at `src/passes/optimize.mbt#L143-L146`.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the refreshed provenance is discoverable from the shared catalogs.
+
 ## [2026-05-05] health | refresh `unsubtyping` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md` plus `docs/wiki/raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md` after rechecking official Binaryen `main` `Unsubtyping.cpp`, `pass.cpp`, and the dedicated lit surfaces.

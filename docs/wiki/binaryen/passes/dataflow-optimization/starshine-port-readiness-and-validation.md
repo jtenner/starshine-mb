@@ -1,11 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
-  - ../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
+  - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/research/0369-2026-04-25-dataflow-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
   - ../../../../../src/passes/optimize.mbt
@@ -41,13 +42,13 @@ Until that choice is made, the safe strategy is analyzer-first documentation and
 Recheck these before any coding branch:
 
 - removed registry spelling
-  - [`src/passes/optimize.mbt#L143-L153`](../../../../../src/passes/optimize.mbt#L143-L153)
+  - [`src/passes/optimize.mbt#L143-L146`](../../../../../src/passes/optimize.mbt#L143-L146)
   - `pass_registry_removed_names()` includes `dataflow-optimization`.
 - no active registry entry
   - [`src/passes/optimize.mbt#L155-L279`](../../../../../src/passes/optimize.mbt#L155-L279)
   - no `HotPass` or `ModulePass` entry currently owns the name.
 - explicit request rejection
-  - [`src/passes/optimize.mbt#L485-L491`](../../../../../src/passes/optimize.mbt#L485-L491)
+  - [`src/passes/optimize.mbt#L522-L524`](../../../../../src/passes/optimize.mbt#L522-L524)
   - removed names return the removed-registry error instead of no-oping.
 - closest local constant-folding neighbor
   - [`src/passes/precompute.mbt`](../../../../../src/passes/precompute.mbt)
@@ -56,7 +57,7 @@ Recheck these before any coding branch:
   - [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt)
   - this is cleanup infrastructure, not a hidden `dfo` implementation.
 - absent local substrate
-  - workspace search on 2026-04-27 still found no `src/passes/dataflow_optimization.mbt`, no `src/dataflow/`, and no `src/ir/flat*` files.
+  - workspace search on 2026-05-05 still found no `src/passes/dataflow_optimization.mbt`, no `src/dataflow/`, and no `src/ir/flat*` files.
 - absent active backlog slice
   - [`agent-todo.md`](../../../../../agent-todo.md) still has no dedicated `dataflow-optimization` / `dfo` slice.
 

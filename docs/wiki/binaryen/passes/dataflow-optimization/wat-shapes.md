@@ -1,11 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
-  - ../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
+  - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
   - ../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/DataFlowOpts.cpp
@@ -21,7 +22,7 @@ related:
 
 This page is deliberately beginner-friendly.
 The goal is not exact prettyprinted oracle output.
-The goal is to teach which kinds of shapes `dfo` likes, which ones it ignores, and why. The 2026-04-25 and 2026-04-27 current-main rechecks found no teaching-relevant shape drift from the earlier `version_129` dossier. For how these shapes become Starshine tests, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The goal is to teach which kinds of shapes `dfo` likes, which ones it ignores, and why. The 2026-04-25, 2026-04-27, and 2026-05-05 current-main rechecks found no teaching-relevant shape drift from the earlier `version_129` dossier. For how these shapes become Starshine tests, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Reading rule
 
@@ -259,6 +260,8 @@ A future Starshine port should preserve these shape-level rules:
 
 - [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md)
 - [`../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md`](../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md)
+- [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md)
+- [`../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md)
 - [`../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md`](../../../raw/research/0178-2026-04-21-dataflow-optimization-binaryen-research.md)

@@ -1,11 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md
   - ../../../raw/research/0423-2026-04-27-dataflow-optimization-port-readiness.md
-  - ../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md
+  - ../../../raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md
   - ../../../raw/research/0278-2026-04-23-dataflow-optimization-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -31,7 +32,7 @@ related:
 
 # Starshine Strategy For `dataflow-optimization`
 
-Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md), [`../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-dataflow-optimization-current-main-recheck.md), and [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md).
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-23-dataflow-optimization-primary-sources.md), [`../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-dataflow-optimization-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and planning surfaces that already answer whether the pass exists, and the nearest concrete files a future port would need to study. For first-slice sequencing and validation gates, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
@@ -55,10 +56,10 @@ So this page is intentionally a **status-and-port-map** page rather than a fake 
 The fastest read-along path through the current Starshine status is:
 
 - tracked but removed pass-name status
-  - [`src/passes/optimize.mbt#L143-L153`](../../../../../src/passes/optimize.mbt#L143-L153)
+  - [`src/passes/optimize.mbt#L143-L146`](../../../../../src/passes/optimize.mbt#L143-L146)
     - `pass_registry_removed_names()` includes `"dataflow-optimization"`
 - active request guard for removed passes
-  - [`src/passes/optimize.mbt#L485-L491`](../../../../../src/passes/optimize.mbt#L485-L491)
+  - [`src/passes/optimize.mbt#L522-L524`](../../../../../src/passes/optimize.mbt#L522-L524)
     - `run_hot_pipeline_expand_passes(...)` resolves known names and rejects removed ones with `pass flag {name} is removed from the active hot pipeline registry`
 - active registry entries by omission
   - [`src/passes/optimize.mbt#L155-L279`](../../../../../src/passes/optimize.mbt#L155-L279)
@@ -239,8 +240,8 @@ That is more useful locally than a vague “compare with Binaryen later” note 
 
 Current Starshine `dataflow-optimization` strategy is honest removed-registry tracking plus an explicit planning bridge:
 
-- [`src/passes/optimize.mbt#L143-L153`](../../../../../src/passes/optimize.mbt#L143-L153) keeps the pass name alive in the removed registry
-- [`src/passes/optimize.mbt#L485-L491`](../../../../../src/passes/optimize.mbt#L485-L491) rejects active requests for that removed name honestly
+- [`src/passes/optimize.mbt#L143-L146`](../../../../../src/passes/optimize.mbt#L143-L146) keeps the pass name alive in the removed registry
+- [`src/passes/optimize.mbt#L522-L524`](../../../../../src/passes/optimize.mbt#L522-L524) rejects active requests for that removed name honestly
 - [`src/passes/optimize.mbt#L155-L279`](../../../../../src/passes/optimize.mbt#L155-L279) shows there is still no active implementation entry
 - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L42) preserves the older Batch 1 removed-planning intent
 - [`docs/0065-2026-03-24-ir2-execution-plan.md#L37-L40`](../../../../../docs/0065-2026-03-24-ir2-execution-plan.md#L37-L40) does not currently give it near-term preferred-order status
