@@ -8,6 +8,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added focused pass tests for dropped pure arithmetic with preserved local writes and block-only `unreachable` cleanup.
 - Recorded green direct evidence: `.tmp/pass-fuzz-vacuum-genvalid-10000-after-drop-block` is `10000/10000` normalized matches, and `.tmp/pass-fuzz-vacuum-1000-after-drop-block` has `131/131` comparable mixed-generator matches before Binaryen-side command failures hit the cap.
 
+## [2026-05-04] health | correct `merge-locals` source contract
+
+- Added `docs/wiki/raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md` plus `docs/wiki/raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md` after rechecking official Binaryen current-main `MergeLocals.cpp`, `pass.cpp`, `passes.h`, `local-graph.h`, and `merge-locals.wast`.
+- Rewrote the `merge-locals` overview, Binaryen strategy, implementation/test-map, LocalGraph, WAT-shape, and Starshine strategy pages so the dossier now teaches the source-backed copy-shape local.set/local.get balancing contract with `LocalGraph` orientation and rollback, not the stale one-set-local / `EquivalentCopies` / `LocalStructuralDominance` overcorrection.
+- Refreshed `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the corrected copy-balancing dossier is visible from the shared catalogs.
+
 ## [2026-05-04] health | deepen `precompute-propagate` with readiness bridge
 
 - Added a 2026-05-04 current-main recheck raw manifest plus a matching research note for upstream Binaryen `precompute-propagate`.

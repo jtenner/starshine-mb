@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
+  - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
   - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-merge-locals-primary-sources.md
@@ -23,26 +25,20 @@ related:
   - ../coalesce-locals/index.md
   - ../tracker.md
 supersedes:
-  - ../../../raw/research/0272-2026-04-23-merge-locals-primary-sources-and-source-correction-followup.md
+  - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
 ---
 
 # `merge-locals`
 
 ## Role
 
-`merge-locals` is an upstream Binaryen higher-aggression local cleanup pass.
-It is currently **unimplemented** in Starshine and is still tracked as a removed pass name in [`../../../../../src/passes/optimize.mbt:144-151`](../../../../../src/passes/optimize.mbt).
+`merge-locals` is an upstream Binaryen copy-balancing pass.
+It rewrites copy-shaped local traffic (`local.set $x (local.get $y)`) by temporarily exposing a trivial `local.tee`, then retargeting influenced gets to either the source local or the destination local when the `LocalGraph` proof says the move is still single-set and type-safe.
+The pass is DWARF-sensitive: the reviewed source still reports `invalidatesDWARF() == true`.
 
-The corrected 2026-04-25 source read is:
+It is currently **unimplemented** in Starshine and still tracked as a removed pass name in [`../../../../../src/passes/optimize.mbt:144-151`](../../../../../src/passes/optimize.mbt).
 
-- Binaryen skips functions that have local names.
-- It builds an eager `LocalGraph` and computes ordinary plus set influences.
-- It scans locals with exactly one set.
-- The set must have a value and that value must be simple enough to move.
-- All influenced gets for the candidate local must trace back to that same set.
-- Binaryen either reuses a small existing source-local chain or creates one fresh temp, then retargets gets and removes redundant sets.
-
-So the beginner mental model is **one-set local merging with influence proof**, not generic liveness coalescing and not the stale 2026-04-23 `EquivalentCopies` / `LocalStructuralDominance` story.
+So the beginner mental model is **copy-shape local traffic balancing with graph-checked retargeting**, not generic local-slot coalescing and not the stale one-set/local-simple-value story.
 
 ## Why it matters
 
@@ -52,7 +48,7 @@ So the beginner mental model is **one-set local merging with influence proof**, 
   - [`../optimize-casts/index.md`](../optimize-casts/index.md)
   - [`../local-subtyping/index.md`](../local-subtyping/index.md)
   - [`../coalesce-locals/index.md`](../coalesce-locals/index.md)
-- The 2026-04-25 source correction matters because the previous living dossier taught a non-source-backed algorithm and would have sent a future Starshine port in the wrong direction.
+- The 2026-05-04 source correction matters because the earlier living page taught a stale one-set/fresh-temp model that does not match the reviewed `MergeLocals.cpp` contract.
 
 ## Inputs and outputs
 
@@ -60,38 +56,36 @@ So the beginner mental model is **one-set local merging with influence proof**, 
 
 Inside one Binaryen function, the pass observes:
 
-- local declarations and local names
-- `local.set` nodes and their values
-- `local.get` nodes influenced by each set
-- control-flow enough for `LocalGraph` to know whether an influenced get traces back to one set
+- copy-shaped `local.set` / `local.get` pairs
+- the local indices on the source side and destination side of each copy
+- `LocalGraph` set-influence information for the original and synthetic tee nodes
+- type equality on the influenced gets that may be retargeted
 
 ### Output surface
 
 The pass can rewrite:
 
-- `local.get` indices, retargeting them to the reused source local or to a newly allocated temp
-- redundant `local.set` nodes, replacing them with `nop` / dropped structure during materialization
-- local declarations, by adding a fresh temp in the nontrivial simple-value case
+- influenced `local.get` indices, retargeting them toward either the source local or the destination local
+- the copy-shaped `local.set` itself, by stripping the temporary tee wrapper after the rewrite
+- local identity, which is why the pass invalidates DWARF
 
-It does **not** rewrite function signatures, local types for refinement purposes, heap types, globals, imports, exports, or broad slot-coloring layout.
+It does **not** rewrite function signatures, heap types, globals, imports, exports, or general slot-coloring layout.
 
 ## Invariants and correctness constraints
 
-- **Named-local bailout:** if the function has local names, Binaryen preserves that debug-facing surface by skipping the pass.
-- **Single-set candidate:** the local being merged must have exactly one set in the graph.
-- **Value present:** the single set must have a value; valueless or unreachable-adjacent oddities are conservative.
-- **Simple-value gate:** the set value must be simple enough to move or duplicate safely under Binaryen's `FunctionUtils::isSimple(...)` predicate.
-- **Influence proof:** every influenced get for the candidate local must still be traced by `LocalGraph` to that same set.
-- **Small-source reuse gate:** direct source-local reuse is allowed only for a small enough `local.get` source chain.
-- **Fresh-temp fallback:** otherwise the pass materializes a new local temp for the simple value and redirects the influenced gets to that temp.
+- **Copy-shaped candidate:** the pass starts from a `local.set` fed by a `local.get` of a different local.
+- **Graph proof:** retargeting is only allowed when the eager `LocalGraph` snapshot says the influenced gets still have the intended single-set story.
+- **Type match:** the affected gets must keep matching local types.
+- **Orientation choice:** the pass may win by retargeting toward the source local or toward the destination local, depending on which side the graph proves safe.
+- **Rollback safety:** a post-rewrite graph check can undo a candidate if the transformation no longer validates against the intended set relationships.
+- **DWARF sensitivity:** because the pass changes local identity, it is explicitly not a debug-neutral no-op.
 
 ## Notable edge cases
 
-- Branching and multivalue-like arity cases can still rewrite when the single-set influence story is intact.
-- DAG-like sharing and loop-backedge copy cases are source-backed lit-test families, but they are still governed by the one-set and influenced-get rules.
-- Complex or effectful values stay put even if the local otherwise has one set.
-- Extra sets break the candidate immediately.
-- Unreachable-adjacent cases are conservative; the official test includes `between-unreachable` coverage.
+- `between-unreachable` remains conservative in the reviewed lit surface.
+- A candidate can look copy-like before rewrite but still fail the postGraph recheck.
+- Type mismatches on influenced gets block a candidate.
+- The pass only starts from copy-shaped local traffic; it is not a general answer to arbitrary local traffic.
 - This pass is separate from [`../coalesce-locals/index.md`](../coalesce-locals/index.md), which handles broader slot-sharing / interference cleanup.
 
 ## Starshine status
@@ -106,21 +100,24 @@ The local status is intentionally limited to:
 
 ## How to validate a future port
 
-1. Add focused tests for direct source-local reuse, fresh-temp materialization, branching arity, DAG sharing, loop copies, extra-set negatives, complex-value negatives, and named-local bailout behavior.
-2. Compare `--pass merge-locals` against Binaryen for reduced WAT shapes before adding it to any preset.
-3. Then run pass-targeted fuzz comparison at the repo standard scale once the implementation is stable.
-4. Finally test the late local-cleanup neighborhood with `heap2local -> merge-locals -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` as those neighbors become available locally.
+1. Add focused tests for source-to-destination retargeting, destination-to-source retargeting, type-mismatch negatives, and rollback cases.
+2. Add a conservative `between-unreachable` regression.
+3. Compare `--pass merge-locals` against Binaryen for reduced WAT shapes before adding it to any preset.
+4. Then run pass-targeted fuzz comparison at the repo standard scale once the implementation is stable.
+5. Finally test the late local-cleanup neighborhood with `heap2local -> merge-locals -> optimize-casts -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` as those neighbors become available locally.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) - Source-corrected Binaryen implementation strategy.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) - Owner-file, helper, scheduler, and official lit-test map.
-- [`./local-graph-and-copy-influences.md`](./local-graph-and-copy-influences.md) - Focused guide to the graph/influence mechanics without the stale structural-dominance overread.
+- [`./local-graph-and-copy-influences.md`](./local-graph-and-copy-influences.md) - Focused guide to the graph/influence mechanics behind copy retargeting.
 - [`./wat-shapes.md`](./wat-shapes.md) - Before/after shape catalog for beginners and port authors.
 - [`./starshine-strategy.md`](./starshine-strategy.md) - Exact current Starshine status and future port map.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md)
+- [`../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md`](../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md)
 - [`../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md`](../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md)
 - Binaryen `version_129` source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MergeLocals.cpp>

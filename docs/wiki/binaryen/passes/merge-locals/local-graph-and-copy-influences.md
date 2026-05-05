@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
+  - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
   - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-merge-locals-primary-sources.md
@@ -21,68 +23,64 @@ related:
 
 The easiest way to misread `merge-locals` is to choose one wrong extreme:
 
-- too small: “just delete adjacent local copies”
-- too large: “do coalesce-locals style slot coloring”
-- stale repo overread: “use `EquivalentCopies` plus `LocalStructuralDominance` to collapse wrapper families onto one existing winner”
+- too small: “just delete adjacent `local.set` / `local.get` pairs”
+- too large: “do full `coalesce-locals` style slot coloring”
+- stale overread: “treat it as one-set-local merging with a fresh-temp fallback”
 
 The reviewed Binaryen implementation is in between.
-It uses `LocalGraph` influence facts to prove a one-set local can be merged, but it stays far narrower than general local allocation.
+It starts from a concrete copy-shaped local traffic pair, uses `LocalGraph` set influences to decide which side should own the influenced gets, and then verifies the rewrite against a post-graph snapshot.
 
 ## The central question
 
 Ask:
 
-- “does this local have exactly one simple set, and do all influenced gets still trace to that same set?”
+- “after exposing this copy as a trivial tee, should the influenced gets live on the source local or on the destination local?”
 
 Do **not** ask:
 
-- “are these locals broadly equivalent?”
-- “can these locals share storage?”
-- “is there an equivalent-copy wrapper family under structural dominance?”
+- “are these locals globally equivalent?”
+- “can these locals share a slot?”
+- “is this a one-set local that should be rewritten from scratch?”
 
 Those are different pass families or stale documentation claims.
 
 ## What `LocalGraph` contributes
 
-`MergeLocals.cpp` creates a `LocalGraph` and computes two things:
+`MergeLocals.cpp` uses `LocalGraph` set influences to compare the original copy local and the synthetic tee local.
+That gives the pass a narrow proof surface:
 
-- ordinary influences
-- set influences
-
-### Ordinary influences
-
-Ordinary influences let the pass see which gets and local uses are fed by which sets.
-This is why the pass can reason through more than a single adjacent `local.set` / `local.get` pair.
+- which influenced gets can move toward the copy destination?
+- which influenced gets can move toward the copy source?
+- do the affected gets still have one proven set after the rewrite?
 
 ### Set influences
 
-Set influences let the pass ask whether a local's uses all come from one set.
-The candidate dies if any influenced get traces to a different set.
+Set influences let the pass ask whether a candidate's influenced gets still trace to the intended source of truth.
+The candidate dies if the graph no longer supports that orientation.
 
-That is the real proof surface: a clean one-set influence story.
+That is the real proof surface: a copy-oriented single-set story, not generic local equivalence.
 
 ## Why eager graph construction matters
 
-The reviewed source constructs the graph in non-lazy mode.
-The source comment says lazy mode missed opportunities and was slower in Binaryen benchmarking.
+The reviewed source constructs the graph eagerly so it can compare against the original state while mutating the function.
+The pass then performs a post-graph check to catch candidates that looked good before rewrite but no longer hold afterward.
 
 For readers, the takeaway is simple:
 
-- Binaryen pays for a fuller graph because this pass is meant to catch non-adjacent copy/influence patterns.
+- Binaryen pays for a fuller graph because this pass is meant to make a local copy relationship explicit, choose an orientation, and then verify that the choice still holds.
 
 ## How this is wider than a peephole
 
-A local copy can be separated from its uses by control structure, ordering, or other simple local traffic.
-The official test file includes branch, DAG-like, and loop-shaped families.
+A copy can be separated from its uses by control structure or by later local traffic.
+The pass therefore reasons over graph facts instead of only over an adjacent pair.
 
 So a future Starshine port should not be implemented as only:
 
 ```wat
 (local.set $x (local.get $y))
-(local.get $x)
 ```
 
-The source-backed pass is graph-guided.
+The source-backed pass is graph-guided and orientation-sensitive.
 
 ## How this is narrower than `coalesce-locals`
 
@@ -97,66 +95,44 @@ The source-backed pass is graph-guided.
 
 It answers only a much smaller question:
 
-- can this local's one simple set be replaced by an existing source local or by one fresh temp for all influenced gets?
+- can this copy-shaped pair be rewritten so one side owns the influenced gets, with post-graph verification keeping the result honest?
 
-## Direct source-local reuse
+## Direct source-to-destination retargeting
 
-If the single set's value is a `local.get` from a small enough source-local chain, Binaryen can retarget gets to that source local.
-
-Conceptually:
-
-```wat
-(local.set $tmp (local.get $src))
-(drop (local.get $tmp))
-```
-
-becomes:
-
-```wat
-(drop (local.get $src))
-```
-
-The graph proof matters because the pass must know the uses of `$tmp` are really fed by that one set.
-
-## Fresh-temp materialization
-
-If the single set's value is simple but not a small reusable local-get chain, Binaryen can materialize the value once in a fresh temp and retarget gets to that temp.
+If the synthetic tee side is safe, Binaryen can retarget influenced gets toward the original copy destination.
 
 Conceptually:
 
 ```wat
-(local.set $a (i32.const 10))
-(local.set $b (i32.const 10))
-(drop (i32.add (local.get $a) (local.get $b)))
+(local.set $x (local.get $y))
+(drop (local.get $y))
 ```
 
-can become a shape like:
+becomes a shape where the later gets live on `$x` instead.
+
+The graph proof matters because the pass must know the later uses are still fed by one set.
+
+## Destination-to-source retargeting
+
+If the original copy side is the better target, Binaryen can retarget influenced gets toward the source local instead.
+
+Conceptually:
 
 ```wat
-(local.set $fresh (i32.const 10))
-(drop (i32.add (local.get $fresh) (local.get $fresh)))
+(local.set $x (local.get $y))
+(drop (local.get $x))
 ```
 
-Exact printed output depends on surrounding cleanup passes.
+can become a shape where the later gets live on `$y` instead.
 
-## Why extra sets break the proof
-
-If the candidate local has two sets, or if an influenced get is graph-fed by a different set, the rewrite is no longer safe.
-The pass does not try to merge “probably equivalent” locals.
-
-That conservative rule protects cases where control flow or ordering can change which value a get observes.
-
-## Why complex values stay put
-
-Even a clean one-set influence story is not enough if the set value is not simple.
-Calls, large expressions, and trap/effect-sensitive operations cannot be moved or shared by this pass without changing behavior.
+The pass does not claim those two locals are identical; it chooses the side that still has a clean graph story.
 
 ## What to remember
 
-`merge-locals` is a **one-set local influence rewrite**:
+`merge-locals` is a **copy-oriented `LocalGraph` rewrite**:
 
-- `LocalGraph` proves the candidate's uses are all fed by one set
-- the set's value must be simple
-- Binaryen either reuses a small source-local chain or creates a fresh temp
+- the copy is made explicit with a trivial tee
+- `LocalGraph` decides whether the source or destination side should own the influenced gets
+- the pass verifies the rewrite with a post-graph snapshot
 - broader slot sharing belongs to `coalesce-locals`
-- `LocalStructuralDominance` and `EquivalentCopies` are not part of the reviewed `merge-locals` implementation
+- the older one-set-local / fresh-temp model is stale for the reviewed source

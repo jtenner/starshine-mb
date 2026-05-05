@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
+  - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
   - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
   - ../../../raw/binaryen/2026-04-23-merge-locals-primary-sources.md
@@ -19,79 +21,56 @@ related:
 ## Purpose
 
 This page is the owner-file and proof-surface map for Binaryen `merge-locals`.
-It exists because the previous dossier had overview and strategy pages but did not have the standard implementation/test map, and because that gap let a stale algorithm story survive.
+It exists because the corrected dossier needed a compact map of the copy-shape implementation, and because the earlier one-set-local overread obscured where the real behavior comes from.
 
 ## Owner files
 
 | Surface | Role |
 | --- | --- |
-| `src/passes/MergeLocals.cpp` | Owns the pass: local-name bailout, eager `LocalGraph`, candidate scan, source-local reuse, fresh-temp creation, postwalk materialization, and public pass factory. |
-| `src/passes/pass.cpp` | Registers the `merge-locals` pass and schedules it only for stronger optimize/shrink settings in the default function-optimization cluster. |
+| `src/passes/MergeLocals.cpp` | Owns the pass: copy-shape discovery, synthetic tee insertion, eager `LocalGraph`, orientation choice, post-graph rollback, and cleanup. |
+| `src/passes/pass.cpp` | Registers the pass and schedules it only for stronger optimize/shrink settings in the default function-optimization cluster. |
 | `src/passes/passes.h` | Declares the pass factory. |
-| `src/ir/local-graph.h` | Supplies ordinary influence and set-influence data used by the pass. |
-| `test/lit/passes/merge-locals.wast` | Main official proof surface for user-visible rewrites and bailouts. |
+| `src/ir/local-graph.h` | Supplies the set-influence data used by the pass. |
+| `test/lit/passes/merge-locals.wast` | Official behavioral proof surface. The reviewed capture is narrow and currently centers the conservative `between-unreachable` family. |
 
 ## Main implementation phases in `MergeLocals.cpp`
 
-### 1. Function-level bailout
+### 1. Copy discovery and instrumentation
 
-The pass skips functions with local names.
-This is not just a cosmetic implementation detail: it is part of the current source-backed contract because the pass would otherwise rewrite local identity in a way that can make debug-facing local names misleading.
+The pass scans for copy-shaped `local.set` / `local.get` pairs.
+Instead of treating them as abstract equivalence classes, it instruments the source side with a trivial `local.tee` candidate so the copy relation can be analyzed directly.
 
 ### 2. Eager `LocalGraph`
 
-The implementation constructs the graph in eager mode, then computes:
+The implementation constructs an eager graph and asks for set influences.
+The graph is used to decide whether the source local or destination local should own the rewritten gets.
 
-- ordinary influences
-- set influences
+### 3. Orientation solve
 
-The reviewed source comment says the non-lazy choice avoids missed opportunities and avoids a measured slowdown seen in Binaryen benchmarking.
+For each candidate, the pass checks two orientations:
 
-### 3. One-set candidate discovery
+- influenced gets move toward the original destination local
+- influenced gets move toward the synthetic tee source local
 
-The pass scans locals through the graph's set list.
-A candidate must have exactly one set, and that set must have a value.
-This is the central implementation fact future readers should remember.
+The candidate only survives if the target orientation keeps the right single-set story and the affected gets keep matching local types.
 
-### 4. Simple-value and influenced-get gates
+### 4. Post-graph rollback
 
-The set value must be simple enough to move safely.
-Then every influenced get for the local must still trace to that exact same set.
-If either rule fails, the local is skipped.
+The pass rebuilds graph state after the rewrite and undoes the candidate if the post-rewrite relationships no longer hold.
+This is the safety step that keeps the pass conservative despite mutating local identity.
 
-### 5. Target selection
+### 5. Cleanup
 
-There are two implementation outputs:
-
-- **existing source local:** if the set's value is a `local.get` and the source chain is small enough, the pass can reuse that source local
-- **fresh temp:** otherwise, if the value is simple, the pass creates a new temp local and stores the value there
-
-This is the source-backed split that replaces the stale 2026-04-23 `EquivalentCopies` / existing-winner-only story.
-
-### 6. Postwalk rewrite
-
-The pass materializes the plan by rewriting gets and replacing redundant sets.
-The visible output is fewer redundant local hops, sometimes with a fresh helper local when direct source reuse is not profitable or legal.
+Successful rewrites strip the trivial tee wrapper and leave behind the simplified copy shape.
 
 ## Official lit-test map
 
-The dedicated `test/lit/passes/merge-locals.wast` file is the central behavioral proof.
-It is especially useful because it covers both positive and conservative families.
-
-| Family | What it proves |
-| --- | --- |
-| Simple copy / source-local reuse | A one-set local whose value is a small `local.get` chain can redirect to an existing source local. |
-| Fresh-temp families | A simple non-`local.get` value can be saved once in a new temp and shared by rewritten gets. |
-| Branching / arity families | The pass can operate through structured control when the graph still proves one set feeds the influenced gets. |
-| Ordering-sensitive copies | The pass is graph-guided rather than adjacent-only. |
-| DAG-like influence sharing | Multiple use paths can still be optimized if they share the same proven set story. |
-| Loop-backedge copies | Loop shape alone is not a bailout when the influence facts remain safe. |
-| `keepSimple*` negatives | Complex or non-simple values stay put. |
-| `between-unreachable` negative | Unreachable-adjacent influence ambiguity stays conservative. |
+The reviewed `test/lit/passes/merge-locals.wast` capture is narrow.
+It visibly anchors the conservative `between-unreachable` family, which is enough to prove that the pass remains careful around unreachable boundaries but not enough to stand in for a broad coverage suite.
 
 ## Current-main check
 
-The 2026-04-25 primary-source recheck compared the same owner, registration, helper, and test surfaces on current `main`.
+The 2026-05-04 primary-source recheck compared the same owner, registration, helper, and test surfaces on current `main`.
 No teaching-relevant drift was found from the corrected `version_129` contract.
 
 ## Starshine implementation/test status
@@ -112,14 +91,11 @@ The existing local proof surface is only registry-level:
 
 A faithful Starshine implementation should add tests in this order:
 
-1. source-local reuse positives
-2. fresh-temp positives
-3. branch / arity positives
-4. ordering-sensitive and DAG-like influence positives
-5. loop-backedge positives
-6. extra-set negatives
-7. complex-value / non-simple negatives
-8. named-local bailout or an explicit documented local policy divergence
-9. Binaryen pass-targeted parity comparison
+1. source-to-destination retargeting positives
+2. destination-to-source retargeting positives
+3. type-mismatch negatives
+4. post-graph rollback cases
+5. conservative `between-unreachable` coverage
+6. Binaryen pass-targeted parity comparison
 
 Until those exist, keep `merge-locals` documented as removed/unimplemented locally.

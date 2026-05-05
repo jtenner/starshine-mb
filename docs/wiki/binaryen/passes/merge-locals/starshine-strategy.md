@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-04
 sources:
+  - ../../../raw/binaryen/2026-05-04-merge-locals-current-main-recheck.md
+  - ../../../raw/research/0441-2026-05-04-merge-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-merge-locals-current-main-source-correction.md
   - ../../../raw/research/0363-2026-04-25-merge-locals-source-correction-and-test-map.md
   - ../../../../../src/passes/optimize.mbt
@@ -65,30 +67,30 @@ The current active Starshine optimize/shrink presets expand only to implemented 
 
 ## Correct future port target
 
-A future Starshine port should implement Binaryen's corrected source-backed model:
+A future Starshine port should implement Binaryen's corrected copy-shape model:
 
-1. respect or deliberately document the named-local bailout policy
-2. build or reuse local set/get influence facts
-3. identify locals with exactly one set
-4. reject candidates whose set has no value or a non-simple value
-5. reject candidates whose influenced gets do not all trace back to the same set
-6. reuse a small source-local chain when legal
-7. otherwise create one fresh temp for the simple value
-8. retarget influenced gets and remove redundant sets
+1. detect copy-shaped `local.set` / `local.get` pairs
+2. expose the copy with a trivial tee on the source side
+3. build or reuse a local set-influence graph equivalent to Binaryen's `LocalGraph`
+4. decide whether the source local or destination local should own the influenced gets
+5. require matching local types on the affected gets
+6. recheck the rewrite after mutation and roll back bad candidates
+7. strip the temporary tee wrapper after success
 
-The future port should **not** start from the stale 2026-04-23 `EquivalentCopies` / `LocalStructuralDominance` story.
+The future port should **not** start from the stale one-set-local / fresh-temp story.
 That model is not source-backed for Binaryen `merge-locals` in the reviewed sources.
 
 ## Local implementation dependencies
 
 A faithful implementation would need, at minimum:
 
-- a local use/set influence representation similar in purpose to Binaryen `LocalGraph`
-- a simple-expression predicate aligned with Binaryen's move-safety boundary
-- local declaration insertion for fresh temps
+- a local copy-shape detector for `local.set` fed by `local.get`
+- a local set-influence representation similar in purpose to Binaryen `LocalGraph`
+- a post-rewrite verification pass or rollback guard
 - local.get / local.set index rewrite helpers
+- local tee insertion / cleanup helpers
 - validation after local rewrites
-- tests around named locals if Starshine chooses to preserve Binaryen's bailout exactly
+- tests around type mismatch and rollback behavior
 
 Neighboring local-cleanup dossiers remain the right context:
 
@@ -100,15 +102,12 @@ But those neighbors should not be collapsed into one vague locals pass.
 
 ## Validation plan for the eventual port
 
-1. Unit-style WAT tests for source-local reuse.
-2. Unit-style WAT tests for fresh-temp materialization.
-3. Branch / arity and DAG-like influence positives.
-4. Loop-copy positives.
-5. Extra-set negatives.
-6. Non-simple value negatives.
-7. Named-local bailout or a documented Starshine-specific alternative.
-8. `bun fuzz compare-pass --pass merge-locals` or the repo-standard equivalent once the pass is runnable.
-9. Cluster tests after neighboring removed passes become available.
+1. Unit-style WAT tests for source-to-destination retargeting.
+2. Unit-style WAT tests for destination-to-source retargeting.
+3. Type-mismatch and rollback negatives.
+4. Conservative `between-unreachable` regression.
+5. `bun fuzz compare-pass --pass merge-locals` or the repo-standard equivalent once the pass is runnable.
+6. Cluster tests after neighboring removed passes become available.
 
 ## Bottom line
 
@@ -116,7 +115,7 @@ Starshine's current `merge-locals` strategy is honest non-implementation:
 
 - tracked in the removed registry
 - rejected on request
-- documented with corrected Binaryen source strategy
+- documented with the corrected Binaryen copy-shape strategy
 - no owner file, no tests, and no active backlog slice yet
 
-The source-correct future target is one-set local influence merging with optional fresh-temp materialization, not structural-dominance equivalent-copy grouping.
+The source-correct future target is copy-shape local traffic balancing with `LocalGraph`-checked orientation and rollback, not one-set merging.
