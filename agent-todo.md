@@ -784,7 +784,8 @@ Suggested Tests
 7. Widen type-section topology.
 8. Widen section topology and cross-section interactions.
 9. Widen invalid generators from the new valid surfaces.
-   - [FZG]024 - Invalid AST Strategy Expansion for New Surfaces - Add invalid AST mutations for newly generated valid surfaces: bad subtype/super indices, invalid final/super relationships, invalid memory64/shared combinations, invalid SIMD lane indices, invalid atomic alignment/shared-memory requirements, invalid table/global/elem/data const expressions, and invalid name/custom section references.
+   - [FZG]024 - Invalid AST Strategy Expansion for New Surfaces - Add invalid AST mutations for newly generated valid surfaces: bad subtype/super indices, invalid final/super relationships, invalid SIMD lane indices, invalid atomic alignment/shared-memory requirements, invalid table/global/elem/data const expressions, and invalid name/custom section references.
+     - Status: in progress. The memory64/shared invalid combination slice is complete: `shared-memory64-without-max` now starts from a valid generated base, mutates in a shared memory64 with no maximum, rejects through `MemorySectionFamily`, participates in deterministic invalid-AST fuzz profiles, and is documented in the generator coverage ledger.
      - Dependencies: corresponding valid surfaces must exist first so each mutation can start from a validating base.
    - [FZG]025 - Invalid Binary Strategy Expansion for New Surfaces - Add binary-level corruptions for new section/topology surfaces: malformed SIMD immediates, lane-index overflow, atomic opcode/memarg misuse, memory64/shared encoding errors, recursive-type encoding errors, name-section malformed subsection ordering/sizes, and custom-section UTF-8/payload edge cases.
 10. Bring WAST arbitrary generation closer to the valid generator.

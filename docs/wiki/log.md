@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] fuzz | widen invalid AST memory64/shared strategy
+
+- Added `shared-memory64-without-max` to the invalid-AST strategy registry for `[FZG]024`, reusing valid generated seeds and mutating them into an invalid shared memory64 without a maximum.
+- Recorded focused coverage in `docs/wiki/fuzzing/generator-coverage-ledger.md`; the new strategy rejects through `MemorySectionFamily` and participates in deterministic invalid-AST fuzz profiles.
+
 ## [2026-05-05] fuzz | document WAST arbitrary parity boundary
 
 - Added `docs/wiki/fuzzing/wast-arbitrary-parity-plan.md` for `[FZG]026`, deciding that WAST arbitrary generation remains independent from `gen_valid` while sharing the FZG coverage vocabulary.

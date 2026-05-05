@@ -86,6 +86,7 @@ pub enum ValidateInvalidAstStrategyId {
   MutableGlobalGetInTableInit
   NonConstantElemOffset
   SharedMemoryWithoutMax
+  SharedMemory64WithoutMax
   InvalidTagTypeIndex
   DescriptorOnFuncType
   DataCountWithoutDataSec
@@ -327,6 +328,12 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       MemorySectionFamily,
     ),
     validate_invalid_ast_strategy_spec(
+      SharedMemory64WithoutMax,
+      "shared-memory64-without-max",
+      "shared memory64 without maximum",
+      MemorySectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
       InvalidTagTypeIndex,
       "invalid-tag-type-index",
       "invalid tag type index",
@@ -513,27 +520,28 @@ fn validate_invalid_ast_strategy_index(
     MutableGlobalGetInTableInit => 20
     NonConstantElemOffset => 21
     SharedMemoryWithoutMax => 22
-    InvalidTagTypeIndex => 23
-    DescriptorOnFuncType => 24
-    DataCountWithoutDataSec => 25
-    InvalidExportFuncIndex => 26
-    StartFuncOutOfRange => 27
-    MissingDataCountDataDrop => 28
-    InvalidMemoryNameSectionIndex => 29
-    CodeSecWithoutFuncSec => 30
-    InvalidTableNameSectionIndex => 31
-    InvalidGlobalNameSectionIndex => 32
-    InvalidTypeNameSectionIndex => 33
-    InvalidFieldNameSectionIndex => 34
-    InvalidElemNameSectionIndex => 35
-    InvalidDataNameSectionIndex => 36
-    InvalidExportTableIndex => 37
-    InvalidExportGlobalIndex => 38
-    InvalidExportMemoryIndex => 39
-    InvalidExportTagIndex => 40
-    InvalidTagNameSectionIndex => 41
-    DataCountMismatchTooSmall => 42
-    DataCountMismatchTooLarge => 43
+    SharedMemory64WithoutMax => 23
+    InvalidTagTypeIndex => 24
+    DescriptorOnFuncType => 25
+    DataCountWithoutDataSec => 26
+    InvalidExportFuncIndex => 27
+    StartFuncOutOfRange => 28
+    MissingDataCountDataDrop => 29
+    InvalidMemoryNameSectionIndex => 30
+    CodeSecWithoutFuncSec => 31
+    InvalidTableNameSectionIndex => 32
+    InvalidGlobalNameSectionIndex => 33
+    InvalidTypeNameSectionIndex => 34
+    InvalidFieldNameSectionIndex => 35
+    InvalidElemNameSectionIndex => 36
+    InvalidDataNameSectionIndex => 37
+    InvalidExportTableIndex => 38
+    InvalidExportGlobalIndex => 39
+    InvalidExportMemoryIndex => 40
+    InvalidExportTagIndex => 41
+    InvalidTagNameSectionIndex => 42
+    DataCountMismatchTooSmall => 43
+    DataCountMismatchTooLarge => 44
   }
 }
 
@@ -553,9 +561,9 @@ pub fn validate_invalid_ast_run_config(
 ) -> Result[ValidateInvalidAstRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 44
-    "ci" => 440
-    "stress" => 4400
+    "smoke" => 45
+    "ci" => 450
+    "stress" => 4500
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -2120,6 +2128,20 @@ fn validate_invalid_ast_mutate_shared_memory_without_max(
 }
 
 ///|
+fn validate_invalid_ast_mutate_shared_memory64_without_max(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let mems = validate_invalid_ast_mem_entries(mod)
+  mems.push(MemType::new(Limits::i64(1UL, None), shared=true))
+  {
+    strategy: SharedMemory64WithoutMax,
+    applicable: true,
+    expected_family: MemorySectionFamily,
+    mutated_module: mod.with_mem_sec(MemSec::new(mems)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_invalid_tag_type_index(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -2273,6 +2295,8 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_non_constant_elem_offset(base)
       SharedMemoryWithoutMax =>
         validate_invalid_ast_mutate_shared_memory_without_max(base)
+      SharedMemory64WithoutMax =>
+        validate_invalid_ast_mutate_shared_memory64_without_max(base)
       InvalidTagTypeIndex =>
         validate_invalid_ast_mutate_invalid_tag_type_index(base)
       DescriptorOnFuncType =>
@@ -2506,17 +2530,17 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "invalid-local-name-section-index", "invalid-label-name-section-index", "invalid-func-type-index",
     "funcsec-without-codesec", "mutable-global-get-in-const-init", "non-constant-data-offset",
     "invalid-imported-func-type-index", "invalid-imported-tag-type-index", "mutable-global-get-in-table-init",
-    "non-constant-elem-offset", "shared-memory-without-max", "invalid-tag-type-index",
-    "descriptor-on-func-type", "datacount-without-data-sec", "invalid-export-func-index",
-    "start-func-out-of-range", "missing-datacount-data-drop", "invalid-memory-name-section-index",
-    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
-    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
-    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
-    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
-    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "non-constant-elem-offset", "shared-memory-without-max", "shared-memory64-without-max",
+    "invalid-tag-type-index", "descriptor-on-func-type", "datacount-without-data-sec",
+    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
+    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
+    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
+    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
+    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
+    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 16)
+  assert_eq(smoke_required.length(), 17)
 }
 
 ///|
@@ -2856,6 +2880,19 @@ test "shared memory without max strategy rejects with MemorySection family" {
     invalid_ast_expect_strategy_rejects_with_family(
       SharedMemoryWithoutMax,
       0x5ef9UL,
+      MemorySectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "shared memory64 without max strategy rejects with MemorySection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      SharedMemory64WithoutMax,
+      0x5ef91UL,
       MemorySectionFamily,
     ) {
     Ok(_) => ()
@@ -3208,7 +3245,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 44)
+  assert_eq(first.attempts, 45)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)
