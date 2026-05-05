@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md
   - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
+  - ../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md
+  - ../../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md
   - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -29,6 +31,7 @@ related:
 # Starshine port readiness and validation for `signature-pruning`
 
 Use this page as the implementation bridge between Binaryen's source-backed `signature-pruning` contract and Starshine's current boundary-only status.
+The 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md) repeated the same narrow source-level check and found no teaching-relevant drift.
 The pass is still unimplemented locally; this page exists so a future port starts with the right module/type rewrite shape instead of a misleading HOT peephole.
 
 ## Current local decision

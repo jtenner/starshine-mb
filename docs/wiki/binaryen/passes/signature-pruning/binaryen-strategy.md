@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md
   - ../../../raw/research/0404-2026-04-26-signature-pruning-port-readiness.md
+  - ../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md
+  - ../../../raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-signature-pruning-primary-sources.md
   - ../../../raw/research/0304-2026-04-24-signature-pruning-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0151-2026-04-21-signature-pruning-binaryen-research.md
@@ -44,7 +46,7 @@ Primary files:
 - `src/cfg/liveness-traversal.h`
 - `test/lit/passes/signature-pruning.wast`
 
-The later 2026-04-26 port-readiness pass in [`../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-pruning-port-readiness-primary-sources.md) repeated a narrow current-`main` check on the same teaching surfaces.
+The later 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md) repeated the same narrow check on the same teaching surfaces.
 Durable result:
 
 - the checked `main` pass logic still matches the reviewed `version_129` algorithm on the important gates, phase split, and helper usage

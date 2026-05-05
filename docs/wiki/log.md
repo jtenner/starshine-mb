@@ -2,6 +2,18 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `signature-pruning` current-main bridge and source hygiene
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md` plus `docs/wiki/raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md` after rechecking current `main` `SignaturePruning.cpp`, `pass.cpp`, and `test/lit/passes/signature-pruning.wast` against the existing `version_129` contract.
+- Refreshed the `signature-pruning` overview, Binaryen strategy, implementation/test-map, constant-actuals/boundaries, WAT-shape, Starshine strategy, Starshine port-readiness bridge, wiki index, pass index, and tracker entries so the new 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same closed-world heap-type-level pruning story, and Starshine still keeps `signature-pruning` boundary-only until a module/type rewrite port exists.
+
+## [2026-05-05] health | refresh `optimize-casts` current-main bridge and freshness layer
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md` plus `docs/wiki/raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md` after rechecking current `main` `OptimizeCasts.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, `linear-execution.h`, `properties.h`, `effects.h`, `utils.h`, and `optimize-casts.wast` against the existing `version_129` contract.
+- Refreshed the `optimize-casts` overview, Binaryen strategy, implementation/test-map, two-phase, WAT-shape, Starshine strategy, shared catalogs, and wiki index / tracker entries so the new 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same GC-gated two-phase `ref.cast` / `ref.as_non_null` local-flow pass, and Starshine still keeps `optimize-casts` removed-registry only while the `OC` backlog caveat remains explicit.
+
 ## [2026-05-05] health | refresh `precompute` current-main bridge and freshness layer
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-precompute-current-main-recheck.md` plus `docs/wiki/raw/research/0468-2026-05-05-precompute-current-main-recheck.md` after rechecking current `main` `Precompute.cpp`, `pass.cpp`, `opt-utils.h`, and representative `precompute*.wast` surfaces against the existing `version_129` contract.
