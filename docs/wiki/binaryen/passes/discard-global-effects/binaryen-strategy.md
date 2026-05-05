@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./metadata-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../global-effects/binaryen-strategy.md
 ---
 
@@ -68,9 +71,11 @@ after discard-global-effects, no later pass can observe an old global-effects su
 
 ## Current-main status
 
-A 2026-04-26 focused recheck of Binaryen `main` found no teaching-relevant drift for the cleanup sibling itself. Current `main` still registers the pass and keeps the same high-level summary-clearing contract, including the pass-runner invalidation path for effect-adding passes.
+A 2026-05-05 focused recheck of Binaryen `main` found no teaching-relevant drift for the cleanup sibling itself. Current `main` still registers the pass and keeps the same high-level summary-clearing contract, including the pass-runner invalidation path for effect-adding passes.
 
-The sibling producer `generate-global-effects` has known implementation-shape drift in current `main` versus `version_129`: it now uses an SCC/call-graph propagation structure. That drift is documented in [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md), but it does not change `discard-global-effects`' cleanup contract.
+The sibling producer `generate-global-effects` still has the known implementation-shape drift in current `main` versus `version_129`: it now uses an SCC/call-graph propagation structure. That drift is documented in [`../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-global-effects-current-main-recheck.md), but it does not change `discard-global-effects`' cleanup contract.
+
+The 2026-05-05 recheck therefore only refreshes the cleanup sibling's teaching freshness; it does not alter the pass model.
 
 ## Testing and validation implications
 
@@ -98,6 +103,8 @@ See [`../global-effects/binaryen-strategy.md`](../global-effects/binaryen-strate
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md)

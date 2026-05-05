@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
@@ -13,6 +15,7 @@ related:
   - ./binaryen-strategy.md
   - ./metadata-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../global-effects/implementation-structure-and-tests.md
   - ../vacuum/implementation-structure-and-tests.md
   - ../simplify-locals/implementation-structure-and-tests.md
@@ -120,6 +123,8 @@ A faithful local pass only becomes meaningful after a persistent interprocedural
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md)

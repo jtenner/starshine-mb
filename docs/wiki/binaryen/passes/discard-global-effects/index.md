@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-global-effects-primary-sources.md
@@ -18,6 +20,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./metadata-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../global-effects/index.md
 ---
 
@@ -67,6 +70,7 @@ Outputs:
 - This is a **pass-state cleanup transformation**, not an instruction optimizer.
 - The dedicated source set did not reveal a standalone `discard-global-effects.wast` lit file; the pass is source-confirmed through `GlobalEffects.cpp` / `pass.cpp` / `pass.h` and lifecycle-confirmed through `generate-global-effects` consumers.
 - Starshine does **not** currently expose a `discard-global-effects` registry name. Its local `global-effects` entry is boundary-only and covers the producer-side compatibility name, not this cleanup sibling.
+- The 2026-05-05 current-main recheck left the cleanup contract unchanged.
 
 ## Validation guidance
 
@@ -89,9 +93,12 @@ For Starshine work:
 - [`./binaryen-strategy.md`](./binaryen-strategy.md) explains the upstream source strategy and lifecycle relation to `generate-global-effects`.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) maps the owner files, pass-runner invalidation hook, indirect consumer tests, and no-standalone-WAT-diff caveat.
 - [`./starshine-strategy.md`](./starshine-strategy.md) maps the current local non-implementation, exact code locations, and future port decision.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) adds the missing future cleanup bridge: cache-vs-metadata split, local code map, and validation ladder for the still-unregistered sibling.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md)
+- [`../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md`](../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md)
 - [`../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md`](../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md)
 - [`../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md`](../../../raw/research/0383-2026-04-26-discard-global-effects-implementation-test-map.md)

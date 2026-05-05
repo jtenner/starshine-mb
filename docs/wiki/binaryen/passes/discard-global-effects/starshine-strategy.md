@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md
+  - ../../../raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-discard-global-effects-implementation-test-map.md
   - ../../../raw/binaryen/2026-04-25-discard-global-effects-primary-sources.md
   - ../../../raw/research/0353-2026-04-25-discard-global-effects-source-dossier.md
@@ -17,6 +19,7 @@ related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
   - ./metadata-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../global-effects/starshine-strategy.md
 ---
 
@@ -26,16 +29,18 @@ related:
 
 Starshine does **not** currently implement or register `discard-global-effects`.
 
+The 2026-05-05 current-main recheck did not change that status.
+
 This is different from [`../global-effects/starshine-strategy.md`](../global-effects/starshine-strategy.md): Starshine has a boundary-only `global-effects` compatibility name for the producer-side concept, but no public cleanup sibling name.
 
 ## Exact local code map
 
 Current relevant local surfaces:
 
-- [`../../../../../src/passes/optimize.mbt:128-142`](../../../../../src/passes/optimize.mbt)
+- [`../../../../../src/passes/optimize.mbt:127-134`](../../../../../src/passes/optimize.mbt)
   - lists boundary-only names including `global-effects`, but not `discard-global-effects`.
-- [`../../../../../src/passes/optimize.mbt:455-473`](../../../../../src/passes/optimize.mbt)
-  - rejects known boundary-only or removed pass names during pass expansion; an unregistered `discard-global-effects` request remains an unknown pass rather than the producer's boundary-only path.
+- [`../../../../../src/passes/optimize.mbt:518-524`](../../../../../src/passes/optimize.mbt)
+  - rejects boundary-only or removed pass names during pass expansion; an unregistered `discard-global-effects` request remains an unknown pass rather than the producer's boundary-only path.
 - [`../../../../../src/ir/effects.mbt:5-32`](../../../../../src/ir/effects.mbt)
   - defines Starshine's function-local HOT effect-mask bits.
 - [`../../../../../src/ir/effects.mbt:131-279`](../../../../../src/ir/effects.mbt)
@@ -46,9 +51,9 @@ Current relevant local surfaces:
   - builds local node/block/root-region effect summaries.
 - [`../../../../../src/ir/analysis_cache.mbt:217-227`](../../../../../src/ir/analysis_cache.mbt)
   - rebuilds cached effects when the HOT revision changes.
-- [`../../../../../src/passes/pass_common.mbt:212-234`](../../../../../src/passes/pass_common.mbt)
+- [`../../../../../src/passes/pass_common.mbt:318-324`](../../../../../src/passes/pass_common.mbt)
   - provides `pass_require_effects(...)` for local passes that need HOT effect information.
-- [`../../../../../src/passes/pass_manager.mbt:8717-8720`](../../../../../src/passes/pass_manager.mbt)
+- [`../../../../../src/passes/pass_manager.mbt:9017-9019`](../../../../../src/passes/pass_manager.mbt)
   - invalidates the local analysis cache when a hot function revision changes after a pass.
 
 ## Why no local pass is needed yet

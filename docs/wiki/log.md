@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `discard-global-effects` current-main bridge and port-readiness
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md` plus `docs/wiki/raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md` after rechecking current `main` `GlobalEffects.cpp`, `pass.cpp`, and the Optimizer Cookbook against the existing cleanup-sibling contract.
+- Added `docs/wiki/binaryen/passes/discard-global-effects/starshine-port-readiness-and-validation.md` and refreshed the discard-global-effects overview, Binaryen strategy, implementation/test-map, metadata-shape, Starshine strategy, wiki index, pass catalog, and tracker entries so the new 2026-05-05 freshness layer and missing cleanup bridge are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still clears the same function-level `Function.effects` summary state, while Starshine still has no registered cleanup sibling and only uses HOT revision-keyed effect-cache invalidation today.
+
 ## [2026-05-05] health | refresh `propagate-globals-globally` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md` plus `docs/wiki/raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md` after rechecking current `main` `SimplifyGlobals.cpp`, `pass.cpp`, and `propagate-globals-globally.wast` against the existing `version_129` contract.
