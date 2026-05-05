@@ -388,11 +388,12 @@ Observed unique-pass order
    - Research exactly how it works with a document: [0066#L253](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L253)
 2. Slice gameplan in `agent-todo.md` and determine deliverables.
    - [CL]001 - Compatibility and Lifetime Analysis - Port Binaryen's local-coalescing compatibility test so only safe local lifetimes are merged.
-     - Deliverables: compute live-range overlap and type compatibility; preserve tuple scratch and GC subtype constraints; define which locals are never coalesced.
+     - Status: landed as `src/passes/coalesce_locals.mbt`. The active module pass computes value-aware local interference, supports implicit zero/default values, allows body locals to share compatible param slots after liveness proves safety, compares natural/reverse greedy coloring orders, and preserves exact type equality.
+     - Evidence: `moon test src/passes`, `moon test src/cmd`, full `moon test`, and `bun scripts/pass-fuzz-compare.ts --pass coalesce-locals --generator gen-valid --count 10000 --min-compared 10000 --max-failures 20 --out-dir .tmp/pass-fuzz-cl-genvalid-10000-after-live-fix` are green.
      - Doc: [0066#L253](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L253)
    - [CL]002 - Dual-Slot Rewrite, Reorder Interaction, and Artifact Parity - Implement the merge, keep `reorder-locals` interactions stable, and compare the pass output against Binaryen.
-     - Deliverables: add regressions for double-slot coalescing and reordered indices; validate with surrounding `simplify-locals` and `reorder-locals`; replay parity on the debug artifact.
-     - Doc: [0066#L253](/home/jtenner/Projects/starshine-mb/docs/0066-2026-03-24-binaryen-no-dwarf-default-optimize-path.md#L253)
+     - Status: explicit pass wiring is landed in the registry, dispatcher, CLI, and compare harness. Focused tests cover active registration, non-overlap merging, different-value overlap including later rereads, redundant copy cleanup, dead set cleanup, and CLI adapter behavior.
+     - Evidence: mixed-generator smoke `bun scripts/pass-fuzz-compare.ts --pass coalesce-locals --count 1000 --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-cl-mixed-1000-after-live-fix` compared `950/1000` cases with `950` normalized matches, `0` mismatches, and `50` command failures in known Binaryen/wasm-smith parser coverage. The rebuilt debug artifact validates after Starshine `--coalesce-locals`; direct self-opt compare is canonically/function equal on both `.tmp/self-opt-cl-debug-after-live-fix` and `.tmp/self-opt-cl-optimized-after-live-fix`.
 3. Do work.
    - Land the slices above in dependency order in the implementing file(s) and any required scheduler, preset, or dispatcher surfaces.
    - Wire the pass into the exact top-level slot(s) and nested rerun sites documented in the research doc before calling the work done.

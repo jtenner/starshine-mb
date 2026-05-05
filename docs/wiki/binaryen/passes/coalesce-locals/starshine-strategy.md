@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
@@ -35,22 +35,18 @@ related:
 # Starshine Strategy For `coalesce-locals`
 
 Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md), the current-`main` recheck in [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md), and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
 ## The honest current status
 
-`coalesce-locals` is still **unimplemented** in Starshine.
-There is no `src/passes/coalesce_locals.mbt` or `src/passes/coalesce-locals.mbt` owner file today.
+`coalesce-locals` is now an active Starshine module pass with owner file [`../../../../../src/passes/coalesce_locals.mbt`](../../../../../src/passes/coalesce_locals.mbt).
 
-That does **not** mean there is no Starshine strategy surface.
-The current local strategy is boundary and port planning:
+The current local strategy is direct-pass parity first:
 
-- keep the upstream pass spelling tracked in the registry surface
+- keep the upstream pass spelling active in the registry and CLI surfaces
 - keep the pass in the canonical no-DWARF parity and backlog documents
-- keep current preset placement honest until the missing neighboring passes land
-- point future work at the exact local index-rewrite, local-name-rewrite, and cleanup code that already solves the nearest MoonBit-side problems
-
-So this page is intentionally a **status-and-port-map** page rather than a fake implementation page.
+- leave public preset placement honest until surrounding locals-neighborhood ordering is replayed
+- keep direct Binaryen parity evidence grounded in fuzz-generated inputs and compatible Binaryen 128 self-opt artifact lanes
 
 See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the condensed readiness matrix and validation ladder.
 
@@ -58,13 +54,18 @@ See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-
 
 The fastest read-along path through the current Starshine status is:
 
-- tracked but removed pass-name status
-  - `src/passes/optimize.mbt:144-151`
-    - `pass_registry_removed_names()` includes `"coalesce-locals"`
-- preset-honesty proof around the missing neighboring slots
-  - `src/passes/optimize_test.mbt`
-    - `test "optimize and shrink presets do not schedule reorder-locals before its neighboring local passes land"`
-- backlog and delivery plan
+- active pass owner
+  - `src/passes/coalesce_locals.mbt`
+    - value-aware local action scan, liveness/interference analysis, greedy slot coloring, local-index rewrite, redundant-copy cleanup, dead-set cleanup, and local-name-section invalidation
+- active pass-name status
+  - `src/passes/optimize.mbt`
+    - `coalesce-locals` is an active module pass, not a removed-name entry
+- dispatch and CLI surfaces
+  - `src/passes/pass_manager.mbt`
+    - explicit `coalesce-locals` module-pass dispatch
+  - `src/cmd/cmd_wbtest.mbt`
+    - CLI adapter coverage for `--coalesce-locals`
+- backlog and delivery evidence
   - `agent-todo.md`
     - `#### CL - Coalesce Locals`
     - `[CL]001 - Compatibility and Lifetime Analysis`
@@ -101,32 +102,33 @@ That code-and-doc map is the practical read-along path: readers can jump directl
 
 ## Freshness note
 
-The 2026-04-25 current-`main` recheck found no teaching-relevant drift in Binaryen's checked owner, scheduler, helper, and dedicated-test surfaces. That does **not** change Starshine status: `coalesce-locals` remains removed locally, with no owner file and no dispatcher case.
+The 2026-04-25 current-`main` recheck found no teaching-relevant drift in Binaryen's checked owner, scheduler, helper, and dedicated-test surfaces. The 2026-05-05 Starshine port should therefore be treated as a direct-pass implementation against that documented Binaryen contract, with ordered-pipeline placement still reserved for a separate neighborhood replay.
 
 ## What Starshine currently does for this pass name
 
-Today Starshine's behavior for `coalesce-locals` is deliberately limited.
+Today Starshine's behavior for `coalesce-locals` is an active explicit-pass implementation.
 
-### 1. The name is tracked, not forgotten
+### 1. The name is active, not merely tracked
 
-`src/passes/optimize.mbt` keeps the upstream spelling `coalesce-locals` in `pass_registry_removed_names()`.
+`src/passes/optimize.mbt` keeps the upstream spelling `coalesce-locals` in the active module-pass registry, and `src/passes/pass_manager.mbt` dispatches it to `coalesce_locals_run_module_pass`.
 That means:
 
-- the project still treats `coalesce-locals` as a real known pass
-- the name is preserved in the registry-level compatibility surface
-- the pass remains visible in tracker and backlog work instead of silently falling out of planning
+- the project treats `coalesce-locals` as a real runnable pass
+- the spelling is preserved in the registry-level compatibility surface
+- the pass is covered by direct registry, dispatcher, CLI, and pass-fuzz harness tests
 
-That is the right current behavior for an unimplemented parity pass.
+That is the right current behavior for a direct-pass implementation whose public preset placement still needs ordered-neighborhood replay.
 
-### 2. The work is planned as a parity slice, not an orphan idea
+### 2. The work is tracked as a landed parity slice, not an orphan idea
 
 `agent-todo.md` already gives `coalesce-locals` a real backlog slice under `CL`.
-The current deliverables point in the right general direction:
+The landed deliverables now cover:
 
 - compatibility and lifetime analysis
-- explicit type-compatibility and "never coalesce" rules
-- rewrite stability with surrounding `reorder-locals`
-- ordered replay and artifact-level proof
+- exact type-compatibility rules
+- value-aware interference for overlapping same-value locals
+- local-index rewrite, declaration compaction, redundant-copy cleanup, and ineffective-set cleanup
+- explicit registry, dispatcher, CLI, and harness wiring
 
 The current docs should keep that slice connected to the exact Binaryen contract:
 
@@ -146,7 +148,7 @@ Upstream Binaryen expects other passes to expose the right shapes first:
 - `local-cse` and full `simplify-locals` profit from the simpler post-coalescing local traffic
 - the later `reorder-locals -> coalesce-locals -> reorder-locals` cluster shows that declaration compaction and slot sharing are meant to interact, not compete
 
-Current Starshine already has the declaration/index rewrite neighbor (`reorder-locals`) and the later cleanup consumer (`simplify-locals`), but it does **not** yet have the missing `local-subtyping`, `coalesce-locals`, and `local-cse` transforms.
+Current Starshine already has the declaration/index rewrite neighbor (`reorder-locals`), the direct `coalesce-locals` pass, and the later cleanup consumer (`simplify-locals`), but it does **not** yet have the missing `local-subtyping` and `local-cse` transforms.
 That is why current preset placement should stay honest.
 
 ## The right future Starshine implementation shape
@@ -161,7 +163,7 @@ Why:
 - the upstream pass is centered on exact-type local-slot reuse plus copy deletion
 - Starshine already has module-side local index and name-section rewrite machinery in `reorder-locals`
 - Starshine already has a later cleanup consumer in `simplify-locals`
-- the missing upstream neighbors explain why exact slot parity remains blocked today
+- the remaining missing upstream neighbors explain why exact preset-slot parity remains blocked today
 
 So the local strategy should be thought of as:
 
@@ -180,7 +182,7 @@ So the local strategy should be thought of as:
    - `reorder-locals -> coalesce-locals -> reorder-locals`
    - existing local metadata rewrite and later cleanup surfaces already maintained in-tree
 
-In other words, the future port should slot into a cleanup ecosystem that partly exists already.
+In other words, the active direct pass now slots into a cleanup ecosystem that partly exists already; the remaining work is ordered-neighborhood and preset placement proof.
 
 ## The most important local dependency map
 
@@ -194,7 +196,7 @@ Why it matters locally:
 - the reviewed upstream scheduler places `local-subtyping` immediately before `coalesce-locals`
 - if Starshine later narrows locals in the same way, `coalesce-locals` can inherit those cleaner exact-type opportunities instead of trying to widen its own scope
 
-A future Starshine port should preserve that lesson instead of broadening `coalesce-locals` into a type-changing pass.
+The active Starshine port should preserve that lesson instead of broadening `coalesce-locals` into a type-changing pass.
 
 ### The ordinary late run feeds directly into upstream `local-cse` and full `simplify-locals`
 
@@ -228,30 +230,29 @@ Why:
 
 - the current local `simplify-locals` pass already owns later local-traffic cleanup and structured result lifting in HOT form
 - the upstream scheduler expects `coalesce-locals` to hand simpler local traffic into that neighborhood
-- a future `coalesce-locals` port should therefore be designed with the later cleanup consumer in mind instead of trying to absorb every cleanup itself
+- the active `coalesce-locals` port should therefore stay bounded to coalescing-specific cleanup instead of absorbing every simplify-locals family itself
 
-## What Starshine does **not** have yet
+## What Starshine does **not** claim yet
 
 A future contributor should be careful not to overread the current local surface.
-Starshine does **not** currently have:
+Starshine now has direct-pass implementation and evidence, but does **not** yet claim:
 
-- a MoonBit implementation file for `coalesce-locals`
-- a local compatibility/interference engine for this pass
-- greedy exact-type coloring or dual-order choice machinery for this pass
-- pass-specific tests or CLI execution coverage beyond the tracked registry/backlog surfaces and neighboring declaration-rewrite / cleanup files
+- public preset placement in both no-DWARF scheduler slots
+- ordered-neighborhood parity with missing `local-subtyping` and `local-cse`
+- public preset placement or runtime parity on every artifact lane
 
 So the current repo status is best summarized as:
 
-- name tracked
-- backlog tracked
-- scheduler slots documented
+- active direct pass
+- backlog tracked with remaining caveats
+- scheduler slots documented but not preset-claimed
 - neighboring declaration-rewrite and cleanup files implemented
-- transform itself not yet landed
+- ordered-neighborhood replay still pending
 
-## Validation plan for the eventual port
+## Validation plan for preset placement
 
-The existing backlog plus neighboring pass docs imply the right validation ladder.
-A future real implementation should validate in this order:
+The existing backlog plus neighboring pass docs imply the remaining validation ladder.
+Future preset placement should validate in this order:
 
 1. reduced shape tests for the real upstream families
    - exact-type positives
@@ -271,26 +272,26 @@ A future real implementation should validate in this order:
    - local-name and raw-name-section stability checks after rewrites
 4. artifact and oracle comparison
    - the `CL` slice in `agent-todo.md`
-   - the canonical no-DWARF debug-artifact replay path once the exact slot becomes locally representable
+   - the canonical no-DWARF debug-artifact replay path once a compatible Binaryen oracle can parse the artifact
 
 That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the in-repo workflow and the exact surrounding code surfaces.
 
 ## Bottom line
 
-Current Starshine `coalesce-locals` strategy is honest boundary tracking plus port planning:
+Current Starshine `coalesce-locals` strategy is direct-pass parity plus honest preset restraint:
 
-- the upstream spelling is intentionally preserved in `src/passes/optimize.mbt`
-- the backlog already treats `coalesce-locals` as a real missing parity slice under `CL`
+- the upstream spelling is intentionally active in `src/passes/optimize.mbt`
+- the backlog records `CL` as landed with remaining artifact-oracle caveats
 - the canonical two-slot no-DWARF story is already documented in the optimizer notes
-- current preset exclusion is already backed by a regression in `src/passes/optimize_test.mbt`
-- the surrounding implementation files already exist and define the practical landing zone for a future port, especially `reorder_locals.mbt`, `reorder_locals_test.mbt`, and `simplify_locals.mbt`
-- the docs now keep one important honesty rule explicit: no exact Starshine slot should be claimed before the missing neighboring passes land locally
+- the direct pass has focused tests, CLI coverage, full `moon test`, 10k `gen-valid` Binaryen compare evidence, and debug/optimized artifact self-opt canonical-function equality
+- the optimized artifact self-opt lane is currently slower than Binaryen and remains a runtime follow-up
+- the docs keep one important honesty rule explicit: no public preset slot should be claimed before the surrounding locals-neighborhood replay is validated
 
-So the right mental model today is not “nothing exists locally.”
+So the right mental model today is “active direct pass, preset placement still pending.”
 It is:
 
-- **no transform yet**
-- **clear tracked status**
+- **active direct transform**
+- **clear tracked status and evidence**
 - **clear slot in the pipeline**
-- **clear neighboring implementation map for the eventual port**
-- **clear warning not to over-claim preset parity before the prerequisite neighbors exist**
+- **clear neighboring implementation map for preset follow-up**
+- **clear warning not to over-claim preset parity before the prerequisite neighbors and oracle lane are ready**

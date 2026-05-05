@@ -1,7 +1,7 @@
 ---
 kind: entity
-status: working
-last_reviewed: 2026-04-25
+status: implemented
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
@@ -33,7 +33,7 @@ related:
 ## Role
 
 - `coalesce-locals` is an upstream Binaryen late local-cleanup pass.
-- It is currently **unimplemented** in Starshine and still appears under the removed pass names in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
+- It is now an active Starshine module pass implemented in [`../../../../../src/passes/coalesce_locals.mbt`](../../../../../src/passes/coalesce_locals.mbt) and wired through the registry, dispatcher, CLI, and pass-fuzz harness.
 - Despite the broad CLI name, Binaryen `version_129` uses it for a narrower and more structured job: compute which locals can safely reuse the same storage slot, then renumber the function so those locals share indices and redundant copies disappear.
 
 ## Why it matters
@@ -46,8 +46,8 @@ related:
   - top-level slot `35`
 - The saved Binaryen debug log also shows many later reruns of the same local-cleanup neighborhood, which matches the nested rerun story from `opt-utils.h`.
 - The repo backlog already treats it as a real parity blocker under slice `CL` in [`../../../../../agent-todo.md`](../../../../../agent-todo.md).
-- The current preset story is intentionally still incomplete: [`../../../../../src/passes/optimize_test.mbt`](../../../../../src/passes/optimize_test.mbt) already locks in that `optimize` and `shrink` do **not** schedule `reorder-locals` before its missing neighboring local passes like `coalesce-locals` land.
-- It is also one of the missing scheduler neighbors that still block fully honest preset placement around the already-implemented `reorder-locals` and the future `local-cse` port.
+- The current preset story is intentionally still incomplete: the explicit pass is active, but public `optimize` / `shrink` placement still waits on ordered-neighborhood replay with the surrounding locals passes.
+- It is one of the scheduler neighbors needed for fully honest preset placement around the already-implemented `reorder-locals` and the future `local-cse` port.
 
 ## Beginner summary
 
@@ -62,6 +62,7 @@ That is narrower than “merge any locals that look unused.”
 
 ## Current durable takeaways
 
+- Starshine's current direct-pass validation is green on focused tests, CLI coverage, full `moon test`, 10k `gen-valid` Binaryen compare, mixed-generator comparable cases, and compatible Binaryen 128 self-opt artifact compare on both rebuilt debug and optimized WASI artifacts.
 - The pass header explicitly says the algorithm is **nonlinear in the number of locals**, so Binaryen schedules it late after earlier local-cleanup passes have already reduced the local set.
 - Exact local type equality is mandatory while coalescing. This pass does **not** use subtype compatibility.
 - Two locals can overlap in liveness and still share a slot if Binaryen can prove they hold the same current value.
@@ -82,14 +83,14 @@ That is narrower than “merge any locals that look unused.”
 - [`./wat-shapes.md`](./wat-shapes.md)
   Beginner-friendly before/after shape catalog for the positive, negative, bailout, and interaction families that matter most.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future port map: removed-name registry tracking, backlog slice `CL`, honest scheduler/preset story, and the exact neighboring MoonBit declaration-rewrite and cleanup files a future local port would need to compose with.
+  Current Starshine status and active-pass map: registry/dispatcher/CLI wiring, backlog slice `CL`, honest scheduler/preset story, and the exact neighboring MoonBit declaration-rewrite and cleanup files the pass composes with.
 - [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
-  Implementation-readiness and validation matrix for a future port: current registry/dispatcher/preset/backlog state, reusable Starshine local-index and cleanup substrates, minimum viable pass shape, first required tests, and parity signoff ladder.
+  Implementation-readiness and validation matrix for the active direct pass: current registry/dispatcher/preset/backlog state, reusable Starshine local-index and cleanup substrates, focused tests, and parity signoff ladder.
 
 ## Current maintenance rule
 
-- Treat this folder as the canonical home for future `coalesce-locals` research and port planning.
-- Keep it explicitly marked as **unimplemented** until Starshine grows a real pass.
+- Treat this folder as the canonical home for future `coalesce-locals` research, direct-pass validation, and ordered-pipeline follow-up.
+- Keep the Starshine pages aligned with the active implementation in `src/passes/coalesce_locals.mbt` and record any future divergence from Binaryen as explicit parity debt.
 - Treat [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md) as the immutable provenance anchor for the official release/source/test surfaces reviewed on 2026-04-22.
 - Treat [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md) as the narrow current-`main` freshness bridge added on 2026-04-25.
 - New `coalesce-locals` findings should update the Binaryen strategy page, the implementation/test map, the interference/order page, the Starshine strategy page, and the port-readiness matrix together so the algorithm explanation, example catalog, source map, local status story, and future validation ladder stay aligned.

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
@@ -48,7 +48,7 @@ Primary upstream sources:
 | `src/ir/numbering.h` | Value-numbering support | Interference is value-aware: overlapping locals can share a slot when the current values are proven equal. |
 | `src/ir/utils.h` | Local-set/get cleanup helpers | Post-coloring cleanup deletes redundant copies and dead sets rather than merely shrinking the local declaration vector. |
 | `src/passes/pass.cpp` | Public pass registration and scheduler slots | Binaryen exposes both `coalesce-locals` and `coalesce-locals-learning`; the ordinary optimize path uses the non-learning pass in the late local-cleanup cluster. |
-| `src/passes/opt-utils.h` | Nested cleanup reruns after inlining | `coalesce-locals` can also appear through helper-driven late cleanup reruns, so a future Starshine port must be stable when called repeatedly. |
+| `src/passes/opt-utils.h` | Nested cleanup reruns after inlining | `coalesce-locals` can also appear through helper-driven late cleanup reruns, so Starshine's direct pass must stay stable when called repeatedly. |
 | `test/lit/passes/coalesce-locals.wast` | Concrete behavior examples | The dedicated lit file is the best source for exact-type positives, type/interference negatives, equal-value overlap, zero-init, copy removal, backedge priority, and greedy-order examples. |
 
 ## `CoalesceLocals.cpp` read path
@@ -105,31 +105,33 @@ For examples of those shapes in beginner-oriented form, use [`./wat-shapes.md`](
 
 ## Current Starshine file map
 
-Starshine does not implement this pass yet. The relevant local files are status, scheduler, or prerequisite surfaces:
+Starshine now implements this pass as an active direct module pass. The relevant local files are implementation, scheduler, or neighboring surfaces:
 
 | Local file | Exact role today |
 | --- | --- |
-| `src/passes/optimize.mbt:144-151` | `pass_registry_removed_names()` includes `coalesce-locals`, so active requests are not treated as a landed pass. |
-| `src/passes/pass_manager.mbt` | No `coalesce-locals` dispatcher case exists. |
-| `src/passes/reorder_locals.mbt:2`, `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Neighboring module pass with local-summary, access scan, in-place index rewrite, and module-pass entry logic a future coalescer will need to compose with. |
+| `src/passes/coalesce_locals.mbt` | Active module-pass owner with action scan, value-aware interference, exact-type coloring, local-index rewrite, redundant-copy cleanup, dead-write cleanup, and local-name-section invalidation. |
+| `src/passes/coalesce_locals_test.mbt` | Focused direct-pass tests for registration, non-overlap merge, different-value overlap, later reread liveness, redundant-copy cleanup, and ineffective-write cleanup. |
+| `src/passes/optimize.mbt` | `coalesce-locals` is an active module pass spelling. |
+| `src/passes/pass_manager.mbt` | Dispatches `coalesce-locals` to `coalesce_locals_run_module_pass`. |
+| `src/passes/reorder_locals.mbt:2`, `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Neighboring module pass with local-summary, access scan, in-place index rewrite, and module-pass entry logic the coalescer must compose with. |
 | `src/passes/simplify_locals.mbt:15`, `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:4126`, `src/passes/simplify_locals.mbt:4191`, `src/passes/simplify_locals.mbt:4245`, `src/passes/simplify_locals.mbt:4348` | Neighboring HOT local cleanup pass with local-traffic cleanup machinery, but not a slot-coalescing implementation. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | Canonical no-DWARF pipeline still records both `coalesce-locals` slots. |
-| `agent-todo.md:392-399` | Current `CL` backlog slice still treats coalescing as future compatibility/lifetime plus dual-slot rewrite work. |
+| `agent-todo.md:392-399` | Current `CL` backlog slice records landed direct-pass evidence plus remaining ordered-neighborhood/runtime caveats. |
 
 ## What this page rules out
 
 - Do not cite `reorder_locals.mbt` as if it implements coalescing. It sorts and drops unaccessed body locals; it does not prove value-aware compatibility between two simultaneously live locals.
 - Do not cite `simplify_locals.mbt` as if it implements coalescing. It rewrites local traffic and removes dead/equivalent writes; it does not merge declaration slots using liveness coloring.
-- Do not schedule Starshine's existing `reorder-locals` in a Binaryen-equivalent preset position just because it is a neighboring local pass. The missing `local-subtyping`, `coalesce-locals`, and `local-cse` surfaces still matter.
+- Do not schedule Starshine's existing locals-neighborhood passes in Binaryen-equivalent preset positions just because `coalesce-locals` is now active. The missing `local-subtyping` and `local-cse` surfaces still matter.
 
-## Validation guidance for a future Starshine port
+## Validation guidance for the Starshine port
 
-A faithful local port should be signed off with:
+The active local port is signed off with:
 
 - focused WAT tests for the exact families listed above,
-- registry and explicit-pass CLI tests proving `coalesce-locals` moved from removed to active status,
+- registry and explicit-pass CLI tests proving `coalesce-locals` remains active,
 - repeated-pass idempotence tests because Binaryen can rerun the local cleanup cluster,
 - pass-targeted fuzz compare against `wasm-opt --coalesce-locals`, and
 - ordered no-DWARF artifact replay once `local-subtyping` and `local-cse` are also honest enough for the surrounding cluster.
 
-Until that evidence exists, keep the current pages explicit that `coalesce-locals` is a source-backed dossier plus port map, not landed behavior.
+Keep the current pages explicit that direct-pass behavior is landed, while public preset placement still depends on ordered locals-neighborhood proof.

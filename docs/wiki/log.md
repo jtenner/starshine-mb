@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] implementation | implement `coalesce-locals`
+
+- Promoted `coalesce-locals` from removed-name tracking to an active direct module pass with registry, dispatcher, CLI, and pass-fuzz harness wiring.
+- Added focused tests for active registration, non-overlap merging, interference negatives, redundant local copy cleanup, dead set/tee cleanup, and CLI adapter behavior.
+- Recorded direct evidence: full `moon test` passes; `.tmp/pass-fuzz-cl-genvalid-10000-after-live-fix` is `10000/10000` normalized matches; `.tmp/pass-fuzz-cl-mixed-1000-after-live-fix` had `950/950` comparable mixed-generator matches with zero mismatches; `.tmp/self-opt-cl-debug-after-live-fix` and `.tmp/self-opt-cl-optimized-after-live-fix` are canonical-function equal against Binaryen 128.
+
 ## [2026-05-05] health | refresh `code-folding` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-code-folding-current-main-recheck.md` plus `docs/wiki/raw/research/0442-2026-05-05-code-folding-current-main-recheck.md` after rechecking official Binaryen `main` `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`.

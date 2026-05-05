@@ -4373,6 +4373,51 @@ test "run_cmd_with_adapter applies reorder-locals to wasm inputs" {
 }
 
 ///|
+test "run_cmd_with_adapter applies coalesce-locals to wasm inputs" {
+  let wasm = encode_module_bytes(
+    @passes.pass_test_module_from_wat(
+      "(module (func (result i32) (local i32 i32) i32.const 11 local.set 0 local.get 0 drop i32.const 22 local.set 1 local.get 1))",
+    ),
+  )
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["cl.wasm"] },
+    file_exists=fn(path) { path == "cl.wasm" },
+    read_file=fn(path) {
+      if path == "cl.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--coalesce-locals", "--out", "out.wasm", "cl.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["coalesce-locals"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.code_sec {
+    Some(CodeSec([Func(locals, Expr(instrs))])) => {
+      assert_eq(locals, @lib.Locals::from_types([@lib.ValType::i32()]))
+      assert_eq(instrs[5], @lib.Instruction::local_set(@lib.LocalIdx::new(0U)))
+      assert_eq(instrs[6], @lib.Instruction::local_get(@lib.LocalIdx::new(0U)))
+    }
+    Some(_) => fail("expected single defined function")
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "run_cmd_with_adapter reuses original wasm bytes when RUME is unchanged" {
   let wasm = encode_module_bytes(fixture_rume_noop_module())
   let writes : Array[(String, Bytes)] = []

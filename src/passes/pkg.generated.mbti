@@ -13,6 +13,10 @@ pub fn avoid_reinterprets_run_module_pass(@lib.Module) -> @lib.Module
 
 pub fn avoid_reinterprets_summary() -> String
 
+pub fn coalesce_locals_run_module_pass(@lib.Module) -> @lib.Module
+
+pub fn coalesce_locals_summary() -> String
+
 pub fn code_folding_descriptor() -> @ir.HotPassDescriptor
 
 pub fn code_folding_run(HotPassContext, @ir.HotFunc) -> HotPassResult

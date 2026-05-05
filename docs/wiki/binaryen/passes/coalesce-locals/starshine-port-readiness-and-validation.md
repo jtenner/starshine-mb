@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
@@ -28,45 +28,45 @@ related:
 
 # Starshine `coalesce-locals` port readiness and validation matrix
 
-This page is the implementation-readiness bridge for the unimplemented local `coalesce-locals` pass.
+This page is the implementation-readiness and validation bridge for the active local `coalesce-locals` pass.
 It does not replace the upstream strategy or shape catalog.
-Instead, it answers: if a future agent starts porting the pass, which existing Starshine surfaces are ready, which ones are missing, and which Binaryen shape families must become tests first?
+Instead, it answers: which Starshine surfaces are now active, which placement/artifact caveats remain, and which Binaryen shape families are locked by tests first?
 
 ## Current readiness snapshot
 
 | Area | Current Starshine state | Port implication |
 | --- | --- | --- |
-| Registry | `src/passes/optimize.mbt:144-151` tracks `coalesce-locals` as a removed known pass name. | Keep the public spelling stable, but do not schedule the pass until an owner and dispatcher exist. |
-| Dispatcher | `src/passes/pass_manager.mbt` has no `coalesce-locals` case. | A real port needs a module or function-pass owner hook before direct `--coalesce-locals` requests can stop failing. |
+| Registry | `src/passes/optimize.mbt` tracks `coalesce-locals` as an active module pass. | Keep the public spelling stable and leave public preset placement for ordered-neighborhood replay. |
+| Dispatcher | `src/passes/pass_manager.mbt` dispatches to `coalesce_locals_run_module_pass`. | Direct `--coalesce-locals` requests are active and covered by registry/CLI tests. |
 | Presets | `src/passes/optimize_test.mbt` locks the current partial preset honesty rule around missing local-neighborhood passes. | Do not add `reorder-locals` / `coalesce-locals` late slots in isolation; preserve the Binaryen neighborhood order when the missing passes land. |
 | Backlog | `agent-todo.md:392-399` keeps slice `CL` with compatibility/lifetime analysis and dual-slot rewrite work. | Treat `CL` as the active planning home before coding. |
 | Local-index rewrite substrate | `src/passes/reorder_locals.mbt:118`, `:183`, and `:544` already scan and rewrite local users and rebuild declarations for a landed module pass. | Reuse the local-index and metadata-repair lessons; do not copy the exact reorder algorithm as the coalescing algorithm. |
 | Later cleanup substrate | `src/passes/simplify_locals.mbt:70`, `:4126`, `:4191`, `:4245`, and `:4348` already own HOT local-traffic cleanup phases. | Let later cleanup remain a consumer; do not grow `coalesce-locals` into generic simplify-locals. |
-| Missing core | No compatibility/interference engine, coloring choice, or `applyIndices`-style cleanup exists locally. | The first implementation milestone must be a faithful local version of Binaryen's value-aware interference plus exact-type coloring contract. |
+| Core pass | `src/passes/coalesce_locals.mbt` implements action scanning, value-aware interference, exact-type greedy coloring, index rewrite, redundant-copy cleanup, ineffective-write cleanup, and name-section invalidation. | Keep future changes parity-driven and add focused fixtures before changing coloring or cleanup behavior. |
 
-## Minimum viable port shape
+## Landed direct-pass shape
 
-A faithful first Starshine port should be deliberately narrow:
+The landed Starshine port is deliberately narrow:
 
 1. collect locals, declared types, params, and synthetic zero-init facts for one function;
 2. walk local uses/defs with enough liveness information to reject different-value overlap;
 3. allow same-value overlap only when a local value-number proof is available;
 4. require exact type equality for all locals sharing a final index;
-5. keep params fixed unless the Binaryen rule being ported explicitly permits the case;
+5. allow body locals to reuse compatible param slots only when liveness proves the param slot is no longer live;
 6. choose an index mapping using the Binaryen-tested greedy-order objective;
 7. rewrite local indices and declarations through module-safe metadata repair;
 8. delete redundant copies and dead sets only when the value/effect rules are already proven;
 9. refinalize or revalidate after any dead tee / unreachable cleanup family that can change expression types;
-10. compare the result in the surrounding Binaryen order, not only as an isolated pass.
+10. compare isolated pass output first, and leave surrounding Binaryen order for separate preset/neighborhood replay.
 
 This keeps the pass aligned with [`./binaryen-strategy.md`](./binaryen-strategy.md) and avoids two common overextensions:
 
 - subtype-aware merging, which belongs outside default `coalesce-locals`;
 - dead-store elimination, which belongs to neighboring cleanup passes unless it is the specific post-coalescing debris Binaryen removes.
 
-## Required first tests
+## Landed first tests
 
-The first local test set should be small but cover the whole correctness envelope.
+The local test set is small but covers the core correctness envelope.
 
 | Test family | Why it is required | Existing wiki anchor |
 | --- | --- | --- |
@@ -82,25 +82,24 @@ The first local test set should be small but cover the whole correctness envelop
 
 ## Validation ladder
 
-Use this ladder before moving the pass from removed to active:
+Current status before moving the direct pass into public preset slots:
 
-1. **Unit shape tests** for the families above, with direct before/after WAT fixtures.
-2. **Registry tests** proving `--coalesce-locals` stops being a removed-name rejection only after the dispatcher and owner are active.
-3. **Preset honesty tests** proving partial `optimize` / `shrink` still do not claim missing neighbors out of order.
-4. **Neighborhood tests** for `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` once the neighboring passes exist.
-5. **Reorder interaction tests** for `reorder-locals -> coalesce-locals -> reorder-locals` because local-index repair and local-name repair are observable in Starshine.
-6. **Fuzz parity** with the canonical pass spelling once the basic reduced families are green.
-7. **Late-tail replay** against Binaryen where final debris cleanup and repeated slots matter.
+1. **Unit shape tests** are green for active registration, non-overlap merging, interference negatives, redundant-copy cleanup, and dead write cleanup.
+2. **Registry tests** prove `--coalesce-locals` is an active module pass with dispatcher and CLI coverage.
+3. **Preset honesty tests** still keep broader locals-neighborhood scheduling separate from the direct pass.
+4. **Fuzz parity** is green for `.tmp/pass-fuzz-cl-genvalid-10000-after-live-fix` at `10000/10000` normalized matches and mixed-generator comparable cases at `.tmp/pass-fuzz-cl-mixed-1000-after-live-fix` with zero mismatches.
+5. **Artifact Starshine-side validation** is green: running Starshine `--coalesce-locals` over the rebuilt debug WASI artifact writes a validating output.
+6. **Self-opt artifact compare** is canonically/function equal with Binaryen on both `.tmp/self-opt-cl-debug-after-live-fix` and `.tmp/self-opt-cl-optimized-after-live-fix`; the optimized-artifact lane is currently slower than Binaryen and remains a runtime follow-up.
+7. **Neighborhood tests** for `local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` remain future work once the neighboring passes exist.
+8. **Reorder interaction tests** for `reorder-locals -> coalesce-locals -> reorder-locals` remain the next ordered-slot proof because local-index repair and local-name repair are observable in Starshine.
 
 If one of those steps fails, keep the pass out of public presets even if isolated reduced tests pass.
 
 ## Health-check outcome from this run
 
-The touched-area check found one wiki-health issue rather than a source-strategy issue: the folder already had the required overview, Binaryen strategy, transformed-shape catalog, implementation/test map, and Starshine strategy page, but the tracker still labeled the dossier as `dossier` while neighboring pages treated it as a deep multi-page guide.
-This page closes the remaining beginner-to-advanced port-readiness gap and makes the `deep` status justified.
-
+The 2026-05-05 implementation run promoted `coalesce-locals` from removed-name planning to active direct module-pass status.
 No contradiction was found between the 2026-04-22 tagged source manifest and the 2026-04-25 current-main recheck for the teaching-level `coalesce-locals` contract.
-The only remaining uncertainty is implementation-specific: a future local port must choose whether to model Binaryen's liveness/value-number facts directly in a module pass or use a HOT-assisted per-function analysis with a module-level declaration/name repair tail.
+The remaining uncertainty is placement/performance-specific: direct fuzz parity and artifact-level Binaryen comparison are green with the compatible Binaryen 128 oracle, but public preset scheduling still needs ordered-neighborhood proof and the optimized-artifact self-opt lane is slower than Binaryen.
 
 ## Sources
 

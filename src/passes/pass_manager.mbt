@@ -8933,6 +8933,7 @@ fn run_hot_pipeline_apply_module_pass(
     "global-struct-inference" =>
       global_struct_inference_run_module_pass(mod_, options.closed_world)
     "reorder-locals" => reorder_locals_run_module_pass(mod_)
+    "coalesce-locals" => coalesce_locals_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
     "string-gathering" => string_gathering_run_module_pass(mod_)
     "reorder-globals" => reorder_globals_run_module_pass(mod_)
