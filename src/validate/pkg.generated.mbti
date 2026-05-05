@@ -274,6 +274,7 @@ pub struct GenValidConfig {
   section_bias : GenValidSectionBias
   features : GenValidFeatureToggles
 } derive(Eq, @debug.Debug)
+pub fn GenValidConfig::binaryen_oracle_coverage_forced_default() -> Self
 pub fn GenValidConfig::coverage_forced_default() -> Self
 pub fn GenValidConfig::natural_default() -> Self
 pub fn GenValidConfig::portable_coverage_forced_default() -> Self

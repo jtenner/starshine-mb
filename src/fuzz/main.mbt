@@ -937,7 +937,7 @@ fn fuzz_join_path(dir : String, name : String) -> String {
 
 ///|
 fn emit_gen_valid_batch_config() -> GenValidConfig {
-  GenValidConfig::portable_coverage_forced_default()
+  GenValidConfig::binaryen_oracle_coverage_forced_default()
 }
 
 ///|

@@ -162,11 +162,27 @@ test "emit_gen_valid_batch_artifacts returns deterministic validated wasm files"
 }
 
 ///|
-test "emit_gen_valid_batch_artifacts matches the pinned portable coverage-forced generator config" {
+test "emit_gen_valid_batch_artifacts matches the pinned Binaryen-oracle generator config" {
   let config = emit_gen_valid_batch_config()
+  assert_eq(config.max_imports, 0)
+  assert_eq(config.max_tables, 0)
+  assert_eq(config.max_mems, 0)
+  assert_eq(config.max_globals, 0)
   assert_eq(config.max_tags, 0)
+  assert_eq(config.max_elems, 0)
+  assert_eq(config.max_datas, 0)
+  assert_false(config.features.allow_imports)
+  assert_false(config.features.allow_tables)
+  assert_false(config.features.allow_mems)
+  assert_false(config.features.allow_globals)
   assert_false(config.features.allow_ref_types)
+  assert_false(config.features.allow_v128)
   assert_false(config.features.allow_tags)
+  assert_false(config.features.allow_elems)
+  assert_false(config.features.allow_datas)
+  assert_false(config.features.allow_call_indirect)
+  assert_false(config.features.allow_tail_calls)
+  assert_false(config.features.allow_memory64)
   let artifacts = match emit_gen_valid_batch_artifacts(1, 0x5eedUL) {
     Ok(v) => v
     Err(e) => fail("expected gen-valid artifact success, got \{e}")
@@ -179,7 +195,7 @@ test "emit_gen_valid_batch_artifacts matches the pinned portable coverage-forced
     Ok(v) => v
     Err(e) =>
       fail(
-        "expected direct portable coverage-forced module to encode, got \{e}",
+        "expected direct Binaryen-oracle gen-valid module to encode, got \{e}",
       )
   }
   assert_eq(artifacts[0].1, encoded)

@@ -296,6 +296,41 @@ pub fn GenValidConfig::portable_coverage_forced_default() -> GenValidConfig {
 }
 
 ///|
+pub fn GenValidConfig::binaryen_oracle_coverage_forced_default() -> GenValidConfig {
+  let base = GenValidConfig::portable_coverage_forced_default()
+  GenValidConfig::{
+    ..base,
+    max_imports: 0,
+    max_tables: 0,
+    max_mems: 0,
+    max_globals: 0,
+    max_tags: 0,
+    max_elems: 0,
+    max_datas: 0,
+    features: GenValidFeatureToggles::{
+      ..base.features,
+      allow_imports: false,
+      allow_tables: false,
+      allow_mems: false,
+      allow_globals: false,
+      allow_tags: false,
+      allow_start: false,
+      allow_elems: false,
+      allow_datas: false,
+      allow_ref_types: false,
+      allow_v128: false,
+      allow_call_indirect: false,
+      allow_tail_calls: false,
+      allow_memory_limit_variants: false,
+      allow_table_limit_variants: false,
+      allow_const_expr_variants: false,
+      allow_shared_memories: false,
+      allow_memory64: false,
+    },
+  }
+}
+
+///|
 pub fn default_gen_valid_config() -> GenValidConfig {
   GenValidConfig::natural_default()
 }
