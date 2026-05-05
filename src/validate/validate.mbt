@@ -3577,7 +3577,7 @@ pub fn validate_valid_feature_actual_count(
     GcAccessors => stats.gc_accessors
     StringOps => stats.string_ops
     ExceptionTryTableMatrix => stats.exception_try_table_matrix
-    SimdPhase1 => 0
+    SimdPhase1 => stats.simd_phase1
     SimdPhase2 => 0
     SimdPhase3 => 0
     Atomics => 0
@@ -6201,6 +6201,149 @@ test "gen_valid coverage-forced emits i31 and extern conversion surface" {
 }
 
 ///|
+priv struct ValidateTestSimdPhase1Forms {
+  splat : Bool
+  extract_lane : Bool
+  replace_lane : Bool
+  bitwise : Bool
+  any_true : Bool
+}
+
+///|
+fn validate_test_simd_phase1_forms_empty() -> ValidateTestSimdPhase1Forms {
+  {
+    splat: false,
+    extract_lane: false,
+    replace_lane: false,
+    bitwise: false,
+    any_true: false,
+  }
+}
+
+///|
+fn validate_test_simd_phase1_forms_merge(
+  left : ValidateTestSimdPhase1Forms,
+  right : ValidateTestSimdPhase1Forms,
+) -> ValidateTestSimdPhase1Forms {
+  {
+    splat: left.splat || right.splat,
+    extract_lane: left.extract_lane || right.extract_lane,
+    replace_lane: left.replace_lane || right.replace_lane,
+    bitwise: left.bitwise || right.bitwise,
+    any_true: left.any_true || right.any_true,
+  }
+}
+
+///|
+fn validate_test_simd_phase1_forms_expr(
+  expr : Expr,
+) -> ValidateTestSimdPhase1Forms {
+  let Expr(instrs) = expr
+  let mut forms = validate_test_simd_phase1_forms_empty()
+  for instr in instrs {
+    forms = validate_test_simd_phase1_forms_merge(
+      forms,
+      validate_test_simd_phase1_forms_instr(instr),
+    )
+  }
+  forms
+}
+
+///|
+fn validate_test_simd_phase1_forms_instr(
+  instr : Instruction,
+) -> ValidateTestSimdPhase1Forms {
+  match instr {
+    I8x16Splat
+    | I16x8Splat
+    | I32x4Splat
+    | I64x2Splat
+    | F32x4Splat
+    | F64x2Splat => { ..validate_test_simd_phase1_forms_empty(), splat: true }
+    I8x16ExtractLaneS(_)
+    | I8x16ExtractLaneU(_)
+    | I16x8ExtractLaneS(_)
+    | I16x8ExtractLaneU(_)
+    | I32x4ExtractLane(_)
+    | I64x2ExtractLane(_)
+    | F32x4ExtractLane(_)
+    | F64x2ExtractLane(_) =>
+      { ..validate_test_simd_phase1_forms_empty(), extract_lane: true }
+    I8x16ReplaceLane(_)
+    | I16x8ReplaceLane(_)
+    | I32x4ReplaceLane(_)
+    | I64x2ReplaceLane(_)
+    | F32x4ReplaceLane(_)
+    | F64x2ReplaceLane(_) =>
+      { ..validate_test_simd_phase1_forms_empty(), replace_lane: true }
+    V128Not | V128And | V128Andnot | V128Or | V128Xor | V128Bitselect =>
+      { ..validate_test_simd_phase1_forms_empty(), bitwise: true }
+    V128AnyTrue => { ..validate_test_simd_phase1_forms_empty(), any_true: true }
+    Block(_, body) | Loop(_, body) => validate_test_simd_phase1_forms_expr(body)
+    If(_, then_body, else_body) => {
+      let mut forms = validate_test_simd_phase1_forms_expr(Expr::new(then_body))
+      match else_body {
+        Some(branch) =>
+          forms = validate_test_simd_phase1_forms_merge(
+            forms,
+            validate_test_simd_phase1_forms_expr(Expr::new(branch)),
+          )
+        None => ()
+      }
+      forms
+    }
+    TryTable(_, _, body) => validate_test_simd_phase1_forms_expr(body)
+    _ => validate_test_simd_phase1_forms_empty()
+  }
+}
+
+///|
+fn validate_test_simd_phase1_forms_module(
+  mod : Module,
+) -> ValidateTestSimdPhase1Forms {
+  let mut forms = validate_test_simd_phase1_forms_empty()
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, body) = func
+        forms = validate_test_simd_phase1_forms_merge(
+          forms,
+          validate_test_simd_phase1_forms_expr(body),
+        )
+      }
+    None => ()
+  }
+  forms
+}
+
+///|
+test "gen_valid coverage-forced emits simd phase 1 surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26014UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_simd_phase1_forms_module(mod)
+  assert_true(forms.splat)
+  assert_true(forms.extract_lane)
+  assert_true(forms.replace_lane)
+  assert_true(forms.bitwise)
+  assert_true(forms.any_true)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  assert_true(facts.has_simd_phase1)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, SimdPhase1) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: SimdPhase1, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
 priv struct ValidateTestGcConstructorAccessorForms {
   struct_new : Bool
   array_new : Bool
@@ -6214,8 +6357,7 @@ priv struct ValidateTestGcConstructorAccessorForms {
 }
 
 ///|
-fn validate_test_gc_constructor_accessor_forms_empty(
-) -> ValidateTestGcConstructorAccessorForms {
+fn validate_test_gc_constructor_accessor_forms_empty() -> ValidateTestGcConstructorAccessorForms {
   {
     struct_new: false,
     array_new: false,
@@ -6267,18 +6409,54 @@ fn validate_test_gc_constructor_accessor_forms_instr(
   instr : Instruction,
 ) -> ValidateTestGcConstructorAccessorForms {
   match instr {
-    StructNew(_) => { ..validate_test_gc_constructor_accessor_forms_empty(), struct_new: true }
-    ArrayNew(_) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_new: true }
-    ArrayNewFixed(_, _) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_new_fixed: true }
-    StructGetS(_, _) => { ..validate_test_gc_constructor_accessor_forms_empty(), struct_get_s: true }
-    StructGetU(_, _) => { ..validate_test_gc_constructor_accessor_forms_empty(), struct_get_u: true }
-    ArrayGetS(_) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_get_s: true }
-    ArrayGetU(_) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_get_u: true }
-    ArrayFill(_) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_fill: true }
-    ArrayCopy(_, _) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_copy: true }
-    Block(_, body) | Loop(_, body) => validate_test_gc_constructor_accessor_forms_expr(body)
+    StructNew(_) =>
+      {
+        ..validate_test_gc_constructor_accessor_forms_empty(),
+        struct_new: true,
+      }
+    ArrayNew(_) =>
+      { ..validate_test_gc_constructor_accessor_forms_empty(), array_new: true }
+    ArrayNewFixed(_, _) =>
+      {
+        ..validate_test_gc_constructor_accessor_forms_empty(),
+        array_new_fixed: true,
+      }
+    StructGetS(_, _) =>
+      {
+        ..validate_test_gc_constructor_accessor_forms_empty(),
+        struct_get_s: true,
+      }
+    StructGetU(_, _) =>
+      {
+        ..validate_test_gc_constructor_accessor_forms_empty(),
+        struct_get_u: true,
+      }
+    ArrayGetS(_) =>
+      {
+        ..validate_test_gc_constructor_accessor_forms_empty(),
+        array_get_s: true,
+      }
+    ArrayGetU(_) =>
+      {
+        ..validate_test_gc_constructor_accessor_forms_empty(),
+        array_get_u: true,
+      }
+    ArrayFill(_) =>
+      {
+        ..validate_test_gc_constructor_accessor_forms_empty(),
+        array_fill: true,
+      }
+    ArrayCopy(_, _) =>
+      {
+        ..validate_test_gc_constructor_accessor_forms_empty(),
+        array_copy: true,
+      }
+    Block(_, body) | Loop(_, body) =>
+      validate_test_gc_constructor_accessor_forms_expr(body)
     If(_, then_body, else_body) => {
-      let mut forms = validate_test_gc_constructor_accessor_forms_expr(Expr::new(then_body))
+      let mut forms = validate_test_gc_constructor_accessor_forms_expr(
+        Expr::new(then_body),
+      )
       match else_body {
         Some(branch) =>
           forms = validate_test_gc_constructor_accessor_forms_merge(
@@ -6289,7 +6467,8 @@ fn validate_test_gc_constructor_accessor_forms_instr(
       }
       forms
     }
-    TryTable(_, _, body) => validate_test_gc_constructor_accessor_forms_expr(body)
+    TryTable(_, _, body) =>
+      validate_test_gc_constructor_accessor_forms_expr(body)
     _ => validate_test_gc_constructor_accessor_forms_empty()
   }
 }
@@ -6362,7 +6541,9 @@ test "gen_valid coverage-forced emits exception try_table matrix surface" {
   let facts = gen_valid_feature_facts(mod, config.mode)
   assert_true(facts.has_exception_try_table_matrix)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
-  assert_true(validate_valid_feature_actual_count(stats, ExceptionTryTableMatrix) > 0)
+  assert_true(
+    validate_valid_feature_actual_count(stats, ExceptionTryTableMatrix) > 0,
+  )
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: ExceptionTryTableMatrix, min_count: 1 },

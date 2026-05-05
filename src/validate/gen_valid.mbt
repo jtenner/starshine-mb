@@ -371,6 +371,7 @@ pub struct GenValidFeatureFacts {
   has_const_expr_variants : Bool
   has_basic_ref_instructions : Bool
   has_i31_extern_conversions : Bool
+  has_simd_phase1 : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
@@ -414,6 +415,7 @@ pub struct GenValidFeatureStats {
   const_expr_variants : Int
   basic_ref_instructions : Int
   i31_extern_conversions : Int
+  simd_phase1 : Int
   gc_constructors : Int
   gc_accessors : Int
   string_ops : Int
@@ -492,6 +494,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.basic_ref_instructions.output(logger)
   logger.write_string(", i31_extern_conversions: ")
   self.i31_extern_conversions.output(logger)
+  logger.write_string(", simd_phase1: ")
+  self.simd_phase1.output(logger)
   logger.write_string(", gc_constructors: ")
   self.gc_constructors.output(logger)
   logger.write_string(", gc_accessors: ")
@@ -541,6 +545,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     const_expr_variants: 0,
     basic_ref_instructions: 0,
     i31_extern_conversions: 0,
+    simd_phase1: 0,
     gc_constructors: 0,
     gc_accessors: 0,
     string_ops: 0,
@@ -604,6 +609,7 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_basic_ref_instructions),
     i31_extern_conversions: self.i31_extern_conversions +
     gen_valid_bool_count(facts.has_i31_extern_conversions),
+    simd_phase1: self.simd_phase1 + gen_valid_bool_count(facts.has_simd_phase1),
     gc_constructors: self.gc_constructors +
     gen_valid_bool_count(facts.has_gc_constructors),
     gc_accessors: self.gc_accessors +
@@ -637,6 +643,7 @@ priv struct GenValidInstrFacts {
   has_memory_limit_variants : Bool
   has_basic_ref_instructions : Bool
   has_i31_extern_conversions : Bool
+  has_simd_phase1 : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
@@ -671,6 +678,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_memory_limit_variants: false,
     has_basic_ref_instructions: false,
     has_i31_extern_conversions: false,
+    has_simd_phase1: false,
     has_gc_constructors: false,
     has_gc_accessors: false,
     has_string_ops: false,
@@ -3580,6 +3588,118 @@ fn gen_valid_append_exception_try_table_matrix_ops(
 }
 
 ///|
+fn gen_valid_append_v128_zero(out : Array[Instruction]) -> Unit {
+  out.push(
+    Instruction::v128_const(
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+      b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
+    ),
+  )
+}
+
+///|
+fn gen_valid_append_simd_phase1_ops(out : Array[Instruction]) -> Unit {
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::drop())
+
+  out.push(Instruction::i32_const(I32(7)))
+  out.push(Instruction::i8x16_splat())
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(300)))
+  out.push(Instruction::i16x8_splat())
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(12345)))
+  out.push(Instruction::i32x4_splat())
+  out.push(Instruction::drop())
+  out.push(Instruction::i64_const(I64(123456L)))
+  out.push(Instruction::i64x2_splat())
+  out.push(Instruction::drop())
+  out.push(Instruction::f32_const(F32(Float::from_double(1.5))))
+  out.push(Instruction::f32x4_splat())
+  out.push(Instruction::drop())
+  out.push(Instruction::f64_const(F64(2.5)))
+  out.push(Instruction::f64x2_splat())
+  out.push(Instruction::drop())
+
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i8x16_extract_lane_s(LaneIdx::new(0)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i8x16_extract_lane_u(LaneIdx::new(1)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i32_const(I32(9)))
+  out.push(Instruction::i8x16_replace_lane(LaneIdx::new(2)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i16x8_extract_lane_s(LaneIdx::new(3)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i16x8_extract_lane_u(LaneIdx::new(4)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i32_const(I32(10)))
+  out.push(Instruction::i16x8_replace_lane(LaneIdx::new(5)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i32x4_extract_lane(LaneIdx::new(1)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i32_const(I32(11)))
+  out.push(Instruction::i32x4_replace_lane(LaneIdx::new(2)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i64x2_extract_lane(LaneIdx::new(1)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::i64_const(I64(12L)))
+  out.push(Instruction::i64x2_replace_lane(LaneIdx::new(0)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::f32x4_extract_lane(LaneIdx::new(2)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::f32_const(F32(Float::from_double(3.5))))
+  out.push(Instruction::f32x4_replace_lane(LaneIdx::new(3)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::f64x2_extract_lane(LaneIdx::new(1)))
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::f64_const(F64(4.5)))
+  out.push(Instruction::f64x2_replace_lane(LaneIdx::new(0)))
+  out.push(Instruction::drop())
+
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::v128_not())
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::v128_and())
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::v128_andnot())
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::v128_or())
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::v128_xor())
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  gen_valid_append_v128_zero(out)
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::v128_bitselect())
+  out.push(Instruction::drop())
+  gen_valid_append_v128_zero(out)
+  out.push(Instruction::v128_any_true())
+  out.push(Instruction::drop())
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -3594,13 +3714,7 @@ fn gen_valid_append_coverage_prelude(
   gen_valid_append_core_control_ops(out, ctx, env)
   gen_valid_append_tail_call_ops(out, ctx, env, returns)
   if ctx.config.features.allow_v128 {
-    out.push(
-      Instruction::v128_const(
-        b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
-        b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
-      ),
-    )
-    out.push(Instruction::drop())
+    gen_valid_append_simd_phase1_ops(out)
   }
   if ctx.config.features.allow_ref_types {
     append_value_instrs(
@@ -5116,6 +5230,7 @@ fn gen_valid_merge_instr_facts(
     right.has_basic_ref_instructions,
     has_i31_extern_conversions: left.has_i31_extern_conversions ||
     right.has_i31_extern_conversions,
+    has_simd_phase1: left.has_simd_phase1 || right.has_simd_phase1,
     has_gc_constructors: left.has_gc_constructors ||
     right.has_gc_constructors,
     has_gc_accessors: left.has_gc_accessors || right.has_gc_accessors,
@@ -5135,6 +5250,41 @@ fn gen_valid_scan_expr(expr : Expr) -> GenValidInstrFacts {
     facts = gen_valid_merge_instr_facts(facts, gen_valid_scan_instr(instr))
   }
   facts
+}
+
+///|
+fn gen_valid_instr_is_simd_phase1(instr : Instruction) -> Bool {
+  match instr {
+    V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | I8x16Splat
+    | I16x8Splat
+    | I32x4Splat
+    | I64x2Splat
+    | F32x4Splat
+    | F64x2Splat
+    | I8x16ExtractLaneS(_)
+    | I8x16ExtractLaneU(_)
+    | I8x16ReplaceLane(_)
+    | I16x8ExtractLaneS(_)
+    | I16x8ExtractLaneU(_)
+    | I16x8ReplaceLane(_)
+    | I32x4ExtractLane(_)
+    | I32x4ReplaceLane(_)
+    | I64x2ExtractLane(_)
+    | I64x2ReplaceLane(_)
+    | F32x4ExtractLane(_)
+    | F32x4ReplaceLane(_)
+    | F64x2ExtractLane(_)
+    | F64x2ReplaceLane(_)
+    | V128Not
+    | V128And
+    | V128Andnot
+    | V128Or
+    | V128Xor
+    | V128Bitselect
+    | V128AnyTrue => true
+    _ => false
+  }
 }
 
 ///|
@@ -5350,6 +5500,13 @@ fn gen_valid_instr_is_basic_ref_instruction(instr : Instruction) -> Bool {
 
 ///|
 fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
+  if gen_valid_instr_is_simd_phase1(instr) {
+    return GenValidInstrFacts::{
+      ..GenValidInstrFacts::empty(),
+      uses_v128: true,
+      has_simd_phase1: true,
+    }
+  }
   if gen_valid_instr_is_expanded_scalar_numeric(instr) {
     return GenValidInstrFacts::{
       ..GenValidInstrFacts::empty(),
@@ -5559,8 +5716,6 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
       }
     LocalTee(_) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), has_local_tee: true }
-    V128Const(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) =>
-      GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), uses_v128: true }
     _ => GenValidInstrFacts::empty()
   }
 }
@@ -5601,6 +5756,7 @@ pub fn gen_valid_feature_facts(
   let mut has_const_expr_variants = false
   let mut has_basic_ref_instructions = false
   let mut has_i31_extern_conversions = false
+  let mut has_simd_phase1 = false
   let mut has_gc_constructors = false
   let mut has_gc_accessors = false
   let mut has_string_ops = false
@@ -5715,6 +5871,7 @@ pub fn gen_valid_feature_facts(
             expr_facts.has_basic_ref_instructions
           has_i31_extern_conversions = has_i31_extern_conversions ||
             expr_facts.has_i31_extern_conversions
+          has_simd_phase1 = has_simd_phase1 || expr_facts.has_simd_phase1
           has_gc_constructors = has_gc_constructors ||
             expr_facts.has_gc_constructors
           has_gc_accessors = has_gc_accessors || expr_facts.has_gc_accessors
@@ -5777,6 +5934,7 @@ pub fn gen_valid_feature_facts(
                 facts.has_basic_ref_instructions
               has_i31_extern_conversions = has_i31_extern_conversions ||
                 facts.has_i31_extern_conversions
+              has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
               has_gc_constructors = has_gc_constructors ||
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -5815,6 +5973,7 @@ pub fn gen_valid_feature_facts(
                   facts.has_basic_ref_instructions
                 has_i31_extern_conversions = has_i31_extern_conversions ||
                   facts.has_i31_extern_conversions
+                has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -5851,6 +6010,7 @@ pub fn gen_valid_feature_facts(
                   facts.has_basic_ref_instructions
                 has_i31_extern_conversions = has_i31_extern_conversions ||
                   facts.has_i31_extern_conversions
+                has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -5897,6 +6057,7 @@ pub fn gen_valid_feature_facts(
                 facts.has_basic_ref_instructions
               has_i31_extern_conversions = has_i31_extern_conversions ||
                 facts.has_i31_extern_conversions
+              has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
               has_gc_constructors = has_gc_constructors ||
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -5941,6 +6102,7 @@ pub fn gen_valid_feature_facts(
           facts.has_basic_ref_instructions
         has_i31_extern_conversions = has_i31_extern_conversions ||
           facts.has_i31_extern_conversions
+        has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
         has_gc_constructors = has_gc_constructors || facts.has_gc_constructors
         has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
         has_string_ops = has_string_ops || facts.has_string_ops
@@ -5987,6 +6149,7 @@ pub fn gen_valid_feature_facts(
     has_const_expr_variants,
     has_basic_ref_instructions,
     has_i31_extern_conversions,
+    has_simd_phase1,
     has_gc_constructors,
     has_gc_accessors,
     has_string_ops,

@@ -317,6 +317,7 @@ pub struct GenValidFeatureFacts {
   has_const_expr_variants : Bool
   has_basic_ref_instructions : Bool
   has_i31_extern_conversions : Bool
+  has_simd_phase1 : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
@@ -359,6 +360,7 @@ pub struct GenValidFeatureStats {
   const_expr_variants : Int
   basic_ref_instructions : Int
   i31_extern_conversions : Int
+  simd_phase1 : Int
   gc_constructors : Int
   gc_accessors : Int
   string_ops : Int
