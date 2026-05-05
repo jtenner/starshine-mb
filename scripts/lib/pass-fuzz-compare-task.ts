@@ -144,6 +144,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--local-subtyping",
   "--coalesce-locals",
   "--local-cse",
+  "--merge-locals",
   "--duplicate-function-elimination",
   "--duplicate-import-elimination",
   "--string-gathering",

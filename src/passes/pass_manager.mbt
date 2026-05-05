@@ -8939,6 +8939,7 @@ fn run_hot_pipeline_apply_module_pass(
     "local-subtyping" => local_subtyping_run_module_pass(mod_)
     "coalesce-locals" => coalesce_locals_run_module_pass(mod_)
     "local-cse" => local_cse_run_module_pass(mod_)
+    "merge-locals" => merge_locals_run_module_pass(mod_)
     "duplicate-import-elimination" => die_run_module_pass(mod_)
     "string-gathering" => string_gathering_run_module_pass(mod_)
     "reorder-globals" => reorder_globals_run_module_pass(mod_)
