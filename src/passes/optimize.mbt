@@ -143,7 +143,7 @@ fn pass_registry_boundary_only_names() -> Array[String] {
 fn pass_registry_removed_names() -> Array[String] {
   [
     "const-hoisting", "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
-    "merge-locals", "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
+    "merge-locals", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
     "precompute-propagate", "optimize-casts", "de-nan", "simplify-locals-no-tee",
     "simplify-locals-no-tee-no-structure", "simplify-locals-no-nesting",
   ]
@@ -250,6 +250,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       merge_blocks_summary(),
       merge_blocks_descriptor(),
     ),
+    pass_registry_entry_module("flatten", flatten_summary()),
     pass_registry_entry_hot(
       "redundant-set-elimination",
       rse_summary(),
@@ -423,7 +424,8 @@ pub fn tuple_optimization_exact_slot_prereqs_ready() -> Bool {
 
 ///|
 pub fn simplify_locals_notee_nostructure_exact_neighborhood_ready() -> Bool {
-  pass_registry_category("flatten") == Some(HotPassRegistryCategory::hot_pass()) &&
+  pass_registry_category("flatten") ==
+  Some(HotPassRegistryCategory::module_pass()) &&
   pass_registry_category("simplify-locals-notee-nostructure") ==
   Some(HotPassRegistryCategory::hot_pass()) &&
   pass_registry_category("local-cse") ==

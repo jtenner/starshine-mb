@@ -437,7 +437,7 @@ test "optimize and shrink presets do not schedule reorder-locals before its neig
 }
 
 ///|
-test "simplify-locals-notee-nostructure exact neighborhood waits for flatten and local-cse" {
+test "simplify-locals-notee-nostructure exact neighborhood waits for local-cse" {
   assert_false(simplify_locals_notee_nostructure_exact_neighborhood_ready())
   assert_eq(
     pass_registry_category("simplify-locals-notee-nostructure"),
@@ -445,7 +445,7 @@ test "simplify-locals-notee-nostructure exact neighborhood waits for flatten and
   )
   assert_eq(
     pass_registry_category("flatten"),
-    Some(HotPassRegistryCategory::removed()),
+    Some(HotPassRegistryCategory::module_pass()),
   )
   assert_eq(
     pass_registry_category("local-cse"),

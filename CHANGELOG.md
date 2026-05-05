@@ -1,5 +1,8 @@
 # Changelog
 
+## 2026-05-05 Pass: activate `flatten`
+
+- **land `flatten` as an active direct module-pass surface with adjacent local set/get cleanup, registry, dispatcher, CLI/fuzz-harness support, focused tests, and preserving the deferred preset neighborhood until `local-cse` lands** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`src/passes/merge_blocks.mbt`](./src/passes/merge_blocks.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt), and [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts).
 ## 2026-05-05 Wiki: refresh `string-lifting` current-main bridge
 
 - **add a 2026-05-05 current-main recheck manifest, matching research note, and freshness-layer refresh for the `string-lifting` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md), [`docs/wiki/raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md`](./docs/wiki/raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md), [`docs/wiki/binaryen/passes/string-lifting/`](./docs/wiki/binaryen/passes/string-lifting/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
