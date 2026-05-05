@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `local-cse` current-main bridge and anchor cleanup
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-local-cse-current-main-recheck.md` plus `docs/wiki/raw/research/0453-2026-05-05-local-cse-current-main-recheck.md` after rechecking current `main` `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, and `local-cse.wast`.
+- Refreshed the `local-cse` landing page, Binaryen strategy, implementation/test-map, basic-block/window guide, WAT-shape catalog, Starshine strategy, and shared catalogs so the new freshness layer and current local code anchors are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same scan/check/apply temp-local reuse model and Starshine still keeps `local-cse` removed-registry only.
+
 ## [2026-05-05] health | refresh `dae2` current-main bridge and freshness cleanup
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-dae2-current-main-recheck.md` plus `docs/wiki/raw/research/0452-2026-05-05-dae2-current-main-recheck.md` after rechecking current `main` `DeadArgumentElimination2.cpp`, `pass.cpp`, `passes.h`, and `dae2.wast`.

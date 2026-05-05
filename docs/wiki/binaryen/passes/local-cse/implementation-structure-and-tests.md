@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
+  - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
@@ -29,7 +31,7 @@ This page maps the Binaryen files and tests that define `local-cse`, then maps t
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged oracle and [`../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md) as the latest freshness bridge. The 2026-04-25 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces.
+Use Binaryen `version_129` as the tagged oracle and [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md) as the latest freshness bridge. The 2026-05-05 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces.
 
 Primary upstream sources:
 
@@ -113,8 +115,8 @@ Starshine does not implement `local-cse` yet. The relevant local files are statu
 | Local file | Exact role today |
 | --- | --- |
 | `src/passes/optimize.mbt:144-151` | `pass_registry_removed_names()` includes `local-cse`, so active requests are intentionally rejected rather than silently ignored. |
-| `src/passes/optimize.mbt:455-473` | Removed-name requests return the active-pipeline rejection error before any pass dispatch. |
-| `src/passes/pass_manager.mbt:8629-8648` | Module-pass dispatcher has no `local-cse` case; there is also no `src/passes/local_cse.mbt` owner file. |
+| `src/passes/optimize.mbt:522-524` | Removed-name requests return the active-pipeline rejection error before any pass dispatch. |
+| `src/passes/pass_manager.mbt:8995-9001` | Module-pass dispatch block has no `local-cse` case; there is also no `src/passes/local_cse.mbt` owner file. |
 | `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:176`, `src/passes/simplify_locals.mbt:4132` | Existing HOT local cleanup has sinkable/effect-conflict machinery and the full `simplify-locals` entry point, but it is the downstream cleanup neighbor rather than a CSE implementation. |
 | `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Existing module pass shows local-use scanning, in-place local-index rewrite, and module-pass entry logic a future temp-localizing port will need to compose with. |
 | `agent-todo.md:403-415` | `LCSE` backlog slice records expression-equivalence and mid-pipeline artifact-compare deliverables. |

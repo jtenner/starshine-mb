@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Wiki: refresh `local-cse` bridge and anchors
+
+- **add a current-main recheck manifest, matching research note, and anchor cleanup for the `local-cse` dossier while refreshing the pass pages and shared catalogs** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), [`docs/wiki/raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](./docs/wiki/raw/research/0453-2026-05-05-local-cse-current-main-recheck.md), [`docs/wiki/binaryen/passes/local-cse/`](./docs/wiki/binaryen/passes/local-cse/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
+
 ## 2026-05-05 Wiki: refresh `unsubtyping` bridge
 
 - **add a current-main recheck manifest, a matching research note, and the missing `unsubtyping` port-readiness bridge while refreshing the pass dossier, shared catalogs, and wiki index/navigation** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md), [`docs/wiki/raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md`](./docs/wiki/raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md), [`docs/wiki/binaryen/passes/unsubtyping/`](./docs/wiki/binaryen/passes/unsubtyping/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).

@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
+  - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
@@ -68,7 +70,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 ## Current durable takeaways
 
 - The reviewed official Binaryen `version_129` release page rechecked on 2026-04-22 showed publish date **2026-04-01**, and the dossier has an immutable raw primary-source manifest at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md).
-- A focused 2026-04-25 current-`main` bridge at [`../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md) rechecked `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, helper files, and `local-cse.wast`; it found no teaching-relevant drift and added a clearer upstream/test plus Starshine code map.
+- A focused 2026-05-05 current-`main` recheck at [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md) refreshed `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, and `local-cse.wast`; it found no teaching-relevant drift and kept the upstream/test plus Starshine code map current.
 - The pass really is a three-stage algorithm:
   - `scan`
   - `check`

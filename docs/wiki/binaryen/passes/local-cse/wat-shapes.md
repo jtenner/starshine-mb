@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
+  - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
@@ -21,7 +23,7 @@ related:
 # `local-cse` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen’s `local-cse` pass.
-It was rechecked against the 2026-04-22 raw primary-source capture at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), which records the reviewed official Binaryen `version_129` release-page date (**2026-04-01**), and the 2026-04-25 current-main bridge at [`../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md), which found no teaching-relevant drift.
+It was rechecked against the 2026-04-22 raw primary-source capture at [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), which records the reviewed official Binaryen `version_129` release-page date (**2026-04-01**), and the 2026-05-05 current-main recheck at [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), which found no teaching-relevant drift.
 
 ## Read this page with one mental model
 

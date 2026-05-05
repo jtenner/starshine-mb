@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
+  - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
@@ -35,7 +37,7 @@ related:
 
 # Starshine Strategy For `local-cse`
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), the 2026-04-25 current-main bridge in [`../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md), and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -58,14 +60,14 @@ So this page is intentionally a **status-and-port-map** page rather than a fake 
 The fastest read-along path through the current Starshine status is:
 
 - tracked but removed pass-name status
-  - `src/passes/optimize.mbt:144-151`
+  - `src/passes/optimize.mbt:145-146`
     - `pass_registry_removed_names()` includes `"local-cse"`
 - active request behavior
-  - `src/passes/optimize.mbt:455-473`
+  - `src/passes/optimize.mbt:522-524`
     - removed pass flags are rejected before dispatch
 - dispatcher absence
-  - `src/passes/pass_manager.mbt:8629-8648`
-    - no module-pass case or HOT owner path exists for `local-cse`
+  - `src/passes/pass_manager.mbt:8995-9001`
+    - no module-pass case appears in the dispatch block for `local-cse`, and there is still no `src/passes/local_cse.mbt` owner file
 - backlog and delivery plan
   - `agent-todo.md`
     - `#### LCSE - Local CSE`
@@ -102,7 +104,7 @@ Today Starshine's behavior for `local-cse` is deliberately limited.
 
 ### 1. The name is tracked, not forgotten
 
-`src/passes/optimize.mbt:144-151` keeps the upstream spelling `local-cse` in `pass_registry_removed_names()`.
+`src/passes/optimize.mbt:145-146` keeps the upstream spelling `local-cse` in `pass_registry_removed_names()`.
 That means:
 
 - the project still treats `local-cse` as a real known pass
