@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] fuzz | widen WAST arbitrary surface
+
+- Completed `[FZG]027` by adding a deterministic wide-surface prelude to `src/wast/arbitrary.mbt` for GC struct types, tags, `try_table`/`throw`, memory/table bulk ops, descriptor ref test/cast forms, tail-call/call-ref forms, inline exports, and representative SIMD text syntax.
+- Updated `docs/wiki/fuzzing/wast-arbitrary-parity-plan.md` to record that this is parser/printer text-surface coverage, not a replacement for typed `gen_valid` feature-floor accounting.
+
 ## [2026-05-05] health | refresh `remove-unused-types` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md` plus `docs/wiki/raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md` after rechecking current `main` `RemoveUnusedTypes.cpp`, `pass.cpp`, `type-updating.h`, `module-utils.h`, and `remove-unused-types.wast` against the existing corrected contract.

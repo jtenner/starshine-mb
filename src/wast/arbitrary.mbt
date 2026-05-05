@@ -312,8 +312,104 @@ fn gen_type_use(st : RandomState, type_count : UInt) -> TypeUse {
 }
 
 ///|
+fn append_wide_wast_surface(fields : Array[ModuleField]) -> Unit {
+  fields.push(
+    TypeField({
+      id: Some("$gc_struct"),
+      is_sub: false,
+      final_: false,
+      supers: [],
+      metadata: { describes: None, descriptor: None },
+      body: TypeDefBody::Struct([
+        { storage: FieldStorage::Value(I32), mutable_: true },
+        { storage: FieldStorage::Value(TypedFuncRef(Struct)), mutable_: false },
+      ]),
+    }),
+  )
+  fields.push(
+    TagField({
+      id: Some("$tag0"),
+      exports: [Export("tag0")],
+      type_use: {
+        type_index: None,
+        func_type: { params: [I32], results: [] },
+        param_ids: [None],
+      },
+    }),
+  )
+  fields.push(
+    FuncField({
+      id: Some("$wide_wast_surface"),
+      annotations: [],
+      exports: [Export("wide_wast_surface")],
+      type_use: {
+        type_index: None,
+        func_type: { params: [], results: [] },
+        param_ids: [],
+      },
+      locals: [],
+      body: [
+        RefNull(TypedFuncRef(Struct)),
+        RefTestDesc(false, Num(0)),
+        Drop,
+        RefNull(TypedFuncRef(Struct)),
+        RefCastDescEq(true, Num(0)),
+        Drop,
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        MemoryFill,
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        MemoryCopy,
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        MemoryInit(Num(0)),
+        DataDrop(Num(0)),
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        TableFill(Num(0)),
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        TableCopy(Num(0), Num(0)),
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        Const(I32Const, "0"),
+        TableInit(Num(0), Num(0)),
+        ElemDrop(Num(0)),
+        V128Const({ shape: I32x4, values: ["0", "1", "2", "3"] }),
+        Drop,
+        ReturnCall(Num(0)),
+        ReturnCallIndirect(Num(0), {
+          type_index: Some(Num(0)),
+          func_type: { params: [], results: [] },
+          param_ids: [],
+        }),
+        ReturnCallRef({
+          type_index: Some(Num(0)),
+          func_type: { params: [], results: [] },
+          param_ids: [],
+        }),
+        Const(I32Const, "0"),
+        Throw(Num(0)),
+        TryTable(
+          { label: None, type_use: None },
+          [CatchClause(Num(0), Num(0))],
+          [Nop],
+        ),
+      ],
+    }),
+  )
+}
+
+///|
 fn gen_module(size : Int, st : RandomState) -> Module {
   let fields : Array[ModuleField] = []
+  append_wide_wast_surface(fields)
 
   // Always provide at least one func type for call_indirect / signature references.
   let type_count : UInt = st.next_uint() % 2 + 1
@@ -437,6 +533,36 @@ fn gen_module(size : Int, st : RandomState) -> Module {
     }
   }
   { id: None, fields }
+}
+
+///|
+test "wast arbitrary module includes widened surface prelude" {
+  let st = @splitmix.new(seed=27)
+  let mod : Module = Arbitrary::arbitrary(4, st)
+  let text = match module_to_wast(mod) {
+    Ok(t) => t
+    Err(e) => fail("unexpected module_to_wast error: \{e}")
+  }
+  assert_true(text.contains("(type $gc_struct (struct"))
+  assert_true(text.contains("(tag $tag0"))
+  assert_true(text.contains("return_call"))
+  assert_true(text.contains("return_call_indirect"))
+  assert_true(text.contains("return_call_ref"))
+  assert_true(text.contains("try_table"))
+  assert_true(text.contains("throw 0"))
+  assert_true(text.contains("memory.fill"))
+  assert_true(text.contains("memory.copy"))
+  assert_true(text.contains("memory.init"))
+  assert_true(text.contains("table.fill"))
+  assert_true(text.contains("table.copy"))
+  assert_true(text.contains("table.init"))
+  assert_true(text.contains("ref.test_desc"))
+  assert_true(text.contains("ref.cast_desc_eq_null"))
+  assert_true(text.contains("v128.const i32x4"))
+  match wast_to_module(text, filename="wide-wast-arbitrary.wat") {
+    Ok(_) => ()
+    Err(e) => fail("widened arbitrary WAST should parse back: \{e}")
+  }
 }
 
 ///|

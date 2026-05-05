@@ -39,8 +39,12 @@ Future WAST widening should add text syntax in this order:
 
 The opcode pickers in `src/wast/arbitrary.mbt` are intentionally duplicated text-generation surfaces. They are allowed to lag the valid generator only when the lag is recorded here or in `docs/wiki/fuzzing/generator-coverage-ledger.md` with an explicit FZG row. Unrecorded silent divergence is a bug.
 
+## Current coverage
+
+`[FZG]027` adds a deterministic wide-surface prelude to arbitrary modules in `src/wast/arbitrary.mbt`. Every generated arbitrary module now carries text syntax for a GC struct type, exported tag, tail-call/call-ref forms, `throw`, `try_table`, memory/table bulk operations, descriptor ref test/cast forms, richer inline exports, and a representative `v128.const` shape. The focused package test `wast arbitrary module includes widened surface prelude` asserts these tokens and reparses the printed module.
+
 ## Current gaps
 
 - The WAST numeric pickers cover representative scalar instructions, but not the full `[FZG]002` scalar opcode matrix.
-- WAST generation has some reference, table, memory, import/export, and SIMD shapes, but it does not yet mirror all `[FZG]003` through `[FZG]023` valid-generator surfaces.
+- The WAST prelude now mirrors the broad `[FZG]027` parser/printer surface, but it remains a text-roundtrip surface rather than a typed validity oracle for every `[FZG]003` through `[FZG]023` binary-generator invariant.
 - Invalid-AST and invalid-binary strategy widening remain separate from this WAST plan; they should keep starting from valid bases or binary-malformed strategies as described in `agent-todo.md`.

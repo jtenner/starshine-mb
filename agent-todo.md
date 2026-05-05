@@ -785,8 +785,6 @@ Suggested Tests
 8. Widen section topology and cross-section interactions.
 9. Widen invalid generators from the new valid surfaces.
 10. Bring WAST arbitrary generation closer to the valid generator.
-   - [FZG]027 - WAST Arbitrary Surface Widening - Add WAST generation for GC types, tags/try_table/throw, memory/table bulk ops, ref casts, call_ref/tail-call forms, richer imports/exports, and representative SIMD/text syntax shapes.
-     - Invariants: generated WAST should still roundtrip through the existing WAST/WAT fuzz profiles.
 11. Tune profiles and signoff gates.
    - [FZG]028 - Profile and Feature-Floor Retuning - Add smoke/ci/stress floor entries for every new feature family, keeping smoke cheap while making ci/stress catch coverage regressions.
    - [FZG]029 - Generator Failure Diagnostics and Corpus Persistence - Improve generator/fuzzer diagnostics so invalid bases, validation failures, and missing feature floors write reproducible module/corpus artifacts.

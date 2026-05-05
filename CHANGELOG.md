@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: widen WAST arbitrary surface
+
+- **complete FZG027 by adding a deterministic WAST arbitrary prelude for GC types, tags/try_table/throw, memory/table bulk ops, ref casts, tail-call/call-ref forms, richer inline exports, and representative SIMD text syntax** by **@OpenAI**. Updated [`src/wast/arbitrary.mbt`](./src/wast/arbitrary.mbt), [`docs/wiki/fuzzing/wast-arbitrary-parity-plan.md`](./docs/wiki/fuzzing/wast-arbitrary-parity-plan.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: add invalid binary surface corruptions
 
 - **complete FZG025 by adding invalid-binary strategies for malformed SIMD immediates, SIMD lane-index overflow, and malformed custom-section payload sizing** by **@OpenAI**. Updated [`src/fuzz/invalid_binary.mbt`](./src/fuzz/invalid_binary.mbt), [`src/fuzz/invalid_binary_wbtest.mbt`](./src/fuzz/invalid_binary_wbtest.mbt), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
