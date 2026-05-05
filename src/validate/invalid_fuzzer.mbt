@@ -88,6 +88,8 @@ pub enum ValidateInvalidAstStrategyId {
   SharedMemoryWithoutMax
   SharedMemory64WithoutMax
   InvalidTagTypeIndex
+  InvalidSubtypeSuperIndex
+  InvalidSubtypeSuperShape
   DescriptorOnFuncType
   DataCountWithoutDataSec
   InvalidExportFuncIndex
@@ -340,6 +342,18 @@ pub fn validate_invalid_ast_registry() -> Array[ValidateInvalidAstStrategySpec] 
       TagSectionFamily,
     ),
     validate_invalid_ast_strategy_spec(
+      InvalidSubtypeSuperIndex,
+      "invalid-subtype-super-index",
+      "subtype super index out of range",
+      TypeSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
+      InvalidSubtypeSuperShape,
+      "invalid-subtype-super-shape",
+      "subtype super shape mismatch",
+      TypeSectionFamily,
+    ),
+    validate_invalid_ast_strategy_spec(
       DescriptorOnFuncType,
       "descriptor-on-func-type",
       "descriptor metadata on function type",
@@ -522,26 +536,28 @@ fn validate_invalid_ast_strategy_index(
     SharedMemoryWithoutMax => 22
     SharedMemory64WithoutMax => 23
     InvalidTagTypeIndex => 24
-    DescriptorOnFuncType => 25
-    DataCountWithoutDataSec => 26
-    InvalidExportFuncIndex => 27
-    StartFuncOutOfRange => 28
-    MissingDataCountDataDrop => 29
-    InvalidMemoryNameSectionIndex => 30
-    CodeSecWithoutFuncSec => 31
-    InvalidTableNameSectionIndex => 32
-    InvalidGlobalNameSectionIndex => 33
-    InvalidTypeNameSectionIndex => 34
-    InvalidFieldNameSectionIndex => 35
-    InvalidElemNameSectionIndex => 36
-    InvalidDataNameSectionIndex => 37
-    InvalidExportTableIndex => 38
-    InvalidExportGlobalIndex => 39
-    InvalidExportMemoryIndex => 40
-    InvalidExportTagIndex => 41
-    InvalidTagNameSectionIndex => 42
-    DataCountMismatchTooSmall => 43
-    DataCountMismatchTooLarge => 44
+    InvalidSubtypeSuperIndex => 25
+    InvalidSubtypeSuperShape => 26
+    DescriptorOnFuncType => 27
+    DataCountWithoutDataSec => 28
+    InvalidExportFuncIndex => 29
+    StartFuncOutOfRange => 30
+    MissingDataCountDataDrop => 31
+    InvalidMemoryNameSectionIndex => 32
+    CodeSecWithoutFuncSec => 33
+    InvalidTableNameSectionIndex => 34
+    InvalidGlobalNameSectionIndex => 35
+    InvalidTypeNameSectionIndex => 36
+    InvalidFieldNameSectionIndex => 37
+    InvalidElemNameSectionIndex => 38
+    InvalidDataNameSectionIndex => 39
+    InvalidExportTableIndex => 40
+    InvalidExportGlobalIndex => 41
+    InvalidExportMemoryIndex => 42
+    InvalidExportTagIndex => 43
+    InvalidTagNameSectionIndex => 44
+    DataCountMismatchTooSmall => 45
+    DataCountMismatchTooLarge => 46
   }
 }
 
@@ -561,9 +577,9 @@ pub fn validate_invalid_ast_run_config(
 ) -> Result[ValidateInvalidAstRunConfig, String] {
   let normalized = validate_fuzz_ascii_lower(profile.trim().to_string())
   let attempts = match normalized {
-    "smoke" => 45
-    "ci" => 450
-    "stress" => 4500
+    "smoke" => 47
+    "ci" => 470
+    "stress" => 4700
     _ =>
       return Err(
         "unknown validate-invalid-ast fuzz profile '\{profile}'; expected smoke|ci|stress",
@@ -2159,6 +2175,46 @@ fn validate_invalid_ast_mutate_invalid_tag_type_index(
 }
 
 ///|
+fn validate_invalid_ast_mutate_invalid_subtype_super_index(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let types = validate_invalid_ast_type_entries(mod)
+  types.push(
+    RecType::new(
+      SubType::new(false, [TypeIdx::new(9999U)], CompType::func([], [])),
+    ),
+  )
+  {
+    strategy: InvalidSubtypeSuperIndex,
+    applicable: true,
+    expected_family: TypeSectionFamily,
+    mutated_module: mod.with_type_sec(TypeSec::new(types)),
+  }
+}
+
+///|
+fn validate_invalid_ast_mutate_invalid_subtype_super_shape(
+  mod : Module,
+) -> ValidateInvalidAstMutation {
+  let types = validate_invalid_ast_type_entries(mod)
+  let super_idx = TypeIdx::new(
+    validate_invalid_ast_flat_type_count(mod).reinterpret_as_uint(),
+  )
+  types.push(RecType::new(SubType::comp_type(CompType::func([], []))))
+  types.push(
+    RecType::new(
+      SubType::new(false, [super_idx], CompType::func([ValType::i32()], [])),
+    ),
+  )
+  {
+    strategy: InvalidSubtypeSuperShape,
+    applicable: true,
+    expected_family: TypeSectionFamily,
+    mutated_module: mod.with_type_sec(TypeSec::new(types)),
+  }
+}
+
+///|
 fn validate_invalid_ast_mutate_descriptor_on_func_type(
   mod : Module,
 ) -> ValidateInvalidAstMutation {
@@ -2299,6 +2355,10 @@ pub fn apply_validate_invalid_ast_strategy(
         validate_invalid_ast_mutate_shared_memory64_without_max(base)
       InvalidTagTypeIndex =>
         validate_invalid_ast_mutate_invalid_tag_type_index(base)
+      InvalidSubtypeSuperIndex =>
+        validate_invalid_ast_mutate_invalid_subtype_super_index(base)
+      InvalidSubtypeSuperShape =>
+        validate_invalid_ast_mutate_invalid_subtype_super_shape(base)
       DescriptorOnFuncType =>
         validate_invalid_ast_mutate_descriptor_on_func_type(base)
       DataCountWithoutDataSec =>
@@ -2531,16 +2591,17 @@ test "validate_invalid_ast_registry exposes the curated smoke-required strategie
     "funcsec-without-codesec", "mutable-global-get-in-const-init", "non-constant-data-offset",
     "invalid-imported-func-type-index", "invalid-imported-tag-type-index", "mutable-global-get-in-table-init",
     "non-constant-elem-offset", "shared-memory-without-max", "shared-memory64-without-max",
-    "invalid-tag-type-index", "descriptor-on-func-type", "datacount-without-data-sec",
-    "invalid-export-func-index", "start-func-out-of-range", "missing-datacount-data-drop",
-    "invalid-memory-name-section-index", "codesec-without-funcsec", "invalid-table-name-section-index",
-    "invalid-global-name-section-index", "invalid-type-name-section-index", "invalid-field-name-section-index",
-    "invalid-elem-name-section-index", "invalid-data-name-section-index", "invalid-export-table-index",
-    "invalid-export-global-index", "invalid-export-memory-index", "invalid-export-tag-index",
-    "invalid-tag-name-section-index", "datacount-mismatch-too-small", "datacount-mismatch-too-large",
+    "invalid-tag-type-index", "invalid-subtype-super-index", "invalid-subtype-super-shape",
+    "descriptor-on-func-type", "datacount-without-data-sec", "invalid-export-func-index",
+    "start-func-out-of-range", "missing-datacount-data-drop", "invalid-memory-name-section-index",
+    "codesec-without-funcsec", "invalid-table-name-section-index", "invalid-global-name-section-index",
+    "invalid-type-name-section-index", "invalid-field-name-section-index", "invalid-elem-name-section-index",
+    "invalid-data-name-section-index", "invalid-export-table-index", "invalid-export-global-index",
+    "invalid-export-memory-index", "invalid-export-tag-index", "invalid-tag-name-section-index",
+    "datacount-mismatch-too-small", "datacount-mismatch-too-large",
   ])
   let smoke_required = registry.filter(fn(spec) { spec.required_in_smoke })
-  assert_eq(smoke_required.length(), 17)
+  assert_eq(smoke_required.length(), 19)
 }
 
 ///|
@@ -2914,6 +2975,32 @@ test "invalid tag type index strategy rejects with TagSection family" {
 }
 
 ///|
+test "invalid subtype super index strategy rejects with TypeSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidSubtypeSuperIndex,
+      0x5efa1UL,
+      TypeSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
+test "invalid subtype super shape strategy rejects with TypeSection family" {
+  match
+    invalid_ast_expect_strategy_rejects_with_family(
+      InvalidSubtypeSuperShape,
+      0x5efa2UL,
+      TypeSectionFamily,
+    ) {
+    Ok(_) => ()
+    Err(msg) => fail(msg)
+  }
+}
+
+///|
 test "descriptor-on-func type strategy rejects with TypeSection family" {
   match
     invalid_ast_expect_strategy_rejects_with_family(
@@ -3245,7 +3332,7 @@ test "run_validate_invalid_ast_fuzz returns deterministic fixed-seed strategy st
     Err(msg) => fail(msg)
   }
   assert_true(first == second)
-  assert_eq(first.attempts, 45)
+  assert_eq(first.attempts, 47)
   for stat in first.strategy_stats {
     assert_true(stat.attempted > 0)
     assert_true(stat.applicable > 0)

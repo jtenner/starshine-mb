@@ -230,6 +230,8 @@ fn gen_invalid_ast_strategy_label(
     SharedMemoryWithoutMax => "shared-memory-without-max"
     SharedMemory64WithoutMax => "shared-memory64-without-max"
     InvalidTagTypeIndex => "invalid-tag-type-index"
+    InvalidSubtypeSuperIndex => "invalid-subtype-super-index"
+    InvalidSubtypeSuperShape => "invalid-subtype-super-shape"
     DescriptorOnFuncType => "descriptor-on-func-type"
     DataCountWithoutDataSec => "datacount-without-data-sec"
   }
