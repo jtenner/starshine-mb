@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md
+  - ../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md
@@ -143,15 +145,20 @@ The Binaryen-compatible behavior is to trap at the relaxed operation site.
 
 ## Current uncertainty
 
-- Feature metadata cleanup remains separate source-confirmation work. The 2026-04-25 recheck did not find a feature-section rewrite in the pass sources.
+- Feature metadata cleanup remains separate source-confirmation work. The 2026-05-05 recheck did not find a feature-section rewrite in the pass sources.
 - HOT `Simd` payloads give Starshine a convenient landing zone, but no existing pass currently uses that surface to replace arbitrary SIMD expressions with trapping blocks.
 - The pass is outside the current no-DWARF / saved-`-O4z` parity queue, so it should not displace higher-priority open parity blockers unless a user explicitly asks for relaxed-SIMD feature-removal work.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md)
+- [`../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md)
+- [`../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/binaryen/2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-relaxed-simd-primary-sources.md)
+- [`../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md`](../../../raw/research/0392-2026-04-26-remove-relaxed-simd-port-readiness.md)
 - [`../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md`](../../../raw/research/0355-2026-04-25-remove-relaxed-simd-current-main-source-correction.md)
 - [`../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md`](../../../raw/research/0322-2026-04-24-remove-relaxed-simd-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)

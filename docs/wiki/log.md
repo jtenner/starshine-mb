@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `remove-relaxed-simd` freshness layer and current-main recheck
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md` plus `docs/wiki/raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md` after rechecking current `main` `RemoveRelaxedSIMD.cpp`, `pass.cpp`, `child-localizer.h`, and `remove-relaxed-simd.wast` against the existing contract.
+- Refreshed the `remove-relaxed-simd` dossier pages so the 2026-05-05 freshness layer is visible in the landing page, Binaryen strategy, implementation/test map, WAT-shape catalog, Starshine strategy, and Starshine readiness bridge.
+- Recorded unchanged contract status: current `main` still teaches the same trap-replacement `remove-relaxed-simd` contract, and Starshine still keeps the pass unimplemented with explicit registry rejection and a separate feature-metadata caveat.
+
 ## [2026-05-05] health | refresh `reorder-functions-by-name` source anchors and add port-readiness bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md` plus `docs/wiki/raw/research/0481-2026-05-05-reorder-functions-by-name-current-main-recheck.md` after rechecking current `main` `ReorderFunctions.cpp`, `pass.cpp`, and `reorder-functions-by-name.wast` against the existing source-backed contract.

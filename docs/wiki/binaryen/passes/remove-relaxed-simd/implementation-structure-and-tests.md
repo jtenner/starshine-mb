@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md
+  - ../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md
@@ -89,8 +91,8 @@ For complete opcode coverage, use the source visitor enumerations in `RemoveRela
 
 ## Current-main drift check
 
-The `main` versions reviewed on 2026-05-04 kept the same owner file, public spelling, lit filename, trap replacement, and refinalization shape as `version_129`.
-The 2026-05-04 recheck found no teaching-level drift from that correction and added a local implementation ladder in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
+The `main` versions reviewed on 2026-05-05 kept the same owner file, public spelling, lit filename, trap replacement, and refinalization shape as `version_129`.
+The 2026-05-05 recheck found no teaching-level drift from that correction and added a local implementation ladder in [`starshine-port-readiness-and-validation.md`](starshine-port-readiness-and-validation.md).
 The checks also found no teaching-level evidence for the older feature-gate wording.
 
 ## Porting cautions
@@ -103,6 +105,8 @@ The checks also found no teaching-level evidence for the older feature-gate word
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md)
+- [`../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md`](../../../raw/research/0437-2026-05-04-remove-relaxed-simd-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-relaxed-simd-port-readiness-primary-sources.md)
