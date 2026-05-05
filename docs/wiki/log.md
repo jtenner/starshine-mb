@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `global-struct-inference-desc-cast` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md` plus `docs/wiki/raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md` after rechecking current `main` `GlobalStructInference.cpp`, `pass.cpp`, `gsi-to-desc-cast.wast`, `gsi-desc.wast`, and `gsi.wast` against the corrected contract.
+- Refreshed the `global-struct-inference-desc-cast` landing page, Binaryen strategy, implementation/test-map, singleton-gate guide, WAT-shape catalog, Starshine strategy, wiki index, pass catalog, and tracker so the 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same target-descriptor-singleton `ref.cast_desc_eq` gate, and Starshine still keeps the pass boundary-only until a deliberate port lands.
+
 ## [2026-05-05] health | refresh `dae-optimizing` source anchors and add port-readiness bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-dae-optimizing-current-main-recheck.md` plus `docs/wiki/raw/research/0487-2026-05-05-dae-optimizing-current-main-recheck.md` after rechecking current `main` `DeadArgumentElimination.cpp`, `pass.cpp`, `opt-utils.h`, and the optimizing DAE lit surface against the corrected contract.

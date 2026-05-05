@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Wiki: refresh `global-struct-inference-desc-cast` current-main bridge
+
+- **add a 2026-05-05 current-main recheck manifest, matching research note, and freshness-layer refresh for the `global-struct-inference-desc-cast` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md), [`docs/wiki/raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md`](./docs/wiki/raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md), [`docs/wiki/binaryen/passes/global-struct-inference-desc-cast/`](./docs/wiki/binaryen/passes/global-struct-inference-desc-cast/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-05 Passes: implement local-cse
 
 - **complete LCSE001/LCSE002 by adding the active `local-cse` pass surface, same-window arithmetic tree reuse through temp locals, registry/dispatcher/CLI/fuzz-harness support, focused regressions, direct gen-valid fuzz parity, and debug-artifact self-optimize evidence while pruning the completed backlog slice** by **@OpenAI**. Updated [`src/passes/local_cse.mbt`](./src/passes/local_cse.mbt), [`src/passes/local_cse_test.mbt`](./src/passes/local_cse_test.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), [`docs/wiki/binaryen/passes/local-cse/`](./docs/wiki/binaryen/passes/local-cse/), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
@@ -11,6 +15,10 @@
 ## 2026-05-05 Passes: implement optimize-casts
 
 - **complete OC001/OC002 by adding the hot `optimize-casts` pass, registry/dispatcher/fuzz-harness support, GC cast regressions for redundant `ref.cast`, guaranteed-true `ref.test`, and nullable trap preservation, plus direct debug-artifact parity evidence** by **@OpenAI**. Updated [`src/passes/optimize_casts.mbt`](./src/passes/optimize_casts.mbt), [`src/passes/optimize_casts_test.mbt`](./src/passes/optimize_casts_test.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
+## 2026-05-05 Proofs: stack discipline helper slice
+
+- **complete PRV004 by adding a proof-friendly stack-discipline helper slice for typechecker push/pop/result-suffix length facts, executable regressions, and updated proof-boundary docs while pruning the completed backlog item** by **@OpenAI**. Updated [`src/validate_proof/stack_discipline.mbt`](./src/validate_proof/stack_discipline.mbt), [`src/validate_proof/stack_discipline_proof.mbtp`](./src/validate_proof/stack_discipline_proof.mbtp), [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt), [`src/validate_proof/pkg.generated.mbti`](./src/validate_proof/pkg.generated.mbti), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
 
 ## 2026-05-05 Proofs: pilot match algebra
 

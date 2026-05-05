@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md
   - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
+  - ../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/passes/global_struct_inference.mbt
@@ -43,6 +45,8 @@ The local status is:
 - owner file: absent
 - active backlog slice: absent
 - direct behavior tests: only request-rejection / failure-report plumbing, not transform behavior
+
+A 2026-05-05 current-main recheck did not change the local status; the page's exact code map still points at the same boundary-only request guard, active plain-GSI sibling, and opcode/validator prerequisites.
 
 The most important beginner-safe statement is:
 

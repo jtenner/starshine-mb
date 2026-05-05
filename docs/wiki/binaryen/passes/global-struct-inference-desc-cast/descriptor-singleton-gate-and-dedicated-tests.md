@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-global-struct-inference-desc-cast-primary-sources.md
   - ../../../raw/research/0326-2026-04-24-global-struct-inference-desc-cast-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0212-2026-04-21-global-struct-inference-desc-cast-source-confirmation-followup.md
+  - ../../../raw/binaryen/2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
+  - ../../../raw/research/0488-2026-05-05-global-struct-inference-desc-cast-current-main-recheck.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -27,6 +29,7 @@ This page isolates the part of the pass that was easiest to mis-teach:
 Binaryen `version_129` emits `ref.cast_desc_eq` only when the **target type's descriptor type** has **exactly one** known immutable top-level global in the closed-world `typeGlobals` map, and the target is exact or has no strict subtypes.
 
 That is the simplest accurate summary of the source.
+A 2026-05-05 current-main recheck kept the same gate on the reviewed surfaces.
 
 ## Why this matters
 
