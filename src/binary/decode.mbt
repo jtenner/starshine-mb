@@ -2385,13 +2385,12 @@ fn decode_i8x16_shuffle_lanes(
   let lanes : FixedArray[LaneIdx] = FixedArray::make(16, LaneIdx::new(0))
   let mut next = i
   for lane_i in 0..<16 {
-    match
-      (Decode::decode(bytes, next) : Result[(LaneIdx, Int), BinaryDecodeError]) {
-      Ok((lane, consumed)) => {
-        lanes[lane_i] = lane
-        next = consumed
+    match bytes.get(next) {
+      Some(n) if n < 32 => {
+        lanes[lane_i] = LaneIdx::new(n)
+        next += 1
       }
-      Err(t) => return Err(t)
+      _ => return Err(BinaryDecodeError::InvalidLaneIndex)
     }
   }
   Ok((lanes, next))

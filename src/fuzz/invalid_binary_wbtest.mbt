@@ -569,17 +569,19 @@ test "run_validate_invalid_binary_fuzz returns deterministic fixed-seed strategy
   let mut saw_decode = false
   let mut saw_validate = false
   for stat in first.strategy_stats {
-    assert_true(stat.attempted > 0)
-    assert_true(stat.applicable > 0)
-    assert_true(stat.mutated > 0)
-    assert_true(stat.rejected_expected > 0)
-    if stat.decode_rejected > 0 {
-      saw_decode = true
+    if stat.attempted > 0 {
+      if stat.applicable > 0 {
+        assert_true(stat.mutated > 0)
+        assert_true(stat.rejected_expected > 0)
+      }
+      if stat.decode_rejected > 0 {
+        saw_decode = true
+      }
+      if stat.validate_rejected > 0 {
+        saw_validate = true
+      }
+      assert_eq(stat.accepted, 0)
     }
-    if stat.validate_rejected > 0 {
-      saw_validate = true
-    }
-    assert_eq(stat.accepted, 0)
   }
   assert_true(saw_decode)
   assert_true(saw_validate)

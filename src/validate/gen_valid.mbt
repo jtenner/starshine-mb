@@ -1107,11 +1107,8 @@ fn gen_valid_gc_type_defs(
         ),
       ),
     )
+    type_idx_cursor += 1
     plan = { ..plan, rec_group_count: plan.rec_group_count + 1 }
-    plan.struct_type_idxs.push(base_idx)
-    plan.struct_type_idxs.push(child_idx)
-    plan.struct_type_idxs.push(grandchild_idx)
-    plan.struct_type_idxs.push(cross_ref_idx)
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(base_idx))
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(child_idx))
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(grandchild_idx))
@@ -1329,6 +1326,7 @@ fn gen_valid_gc_type_defs(
         ),
       ]),
     )
+    type_idx_cursor += 2
     plan = { ..plan, rec_group_count: plan.rec_group_count + 1 }
   }
 
