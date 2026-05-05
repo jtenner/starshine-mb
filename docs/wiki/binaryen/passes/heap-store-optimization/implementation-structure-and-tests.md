@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md
+  - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
-  - ../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
+  - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../../../../src/passes/heap_store_optimization.mbt
@@ -39,7 +39,7 @@ The upstream owner is:
 
 - `src/passes/HeapStoreOptimization.cpp`
 
-In Binaryen `version_129` and the 2026-04-25 current-main recheck, that file owns the whole public pass implementation.
+In Binaryen `version_129` and the 2026-05-05 current-main recheck, that file owns the whole public pass implementation.
 The key structure is small enough to keep in one mental model:
 
 | Source area | What it proves |
@@ -93,7 +93,7 @@ The lit file is also a useful teaching surface because it makes the pass's narro
 
 ## Current-main recheck result
 
-The 2026-04-25 current-main recheck found no teaching-relevant drift from the earlier `version_129` dossier.
+The 2026-05-05 current-main recheck found no teaching-relevant drift from the earlier `version_129` dossier and refreshed the exact local line anchors used by the living dossier.
 Current upstream `main` still teaches the same contract:
 
 - generic heap dead-store elimination remains TODO;
@@ -139,15 +139,15 @@ The local file implements the same semantic goal as Binaryen but with HOT-region
 
 The active pass is wired through:
 
-- [`src/passes/optimize.mbt:197-199`](../../../../../src/passes/optimize.mbt)
+- [`src/passes/optimize.mbt:194-196`](../../../../../src/passes/optimize.mbt)
   - active hot-pass registry entry.
-- [`src/passes/optimize.mbt:253-257`](../../../../../src/passes/optimize.mbt) and [`src/passes/optimize.mbt:392-396`](../../../../../src/passes/optimize.mbt)
+- [`src/passes/optimize.mbt:282-293`](../../../../../src/passes/optimize.mbt)
   - `optimize` preset placements.
-- [`src/passes/optimize.mbt:265-269`](../../../../../src/passes/optimize.mbt) and [`src/passes/optimize.mbt:405-409`](../../../../../src/passes/optimize.mbt)
+- [`src/passes/optimize.mbt:294-305`](../../../../../src/passes/optimize.mbt)
   - `shrink` preset placements.
-- [`src/passes/pass_manager.mbt:7045-7058`](../../../../../src/passes/pass_manager.mbt)
+- [`src/passes/pass_manager.mbt:7264-7274`](../../../../../src/passes/pass_manager.mbt)
   - raw fast-skip lane.
-- [`src/passes/pass_manager.mbt:8697`](../../../../../src/passes/pass_manager.mbt)
+- [`src/passes/pass_manager.mbt:8097-8099`](../../../../../src/passes/pass_manager.mbt)
   - hot-pass dispatcher case.
 
 ## Starshine tests and replay evidence
@@ -172,9 +172,9 @@ It also does not claim that Starshine's wrapper-cleanup machinery exists upstrea
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md)
+- [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md)
-- [`../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md`](../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md)
+- [`../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md)
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./wat-shapes.md`](./wat-shapes.md)
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)

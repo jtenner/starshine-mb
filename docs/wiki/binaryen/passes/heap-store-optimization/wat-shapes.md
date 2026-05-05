@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md
+  - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
-  - ../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
+  - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
 related:
   - ./index.md

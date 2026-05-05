@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `heap-store-optimization` code anchors and current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md` plus `docs/wiki/raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md` after rechecking current `main` `HeapStoreOptimization.cpp`, `pass.cpp`, and the dedicated lit test.
+- Refreshed the `heap-store-optimization` overview, Binaryen strategy, implementation/test-map, swap-safety, WAT-shape, Starshine strategy, and shared catalog entries so the exact `optimize.mbt` / `pass_manager.mbt` line anchors now match the current tree.
+- Recorded unchanged contract status: current `main` still teaches the same narrow constructor/store-folding contract and no teaching-relevant drift was found.
+
 ## [2026-05-05] health | refresh `local-subtyping` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md` plus `docs/wiki/raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md` after rechecking official Binaryen current-main `LocalSubtyping.cpp`, `pass.cpp`, and the dedicated `local-subtyping.wast` surface.

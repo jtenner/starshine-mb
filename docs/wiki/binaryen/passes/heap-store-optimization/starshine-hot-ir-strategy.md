@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md
+  - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
-  - ../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
+  - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
   - ../../../raw/research/0246-2026-04-22-heap-store-optimization-primary-sources-and-code-map-followup.md
   - ../../../../../src/passes/heap_store_optimization.mbt
@@ -60,18 +60,18 @@ not:
 
 ## Exact local code map
 
-Use this page together with the current source bridge in [`../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Use this page together with the current source bridge in [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md) and the owner/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The fastest read-along path through the current MoonBit implementation is:
 
 - registry descriptor and one-line public summary
   - [`src/passes/heap_store_optimization.mbt:2-24`](../../../../../src/passes/heap_store_optimization.mbt)
 - active registry and preset placement
-  - [`src/passes/optimize.mbt:197-199`](../../../../../src/passes/optimize.mbt) registers the active hot pass
-  - [`src/passes/optimize.mbt:253-257`](../../../../../src/passes/optimize.mbt) and [`src/passes/optimize.mbt:392-396`](../../../../../src/passes/optimize.mbt) place it in `optimize`
-  - [`src/passes/optimize.mbt:265-269`](../../../../../src/passes/optimize.mbt) and [`src/passes/optimize.mbt:405-409`](../../../../../src/passes/optimize.mbt) place it in `shrink`
+  - [`src/passes/optimize.mbt:194-196`](../../../../../src/passes/optimize.mbt) registers the active hot pass
+  - [`src/passes/optimize.mbt:282-293`](../../../../../src/passes/optimize.mbt) place it in `optimize`
+  - [`src/passes/optimize.mbt:294-305`](../../../../../src/passes/optimize.mbt) place it in `shrink`
 - pass-manager integration and raw fast-skip plumbing
-  - [`src/passes/pass_manager.mbt:7045-7058`](../../../../../src/passes/pass_manager.mbt) owns `run_hot_pipeline_raw_heap_store_optimization(...)`
-  - [`src/passes/pass_manager.mbt:8697`](../../../../../src/passes/pass_manager.mbt) dispatches the main hot-pass case for `"heap-store-optimization"`
+  - [`src/passes/pass_manager.mbt:7264-7274`](../../../../../src/passes/pass_manager.mbt) owns `run_hot_pipeline_raw_heap_store_optimization(...)`
+  - [`src/passes/pass_manager.mbt:8097-8099`](../../../../../src/passes/pass_manager.mbt) dispatches the main hot-pass case for `"heap-store-optimization"`
 - local proof helpers in `src/passes/heap_store_optimization.mbt`
   - [`src/passes/heap_store_optimization.mbt:312-354`](../../../../../src/passes/heap_store_optimization.mbt) covers skip-local-set / control-flow predicates
   - [`src/passes/heap_store_optimization.mbt:560-631`](../../../../../src/passes/heap_store_optimization.mbt) covers trapless readonly and reorderable subtree predicates

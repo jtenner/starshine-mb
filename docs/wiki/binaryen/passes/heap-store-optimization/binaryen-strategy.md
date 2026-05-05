@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md
+  - ../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-heap-store-optimization-primary-sources.md
-  - ../../../raw/research/0356-2026-04-25-heap-store-optimization-current-main-code-map.md
+  - ../../../raw/research/0448-2026-05-05-heap-store-optimization-current-main-recheck.md
   - ../../../raw/research/0133-2026-04-20-heap-store-optimization-binaryen-research.md
 related:
   - ./index.md
@@ -381,7 +381,7 @@ A future Starshine rewrite or refactor must keep these Binaryen-backed invariant
 
 ## Current freshness note
 
-A 2026-04-25 focused current-main source bridge found no teaching-relevant drift from the `version_129` contract:
+A 2026-05-05 focused current-main source bridge found no teaching-relevant drift from the `version_129` contract:
 
 - `main` still keeps the generic heap dead-store / load-forwarding work as a TODO;
 - `main` still records only `StructSet` and `Block` action sites;
@@ -389,4 +389,4 @@ A 2026-04-25 focused current-main source bridge found no teaching-relevant drift
 - `trySwap(...)` remains a narrow local motion helper;
 - `LazyLocalGraph::canMoveSet(...)` remains the hard control-flow safety proof for moved values.
 
-So unlike some other pass dossiers, there is still no current-trunk contract drift to document here yet. The recheck is captured in [`../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md`](../../../raw/binaryen/2026-04-25-heap-store-optimization-current-main-code-map.md).
+So unlike some other pass dossiers, there is still no current-trunk contract drift to document here yet. The recheck is captured in [`../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-heap-store-optimization-current-main-recheck.md).
