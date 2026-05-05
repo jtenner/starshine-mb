@@ -5,6 +5,7 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
+  - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
@@ -28,6 +29,7 @@ related:
 - Use Binaryen `version_129` as the current source oracle for `dae2`.
 - The 2026-04-25 immutable manifest is [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md).
 - The 2026-05-05 current-main recheck is [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md); it still found no teaching-relevant drift, and the same capture now includes a GitHub web spotcheck of the upstream `main` source pages. The older 2026-04-26 port-readiness bridge remains the implementation-readiness companion in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+- The 2026-05-05 source-anchor refresh note is [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md).
 - The core implementation is `src/passes/DeadArgumentElimination2.cpp`.
 - Public registration lives in `src/passes/pass.cpp`.
 - The reviewed official test surface is `test/lit/passes/dae2.wast`.
@@ -39,6 +41,13 @@ related:
   - `src/ir/effects.h`
   - `src/ir/eh-utils.h`
   - `src/wasm-type-shape.h`
+
+## Exact source anchors
+
+- [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md) keeps the reviewed upstream file pages and the current-main recheck together.
+- `DeadArgumentElimination2.cpp` is the main contract surface for the backward fixed point, forwarding graph, blockers, and global type repair.
+- `pass.cpp` is the public registration proof that `dae2` is a separate pass name.
+- `dae2.wast` is the canonical behavior surface for cycles, indirect/reference cases, replacement types, and effect-preserving removals.
 
 ## The pass in one sentence
 

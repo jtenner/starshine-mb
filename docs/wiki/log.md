@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `dae2` source anchors and raw bridge
+
+- Added `docs/wiki/raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md` to capture the exact upstream Binaryen file pages reviewed for `dae2` and keep the current-main recheck tied to the living dossier.
+- Refreshed the `dae2` landing page, Binaryen strategy, implementation/test-map, pass catalog, and root wiki index so the folder now points readers at the source-anchor refresh note alongside the immutable manifest, current-main recheck, and the existing Starshine first-slice / validation bridge.
+- Recorded unchanged contract status: current `main` still teaches the same backward fixed-point forwarded-parameter contract, and Starshine still treats `dae2` as unknown rather than boundary-only or removed.
+
 ## [2026-05-05] health | refresh `merge-locals` current-main bridge and add port-readiness page
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-merge-locals-current-main-recheck.md` plus `docs/wiki/raw/research/0485-2026-05-05-merge-locals-current-main-recheck.md` after rechecking current `main` `MergeLocals.cpp`, `pass.cpp`, and `merge-locals.wast` against the corrected copy-shape contract.

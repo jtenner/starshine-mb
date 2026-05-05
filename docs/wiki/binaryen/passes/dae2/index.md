@@ -5,6 +5,7 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
+  - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
@@ -90,6 +91,7 @@ than like:
   - no constant actual propagation yet,
   - no param/result type propagation yet.
 - Public types, continuation/tag-related roots, `call.without.effects`, and several other referenced surfaces remain important conservative boundaries.
+- The 2026-05-05 source-anchor refresh note gives a short bridge from this folder back to the reviewed upstream file pages and current-main recheck.
 
 ## Why it matters next to `dae`
 

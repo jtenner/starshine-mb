@@ -5,6 +5,7 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
+  - ../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md
   - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
@@ -50,6 +51,13 @@ The 2026-05-05 current-main recheck and GitHub web spotcheck did not find teachi
 | `src/ir/effects.h` | Effect analysis for deciding whether forwarding wrappers are removable | Explains why expression-tree removal is semantics-safe |
 | `src/ir/eh-utils.h` | Continuation/tag-related helper context | Important for the “do not rewrite this root type tree” boundary |
 | `src/wasm-type-shape.h` | Type-shape and rec-group context used by replacement-type creation | Important for brand/conflict and rec-group correctness |
+
+## Exact source anchors
+
+- [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md) keeps the reviewed upstream file pages and the current-main recheck together.
+- `DeadArgumentElimination2.cpp` is the single owner file for the core analysis and rewrite engine.
+- `pass.cpp` proves `dae2` is a public pass name rather than a sibling alias.
+- `dae2.wast` is the proof surface for direct, recursive, indirect/reference, replacement-type, and effect-preserving behavior.
 
 ## What lives in `DeadArgumentElimination2.cpp`
 
@@ -249,6 +257,7 @@ The 2026-04-25 source bridge adds an immutable source manifest and Starshine sta
 
 - [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md)
 - [`../../../raw/research/0337-2026-04-25-dae2-source-bridge.md`](../../../raw/research/0337-2026-04-25-dae2-source-bridge.md)
+- [`../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md`](../../../raw/research/0486-2026-05-05-dae2-source-anchor-refresh.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
 
 The source map above remains the same; the new files close the provenance and local-follow-along gap rather than changing the upstream algorithm.
