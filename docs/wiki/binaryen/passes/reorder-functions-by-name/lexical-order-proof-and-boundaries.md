@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md
   - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md
 related:
   - ./index.md
@@ -137,7 +139,7 @@ Those are all boundaries that belong to the sibling `reorder-functions` dossier 
 
 ## Current-main drift result
 
-A 2026-04-24 current-main spot check of `ReorderFunctions.cpp` found no teaching-relevant drift on the reviewed surface.
+A 2026-05-05 current-main recheck of `ReorderFunctions.cpp` found no teaching-relevant drift on the reviewed surface.
 
 So for this pass, the safe maintenance rule is:
 

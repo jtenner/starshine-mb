@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
@@ -54,7 +56,7 @@ That makes the pass a module-wide permutation + remap problem, not a HOT peephol
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt):137, 482, 552
   - boundary-only registry lists for `reorder-functions` and `reorder-functions-by-name`
   - `run_hot_pipeline_expand_passes(...)` rejects boundary-only names
-- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt):8692
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt):8912-8940
   - `run_hot_pipeline_apply_module_pass(...)` has cases for `reorder-locals`, `reorder-globals`, `directize`, and others, but not `reorder-functions`
 - [`src/passes/duplicate_function_elimination.mbt`](../../../../../src/passes/duplicate_function_elimination.mbt)
   - closest local remap helper cluster for function-index-dependent surfaces

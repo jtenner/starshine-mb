@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md
   - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md
   - ../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md
 related:
@@ -85,7 +87,7 @@ That proves the sibling's core contract concretely instead of only by comparator
 
 ## Current-main freshness check
 
-A 2026-04-24 spot check compared `version_129` and current `main` `ReorderFunctions.cpp` on the reviewed surface.
+A 2026-05-05 current-main recheck compared `version_129` and current `main` `ReorderFunctions.cpp` on the reviewed surface.
 
 Durable result:
 

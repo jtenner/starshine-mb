@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
@@ -27,7 +29,7 @@ related:
 
 ## Why this page exists
 
-This page is now anchored by the 2026-04-24 raw primary-source manifest: [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md).
+This page is now anchored by the 2026-04-24 raw primary-source manifest: [`../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md`](../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md), with the 2026-05-05 recheck keeping the freshness layer current.
 
 `reorder-functions` is small enough that it is easy to skip over.
 That makes it easy to misremember too.
@@ -119,7 +121,7 @@ It also indirectly supports the shared rule that function-body content is not be
 
 ## Freshness check
 
-I compared `version_129` and current `main` `ReorderFunctions.cpp` again on 2026-05-04.
+I compared `version_129` and current `main` `ReorderFunctions.cpp` again on 2026-05-05.
 
 Durable result:
 

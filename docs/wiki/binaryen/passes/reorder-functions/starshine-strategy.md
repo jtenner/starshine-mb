@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
@@ -42,7 +44,7 @@ The exact local status is:
 - The same boundary-only list also registers the sibling `reorder-functions-by-name`.
 - [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt):482, 552 rejects boundary-only names in `run_hot_pipeline_expand_passes(...)` instead of running a transformation.
 - The active `optimize` and `shrink` preset arrays in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) do not include `reorder-functions`.
-- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt):8692 has no `run_hot_pipeline_apply_module_pass(...)` case for `reorder-functions`.
+- [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt):8912-8940 has no `run_hot_pipeline_apply_module_pass(...)` case for `reorder-functions`.
 - [`agent-todo.md`](../../../../../agent-todo.md) has no dedicated active implementation slice for `reorder-functions`.
 
 So the current local strategy is honest non-implementation: keep the name recognizable, reject active requests clearly, and document the future module-pass shape before adding code.

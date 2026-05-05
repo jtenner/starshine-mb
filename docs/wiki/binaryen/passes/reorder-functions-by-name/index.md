@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md
   - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md
   - ../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -75,7 +77,7 @@ The real `version_129` contract is small but specific:
 - Upstream `pass.cpp` describes it as useful for debugging.
 - The sibling `reorder-functions` instead sorts by a static-use count model, so the two public names must stay separate.
 - The shipped `reorder-functions-by-name.wast` lit file proves the core positive surface directly with four checked declaration permutations that all normalize to `$a`, `$b`, `$c`.
-- A 2026-04-24 current-`main` spot check found no teaching-relevant drift on the reviewed `ReorderFunctionsByName` surface.
+- A 2026-05-05 current-`main` recheck of the shared `ReorderFunctions.cpp` surface found no teaching-relevant drift on the reviewed `ReorderFunctionsByName` surface.
 - Current Starshine tracks the name as boundary-only, rejects active requests, and has no module dispatcher case, owner file, preset role, or backlog slice for it.
 
 ## Page map

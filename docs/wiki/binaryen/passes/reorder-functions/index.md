@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/research/0439-2026-05-04-reorder-functions-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-reorder-functions-primary-sources.md
@@ -71,7 +73,7 @@ So this pass is best taught as:
 
 ## Most important durable takeaways
 
-- The implementation lives almost entirely in one tiny upstream file: `ReorderFunctions.cpp`; the 2026-04-24 raw manifest now records the official `version_129` release/source/test URLs used by this dossier.
+- The implementation lives almost entirely in one tiny upstream file: `ReorderFunctions.cpp`; the 2026-04-24 raw manifest now records the official `version_129` release/source/test URLs used by this dossier, and the 2026-05-05 recheck keeps the same contract fresh on current main.
 - `reorder-functions` only changes function declaration order; it does not rewrite bodies, and the pass explicitly reports `requiresNonNullableLocalFixups() == false`.
 - The counted surfaces in `version_129` are:
   - direct `call` targets
