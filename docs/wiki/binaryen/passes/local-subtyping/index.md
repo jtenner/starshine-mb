@@ -22,6 +22,7 @@ related:
   - ./lubs-and-dominance.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../optimize-casts/index.md
   - ../coalesce-locals/index.md
   - ../local-cse/index.md
@@ -86,6 +87,8 @@ That is more precise than both older overreads:
   Beginner-friendly before/after shape catalog covering reference-local narrowing, common-parent LUBs, tee retagging, non-null dominance, repeated refinement, param preservation, nondefaultable bailouts, and the 2026-05-05 current-main freshness refresh.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future port map: removed-name registry tracking, no dispatcher, `LS` backlog, honest preset exclusion, exact local type/validation surfaces, neighboring pass cluster, and the fresh current-main provenance bridge.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  First-slice and validation bridge for the eventual Starshine port.
 
 ## Maintenance rule
 

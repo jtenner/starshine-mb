@@ -24,6 +24,7 @@ related:
   - ../optimize-casts/index.md
   - ../coalesce-locals/index.md
   - ../local-cse/index.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `local-subtyping`: implementation structure and tests
@@ -139,6 +140,8 @@ A source-faithful port should add tests in this order:
 6. parameter preservation
 7. non-reference and tuple/nondefaultable preservation
 8. ordered neighborhood tests with `optimize-casts`, `coalesce-locals`, and `local-cse`
+
+See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the exact first-slice and validation ladder.
 
 Do not claim parity from a declaration-only rewrite unless local get/tee expression typing, non-dominated nullable gets, and repeated refinement are covered too.
 

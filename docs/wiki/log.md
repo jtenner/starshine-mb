@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | add `local-subtyping` port-readiness bridge
+
+- Added `docs/wiki/binaryen/passes/local-subtyping/starshine-port-readiness-and-validation.md` to turn the existing `local-subtyping` dossier into a complete upstream-vs-future-port set: overview, implementation map, corrected Binaryen strategy, LUB/dominance guide, WAT-shape catalog, Starshine status, and implementation-readiness bridge.
+- Kept the upstream contract unchanged: the existing 2026-05-05 raw current-main bridge still supports the same iterative set-fed LUB refinement with get-aware non-null dominance/type repair and repeated refinalization story.
+- Refreshed the folder index, Starshine strategy, implementation/test-map, top-level wiki index, pass catalog, and tracker so the new bridge is discoverable from the shared catalogs.
+
 ## [2026-05-05] maintain | complete PRV003 match proof pilot
 
 - Completed `[PRV]003` by adding `src/validate/match_proof.mbtp` with the Boolean symmetry postcondition behind `descriptor_compatible` and a focused helper in `match.mbt`.
