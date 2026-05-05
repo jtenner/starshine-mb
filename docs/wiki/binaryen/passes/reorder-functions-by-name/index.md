@@ -5,8 +5,8 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md
   - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
-  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
-  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md
+  - ../../../raw/research/0481-2026-05-05-reorder-functions-by-name-current-main-recheck.md
   - ../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md
   - ../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -21,6 +21,7 @@ related:
   - ./lexical-order-proof-and-boundaries.md
   - ./module-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-functions/index.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md
@@ -77,7 +78,8 @@ The real `version_129` contract is small but specific:
 - Upstream `pass.cpp` describes it as useful for debugging.
 - The sibling `reorder-functions` instead sorts by a static-use count model, so the two public names must stay separate.
 - The shipped `reorder-functions-by-name.wast` lit file proves the core positive surface directly with four checked declaration permutations that all normalize to `$a`, `$b`, `$c`.
-- A 2026-05-05 current-`main` recheck of the shared `ReorderFunctions.cpp` surface found no teaching-relevant drift on the reviewed `ReorderFunctionsByName` surface.
+- A 2026-05-05 current-main recheck of `ReorderFunctions.cpp`, `pass.cpp`, and the dedicated `reorder-functions-by-name.wast` surface found no teaching-relevant drift on the reviewed `ReorderFunctionsByName` surface.
+- The folder now also has a dedicated Starshine implementation-readiness bridge for the remaining module-pass gap.
 - Current Starshine tracks the name as boundary-only, rejects active requests, and has no module dispatcher case, owner file, preset role, or backlog slice for it.
 
 ## Page map
@@ -92,6 +94,8 @@ The real `version_129` contract is small but specific:
   Beginner-friendly module-order shape catalog showing direct lit-backed positive families, preserved cases, and the explicit split from count-based `reorder-functions`.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future-port map: boundary-only registry, request rejection, omitted presets, module-function permutation requirements, and exact local code locations.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge covering the module-pass gap, remap surfaces, and validation ladder.
 
 ## Current maintenance rule
 

@@ -5,8 +5,8 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md
   - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
-  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
-  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md
+  - ../../../raw/research/0481-2026-05-05-reorder-functions-by-name-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/passes/remove_unused_module_elements.mbt
@@ -19,6 +19,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./lexical-order-proof-and-boundaries.md
   - ./module-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-functions/starshine-strategy.md
   - ../reorder-locals/starshine-hot-ir-strategy.md
   - ../remove-unused-module-elements/starshine-hot-ir-strategy.md
@@ -41,6 +42,7 @@ The exact local state is:
 So the safe user-facing statement is:
 
 - Starshine recognizes the name as a future/boundary pass, but no module transform runs for it.
+- For the implementation-readiness bridge and validation ladder, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Why this is a module pass, not a HOT pass
 

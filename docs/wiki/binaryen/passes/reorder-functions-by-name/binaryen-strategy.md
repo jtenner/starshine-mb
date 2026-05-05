@@ -5,8 +5,8 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md
   - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
-  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
-  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md
+  - ../../../raw/research/0481-2026-05-05-reorder-functions-by-name-current-main-recheck.md
   - ../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md
   - ../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md
 related:
@@ -15,6 +15,7 @@ related:
   - ./lexical-order-proof-and-boundaries.md
   - ./module-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-functions/index.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md
@@ -220,7 +221,7 @@ A faithful beginner summary is:
 - It needs no nonnullable-local fixups because it never mutates body contents.
 - It keeps this as a separate public pass because lexical debugging order is a different goal from static-use-count layout.
 
-The dedicated lit file proves the core positive family directly through four declaration permutations that all normalize to `$a`, `$b`, `$c`, and a narrow 2026-05-05 current-main recheck found no teaching-relevant drift on the reviewed surface.
+The dedicated lit file proves the core positive family directly through four declaration permutations that all normalize to `$a`, `$b`, `$c`, and a narrow 2026-05-05 current-main recheck of `ReorderFunctions.cpp`, `pass.cpp`, and the dedicated lit file found no teaching-relevant drift on the reviewed surface.
 
 ## Sources
 

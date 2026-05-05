@@ -5,8 +5,8 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-reorder-functions-by-name-primary-sources.md
   - ../../../raw/research/0325-2026-04-24-reorder-functions-by-name-primary-sources-and-starshine-followup.md
-  - ../../../raw/binaryen/2026-05-05-reorder-functions-current-main-recheck.md
-  - ../../../raw/research/0475-2026-05-05-reorder-functions-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md
+  - ../../../raw/research/0481-2026-05-05-reorder-functions-by-name-current-main-recheck.md
   - ../../../raw/research/0180-2026-04-21-reorder-functions-by-name-binaryen-research.md
   - ../../../raw/research/0213-2026-04-21-reorder-functions-by-name-source-confirmation-followup.md
 related:
@@ -15,6 +15,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./lexical-order-proof-and-boundaries.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../reorder-functions/index.md
   - ../reorder-globals/index.md
   - ../reorder-locals/index.md

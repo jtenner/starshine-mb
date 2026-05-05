@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `reorder-functions-by-name` source anchors and add port-readiness bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-reorder-functions-by-name-current-main-recheck.md` plus `docs/wiki/raw/research/0481-2026-05-05-reorder-functions-by-name-current-main-recheck.md` after rechecking current `main` `ReorderFunctions.cpp`, `pass.cpp`, and `reorder-functions-by-name.wast` against the existing source-backed contract.
+- Added `docs/wiki/binaryen/passes/reorder-functions-by-name/starshine-port-readiness-and-validation.md` and refreshed the `reorder-functions-by-name` dossier, `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the supporting strategy / implementation / proof / shape pages so the folder now has a dedicated implementation-readiness bridge plus a 2026-05-05 freshness layer.
+- Recorded unchanged contract status: current `main` still teaches the same ascending-name declaration sort, and Starshine still keeps the pass boundary-only until a real module-pass permutation/remap implementation lands.
+
 ## [2026-05-05] health | refresh `global-effects` source anchors and raw manifest
 
 - Updated the `global-effects` raw current-main recheck with exact 2026-05-05 upstream line anchors for `GlobalEffects.cpp`, `pass.cpp`, and `effects.h` so the source archive now names the reviewed current-main locations explicitly.
