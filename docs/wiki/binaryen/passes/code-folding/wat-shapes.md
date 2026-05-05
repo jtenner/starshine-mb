@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
+  - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md
   - ../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md
 related:
@@ -21,7 +23,7 @@ related:
 # `code-folding` WAT Shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's `code-folding` pass.
-The 2026-04-25 current-main source bridge rechecked the dedicated Binaryen test and pass surfaces for these teaching examples and did not surface a newer shape family that changes the page's current contract. The official lit-test map now lives in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+The 2026-05-05 current-main source bridge rechecked the dedicated Binaryen test and pass surfaces for these teaching examples and did not surface a newer shape family that changes the page's current contract. The official lit-test map now lives in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 
 ## Read this page with one mental model
 
@@ -393,8 +395,10 @@ Future Starshine tests should introduce these families in the source-backed orde
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
 - [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
+- [`../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md`](../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md`](../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md)
 - [`../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md`](../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md)
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/code-folding.wast>

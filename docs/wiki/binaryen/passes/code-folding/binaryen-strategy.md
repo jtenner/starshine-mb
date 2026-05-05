@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
+  - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md
   - ../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md
 related:
@@ -24,7 +26,7 @@ related:
 
 - Use Binaryen `version_129` as the current released source oracle for this pass.
 - The raw source manifest for the 2026-04-22 tagged recheck lives in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md).
-- The 2026-04-25 current-main bridge lives in [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md) and found no teaching-relevant drift in the reviewed owner, registry, helper, constructor, or lit-test surfaces.
+- The 2026-05-05 current-main bridge lives in [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md) and found no teaching-relevant drift in the reviewed owner, registry, helper, constructor, or lit-test surfaces.
 - On 2026-04-22 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
 - The core implementation is `src/passes/CodeFolding.cpp`.
 - Scheduler placement comes from `src/passes/pass.cpp` and the after-inlining helper in `src/passes/opt-utils.h`.
@@ -50,7 +52,7 @@ Primary source URLs:
 
 ## High-level intent
 
-A focused 2026-04-25 spot check on current `main` (`CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and the dedicated `code-folding.wast` file) did not surface a new teaching-relevant drift beyond the `version_129` contract summarized here. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the source-owner and lit-test map.
+A focused 2026-05-05 spot check on current `main` (`CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and the dedicated `code-folding.wast` file) did not surface a new teaching-relevant drift beyond the `version_129` contract summarized here. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the source-owner and lit-test map.
 
 
 Binaryen uses `code-folding` to share duplicated tails of code.
@@ -363,8 +365,10 @@ Those are the durable upstream-level truths.
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
 - [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
+- [`../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md`](../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md`](../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md)
 - [`../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md`](../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodeFolding.cpp>

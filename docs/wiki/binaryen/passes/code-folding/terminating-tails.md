@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
+  - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md
   - ../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md
 related:
@@ -19,7 +21,7 @@ related:
 
 # Binaryen `code-folding` terminating tails
 
-The 2026-04-25 current-main bridge rechecked the same owner and dedicated lit-test surfaces and did not find teaching-relevant drift in this subsystem. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the owner-file and test-family map.
+The 2026-05-05 current-main bridge rechecked the same owner and dedicated lit-test surfaces and did not find teaching-relevant drift in this subsystem. See [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) for the owner-file and test-family map.
 
 This page focuses on the part of `code-folding` that is easiest to misunderstand:
 
@@ -260,8 +262,10 @@ Those are the real implementation contracts.
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
 - [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
+- [`../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md`](../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md`](../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md)
 - [`../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md`](../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/CodeFolding.cpp>

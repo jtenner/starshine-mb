@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `code-folding` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-code-folding-current-main-recheck.md` plus `docs/wiki/raw/research/0442-2026-05-05-code-folding-current-main-recheck.md` after rechecking official Binaryen `main` `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`.
+- Refreshed the `code-folding` overview, Binaryen strategy, implementation/test-map, terminating-tail, WAT-shape, Starshine strategy, and Starshine port-readiness pages so the new freshness bridge is visible from the living dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the new current-main recheck is discoverable from the shared catalogs.
+
 ## [2026-05-05] implementation | tighten `vacuum` cleanup parity
 
 - Extended Starshine's active `vacuum` hot pass beyond recursive `nop` cleanup with dropped nontrapping pure-result pruning and block-only `unreachable` unwrapping.

@@ -1,13 +1,15 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md
   - ../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md
   - ../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md
+  - ../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md
   - ../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md
   - ../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -81,7 +83,7 @@ That split is important. The pass is not one generic “merge any duplicate regi
 
 - The dossier has an immutable tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md).
 - On 2026-04-22 the reviewed official Binaryen `version_129` release page showed publish date **2026-04-01**.
-- A 2026-04-25 focused current-`main` recheck in [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md) did not surface teaching-relevant drift beyond the existing Binaryen pages. The current-main bridge specifically rechecked `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`.
+- A 2026-05-05 focused current-`main` recheck in [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md) did not surface teaching-relevant drift beyond the existing Binaryen pages. The current-main bridge specifically rechecked `CodeFolding.cpp`, `pass.cpp`, `opt-utils.h`, `passes.h`, and `code-folding.wast`.
 - A second 2026-04-25 port-readiness manifest in [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md) reuses those official primary sources to anchor the local first-slice and validation plan without changing the upstream semantic contract.
 
 ## Page map
@@ -110,8 +112,10 @@ That split is important. The pass is not one generic “merge any duplicate regi
 - [`../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-25-code-folding-port-readiness-primary-sources.md)
 - [`../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md`](../../../raw/research/0373-2026-04-25-code-folding-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-code-folding-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md`](../../../raw/binaryen/2026-04-22-code-folding-primary-sources.md)
 - [`../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md`](../../../raw/research/0351-2026-04-25-code-folding-current-main-and-test-map.md)
+- [`../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md`](../../../raw/research/0442-2026-05-05-code-folding-current-main-recheck.md)
 - [`../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md`](../../../raw/research/0112-2026-04-20-code-folding-binaryen-research.md)
 - [`../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md`](../../../raw/research/0257-2026-04-22-code-folding-primary-sources-and-starshine-followup.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
