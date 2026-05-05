@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `directize` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-directize-current-main-recheck.md` plus `docs/wiki/raw/research/0476-2026-05-05-directize-current-main-recheck.md` after rechecking current `main` `Directize.cpp`, `pass.cpp`, `passes.h`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, and the dedicated `directize*` lit files against the existing `version_129` contract.
+- Refreshed the `directize` overview, Binaryen strategy, implementation/test-map, table-info, WAT-shape, Starshine strategy, and Starshine port-readiness pages so the new 2026-05-05 freshness bridge and the exact local code anchors are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same table-facts-first indirect-call rewrite contract, and the new bridge keeps the `table.copy` mutation-barrier caveat explicit.
+
 ## [2026-05-05] fuzz | account import/export topology coverage
 
 - Added `ImportExportTopology` gen-valid feature accounting and ledger docs so FZG020 no longer reports as a zero-count future row.

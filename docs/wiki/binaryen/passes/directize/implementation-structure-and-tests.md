@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
+  - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
@@ -32,7 +34,7 @@ related:
 # Upstream implementation structure and test map for `directize`
 
 The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
-A focused 2026-04-25 current-`main` recheck on the owner and dedicated test surfaces below did not surface a new teaching-relevant contract drift beyond this page.
+A focused 2026-05-05 current-`main` recheck on the owner and dedicated test surfaces below did not surface a new teaching-relevant contract drift beyond this page.
 A 2026-04-26 port-readiness bridge now maps the same owner/test split to Starshine implementation slices in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Main implementation files
@@ -208,6 +210,8 @@ Before calling a future Starshine port faithful, verify all of these against the
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md)
+- [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)
 - [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)

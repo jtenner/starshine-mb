@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
+  - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
@@ -80,7 +82,7 @@ That is much closer to the real pass than either:
 
 - The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
 - The dossier now has an immutable raw primary-source manifest at [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md).
-- A focused 2026-04-25 current-`main` recheck is now captured at [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md); it found no teaching-relevant drift from the `version_129` contract while keeping the source-only `table.copy` mutation-barrier caveat explicit.
+- A focused 2026-05-05 current-`main` recheck is now captured at [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md); it found no teaching-relevant drift from the `version_129` contract while keeping the source-only `table.copy` mutation-barrier caveat explicit.
 - `directize` is a **late table-facts-driven call rewrite pass**, not a generic constant-propagation pass.
 - The refreshed dossier now also has a compact source-confirmed owner/test-map page, making explicit that the real `version_129` contract is split across `Directize.cpp`, `call-utils.h`, `table-utils.{h,cpp}`, `type-updating.h`, and the three dedicated `directize*` lit files.
 - A 2026-04-26 port-readiness bridge is now captured at [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md), with the repo-authored digest at [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md); it does not change the upstream algorithm, but it names the first Starshine slices as table facts, target classification, constant rewrites, `select` lowering, and late-tail scheduling.
@@ -135,6 +137,8 @@ That is much closer to the real pass than either:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md)
+- [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)
 - [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)

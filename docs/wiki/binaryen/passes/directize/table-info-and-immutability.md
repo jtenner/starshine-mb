@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
+  - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
@@ -20,7 +22,7 @@ related:
 # `directize` table info and immutability
 
 The reviewed official Binaryen `version_129` release page observed on 2026-04-22 showed publish date **2026-04-01**.
-A focused 2026-04-25 current-`main` source bridge found no teaching-relevant drift in `Directize.cpp`, `table-utils.{h,cpp}`, or the dedicated `directize*` lit files.
+A focused 2026-05-05 current-`main` source bridge found no teaching-relevant drift in `Directize.cpp`, `table-utils.{h,cpp}`, or the dedicated `directize*` lit files.
 The 2026-04-26 port-readiness bridge makes this page the source of the first Starshine slice: table facts before call rewrites.
 
 This page is the focused guide to the part of `directize` that is easiest to misunderstand:
@@ -110,7 +112,7 @@ If any of those write to a table, `mayBeModified` becomes true.
 Important note:
 
 - the shipped `directize` lit tests clearly cover `table.set`, `table.fill`, and `table.init`
-- the 2026-04-25 current-main recheck still did not find an equally explicit directize-specific test for `table.copy`
+- the 2026-05-05 current-main recheck still did not find an equally explicit directize-specific test for `table.copy`
 - the source still makes destination `table.copy` a real barrier, so a future port should too
 
 ## What `initialContentsImmutable` actually means
@@ -303,6 +305,8 @@ A faithful Starshine port should preserve:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md)
+- [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)
 - [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)

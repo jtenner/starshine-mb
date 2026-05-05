@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
+  - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
@@ -35,7 +37,7 @@ related:
 
 # Starshine Strategy For `directize`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md), the 2026-04-25 current-main source bridge in [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md), and the 2026-04-26 port-readiness bridge in [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-directize-primary-sources.md`](../../../raw/binaryen/2026-04-22-directize-primary-sources.md), the 2026-05-05 current-main source bridge in [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md), and the 2026-04-26 port-readiness bridge in [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 For the first-slice order and validation ladder, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
@@ -53,21 +55,21 @@ The current local strategy is still deliberately conservative where the upstream
 - keep the canonical no-DWARF tail slot documented but out of presets until the neighboring `string-gathering -> reorder-globals -> directize` tail can be replayed together
 - leave optional `directize-initial-contents-immutable` pass-arg behavior for a future pass-arg surface
 
-So this page is now an **implemented explicit-pass status-and-port-map** page. The earlier 2026-04-25 current-main source bridge remains the upstream contract for future preset and pass-arg work.
+So this page is now an **implemented explicit-pass status-and-port-map** page. The current 2026-05-05 current-main source bridge remains the upstream contract for future preset and pass-arg work.
 
 ## Exact local code map today
 
 The fastest read-along path through the current Starshine status is:
 
 - active module-pass registry status
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:281`
     - `pass_registry_entries()` includes `pass_registry_entry_module("directize", directize_summary())`
 - module-pass dispatch
-  - `src/passes/pass_manager.mbt`
+  - `src/passes/pass_manager.mbt:8940`
     - `run_hot_pipeline_apply_module_pass(...)` routes `"directize"` to `directize_run_module_pass(...)`
 - implementation and focused tests
-  - `src/passes/directize.mbt`
-  - `src/passes/directize_test.mbt`
+  - `src/passes/directize.mbt:933`
+  - `src/passes/directize_test.mbt:2`
 - backlog and delivery plan
   - `agent-todo.md:689-701`
     - `DIR` slice under the Binaryen no-DWARF default optimize pathway parity section, now recording direct explicit-pass oracle evidence
@@ -234,6 +236,8 @@ So the right mental model today is:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md)
+- [`../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md`](../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md)
 - [`../../../raw/research/0380-2026-04-26-directize-port-readiness.md`](../../../raw/research/0380-2026-04-26-directize-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md)

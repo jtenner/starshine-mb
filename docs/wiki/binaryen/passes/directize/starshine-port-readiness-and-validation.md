@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-directize-current-main-recheck.md
+  - ../../../raw/research/0476-2026-05-05-directize-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-directize-port-readiness-primary-sources.md
   - ../../../raw/research/0380-2026-04-26-directize-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-directize-current-main-recheck.md
@@ -82,11 +84,11 @@ would be teaching the wrong architecture. The first real local contract is table
 
 ### Pass registry and request behavior
 
-- `src/passes/optimize.mbt`
+- `src/passes/optimize.mbt:281`
   - `pass_registry_entries()` includes `pass_registry_entry_module("directize", directize_summary())`.
-- `src/passes/pass_manager.mbt`
+- `src/passes/pass_manager.mbt:8940`
   - `run_hot_pipeline_apply_module_pass(...)` routes `"directize"` to `directize_run_module_pass(...)`.
-- `src/passes/directize.mbt`
+- `src/passes/directize.mbt:933`
   - implements the module-facts-driven default directize pass for constant targets, known traps, and narrow known-target `select` lowering.
 
 This is the executable local truth today: active explicit module pass with direct Binaryen oracle evidence for the default pass behavior.
