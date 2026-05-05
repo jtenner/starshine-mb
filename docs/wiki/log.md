@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `local-subtyping` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md` plus `docs/wiki/raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md` after rechecking official Binaryen current-main `LocalSubtyping.cpp`, `pass.cpp`, and the dedicated `local-subtyping.wast` surface.
+- Refreshed the `local-subtyping` overview, Binaryen strategy, implementation/test-map, LUB/dominance guide, WAT-shape catalog, Starshine strategy, shared catalogs, and wiki index so the new 2026-05-05 provenance is visible from the living dossier.
+- Recorded unchanged local status: Starshine still keeps `local-subtyping` removed-registry only, with no dispatcher case and no implementation file.
+
 ## [2026-05-05] health | refresh `dataflow-optimization` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-dataflow-optimization-current-main-recheck.md` plus `docs/wiki/raw/research/0446-2026-05-05-dataflow-optimization-current-main-recheck.md` after rechecking official Binaryen current-main `DataFlowOpts.cpp`, `graph.h`, `node.h`, `users.h`, `utils.h`, `flat.h`, `pass.cpp`, and the combo `flatten_simplify-locals-nonesting_dfo_O3.wast` surface.

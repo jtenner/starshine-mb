@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
+  - ../../../raw/research/0447-2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
   - ../../../raw/binaryen/2026-04-22-local-subtyping-primary-sources.md
   - ../../../raw/research/0362-2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -70,19 +72,20 @@ That is more precise than both older overreads:
 - The pass is iterative and uses `ReFinalize()` between improvement rounds.
 - The dedicated official lit file proves repeated refinement, dominance, tee retagging, parameter preservation, nondefaultable preservation, and local-cleanup-neighborhood interactions.
 - The 2026-04-25 current-main spot check found no teaching-relevant drift from the tagged `version_129` owner/test contract; the important change is a correction to this repo's earlier interpretation.
+- The 2026-05-05 current-main recheck keeps that correction fresh without changing the pass contract.
 
 ## Page map
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
-  Corrected Binaryen strategy: GC gate, relevant-local scan, set-fed LUBs, get-aware dominance/type repair, iterative refinalization, body-local rewrite, and scheduler placement before `coalesce-locals`.
+  Corrected Binaryen strategy: GC gate, relevant-local scan, set-fed LUBs, get-aware dominance/type repair, iterative refinalization, body-local rewrite, scheduler placement before `coalesce-locals`, and the 2026-05-05 current-main freshness recheck.
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
-  Source-confirmed owner/helper/test map for upstream Binaryen plus exact current Starshine registry, dispatcher-gap, preset-honesty, backlog, type-model, validator, and HOT-local prerequisite surfaces.
+  Source-confirmed owner/helper/test map for upstream Binaryen plus exact current Starshine registry, dispatcher-gap, preset-honesty, backlog, type-model, validator, and HOT-local prerequisite surfaces, now with a 2026-05-05 current-main freshness layer.
 - [`./lubs-and-dominance.md`](./lubs-and-dominance.md)
-  Dedicated guide to LUBs, gets, dominance, nullability, repeated refinement, and why the 2026-04-22 set-only wording is superseded.
+  Dedicated guide to LUBs, gets, dominance, nullability, repeated refinement, and why the 2026-04-22 set-only wording is superseded; the 2026-05-05 recheck keeps that correction intact.
 - [`./wat-shapes.md`](./wat-shapes.md)
-  Beginner-friendly before/after shape catalog covering reference-local narrowing, common-parent LUBs, tee retagging, non-null dominance, repeated refinement, param preservation, and nondefaultable bailouts.
+  Beginner-friendly before/after shape catalog covering reference-local narrowing, common-parent LUBs, tee retagging, non-null dominance, repeated refinement, param preservation, nondefaultable bailouts, and the 2026-05-05 current-main freshness refresh.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
-  Current Starshine status and future port map: removed-name registry tracking, no dispatcher, `LS` backlog, honest preset exclusion, exact local type/validation surfaces, and neighboring pass cluster.
+  Current Starshine status and future port map: removed-name registry tracking, no dispatcher, `LS` backlog, honest preset exclusion, exact local type/validation surfaces, neighboring pass cluster, and the fresh current-main provenance bridge.
 
 ## Maintenance rule
 
