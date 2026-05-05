@@ -114,7 +114,7 @@ Starshine does not implement `local-cse` yet. The relevant local files are statu
 
 | Local file | Exact role today |
 | --- | --- |
-| `src/passes/optimize.mbt:144-151` | `pass_registry_removed_names()` includes `local-cse`, so active requests are intentionally rejected rather than silently ignored. |
+| `src/passes/optimize.mbt:145-146` | `pass_registry_removed_names()` includes `local-cse`, so active requests are intentionally rejected rather than silently ignored. |
 | `src/passes/optimize.mbt:522-524` | Removed-name requests return the active-pipeline rejection error before any pass dispatch. |
 | `src/passes/pass_manager.mbt:8995-9001` | Module-pass dispatch block has no `local-cse` case; there is also no `src/passes/local_cse.mbt` owner file. |
 | `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:176`, `src/passes/simplify_locals.mbt:4132` | Existing HOT local cleanup has sinkable/effect-conflict machinery and the full `simplify-locals` entry point, but it is the downstream cleanup neighbor rather than a CSE implementation. |
