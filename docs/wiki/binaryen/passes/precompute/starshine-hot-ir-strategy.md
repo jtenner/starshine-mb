@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
+  - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md
   - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
   - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
@@ -53,6 +55,7 @@ But it is still much smaller than upstream Binaryen plain `precompute`, and much
 ## Exact local code map
 
 The 2026-04-26 readiness capture confirms that the important local follow-along points are `src/passes/precompute.mbt:1-1158` for HOT rewrites, `src/passes/pass_manager.mbt:8185-8484` for writeback validation / escape-carrier guards, `src/passes/optimize.mbt:207-276` and `394-417` for registry and preset placement, and `src/passes/precompute_test.mbt:1-342` for the current focused proof lane.
+The 2026-05-05 current-main recheck did not move those follow-along points.
 
 ## 1. Registry entry and user-visible summary
 

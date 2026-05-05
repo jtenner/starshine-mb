@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
+  - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
 related:
   - ./index.md
@@ -14,6 +16,7 @@ related:
 # `precompute` WAT shapes
 
 This page is the beginner-friendly shape catalog for Binaryen's `precompute` pass family.
+The 2026-05-05 current-main recheck did not surface a new shape family that changes the teaching contract here.
 
 ## Read this page with one mental model
 

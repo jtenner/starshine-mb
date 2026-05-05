@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
+  - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md
   - ../../../raw/research/0400-2026-04-26-precompute-port-readiness.md
   - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
@@ -173,7 +175,7 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
 
 - Treat this folder as the canonical home for future plain `precompute` parity work and family-level context.
 - Treat [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md) as the immutable provenance anchor for the reviewed official release, source, and test URLs.
-- Treat [`../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md) as the current-main / local-code-location bridge until the project deliberately bumps the Binaryen oracle baseline.
+- Treat [`../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md) as the current-main / local-code-location bridge until the project deliberately bumps the Binaryen oracle baseline; the 2026-05-05 recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) confirms no teaching-relevant drift on the reviewed surfaces.
 - Treat [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md) as the compact owner/test attribution page when future threads need to answer “which file proves what?” instead of reopening that same gap from scratch.
 - Use [`../precompute-propagate/index.md`](../precompute-propagate/index.md) as the canonical home for the separate public aggressive / nested-rerun sibling.
 - Use Binaryen `version_129` as the current source oracle for new conclusions.
@@ -188,6 +190,8 @@ Treat those as newer-trunk drift notes, not as silent edits to the `version_129`
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md)
+- [`../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md`](../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-precompute-current-main-port-readiness.md)
 - [`../../../raw/research/0400-2026-04-26-precompute-port-readiness.md`](../../../raw/research/0400-2026-04-26-precompute-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md)

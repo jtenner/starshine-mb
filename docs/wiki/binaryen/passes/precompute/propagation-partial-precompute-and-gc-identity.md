@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
+  - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
 related:
   - ./index.md
@@ -14,6 +16,7 @@ related:
 # `precompute`: propagation, partial precompute, and GC identity
 
 This page covers the three parts of Binaryen `precompute` that are easiest to underestimate:
+A 2026-05-05 current-main recheck kept this split and the GC-identity / emitability story stable on the reviewed surfaces.
 
 1. `precompute` and `precompute-propagate` are not the same pass mode
 2. partial precompute is a separate upward-moving algorithm, not a minor special case

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md
+  - ../../../raw/research/0468-2026-05-05-precompute-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-precompute-primary-sources.md
   - ../../../raw/research/0132-2026-04-20-precompute-binaryen-research.md
   - ../../../raw/research/0229-2026-04-21-precompute-implementation-followup.md
@@ -21,6 +23,7 @@ related:
 
 Use Binaryen `version_129` as the current source oracle for this pass family.
 For the immutable manifest of the reviewed official release, source, and representative test URLs, see [`../../../raw/binaryen/2026-04-22-precompute-primary-sources.md`](../../../raw/binaryen/2026-04-22-precompute-primary-sources.md).
+A 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-precompute-current-main-recheck.md) found no teaching-relevant drift on the reviewed owner, scheduler, and representative test surfaces.
 
 Primary files:
 

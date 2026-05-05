@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `precompute` current-main bridge and freshness layer
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-precompute-current-main-recheck.md` plus `docs/wiki/raw/research/0468-2026-05-05-precompute-current-main-recheck.md` after rechecking current `main` `Precompute.cpp`, `pass.cpp`, `opt-utils.h`, and representative `precompute*.wast` surfaces against the existing `version_129` contract.
+- Refreshed the `precompute` overview, Binaryen strategy, implementation/test-map, Starshine strategy, Starshine port-readiness bridge, shared catalogs, and wiki index / tracker entries so the new 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same shared `Precompute.cpp` semantic-evaluator core and plain-vs-propagate split, and Starshine still keeps `precompute` as an active HOT fold-and-cleanup fixpoint rather than a full interpreter port.
+
 ## [2026-05-05] health | refresh `global-type-optimization` current-main bridge and add port-readiness bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md` plus `docs/wiki/raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md` after rechecking current `main` `GlobalTypeOptimization.cpp`, `pass.cpp`, and `gto_and_cfp_in_O.wast` against the existing `version_129` contract.
