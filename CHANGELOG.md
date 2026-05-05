@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: widen exception try-table generation
+
+- **complete FZG013 by adding coverage-forced mixed `try_table` catch matrices for void and `exnref` results, wiring `ExceptionTryTableMatrix` feature accounting and floor coverage, and updating the generator ledger** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: account gen-valid string operation surface
 
 - **complete FZG012 by wiring the supported string instruction surface (`string.const`, string array new/encode variants) into exact gen-valid feature accounting and feature-floor tests; measurement, comparison, hash, view, and iterator string forms remain out of scope until the AST/validator add them** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).

@@ -3576,7 +3576,7 @@ pub fn validate_valid_feature_actual_count(
     GcConstructors => stats.gc_constructors
     GcAccessors => stats.gc_accessors
     StringOps => stats.string_ops
-    ExceptionTryTableMatrix => 0
+    ExceptionTryTableMatrix => stats.exception_try_table_matrix
     SimdPhase1 => 0
     SimdPhase2 => 0
     SimdPhase3 => 0
@@ -6345,6 +6345,27 @@ test "gen_valid coverage-forced emits gc constructor and accessor surface" {
       { key: GcConstructors, min_count: 1 },
       { key: GcAccessors, min_count: 1 },
       { key: StringOps, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+test "gen_valid coverage-forced emits exception try_table matrix surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26013UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  assert_true(facts.has_exception_try_table_matrix)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, ExceptionTryTableMatrix) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: ExceptionTryTableMatrix, min_count: 1 },
     ]),
     [],
   )

@@ -320,6 +320,7 @@ pub struct GenValidFeatureFacts {
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
+  has_exception_try_table_matrix : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidFeatureStats {
@@ -361,6 +362,7 @@ pub struct GenValidFeatureStats {
   gc_constructors : Int
   gc_accessors : Int
   string_ops : Int
+  exception_try_table_matrix : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
 pub fn GenValidFeatureStats::record(Self, GenValidFeatureFacts) -> Self

@@ -374,6 +374,7 @@ pub struct GenValidFeatureFacts {
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
+  has_exception_try_table_matrix : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -416,6 +417,7 @@ pub struct GenValidFeatureStats {
   gc_constructors : Int
   gc_accessors : Int
   string_ops : Int
+  exception_try_table_matrix : Int
 } derive(Eq, Debug)
 
 ///|
@@ -496,6 +498,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.gc_accessors.output(logger)
   logger.write_string(", string_ops: ")
   self.string_ops.output(logger)
+  logger.write_string(", exception_try_table_matrix: ")
+  self.exception_try_table_matrix.output(logger)
   logger.write_char('}')
 }
 
@@ -540,6 +544,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     gc_constructors: 0,
     gc_accessors: 0,
     string_ops: 0,
+    exception_try_table_matrix: 0,
   }
 }
 
@@ -604,6 +609,8 @@ pub fn GenValidFeatureStats::record(
     gc_accessors: self.gc_accessors +
     gen_valid_bool_count(facts.has_gc_accessors),
     string_ops: self.string_ops + gen_valid_bool_count(facts.has_string_ops),
+    exception_try_table_matrix: self.exception_try_table_matrix +
+    gen_valid_bool_count(facts.has_exception_try_table_matrix),
   }
 }
 
@@ -633,6 +640,7 @@ priv struct GenValidInstrFacts {
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
+  has_exception_try_table_matrix : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -666,6 +674,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_gc_constructors: false,
     has_gc_accessors: false,
     has_string_ops: false,
+    has_exception_try_table_matrix: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -2264,6 +2273,34 @@ fn gen_valid_append_natural_mixed_catch_stmt(
     return false
   }
   let tag_idx = TagIdx::new(0U)
+  if ctx.random_bool() {
+    out.push(
+      Instruction::block(
+        BlockType::void_(),
+        Expr::new([
+          Instruction::try_table(
+            BlockType::void_(),
+            [
+              Catch::new(tag_idx, LabelIdx::new(0U)),
+              Catch::all(LabelIdx::new(0U)),
+            ],
+            Expr::new([
+              Instruction::i32_const(I32(1)),
+              Instruction::if_(
+                BlockType::void_(),
+                [Instruction::throw_(tag_idx)],
+                Some([
+                  Instruction::ref_null(HeapType::abs(AbsHeapType::exn())),
+                  Instruction::throw_ref(),
+                ]),
+              ),
+            ]),
+          ),
+        ]),
+      ),
+    )
+    return true
+  }
   let exnref = ValType::ref_type(
     RefType::new(false, HeapType::abs(AbsHeapType::exn())),
   )
@@ -3476,6 +3513,73 @@ fn gen_valid_append_i31_extern_conversion_ops(
 }
 
 ///|
+fn gen_valid_try_table_has_exception_matrix(catches : Array[Catch]) -> Bool {
+  let mut has_catch = false
+  let mut has_catch_ref = false
+  let mut has_catch_all = false
+  let mut has_catch_all_ref = false
+  for catch_ in catches {
+    match catch_ {
+      Catch(_, _) => has_catch = true
+      CatchRef(_, _) => has_catch_ref = true
+      CatchAll(_) => has_catch_all = true
+      CatchAllRef(_) => has_catch_all_ref = true
+    }
+  }
+  (has_catch && has_catch_all) || (has_catch_ref && has_catch_all_ref)
+}
+
+///|
+fn gen_valid_append_exception_try_table_matrix_ops(
+  out : Array[Instruction],
+  ctx : GenValidContext,
+  env : GenValidBodyEnv,
+) -> Unit {
+  if !ctx.config.features.allow_ref_types || env.tags.is_empty() {
+    return
+  }
+  let tag_idx = TagIdx::new(0U)
+  let exnref = ValType::ref_type(
+    RefType::new(false, HeapType::abs(AbsHeapType::exn())),
+  )
+  out.push(
+    Instruction::block(
+      BlockType::void_(),
+      Expr::new([
+        Instruction::try_table(
+          BlockType::void_(),
+          [Catch::new(tag_idx, LabelIdx::new(0U)), Catch::all(LabelIdx::new(0U))],
+          Expr::new([
+            Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
+            Instruction::if_(
+              BlockType::void_(),
+              [Instruction::throw_(tag_idx)],
+              Some([
+                Instruction::ref_null(HeapType::abs(AbsHeapType::exn())),
+                Instruction::throw_ref(),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    ),
+  )
+  out.push(
+    Instruction::block(
+      BlockType::val_type(exnref),
+      Expr::new([
+        Instruction::try_table(
+          BlockType::val_type(exnref),
+          [Catch::ref_(tag_idx, LabelIdx::new(0U)), Catch::all_ref(LabelIdx::new(0U))],
+          Expr::new([Instruction::throw_(tag_idx)]),
+        ),
+      ]),
+    ),
+  )
+  out.push(Instruction::drop())
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -3485,6 +3589,7 @@ fn gen_valid_append_coverage_prelude(
   gen_valid_append_gc_prelude(out, ctx, env)
   gen_valid_append_basic_ref_ops(out, ctx)
   gen_valid_append_i31_extern_conversion_ops(out, ctx)
+  gen_valid_append_exception_try_table_matrix_ops(out, ctx, env)
   gen_valid_append_expanded_scalar_numeric_ops(out)
   gen_valid_append_core_control_ops(out, ctx, env)
   gen_valid_append_tail_call_ops(out, ctx, env, returns)
@@ -5015,6 +5120,8 @@ fn gen_valid_merge_instr_facts(
     right.has_gc_constructors,
     has_gc_accessors: left.has_gc_accessors || right.has_gc_accessors,
     has_string_ops: left.has_string_ops || right.has_string_ops,
+    has_exception_try_table_matrix: left.has_exception_try_table_matrix ||
+    right.has_exception_try_table_matrix,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -5378,13 +5485,15 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
       }
       facts
     }
-    TryTable(bt, _, body) => {
+    TryTable(bt, catches, body) => {
       let (has_ref, has_v128) = gen_valid_scan_block_type(bt)
       let body_facts = gen_valid_scan_expr(body)
       GenValidInstrFacts::{
         ..body_facts,
         uses_ref_types: body_facts.uses_ref_types || has_ref,
         uses_v128: body_facts.uses_v128 || has_v128,
+        has_exception_try_table_matrix: body_facts.has_exception_try_table_matrix ||
+        gen_valid_try_table_has_exception_matrix(catches),
         control_nodes: body_facts.control_nodes + 1,
         branch_ops: body_facts.branch_ops + 1,
       }
@@ -5495,6 +5604,7 @@ pub fn gen_valid_feature_facts(
   let mut has_gc_constructors = false
   let mut has_gc_accessors = false
   let mut has_string_ops = false
+  let mut has_exception_try_table_matrix = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -5609,6 +5719,8 @@ pub fn gen_valid_feature_facts(
             expr_facts.has_gc_constructors
           has_gc_accessors = has_gc_accessors || expr_facts.has_gc_accessors
           has_string_ops = has_string_ops || expr_facts.has_string_ops
+          has_exception_try_table_matrix = has_exception_try_table_matrix ||
+            expr_facts.has_exception_try_table_matrix
           control_nodes += expr_facts.control_nodes
           branch_ops += expr_facts.branch_ops
         }
@@ -5669,6 +5781,8 @@ pub fn gen_valid_feature_facts(
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
               has_string_ops = has_string_ops || facts.has_string_ops
+              has_exception_try_table_matrix = has_exception_try_table_matrix ||
+                facts.has_exception_try_table_matrix
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -5704,7 +5818,9 @@ pub fn gen_valid_feature_facts(
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
-              has_string_ops = has_string_ops || facts.has_string_ops
+                has_string_ops = has_string_ops || facts.has_string_ops
+                has_exception_try_table_matrix = has_exception_try_table_matrix ||
+                  facts.has_exception_try_table_matrix
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -5738,7 +5854,9 @@ pub fn gen_valid_feature_facts(
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
-              has_string_ops = has_string_ops || facts.has_string_ops
+                has_string_ops = has_string_ops || facts.has_string_ops
+                has_exception_try_table_matrix = has_exception_try_table_matrix ||
+                  facts.has_exception_try_table_matrix
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -5783,6 +5901,8 @@ pub fn gen_valid_feature_facts(
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
               has_string_ops = has_string_ops || facts.has_string_ops
+              has_exception_try_table_matrix = has_exception_try_table_matrix ||
+                facts.has_exception_try_table_matrix
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -5824,6 +5944,8 @@ pub fn gen_valid_feature_facts(
         has_gc_constructors = has_gc_constructors || facts.has_gc_constructors
         has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
         has_string_ops = has_string_ops || facts.has_string_ops
+        has_exception_try_table_matrix = has_exception_try_table_matrix ||
+          facts.has_exception_try_table_matrix
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
       }
@@ -5868,5 +5990,6 @@ pub fn gen_valid_feature_facts(
     has_gc_constructors,
     has_gc_accessors,
     has_string_ops,
+    has_exception_try_table_matrix,
   }
 }
