@@ -39,6 +39,14 @@ The main official sources are Binaryen `version_129` and current `main`:
 - `src/passes/pass.cpp`
 - `test/lit/passes/type-generalizing.wast`
 
+Specific current-main locations that teach the contract:
+
+- [`TypeGeneralizing.cpp#L3733-L3773`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp#L3733-L3773) for nested DCE, CFG build, backward analysis, local rewrite, and refinalization.
+- [`TypeGeneralizing.cpp#L3777-L3795`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/TypeGeneralizing.cpp#L3777-L3795) for `local.get` and `local.tee` repair.
+- [`pass.cpp#L3348-L3352`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp#L3348-L3352) for the hidden test-pass registration and "not yet sound" description.
+- [`type-generalizing.wast#L3803-L3919`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/type-generalizing.wast#L3803-L3919) for the `call_ref` parameter/result/impossible families.
+- [`type-generalizing.wast#L3961-L4017`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/type-generalizing.wast#L3961-L4017) for struct constructor and struct-read coverage.
+
 A 2026-05-05 current-main recheck on the same reviewed surfaces found no teaching-relevant drift.
 
 The 2026-04-24 raw manifest is superseded for mechanics. It is still useful only as audit history for how the dossier got corrected twice.

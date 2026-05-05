@@ -97,9 +97,6 @@ Observed unique-pass order
 - [VQ]001 - Cleanup Semantics Audit
   - Deliverables: continue confirming additional empty-structure and detached-residue families Binaryen drops; preserve typed block correctness.
 
-- [VQ]002 - Repeated-Slot Regression Matrix
-  - Deliverables: write regressions around empty structures and detached nodes; verify slot ordering in the public preset; replay pass parity against Binaryen on the artifact.
-
 #### RL - Reorder Locals
 
 - [RL]003 - Boundary Policy and Artifact Compare

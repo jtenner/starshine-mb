@@ -61,6 +61,65 @@ test "vacuum unwraps block that only contains unreachable" {
 }
 
 ///|
+test "repeated vacuum slots keep empty cleanup byte-stable" {
+  let input = pass_test_module_from_wat(
+    "(module (func nop block unreachable end nop))",
+  )
+  let once = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected first vacuum cleanup success, got \{err}")
+  }
+  let twice = match
+    run_hot_pipeline(once, HotPipelineOptions::new(), ["vacuum"]) {
+    Ok(mod) => mod
+    Err(err) => fail("expected second vacuum cleanup success, got \{err}")
+  }
+  match @validate.validate_module(twice) {
+    Ok(_) => ()
+    Err(err) => fail("expected repeated-vacuum module to validate, got \{err}")
+  }
+  match twice.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr([instr]))])) =>
+      match instr {
+        @lib.Instruction::Unreachable => ()
+        other =>
+          fail(
+            "expected repeated vacuum to leave only unreachable, got \{other}",
+          )
+      }
+    other =>
+      fail("expected single repeated-vacuum function output, got \{other}")
+  }
+}
+
+///|
+test "vacuum repeated-slot matrix drops detached pure residues" {
+  let input = pass_test_module_from_wat(
+    "(module (func (local i32) (drop (i32.add (i32.const 1) (i32.const 2))) nop (local.set 0 (i32.const 4)) nop))",
+  )
+  let optimized = match
+    run_hot_pipeline(input, HotPipelineOptions::new(), ["vacuum", "vacuum"]) {
+    Ok(mod) => mod
+    Err(err) =>
+      fail("expected repeated vacuum residue cleanup success, got \{err}")
+  }
+  match @validate.validate_module(optimized) {
+    Ok(_) => ()
+    Err(err) => fail("expected residue-cleaned module to validate, got \{err}")
+  }
+  match optimized.code_sec {
+    Some(@lib.CodeSec([@lib.Func(_, @lib.Expr(instrs))])) =>
+      assert_eq(instrs, [
+        @lib.Instruction::i32_const(@lib.I32(4)),
+        @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+      ])
+    other =>
+      fail("expected single residue-cleaned function output, got \{other}")
+  }
+}
+
+///|
 test "run_hot_pipeline emits trace markers for hot passes" {
   let input = pass_test_module_from_wat(
     "(module (func (result i32) nop i32.const 9))",

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Passes: add repeated vacuum slot regressions
+
+- **complete VQ002 by adding a repeated-vacuum regression matrix for empty-structure cleanup byte stability and detached pure-residue deletion, then pruning the completed backlog slice** by **@OpenAI**. Updated [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Wiki: refresh `type-generalizing` current-main bridge
 
 - **add a 2026-05-05 current-main recheck manifest, matching research note, and freshness-layer refresh for the `type-generalizing` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md), [`docs/wiki/raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](./docs/wiki/raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md), [`docs/wiki/binaryen/passes/type-generalizing/`](./docs/wiki/binaryen/passes/type-generalizing/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
