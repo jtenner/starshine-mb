@@ -1,0 +1,11 @@
+predicate descriptor_compatible_bool_symmetry_post(
+  a : Bool,
+  b : Bool,
+  result : Bool,
+) {
+  if a {
+    result == true
+  } else {
+    result == b
+  }
+}

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] maintain | complete PRV003 match proof pilot
+
+- Completed `[PRV]003` by adding `src/validate/match_proof.mbtp` with the Boolean symmetry postcondition behind `descriptor_compatible` and a focused helper in `match.mbt`.
+- Added executable descriptor-match regressions for symmetric abstract refs plus equal and unequal exact-struct shapes, and updated the proof strategy to mark direct `src/validate/match.mbt` proving as an optional pilot rather than a required CI gate.
+
 ## [2026-05-05] health | refresh `dae2` current-main spotcheck and exact Starshine anchors
 
 - Added an official GitHub web spotcheck to `docs/wiki/raw/binaryen/2026-05-05-dae2-current-main-recheck.md` so the current-main capture now names the `DeadArgumentElimination2.cpp`, `pass.cpp`, and `dae2.wast` source pages explicitly.

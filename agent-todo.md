@@ -209,9 +209,6 @@ Suggested Tests
 - `moon test`
 - `moon info && moon fmt`
 
-- [PRV]003 - `match.mbt` Algebraic and Recursive-Proof Pilot
-  - Deliverables: add `src/validate/match_proof.mbtp`; prove small high-value facts such as `descriptor_compatible` symmetry and equal-shape match properties; establish vocabulary for recursive match reasoning.
-
 - [PRV]004 - `TcState` Stack-Discipline Proof Slice
   - Deliverables: prove helper-layer facts around `push1`, `pop1`, `pop_expect`, `push_types`, `pop_types`, `validate_end_stack`, and `normalize_*_if_branch_exit`; extract a proof-friendly helper file first if needed.
 

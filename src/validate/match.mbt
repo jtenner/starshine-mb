@@ -14,6 +14,16 @@ pub fn descriptor_compatible(r0 : RefType, r1 : RefType, env : Env) -> Bool {
 }
 
 ///|
+fn descriptor_compatible_bool_symmetry(
+  a : Bool,
+  b : Bool,
+) -> Bool where {
+  proof_ensure: result => descriptor_compatible_bool_symmetry_post(a, b, result),
+} {
+  a || b
+}
+
+///|
 pub impl[T : Match] Match for Array[T] with matches(self, other, env) {
   if self.length() != other.length() {
     return false

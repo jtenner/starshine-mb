@@ -57,6 +57,7 @@ using @lib {
   type MemSec,
   type MemType,
   type Module,
+  type Mut,
   type Name,
   type NameAssoc,
   type NameMap,
