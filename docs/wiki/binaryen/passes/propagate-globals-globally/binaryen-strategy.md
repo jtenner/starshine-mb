@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
+  - ../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md
   - ../../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md
 related:
@@ -21,7 +23,7 @@ related:
 
 ## Upstream source rule
 
-Use Binaryen `version_129` as the current source oracle for this pass. The 2026-04-24 raw manifest captures the official release page, `SimplifyGlobals.cpp`, `pass.cpp`, the dedicated lit file, helper surfaces, and a narrow current-`main` spot check: [`../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md`](../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md).
+Use Binaryen `version_129` as the current source oracle for this pass. The 2026-04-24 raw manifest captures the official release page, `SimplifyGlobals.cpp`, `pass.cpp`, the dedicated lit file, helper surfaces, and the first narrow current-`main` spot check; the 2026-05-05 recheck keeps that freshness layer current: [`../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md).
 
 Primary source URLs:
 
@@ -118,7 +120,7 @@ Those belong to neighboring passes or sibling modes.
 
 ## Current-main drift check
 
-The raw capture records a narrow 2026-04-24 current-`main` spot check. The same teaching-relevant surfaces remained in place: `pass.cpp` registration, `SimplifyGlobals.cpp` subclass boundary, and the dedicated lit-file contract. This is not an exhaustive semantic diff against trunk.
+The 2026-05-05 current-main recheck on `SimplifyGlobals.cpp`, `pass.cpp`, and `propagate-globals-globally.wast` still shows the same teaching-relevant surfaces: `pass.cpp` registration, the `SimplifyGlobals.cpp` subclass boundary, and the dedicated lit-file contract. This is not an exhaustive semantic diff against trunk, but it is enough to keep the wiki freshness layer honest.
 
 ## Relationship to Starshine
 
@@ -128,3 +130,4 @@ Starshine currently keeps this pass as boundary-only and rejects explicit reques
 
 - [`../../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md`](../../../raw/research/0162-2026-04-21-propagate-globals-globally-binaryen-research.md) is superseded for the standalone `PropagateGlobals.cpp` source-layout claim.
 - [`../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md`](../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md) is superseded for helper-name, reverse-scan, and `optimize=false` boundary wording. Its main source-file correction remains useful historical context.
+- [`../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md`](../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md) is the freshness bridge for the 2026-05-05 source spot check.

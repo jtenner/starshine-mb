@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
+  - ../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md
 related:
   - ./index.md
@@ -54,7 +56,7 @@ The pass works on module expressions evaluated at instantiation/startup time:
 - active element segment offsets
 - active data segment offsets
 
-It does not walk ordinary function bodies.
+It does not walk ordinary function bodies. The 2026-05-05 current-main recheck on `SimplifyGlobals.cpp`, `pass.cpp`, and `propagate-globals-globally.wast` still matched that startup-only boundary.
 
 ## What counts as “known”
 

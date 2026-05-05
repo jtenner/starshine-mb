@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `propagate-globals-globally` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md` plus `docs/wiki/raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md` after rechecking current `main` `SimplifyGlobals.cpp`, `pass.cpp`, and `propagate-globals-globally.wast` against the existing `version_129` contract.
+- Refreshed the `propagate-globals-globally` overview, Binaryen strategy, implementation/test-map, startup-boundary guide, WAT-shape catalog, Starshine strategy, shared catalogs, and wiki index / tracker entries so the 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still exposes the same `PropagateGlobalsGlobally` subclass and startup-only propagation boundary, while Starshine remains boundary-only and unimplemented.
+
 ## [2026-05-05] health | refresh `remove-unused-non-function-elements` with current-main bridge and Binaryen strategy
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md` plus `docs/wiki/raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md` after rechecking current `main` `RemoveUnusedModuleElements.cpp`, `pass.cpp`, `passes.h`, `module-utils.h`, and the dedicated sibling fixture against the existing Binaryen `version_129` contract.

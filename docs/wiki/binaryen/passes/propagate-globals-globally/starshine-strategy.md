@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
+  - ../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
   - ../../../../../src/lib/types.mbt
@@ -39,14 +41,16 @@ The exact local behavior is:
 - there is no owner file
 - there is no active backlog slice in `agent-todo.md`
 
+A 2026-05-05 current-main recheck of `SimplifyGlobals.cpp`, `pass.cpp`, and `propagate-globals-globally.wast` kept this status unchanged.
+
 ## Exact code map
 
 | Local file | What to read | Why it matters |
 | --- | --- | --- |
-| [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | `pass_registry_boundary_only_names()` includes `propagate-globals-globally`. | Source of truth for current boundary-only status. |
-| [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | `optimize_preset_passes(...)` and `shrink_preset_passes(...)`. | The pass has no active preset role. |
-| [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) | `run_hot_pipeline_expand_passes(...)`. | Boundary-only requests return the standard not-implemented error before dispatch. |
-| [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt) | `run_hot_pipeline_apply_module_pass(...)`. | There is no module-pass case for this name. |
+| [`src/passes/optimize.mbt#L127-L149`](../../../../../src/passes/optimize.mbt#L127-L149) | `pass_registry_boundary_only_names()` includes `propagate-globals-globally`. | Source of truth for current boundary-only status. |
+| [`src/passes/optimize.mbt#L434-L454`](../../../../../src/passes/optimize.mbt#L434-L454) | `optimize_preset_passes(...)` and `shrink_preset_passes(...)`. | The pass has no active preset role. |
+| [`src/passes/optimize.mbt#L520-L524`](../../../../../src/passes/optimize.mbt#L520-L524) | `run_hot_pipeline_expand_passes(...)`. | Boundary-only requests return the standard not-implemented error before dispatch. |
+| [`src/passes/pass_manager.mbt#L8912-L8930`](../../../../../src/passes/pass_manager.mbt#L8912-L8930) | `run_hot_pipeline_apply_module_pass(...)`. | There is no module-pass case for this name. |
 | [`../../../../../src/lib/types.mbt`](../../../../../src/lib/types.mbt) | `GlobalSec`, `Global`, `Expr`, `ElemSec`, `DataSec`, `ElemMode`, `DataMode`, `Instruction::GlobalGet`. | These are the structural surfaces a future module pass would rewrite. |
 | [`../../../../../src/validate/validate.mbt`](../../../../../src/validate/validate.mbt) | constant-expression validation, immutable-global `global.get` checks, active data/elem offset checks. | These validators define important safety boundaries for tests and future rewrites. |
 | [`../../../../../src/wast/parser.mbt`](../../../../../src/wast/parser.mbt) and [`../../../../../src/wast/lower_to_lib.mbt`](../../../../../src/wast/lower_to_lib.mbt) | global declarations, `global.get`, active segments, and WAT-to-lib lowering. | These make focused WAT fixtures possible for future TDD. |

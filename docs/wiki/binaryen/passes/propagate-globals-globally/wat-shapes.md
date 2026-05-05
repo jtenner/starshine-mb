@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
+  - ../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -30,7 +32,7 @@ It is asking a smaller question:
 
 ## Important note about examples
 
-The `after` snippets are conceptual and intentionally compact. Real Binaryen output may preserve declarations that later passes remove or may print equivalent constant-expression forms differently. The important point is the rewrite boundary.
+The `after` snippets are conceptual and intentionally compact. Real Binaryen output may preserve declarations that later passes remove or may print equivalent constant-expression forms differently. The important point is the rewrite boundary. The 2026-05-05 current-main recheck did not change these shape families.
 
 ## Quick glossary
 

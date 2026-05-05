@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-propagate-globals-globally-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../raw/research/0320-2026-04-24-propagate-globals-globally-source-correction-and-starshine-followup.md
+  - ../../../raw/research/0459-2026-05-05-propagate-globals-globally-current-main-recheck.md
   - ../../../raw/research/0196-2026-04-21-propagate-globals-globally-shared-engine-research.md
 related:
   - ./index.md
@@ -82,7 +84,7 @@ It proves:
 | `src/passes/SimplifyGlobals.cpp` | Core algorithm | Narrow subclass calls startup/global propagation only; broader sibling continues into code propagation. |
 | `src/passes/pass.cpp` | Public registration | `propagate-globals-globally` is a real public pass name. |
 | `test/lit/passes/propagate-globals-globally.wast` | Behavior oracle | Global initializers and active offsets are rewritten; function-body uses stay for this pass. |
-| current `main` `SimplifyGlobals.cpp` / lit file | Drift spot check | The same teaching-relevant family structure remained visible on 2026-04-24. |
+| current `main` `SimplifyGlobals.cpp` / lit file | Drift spot check | The same teaching-relevant family structure remained visible on 2026-05-05. |
 
 ## What the test map says about the real contract
 
