@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md
+  - ../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md
   - ../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
@@ -292,6 +294,8 @@ The helper roster is not only name-based; recognized names must have exactly the
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md)
+- [`../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md)
 - [`../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md`](../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)

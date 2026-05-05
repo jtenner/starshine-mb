@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md
+  - ../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md
   - ../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
@@ -193,9 +195,9 @@ The durable rule for readers and future ports is:
 
 ## Current-main drift check
 
-A 2026-04-26 focused spot check against current `main` for `StringLifting.cpp`, `string-lifting.wast`, and pass registration did not reveal teaching-relevant drift from the `version_129` source contract described here, including the recognized-helper wrong-signature fatal behavior, module-code walk, `string.consts` custom-section removal, Strings feature enablement, and cast-repair TODO.
+A 2026-05-05 focused spot check against current `main` for `StringLifting.cpp`, `string-lifting.wast`, and pass registration did not reveal teaching-relevant drift from the `version_129` source contract described here, including the recognized-helper wrong-signature fatal behavior, module-code walk, `string.consts` custom-section removal, Strings feature enablement, and cast-repair TODO.
 Treat that as a narrow freshness check, not a proof that every helper edge case is unchanged forever.
-See [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md) for the source manifest and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the local implementation ladder.
+See [`../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md) for the source manifest and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the local implementation ladder.
 
 ## What this pass is not
 
@@ -210,6 +212,8 @@ It is not:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md)
+- [`../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md)
 - [`../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md`](../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md
+  - ../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md
   - ../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md
@@ -97,13 +99,13 @@ Treat the JSON path as supported by source review, not as a heavily exercised de
 
 ## Current-main check
 
-A 2026-04-26 focused spot check of:
+A 2026-05-05 focused spot check of:
 
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/StringLifting.cpp>
 - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/string-lifting.wast>
 - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
 
-found no teaching-relevant drift from the tagged `version_129` surfaces reviewed for this page, including the recognized-helper wrong-signature fatal behavior, module-code walk, custom-section removal, and public pass registration. The durable capture is [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md).
+found no teaching-relevant drift from the tagged `version_129` surfaces reviewed for this page, including the recognized-helper wrong-signature fatal behavior, module-code walk, custom-section removal, and public pass registration. The durable capture is [`../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md).
 
 ## Validation matrix for future work
 
@@ -122,6 +124,8 @@ A future Starshine implementation should have at least:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md)
+- [`../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md`](../../../raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-string-lifting-current-main-port-readiness.md)
 - [`../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md`](../../../raw/research/0385-2026-04-26-string-lifting-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md`](../../../raw/binaryen/2026-04-25-string-lifting-signature-fatal-source-correction.md)
