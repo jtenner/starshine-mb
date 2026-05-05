@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: complete wide-generator signoff
+
+- **complete FZG030 by pruning the finished FZG backlog after a wide-generator signoff sweep over core MoonBit tests and focused validate/wast/wat/fuzz package tests; the requested pass-fuzz compare lane is explicitly deferred because `wasm-tools` is not installed in this environment** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: persist pass-fuzz failure metadata
 
 - **complete FZG029 by writing self-describing `failure-metadata.json` manifests beside persisted pass-fuzz failure artifacts for easier replay of command failures, invalid bases, validation failures, and mismatches** by **@OpenAI**. Updated [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), [`scripts/test/pass-fuzz-compare-command.ts`](./scripts/test/pass-fuzz-compare-command.ts), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
