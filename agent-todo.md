@@ -783,9 +783,6 @@ Suggested Tests
 6. Add atomics only behind explicit proposal gating.
 7. Widen type-section topology.
 8. Widen section topology and cross-section interactions.
-   - [FZG]020 - Import/Export Topology Expansion - Generate multi-module imports, import re-exports, multiple exports of the same valid index under distinct names, export/import name collisions where legal, and imported starts with valid signatures.
-     - Status: complete. `GenValidFeatureStats` now records `import_export_topology`, `validate_valid_feature_actual_count` exposes the `ImportExportTopology` ledger row, and the module scanner recognizes import/export topology through combined imported/exported index spaces, imported re-exports, duplicate exported indexes under distinct names, legal import/export field-name collisions, multi-module imports, and imported start functions. The coverage-forced feature-floor test proves the row can satisfy explicit requirements.
-     - Validation: `moon info` and `moon fmt` are green. `moon test --package jtenner/starshine/validate` still fails in the pre-existing coverage-forced gen-valid validation cluster (`No type exists for TypeIdx`, descriptor/describes mismatch, struct field index out of range) before this slice's assertions can run; this slice does not add generator shapes or change generated modules.
 9. Widen invalid generators from the new valid surfaces.
    - [FZG]024 - Invalid AST Strategy Expansion for New Surfaces - Add invalid AST mutations for newly generated valid surfaces: bad subtype/super indices, invalid final/super relationships, invalid memory64/shared combinations, invalid SIMD lane indices, invalid atomic alignment/shared-memory requirements, invalid table/global/elem/data const expressions, and invalid name/custom section references.
      - Dependencies: corresponding valid surfaces must exist first so each mutation can start from a validating base.
