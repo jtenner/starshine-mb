@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
+  - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./descriptor-squares-casts-and-js-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../../no-dwarf-default-optimize-path.md
 ---
 
@@ -48,6 +51,8 @@ The shipped lit surface is also part of the contract:
 - `test/lit/passes/unsubtyping-desc-tnh.wast`
 - `test/lit/passes/unsubtyping-jsinterop.wast`
 - `test/lit/passes/unsubtyping-stack-switching.wast`
+
+The 2026-05-05 current-main recheck of `Unsubtyping.cpp`, `pass.cpp`, and the dedicated lit files found no teaching-relevant drift on the reviewed surfaces. The older freshness note still stands: this is a closed-world GC/type relation-pruning rewrite, not a generic type optimizer.
 
 ## High-level intent
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
+  - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -12,12 +14,13 @@ related:
   - ./implementation-structure-and-tests.md
   - ./descriptor-squares-casts-and-js-boundaries.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `unsubtyping` WAT shapes
 
 This page is the beginner-friendly shape catalog for Binaryen `unsubtyping`.
-Use it with the reviewed source manifest in [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md) and the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md).
+Use it with the reviewed source manifest in [`../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md), the current Starshine status page in [`./starshine-strategy.md`](./starshine-strategy.md), and the port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Read this page with one mental model
 

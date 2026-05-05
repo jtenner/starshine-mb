@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `unsubtyping` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md` plus `docs/wiki/raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md` after rechecking official Binaryen `main` `Unsubtyping.cpp`, `pass.cpp`, and the dedicated lit surfaces.
+- Added `docs/wiki/binaryen/passes/unsubtyping/starshine-port-readiness-and-validation.md` and refreshed the `unsubtyping` landing page, Binaryen strategy, implementation/test-map, Starshine strategy, shared catalogs, and wiki index so the dossier now carries the missing port-readiness bridge and a 2026-05-05 freshness layer.
+- Recorded unchanged local status: Starshine still keeps `unsubtyping` boundary-only, with no owner file, no dispatcher case, and no active backlog slice.
+
 ## [2026-05-05] health | refresh `asyncify` freshness bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-asyncify-current-main-recheck.md` plus `docs/wiki/raw/research/0445-2026-05-05-asyncify-current-main-recheck.md` after rechecking official Binaryen `main` `Asyncify.cpp`, `pass.cpp`, `asyncify.wast`, and the Emscripten Asyncify docs.

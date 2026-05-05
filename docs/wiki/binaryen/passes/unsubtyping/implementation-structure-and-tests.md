@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
+  - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./descriptor-squares-casts-and-js-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `unsubtyping`: implementation structure and tests
@@ -19,6 +22,7 @@ related:
 This page exists because `Unsubtyping.cpp` is not a self-contained algorithm.
 If you read only that one file, you will miss where several of the real rules come from.
 The reviewed primary-source manifest for this file map is [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md); the exact current Starshine status lives in [`./starshine-strategy.md`](./starshine-strategy.md).
+The 2026-05-05 current-main recheck reviewed the same owner and lit surfaces and found no teaching-relevant drift, so the file map below remains the source-correct reading.
 
 ## File map
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Wiki: refresh `unsubtyping` bridge
+
+- **add a current-main recheck manifest, a matching research note, and the missing `unsubtyping` port-readiness bridge while refreshing the pass dossier, shared catalogs, and wiki index/navigation** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md), [`docs/wiki/raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md`](./docs/wiki/raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md), [`docs/wiki/binaryen/passes/unsubtyping/`](./docs/wiki/binaryen/passes/unsubtyping/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
+
 ## 2026-05-05 Wiki: refresh `optimize-instructions` strategy
 
 - **add a dedicated Starshine strategy page, refresh the current-main recheck manifest, and update the optimize-instructions wiki catalogs and pass dossier links for the new navigation path** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md), [`docs/wiki/raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md`](./docs/wiki/raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md), [`docs/wiki/binaryen/passes/optimize-instructions/`](./docs/wiki/binaryen/passes/optimize-instructions/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).

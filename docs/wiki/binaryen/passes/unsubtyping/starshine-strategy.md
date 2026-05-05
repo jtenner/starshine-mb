@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
+  - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -23,6 +25,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./descriptor-squares-casts-and-js-boundaries.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../type-refining/index.md
   - ../global-struct-inference/index.md
   - ../abstract-type-refining/index.md
@@ -32,6 +35,7 @@ related:
 # Starshine Strategy For `unsubtyping`
 
 Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md).
+The 2026-05-05 current-main recheck did not change the boundary-only status; the missing implementation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status

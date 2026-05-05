@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md
+  - ../../../raw/research/0444-2026-05-05-unsubtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md
   - ../../../raw/research/0289-2026-04-24-unsubtyping-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0154-2026-04-21-unsubtyping-binaryen-research.md
@@ -18,6 +20,7 @@ related:
   - ./descriptor-squares-casts-and-js-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
   - ../index.md
   - ../global-struct-inference/index.md
@@ -66,7 +69,7 @@ It is **closed-world subtype/descriptor graph minimization**.
 
 ## Most important durable takeaways
 
-- The 2026-04-24 source-follow-up added an immutable primary-source manifest at [`../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md`](../../../raw/binaryen/2026-04-24-unsubtyping-primary-sources.md) and a local status/port-planning bridge at [`./starshine-strategy.md`](./starshine-strategy.md).
+- The 2026-05-05 current-main recheck added an immutable freshness-layer manifest at [`../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-unsubtyping-current-main-recheck.md), and the folder now also has the missing port-readiness bridge at [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 - `unsubtyping` is **not** part of the repo's main open-world no-DWARF `-O` / `-Os` path.
 - The default scheduler places it only in the **closed-world GC/type cluster** after `gsi` and optional `abstract-type-refining`.
 - The pass body itself checks:
@@ -82,7 +85,7 @@ It is **closed-world subtype/descriptor graph minimization**.
 - Exact casts impose a smaller relation surface than ordinary casts.
 - Public types are frozen.
 - Descriptor-bearing allocations may need explicit fixups or synthetic globals when descriptor edges disappear.
-- A narrow 2026-04-24 freshness check found no teaching-relevant current-`main` drift in the reviewed owner, registration, helper, or dedicated lit surfaces beyond the existing `version_129` dossier claims.
+- The 2026-05-05 current-main recheck found no teaching-relevant drift in the reviewed owner, registration, and lit surfaces beyond the existing `version_129` dossier claims.
 
 ## Beginner warning: what the name hides
 
@@ -128,6 +131,8 @@ What it actually is in `version_129`:
   - Beginner-friendly WAT-shape catalog covering positive validation families, cast positives and negatives, descriptor keepalive/removal cases, JS-interaction cases, and stack-switching/continuation bailouts.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current Starshine status and future port map: boundary-only registry entry, active request rejection, no owner file, no active backlog slice, no open-world no-DWARF role, and the exact type-section / descriptor WAT surfaces a future module pass would need to build on.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - Port-readiness bridge for the missing port: current local hold point, no-rewrite planner first slice, rewrite and refinalization requirements, validation ladder, and Binaryen oracle lanes.
 
 ## Current maintenance rule
 
