@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md
+  - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedBrs.cpp
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp
@@ -35,6 +37,7 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./parity.md
 ---
 
@@ -121,13 +124,11 @@ RUB is structured-control-heavy, not generic-control-flow-heavy.
 
 ## Current-main freshness note
 
-A narrow 2026-04-22 check found:
+A 2026-05-05 current-main recheck found:
 
 - the `remove-unused-brs*` lit roster is unchanged between `version_129` and current `main`
 - the core implementation is still recognizably the same staged algorithm
-- at least one small semantic drift exists in current `main`
-  - `version_129` `JumpThreader` only redirects a named parent block to a named child block when the child and parent types match
-  - current `main` removed that type-equality check
+- the already-tracked `JumpThreader` type-equality relaxation remains the only documented drift on the reviewed surface
 
 Treat that as a **tracked drift**, not as permission to rewrite the `version_129` teaching story.
 

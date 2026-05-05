@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedBrs.cpp
@@ -24,6 +24,8 @@ related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
+  - ./starshine-strategy.md
+  - ./starshine-hot-ir-strategy.md
   - ../remove-unused-names/index.md
   - ../merge-blocks/index.md
 ---

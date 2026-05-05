@@ -1,9 +1,11 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md
+  - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
@@ -29,6 +31,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./pattern-catalog.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./tail-and-return-cleanups.md
   - ./select-and-condition-rewrites.md
@@ -45,7 +48,7 @@ related:
 ## Role
 
 - `remove-unused-brs` is an active implemented **hot pass** in Starshine.
-- The folder now also has an immutable raw primary-source capture at [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md), so the Binaryen release/source/test provenance for this dossier no longer lives only in interpreted pages.
+- The folder now also has immutable raw primary-source capture plus a 2026-05-05 current-main bridge at [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md) and [`../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md), so the Binaryen release/source/test provenance for this dossier no longer lives only in interpreted pages.
 - In upstream Binaryen `version_129`, it is a function-parallel structured-control cleanup pass.
 - The short public description in `pass.cpp` says it removes breaks that are not needed.
 - That description is true, but incomplete.
@@ -94,7 +97,7 @@ This makes RUB relevant to:
   - `br_on_null`, `br_on_non_null`, and `br_on_cast*` can simplify using fallthrough-type knowledge
 - Branch hints are part of the contract.
 - `never-unconditionalize` is part of the contract.
-- `version_129` is still the release oracle, but a narrow 2026-04-20 source check found at least one small current-main semantic drift in jump-threading.
+- `version_129` is still the release oracle, and the 2026-05-05 current-main recheck stayed aligned on the reviewed surfaces aside from the already-tracked JumpThreader type-equality relaxation.
 
 ## Biggest beginner correction
 
@@ -141,6 +144,8 @@ What it actually is in `version_129`:
   - Beginner-friendly WAT and IR shape catalog covering positive rewrites, bailout families, EH/GC shapes, and nearby pass interactions.
 - [`./pattern-catalog.md`](./pattern-catalog.md)
   - Exhaustive inventory of the current in-tree Starshine rewrite and skip surface.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current local strategy overview: the raw pre-lift gate, the HOT rewrite engine, the exact MoonBit registry / preset / dispatcher / test code map, and the current local-vs-upstream boundary.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
   - Current local HOT architecture plus an exact MoonBit registry / preset / raw-dispatch / helper-cluster / test map for the current implementation.
 - [`./tail-and-return-cleanups.md`](./tail-and-return-cleanups.md)
@@ -163,15 +168,10 @@ What it actually is in `version_129`:
 This refreshed landing page is anchored on Binaryen `version_129`.
 The reviewed official GitHub release page checked on 2026-04-22 showed publish date **2026-04-01**.
 
-A narrow 2026-04-22 direct source check found:
+A 2026-05-05 current-main recheck on `RemoveUnusedBrs.cpp`, `pass.cpp`, and the representative `remove-unused-brs*` lit surfaces stayed aligned with the upstream story already taught here.
+The living dossier's already-tracked JumpThreader type-equality relaxation remains the only documented `main`-vs-`version_129` drift on the reviewed surface.
 
-- the `remove-unused-brs*` lit roster is unchanged on current `main`
-- the pass is still recognizably the same staged algorithm
-- but current `main` no longer keeps one small `version_129` guard in `JumpThreader`:
-  - `version_129` only redirects a named parent block to a named child block when their types match
-  - current `main` removed that type-equality check
-
-That is a small but real drift, so keep treating `version_129` as the explicit release oracle in this folder.
+That is still a narrow spot check, not a whole-file equivalence proof, so keep treating `version_129` as the explicit release oracle in this folder.
 
 ## Current maintenance rule
 
@@ -187,7 +187,9 @@ That is a small but real drift, so keep treating `version_129` as the explicit r
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md)
+- [`../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md)
 - [`../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md`](../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md)
 - [`../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md`](../../../raw/research/0146-2026-04-20-remove-unused-brs-binaryen-research.md)
 - [`../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md`](../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md)
@@ -200,6 +202,8 @@ That is a small but real drift, so keep treating `version_129` as the explicit r
 - [`../../../../../src/passes/perf_test.mbt`](../../../../../src/passes/perf_test.mbt)
 - [`../../../../../src/cmd/cmd_wbtest.mbt`](../../../../../src/cmd/cmd_wbtest.mbt)
 - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
+- [`../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md)
+- [`../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md)
 - Binaryen `version_129` sources:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/RemoveUnusedBrs.cpp>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `remove-unused-brs` current-main bridge and add Starshine strategy page
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md` plus `docs/wiki/raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md` after rechecking current `main` `RemoveUnusedBrs.cpp`, `pass.cpp`, and the representative `remove-unused-brs*` lit surfaces against the existing `version_129` contract.
+- Added `docs/wiki/binaryen/passes/remove-unused-brs/starshine-strategy.md` and refreshed the landing page, Binaryen strategy, implementation/test-map, HOT-strategy companion, index, tracker, and shared catalogs so the 2026-05-05 freshness layer and the compact current-local strategy overview are visible from the living dossier.
+- Recorded unchanged contract status: current `main` stayed aligned with the same staged structured-control cleanup story on the reviewed surfaces, and the already-tracked JumpThreader type-equality relaxation remains the only documented `main`-vs-`version_129` drift.
+
 ## [2026-05-05] health | refresh `discard-global-effects` current-main bridge and port-readiness
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-discard-global-effects-current-main-recheck.md` plus `docs/wiki/raw/research/0460-2026-05-05-discard-global-effects-current-main-recheck.md` after rechecking current `main` `GlobalEffects.cpp`, `pass.cpp`, and the Optimizer Cookbook against the existing cleanup-sibling contract.

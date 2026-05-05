@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md
+  - ../../../raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md
   - ../../../raw/research/0247-2026-04-22-remove-unused-brs-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0079-2026-04-10-remove-unused-brs-mid-unique-tee-floor.md
   - ../../../raw/research/0080-2026-04-10-remove-unused-brs-large-brtable-hot-skip.md
@@ -26,6 +28,7 @@ sources:
   - ../../../../../src/cmd/cmd_wbtest.mbt
 related:
   - ./index.md
+  - ./starshine-strategy.md
   - ./pattern-catalog.md
   - ./tail-and-return-cleanups.md
   - ./select-and-condition-rewrites.md
@@ -37,7 +40,8 @@ related:
 
 # Starshine HOT-IR Strategy For `remove-unused-brs`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md).
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md`](../../../raw/binaryen/2026-04-22-remove-unused-brs-primary-sources.md) and [`../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md).
+For the compact strategy overview, see [`./starshine-strategy.md`](./starshine-strategy.md).
 The goal here is not to re-explain upstream Binaryen, but to show exactly where the current MoonBit implementation lives and how the raw-plus-HOT split is wired today.
 
 ## Exact local code map

@@ -1,7 +1,7 @@
 ---
 kind: comparison
 status: working
-last_reviewed: 2026-04-18
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/research/0070-2026-03-27-remove-unused-brs-binaryen-comparison.md
   - ../../../raw/research/0093-2026-04-18-generated-o4z-pass-audit-summary.md
@@ -37,6 +37,7 @@ sources:
 related:
   - ./pattern-catalog.md
   - ./binaryen-strategy.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ./returned-ladder-hot-shapes.md
   - ./visit-order-and-bailouts.md
