@@ -53,6 +53,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("simplify-locals-notee-nostructure"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("merge-blocks"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -124,6 +128,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     pass_registry_category("de-nan"),
     Some(HotPassRegistryCategory::removed()),
   )
+  assert_eq(
+    pass_registry_category("simplify-locals-no-tee-no-structure"),
+    Some(HotPassRegistryCategory::removed()),
+  )
 }
 
 ///|
@@ -139,6 +147,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let h2l = heap2local_descriptor()
   let locals = simplify_locals_descriptor()
   let locals_nostructure = simplify_locals_nostructure_descriptor()
+  let locals_notee_nostructure = simplify_locals_notee_nostructure_descriptor()
   let merge_blocks = merge_blocks_descriptor()
   let rse = rse_descriptor()
   let rub = remove_unused_brs_descriptor()
@@ -164,6 +173,8 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_eq(@ir.hot_pass_requires(locals), [])
   assert_eq(locals_nostructure.name, "simplify-locals-nostructure")
   assert_eq(@ir.hot_pass_requires(locals_nostructure), [])
+  assert_eq(locals_notee_nostructure.name, "simplify-locals-notee-nostructure")
+  assert_eq(@ir.hot_pass_requires(locals_notee_nostructure), [])
   assert_eq(merge_blocks.name, "merge-blocks")
   assert_eq(@ir.hot_pass_requires(merge_blocks), [])
   assert_eq(rse.name, "redundant-set-elimination")

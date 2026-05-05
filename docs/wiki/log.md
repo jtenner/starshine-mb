@@ -12,7 +12,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 
 - Promoted Binaryen's exact `simplify-locals-notee-nostructure` spelling from saved-`-O4z` missing pass to an active direct Starshine HOT pass.
 - Wired registry, dispatcher, pass-fuzz listing, and focused pass tests; the shared locals engine now has an `allowTee=false` mode so this sibling can sink single-use locals without creating fresh `local.tee`s or structure-result rewrites.
-- Refreshed the pass dossier, Starshine strategy, port-readiness page, shared index, and tracker to record active-partial direct-pass status while keeping the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` preset neighborhood deferred.
+- Refreshed the pass dossier, Starshine strategy, port-readiness page, shared index, and tracker to record active direct status, explicit preset-neighborhood readiness gating, 10k fuzz parity evidence, repaired `gen-valid` parity evidence, Binaryen-128 self-opt parity evidence, and the still-deferred aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` preset neighborhood.
 
 ## [2026-05-04] health | sharpen `dead-argument-elimination` code anchors
 
@@ -88,7 +88,7 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Revisited `docs/wiki/binaryen/passes/simplify-locals-notee-nostructure/` as part of a wiki-maintenance pass: added a dedicated port-readiness / validation bridge, aligned the folder's page map and cross-links, and refreshed the shared catalogs so the missing companion page is now discoverable.
 - Added `docs/wiki/binaryen/passes/simplify-locals-notee-nostructure/starshine-port-readiness-and-validation.md` using the existing immutable raw primary-source manifest and the current Starshine status / implementation pages as the source base.
 - Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the existing `simplify-locals-notee-nostructure` landing / strategy / implementation pages so the validation bridge is cross-linked from the maintained dossier.
-- Recorded unchanged contract status: `simplify-locals-notee-nostructure` is still unimplemented in Starshine, still uses the local removed alias `simplify-locals-no-tee-no-structure`, and still needs a future no-tee / no-structure port before any implementation claim changes.
+- Recorded the then-current contract status before implementation: `simplify-locals-notee-nostructure` was still unimplemented in Starshine and still used the local removed alias `simplify-locals-no-tee-no-structure`; the later same-day implementation entry supersedes that status.
 
 ## [2026-05-04] health | refresh `simplify-locals-nostructure` source anchors
 

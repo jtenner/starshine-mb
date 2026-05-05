@@ -275,6 +275,14 @@ Observed unique-pass order
    - Compare Starshine vs Binaryen with `bun scripts/pass-fuzz-compare.ts --pass tuple-optimization --count 10000 ...` and `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --tuple-optimization`.
    - If a parity gap only appears in explicit HOT tuple pseudo-op unit coverage, slice that follow-up separately instead of bundling it into the first HOT-native port.
 
+#### SLNNS - Simplify Locals No-Tee No-Structure (`simplify-locals-notee-nostructure`)
+1. Direct pass landed.
+   - The exact upstream / saved-`-O4z` spelling is now active as a hot pass, dispatched through `simplify_locals.mbt` with structure rewrites and fresh tee creation disabled.
+   - Focused local coverage locks registry/descriptor exposure, direct pipeline acceptance, single-use sinking, the no-fresh-tee guard for multi-use locals, and the Binaryen const+nop loop parity fallback.
+   - Oracle evidence is green for the direct pass: `.tmp/pass-fuzz-slnns-smith-10000-after-local` reached `8983/8983` comparable `wasm-smith` matches with `0` mismatches and `0` validation failures; `.tmp/pass-fuzz-slnns-genvalid-1000-fixed` reached `1000/1000` comparable `gen-valid` matches with `0` command failures; `.tmp/pass-fuzz-slnns-10000-after-genvalid-fix` reached `9496/9496` comparable mixed-generator matches with `0` mismatches and `0` validation failures; `.tmp/self-opt-slnns-after-local-bin128` reports normalized WAT and canonical function equality against Binaryen 128 on `tests/node/dist/starshine-debug-wasi.wasm`.
+2. Remaining active work.
+   - The direct-pass work is closed. Public `optimize` / `shrink` presets now have an explicit readiness gate that keeps this pass out until the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood is representable and oracle-proven.
+
 #### SLNS - Simplify Locals No-Structure
 1. Direct pass landed.
    - [SLNS]001 and [SLNS]002 are complete for explicit `--simplify-locals-nostructure`: registry/dispatcher/CLI/harness alias wiring is active, `src/passes/simplify_locals_nostructure_test.mbt` locks straight-line cleanup plus no-structure negative behavior, and the implementation reuses `simplify_locals.mbt` local-sink/dead-cleanup cycles while disabling structure-result rewrites.

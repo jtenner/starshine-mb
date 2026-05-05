@@ -43,8 +43,26 @@ fn simplify_locals_nostructure_alias_descriptor() -> @ir.HotPassDescriptor {
 }
 
 ///|
+pub fn simplify_locals_notee_nostructure_descriptor() -> @ir.HotPassDescriptor {
+  @ir.HotPassDescriptor::new("simplify-locals-notee-nostructure", requires=[], invalidates=[
+    @ir.HotAnalysis::cfg(),
+    @ir.HotAnalysis::dominance(),
+    @ir.HotAnalysis::liveness(),
+    @ir.HotAnalysis::use_def(),
+    @ir.HotAnalysis::effects(),
+    @ir.HotAnalysis::loop_info(),
+    @ir.HotAnalysis::ssa(),
+  ])
+}
+
+///|
 pub fn simplify_locals_nostructure_summary() -> String {
   "Run the no-structure SimplifyLocals variant: sink local traffic and dead writes without synthesizing block/if/loop result rewrites."
+}
+
+///|
+pub fn simplify_locals_notee_nostructure_summary() -> String {
+  "Run Binaryen's size-biased no-tee/no-structure SimplifyLocals spelling: sink local traffic and dead writes without fresh tees or structure-result rewrites."
 }
 
 ///|
@@ -2383,6 +2401,7 @@ fn simplify_locals_scan_region(
   first_cycle : Bool,
   get_counts : Array[Int],
   detached : Array[Int],
+  allow_tee : Bool,
 ) -> Bool {
   let mut changed = false
   for idx = 0; idx < @ir.hot_region_root_count(func, region_ref); idx = idx + 1 {
@@ -2397,6 +2416,7 @@ fn simplify_locals_scan_region(
         first_cycle,
         get_counts,
         detached,
+        allow_tee,
         Some(region_ref),
         idx,
       ) {
@@ -2414,6 +2434,7 @@ fn simplify_locals_scan_node(
   first_cycle : Bool,
   get_counts : Array[Int],
   detached : Array[Int],
+  allow_tee : Bool,
   parent_region : @ir.HotRegionRef?,
   root_idx : Int,
 ) -> Bool {
@@ -2431,6 +2452,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
+          allow_tee,
         ) {
         changed = true
       }
@@ -2452,6 +2474,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
+          allow_tee,
         ) {
         changed = true
       }
@@ -2467,6 +2490,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
+          allow_tee,
           None,
           -1,
         ) {
@@ -2481,6 +2505,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
+          allow_tee,
         ) {
         changed = true
       }
@@ -2489,6 +2514,7 @@ fn simplify_locals_scan_node(
           let else_sinkables = simplify_locals_new_sinkables(func)
           if simplify_locals_scan_region(
               func, else_ref, else_sinkables, first_cycle, get_counts, detached,
+              allow_tee,
             ) {
             changed = true
           }
@@ -2507,6 +2533,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
+          allow_tee,
         ) {
         changed = true
       }
@@ -2515,6 +2542,7 @@ fn simplify_locals_scan_node(
           let catch_sinkables = simplify_locals_new_sinkables(func)
           if simplify_locals_scan_region(
               func, catch_ref, catch_sinkables, first_cycle, get_counts, detached,
+              allow_tee,
             ) {
             changed = true
           }
@@ -2533,6 +2561,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
+          allow_tee,
         ) {
         changed = true
       }
@@ -2544,6 +2573,7 @@ fn simplify_locals_scan_node(
           first_cycle,
           get_counts,
           detached,
+          allow_tee,
         ) {
         changed = true
       }
@@ -2573,6 +2603,7 @@ fn simplify_locals_scan_node(
             first_cycle,
             get_counts,
             detached,
+            allow_tee,
             None,
             -1,
           ) {
@@ -2601,7 +2632,8 @@ fn simplify_locals_scan_node(
                     @ir.hot_node_get(func, value_id),
                   )
                   detached.push(value_id)
-                } else if !one_use &&
+                } else if allow_tee &&
+                  !one_use &&
                   simplify_locals_value_can_tee(func, value_id) {
                   @ir.hot_replace_node(
                     func,
@@ -4159,6 +4191,7 @@ fn simplify_locals_run_main_cycle(
   func : @ir.HotFunc,
   first_cycle : Bool,
   detached : Array[Int],
+  allow_tee : Bool,
 ) -> Bool {
   let sinkables = simplify_locals_new_sinkables(func)
   let count_gets_start_us = perf_start_timer_opt(
@@ -4182,6 +4215,7 @@ fn simplify_locals_run_main_cycle(
     first_cycle,
     get_counts,
     detached,
+    allow_tee,
   )
   perf_stop_timer_opt(
     ctx.perf,
@@ -4380,6 +4414,7 @@ fn simplify_locals_run_with_options(
   ctx : HotPassContext,
   func : @ir.HotFunc,
   allow_structure_rewrites : Bool,
+  allow_tee : Bool,
 ) -> HotPassResult {
   let mut first_cycle = true
   let mut changed = false
@@ -4390,7 +4425,7 @@ fn simplify_locals_run_with_options(
     )
     let main_detached : Array[Int] = []
     let main_changed = simplify_locals_run_main_cycle(
-      ctx, func, first_cycle, main_detached,
+      ctx, func, first_cycle, main_detached, allow_tee,
     )
     perf_stop_timer_opt(
       ctx.perf,
@@ -4553,7 +4588,7 @@ fn simplify_locals_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  simplify_locals_run_with_options(ctx, func, true)
+  simplify_locals_run_with_options(ctx, func, true, true)
 }
 
 ///|
@@ -4561,5 +4596,13 @@ fn simplify_locals_nostructure_run(
   ctx : HotPassContext,
   func : @ir.HotFunc,
 ) -> HotPassResult {
-  simplify_locals_run_with_options(ctx, func, false)
+  simplify_locals_run_with_options(ctx, func, false, true)
+}
+
+///|
+fn simplify_locals_notee_nostructure_run(
+  ctx : HotPassContext,
+  func : @ir.HotFunc,
+) -> HotPassResult {
+  simplify_locals_run_with_options(ctx, func, false, false)
 }

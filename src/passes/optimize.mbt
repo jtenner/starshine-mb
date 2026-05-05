@@ -237,6 +237,11 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       simplify_locals_nostructure_alias_descriptor(),
     ),
     pass_registry_entry_hot(
+      "simplify-locals-notee-nostructure",
+      simplify_locals_notee_nostructure_summary(),
+      simplify_locals_notee_nostructure_descriptor(),
+    ),
+    pass_registry_entry_hot(
       "merge-blocks",
       merge_blocks_summary(),
       merge_blocks_descriptor(),
@@ -412,10 +417,22 @@ pub fn tuple_optimization_exact_slot_prereqs_ready() -> Bool {
 }
 
 ///|
+pub fn simplify_locals_notee_nostructure_exact_neighborhood_ready() -> Bool {
+  pass_registry_category("flatten") == Some(HotPassRegistryCategory::hot_pass()) &&
+  pass_registry_category("simplify-locals-notee-nostructure") ==
+  Some(HotPassRegistryCategory::hot_pass()) &&
+  pass_registry_category("local-cse") ==
+  Some(HotPassRegistryCategory::hot_pass())
+}
+
+///|
 pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   // Keep tuple-optimization off the public presets until its exact Binaryen
   // slot is representable in-tree. The explicit pass surface stays active.
   ignore(tuple_optimization_exact_slot_prereqs_ready())
+  // Keep the aggressive flatten -> simplify-locals-notee-nostructure ->
+  // local-cse neighborhood off public presets until both neighbors are active.
+  ignore(simplify_locals_notee_nostructure_exact_neighborhood_ready())
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",
@@ -429,6 +446,7 @@ pub fn optimize_preset_passes(_options : HotPipelineOptions) -> Array[String] {
 ///|
 pub fn shrink_preset_passes(_options : HotPipelineOptions) -> Array[String] {
   ignore(tuple_optimization_exact_slot_prereqs_ready())
+  ignore(simplify_locals_notee_nostructure_exact_neighborhood_ready())
   [
     "memory-packing", "once-reduction", "global-refining", "global-struct-inference",
     "ssa-nomerge", "dead-code-elimination", "remove-unused-names", "remove-unused-brs",

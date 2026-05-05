@@ -216,6 +216,7 @@ export function runPassFuzzCompareListPassesCommandTest(): void {
   assert(result.stdout.includes("precompute"), `expected precompute in list output:\n${result.stdout}`);
   assert(result.stdout.includes("code-pushing"), `expected code-pushing in list output:\n${result.stdout}`);
   assert(result.stdout.includes("tuple-optimization"), `expected tuple-optimization in list output:\n${result.stdout}`);
+  assert(result.stdout.includes("simplify-locals-notee-nostructure"), `expected simplify-locals-notee-nostructure in list output:\n${result.stdout}`);
   assert(!result.stdout.includes("--remove-unused-brs"), `expected canonical names without -- prefix:\n${result.stdout}`);
 }
 

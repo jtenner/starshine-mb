@@ -395,6 +395,27 @@ test "optimize and shrink presets do not schedule reorder-locals before its neig
 }
 
 ///|
+test "simplify-locals-notee-nostructure exact neighborhood waits for flatten and local-cse" {
+  assert_false(simplify_locals_notee_nostructure_exact_neighborhood_ready())
+  assert_eq(
+    pass_registry_category("simplify-locals-notee-nostructure"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
+    pass_registry_category("flatten"),
+    Some(HotPassRegistryCategory::removed()),
+  )
+  assert_eq(
+    pass_registry_category("local-cse"),
+    Some(HotPassRegistryCategory::removed()),
+  )
+  let optimize = optimize_preset_passes(HotPipelineOptions::new())
+  let shrink = shrink_preset_passes(HotPipelineOptions::new())
+  assert_false(optimize.contains("simplify-locals-notee-nostructure"))
+  assert_false(shrink.contains("simplify-locals-notee-nostructure"))
+}
+
+///|
 test "optimize preset schedules heap2local in the mid-function GC slot" {
   let optimize = optimize_preset_passes(HotPipelineOptions::new())
   assert_eq(optimize[15], "remove-unused-brs")

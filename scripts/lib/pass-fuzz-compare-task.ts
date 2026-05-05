@@ -131,6 +131,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--simplify-locals",
   "--simplify-locals-nostructure",
   "--simplify-locals-no-structure",
+  "--simplify-locals-notee-nostructure",
   "--merge-blocks",
   "--redundant-set-elimination",
   "--memory-packing",

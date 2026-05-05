@@ -34,8 +34,8 @@ related:
 ## Why this page exists
 
 The main dossier already explains what Binaryen does.
-The Starshine strategy page already explains the current removed-name status.
-This page fills the remaining implementation-readiness gap:
+The Starshine strategy page already explains the current active direct-pass status.
+This page tracks the remaining preset-neighborhood validation gap:
 
 - what is the smallest honest local slice?
 - what must stay disabled so the sibling does not become full `simplify-locals`?
@@ -43,68 +43,46 @@ This page fills the remaining implementation-readiness gap:
 
 ## Current hold point
 
-Starshine still treats `simplify-locals-notee-nostructure` as a removed compatibility name, not an active pass.
-The state to preserve until implementation starts is:
+Starshine now treats `simplify-locals-notee-nostructure` as an active direct hot pass with green direct-pass oracle evidence, but not as a preset-scheduled `-O4z` neighborhood member yet.
+The state to preserve until broader preset work starts is:
 
 - upstream Binaryen spelling: `simplify-locals-notee-nostructure`
-- current local spelling: `simplify-locals-no-tee-no-structure`
-- current local category: removed
-- current CLI behavior: rejected as an unknown executable pass flag by the command-layer category gate
-- current lower-level pipeline behavior: rejected as removed if it reaches the hot-pass expander
-- current owner: none
-- current preset role: none
+- current active local spelling: `simplify-locals-notee-nostructure`
+- current local category: hot pass
+- current CLI behavior: accepted through the registry category gate
+- current lower-level pipeline behavior: dispatched to the shared locals engine with `allowStructure=false` and `allowTee=false`
+- current owner: `src/passes/simplify_locals.mbt`
+- current preset role: explicit readiness-gated omission until `flatten` and `local-cse` are active
 
 ## Exact local code map today
 
 | Surface | Code location | Why it matters |
 | --- | --- | --- |
-| Removed-name registry | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), `pass_registry_removed_names()` | Keeps only the local alias spelling tracked today and shows the exact upstream spelling is still absent. |
-| CLI pass gate | [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt), `cmd_resolve_pipeline_steps(...)` | Keeps removed names from becoming executable CLI flags by accident. |
-| Hot dispatcher | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), `hot_pass_run(...)` | A new descriptor would need a real no-tee / no-structure dispatch case. |
-| Full locals implementation | [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt), `simplify_locals_descriptor()` / `simplify_locals_run(...)` | Best landing zone, but currently owns the full pass, including behavior this sibling must disable. |
-| Registry proof surface | [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Current category proofs cover active vs boundary-only vs removed entries, but not this sibling alias by itself. |
-| Backlog truth | [`agent-todo.md`](../../../../../agent-todo.md) | Has `SLNS` for `simplify-locals-nostructure`, not for this stricter sibling. |
+| Active registry | [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt), `pass_registry_entries()` | Registers the exact upstream spelling as a hot pass while keeping presets unchanged. |
+| CLI pass gate | [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt), `cmd_resolve_pipeline_steps(...)` | Accepts the pass through the normal hot-pass registry path. |
+| Hot dispatcher | [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt), `hot_pass_run(...)` | Dispatches the exact spelling to the no-tee / no-structure locals runner. |
+| Shared locals implementation | [`src/passes/simplify_locals.mbt`](../../../../../src/passes/simplify_locals.mbt), `simplify_locals_run_with_options(...)` | Owns the full pass and the stricter sibling policy mode. |
+| Registry proof surface | [`src/passes/registry_test.mbt`](../../../../../src/passes/registry_test.mbt) | Covers active category and descriptor spelling. |
+| Backlog truth | [`agent-todo.md`](../../../../../agent-todo.md) | Records the landed `SLNNS` direct-pass slice and leaves only preset-neighborhood work active for this sibling. |
 | Neighbor scheduler context | [`docs/wiki/binaryen/no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md) | Documents the sibling’s aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` slot, but not a local implementation. |
 
-## Recommended first slice
+## Slice status
 
-### Slice 0: registry honesty
+### Slice 0: registry honesty — landed
 
-Before any rewrite:
+The chosen spelling policy is to activate the exact upstream `simplify-locals-notee-nostructure` name as a direct hot pass and keep presets unchanged.
 
-- decide the spelling policy:
-  - add upstream `simplify-locals-notee-nostructure`,
-  - keep local `simplify-locals-no-tee-no-structure`, or
-  - support both with one canonical descriptor;
-- add registry tests for the chosen names;
-- keep presets unchanged;
-- keep CLI behavior explicit while the pass is still removed or skeleton-only.
+### Slice 1: policy-mode skeleton — landed
 
-Exit criteria:
-
-- tests show exactly which names are accepted, rejected, hidden, or aliased;
-- docs and help do not imply the pass is active before it is.
-
-### Slice 1: no-rewrite policy skeleton
-
-Add a policy-mode entry point beside the active full `simplify-locals` implementation.
-Model the Binaryen axes directly:
+The shared locals engine now models the two relevant policy axes for this sibling:
 
 - `allowTee = false`
 - `allowStructure = false`
-- `allowNesting = true`
+- `allowNesting = true` by using existing nested consumer traversal rather than flatness-only traversal.
 
-This skeleton should be able to run and report no changes before mutating logic is enabled.
+### Slice 2: direct no-tee / no-structure cleanup only — active first slice
 
-Exit criteria:
-
-- the pass can be requested in focused tests if the registry policy makes it active;
-- it does not change output;
-- validation after the pass remains green.
-
-### Slice 2: direct no-tee / no-structure cleanup only
-
-Implement the minimum useful Binaryen-positive families:
+The active first implementation uses the shared locals cleanup path for:
 
 1. direct single-use local sinking into an already-existing consumer;
 2. dead-overwrite cleanup on the current linear trace;
@@ -115,6 +93,7 @@ Exit criteria:
 
 - dedicated positive tests cover direct sink families;
 - dedicated positive tests cover dead-overwrite cleanup;
+- focused regression coverage preserves the Binaryen const+nop loop shape and dummy-local parity fallback;
 - no `local.tee` is introduced;
 - no block / `if` / loop result carrier is introduced;
 - no non-copy expression is moved under `drop`, call operands, arithmetic operands, branch payloads, or control conditions unless the source contract already allows it.
@@ -145,14 +124,16 @@ Add these before enabling real rewrites:
 
 The core rule is simple: if the expected output contains a new non-copy expression under an ordinary consumer, the test should fail for this pass.
 
-## Binaryen oracle ladder
+## Binaryen oracle evidence
 
-Use Binaryen as an oracle in increasing scope:
+Direct-pass evidence collected on 2026-05-04:
 
-1. Run the official dedicated `test/passes/simplify-locals-notee-nostructure.wast` shape family through Binaryen `--simplify-locals-notee-nostructure` and a local focused fixture set.
-2. Compare local hand-written fixtures against Binaryen after normalizing nops and local names where the harness already supports that.
-3. Add a small `flatten -> simplify-locals-notee-nostructure -> local-cse` chain only after the local pass itself is green.
-4. Keep `--simplify-locals`, `--simplify-locals-nostructure`, and local active `simplify-locals` as contrast lanes, not as the oracle for this sibling.
+- `.tmp/pass-fuzz-slnns-smith-10000-after-local`: `8983/8983` comparable `wasm-smith` cases matched Binaryen, with `0` mismatches and `0` validation failures. The `1017` command failures were parser/corpus coverage failures outside the compared semantic lane.
+- `.tmp/pass-fuzz-slnns-genvalid-1000-fixed`: `1000/1000` comparable `gen-valid` cases matched Binaryen, with `0` mismatches, `0` validation failures, and `0` command failures after the emitted batch profile was narrowed to Binaryen-oracle-safe scalar/function surfaces.
+- `.tmp/pass-fuzz-slnns-10000-after-genvalid-fix`: `9496/9496` comparable mixed-generator cases matched Binaryen, with `0` mismatches and `0` validation failures; the remaining `504` command failures are Binaryen/canonicalization rejects from the `wasm-smith` half, not from `gen-valid`.
+- `.tmp/self-opt-slnns-after-local-bin128`: direct self-opt compare on `tests/node/dist/starshine-debug-wasi.wasm` passed with normalized WAT equality and canonical function equality against Binaryen 128.
+
+Next oracle scope remains the ordered aggressive neighborhood: add `flatten -> simplify-locals-notee-nostructure -> local-cse` only after both neighbors are active enough to replay and compare honestly. Keep `--simplify-locals`, `--simplify-locals-nostructure`, and local active `simplify-locals` as contrast lanes, not as the oracle for this sibling.
 
 ## What not to do
 

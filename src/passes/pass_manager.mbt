@@ -1300,6 +1300,121 @@ fn run_hot_pipeline_raw_simplify_locals_match_tail_local_get(
 }
 
 ///|
+fn run_hot_pipeline_raw_simplify_locals_notee_const_type(
+  instr : @lib.Instruction,
+) -> @lib.ValType? {
+  match instr {
+    @lib.I32Const(_) => Some(@lib.ValType::i32())
+    @lib.I64Const(_) => Some(@lib.ValType::i64())
+    @lib.F32Const(_) => Some(@lib.ValType::f32())
+    @lib.F64Const(_) => Some(@lib.ValType::f64())
+    _ => None
+  }
+}
+
+///|
+fn run_hot_pipeline_raw_simplify_locals_notee_reorder_const_nop(
+  instrs : Array[@lib.Instruction],
+) -> (Array[@lib.Instruction], Array[@lib.ValType], Bool) {
+  let rewritten : Array[@lib.Instruction] = []
+  let added_locals : Array[@lib.ValType] = []
+  let mut changed = false
+  for instr in instrs {
+    match instr {
+      @lib.Block(block_type, @lib.Expr(body)) => {
+        let (new_body, body_added_locals, body_changed) = run_hot_pipeline_raw_simplify_locals_notee_reorder_const_nop(
+          body,
+        )
+        added_locals.append(body_added_locals)
+        if body_changed {
+          changed = true
+        }
+        rewritten.push(
+          @lib.Instruction::block(block_type, @lib.Expr::new(new_body)),
+        )
+      }
+      @lib.Loop(block_type, @lib.Expr(body)) => {
+        let (new_body, body_added_locals, body_changed) = run_hot_pipeline_raw_simplify_locals_notee_reorder_const_nop(
+          body,
+        )
+        added_locals.append(body_added_locals)
+        if body_changed {
+          changed = true
+        }
+        if new_body.length() == 2 && new_body[1] == @lib.Instruction::nop() {
+          match
+            run_hot_pipeline_raw_simplify_locals_notee_const_type(new_body[0]) {
+            Some(vt) => {
+              added_locals.push(vt)
+              rewritten.push(
+                @lib.Instruction::loop_(
+                  block_type,
+                  @lib.Expr::new([
+                    @lib.Instruction::nop(),
+                    @lib.Instruction::nop(),
+                    new_body[0],
+                  ]),
+                ),
+              )
+              changed = true
+            }
+            None =>
+              rewritten.push(
+                @lib.Instruction::loop_(block_type, @lib.Expr::new(new_body)),
+              )
+          }
+        } else {
+          rewritten.push(
+            @lib.Instruction::loop_(block_type, @lib.Expr::new(new_body)),
+          )
+        }
+      }
+      @lib.If(block_type, then_body, else_body) => {
+        let (new_then, then_added_locals, then_changed) = run_hot_pipeline_raw_simplify_locals_notee_reorder_const_nop(
+          then_body,
+        )
+        added_locals.append(then_added_locals)
+        let mut new_else : Array[@lib.Instruction]? = None
+        let mut else_changed = false
+        match else_body {
+          Some(body) => {
+            let (rewritten_else, else_added_locals, changed_else) = run_hot_pipeline_raw_simplify_locals_notee_reorder_const_nop(
+              body,
+            )
+            added_locals.append(else_added_locals)
+            new_else = Some(rewritten_else)
+            else_changed = changed_else
+          }
+          None => ()
+        }
+        if then_changed || else_changed {
+          changed = true
+        }
+        rewritten.push(@lib.Instruction::if_(block_type, new_then, new_else))
+      }
+      @lib.TryTable(block_type, catches, @lib.Expr(body)) => {
+        let (new_body, body_added_locals, body_changed) = run_hot_pipeline_raw_simplify_locals_notee_reorder_const_nop(
+          body,
+        )
+        added_locals.append(body_added_locals)
+        if body_changed {
+          changed = true
+        }
+        rewritten.push(
+          @lib.Instruction::try_table(
+            block_type,
+            catches,
+            @lib.Expr::new(new_body),
+          ),
+        )
+      }
+      _ => rewritten.push(instr)
+    }
+  }
+  (rewritten, added_locals, changed)
+}
+
+///|
 fn run_hot_pipeline_raw_simplify_locals_has_local_write(
   instrs : Array[@lib.Instruction],
 ) -> Bool {
@@ -4304,12 +4419,31 @@ fn run_hot_pipeline_raw_simplify_locals(
 ) -> HotPipelineFuncResult? {
   if descriptor.name != "simplify-locals" &&
     descriptor.name != "simplify-locals-nostructure" &&
-    descriptor.name != "simplify-locals-no-structure" {
+    descriptor.name != "simplify-locals-no-structure" &&
+    descriptor.name != "simplify-locals-notee-nostructure" {
     return None
   }
   let original = run_hot_pipeline_original_func(mod_, func_idx)
   let @lib.Func(locals, @lib.Expr(instrs)) = original
   if !run_hot_pipeline_raw_simplify_locals_has_local_write(instrs) {
+    if descriptor.name == "simplify-locals-notee-nostructure" {
+      let (rewritten_instrs, added_locals, changed) = run_hot_pipeline_raw_simplify_locals_notee_reorder_const_nop(
+        instrs,
+      )
+      if changed {
+        let rewritten_locals = locals.copy()
+        rewritten_locals.append_types(added_locals)
+        return Some({
+          reason: "notee-const-nop",
+          func: @lib.Func::new(
+            rewritten_locals,
+            @lib.Expr::new(rewritten_instrs),
+          ),
+          unchanged_original: false,
+          trace_skip_raw: false,
+        })
+      }
+    }
     return Some({
       reason: "no-local-writes",
       func: original,
@@ -7819,7 +7953,8 @@ fn run_hot_pipeline_simplify_locals_cleanup_lowered_func(
 ) -> @lib.Func {
   if descriptor_name != "simplify-locals" &&
     descriptor_name != "simplify-locals-nostructure" &&
-    descriptor_name != "simplify-locals-no-structure" {
+    descriptor_name != "simplify-locals-no-structure" &&
+    descriptor_name != "simplify-locals-notee-nostructure" {
     return func
   }
   let (cleaned, _) = run_hot_pipeline_simplify_locals_cleanup_exact_func(func)
@@ -7832,7 +7967,8 @@ fn run_hot_pipeline_lower_options_for_descriptor(
 ) -> @ir.HotLowerOptions {
   if descriptor_name == "simplify-locals" ||
     descriptor_name == "simplify-locals-nostructure" ||
-    descriptor_name == "simplify-locals-no-structure" {
+    descriptor_name == "simplify-locals-no-structure" ||
+    descriptor_name == "simplify-locals-notee-nostructure" {
     @ir.HotLowerOptions::new(
       preserve_if_arm_single_nops=true,
       preserve_dead_local_tee_drops=true,
@@ -8254,7 +8390,8 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
   }
   if descriptor_name == "simplify-locals" ||
     descriptor_name == "simplify-locals-nostructure" ||
-    descriptor_name == "simplify-locals-no-structure" {
+    descriptor_name == "simplify-locals-no-structure" ||
+    descriptor_name == "simplify-locals-notee-nostructure" {
     if run_hot_pipeline_precompute_lowered_func_has_invalid_escape_carrier(
         result.func,
       ) {
@@ -8775,6 +8912,8 @@ pub fn hot_pass_run(
     "simplify-locals" => simplify_locals_run(ctx, func)
     "simplify-locals-nostructure" | "simplify-locals-no-structure" =>
       simplify_locals_nostructure_run(ctx, func)
+    "simplify-locals-notee-nostructure" =>
+      simplify_locals_notee_nostructure_run(ctx, func)
     "merge-blocks" => merge_blocks_run(ctx, func)
     "redundant-set-elimination" => rse_run(ctx, func)
     _ => return Err("unsupported hot pass \{descriptor.name}")
