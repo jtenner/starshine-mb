@@ -4373,6 +4373,79 @@ test "run_cmd_with_adapter applies reorder-locals to wasm inputs" {
 }
 
 ///|
+test "run_cmd_with_adapter applies local-subtyping to wasm inputs" {
+  let base_nullable = @lib.ValType::ref_type(
+    @lib.RefType::new(true, @lib.HeapType::new(@lib.TypeIdx::new(0U))),
+  )
+  let child_nullable_ref = @lib.RefType::new(
+    true,
+    @lib.HeapType::new(@lib.TypeIdx::new(1U)),
+  )
+  let child_nullable = @lib.ValType::ref_type(child_nullable_ref)
+  let base = @lib.RecType::new(
+    @lib.SubType::new(false, [], @lib.CompType::struct_([])),
+  )
+  let child = @lib.RecType::new(
+    @lib.SubType::new(
+      false,
+      [@lib.TypeIdx::new(0U)],
+      @lib.CompType::struct_([]),
+    ),
+  )
+  let func_type = @lib.RecType::new(
+    @lib.SubType::comp_type(@lib.CompType::func([], [])),
+  )
+  let mod_ = @lib.Module::new()
+    .with_type_sec(@lib.TypeSec::new([base, child, func_type]))
+    .with_func_sec(@lib.FuncSec::new([@lib.TypeIdx::new(2U)]))
+    .with_code_sec(
+      @lib.CodeSec::new([
+        @lib.Func::new(
+          @lib.Locals::from_types([base_nullable]),
+          @lib.Expr::new([
+            @lib.Instruction::ref_null_type(child_nullable_ref),
+            @lib.Instruction::local_set(@lib.LocalIdx::new(0U)),
+          ]),
+        ),
+      ]),
+    )
+  let wasm = encode_module_bytes(mod_)
+  let writes : Array[(String, Bytes)] = []
+  let io = CmdIO::new(
+    list_candidates=fn() { ["ls.wasm"] },
+    file_exists=fn(path) { path == "ls.wasm" },
+    read_file=fn(path) {
+      if path == "ls.wasm" {
+        Ok(wasm)
+      } else {
+        Err("missing fixture")
+      }
+    },
+    write_file=fn(path, bytes) {
+      writes.push((path, bytes))
+      Ok(())
+    },
+  )
+  let summary = match
+    run_cmd_with_adapter(
+      ["--local-subtyping", "--out", "out.wasm", "ls.wasm"],
+      io,
+    ) {
+    Ok(v) => v
+    Err(e) => fail("unexpected run failure: \{e}")
+  }
+  assert_eq(summary.resolved_passes, ["local-subtyping"])
+  assert_eq(writes.length(), 1)
+  let optimized = decode_module_bytes(writes[0].1)
+  match optimized.code_sec {
+    Some(CodeSec([Func(locals, _)])) =>
+      assert_eq(locals, @lib.Locals::from_types([child_nullable]))
+    Some(_) => fail("expected single defined function")
+    None => fail("expected code section")
+  }
+}
+
+///|
 test "run_cmd_with_adapter applies coalesce-locals to wasm inputs" {
   let wasm = encode_module_bytes(
     @passes.pass_test_module_from_wat(

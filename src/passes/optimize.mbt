@@ -142,7 +142,7 @@ fn pass_registry_boundary_only_names() -> Array[String] {
 ///|
 fn pass_registry_removed_names() -> Array[String] {
   [
-    "const-hoisting", "dataflow-optimization", "local-cse", "local-subtyping", "loop-invariant-code-motion",
+    "const-hoisting", "dataflow-optimization", "local-cse", "loop-invariant-code-motion",
     "merge-locals", "flatten", "re-reloop", "optimize-added-constants", "optimize-added-constants-propagate",
     "precompute-propagate", "de-nan", "simplify-locals-no-tee", "simplify-locals-no-tee-no-structure",
     "simplify-locals-no-nesting",
@@ -279,6 +279,7 @@ fn pass_registry_entries() -> Array[HotPassRegistryEntry] {
       global_struct_inference_summary(),
     ),
     pass_registry_entry_module("reorder-locals", reorder_locals_summary()),
+    pass_registry_entry_module("local-subtyping", local_subtyping_summary()),
     pass_registry_entry_module("coalesce-locals", coalesce_locals_summary()),
     pass_registry_entry_module("duplicate-import-elimination", die_summary()),
     pass_registry_entry_module("string-gathering", string_gathering_summary()),

@@ -105,15 +105,7 @@ Observed unique-pass order
 #### H2L - Heap2Local
 
 - [H2L]002 - Localization Follow-up and Neighborhood Parity
-  - Deliverables: cover Binaryen's non-nullable-local / refinalization fixups and the wider missing-pass neighborhood (`local-subtyping`, `coalesce-locals`, `local-cse`) needed for full no-DWARF parity.
-
-#### LS - Local Subtyping
-
-- [LS]001 - Local Type Narrowing Core
-  - Deliverables: compute safe narrower local types from uses and defs; preserve multivalue and tuple-local behavior; keep later coalescing constraints explicit.
-
-- [LS]002 - Ordering Tests and Artifact Proof
-  - Deliverables: lock the required `optimize-casts -> local-subtyping -> coalesce-locals` order into tests and compare the pass against Binaryen.
+  - Deliverables: cover Binaryen's non-nullable-local / refinalization fixups and the wider missing-pass neighborhood (`coalesce-locals`, `local-cse`) needed for full no-DWARF parity.
 
 #### CL - Coalesce Locals
 
