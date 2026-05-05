@@ -14,6 +14,7 @@ sources:
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/reorder_locals.mbt
   - ../../../../../src/passes/pass_manager_wbtest.mbt
+  - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/cmd/cmd_wbtest.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../agent-todo.md
@@ -59,6 +60,7 @@ The nearest local surfaces are:
 | --- | --- |
 | `src/passes/optimize.mbt` | Keeps `local-cse` in the removed registry, preserves the known pass spelling, and blocks active requests cleanly. |
 | `src/passes/pass_manager.mbt` | Has no `local-cse` dispatcher case, so no transform can run by accident. |
+| `src/passes/optimize_test.mbt:440-452` | Keeps the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate false while the pass remains removed. |
 | `src/passes/simplify_locals.mbt` | Already models local effect/conflict checks and cleanup behavior close to the pass's safety questions. |
 | `src/passes/reorder_locals.mbt` | Already handles local-index rewriting and is the closest landed example of temp-local bookkeeping work. |
 | `src/passes/pass_manager_wbtest.mbt` | Already carries nearby replay tests for simplify-locals boundary behavior. |
@@ -111,6 +113,7 @@ Before any optimizer-slot claim, prove that:
 - the pass name is still tracked as removed
 - explicit `--local-cse` requests fail cleanly
 - the current catalog text still points at the real implementation gap
+- the surrounding `flatten -> simplify-locals-notee-nostructure -> local-cse` gate stays false in the local regression surface
 
 ### 3. Pass-targeted parity
 

@@ -12,6 +12,7 @@ sources:
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../src/passes/simplify_locals.mbt
   - ../../../../../src/passes/reorder_locals.mbt
 related:
@@ -118,7 +119,8 @@ Starshine does not implement `local-cse` yet. The relevant local files are statu
 | --- | --- |
 | `src/passes/optimize.mbt:145-146` | `pass_registry_removed_names()` includes `local-cse`, so active requests are intentionally rejected rather than silently ignored. |
 | `src/passes/optimize.mbt:522-524` | Removed-name requests return the active-pipeline rejection error before any pass dispatch. |
-| `src/passes/pass_manager.mbt:8995-9001` | Module-pass dispatch block has no `local-cse` case; there is also no `src/passes/local_cse.mbt` owner file. |
+| `src/passes/pass_manager.mbt` | Module-pass dispatch still has no `local-cse` case, and there is still no `src/passes/local_cse.mbt` owner file. |
+| `src/passes/optimize_test.mbt:440-452` | The Starshine regression surface keeps `local-cse` removed, keeps `flatten` removed, and proves the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate stays false. |
 | `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:176`, `src/passes/simplify_locals.mbt:4132` | Existing HOT local cleanup has sinkable/effect-conflict machinery and the full `simplify-locals` entry point, but it is the downstream cleanup neighbor rather than a CSE implementation. |
 | `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Existing module pass shows local-use scanning, in-place local-index rewrite, and module-pass entry logic a future temp-localizing port will need to compose with. |
 | `agent-todo.md:403-415` | `LCSE` backlog slice records expression-equivalence and mid-pipeline artifact-compare deliverables. |

@@ -12,6 +12,7 @@ sources:
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
+  - ../../../../../src/passes/optimize_test.mbt
   - ../../../../../agent-todo.md
   - ../../no-dwarf-default-optimize-path.md
   - ../../../../../src/passes/simplify_locals.mbt
@@ -68,8 +69,10 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/optimize.mbt:522-524`
     - removed pass flags are rejected before dispatch
 - dispatcher absence
-  - `src/passes/pass_manager.mbt:8995-9001`
+  - `src/passes/pass_manager.mbt`
     - no module-pass case appears in the dispatch block for `local-cse`, and there is still no `src/passes/local_cse.mbt` owner file
+  - `src/passes/optimize_test.mbt:440-452`
+    - the regression surface keeps `local-cse` removed, keeps `flatten` removed, and keeps the aggressive `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate false
 - backlog and delivery plan
   - `agent-todo.md`
     - `#### LCSE - Local CSE`
@@ -84,6 +87,8 @@ The fastest read-along path through the current Starshine status is:
   - `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544`
     - local-use scanning, in-place local-index rewriting, and module-pass entry logic
 - exact current regression and replay surfaces worth following
+  - `src/passes/optimize_test.mbt:440-452`
+    - proves the `flatten -> simplify-locals-notee-nostructure -> local-cse` neighborhood gate stays false while the surrounding status remains removed
   - `src/passes/pass_manager_wbtest.mbt`
     - `test "raw simplify-locals adjacent local tees preserve writes read inside later if bodies"`
     - `test "raw simplify-locals rewrites dupable copies into the next escaping if condition"`
