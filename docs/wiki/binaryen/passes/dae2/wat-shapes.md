@@ -21,7 +21,7 @@ related:
 
 # `dae2` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's experimental `dae2` pass. The 2026-05-05 current-main recheck still matches these families.
+This page is the beginner-friendly shape catalog for Binaryen's experimental `dae2` pass. The 2026-05-05 current-main recheck and GitHub web spotcheck still match these families.
 
 ## Read this page with one mental model
 

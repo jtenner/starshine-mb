@@ -36,7 +36,7 @@ This page keeps the source roles explicit so future work does not blur:
 
 ## Upstream file map
 
-The 2026-05-05 current-main recheck did not find teaching-relevant drift from this map; it keeps the local first-slice / validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) and leaves the older 2026-04-26 bridge as the detailed implementation-readiness companion.
+The 2026-05-05 current-main recheck and GitHub web spotcheck did not find teaching-relevant drift from this map; it keeps the local first-slice / validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) and leaves the older 2026-04-26 bridge as the detailed implementation-readiness companion.
 
 | File | What it contributes | Why it matters for a port |
 | --- | --- | --- |

@@ -37,7 +37,7 @@ related:
   - not in the saved generated-artifact `-O4z` skipped-slot queue,
   - and not named in the local Starshine pass registry.
 - Upstream describes it as an **experimental reimplementation of DAE**.
-- As of the 2026-05-05 current-main recheck, this folder is anchored to the original immutable raw primary-source manifest, the 2026-04-26 port-readiness bridge, and the new freshness layer: [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md), [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md), [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md).
+- As of the 2026-05-05 current-main recheck and GitHub web spotcheck, this folder is anchored to the original immutable raw primary-source manifest, the 2026-04-26 port-readiness bridge, and the new freshness layer: [`../../../raw/binaryen/2026-04-25-dae2-primary-sources.md`](../../../raw/binaryen/2026-04-25-dae2-primary-sources.md), [`../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md), [`../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md).
 - The current local implementation answer is split into a status/code-map page and a concrete first-slice validation bridge: [`./starshine-strategy.md`](./starshine-strategy.md), [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## Why this folder exists

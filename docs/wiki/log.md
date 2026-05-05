@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `dae2` current-main spotcheck and exact Starshine anchors
+
+- Added an official GitHub web spotcheck to `docs/wiki/raw/binaryen/2026-05-05-dae2-current-main-recheck.md` so the current-main capture now names the `DeadArgumentElimination2.cpp`, `pass.cpp`, and `dae2.wast` source pages explicitly.
+- Tightened the `dae2` living dossier and Starshine strategy page to point at exact local line ranges in `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, and `src/cmd/cmd.mbt`, and refreshed the main wiki catalog plus Binaryen pass catalog entry to mention the spotcheck.
+- Kept the upstream contract unchanged: `dae2` is still the same separate public experimental DAE reimplementation, and Starshine still treats it as unknown rather than boundary-only or removed.
+
 ## [2026-05-05] maintain | close PRV005 proof gate and trust ledger
 
 - Completed `[PRV]005` by recording the current required proof gate policy: `moon prove src/validate_proof` is the committed proof target when Why3/Z3 are configured; root-level and direct `src/validate` proof gates remain deferred.

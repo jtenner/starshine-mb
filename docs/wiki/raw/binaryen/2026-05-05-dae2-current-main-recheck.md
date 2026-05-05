@@ -41,6 +41,20 @@ The useful wiki delta is freshness:
 - the 2026-05-05 recheck keeps the same experimental DAE model visible,
 - but it does not change the living dossier's teaching contract.
 
+## 2026-05-05 official GitHub web spotcheck
+
+A short source-line spotcheck on the official Binaryen GitHub `main` branch confirmed the same public `dae2` surface:
+
+- `src/passes/DeadArgumentElimination2.cpp` still starts with the same scope / non-goal comment that frames `dae2` as a backward fixed-point DAE reimplementation and keeps result / constant / type propagation out of scope.
+- `src/passes/pass.cpp` still registers `dae2` beside `dae` and `dae-optimizing` as a public pass.
+- `test/lit/passes/dae2.wast` still runs `wasm-opt -all --dae2 --closed-world -S` and still covers the same direct, indirect, reference, boundary, and replacement-type families.
+
+Official URLs checked:
+
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/DeadArgumentElimination2.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
+- <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/dae2.wast>
+
 ## Caveat
 
 This was a focused owner/registration/test-file spot check, not a whole-repository audit.

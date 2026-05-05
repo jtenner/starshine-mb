@@ -48,7 +48,7 @@ This page is the first-slice / validation bridge for the pass. Read it after:
 The recheck did **not** find a new Binaryen strategy. It made the Starshine landing sequence concrete:
 
 - official Binaryen current `main` still teaches the same `dae2` contract captured for `version_129`;
-- the 2026-05-05 current-main freshness layer kept that reading unchanged;
+- the 2026-05-05 current-main freshness layer kept that reading unchanged, and the GitHub web spotcheck matched it;
 - local Starshine still has no `dae2` registry entry, owner file, dispatcher case, preset role, or backlog slice;
 - local IR/validator surfaces already expose the call/type/reference forms a future implementation must analyze;
 - the first safe implementation path should be analyzer-first, not a blind alias to plain DAE.
