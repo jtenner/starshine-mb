@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md
+  - ../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
   - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
@@ -33,6 +35,8 @@ related:
 `minify-imports` is a public Binaryen ABI-surface pass that shortens qualifying import **base names** and emits a JSON mapping that external glue can use to follow the rename.
 
 This page intentionally corrects a stale 2026-04-25 Starshine wiki claim. The pass is **not** a non-mutating imported-function-only report and there is no separate official `MinifyImports.cpp` owner in Binaryen `version_129` or current `main`. Official Binaryen implements the plain pass as `MinifyImportsAndExports(false, false)` in `src/passes/MinifyImportsAndExports.cpp`.[^source-correction]
+
+The 2026-05-05 current-main recheck still matches that contract on the reviewed surfaces.
 
 | Pass | Import base names | Import module names | Export names | Mutates module? |
 | --- | --- | --- | --- | --- |
@@ -127,6 +131,8 @@ For a future Starshine port, use [`starshine-port-readiness-and-validation.md`](
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md)
+- [`../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md`](../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md)
 - [`../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md`](../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md`](../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md)
@@ -134,5 +140,5 @@ For a future Starshine port, use [`starshine-port-readiness-and-validation.md`](
 - Binaryen `MinifyImportsAndExports.cpp`: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/MinifyImportsAndExports.cpp>
 - Binaryen pass registry: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
 
-[^source-correction]: See [`../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md`](../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md) and [`../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md`](../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md). The older 2026-04-25 manifest remains provenance but is superseded for the plain-pass mechanics.
-[^starshine-code]: Current local status is grounded in `src/passes/optimize.mbt:120-148`, `src/passes/optimize.mbt:479-491`, and `src/passes/pass_manager.mbt:8661-8685`.
+[^source-correction]: See [`../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md`](../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md), [`../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md), and [`../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md`](../../../raw/research/0387-2026-04-26-minify-imports-source-correction.md). The older 2026-04-25 manifest remains provenance but is superseded for the plain-pass mechanics.
+[^starshine-code]: Current local status is grounded in `src/passes/optimize.mbt:127-144`, `src/passes/optimize.mbt:513-513`, and `src/passes/pass_manager.mbt:8939-8941`.

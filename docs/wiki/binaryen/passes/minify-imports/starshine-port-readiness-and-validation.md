@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md
+  - ../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
   - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ./index.md
@@ -33,6 +35,8 @@ related:
 
 Starshine is **not ready to claim implementation** for plain `minify-imports` today. The pass is still upstream-only and unknown to the local pass registry.
 
+The 2026-05-05 current-main recheck did not change that answer.
+
 This page records the safe future implementation order for the corrected source-backed contract: Binaryen's plain pass rewrites qualifying import **base names** and emits a JSON map. It does not rewrite export names, does not merge import module names, and is not a non-mutating report.
 
 ## Why a future port is module-scoped
@@ -57,9 +61,9 @@ Before changing names, choose and test the registry behavior:
 
 The current code uses option 1:
 
-- `src/passes/optimize.mbt:1-36` defines registry categories but has no minification entry.
-- `src/passes/optimize.mbt:479-491` rejects absent names as `unknown pass flag ...` and boundary-only names with a different explicit message.
-- `src/passes/pass_manager.mbt:8661-8685` has no module-dispatcher arm for import minification.
+- `src/passes/optimize.mbt:127-144` defines the boundary-only and removed-name registries that still omit minification.
+- `src/passes/optimize.mbt:513-513` rejects absent names as `unknown pass flag ...`.
+- `src/passes/pass_manager.mbt:8939-8941` has no module-dispatcher arm for import minification.
 
 A future port should add regression tests for the chosen behavior before adding transformation code so CLI behavior and docs cannot drift apart.
 

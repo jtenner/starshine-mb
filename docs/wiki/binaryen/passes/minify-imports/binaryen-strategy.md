@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md
+  - ../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
   - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
@@ -35,6 +37,8 @@ That means the pass does three visible things:
 3. prints a JSON mapping so external tooling can follow the ABI change.
 
 This corrects the stale teaching that the plain pass is non-mutating imported-function-only map output.
+
+The 2026-05-05 current-main recheck still shows the same contract on the reviewed surfaces.
 
 ## Import traversal and plain-mode gate
 

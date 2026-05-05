@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `minify-imports` current-main bridge and stale-anchor cleanup
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md` plus `docs/wiki/raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md` after rechecking current `main` `MinifyImportsAndExports.cpp`, `pass.cpp`, and the shared pass-family registration surface.
+- Refreshed the `minify-imports` overview, Binaryen strategy, implementation/test-map, `env` / `wasi_` gate guide, WAT-shape catalog, Starshine strategy, Starshine port-readiness page, and shared catalog entries so the fresh provenance and the corrected local code anchors are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same ABI-visible import-base rewrite plus JSON map output contract and no teaching-relevant drift was found.
+
 ## [2026-05-05] health | refresh `dead-code-elimination` current-main bridge and Starshine strategy page
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-dead-code-elimination-current-main-recheck.md` plus `docs/wiki/raw/research/0449-2026-05-05-dead-code-elimination-current-main-recheck.md` after rechecking current `main` `DeadCodeElimination.cpp`, `pass.cpp`, and the dedicated `dce` lit surfaces.

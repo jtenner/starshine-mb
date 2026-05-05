@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md
+  - ../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
   - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
@@ -64,6 +66,8 @@ That proof split matters:
 - they do not replace an oracle check for exact plain-mode JSON order and formatting.
 
 Future Starshine work should add local plain-mode tests even if upstream still lacks a dedicated lit fixture.
+
+The 2026-05-05 current-main recheck keeps that split unchanged.
 
 ## Suggested future Starshine test map
 

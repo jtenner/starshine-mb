@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md
+  - ../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
   - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
@@ -42,6 +44,8 @@ After Binaryen `--minify-imports`, the import base name is shortened while the m
 `"a"` is illustrative. Binaryen's name generator owns the real sequence.
 
 The pass also emits a JSON mapping conceptually recording `env`, the old base name, and the new base name.
+
+The 2026-05-05 current-main recheck did not change this shape family.
 
 ## Shape 2: `wasi_` import is renamed
 

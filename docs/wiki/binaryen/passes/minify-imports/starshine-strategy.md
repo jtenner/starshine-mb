@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md
+  - ../../../raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-minify-imports-port-readiness-primary-sources.md
   - ../../../raw/research/0424-2026-04-27-minify-imports-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-minify-imports-current-main-source-correction.md
@@ -32,10 +34,10 @@ Starshine currently has **no `minify-imports` implementation**. This page is a s
 
 Exact local status:
 
-- `src/passes/optimize.mbt:120-137` lists boundary-only names; `minify-imports` is absent.
-- `src/passes/optimize.mbt:141-148` lists removed names; `minify-imports` is absent.
-- `src/passes/optimize.mbt:479-491` reports absent names as `unknown pass flag ...` and boundary-only names with a distinct error.
-- `src/passes/pass_manager.mbt:8661-8685` starts the active module-pass dispatcher; no minification case exists.
+- `src/passes/optimize.mbt:127-144` lists boundary-only and removed names; `minify-imports` is absent.
+- `src/passes/optimize.mbt:513-513` reports absent names as `unknown pass flag ...`.
+- `src/passes/pass_manager.mbt:8939-8941` starts the active module-pass dispatcher; no minification case exists.
+- The 2026-05-05 current-main recheck did not change that status; only the anchor lines moved.
 - There is no `src/passes/minify_imports.mbt` or shared `minify_imports_and_exports.mbt` owner file.
 - `agent-todo.md` has no active slice for this pass.
 
@@ -57,11 +59,11 @@ The current strategy is **non-adoption plus explicit documentation**. The pass i
   - import section and import encoding write module name, base name, then external type.
 - `src/wast/lower_to_lib.mbt:2924-3004`
   - WAT imports lower into `@lib.Import::new(module_name, field_name, ...)` across function/table/memory/global/tag imports.
-- `src/passes/optimize.mbt:120-148`
+- `src/passes/optimize.mbt:127-144`
   - current compatibility registries omit all minification names.
-- `src/passes/optimize.mbt:479-491`
-  - unknown-pass and boundary-only error paths today.
-- `src/passes/pass_manager.mbt:8661-8685`
+- `src/passes/optimize.mbt:513-513`
+  - unknown-pass error path today.
+- `src/passes/pass_manager.mbt:8939-8941`
   - current module-pass dispatcher landing zone if the pass becomes active.
 
 ## Future-port shape
