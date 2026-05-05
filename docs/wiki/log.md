@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `constant-field-propagation` current-main bridge and port-readiness
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md` plus `docs/wiki/raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md` after rechecking current `main` `ConstantFieldPropagation.cpp`, `pass.cpp`, `cfp.wast`, and `cfp-reftest.wast` against the existing `version_129` contract.
+- Added `docs/wiki/binaryen/passes/constant-field-propagation/starshine-port-readiness-and-validation.md` and refreshed the `constant-field-propagation` overview, Binaryen strategy, implementation/test-map, Starshine strategy, sibling Starshine status page, top-level wiki index, pass index, tracker, and changelog so the new 2026-05-05 freshness bridge and implementation-readiness bridge are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same closed-world CFP engine, and Starshine still keeps both CFP-family names boundary-only until a real module/type-graph port exists.
+
 ## [2026-05-05] health | refresh `coalesce-locals` current-main bridge and exact Starshine code anchors
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md` plus `docs/wiki/raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md` after rechecking current `main` `CoalesceLocals.cpp`, `pass.cpp`, `opt-utils.h`, `liveness-traversal.h`, `numbering.h`, `utils.h`, and `test/lit/passes/coalesce-locals.wast` against the existing `version_129` contract.
@@ -352,6 +358,13 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Added [`docs/wiki/raw/binaryen/2026-04-30-rereloop-current-main-refresh.md`](docs/wiki/raw/binaryen/2026-04-30-rereloop-current-main-refresh.md) as the primary-source refresh checkpoint for the `rereloop` dossier.
 - Updated `docs/wiki/index.md` and the rereloop folder source lists so the new spot-check provenance is discoverable from all maintained entry points.
 - Recorded unchanged local status: still removed-name tracking (`re-reloop`) with active request rejection, no owner file, and no active backlog slice.
+
+## [2026-05-05] implementation | widen GC constructor/accessor gen-valid surface
+
+- Completed `[FZG]011` by adding coverage-forced valid generation for non-default `struct.new`, non-default `array.new`, `array.new_fixed`, packed `struct.get_s`/`struct.get_u`, packed `array.get_s`/`array.get_u`, `array.fill`, and `array.copy` behind the existing `allow_ref_types` gate.
+- Attached `GcConstructors` and `GcAccessors` to the public generator ledger and added focused validation/floor coverage for the widened GC constructor/accessor surface.
+- Validation was blocked in this environment because `moon` was missing and the locally downloaded MoonBit toolchain could not load `moonbitlang/core`; follow-up validation should run `moon test --package jtenner/starshine/validate`, `moon info`, `moon fmt`, full `moon test`, and the standard `remove-unused-module-elements` gen-valid compare smoke.
+- Updated [`fuzzing/generator-coverage-ledger.md`](fuzzing/generator-coverage-ledger.md), `agent-todo.md`, and `CHANGELOG.md` with the new covered rows.
 
 ## [2026-05-01] research | deepen `ssa-nomerge` implementation map
 

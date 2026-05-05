@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md
+  - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-constant-field-null-test-folding-primary-sources.md
   - ../../../raw/research/0335-2026-04-25-constant-field-null-test-folding-source-bridge.md
   - ../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md
@@ -22,6 +24,7 @@ related:
   - ./starshine-strategy.md
   - ../constant-field-propagation/index.md
   - ../constant-field-propagation/starshine-strategy.md
+  - ../constant-field-propagation/starshine-port-readiness-and-validation.md
   - ../tracker.md
 ---
 
@@ -30,7 +33,7 @@ related:
 ## Role
 
 - `constant-field-null-test-folding` is the local Starshine registry name for the upstream Binaryen pass published as `cfp-reftest`.
-- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); the sibling-specific Starshine status/code-map page is [`./starshine-strategy.md`](./starshine-strategy.md), and the parent CFP Starshine page remains useful for shared infrastructure context in [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md).
+- It is currently **unimplemented** in Starshine and still lives in the boundary-only registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt); the sibling-specific Starshine status/code-map page is [`./starshine-strategy.md`](./starshine-strategy.md), and the parent CFP Starshine page remains useful for shared infrastructure context in [`../constant-field-propagation/starshine-strategy.md`](../constant-field-propagation/starshine-strategy.md) and [`../constant-field-propagation/starshine-port-readiness-and-validation.md`](../constant-field-propagation/starshine-port-readiness-and-validation.md).
 - It is a real public upstream pass in Binaryen `version_129`, but it is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` default top-level path.
 - It is best understood as the **`constant-field-propagation` variant that adds one narrow `ref.test`-driven two-value field-read rewrite family**.
 

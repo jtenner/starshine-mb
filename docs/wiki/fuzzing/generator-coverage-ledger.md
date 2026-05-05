@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-05-01
+last_reviewed: 2026-05-05
 sources:
   - ../../README.md
   - ../../../agent-todo.md
@@ -27,6 +27,7 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 - `[FZG]008` attaches the const-expression counter: `ConstExprVariants` reports nonzero coverage when const-expression sites contain widened forms such as `global.get`, `ref.func`, or safe GC constructors. Coverage-forced modules now emit immutable imported/previous globals for `global.get`, `ref.func` global initializers, a safe struct default constructor in a global initializer, table initializer `global.get`, and active element/data offsets backed by immutable `i32` globals behind `allow_const_expr_variants`.
 - `[FZG]009` attaches the basic-reference-instruction counter: `BasicRefInstructions` reports nonzero coverage when the instruction scan sees widened basic ref forms. Coverage-forced modules now emit `ref.is_null`, `ref.null none`, `ref.null nofunc`, `ref.null noextern`, nullable and nonnullable `ref.test`/`ref.cast`, and nullable/nonnullable-target `br_on_cast`/`br_on_cast_fail` behind the existing `allow_ref_types` gate.
 - `[FZG]010` attaches the i31/extern-conversion counter: `I31ExternConversions` reports nonzero coverage when the instruction scan sees `ref.i31`, `i31.get_s`, `i31.get_u`, `any.convert_extern`, or `extern.convert_any`. Coverage-forced modules now emit a deterministic valid prelude for those forms behind the existing `allow_ref_types` gate.
+- `[FZG]011` attaches exact GC constructor/accessor counters: `GcConstructors` reports nonzero coverage when the instruction scan sees non-default/default struct or array constructors, and `GcAccessors` reports nonzero coverage when it sees struct/array get/set/len/fill/copy/init forms. Coverage-forced modules now emit non-default `struct.new`, non-default `array.new`, `array.new_fixed`, packed `struct.get_s`/`struct.get_u`, packed `array.get_s`/`array.get_u`, `array.fill`, and `array.copy` behind the existing `allow_ref_types` gate.
 
 ## Ledger status meanings
 
@@ -42,9 +43,9 @@ The ledger now names the slice backlog's target surfaces up front: full scalar n
 
 ## Known zero-coverage rows as of 2026-05-01
 
-Most new FZG rows intentionally report `0` today because the generator has not been widened yet and because several existing private surface scans are not part of the public profile-floor counters. `[FZG]002`, `[FZG]003`, `[FZG]004`, `[FZG]005`, `[FZG]006`, `[FZG]007`, `[FZG]008`, `[FZG]009`, and `[FZG]010` are the current exceptions: coverage-forced valid modules now emit deterministic expanded scalar numeric, core-control, tail-call, scalar-memory, memory-limit/proposal, table-limit/initializer, const-expression variant, basic-reference-instruction, and i31/extern-conversion surfaces and report nonzero `numeric_full_ops`, `br_table`, `standalone_unreachable`, `local_tee`, `typed_select`, `tail_calls`, `scalar_memory_widths`, `nonzero_memarg`, `memory_limit_variants`, `table_limit_variants`, `const_expr_variants`, `basic_ref_instructions`, and `i31_extern_conversions` coverage.
+Most new FZG rows intentionally report `0` today because the generator has not been widened yet and because several existing private surface scans are not part of the public profile-floor counters. `[FZG]002`, `[FZG]003`, `[FZG]004`, `[FZG]005`, `[FZG]006`, `[FZG]007`, `[FZG]008`, `[FZG]009`, `[FZG]010`, and `[FZG]011` are the current exceptions: coverage-forced valid modules now emit deterministic expanded scalar numeric, core-control, tail-call, scalar-memory, memory-limit/proposal, table-limit/initializer, const-expression variant, basic-reference-instruction, i31/extern-conversion, and GC constructor/accessor surfaces and report nonzero `numeric_full_ops`, `br_table`, `standalone_unreachable`, `local_tee`, `typed_select`, `tail_calls`, `scalar_memory_widths`, `nonzero_memarg`, `memory_limit_variants`, `table_limit_variants`, `const_expr_variants`, `basic_ref_instructions`, `i31_extern_conversions`, `gc_constructors`, and `gc_accessors` coverage.
 
-The coarse pre-existing counters still cover current smoke/CI/stress floors for sections, exports, starts, tables, memories, globals, tags, elems, datas, data-count, ref types, v128 constants, direct/indirect calls, branch-heavy control, expanded scalar numeric instructions, and the exact core-control, tail-call, scalar-memory, memory-limit/proposal, table-limit/initializer, const-expression, basic-reference, and i31/extern-conversion rows above. Later FZG slices should replace broad proxy rows with exact family counters when they add each generator surface.
+The coarse pre-existing counters still cover current smoke/CI/stress floors for sections, exports, starts, tables, memories, globals, tags, elems, datas, data-count, ref types, v128 constants, direct/indirect calls, branch-heavy control, expanded scalar numeric instructions, and the exact core-control, tail-call, scalar-memory, memory-limit/proposal, table-limit/initializer, const-expression, basic-reference, i31/extern-conversion, and GC constructor/accessor rows above. Later FZG slices should replace broad proxy rows with exact family counters when they add each generator surface.
 
 ## Validation anchors
 
@@ -61,6 +62,7 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 - `gen_valid coverage-forced emits const-expression variants` proves the `[FZG]008` module validates, emits `global.get` in global initializers, table initializers, and active element/data offsets, emits a `ref.func` global initializer, emits a safe GC constructor global initializer, and satisfies an explicit `ConstExprVariants` floor.
 - `gen_valid coverage-forced emits basic ref instruction surface` proves the `[FZG]009` module validates, emits `ref.is_null`, `ref.null none`, `ref.null nofunc`, `ref.null noextern`, nullable and nonnullable `ref.test`/`ref.cast`, nullable/nonnullable-target `br_on_cast`/`br_on_cast_fail`, and satisfies an explicit `BasicRefInstructions` floor.
 - `gen_valid coverage-forced emits i31 and extern conversion surface` proves the `[FZG]010` module validates, emits `ref.i31`, `i31.get_s`, `i31.get_u`, `any.convert_extern`, and `extern.convert_any`, and satisfies an explicit `I31ExternConversions` floor.
+- `gen_valid coverage-forced emits gc constructor and accessor surface` proves the `[FZG]011` module validates, emits non-default struct/array constructors, `array.new_fixed`, packed struct/array accessors, `array.fill`, and `array.copy`, and satisfies explicit `GcConstructors` and `GcAccessors` floors.
 - `.tmp/pass-fuzz-genvalid-wide-smoke-rume` is the first post-FZG002 compare smoke: `remove-unused-module-elements` over 1000 `gen-valid` cases reached `1000/1000` normalized matches.
 - `.tmp/pass-fuzz-genvalid-fzg003-rume` is the post-FZG003 compare smoke: `remove-unused-module-elements` over 1000 widened `gen-valid` cases reached `1000/1000` normalized matches.
 - `.tmp/pass-fuzz-genvalid-fzg004-rume` is the post-FZG004 compare smoke: `remove-unused-module-elements` over 1000 widened `gen-valid` cases reached `1000/1000` normalized matches with no validation, generator, command, or semantic failures.

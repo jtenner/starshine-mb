@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md
+  - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md
   - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -27,6 +29,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./copies-subtypes-ref-tests-and-atomics.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../constant-field-null-test-folding/index.md
   - ../constant-field-null-test-folding/starshine-strategy.md
   - ../global-type-optimization/index.md
@@ -36,8 +39,9 @@ related:
 
 # Starshine Strategy For `constant-field-propagation`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md) and the older 2026-04-24 manifest in [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
+The companion implementation-readiness bridge lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 ## The honest current status
 

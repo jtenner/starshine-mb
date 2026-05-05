@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md
+  - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md
   - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./copies-subtypes-ref-tests-and-atomics.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `constant-field-propagation`: implementation structure and tests
@@ -226,15 +229,17 @@ So for this dossier the safest teaching rule is:
 
 ## Freshness note
 
-I did a narrow current-`main` check on:
+I did a narrow current-`main` recheck on:
 
 - `src/passes/ConstantFieldPropagation.cpp`
 - `src/passes/pass.cpp`
 - `test/lit/passes/cfp.wast`
+- `test/lit/passes/cfp-reftest.wast`
 
 Durable result:
 
 - the checked core pass structure and reviewed lit families still match `version_129` on the important reviewed surfaces
+- the 2026-05-05 bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) now covers the implementation-readiness split separately from the core file/test map
 
 That is a narrow freshness note, not a proof that every helper file is identical.
 
@@ -263,10 +268,13 @@ That is exactly why this pass is easy to underestimate.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md)
+- [`../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md)
 - [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstantFieldPropagation.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
@@ -281,3 +289,4 @@ That is exactly why this pass is easy to underestimate.
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/ConstantFieldPropagation.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/cfp.wast>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/cfp-reftest.wast>

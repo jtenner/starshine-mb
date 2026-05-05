@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md
+  - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md
   - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
@@ -19,6 +21,7 @@ related:
   - ./copies-subtypes-ref-tests-and-atomics.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
   - ../index.md
   - ../global-type-optimization/index.md
@@ -136,6 +139,8 @@ What it actually is in `version_129`:
   - Beginner-friendly WAT-shape catalog covering impossible reads, default/literal/global positives, subtype positives and bailouts, packed-field repairs, array-of-struct realistic shapes, atomic boundaries, and the main non-goals.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current Starshine status and port map: boundary-only registry entries for the parent `constant-field-propagation` name and the `constant-field-null-test-folding` sibling, active request rejection, preset omission, missing owner file/backlog slice, and the exact local GC/type/struct/descriptor code surfaces a future closed-world module pass would need to reuse.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - Implementation-readiness bridge for a future port: exact first-slice gates, validation ordering, and sibling layering rules.
 
 ## Current maintenance rule
 

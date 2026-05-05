@@ -3573,8 +3573,8 @@ pub fn validate_valid_feature_actual_count(
     ConstExprVariants => stats.const_expr_variants
     BasicRefInstructions => stats.basic_ref_instructions
     I31ExternConversions => stats.i31_extern_conversions
-    GcConstructors => 0
-    GcAccessors => 0
+    GcConstructors => stats.gc_constructors
+    GcAccessors => stats.gc_accessors
     StringOps => 0
     ExceptionTryTableMatrix => 0
     SimdPhase1 => 0
@@ -6195,6 +6195,154 @@ test "gen_valid coverage-forced emits i31 and extern conversion surface" {
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: I31ExternConversions, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+priv struct ValidateTestGcConstructorAccessorForms {
+  struct_new : Bool
+  array_new : Bool
+  array_new_fixed : Bool
+  struct_get_s : Bool
+  struct_get_u : Bool
+  array_get_s : Bool
+  array_get_u : Bool
+  array_fill : Bool
+  array_copy : Bool
+}
+
+///|
+fn validate_test_gc_constructor_accessor_forms_empty(
+) -> ValidateTestGcConstructorAccessorForms {
+  {
+    struct_new: false,
+    array_new: false,
+    array_new_fixed: false,
+    struct_get_s: false,
+    struct_get_u: false,
+    array_get_s: false,
+    array_get_u: false,
+    array_fill: false,
+    array_copy: false,
+  }
+}
+
+///|
+fn validate_test_gc_constructor_accessor_forms_merge(
+  left : ValidateTestGcConstructorAccessorForms,
+  right : ValidateTestGcConstructorAccessorForms,
+) -> ValidateTestGcConstructorAccessorForms {
+  {
+    struct_new: left.struct_new || right.struct_new,
+    array_new: left.array_new || right.array_new,
+    array_new_fixed: left.array_new_fixed || right.array_new_fixed,
+    struct_get_s: left.struct_get_s || right.struct_get_s,
+    struct_get_u: left.struct_get_u || right.struct_get_u,
+    array_get_s: left.array_get_s || right.array_get_s,
+    array_get_u: left.array_get_u || right.array_get_u,
+    array_fill: left.array_fill || right.array_fill,
+    array_copy: left.array_copy || right.array_copy,
+  }
+}
+
+///|
+fn validate_test_gc_constructor_accessor_forms_expr(
+  expr : Expr,
+) -> ValidateTestGcConstructorAccessorForms {
+  let Expr(instrs) = expr
+  let mut forms = validate_test_gc_constructor_accessor_forms_empty()
+  for instr in instrs {
+    forms = validate_test_gc_constructor_accessor_forms_merge(
+      forms,
+      validate_test_gc_constructor_accessor_forms_instr(instr),
+    )
+  }
+  forms
+}
+
+///|
+fn validate_test_gc_constructor_accessor_forms_instr(
+  instr : Instruction,
+) -> ValidateTestGcConstructorAccessorForms {
+  match instr {
+    StructNew(_) => { ..validate_test_gc_constructor_accessor_forms_empty(), struct_new: true }
+    ArrayNew(_) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_new: true }
+    ArrayNewFixed(_, _) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_new_fixed: true }
+    StructGetS(_, _) => { ..validate_test_gc_constructor_accessor_forms_empty(), struct_get_s: true }
+    StructGetU(_, _) => { ..validate_test_gc_constructor_accessor_forms_empty(), struct_get_u: true }
+    ArrayGetS(_) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_get_s: true }
+    ArrayGetU(_) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_get_u: true }
+    ArrayFill(_) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_fill: true }
+    ArrayCopy(_, _) => { ..validate_test_gc_constructor_accessor_forms_empty(), array_copy: true }
+    Block(_, body) | Loop(_, body) => validate_test_gc_constructor_accessor_forms_expr(body)
+    If(_, then_body, else_body) => {
+      let mut forms = validate_test_gc_constructor_accessor_forms_expr(Expr::new(then_body))
+      match else_body {
+        Some(branch) =>
+          forms = validate_test_gc_constructor_accessor_forms_merge(
+            forms,
+            validate_test_gc_constructor_accessor_forms_expr(Expr::new(branch)),
+          )
+        None => ()
+      }
+      forms
+    }
+    TryTable(_, _, body) => validate_test_gc_constructor_accessor_forms_expr(body)
+    _ => validate_test_gc_constructor_accessor_forms_empty()
+  }
+}
+
+///|
+fn validate_test_gc_constructor_accessor_forms_module(
+  mod : Module,
+) -> ValidateTestGcConstructorAccessorForms {
+  let mut forms = validate_test_gc_constructor_accessor_forms_empty()
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, body) = func
+        forms = validate_test_gc_constructor_accessor_forms_merge(
+          forms,
+          validate_test_gc_constructor_accessor_forms_expr(body),
+        )
+      }
+    None => ()
+  }
+  forms
+}
+
+///|
+test "gen_valid coverage-forced emits gc constructor and accessor surface" {
+  let config = GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_type_defs: 24,
+  }
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26011UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_gc_constructor_accessor_forms_module(mod)
+  assert_true(forms.struct_new)
+  assert_true(forms.array_new)
+  assert_true(forms.array_new_fixed)
+  assert_true(forms.struct_get_s)
+  assert_true(forms.struct_get_u)
+  assert_true(forms.array_get_s)
+  assert_true(forms.array_get_u)
+  assert_true(forms.array_fill)
+  assert_true(forms.array_copy)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, GcConstructors) > 0)
+  assert_true(validate_valid_feature_actual_count(stats, GcAccessors) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: GcConstructors, min_count: 1 },
+      { key: GcAccessors, min_count: 1 },
     ]),
     [],
   )

@@ -317,6 +317,8 @@ pub struct GenValidFeatureFacts {
   has_const_expr_variants : Bool
   has_basic_ref_instructions : Bool
   has_i31_extern_conversions : Bool
+  has_gc_constructors : Bool
+  has_gc_accessors : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidFeatureStats {
@@ -355,6 +357,8 @@ pub struct GenValidFeatureStats {
   const_expr_variants : Int
   basic_ref_instructions : Int
   i31_extern_conversions : Int
+  gc_constructors : Int
+  gc_accessors : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
 pub fn GenValidFeatureStats::record(Self, GenValidFeatureFacts) -> Self

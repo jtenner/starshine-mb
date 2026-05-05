@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md
+  - ../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md
   - ../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./copies-subtypes-ref-tests-and-atomics.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../global-type-optimization/index.md
   - ../global-struct-inference/index.md
 ---
@@ -34,11 +37,12 @@ Primary files captured in [`../../../raw/binaryen/2026-04-24-constant-field-prop
 - `test/lit/passes/cfp-reftest.wast`
 - `test/lit/passes/gto_and_cfp_in_O.wast`
 
-I also did a narrow current-`main` check on the same surfaces.
+I also did a narrow current-`main` recheck on the same surfaces for the 2026-05-05 freshness pass.
 Durable result:
 
 - the checked `main` pass file still matches the reviewed `version_129` logic on the important gates, analysis structure, and rewrite families
-- the checked `main` dedicated lit file still matches on the reviewed surfaces
+- the checked `main` dedicated lit files still match on the reviewed surfaces
+- the new current-main bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) now carries the implementation-readiness angle separately from the core strategy page
 
 So this dossier treats `version_129` as the normative algorithm oracle.
 
@@ -410,10 +414,13 @@ That is why the pass matters and why it deserved a dedicated dossier.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md)
+- [`../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md`](../../../raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md`](../../../raw/binaryen/2026-04-24-constant-field-propagation-primary-sources.md)
 - [`../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md`](../../../raw/research/0301-2026-04-24-constant-field-propagation-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md`](../../../raw/research/0158-2026-04-21-constant-field-propagation-binaryen-research.md)
 - [`./starshine-strategy.md`](./starshine-strategy.md)
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 - Binaryen `version_129`:
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/ConstantFieldPropagation.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/pass.cpp>
@@ -428,3 +435,4 @@ That is why the pass matters and why it deserved a dedicated dossier.
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/ConstantFieldPropagation.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/cfp.wast>
+  - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/cfp-reftest.wast>

@@ -371,6 +371,8 @@ pub struct GenValidFeatureFacts {
   has_const_expr_variants : Bool
   has_basic_ref_instructions : Bool
   has_i31_extern_conversions : Bool
+  has_gc_constructors : Bool
+  has_gc_accessors : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -410,6 +412,8 @@ pub struct GenValidFeatureStats {
   const_expr_variants : Int
   basic_ref_instructions : Int
   i31_extern_conversions : Int
+  gc_constructors : Int
+  gc_accessors : Int
 } derive(Eq, Debug)
 
 ///|
@@ -484,6 +488,10 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.basic_ref_instructions.output(logger)
   logger.write_string(", i31_extern_conversions: ")
   self.i31_extern_conversions.output(logger)
+  logger.write_string(", gc_constructors: ")
+  self.gc_constructors.output(logger)
+  logger.write_string(", gc_accessors: ")
+  self.gc_accessors.output(logger)
   logger.write_char('}')
 }
 
@@ -525,6 +533,8 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     const_expr_variants: 0,
     basic_ref_instructions: 0,
     i31_extern_conversions: 0,
+    gc_constructors: 0,
+    gc_accessors: 0,
   }
 }
 
@@ -584,6 +594,10 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_basic_ref_instructions),
     i31_extern_conversions: self.i31_extern_conversions +
     gen_valid_bool_count(facts.has_i31_extern_conversions),
+    gc_constructors: self.gc_constructors +
+    gen_valid_bool_count(facts.has_gc_constructors),
+    gc_accessors: self.gc_accessors +
+    gen_valid_bool_count(facts.has_gc_accessors),
   }
 }
 
@@ -610,6 +624,8 @@ priv struct GenValidInstrFacts {
   has_memory_limit_variants : Bool
   has_basic_ref_instructions : Bool
   has_i31_extern_conversions : Bool
+  has_gc_constructors : Bool
+  has_gc_accessors : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -640,6 +656,8 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_memory_limit_variants: false,
     has_basic_ref_instructions: false,
     has_i31_extern_conversions: false,
+    has_gc_constructors: false,
+    has_gc_accessors: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -881,6 +899,9 @@ fn gen_valid_gc_type_plan_empty() -> GenValidGcTypePlan {
     bulk_data_array_idx: None,
     bulk_elem_array_idx: None,
     bulk_elem_ref_type: None,
+    packed_struct_idx: None,
+    packed_i8_array_idx: None,
+    packed_i16_array_idx: None,
     descriptor_struct_idx: None,
     descriptor_type_idx: None,
     string_wtf16_array_idx: None,
@@ -921,6 +942,12 @@ fn gen_valid_gc_type_defs(
   let want_struct = ctx.config.mode == CoverageForced || ctx.random_int(4) != 0
   let want_array = remaining_type_budget - defs.length() > 0 &&
     (ctx.config.mode == CoverageForced || ctx.random_int(3) != 0)
+  let want_packed_struct = remaining_type_budget - defs.length() > 0 &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+  let want_packed_i8_array = remaining_type_budget - defs.length() > 0 &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
+  let want_packed_i16_array = remaining_type_budget - defs.length() > 0 &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
   let want_descriptor_group = remaining_type_budget - defs.length() > 0 &&
     (ctx.config.mode == CoverageForced || ctx.random_int(3) == 0)
   let want_elem_array = remaining_type_budget - defs.length() > 0 &&
@@ -958,6 +985,24 @@ fn gen_valid_gc_type_defs(
     type_idx_cursor += 1
   }
 
+  if want_packed_struct && defs.length() < remaining_type_budget {
+    let packed_struct_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    defs.push(
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
+            FieldType::new(StorageType::pack_type(PackType::i8()), Const),
+            FieldType::new(StorageType::pack_type(PackType::i16()), Const),
+          ]),
+        ),
+      ),
+    )
+    plan = { ..plan, packed_struct_idx: Some(packed_struct_idx) }
+    plan.struct_type_idxs.push(packed_struct_idx)
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(packed_struct_idx))
+    type_idx_cursor += 1
+  }
+
   if want_array && defs.length() < remaining_type_budget {
     let array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
     defs.push(
@@ -972,6 +1017,40 @@ fn gen_valid_gc_type_defs(
     plan.array_type_idxs.push(array_idx)
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(array_idx))
     plan = { ..plan, bulk_data_array_idx: Some(array_idx) }
+    type_idx_cursor += 1
+  }
+
+  if want_packed_i8_array && defs.length() < remaining_type_budget {
+    let packed_i8_array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    defs.push(
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(StorageType::pack_type(PackType::i8()), Var),
+          ),
+        ),
+      ),
+    )
+    plan = { ..plan, packed_i8_array_idx: Some(packed_i8_array_idx) }
+    plan.array_type_idxs.push(packed_i8_array_idx)
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(packed_i8_array_idx))
+    type_idx_cursor += 1
+  }
+
+  if want_packed_i16_array && defs.length() < remaining_type_budget {
+    let packed_i16_array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    defs.push(
+      RecType::new(
+        SubType::comp_type(
+          CompType::array(
+            FieldType::new(StorageType::pack_type(PackType::i16()), Var),
+          ),
+        ),
+      ),
+    )
+    plan = { ..plan, packed_i16_array_idx: Some(packed_i16_array_idx) }
+    plan.array_type_idxs.push(packed_i16_array_idx)
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(packed_i16_array_idx))
     type_idx_cursor += 1
   }
 
@@ -1161,6 +1240,9 @@ priv struct GenValidGcTypePlan {
   bulk_data_array_idx : TypeIdx?
   bulk_elem_array_idx : TypeIdx?
   bulk_elem_ref_type : RefType?
+  packed_struct_idx : TypeIdx?
+  packed_i8_array_idx : TypeIdx?
+  packed_i16_array_idx : TypeIdx?
   descriptor_struct_idx : TypeIdx?
   descriptor_type_idx : TypeIdx?
   string_wtf16_array_idx : TypeIdx?
@@ -2603,7 +2685,9 @@ fn gen_valid_append_gc_prelude(
   }
   if !env.gc_type_plan.struct_type_idxs.is_empty() {
     let struct_idx = env.gc_type_plan.struct_type_idxs[0]
-    out.push(Instruction::struct_new_default(struct_idx))
+    out.push(Instruction::i32_const(I32(42)))
+    out.push(Instruction::ref_null(HeapType::abs(AbsHeapType::eq())))
+    out.push(Instruction::struct_new(struct_idx))
     out.push(Instruction::struct_get(struct_idx, U32::new(0U)))
     out.push(Instruction::drop())
 
@@ -2638,6 +2722,23 @@ fn gen_valid_append_gc_prelude(
         ]),
       ),
     )
+  }
+
+  match env.gc_type_plan.packed_struct_idx {
+    Some(packed_struct_idx) => {
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(Instruction::i32_const(I32(2)))
+      out.push(Instruction::struct_new(packed_struct_idx))
+      out.push(Instruction::struct_get_s(packed_struct_idx, U32::new(0U)))
+      out.push(Instruction::drop())
+
+      out.push(Instruction::i32_const(I32(3)))
+      out.push(Instruction::i32_const(I32(4)))
+      out.push(Instruction::struct_new(packed_struct_idx))
+      out.push(Instruction::struct_get_u(packed_struct_idx, U32::new(1U)))
+      out.push(Instruction::drop())
+    }
+    None => ()
   }
 
   match
@@ -2684,13 +2785,15 @@ fn gen_valid_append_gc_prelude(
 
   if !env.gc_type_plan.array_type_idxs.is_empty() {
     let array_idx = env.gc_type_plan.array_type_idxs[0]
+    out.push(Instruction::i32_const(I32(9)))
     out.push(Instruction::i32_const(I32(2)))
-    out.push(Instruction::array_new_default(array_idx))
+    out.push(Instruction::array_new(array_idx))
     out.push(Instruction::array_len())
     out.push(Instruction::drop())
 
-    out.push(Instruction::i32_const(I32(2)))
-    out.push(Instruction::array_new_default(array_idx))
+    out.push(Instruction::i32_const(I32(5)))
+    out.push(Instruction::i32_const(I32(6)))
+    out.push(Instruction::array_new_fixed(array_idx, U32::new(2U)))
     out.push(Instruction::i32_const(I32(0)))
     out.push(Instruction::array_get(array_idx))
     out.push(Instruction::drop())
@@ -2700,6 +2803,46 @@ fn gen_valid_append_gc_prelude(
     out.push(Instruction::i32_const(I32(0)))
     out.push(Instruction::i32_const(I32(7)))
     out.push(Instruction::array_set(array_idx))
+
+    out.push(Instruction::i32_const(I32(2)))
+    out.push(Instruction::array_new_default(array_idx))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(8)))
+    out.push(Instruction::i32_const(I32(1)))
+    out.push(Instruction::array_fill(array_idx))
+
+    out.push(Instruction::i32_const(I32(2)))
+    out.push(Instruction::array_new_default(array_idx))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(2)))
+    out.push(Instruction::array_new_default(array_idx))
+    out.push(Instruction::i32_const(I32(0)))
+    out.push(Instruction::i32_const(I32(1)))
+    out.push(Instruction::array_copy(array_idx, array_idx))
+  }
+
+  match env.gc_type_plan.packed_i8_array_idx {
+    Some(packed_i8_array_idx) => {
+      out.push(Instruction::i32_const(I32(11)))
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(Instruction::array_new(packed_i8_array_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::array_get_s(packed_i8_array_idx))
+      out.push(Instruction::drop())
+    }
+    None => ()
+  }
+
+  match env.gc_type_plan.packed_i16_array_idx {
+    Some(packed_i16_array_idx) => {
+      out.push(Instruction::i32_const(I32(12)))
+      out.push(Instruction::i32_const(I32(1)))
+      out.push(Instruction::array_new(packed_i16_array_idx))
+      out.push(Instruction::i32_const(I32(0)))
+      out.push(Instruction::array_get_u(packed_i16_array_idx))
+      out.push(Instruction::drop())
+    }
+    None => ()
   }
 
   match env.gc_type_plan.string_wtf16_array_idx {
@@ -4863,6 +5006,9 @@ fn gen_valid_merge_instr_facts(
     right.has_basic_ref_instructions,
     has_i31_extern_conversions: left.has_i31_extern_conversions ||
     right.has_i31_extern_conversions,
+    has_gc_constructors: left.has_gc_constructors ||
+    right.has_gc_constructors,
+    has_gc_accessors: left.has_gc_accessors || right.has_gc_accessors,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -5035,6 +5181,42 @@ fn gen_valid_const_expr_has_variant(expr : Expr) -> Bool {
 }
 
 ///|
+fn gen_valid_instr_is_gc_constructor(instr : Instruction) -> Bool {
+  match instr {
+    StructNew(_)
+    | StructNewDefault(_)
+    | StructNewDesc(_)
+    | StructNewDefaultDesc(_)
+    | ArrayNew(_)
+    | ArrayNewDefault(_)
+    | ArrayNewFixed(_, _)
+    | ArrayNewData(_, _)
+    | ArrayNewElem(_, _) => true
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_instr_is_gc_accessor(instr : Instruction) -> Bool {
+  match instr {
+    StructGet(_, _)
+    | StructGetS(_, _)
+    | StructGetU(_, _)
+    | StructSet(_, _)
+    | ArrayGet(_)
+    | ArrayGetS(_)
+    | ArrayGetU(_)
+    | ArraySet(_)
+    | ArrayLen
+    | ArrayFill(_)
+    | ArrayCopy(_, _)
+    | ArrayInitData(_, _)
+    | ArrayInitElem(_, _) => true
+    _ => false
+  }
+}
+
+///|
 fn gen_valid_instr_is_basic_ref_instruction(instr : Instruction) -> Bool {
   match instr {
     RefNull(rt) =>
@@ -5061,8 +5243,21 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
       has_numeric_full_ops: true,
     }
   }
+  if gen_valid_instr_is_gc_constructor(instr) {
+    return GenValidInstrFacts::{
+      ..GenValidInstrFacts::empty(),
+      uses_ref_types: true,
+      has_gc_constructors: true,
+    }
+  }
+  if gen_valid_instr_is_gc_accessor(instr) {
+    return GenValidInstrFacts::{
+      ..GenValidInstrFacts::empty(),
+      uses_ref_types: true,
+      has_gc_accessors: true,
+    }
+  }
   match instr {
-    Call(_) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), has_call: true }
     ReturnCall(_) =>
       GenValidInstrFacts::{
@@ -5277,6 +5472,8 @@ pub fn gen_valid_feature_facts(
   let mut has_const_expr_variants = false
   let mut has_basic_ref_instructions = false
   let mut has_i31_extern_conversions = false
+  let mut has_gc_constructors = false
+  let mut has_gc_accessors = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -5387,6 +5584,9 @@ pub fn gen_valid_feature_facts(
             expr_facts.has_basic_ref_instructions
           has_i31_extern_conversions = has_i31_extern_conversions ||
             expr_facts.has_i31_extern_conversions
+          has_gc_constructors = has_gc_constructors ||
+            expr_facts.has_gc_constructors
+          has_gc_accessors = has_gc_accessors || expr_facts.has_gc_accessors
           control_nodes += expr_facts.control_nodes
           branch_ops += expr_facts.branch_ops
         }
@@ -5443,6 +5643,9 @@ pub fn gen_valid_feature_facts(
                 facts.has_basic_ref_instructions
               has_i31_extern_conversions = has_i31_extern_conversions ||
                 facts.has_i31_extern_conversions
+              has_gc_constructors = has_gc_constructors ||
+                facts.has_gc_constructors
+              has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -5475,6 +5678,9 @@ pub fn gen_valid_feature_facts(
                   facts.has_basic_ref_instructions
                 has_i31_extern_conversions = has_i31_extern_conversions ||
                   facts.has_i31_extern_conversions
+                has_gc_constructors = has_gc_constructors ||
+                  facts.has_gc_constructors
+                has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -5505,6 +5711,9 @@ pub fn gen_valid_feature_facts(
                   facts.has_basic_ref_instructions
                 has_i31_extern_conversions = has_i31_extern_conversions ||
                   facts.has_i31_extern_conversions
+                has_gc_constructors = has_gc_constructors ||
+                  facts.has_gc_constructors
+                has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -5545,6 +5754,9 @@ pub fn gen_valid_feature_facts(
                 facts.has_basic_ref_instructions
               has_i31_extern_conversions = has_i31_extern_conversions ||
                 facts.has_i31_extern_conversions
+              has_gc_constructors = has_gc_constructors ||
+                facts.has_gc_constructors
+              has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -5583,6 +5795,8 @@ pub fn gen_valid_feature_facts(
           facts.has_basic_ref_instructions
         has_i31_extern_conversions = has_i31_extern_conversions ||
           facts.has_i31_extern_conversions
+        has_gc_constructors = has_gc_constructors || facts.has_gc_constructors
+        has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
       }
@@ -5624,5 +5838,7 @@ pub fn gen_valid_feature_facts(
     has_const_expr_variants,
     has_basic_ref_instructions,
     has_i31_extern_conversions,
+    has_gc_constructors,
+    has_gc_accessors,
   }
 }
