@@ -1,16 +1,19 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
+  - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./gc-casts-call_ref-and-trap-sensitive-rewrites.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ../../no-dwarf-default-optimize-path.md
 ---
@@ -20,6 +23,7 @@ related:
 ## Upstream source rule
 
 Use Binaryen `version_129` as the current source oracle for this pass.
+A 2026-05-05 current-main spot check on `OptimizeInstructions.cpp`, `pass.cpp`, `opt-utils.h`, and representative default/sign-extension/bulk-memory/`call_ref`/GC/multivalue tests did not surface teaching-relevant drift on the reviewed surfaces.
 
 Primary files:
 

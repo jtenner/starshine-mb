@@ -1,13 +1,15 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-20
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
 ---
 

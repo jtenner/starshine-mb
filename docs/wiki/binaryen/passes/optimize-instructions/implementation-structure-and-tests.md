@@ -1,15 +1,18 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
+  - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./gc-casts-call_ref-and-trap-sensitive-rewrites.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
 ---
 
@@ -192,11 +195,12 @@ That structure matches the real breadth of the pass.
 
 ## Current-main freshness note
 
-A narrow 2026-04-22 spot check on:
+A narrow 2026-05-05 spot check on:
 
 - `src/passes/OptimizeInstructions.cpp`
 - `src/passes/pass.cpp`
 - `test/lit/passes/optimize-instructions-default.wast`
+- `test/lit/passes/optimize-instructions-sign_ext.wast`
 - `test/lit/passes/optimize-instructions-gc.wast`
 
 ...did not surface a new teaching-relevant contract change beyond what the tagged `version_129` dossier already teaches.

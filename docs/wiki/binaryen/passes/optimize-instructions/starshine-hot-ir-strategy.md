@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
+  - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -18,11 +20,13 @@ related:
   - ./implementation-structure-and-tests.md
   - ./gc-casts-call_ref-and-trap-sensitive-rewrites.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
 ---
 
-# Current Starshine `optimize-instructions` strategy
+# Current Starshine `optimize-instructions` HOT code map
 
-This page describes the **current local implementation**, not upstream Binaryen's AST pass.
+This page is the exact MoonBit helper/code-map companion to [`./starshine-strategy.md`](./starshine-strategy.md).
+It describes the **current local implementation**, not upstream Binaryen's AST pass.
 For the upstream contract, start with [`./binaryen-strategy.md`](./binaryen-strategy.md).
 
 ## Short version

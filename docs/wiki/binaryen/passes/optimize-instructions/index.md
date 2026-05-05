@@ -1,11 +1,13 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-22
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../raw/research/0131-2026-04-20-optimize-instructions-binaryen-research.md
   - ../../../raw/research/0248-2026-04-22-optimize-instructions-primary-sources-and-implementation-followup.md
+  - ../../../raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md
   - ../../../../../src/passes/optimize_instructions.mbt
   - ../../../../../src/passes/optimize_instructions_test.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -20,6 +22,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./gc-casts-call_ref-and-trap-sensitive-rewrites.md
   - ./wat-shapes.md
+  - ./starshine-strategy.md
   - ./starshine-hot-ir-strategy.md
   - ../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md
   - ../tracker.md
@@ -110,20 +113,24 @@ What it actually is in `version_129`:
   - Focused guide to the easiest part of the pass to underestimate: null-trap reasoning, cast removal limits, descriptor/exactness handling, `call_ref` lowering, and unshared GC atomic rewrites.
 - [`./wat-shapes.md`](./wat-shapes.md)
   - Beginner-friendly shape catalog covering positive, negative, bailout, control, memory, GC, `call_ref`, tuple, and metadata-sensitive rewrite families.
+- [`./starshine-strategy.md`](./starshine-strategy.md)
+  - Current Starshine strategy overview for the implemented HOT subset, with exact registry, dispatcher, owner-file, test, and CLI replay code locations.
 - [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
-  - Current in-tree Starshine strategy and exact MoonBit code map for the implemented HOT subset, plus the major upstream Binaryen behaviors the repo still does not model.
+  - Exact MoonBit helper and code-map companion for the implemented HOT subset, plus the major upstream Binaryen behaviors the repo still does not model.
 - [`../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-instructions-primary-sources.md)
   - Immutable capture of the official Binaryen release, source, and lit-test URLs re-checked for this dossier on 2026-04-22.
+- [`../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md)
+  - Immutable capture of the 2026-05-05 current-main spot check for the same contract surfaces.
 
 ## Freshness and provenance note
 
 Current durable answer:
 
-- the official Binaryen GitHub `version_129` release page re-checked on 2026-04-22 showed publish date **2026-04-01**
-- the dossier now has an immutable raw primary-source manifest for that release/source/test provenance
-- a narrow 2026-04-22 source spot check on `OptimizeInstructions.cpp`, `pass.cpp`, and representative default/GC test files did not surface a new teaching-relevant contract drift beyond what this dossier already teaches
+- the official Binaryen GitHub `version_129` release page remains the tagged anchor for the dossier and still showed publish date **2026-04-01** on the reviewed 2026-04-22 capture
+- the dossier now has an immutable raw primary-source manifest for the original release/source/test provenance and a second immutable current-main recheck manifest dated 2026-05-05
+- the 2026-05-05 current-main spot check on `OptimizeInstructions.cpp`, `pass.cpp`, and representative default/sign-extension/bulk-memory/`call_ref`/GC/multivalue tests did not surface a new teaching-relevant contract drift beyond what this dossier already teaches
 
-That is a spot check, not a full current-`main` drift audit.
+That is still a spot check, not a full current-`main` drift audit.
 
 ## Current maintenance rule
 

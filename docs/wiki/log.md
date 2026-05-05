@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `optimize-instructions` navigation and freshness
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md` plus `docs/wiki/raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md` after rechecking official Binaryen `main` `OptimizeInstructions.cpp`, `pass.cpp`, `opt-utils.h`, and representative default/sign-extension/bulk-memory/`call_ref`/GC/multivalue tests.
+- Added `docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md` and refreshed the landing page, Binaryen strategy, implementation/test-map, GC/call_ref notes, WAT-shape catalog, exact Starshine code-map page, shared catalogs, and wiki index so the dossier now has a dedicated Starshine strategy overview and a fresh current-main bridge.
+- Recorded unchanged local status: Starshine still keeps `optimize-instructions` as an active HOT subset, with the deeper helper walk still split into `starshine-hot-ir-strategy.md`.
+
 ## [2026-05-05] implementation | implement `coalesce-locals`
 
 - Promoted `coalesce-locals` from removed-name tracking to an active direct module pass with registry, dispatcher, CLI, and pass-fuzz harness wiring.

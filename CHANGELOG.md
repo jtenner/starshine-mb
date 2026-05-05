@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Wiki: refresh `optimize-instructions` strategy
+
+- **add a dedicated Starshine strategy page, refresh the current-main recheck manifest, and update the optimize-instructions wiki catalogs and pass dossier links for the new navigation path** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md), [`docs/wiki/raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md`](./docs/wiki/raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md), [`docs/wiki/binaryen/passes/optimize-instructions/`](./docs/wiki/binaryen/passes/optimize-instructions/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
+
 ## 2026-05-05 Pass: tighten `coalesce-locals` artifact timing
 
 - **retire the optimized-artifact direct-pass runtime gap by tracking live local count during value-aware interference so single-live-local get/set traffic avoids full local scans, preserving canonical Binaryen parity while moving the optimized WASI self-opt pass timer ahead of Binaryen** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md), [`agent-todo.md`](./agent-todo.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`docs/wiki/binaryen/passes/coalesce-locals/`](./docs/wiki/binaryen/passes/coalesce-locals/), and [`src/passes/coalesce_locals.mbt`](./src/passes/coalesce_locals.mbt).
