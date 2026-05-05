@@ -393,6 +393,7 @@ pub struct GenValidFeatureFacts {
   has_exception_try_table_matrix : Bool
   has_subtyping_topology : Bool
   has_rich_gc_field_plans : Bool
+  has_import_export_topology : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -442,6 +443,7 @@ pub struct GenValidFeatureStats {
   exception_try_table_matrix : Int
   subtyping_topology : Int
   rich_gc_field_plans : Int
+  import_export_topology : Int
 } derive(Eq, Debug)
 
 ///|
@@ -536,6 +538,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.subtyping_topology.output(logger)
   logger.write_string(", rich_gc_field_plans: ")
   self.rich_gc_field_plans.output(logger)
+  logger.write_string(", import_export_topology: ")
+  self.import_export_topology.output(logger)
   logger.write_char('}')
 }
 
@@ -587,6 +591,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     exception_try_table_matrix: 0,
     subtyping_topology: 0,
     rich_gc_field_plans: 0,
+    import_export_topology: 0,
   }
 }
 
@@ -661,6 +666,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_subtyping_topology),
     rich_gc_field_plans: self.rich_gc_field_plans +
     gen_valid_bool_count(facts.has_rich_gc_field_plans),
+    import_export_topology: self.import_export_topology +
+    gen_valid_bool_count(facts.has_import_export_topology),
   }
 }
 
@@ -6580,6 +6587,7 @@ pub fn gen_valid_feature_facts(
   let mut has_exception_try_table_matrix = false
   let mut has_subtyping_topology = false
   let mut has_rich_gc_field_plans = false
+  let mut has_import_export_topology = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -6597,15 +6605,33 @@ pub fn gen_valid_feature_facts(
     None => ()
   }
 
+  let import_modules : Array[Name] = []
+  let import_names : Array[Name] = []
+  let mut imported_func_count = 0
+  let mut imported_table_count = 0
+  let mut imported_mem_count = 0
+  let mut imported_global_count = 0
+  let mut imported_tag_count = 0
   match mod.import_sec {
     Some(ImportSec(imports)) =>
       if !imports.is_empty() {
         has_imports = true
         for imp in imports {
-          let Import(_, _, extern_type) = imp
+          let Import(module_name, import_name, extern_type) = imp
+          let mut saw_module = false
+          for existing in import_modules {
+            if existing == module_name {
+              saw_module = true
+            }
+          }
+          if !saw_module {
+            import_modules.push(module_name)
+          }
+          import_names.push(import_name)
           match extern_type {
-            FuncExternType(_) => ()
+            FuncExternType(_) => imported_func_count += 1
             TableExternType(table_type) => {
+              imported_table_count += 1
               has_tables = true
               let TableType(ref_type, _) = table_type
               uses_ref_types = uses_ref_types || true
@@ -6615,18 +6641,23 @@ pub fn gen_valid_feature_facts(
               ignore(ref_type)
             }
             MemExternType(mt) => {
+              imported_mem_count += 1
               has_mems = true
               has_memory_limit_variants = has_memory_limit_variants ||
                 gen_valid_mem_type_has_limit_variant(mt)
             }
             GlobalExternType(global_type) => {
+              imported_global_count += 1
               has_globals = true
               let GlobalType(vt, _) = global_type
               let (has_ref, has_v128_fact) = gen_valid_scan_val_type(vt)
               uses_ref_types = uses_ref_types || has_ref
               uses_v128 = uses_v128 || has_v128_fact
             }
-            TagExternType(_) => has_tags = true
+            TagExternType(_) => {
+              imported_tag_count += 1
+              has_tags = true
+            }
           }
         }
       }
@@ -6715,19 +6746,69 @@ pub fn gen_valid_feature_facts(
     _ => ()
   }
   match mod.export_sec {
-    Some(ExportSec(exports)) =>
+    Some(ExportSec(exports)) => {
+      let export_idxs : Array[ExternIdx] = []
       for export_ in exports {
-        let Export(_, idx) = export_
+        let Export(export_name, idx) = export_
+        for import_name in import_names {
+          if import_name == export_name {
+            has_import_export_topology = true
+          }
+        }
+        for prior_idx in export_idxs {
+          if prior_idx == idx {
+            has_import_export_topology = true
+          }
+        }
+        export_idxs.push(idx)
         match idx {
-          FuncExternIdx(_) => has_func_exports = true
-          TableExternIdx(_) => has_table_exports = true
-          MemExternIdx(_) => has_mem_exports = true
-          GlobalExternIdx(_) => has_global_exports = true
-          TagExternIdx(_) => has_tag_exports = true
+          FuncExternIdx(FuncIdx(func_idx)) => {
+            has_func_exports = true
+            has_import_export_topology = has_import_export_topology ||
+              func_idx.reinterpret_as_int() < imported_func_count
+          }
+          TableExternIdx(TableIdx(table_idx)) => {
+            has_table_exports = true
+            has_import_export_topology = has_import_export_topology ||
+              table_idx.reinterpret_as_int() < imported_table_count
+          }
+          MemExternIdx(MemIdx(mem_idx)) => {
+            has_mem_exports = true
+            has_import_export_topology = has_import_export_topology ||
+              mem_idx.reinterpret_as_int() < imported_mem_count
+          }
+          GlobalExternIdx(GlobalIdx(global_idx)) => {
+            has_global_exports = true
+            has_import_export_topology = has_import_export_topology ||
+              global_idx.reinterpret_as_int() < imported_global_count
+          }
+          TagExternIdx(TagIdx(tag_idx)) => {
+            has_tag_exports = true
+            has_import_export_topology = has_import_export_topology ||
+              tag_idx.reinterpret_as_int() < imported_tag_count
+          }
         }
       }
+    }
     None => ()
   }
+  has_import_export_topology = has_import_export_topology ||
+    (
+      has_imports &&
+      (
+        has_func_exports ||
+        has_table_exports ||
+        has_mem_exports ||
+        has_global_exports ||
+        has_tag_exports
+      )
+    ) ||
+    import_modules.length() > 1 ||
+    (match mod.start_sec {
+      Some(StartSec(FuncIdx(func_idx))) =>
+        func_idx.reinterpret_as_int() < imported_func_count
+      None => false
+    })
   match mod.elem_sec {
     Some(ElemSec(elems)) =>
       if !elems.is_empty() {
@@ -7000,5 +7081,6 @@ pub fn gen_valid_feature_facts(
     has_exception_try_table_matrix,
     has_subtyping_topology,
     has_rich_gc_field_plans,
+    has_import_export_topology,
   }
 }

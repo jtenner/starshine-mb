@@ -3583,7 +3583,7 @@ pub fn validate_valid_feature_actual_count(
     Atomics => stats.atomics
     SubtypingTopology => stats.subtyping_topology
     RichGcFieldPlans => stats.rich_gc_field_plans
-    ImportExportTopology => 0
+    ImportExportTopology => stats.import_export_topology
     ElementSegmentRange => 0
     DataSegmentRange => 0
     NameCustomSections => 0
@@ -6931,6 +6931,29 @@ test "gen_valid coverage-forced emits exception try_table matrix surface" {
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: ExceptionTryTableMatrix, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+test "gen_valid coverage-forced emits import/export topology surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26020UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  assert_true(facts.has_import_export_topology)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(
+    validate_valid_feature_actual_count(stats, ImportExportTopology) > 0,
+  )
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: ImportExportTopology, min_count: 1 },
     ]),
     [],
   )

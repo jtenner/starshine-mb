@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] fuzz | account import/export topology coverage
+
+- Added `ImportExportTopology` gen-valid feature accounting and ledger docs so FZG020 no longer reports as a zero-count future row.
+- Recorded the validation state: `moon info` / `moon fmt` are green, while `moon test --package jtenner/starshine/validate` remains blocked by the pre-existing coverage-forced gen-valid validation cluster before this slice's assertions can complete.
+
 ## [2026-05-05] health | tighten `optimize-casts` local code anchors
 
 - Tightened the `optimize-casts` implementation/status map so the exact local registry anchor now points at the full removed-name block in `src/passes/optimize.mbt:143-149` instead of the narrower middle slice.

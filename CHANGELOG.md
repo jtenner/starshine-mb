@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: account import/export topology
+
+- **complete FZG020 by wiring `ImportExportTopology` into gen-valid feature accounting and ledger docs for import/export section topology surfaces** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: account rich GC field plans
 
 - **complete FZG019 by wiring `RichGcFieldPlans` into gen-valid feature accounting and ledger docs for generated rich struct/array field-plan surfaces** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
