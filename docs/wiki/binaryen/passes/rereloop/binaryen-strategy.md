@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-30
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md
+  - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-30-rereloop-current-main-refresh.md
+  - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
   - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReReloop.cpp
@@ -18,6 +20,7 @@ related:
   - ./flat-cfg-builder-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen strategy for `rereloop`
@@ -42,7 +45,16 @@ So the best mental model is:
 
 ## Public surface and scheduler meaning
 
-The 2026-04-24 raw source manifest in [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md) anchors this page to the official `version_129` release and the opened current-`main` spot-check surfaces.
+The 2026-05-05 raw source manifest in [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md) anchors this page to the official `version_129` release and the reopened current-`main` spot-check surfaces.
+
+Current-main source anchors worth reading first:
+
+- `ReReloop.cpp#L1439-L1442` for the hard EH boundary
+- `ReReloop.cpp#L1462-L1477` for flatness, CFG setup, and task-driven scanning
+- `ReReloop.cpp#L1559-L1577` for helper-label-local rendering and `ReFinalize`
+- `pass.cpp#L3066-L3070` for public registration
+- `pass.cpp#L3422-L3437` for the flatten-era `-O4` TODO
+- `Relooper.h#L1197-L1255` for shape taxonomy and multi-entry rendering
 
 `src/passes/pass.cpp` registers the pass publicly as:
 
@@ -347,6 +359,8 @@ That is the real Binaryen strategy for `rereloop`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md)
+- [`../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md`](../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md)
 - [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)

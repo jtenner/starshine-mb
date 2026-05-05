@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `rereloop` current-main bridge and add readiness page
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-rereloop-current-main-recheck.md` plus `docs/wiki/raw/research/0484-2026-05-05-rereloop-current-main-recheck.md` after rechecking official Binaryen `main` `ReReloop.cpp`, `pass.cpp`, `Relooper.{h,cpp}`, `flat.h`, and the dedicated `flatten_rereloop` fixtures against the corrected contract.
+- Added `docs/wiki/binaryen/passes/rereloop/starshine-port-readiness-and-validation.md` and refreshed the `rereloop` landing page, Binaryen strategy, implementation/test-map, flat-CFG boundary guide, WAT-shape catalog, Starshine strategy, and top-level wiki index so the 2026-05-05 freshness layer and the new port-readiness bridge are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same flat-IR CFG-to-Relooper restructuring story, and Starshine still keeps `re-reloop` removed until a deliberate port lands.
+
 ## [2026-05-05] health | refresh `strip-target-features` freshness layer and current-main recheck
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md` plus `docs/wiki/raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md` after rechecking current `main` `StripTargetFeatures.cpp`, `pass.cpp`, `passes.h`, `pass.h`, and the custom-section spec context against the corrected module-metadata contract.

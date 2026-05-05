@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-30
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md
+  - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-30-rereloop-current-main-refresh.md
+  - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
   - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/cli/cli_test.mbt
@@ -30,7 +32,7 @@ related:
 
 # Starshine strategy for `rereloop` / `re-reloop`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md).
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md) and [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete future-port constraints implied by the upstream strategy.
 
 ## The honest current status
@@ -47,6 +49,8 @@ The current Starshine strategy is deliberately limited:
 - keep its absence from the canonical no-DWARF path explicit,
 - keep the missing dedicated backlog slice explicit,
 - and keep the future port framed as a flat-IR CFG-to-structure project, not as a small peephole.
+
+A 2026-05-05 current-main recheck kept that status unchanged.
 
 So this page is a **status-and-port-planning** page, not an implementation page.
 
@@ -173,6 +177,7 @@ For the upstream details, use:
 
 - [`./binaryen-strategy.md`](./binaryen-strategy.md)
 - [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md)
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
 - [`./flat-cfg-builder-and-boundaries.md`](./flat-cfg-builder-and-boundaries.md)
 - [`./wat-shapes.md`](./wat-shapes.md)
 

@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-30
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md
+  - ../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-30-rereloop-current-main-refresh.md
+  - ../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md
   - ../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md
   - https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/ReReloop.cpp
@@ -22,6 +24,7 @@ related:
   - ./flat-cfg-builder-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Upstream implementation structure and test map for `rereloop`
@@ -47,7 +50,7 @@ This page keeps those layers separate.
 | `src/ir/flat.h` | Formal precondition | `rereloop` depends on Binaryen Flat IR, not just vaguely “simpler code.” |
 | `test/lit/passes/flatten_rereloop.wast` | Main dedicated lit surface | The real source-backed shape contract lives here: skip-empty ladders, branch-table regrouping, mergeable exits, helper locals, and unreachable/result repair. |
 | `test/lit/passes/opt_flatten.wast` | Secondary integration surface | Confirms `flatten -> rereloop` also behaves on a smaller optimize-oriented example. |
-| current `main` `src/passes/ReReloop.cpp` and `flatten_rereloop.wast` | Narrow freshness spot check | The reviewed current-main surfaces match `version_129` on the checked files. |
+| current `main` `src/passes/ReReloop.cpp` and `flatten_rereloop.wast` | Narrow freshness spot check | The reviewed current-main surfaces match `version_129` on the checked files, and the 2026-05-05 recheck keeps that result current. |
 
 ## `ReReloop.cpp` is the pass-local contract
 
@@ -154,7 +157,7 @@ That is enough to teach the main visible contract, but it also means the source 
 
 ## Freshness check
 
-The 2026-04-24 raw source manifest in [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md) refreshed the official release provenance and the current-`main` spot-check URLs for this dossier.
+The 2026-05-05 raw source manifest in [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md) refreshed the official release provenance and the current-`main` spot-check URLs for this dossier.
 
 I compared:
 
@@ -182,6 +185,8 @@ That three-layer reading is the real implementation structure.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-rereloop-current-main-recheck.md)
+- [`../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md`](../../../raw/research/0484-2026-05-05-rereloop-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md`](../../../raw/binaryen/2026-04-24-rereloop-primary-sources.md)
 - [`../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md`](../../../raw/research/0316-2026-04-24-rereloop-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md`](../../../raw/research/0183-2026-04-21-rereloop-binaryen-research.md)
