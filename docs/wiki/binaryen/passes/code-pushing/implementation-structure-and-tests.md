@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
+  - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md
@@ -21,7 +23,7 @@ related:
 
 This page is the source map future readers should use before editing `code-pushing` strategy or shape pages.
 
-The 2026-04-26 recheck supersedes the 2026-04-25 miscorrection: upstream Binaryen `CodePushing.cpp` does use `LocalAnalyzer`, `Pusher`, segment selection, and effect-checked movement.
+The 2026-05-05 recheck refreshes the same reviewed owner and scheduler surfaces and still supersedes the 2026-04-25 miscorrection: upstream Binaryen `CodePushing.cpp` does use `LocalAnalyzer`, `Pusher`, segment selection, and effect-checked movement.
 
 ## Upstream owner file
 
@@ -95,6 +97,8 @@ The correct caveat is narrower: Binaryen has a `Pusher` / segment algorithm, but
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
+- [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
 - Binaryen current-main and `version_129` source/test links above.

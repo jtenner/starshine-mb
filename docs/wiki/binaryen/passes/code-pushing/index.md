@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md
+  - ../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-code-pushing-source-correction-and-local-status.md
@@ -58,10 +60,12 @@ This folder previously contained a 2026-04-25 correction that removed `Pusher`, 
 
 The preferred source manifest is now:
 
+- [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
+- [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
 
-Keep the useful part of the 2026-04-25 warning: do not teach arbitrary two-live-arm duplication as the baseline. But restore the correct upstream owner concepts: `LocalAnalyzer`, `Pusher`, segment windows, `isPushable`, `isPushPoint`, and `optimizeSegment`.
+The 2026-05-05 current-main recheck refreshed the same owner and scheduler surfaces and found no teaching-relevant drift. Keep the useful part of the 2026-04-25 warning: do not teach arbitrary two-live-arm duplication as the baseline. But restore the correct upstream owner concepts: `LocalAnalyzer`, `Pusher`, segment windows, `isPushable`, `isPushPoint`, and `optimizeSegment`.
 
 ## Why it matters
 
@@ -123,7 +127,7 @@ Keep the useful part of the 2026-04-25 warning: do not teach arbitrary two-live-
 
 For docs maintenance:
 
-- prefer the 2026-04-26 manifest over the 2026-04-25 correction;
+- prefer the 2026-05-05 current-main recheck over the older 2026-04-26 and 2026-04-25 corrections;
 - search for stale “no `Pusher`,” “no segment selection,” or “no local profitability” wording in this folder;
 - keep the no-two-live-arm-duplication warning, but do not erase Binaryen's real `Pusher` model.
 
@@ -153,6 +157,8 @@ For future code work:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md)
+- [`../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](../../../raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/binaryen/2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md`](../../../raw/research/0413-2026-04-26-code-pushing-current-main-port-readiness.md)
 - [`../../../../../src/passes/code_pushing.mbt`](../../../../../src/passes/code_pushing.mbt)

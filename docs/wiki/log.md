@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `code-pushing` current-main bridge and source cleanup
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md` plus `docs/wiki/raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md` after rechecking current `main` `CodePushing.cpp` and `pass.cpp` against the existing Binaryen `version_129` source anchors.
+- Refreshed the `code-pushing` landing page, Binaryen strategy, implementation/test-map, Starshine strategy, Starshine port-readiness bridge, WAT-shape catalog, and shared catalogs so the new freshness layer and source manifest are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same `LocalAnalyzer` + `Pusher` SFA-local segment model and Starshine still keeps the explicit HOT subset narrower than upstream Binaryen.
+
 ## [2026-05-05] health | refresh `local-cse` current-main bridge and anchor cleanup
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-local-cse-current-main-recheck.md` plus `docs/wiki/raw/research/0453-2026-05-05-local-cse-current-main-recheck.md` after rechecking current `main` `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, and `local-cse.wast`.

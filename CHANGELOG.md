@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Wiki: refresh `code-pushing` bridge and source cleanup
+
+- **add a current-main recheck manifest, matching research note, and anchor cleanup for the `code-pushing` dossier while refreshing the pass pages and shared catalogs** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-code-pushing-current-main-recheck.md), [`docs/wiki/raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md`](./docs/wiki/raw/research/0454-2026-05-05-code-pushing-current-main-recheck.md), [`docs/wiki/binaryen/passes/code-pushing/`](./docs/wiki/binaryen/passes/code-pushing/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
+
 ## 2026-05-05 Wiki: refresh `local-cse` bridge and anchors
 
 - **add a current-main recheck manifest, matching research note, and anchor cleanup for the `local-cse` dossier while refreshing the pass pages and shared catalogs** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), [`docs/wiki/raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](./docs/wiki/raw/research/0453-2026-05-05-local-cse-current-main-recheck.md), [`docs/wiki/binaryen/passes/local-cse/`](./docs/wiki/binaryen/passes/local-cse/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
