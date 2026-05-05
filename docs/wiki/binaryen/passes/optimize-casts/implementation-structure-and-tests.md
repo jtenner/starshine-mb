@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
+  - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
+  - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/ir/hot_core.mbt
@@ -49,7 +51,7 @@ Binaryen `optimize-casts` is small enough to summarize as one owner file plus he
 | `src/ir/utils.h` | `ReFinalize` helper used after both rewrite halves. |
 | `test/lit/passes/optimize-casts.wast` | Official examples for positive rewrites, same-index barriers, side-effect/call barriers, and unsupported nearby families. |
 
-The 2026-04-25 current-main source bridge found no teaching-relevant drift from the 2026-04-22 `version_129` dossier. See [`../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md).
+The 2026-05-05 current-main source bridge found no teaching-relevant drift from the 2026-04-22 `version_129` dossier. See [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md).
 
 ## Upstream owner file
 
@@ -203,7 +205,7 @@ See [`./wat-shapes.md`](./wat-shapes.md) for beginner-friendly before/after exam
 
 Starshine does **not** have an `optimize-casts` implementation file yet. The exact current local status is:
 
-- `src/passes/optimize.mbt:145-152`
+- `src/passes/optimize.mbt:143-149`
   - `pass_registry_removed_names()` includes `"optimize-casts"`
   - active requests are therefore rejected as a known removed pass rather than dispatched to a transform
 - `src/passes/pass_manager.mbt`
@@ -258,6 +260,8 @@ Those may be useful future work, but they are not the reviewed `optimize-casts` 
 
 - [`../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md)
+- [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md)
 - [`../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md)
+- [`../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md)
 - Binaryen current-main pass source: <https://github.com/WebAssembly/binaryen/blob/main/src/passes/OptimizeCasts.cpp>
 - Binaryen current-main lit test: <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/optimize-casts.wast>

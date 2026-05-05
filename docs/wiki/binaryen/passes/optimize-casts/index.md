@@ -1,13 +1,15 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
+  - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md
   - ../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
+  - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../late-pipeline-dispatch.md
@@ -28,7 +30,7 @@ related:
 - `optimize-casts` is an upstream Binaryen GC/local cleanup pass.
 - It is currently **unimplemented** in Starshine and still appears under the removed pass names in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
 - Despite the broad CLI name, Binaryen `version_129` uses it for a much narrower job: improve how nearby `ref.cast` and `ref.as_non_null` values are reused through locals.
-- The dossier now also has immutable raw primary-source manifests recording the reviewed `version_129` release provenance and a 2026-04-25 current-main implementation/test-map bridge, plus dedicated implementation/test-map and Starshine status pages tying upstream owner/helper/test surfaces to current local registry, backlog, scheduler, and GC/local-neighbor code locations.
+- The dossier now also has immutable raw primary-source manifests recording the reviewed `version_129` release provenance, a 2026-04-25 current-main implementation/test-map bridge, and a 2026-05-05 current-main freshness recheck, plus dedicated implementation/test-map and Starshine status pages tying upstream owner/helper/test surfaces to current local registry, backlog, scheduler, and GC/local-neighbor code locations.
 
 ## Why it matters
 
@@ -62,7 +64,7 @@ That is narrower than “optimize all casts.”
 - The pass adds new locals and `local.tee`s; it does not try to delete every redundant old cast immediately.
 - `ReFinalize` runs after both rewrite phases because the new locals and gets become more refined than before.
 - The implementation comment explicitly positions `optimize-casts` next to `simplify-locals`, `rse`, and `local-cse` as related work, but not the same work.
-- The 2026-04-25 current-main recheck found no teaching-relevant drift from the `version_129` contract, and the new implementation/test-map page is the canonical owner/helper/lit proof-surface map.
+- The 2026-05-05 current-main recheck found no teaching-relevant drift from the `version_129` contract, and the new implementation/test-map page is the canonical owner/helper/lit proof-surface map.
 
 ## Page map
 
@@ -87,9 +89,11 @@ That is narrower than “optimize all casts.”
 
 - [`../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md)
+- [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md)
 - [`../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md`](../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md)
 - [`../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md`](../../../raw/research/0260-2026-04-22-optimize-casts-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md)
+- [`../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeCasts.cpp>

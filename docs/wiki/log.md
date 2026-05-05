@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | tighten `optimize-casts` local code anchors
+
+- Tightened the `optimize-casts` implementation/status map so the exact local registry anchor now points at the full removed-name block in `src/passes/optimize.mbt:143-149` instead of the narrower middle slice.
+- Kept the existing current-main freshness layer and upstream contract pages intact; this was a stale-anchor cleanup only.
+
 ## [2026-05-05] health | refresh `constant-field-null-test-folding` current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-constant-field-null-test-folding-current-main-recheck.md` plus `docs/wiki/raw/research/0475-2026-05-05-constant-field-null-test-folding-current-main-recheck.md` after rechecking current `main` `ConstantFieldPropagation.cpp`, `pass.cpp`, `cfp.wast`, and `cfp-reftest.wast` against the existing sibling contract.

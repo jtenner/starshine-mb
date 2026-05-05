@@ -1,12 +1,14 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md
   - ../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md
+  - ../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md
   - ../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md
   - ../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md
+  - ../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -442,15 +444,17 @@ If any answer is “no,” expect Binaryen to keep the original shape.
 ## Source strength note
 
 - The positive and negative shapes above come directly from Binaryen's shipped `optimize-casts` lit tests plus the reviewed `version_129` implementation comments and helper contracts.
-- The 2026-04-25 current-main implementation/test-map bridge found no teaching-relevant shape drift from those examples.
+- The 2026-05-05 current-main recheck found no teaching-relevant shape drift from those examples.
 - The unlock examples are derived explanations of why the pass sits where it does in the GC/local cleanup cluster.
 
 ## Sources
 
 - [`../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md)
 - [`../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md)
+- [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md)
 - [`../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md`](../../../raw/research/0113-2026-04-20-optimize-casts-binaryen-research.md)
 - [`../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/research/0364-2026-04-25-optimize-casts-current-main-and-test-map.md)
+- [`../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md)
 - Binaryen `version_129` lit tests: <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-casts.wast>
 - Binaryen `version_129` pass source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/OptimizeCasts.cpp>
 - Binaryen `version_129` scheduler source: <https://github.com/WebAssembly/binaryen/blob/version_129/src/passes/pass.cpp>
