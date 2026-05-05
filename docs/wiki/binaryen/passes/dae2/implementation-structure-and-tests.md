@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
+  - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
@@ -34,7 +36,7 @@ This page keeps the source roles explicit so future work does not blur:
 
 ## Upstream file map
 
-The 2026-04-26 recheck did not find teaching-relevant current-main drift from this map; it adds the local first-slice / validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+The 2026-05-05 current-main recheck did not find teaching-relevant drift from this map; it keeps the local first-slice / validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) and leaves the older 2026-04-26 bridge as the detailed implementation-readiness companion.
 
 | File | What it contributes | Why it matters for a port |
 | --- | --- | --- |

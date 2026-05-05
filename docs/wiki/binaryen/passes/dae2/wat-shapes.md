@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-dae2-current-main-recheck.md
+  - ../../../raw/research/0452-2026-05-05-dae2-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-dae2-port-readiness-primary-sources.md
   - ../../../raw/research/0410-2026-04-26-dae2-port-readiness.md
   - ../../../raw/binaryen/2026-04-25-dae2-primary-sources.md
@@ -19,7 +21,7 @@ related:
 
 # `dae2` WAT Shapes
 
-This page is the beginner-friendly shape catalog for Binaryen's experimental `dae2` pass.
+This page is the beginner-friendly shape catalog for Binaryen's experimental `dae2` pass. The 2026-05-05 current-main recheck still matches these families.
 
 ## Read this page with one mental model
 

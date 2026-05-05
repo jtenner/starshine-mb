@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `dae2` current-main bridge and freshness cleanup
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-dae2-current-main-recheck.md` plus `docs/wiki/raw/research/0452-2026-05-05-dae2-current-main-recheck.md` after rechecking current `main` `DeadArgumentElimination2.cpp`, `pass.cpp`, `passes.h`, and `dae2.wast`.
+- Refreshed the `dae2` landing page, Binaryen strategy, implementation/test-map, WAT-shape catalog, Starshine strategy, Starshine port-readiness bridge, and shared catalogs so the new freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same experimental fixed-point DAE model and Starshine still treats `dae2` as unknown, not boundary-only.
+
 ## [2026-05-05] health | tighten `merge-similar-functions` Starshine code anchors
 
 - Refreshed `docs/wiki/binaryen/passes/merge-similar-functions/starshine-strategy.md` so the removed-registry, runtime rejection, and preset-omission claims now point at exact local anchors in `src/passes/optimize.mbt` (`pass_registry_entry_removed`, `pass_registry_removed_names`, `pass_registry_entries`, `run_hot_pipeline_expand_passes`, `optimize_preset_passes`, and `shrink_preset_passes`).
