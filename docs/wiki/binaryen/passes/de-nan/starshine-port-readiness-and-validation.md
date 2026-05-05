@@ -1,12 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-05-04-de-nan-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
-  - ../../../raw/research/0434-2026-05-04-de-nan-current-main-recheck.md
+  - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -46,11 +46,11 @@ That means the current local behavior is still:
 
 ## Exact local code map
 
-- [`src/passes/optimize.mbt#L140-L149`](../../../../../src/passes/optimize.mbt#L140-L149)
+- [`src/passes/optimize.mbt#L145-L149`](../../../../../src/passes/optimize.mbt#L145-L149)
   - `pass_registry_removed_names()` includes `de-nan`
-- [`src/passes/registry_test.mbt#L120-L126`](../../../../../src/passes/registry_test.mbt#L120-L126)
+- [`src/passes/registry_test.mbt#L136-L138`](../../../../../src/passes/registry_test.mbt#L136-L138)
   - registry category is still `Removed`
-- [`src/passes/registry_test.mbt#L213-L218`](../../../../../src/passes/registry_test.mbt#L213-L218)
+- [`src/passes/registry_test.mbt#L237-L239`](../../../../../src/passes/registry_test.mbt#L237-L239)
   - removed-name execution still rejects `de-nan`
 - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L43)
   - Batch 1 still records `de-nan` as removed until a hot implementation lands
@@ -93,7 +93,7 @@ The biggest boundaries to keep honest are:
 
 ## Source bridge
 
-The 2026-05-04 current-main recheck confirmed there is still no simpler function-only contract hiding behind the pass name.
+The 2026-05-05 current-main recheck confirmed there is still no simpler function-only contract hiding behind the pass name.
 That keeps the local strategy unchanged: `de-nan` stays a removed compatibility name until a real module pass lands.
 
 ## Cross-links

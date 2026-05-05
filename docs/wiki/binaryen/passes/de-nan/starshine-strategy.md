@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
-  - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
+  - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/registry_test.mbt
@@ -27,7 +27,7 @@ related:
 
 # Starshine Strategy For `de-nan` / `denan`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md), the focused current-main recheck in [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md), and the companion validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md), the focused current-main recheck in [`../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md), and the companion validation bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main uncertainty a future parity port must resolve.
 
 ## The honest current status
@@ -52,19 +52,19 @@ So this is a **status-and-port-planning** page, not an implementation page.
 The fastest read-along path through the current Starshine status is:
 
 - removed pass-name tracking
-  - [`src/passes/optimize.mbt#L144-L153`](../../../../../src/passes/optimize.mbt#L144-L153)
+  - [`src/passes/optimize.mbt#L145-L149`](../../../../../src/passes/optimize.mbt#L145-L149)
     - `pass_registry_removed_names()` includes `"de-nan"`
 - registry entry construction for removed names
-  - [`src/passes/optimize.mbt#L265-L270`](../../../../../src/passes/optimize.mbt#L265-L270)
+  - [`src/passes/optimize.mbt#L311-L312`](../../../../../src/passes/optimize.mbt#L311-L312)
     - each removed name becomes a `HotPassRegistryCategory::Removed` registry entry
 - active request guard for removed passes
-  - [`src/passes/optimize.mbt#L451-L466`](../../../../../src/passes/optimize.mbt#L451-L466)
+  - [`src/passes/optimize.mbt#L522-L524`](../../../../../src/passes/optimize.mbt#L522-L524)
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is removed from the active hot pipeline registry`
 - pass-specific registry-category coverage
-  - [`src/passes/registry_test.mbt#L83-L90`](../../../../../src/passes/registry_test.mbt#L83-L90)
+  - [`src/passes/registry_test.mbt#L136-L138`](../../../../../src/passes/registry_test.mbt#L136-L138)
     - `pass_registry_category("de-nan")` is expected to be `Removed`
 - removed-name request-rejection coverage
-  - [`src/passes/registry_test.mbt#L160-L168`](../../../../../src/passes/registry_test.mbt#L160-L168)
+  - [`src/passes/registry_test.mbt#L237-L239`](../../../../../src/passes/registry_test.mbt#L237-L239)
     - the generic removed-name execution test currently uses `de-nan` as its representative removed pass
 - older pass-port planning breadcrumb
   - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L43)
@@ -76,7 +76,7 @@ The fastest read-along path through the current Starshine status is:
   - [`../../../../../agent-todo.md`](../../../../../agent-todo.md)
     - there is currently no dedicated `de-nan` / `denan` slice
 
-That map is the durable local status today: the pass is known, intentionally unavailable, tested as removed, and not assigned to an active implementation slice. The 2026-04-25 current-main recheck did not find any upstream drift that would justify changing this local classification or adding `denan` as a separate accepted spelling.
+That map is the durable local status today: the pass is known, intentionally unavailable, tested as removed, and not assigned to an active implementation slice. The 2026-05-05 current-main recheck did not find any upstream drift that would justify changing this local classification or adding `denan` as a separate accepted spelling.
 
 ## Why this is not an ordinary HOT peephole today
 
@@ -199,7 +199,7 @@ A future implementation should validate in layers:
 
 ## Current-main source bridge
 
-The 2026-04-25 source bridge in [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md) is now the freshness citation for this local strategy page.
+The 2026-05-05 source bridge in [`../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md) is now the freshness citation for this local strategy page.
 
 It matters locally because it confirms that current upstream still looks like the same module-owned instrumentation pass:
 
@@ -214,9 +214,9 @@ So the local status remains deliberate: keep `de-nan` as a removed compatibility
 
 Current Starshine `de-nan` strategy is honest removed-name tracking plus an explicit future-proofing map:
 
-- the pass name is preserved at [`src/passes/optimize.mbt#L144-L153`](../../../../../src/passes/optimize.mbt#L144-L153)
-- active requests are rejected at [`src/passes/optimize.mbt#L451-L466`](../../../../../src/passes/optimize.mbt#L451-L466)
-- current tests already prove `de-nan` is removed and rejected at [`src/passes/registry_test.mbt#L83-L90`](../../../../../src/passes/registry_test.mbt#L83-L90) and [`src/passes/registry_test.mbt#L160-L168`](../../../../../src/passes/registry_test.mbt#L160-L168)
+- the pass name is preserved at [`src/passes/optimize.mbt#L145-L149`](../../../../../src/passes/optimize.mbt#L145-L149)
+- active requests are rejected at [`src/passes/optimize.mbt#L522-L524`](../../../../../src/passes/optimize.mbt#L522-L524)
+- current tests already prove `de-nan` is removed and rejected at [`src/passes/registry_test.mbt#L136-L138`](../../../../../src/passes/registry_test.mbt#L136-L138) and [`src/passes/registry_test.mbt#L237-L239`](../../../../../src/passes/registry_test.mbt#L237-L239)
 - Batch 1 planning still mentions it at [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L41-L43)
 - the active backlog still has no dedicated slice
 - there is no local owner file yet

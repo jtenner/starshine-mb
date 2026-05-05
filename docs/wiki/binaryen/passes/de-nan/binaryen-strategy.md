@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
-  - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
+  - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp
@@ -24,7 +24,7 @@ related:
 
 # Binaryen strategy for `de-nan` / `denan`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md) and the focused current-main recheck in [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md) and the focused current-main recheck in [`../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md).
 For exact current Starshine status and local code locations, see [`./starshine-strategy.md`](./starshine-strategy.md).
 
 ## What the pass really is
@@ -65,7 +65,7 @@ So a future Starshine port should preserve the alias split explicitly, not silen
 
 Unlike most dossiers in the no-DWARF parity campaign, this pass is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` path.
 A future Starshine implementation should therefore treat it as an optional explicit pass with its own semantics, not as a missing required preset slot.
-The 2026-04-25 current-main recheck did not find a scheduler or registration drift that would change that local teaching rule.
+The 2026-05-05 current-main recheck did not find a scheduler or registration drift that would change that local teaching rule.
 
 ## Core structure
 
@@ -376,9 +376,9 @@ That is the real Binaryen strategy for `denan`.
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)
-- [`../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md`](../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md)
+- [`../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md`](../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md)
 - [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp>

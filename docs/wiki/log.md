@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `de-nan` current-main bridge and stale anchors
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-de-nan-current-main-recheck.md` plus `docs/wiki/raw/research/0478-2026-05-05-de-nan-current-main-recheck.md` after rechecking Binaryen `main` `DeNaN.cpp`, `pass.cpp`, `properties.h`, `names.h`, `wasm-builder.h`, `pass.h`, and `denan.wast` against the existing oracle.
+- Refreshed the `de-nan` dossier, Starshine strategy and port-readiness pages, wiki index, pass catalog, and tracker so the 2026-05-05 freshness layer and corrected local code anchors are visible from the living dossier.
+
 ## [2026-05-05] fuzz | persist pass-fuzz failure metadata
 
 - Completed `[FZG]029` by adding `failure-metadata.json` to every `pass-fuzz-compare` persisted failure directory.

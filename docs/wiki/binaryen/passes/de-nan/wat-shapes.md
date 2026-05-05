@@ -1,11 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
-  - ../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md
+  - ../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md
-  - ../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md
+  - ../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md
   - ../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md
   - https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp
@@ -22,7 +22,7 @@ related:
 
 # `de-nan` / `denan` WAT shape catalog
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md), the focused current-main recheck in [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md), and the current Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md), the focused current-main recheck in [`../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md), and the current Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
 This page catalogs the main source-backed shapes that Binaryen `denan` rewrites, preserves, or refuses to express through helper calls.
 
@@ -302,7 +302,7 @@ This page catalogs the main source-backed shapes that Binaryen `denan` rewrites,
 ### Why boundary
 
 - imported functions are skipped in `visitFunction`
-- the 2026-04-25 current-main recheck keeps this source-backed rather than lit-file-led, because the dedicated test file still focuses on defined-function entry repair rather than an isolated imported-function fixture
+- the 2026-05-05 current-main recheck keeps this source-backed rather than lit-file-led, because the dedicated test file still focuses on defined-function entry repair rather than an isolated imported-function fixture
 
 ## Boundary shape 2: nonconstant repair outside function context is illegal
 
@@ -390,9 +390,9 @@ This page catalogs the main source-backed shapes that Binaryen `denan` rewrites,
 
 ## Sources
 
-- [`../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-de-nan-current-main-recheck.md)
+- [`../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-de-nan-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md`](../../../raw/binaryen/2026-04-24-de-nan-primary-sources.md)
-- [`../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md`](../../../raw/research/0341-2026-04-25-de-nan-current-main-recheck.md)
+- [`../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md`](../../../raw/research/0478-2026-05-05-de-nan-current-main-recheck.md)
 - [`../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md`](../../../raw/research/0283-2026-04-24-de-nan-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md`](../../../raw/research/0184-2026-04-21-de-nan-binaryen-research.md)
 - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/passes/DeNaN.cpp>
