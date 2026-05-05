@@ -781,8 +781,6 @@ Suggested Tests
      - Validation: `moon test --package jtenner/starshine/validate`, `moon info`, `moon fmt`, full `moon test`, and `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 1000 --max-failures 20 --out-dir .tmp/pass-fuzz-genvalid-fzg010-rume` are green; focused coverage lives in `gen_valid coverage-forced emits i31 and extern conversion surface`.
 5. Add SIMD generation in phases.
 6. Add atomics only behind explicit proposal gating.
-   - [FZG]017 - Atomic Instruction Generation - Add `allow_atomics` and valid generation for atomic loads/stores, RMW, cmpxchg, wait/notify, and fence.
-     - Invariants: generated modules must include compatible shared memory when required, and atomics must respect natural alignment constraints.
 7. Widen type-section topology.
    - [FZG]018 - Subtyping, Finality, and Rec-Group Topology - Generate subtype chains, `final` types, open subtypes, rec groups with 3+ subtypes, and cross-group type references.
      - Invariants: recursive and absolute type indices must normalize and validate under the existing environment rules.

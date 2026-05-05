@@ -3580,7 +3580,7 @@ pub fn validate_valid_feature_actual_count(
     SimdPhase1 => stats.simd_phase1
     SimdPhase2 => stats.simd_phase2
     SimdPhase3 => stats.simd_phase3
-    Atomics => 0
+    Atomics => stats.atomics
     SubtypingTopology => 0
     RichGcFieldPlans => 0
     ImportExportTopology => 0
@@ -6572,6 +6572,21 @@ fn validate_test_simd_phase3_forms_module(mod : Module) -> ValidateTestSimdPhase
     None => ()
   }
   forms
+}
+
+///|
+test "gen_valid coverage-forced emits atomic instruction surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26017UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) => fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  assert_true(facts.has_atomics)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, Atomics) > 0)
+  assert_eq(check_validate_valid_feature_floors(stats, [{ key: Atomics, min_count: 1 }]), [])
 }
 
 ///|

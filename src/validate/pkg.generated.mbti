@@ -320,6 +320,7 @@ pub struct GenValidFeatureFacts {
   has_simd_phase1 : Bool
   has_simd_phase2 : Bool
   has_simd_phase3 : Bool
+  has_atomics : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
@@ -365,6 +366,7 @@ pub struct GenValidFeatureStats {
   simd_phase1 : Int
   simd_phase2 : Int
   simd_phase3 : Int
+  atomics : Int
   gc_constructors : Int
   gc_accessors : Int
   string_ops : Int
@@ -394,6 +396,7 @@ pub struct GenValidFeatureToggles {
   allow_const_expr_variants : Bool
   allow_shared_memories : Bool
   allow_memory64 : Bool
+  allow_atomics : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureToggles::coverage_forced_default() -> Self
 pub fn GenValidFeatureToggles::natural_default() -> Self

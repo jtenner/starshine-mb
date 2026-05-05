@@ -94,6 +94,7 @@ pub struct GenValidFeatureToggles {
   allow_const_expr_variants : Bool
   allow_shared_memories : Bool
   allow_memory64 : Bool
+  allow_atomics : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -136,6 +137,8 @@ pub impl Show for GenValidFeatureToggles with output(self, logger) {
   self.allow_shared_memories.output(logger)
   logger.write_string(", allow_memory64:")
   self.allow_memory64.output(logger)
+  logger.write_string(", allow_atomics:")
+  self.allow_atomics.output(logger)
 }
 
 ///|
@@ -160,6 +163,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_const_expr_variants: true,
     allow_shared_memories: true,
     allow_memory64: true,
+    allow_atomics: true,
   }
 }
 
@@ -176,6 +180,7 @@ pub fn GenValidFeatureToggles::coverage_forced_default() -> GenValidFeatureToggl
     allow_const_expr_variants: true,
     allow_shared_memories: true,
     allow_memory64: true,
+    allow_atomics: true,
   }
 }
 
@@ -326,6 +331,7 @@ pub fn GenValidConfig::binaryen_oracle_coverage_forced_default() -> GenValidConf
       allow_const_expr_variants: false,
       allow_shared_memories: false,
       allow_memory64: false,
+      allow_atomics: false,
     },
   }
 }
@@ -374,6 +380,7 @@ pub struct GenValidFeatureFacts {
   has_simd_phase1 : Bool
   has_simd_phase2 : Bool
   has_simd_phase3 : Bool
+  has_atomics : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
@@ -420,6 +427,7 @@ pub struct GenValidFeatureStats {
   simd_phase1 : Int
   simd_phase2 : Int
   simd_phase3 : Int
+  atomics : Int
   gc_constructors : Int
   gc_accessors : Int
   string_ops : Int
@@ -504,6 +512,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.simd_phase2.output(logger)
   logger.write_string(", simd_phase3: ")
   self.simd_phase3.output(logger)
+  logger.write_string(", atomics: ")
+  self.atomics.output(logger)
   logger.write_string(", gc_constructors: ")
   self.gc_constructors.output(logger)
   logger.write_string(", gc_accessors: ")
@@ -556,6 +566,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     simd_phase1: 0,
     simd_phase2: 0,
     simd_phase3: 0,
+    atomics: 0,
     gc_constructors: 0,
     gc_accessors: 0,
     string_ops: 0,
@@ -622,6 +633,7 @@ pub fn GenValidFeatureStats::record(
     simd_phase1: self.simd_phase1 + gen_valid_bool_count(facts.has_simd_phase1),
     simd_phase2: self.simd_phase2 + gen_valid_bool_count(facts.has_simd_phase2),
     simd_phase3: self.simd_phase3 + gen_valid_bool_count(facts.has_simd_phase3),
+    atomics: self.atomics + gen_valid_bool_count(facts.has_atomics),
     gc_constructors: self.gc_constructors +
     gen_valid_bool_count(facts.has_gc_constructors),
     gc_accessors: self.gc_accessors +
@@ -658,6 +670,7 @@ priv struct GenValidInstrFacts {
   has_simd_phase1 : Bool
   has_simd_phase2 : Bool
   has_simd_phase3 : Bool
+  has_atomics : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
@@ -695,6 +708,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_simd_phase1: false,
     has_simd_phase2: false,
     has_simd_phase3: false,
+    has_atomics: false,
     has_gc_constructors: false,
     has_gc_accessors: false,
     has_string_ops: false,
@@ -3833,6 +3847,98 @@ fn gen_valid_append_simd_memory_store(
 }
 
 ///|
+fn gen_valid_append_atomic_load_drop(out : Array[Instruction], load : Instruction) -> Unit {
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(load)
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_atomic_store(out : Array[Instruction], value64 : Bool, store : Instruction) -> Unit {
+  out.push(Instruction::i32_const(I32(0)))
+  if value64 {
+    out.push(Instruction::i64_const(I64(0L)))
+  } else {
+    out.push(Instruction::i32_const(I32(0)))
+  }
+  out.push(store)
+}
+
+///|
+fn gen_valid_append_atomic_rmw_drop(out : Array[Instruction], value64 : Bool, instr : Instruction) -> Unit {
+  out.push(Instruction::i32_const(I32(0)))
+  if value64 {
+    out.push(Instruction::i64_const(I64(1L)))
+  } else {
+    out.push(Instruction::i32_const(I32(1)))
+  }
+  out.push(instr)
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_atomic_cmpxchg_drop(out : Array[Instruction], value64 : Bool, instr : Instruction) -> Unit {
+  out.push(Instruction::i32_const(I32(0)))
+  if value64 {
+    out.push(Instruction::i64_const(I64(1L)))
+    out.push(Instruction::i64_const(I64(2L)))
+  } else {
+    out.push(Instruction::i32_const(I32(1)))
+    out.push(Instruction::i32_const(I32(2)))
+  }
+  out.push(instr)
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_atomic_shared_mem_idx(env : GenValidBodyEnv) -> MemIdx? {
+  for i = 0; i < env.mems.length(); i = i + 1 {
+    let MemType(_, shared) = env.mems[i]
+    if shared {
+      return Some(MemIdx::new(i))
+    }
+  }
+  None
+}
+
+///|
+fn gen_valid_atomic_memarg(mem_idx : MemIdx, align_pow : UInt, offset : UInt64) -> MemArg {
+  MemArg::new(U32(align_pow), Some(mem_idx), U64(offset))
+}
+
+///|
+fn gen_valid_append_atomic_ops(out : Array[Instruction], mem_idx : MemIdx) -> Unit {
+  gen_valid_append_atomic_load_drop(out, Instruction::i32_atomic_load(gen_valid_atomic_memarg(mem_idx, 2U, 240UL)))
+  gen_valid_append_atomic_load_drop(out, Instruction::i64_atomic_load(gen_valid_atomic_memarg(mem_idx, 3U, 248UL)))
+  gen_valid_append_atomic_load_drop(out, Instruction::i32_atomic_load8_u(gen_valid_atomic_memarg(mem_idx, 0U, 256UL)))
+  gen_valid_append_atomic_load_drop(out, Instruction::i64_atomic_load32_u(gen_valid_atomic_memarg(mem_idx, 2U, 264UL)))
+  gen_valid_append_atomic_store(out, false, Instruction::i32_atomic_store(gen_valid_atomic_memarg(mem_idx, 2U, 272UL)))
+  gen_valid_append_atomic_store(out, true, Instruction::i64_atomic_store(gen_valid_atomic_memarg(mem_idx, 3U, 280UL)))
+  gen_valid_append_atomic_store(out, false, Instruction::i32_atomic_store8(gen_valid_atomic_memarg(mem_idx, 0U, 288UL)))
+  gen_valid_append_atomic_store(out, true, Instruction::i64_atomic_store32(gen_valid_atomic_memarg(mem_idx, 2U, 296UL)))
+  gen_valid_append_atomic_rmw_drop(out, false, Instruction::atomic_rmw(AtomicRmwOp::i32_add(), gen_valid_atomic_memarg(mem_idx, 2U, 304UL)))
+  gen_valid_append_atomic_rmw_drop(out, true, Instruction::atomic_rmw(AtomicRmwOp::i64_xchg(), gen_valid_atomic_memarg(mem_idx, 3U, 312UL)))
+  gen_valid_append_atomic_rmw_drop(out, false, Instruction::atomic_rmw(AtomicRmwOp::i32_8_or_u(), gen_valid_atomic_memarg(mem_idx, 0U, 320UL)))
+  gen_valid_append_atomic_cmpxchg_drop(out, false, Instruction::atomic_cmpxchg(AtomicCmpxchgOp::i32(), gen_valid_atomic_memarg(mem_idx, 2U, 328UL)))
+  gen_valid_append_atomic_cmpxchg_drop(out, true, Instruction::atomic_cmpxchg(AtomicCmpxchgOp::i64_32_u(), gen_valid_atomic_memarg(mem_idx, 2U, 336UL)))
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::i32_const(I32(1)))
+  out.push(Instruction::memory_atomic_notify(gen_valid_atomic_memarg(mem_idx, 2U, 344UL)))
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::i64_const(I64(0L)))
+  out.push(Instruction::memory_atomic_wait32(gen_valid_atomic_memarg(mem_idx, 2U, 352UL)))
+  out.push(Instruction::drop())
+  out.push(Instruction::i32_const(I32(0)))
+  out.push(Instruction::i64_const(I64(0L)))
+  out.push(Instruction::i64_const(I64(0L)))
+  out.push(Instruction::memory_atomic_wait64(gen_valid_atomic_memarg(mem_idx, 3U, 360UL)))
+  out.push(Instruction::drop())
+  out.push(Instruction::atomic_fence())
+}
+
+///|
 fn gen_valid_append_simd_phase3_ops(out : Array[Instruction]) -> Unit {
   gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load(gen_valid_memarg_varied(4U, 96UL)))
   gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load8x8s(gen_valid_memarg_varied(3U, 112UL)))
@@ -3890,6 +3996,12 @@ fn gen_valid_append_coverage_prelude(
     gen_valid_append_simd_phase2_ops(out)
     if !env.mems.is_empty() {
       gen_valid_append_simd_phase3_ops(out)
+    }
+  }
+  if ctx.config.features.allow_atomics {
+    match gen_valid_atomic_shared_mem_idx(env) {
+      Some(mem_idx) => gen_valid_append_atomic_ops(out, mem_idx)
+      None => ()
     }
   }
   if ctx.config.features.allow_ref_types {
@@ -5409,6 +5521,7 @@ fn gen_valid_merge_instr_facts(
     has_simd_phase1: left.has_simd_phase1 || right.has_simd_phase1,
     has_simd_phase2: left.has_simd_phase2 || right.has_simd_phase2,
     has_simd_phase3: left.has_simd_phase3 || right.has_simd_phase3,
+    has_atomics: left.has_atomics || right.has_atomics,
     has_gc_constructors: left.has_gc_constructors || right.has_gc_constructors,
     has_gc_accessors: left.has_gc_accessors || right.has_gc_accessors,
     has_string_ops: left.has_string_ops || right.has_string_ops,
@@ -5655,6 +5768,33 @@ fn gen_valid_instr_is_simd_phase3(instr : Instruction) -> Bool {
 }
 
 ///|
+fn gen_valid_instr_is_atomic(instr : Instruction) -> Bool {
+  match instr {
+    MemoryAtomicNotify(_)
+    | MemoryAtomicWait32(_)
+    | MemoryAtomicWait64(_)
+    | AtomicFence
+    | I32AtomicLoad(_)
+    | I64AtomicLoad(_)
+    | I32AtomicLoad8U(_)
+    | I32AtomicLoad16U(_)
+    | I64AtomicLoad8U(_)
+    | I64AtomicLoad16U(_)
+    | I64AtomicLoad32U(_)
+    | I32AtomicStore(_)
+    | I64AtomicStore(_)
+    | I32AtomicStore8(_)
+    | I32AtomicStore16(_)
+    | I64AtomicStore8(_)
+    | I64AtomicStore16(_)
+    | I64AtomicStore32(_)
+    | AtomicRmw(_, _)
+    | AtomicCmpxchg(_, _) => true
+    _ => false
+  }
+}
+
+///|
 fn gen_valid_memarg_is_nonzero(ma : MemArg) -> Bool {
   let MemArg(U32(align_pow), _, U64(offset)) = ma
   align_pow.reinterpret_as_int() > 0 || offset > 0
@@ -5789,6 +5929,12 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
       ..GenValidInstrFacts::empty(),
       uses_v128: true,
       has_simd_phase3: true,
+    }
+  }
+  if gen_valid_instr_is_atomic(instr) {
+    return GenValidInstrFacts::{
+      ..GenValidInstrFacts::empty(),
+      has_atomics: true,
     }
   }
   if gen_valid_instr_is_expanded_scalar_numeric(instr) {
@@ -6043,6 +6189,7 @@ pub fn gen_valid_feature_facts(
   let mut has_simd_phase1 = false
   let mut has_simd_phase2 = false
   let mut has_simd_phase3 = false
+  let mut has_atomics = false
   let mut has_gc_constructors = false
   let mut has_gc_accessors = false
   let mut has_string_ops = false
@@ -6160,6 +6307,7 @@ pub fn gen_valid_feature_facts(
           has_simd_phase1 = has_simd_phase1 || expr_facts.has_simd_phase1
           has_simd_phase2 = has_simd_phase2 || expr_facts.has_simd_phase2
           has_simd_phase3 = has_simd_phase3 || expr_facts.has_simd_phase3
+          has_atomics = has_atomics || expr_facts.has_atomics
           has_gc_constructors = has_gc_constructors ||
             expr_facts.has_gc_constructors
           has_gc_accessors = has_gc_accessors || expr_facts.has_gc_accessors
@@ -6225,6 +6373,7 @@ pub fn gen_valid_feature_facts(
               has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
               has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
               has_simd_phase3 = has_simd_phase3 || facts.has_simd_phase3
+          has_atomics = has_atomics || facts.has_atomics
               has_gc_constructors = has_gc_constructors ||
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6266,6 +6415,7 @@ pub fn gen_valid_feature_facts(
                 has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
                 has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
                 has_simd_phase3 = has_simd_phase3 || facts.has_simd_phase3
+          has_atomics = has_atomics || facts.has_atomics
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6305,6 +6455,7 @@ pub fn gen_valid_feature_facts(
                 has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
                 has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
                 has_simd_phase3 = has_simd_phase3 || facts.has_simd_phase3
+          has_atomics = has_atomics || facts.has_atomics
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6354,6 +6505,7 @@ pub fn gen_valid_feature_facts(
               has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
               has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
               has_simd_phase3 = has_simd_phase3 || facts.has_simd_phase3
+          has_atomics = has_atomics || facts.has_atomics
               has_gc_constructors = has_gc_constructors ||
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6401,6 +6553,7 @@ pub fn gen_valid_feature_facts(
         has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
         has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
         has_simd_phase3 = has_simd_phase3 || facts.has_simd_phase3
+          has_atomics = has_atomics || facts.has_atomics
         has_gc_constructors = has_gc_constructors || facts.has_gc_constructors
         has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
         has_string_ops = has_string_ops || facts.has_string_ops
@@ -6450,6 +6603,7 @@ pub fn gen_valid_feature_facts(
     has_simd_phase1,
     has_simd_phase2,
     has_simd_phase3,
+    has_atomics,
     has_gc_constructors,
     has_gc_accessors,
     has_string_ops,
