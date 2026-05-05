@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Passes: implement optimize-casts
+
+- **complete OC001/OC002 by adding the hot `optimize-casts` pass, registry/dispatcher/fuzz-harness support, GC cast regressions for redundant `ref.cast`, guaranteed-true `ref.test`, and nullable trap preservation, plus direct debug-artifact parity evidence** by **@OpenAI**. Updated [`src/passes/optimize_casts.mbt`](./src/passes/optimize_casts.mbt), [`src/passes/optimize_casts_test.mbt`](./src/passes/optimize_casts_test.mbt), [`src/passes/optimize.mbt`](./src/passes/optimize.mbt), [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`src/passes/registry_test.mbt`](./src/passes/registry_test.mbt), [`scripts/lib/pass-fuzz-compare-task.ts`](./scripts/lib/pass-fuzz-compare-task.ts), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Proofs: pilot match algebra
 
 - **complete PRV003 by adding a direct-validator `match.mbt` proof pilot for the Boolean symmetry kernel behind `descriptor_compatible`, executable exact-struct shape regressions, and updated proof-boundary docs while pruning the completed backlog slice** by **@OpenAI**. Updated [`src/validate/match.mbt`](./src/validate/match.mbt), [`src/validate/match_proof.mbtp`](./src/validate/match_proof.mbtp), [`src/validate/match_tests.mbt`](./src/validate/match_tests.mbt), [`src/validate/moon.pkg`](./src/validate/moon.pkg), [`src/validate/imports.mbt`](./src/validate/imports.mbt), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).

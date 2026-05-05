@@ -29,6 +29,10 @@ test "pass registry classifies active, boundary-only, and removed names" {
     Some(HotPassRegistryCategory::hot_pass()),
   )
   assert_eq(
+    pass_registry_category("optimize-casts"),
+    Some(HotPassRegistryCategory::hot_pass()),
+  )
+  assert_eq(
     pass_registry_category("pick-load-signs"),
     Some(HotPassRegistryCategory::hot_pass()),
   )
@@ -154,6 +158,7 @@ test "batch 1 descriptors expose the active first hot ports" {
   let tuple = tuple_optimization_descriptor()
   let hso = heap_store_optimization_descriptor()
   let h2l = heap2local_descriptor()
+  let oc = optimize_casts_descriptor()
   let locals = simplify_locals_descriptor()
   let locals_nostructure = simplify_locals_nostructure_descriptor()
   let locals_notee_nostructure = simplify_locals_notee_nostructure_descriptor()
@@ -180,6 +185,8 @@ test "batch 1 descriptors expose the active first hot ports" {
   assert_true(@ir.hot_pass_requires(hso).contains(@ir.HotAnalysis::effects()))
   assert_eq(h2l.name, "heap2local")
   assert_eq(@ir.hot_pass_requires(h2l), [@ir.HotAnalysis::use_def()])
+  assert_eq(oc.name, "optimize-casts")
+  assert_eq(@ir.hot_pass_requires(oc), [])
   assert_eq(locals.name, "simplify-locals")
   assert_eq(@ir.hot_pass_requires(locals), [])
   assert_eq(locals_nostructure.name, "simplify-locals-nostructure")

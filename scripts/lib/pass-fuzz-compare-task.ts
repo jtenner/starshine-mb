@@ -124,6 +124,7 @@ const SUPPORTED_PASS_FLAGS = new Set([
   "--optimize-instructions",
   "--heap-store-optimization",
   "--heap2local",
+  "--optimize-casts",
   "--pick-load-signs",
   "--tuple-optimization",
   "--precompute",

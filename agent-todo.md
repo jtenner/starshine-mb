@@ -105,15 +105,7 @@ Observed unique-pass order
 #### H2L - Heap2Local
 
 - [H2L]002 - Localization Follow-up and Neighborhood Parity
-  - Deliverables: cover Binaryen's non-nullable-local / refinalization fixups and the wider missing-pass neighborhood (`optimize-casts`, `local-subtyping`, `coalesce-locals`, `local-cse`) needed for full no-DWARF parity.
-
-#### OC - Optimize Casts
-
-- [OC]001 - Cast Tightening Rules
-  - Deliverables: encode ref.cast, ref.test, nullability, and subtype simplifications; preserve trap and exact-type semantics; integrate with current type helpers.
-
-- [OC]002 - GC Regression Matrix and Artifact Compare
-  - Deliverables: cover exact refs, nullability, and escaping values; confirm the pass stays after `heap2local`; run `--optimize-casts` parity against Binaryen.
+  - Deliverables: cover Binaryen's non-nullable-local / refinalization fixups and the wider missing-pass neighborhood (`local-subtyping`, `coalesce-locals`, `local-cse`) needed for full no-DWARF parity.
 
 #### LS - Local Subtyping
 

@@ -8992,6 +8992,7 @@ pub fn hot_pass_run(
     "optimize-instructions" => optimize_instructions_run(ctx, func)
     "heap-store-optimization" => heap_store_optimization_run(ctx, func)
     "heap2local" => heap2local_run(ctx, func)
+    "optimize-casts" => optimize_casts_run(ctx, func)
     "pick-load-signs" => pick_load_signs_run(ctx, func)
     "precompute" => precompute_run(ctx, func)
     "code-pushing" => code_pushing_run(ctx, func)
