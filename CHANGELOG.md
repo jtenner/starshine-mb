@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: widen SIMD phase-2 generation
+
+- **complete FZG015 by adding coverage-forced SIMD phase-2 generation for comparisons, all-true/bitmask forms, integer and float arithmetic, saturating add/sub, min/max/avgr, and rounding ops, with exact `SimdPhase2` feature accounting and ledger docs** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: widen SIMD phase-1 generation
 
 - **complete FZG014 by adding coverage-forced SIMD phase-1 generation for v128 constants, splats, lane extract/replace, bitwise ops, and `v128.any_true`, with exact `SimdPhase1` feature accounting and ledger docs** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).

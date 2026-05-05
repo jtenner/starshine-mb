@@ -780,7 +780,6 @@ Suggested Tests
      - Status: complete. Coverage-forced `gen-valid` modules now emit a deterministic i31/extern conversion prelude for `ref.i31`, signed and unsigned `i31.get`, and roundtrip extern/any conversions behind the existing `allow_ref_types` gate. `GenValidFeatureStats` now records `i31_extern_conversions`, and the `I31ExternConversions` ledger row can satisfy explicit floors.
      - Validation: `moon test --package jtenner/starshine/validate`, `moon info`, `moon fmt`, full `moon test`, and `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 1000 --max-failures 20 --out-dir .tmp/pass-fuzz-genvalid-fzg010-rume` are green; focused coverage lives in `gen_valid coverage-forced emits i31 and extern conversion surface`.
 5. Add SIMD generation in phases.
-   - [FZG]015 - SIMD Phase 2 Arithmetic and Comparisons - Generate integer and float SIMD arithmetic, comparisons, all_true, bitmask, saturating add/sub, min/max, avgr, and rounding ops.
    - [FZG]016 - SIMD Phase 3 Memory and Shuffle Ops - Generate SIMD loads/stores, splat loads, lane loads/stores, zero loads, shuffle, swizzle, narrow/widen, dot/add-pairwise, and float demote/promote.
      - Dependencies: `[FZG]005` memarg variation and memory presence.
 6. Add atomics only behind explicit proposal gating.

@@ -3578,7 +3578,7 @@ pub fn validate_valid_feature_actual_count(
     StringOps => stats.string_ops
     ExceptionTryTableMatrix => stats.exception_try_table_matrix
     SimdPhase1 => stats.simd_phase1
-    SimdPhase2 => 0
+    SimdPhase2 => stats.simd_phase2
     SimdPhase3 => 0
     Atomics => 0
     SubtypingTopology => 0
@@ -6338,6 +6338,167 @@ test "gen_valid coverage-forced emits simd phase 1 surface" {
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: SimdPhase1, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+priv struct ValidateTestSimdPhase2Forms {
+  comparison : Bool
+  all_true_or_bitmask : Bool
+  arithmetic : Bool
+  saturating : Bool
+  min_max_avgr : Bool
+  rounding : Bool
+}
+
+///|
+fn validate_test_simd_phase2_forms_empty() -> ValidateTestSimdPhase2Forms {
+  {
+    comparison: false,
+    all_true_or_bitmask: false,
+    arithmetic: false,
+    saturating: false,
+    min_max_avgr: false,
+    rounding: false,
+  }
+}
+
+///|
+fn validate_test_simd_phase2_forms_merge(
+  left : ValidateTestSimdPhase2Forms,
+  right : ValidateTestSimdPhase2Forms,
+) -> ValidateTestSimdPhase2Forms {
+  {
+    comparison: left.comparison || right.comparison,
+    all_true_or_bitmask: left.all_true_or_bitmask || right.all_true_or_bitmask,
+    arithmetic: left.arithmetic || right.arithmetic,
+    saturating: left.saturating || right.saturating,
+    min_max_avgr: left.min_max_avgr || right.min_max_avgr,
+    rounding: left.rounding || right.rounding,
+  }
+}
+
+///|
+fn validate_test_simd_phase2_forms_instr(
+  instr : Instruction,
+) -> ValidateTestSimdPhase2Forms {
+  match instr {
+    I8x16Eq | I16x8LtS | I32x4GtU | I64x2GeS | F32x4Lt | F64x2Ge =>
+      { ..validate_test_simd_phase2_forms_empty(), comparison: true }
+    I8x16AllTrue | I16x8Bitmask | I32x4AllTrue | I64x2Bitmask =>
+      { ..validate_test_simd_phase2_forms_empty(), all_true_or_bitmask: true }
+    I8x16Add
+    | I16x8Mul
+    | I32x4Add
+    | I32x4Mul
+    | I64x2Add
+    | I64x2Mul
+    | F32x4Add
+    | F32x4Div
+    | F64x2Add
+    | F64x2Div =>
+      { ..validate_test_simd_phase2_forms_empty(), arithmetic: true }
+    I8x16AddSatS | I8x16SubSatU | I16x8AddSatU | I16x8SubSatS =>
+      { ..validate_test_simd_phase2_forms_empty(), saturating: true }
+    I8x16MinS
+    | I8x16MaxU
+    | I8x16AvgrU
+    | I16x8MinU
+    | I16x8MaxS
+    | I16x8AvgrU
+    | I32x4MinS
+    | I32x4MaxU
+    | F32x4Min
+    | F32x4Max
+    | F64x2Min
+    | F64x2Max =>
+      { ..validate_test_simd_phase2_forms_empty(), min_max_avgr: true }
+    F32x4Ceil
+    | F32x4Floor
+    | F32x4Trunc
+    | F32x4Nearest
+    | F64x2Ceil
+    | F64x2Floor
+    | F64x2Trunc
+    | F64x2Nearest =>
+      { ..validate_test_simd_phase2_forms_empty(), rounding: true }
+    Block(_, body) | Loop(_, body) => validate_test_simd_phase2_forms_expr(body)
+    If(_, then_body, else_body) => {
+      let mut forms = validate_test_simd_phase2_forms_expr(Expr::new(then_body))
+      match else_body {
+        Some(branch) =>
+          forms = validate_test_simd_phase2_forms_merge(
+            forms,
+            validate_test_simd_phase2_forms_expr(Expr::new(branch)),
+          )
+        None => ()
+      }
+      forms
+    }
+    TryTable(_, _, body) => validate_test_simd_phase2_forms_expr(body)
+    _ => validate_test_simd_phase2_forms_empty()
+  }
+}
+
+///|
+fn validate_test_simd_phase2_forms_expr(
+  expr : Expr,
+) -> ValidateTestSimdPhase2Forms {
+  let Expr(instrs) = expr
+  let mut forms = validate_test_simd_phase2_forms_empty()
+  for instr in instrs {
+    forms = validate_test_simd_phase2_forms_merge(
+      forms,
+      validate_test_simd_phase2_forms_instr(instr),
+    )
+  }
+  forms
+}
+
+///|
+fn validate_test_simd_phase2_forms_module(
+  mod : Module,
+) -> ValidateTestSimdPhase2Forms {
+  let mut forms = validate_test_simd_phase2_forms_empty()
+  match mod.code_sec {
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, body) = func
+        forms = validate_test_simd_phase2_forms_merge(
+          forms,
+          validate_test_simd_phase2_forms_expr(body),
+        )
+      }
+    None => ()
+  }
+  forms
+}
+
+///|
+test "gen_valid coverage-forced emits simd phase 2 surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26015UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let forms = validate_test_simd_phase2_forms_module(mod)
+  assert_true(forms.comparison)
+  assert_true(forms.all_true_or_bitmask)
+  assert_true(forms.arithmetic)
+  assert_true(forms.saturating)
+  assert_true(forms.min_max_avgr)
+  assert_true(forms.rounding)
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  assert_true(facts.has_simd_phase2)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, SimdPhase2) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: SimdPhase2, min_count: 1 },
     ]),
     [],
   )

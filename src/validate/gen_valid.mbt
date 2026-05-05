@@ -372,6 +372,7 @@ pub struct GenValidFeatureFacts {
   has_basic_ref_instructions : Bool
   has_i31_extern_conversions : Bool
   has_simd_phase1 : Bool
+  has_simd_phase2 : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
@@ -416,6 +417,7 @@ pub struct GenValidFeatureStats {
   basic_ref_instructions : Int
   i31_extern_conversions : Int
   simd_phase1 : Int
+  simd_phase2 : Int
   gc_constructors : Int
   gc_accessors : Int
   string_ops : Int
@@ -496,6 +498,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.i31_extern_conversions.output(logger)
   logger.write_string(", simd_phase1: ")
   self.simd_phase1.output(logger)
+  logger.write_string(", simd_phase2: ")
+  self.simd_phase2.output(logger)
   logger.write_string(", gc_constructors: ")
   self.gc_constructors.output(logger)
   logger.write_string(", gc_accessors: ")
@@ -546,6 +550,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     basic_ref_instructions: 0,
     i31_extern_conversions: 0,
     simd_phase1: 0,
+    simd_phase2: 0,
     gc_constructors: 0,
     gc_accessors: 0,
     string_ops: 0,
@@ -610,6 +615,7 @@ pub fn GenValidFeatureStats::record(
     i31_extern_conversions: self.i31_extern_conversions +
     gen_valid_bool_count(facts.has_i31_extern_conversions),
     simd_phase1: self.simd_phase1 + gen_valid_bool_count(facts.has_simd_phase1),
+    simd_phase2: self.simd_phase2 + gen_valid_bool_count(facts.has_simd_phase2),
     gc_constructors: self.gc_constructors +
     gen_valid_bool_count(facts.has_gc_constructors),
     gc_accessors: self.gc_accessors +
@@ -644,6 +650,7 @@ priv struct GenValidInstrFacts {
   has_basic_ref_instructions : Bool
   has_i31_extern_conversions : Bool
   has_simd_phase1 : Bool
+  has_simd_phase2 : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
   has_string_ops : Bool
@@ -679,6 +686,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_basic_ref_instructions: false,
     has_i31_extern_conversions: false,
     has_simd_phase1: false,
+    has_simd_phase2: false,
     has_gc_constructors: false,
     has_gc_accessors: false,
     has_string_ops: false,
@@ -1045,7 +1053,9 @@ fn gen_valid_gc_type_defs(
   }
 
   if want_packed_i8_array && defs.length() < remaining_type_budget {
-    let packed_i8_array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    let packed_i8_array_idx = TypeIdx::new(
+      type_idx_cursor.reinterpret_as_uint(),
+    )
     defs.push(
       RecType::new(
         SubType::comp_type(
@@ -1056,12 +1066,16 @@ fn gen_valid_gc_type_defs(
       ),
     )
     plan = { ..plan, packed_i8_array_idx: Some(packed_i8_array_idx) }
-    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(packed_i8_array_idx))
+    plan.concrete_ref_types.push(
+      gen_valid_gc_type_field_ref(packed_i8_array_idx),
+    )
     type_idx_cursor += 1
   }
 
   if want_packed_i16_array && defs.length() < remaining_type_budget {
-    let packed_i16_array_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    let packed_i16_array_idx = TypeIdx::new(
+      type_idx_cursor.reinterpret_as_uint(),
+    )
     defs.push(
       RecType::new(
         SubType::comp_type(
@@ -1072,7 +1086,9 @@ fn gen_valid_gc_type_defs(
       ),
     )
     plan = { ..plan, packed_i16_array_idx: Some(packed_i16_array_idx) }
-    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(packed_i16_array_idx))
+    plan.concrete_ref_types.push(
+      gen_valid_gc_type_field_ref(packed_i16_array_idx),
+    )
     type_idx_cursor += 1
   }
 
@@ -3556,7 +3572,10 @@ fn gen_valid_append_exception_try_table_matrix_ops(
       Expr::new([
         Instruction::try_table(
           BlockType::void_(),
-          [Catch::new(tag_idx, LabelIdx::new(0U)), Catch::all(LabelIdx::new(0U))],
+          [
+            Catch::new(tag_idx, LabelIdx::new(0U)),
+            Catch::all(LabelIdx::new(0U)),
+          ],
           Expr::new([
             Instruction::i32_const(I32(if ctx.random_bool() { 1 } else { 0 })),
             Instruction::if_(
@@ -3578,7 +3597,10 @@ fn gen_valid_append_exception_try_table_matrix_ops(
       Expr::new([
         Instruction::try_table(
           BlockType::val_type(exnref),
-          [Catch::ref_(tag_idx, LabelIdx::new(0U)), Catch::all_ref(LabelIdx::new(0U))],
+          [
+            Catch::ref_(tag_idx, LabelIdx::new(0U)),
+            Catch::all_ref(LabelIdx::new(0U)),
+          ],
           Expr::new([Instruction::throw_(tag_idx)]),
         ),
       ]),
@@ -3595,6 +3617,27 @@ fn gen_valid_append_v128_zero(out : Array[Instruction]) -> Unit {
       b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00', b'\x00',
     ),
   )
+}
+
+///|
+fn gen_valid_append_v128_binary_op(
+  out : Array[Instruction],
+  instr : Instruction,
+) -> Unit {
+  gen_valid_append_v128_zero(out)
+  gen_valid_append_v128_zero(out)
+  out.push(instr)
+  out.push(Instruction::drop())
+}
+
+///|
+fn gen_valid_append_v128_unary_op(
+  out : Array[Instruction],
+  instr : Instruction,
+) -> Unit {
+  gen_valid_append_v128_zero(out)
+  out.push(instr)
+  out.push(Instruction::drop())
 }
 
 ///|
@@ -3700,6 +3743,57 @@ fn gen_valid_append_simd_phase1_ops(out : Array[Instruction]) -> Unit {
 }
 
 ///|
+fn gen_valid_append_simd_phase2_ops(out : Array[Instruction]) -> Unit {
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_eq())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_lt_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i32x4_gt_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i64x2_ge_s())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_lt())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_ge())
+
+  gen_valid_append_v128_unary_op(out, Instruction::i8x16_all_true())
+  gen_valid_append_v128_unary_op(out, Instruction::i16x8_bitmask())
+  gen_valid_append_v128_unary_op(out, Instruction::i32x4_all_true())
+  gen_valid_append_v128_unary_op(out, Instruction::i64x2_bitmask())
+
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_add())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_add_sat_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_sub_sat_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_min_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_max_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i8x16_avgr_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_mul())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_add_sat_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_sub_sat_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_min_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_max_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i16x8_avgr_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i32x4_add())
+  gen_valid_append_v128_binary_op(out, Instruction::i32x4_mul())
+  gen_valid_append_v128_binary_op(out, Instruction::i32x4_min_s())
+  gen_valid_append_v128_binary_op(out, Instruction::i32x4_max_u())
+  gen_valid_append_v128_binary_op(out, Instruction::i64x2_add())
+  gen_valid_append_v128_binary_op(out, Instruction::i64x2_mul())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_add())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_div())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_min())
+  gen_valid_append_v128_binary_op(out, Instruction::f32x4_max())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_add())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_div())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_min())
+  gen_valid_append_v128_binary_op(out, Instruction::f64x2_max())
+
+  gen_valid_append_v128_unary_op(out, Instruction::f32x4_ceil())
+  gen_valid_append_v128_unary_op(out, Instruction::f32x4_floor())
+  gen_valid_append_v128_unary_op(out, Instruction::f32x4_trunc())
+  gen_valid_append_v128_unary_op(out, Instruction::f32x4_nearest())
+  gen_valid_append_v128_unary_op(out, Instruction::f64x2_ceil())
+  gen_valid_append_v128_unary_op(out, Instruction::f64x2_floor())
+  gen_valid_append_v128_unary_op(out, Instruction::f64x2_trunc())
+  gen_valid_append_v128_unary_op(out, Instruction::f64x2_nearest())
+}
+
+///|
 fn gen_valid_append_coverage_prelude(
   out : Array[Instruction],
   ctx : GenValidContext,
@@ -3715,6 +3809,7 @@ fn gen_valid_append_coverage_prelude(
   gen_valid_append_tail_call_ops(out, ctx, env, returns)
   if ctx.config.features.allow_v128 {
     gen_valid_append_simd_phase1_ops(out)
+    gen_valid_append_simd_phase2_ops(out)
   }
   if ctx.config.features.allow_ref_types {
     append_value_instrs(
@@ -5231,8 +5326,8 @@ fn gen_valid_merge_instr_facts(
     has_i31_extern_conversions: left.has_i31_extern_conversions ||
     right.has_i31_extern_conversions,
     has_simd_phase1: left.has_simd_phase1 || right.has_simd_phase1,
-    has_gc_constructors: left.has_gc_constructors ||
-    right.has_gc_constructors,
+    has_simd_phase2: left.has_simd_phase2 || right.has_simd_phase2,
+    has_gc_constructors: left.has_gc_constructors || right.has_gc_constructors,
     has_gc_accessors: left.has_gc_accessors || right.has_gc_accessors,
     has_string_ops: left.has_string_ops || right.has_string_ops,
     has_exception_try_table_matrix: left.has_exception_try_table_matrix ||
@@ -5283,6 +5378,57 @@ fn gen_valid_instr_is_simd_phase1(instr : Instruction) -> Bool {
     | V128Xor
     | V128Bitselect
     | V128AnyTrue => true
+    _ => false
+  }
+}
+
+///|
+fn gen_valid_instr_is_simd_phase2(instr : Instruction) -> Bool {
+  match instr {
+    I8x16Eq
+    | I16x8LtS
+    | I32x4GtU
+    | I64x2GeS
+    | F32x4Lt
+    | F64x2Ge
+    | I8x16AllTrue
+    | I16x8Bitmask
+    | I32x4AllTrue
+    | I64x2Bitmask
+    | I8x16Add
+    | I8x16AddSatS
+    | I8x16SubSatU
+    | I8x16MinS
+    | I8x16MaxU
+    | I8x16AvgrU
+    | I16x8Mul
+    | I16x8AddSatU
+    | I16x8SubSatS
+    | I16x8MinU
+    | I16x8MaxS
+    | I16x8AvgrU
+    | I32x4Add
+    | I32x4Mul
+    | I32x4MinS
+    | I32x4MaxU
+    | I64x2Add
+    | I64x2Mul
+    | F32x4Add
+    | F32x4Div
+    | F32x4Min
+    | F32x4Max
+    | F64x2Add
+    | F64x2Div
+    | F64x2Min
+    | F64x2Max
+    | F32x4Ceil
+    | F32x4Floor
+    | F32x4Trunc
+    | F32x4Nearest
+    | F64x2Ceil
+    | F64x2Floor
+    | F64x2Trunc
+    | F64x2Nearest => true
     _ => false
   }
 }
@@ -5505,6 +5651,13 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
       ..GenValidInstrFacts::empty(),
       uses_v128: true,
       has_simd_phase1: true,
+    }
+  }
+  if gen_valid_instr_is_simd_phase2(instr) {
+    return GenValidInstrFacts::{
+      ..GenValidInstrFacts::empty(),
+      uses_v128: true,
+      has_simd_phase2: true,
     }
   }
   if gen_valid_instr_is_expanded_scalar_numeric(instr) {
@@ -5757,6 +5910,7 @@ pub fn gen_valid_feature_facts(
   let mut has_basic_ref_instructions = false
   let mut has_i31_extern_conversions = false
   let mut has_simd_phase1 = false
+  let mut has_simd_phase2 = false
   let mut has_gc_constructors = false
   let mut has_gc_accessors = false
   let mut has_string_ops = false
@@ -5872,6 +6026,7 @@ pub fn gen_valid_feature_facts(
           has_i31_extern_conversions = has_i31_extern_conversions ||
             expr_facts.has_i31_extern_conversions
           has_simd_phase1 = has_simd_phase1 || expr_facts.has_simd_phase1
+          has_simd_phase2 = has_simd_phase2 || expr_facts.has_simd_phase2
           has_gc_constructors = has_gc_constructors ||
             expr_facts.has_gc_constructors
           has_gc_accessors = has_gc_accessors || expr_facts.has_gc_accessors
@@ -5935,6 +6090,7 @@ pub fn gen_valid_feature_facts(
               has_i31_extern_conversions = has_i31_extern_conversions ||
                 facts.has_i31_extern_conversions
               has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
+              has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
               has_gc_constructors = has_gc_constructors ||
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -5974,6 +6130,7 @@ pub fn gen_valid_feature_facts(
                 has_i31_extern_conversions = has_i31_extern_conversions ||
                   facts.has_i31_extern_conversions
                 has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
+                has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6011,6 +6168,7 @@ pub fn gen_valid_feature_facts(
                 has_i31_extern_conversions = has_i31_extern_conversions ||
                   facts.has_i31_extern_conversions
                 has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
+                has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6058,6 +6216,7 @@ pub fn gen_valid_feature_facts(
               has_i31_extern_conversions = has_i31_extern_conversions ||
                 facts.has_i31_extern_conversions
               has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
+              has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
               has_gc_constructors = has_gc_constructors ||
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6103,6 +6262,7 @@ pub fn gen_valid_feature_facts(
         has_i31_extern_conversions = has_i31_extern_conversions ||
           facts.has_i31_extern_conversions
         has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
+        has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
         has_gc_constructors = has_gc_constructors || facts.has_gc_constructors
         has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
         has_string_ops = has_string_ops || facts.has_string_ops
@@ -6150,6 +6310,7 @@ pub fn gen_valid_feature_facts(
     has_basic_ref_instructions,
     has_i31_extern_conversions,
     has_simd_phase1,
+    has_simd_phase2,
     has_gc_constructors,
     has_gc_accessors,
     has_string_ops,
