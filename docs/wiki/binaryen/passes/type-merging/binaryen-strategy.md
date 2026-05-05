@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
+  - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
   - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
@@ -18,12 +20,13 @@ related:
   - ./dfa-partitions-casts-and-refinalization.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # Binaryen strategy for `type-merging`
 
-This page is now anchored to the immutable 2026-04-24 primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md).
-That manifest records the official `version_129` release page, owner source, helper headers, dedicated lit file, and the narrow current-`main` spot check used for this dossier.
+This page is now anchored to the immutable 2026-04-24 primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md) and the 2026-05-05 current-main bridge in [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md).
+That manifest pair records the official `version_129` release page, owner source, helper headers, dedicated lit file, and the narrow current-`main` spot check used for this dossier.
 
 ## What the pass really is
 
@@ -362,6 +365,8 @@ That is the real Binaryen strategy for `type-merging`.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md)
+- [`../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md`](../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)
 - [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)

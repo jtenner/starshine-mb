@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
+  - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
   - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
@@ -17,6 +19,7 @@ related:
   - ./dfa-partitions-casts-and-refinalization.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-types/index.md
   - ../type-refining/index.md
   - ../unsubtyping/index.md
@@ -82,7 +85,7 @@ So this pass is best taught as:
 - Binaryen first merges into identical **supertypes**, then iteratively merges identical **siblings**.
 - The pass may need **`ReFinalize`** afterwards because exact result types and LUBs can sharpen after merging.
 - The 2026-04-24 raw primary-source capture keeps the official `version_129` release provenance explicit: the reviewed GitHub release page showed publish date **2026-04-01 14:31**.
-- A narrow 2026-04-24 current-`main` spot check on the owner file, registration surface, helper headers, and dedicated lit file did not expose teaching-relevant contract drift, so `version_129` remains the source oracle for this dossier.
+- A narrow 2026-05-05 current-`main` recheck on the owner file, registration surface, helper headers, and dedicated lit file did not expose teaching-relevant contract drift, so `version_129` remains the source oracle for this dossier. The new freshness bridge now lives beside the original tagged capture and the new Starshine port-readiness page.
 
 ## What this pass sounds like versus what it actually does
 
@@ -113,6 +116,8 @@ What it actually is in `version_129`:
   Beginner-friendly shape catalog showing the main positive, preserved, bailout, and known-limitation module families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future port map: boundary-only registry entry, honest active-request rejection, no owner file or backlog slice, reusable local type-section surfaces, and the shared type-graph infrastructure a future closed-world module pass would need.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Future-port bridge covering exact local code locations, validation ladder, GC / closed-world gate sequencing, and the Binaryen oracle path for an eventual implementation.
 
 ## Current maintenance rule
 
@@ -123,6 +128,8 @@ What it actually is in `version_129`:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md)
+- [`../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md`](../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md)
 - [`../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md`](../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md`](../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md)

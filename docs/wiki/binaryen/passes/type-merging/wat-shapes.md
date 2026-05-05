@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
+  - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
   - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0181-2026-04-21-type-merging-binaryen-research.md
@@ -14,6 +16,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./dfa-partitions-casts-and-refinalization.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `type-merging` WAT and module shapes

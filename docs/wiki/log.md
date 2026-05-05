@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `type-merging` current-main bridge and add Starshine port-readiness page
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-type-merging-current-main-recheck.md` plus `docs/wiki/raw/research/0462-2026-05-05-type-merging-current-main-recheck.md` after rechecking current `main` `TypeMerging.cpp`, `pass.cpp`, and `type-merging.wast` against the existing `version_129` contract.
+- Added `docs/wiki/binaryen/passes/type-merging/starshine-port-readiness-and-validation.md` and refreshed the `type-merging` landing page, Starshine strategy, shared catalogs, and wiki index so the new 2026-05-05 freshness layer and the missing port-readiness bridge are visible from the living dossier.
+- Recorded unchanged contract status: current `main` stayed aligned with the same closed-world GC heap-type compaction story on the reviewed surfaces, and Starshine still keeps `type-merging` boundary-only with no owner file or active backlog slice.
+
 ## [2026-05-05] health | refresh `remove-unused-brs` current-main bridge and add Starshine strategy page
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-remove-unused-brs-current-main-recheck.md` plus `docs/wiki/raw/research/0461-2026-05-05-remove-unused-brs-current-main-recheck.md` after rechecking current `main` `RemoveUnusedBrs.cpp`, `pass.cpp`, and the representative `remove-unused-brs*` lit surfaces against the existing `version_129` contract.

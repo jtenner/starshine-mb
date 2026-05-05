@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md
+  - ../../../raw/research/0462-2026-05-05-type-merging-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md
   - ../../../raw/research/0294-2026-04-24-type-merging-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -26,6 +28,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./dfa-partitions-casts-and-refinalization.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../remove-unused-types/index.md
   - ../type-refining/index.md
   - ../type-ssa/index.md
@@ -35,8 +38,8 @@ related:
 
 # Starshine Strategy For `type-merging`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md).
-The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md`](../../../raw/binaryen/2026-04-24-type-merging-primary-sources.md) and the 2026-05-05 current-main bridge in [`../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-type-merging-current-main-recheck.md).
+The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, the new port-readiness bridge, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status
 
