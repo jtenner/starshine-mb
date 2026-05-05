@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
+  - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
   - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
@@ -18,6 +20,7 @@ related:
   - ./content-oracle-variants-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../gufa-optimizing/index.md
   - ../gufa-cast-all/index.md
   - ../type-refining/index.md
@@ -40,7 +43,7 @@ related:
 - The existing `type-refining` dossier already depends on understanding GUFA as a distinct whole-program inference engine.
 - `agent-todo.md` currently has **no dedicated `gufa` slice**.
 - Without a dedicated page, beginners can easily blur GUFA into ordinary constant propagation or into the separate `type-refining-gufa` companion.
-- The 2026-04-24 refresh adds an immutable raw primary-source manifest plus a dedicated Starshine status page, bringing plain `gufa` in line with the already-refreshed `gufa-optimizing` and `gufa-cast-all` sibling dossiers.
+- The 2026-05-05 refresh adds a current-main recheck plus a dedicated Starshine port-readiness bridge, keeping plain `gufa` in line with the already-refreshed `gufa-optimizing` and `gufa-cast-all` sibling dossiers.
 
 ## Beginner summary
 
@@ -77,16 +80,20 @@ So the pass is best read as:
   Beginner-friendly before/after shape catalog for the main positive, bailout, preserved, and easy-to-misread GUFA families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Current Starshine status and future-port map: boundary-only registry, CLI and lower-level request rejection, no owner file / dispatch / preset / backlog slice, reusable local instruction and HOT surfaces, and the whole-program oracle gap a faithful port must close.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Validation bridge for the missing module-wide oracle owner, the `gufa` / `gufa-optimizing` / `gufa-cast-all` sibling split, and the local instruction / HOT surfaces that already exist.
 
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `gufa` research and port planning.
 - Keep it explicitly marked as **unimplemented** until Starshine grows a real boundary/module pass for it.
-- Cite [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md) for source-backed Binaryen mechanics, and [`./starshine-strategy.md`](./starshine-strategy.md) for current local status.
+- Cite [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md) for source-backed Binaryen mechanics, [`./starshine-strategy.md`](./starshine-strategy.md) for current local status, and [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the missing validation bridge.
 - Keep the relationship to [`../type-refining/index.md`](../type-refining/index.md) explicit instead of teaching GUFA only as a side note inside the `type-refining` folder.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md)
+- [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
 - [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)

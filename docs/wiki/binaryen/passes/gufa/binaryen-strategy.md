@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
+  - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
   - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./content-oracle-variants-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../gufa-optimizing/index.md
   - ../gufa-cast-all/index.md
   - ../type-refining/index.md
@@ -27,7 +30,7 @@ related:
 - The core analysis helper is `src/ir/possible-contents.h`.
 - Public registration comes from `src/passes/pass.cpp`.
 - The shipped behavior examples are `test/lit/passes/gufa.wast`, `gufa-optimizing.wast`, and `gufa-cast-all.wast`.
-- A 2026-04-24 current-`main` spot check of the reviewed owner/registration/oracle/test surfaces did not surface teaching-relevant drift from `version_129`.
+- A 2026-05-05 current-`main` spot check of the reviewed owner/registration/oracle/test surfaces did not surface teaching-relevant drift from `version_129`.
 
 ## The pass family in one sentence
 
@@ -316,6 +319,8 @@ That is the main durable teaching value of this dossier.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md)
+- [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
 - [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-05-05 Wiki: refresh `gufa` current-main bridge
+
+- **add a 2026-05-05 current-main recheck manifest, matching research note, and port-readiness bridge for the `gufa` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-gufa-current-main-recheck.md), [`docs/wiki/raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](./docs/wiki/raw/research/0471-2026-05-05-gufa-current-main-recheck.md), [`docs/wiki/binaryen/passes/gufa/`](./docs/wiki/binaryen/passes/gufa/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
+
+## 2026-05-05 Wiki: refresh `optimize-casts` current-main bridge
+
+- **add a 2026-05-05 current-main recheck manifest, matching research note, and freshness-layer refresh for the `optimize-casts` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md), [`docs/wiki/raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md`](./docs/wiki/raw/research/0469-2026-05-05-optimize-casts-current-main-recheck.md), [`docs/wiki/binaryen/passes/optimize-casts/`](./docs/wiki/binaryen/passes/optimize-casts/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).
+
 ## 2026-05-05 Wiki: refresh `type-merging` current-main bridge
 
 - **add a 2026-05-05 current-main recheck manifest, matching research note, and a new Starshine port-readiness bridge for the `type-merging` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-type-merging-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-type-merging-current-main-recheck.md), [`docs/wiki/raw/research/0462-2026-05-05-type-merging-current-main-recheck.md`](./docs/wiki/raw/research/0462-2026-05-05-type-merging-current-main-recheck.md), [`docs/wiki/binaryen/passes/type-merging/`](./docs/wiki/binaryen/passes/type-merging/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).

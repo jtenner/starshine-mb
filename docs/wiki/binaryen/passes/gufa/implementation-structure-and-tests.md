@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
+  - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
   - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./content-oracle-variants-and-boundaries.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../gufa-optimizing/index.md
   - ../gufa-cast-all/index.md
   - ../type-refining/index.md
@@ -23,7 +26,7 @@ related:
 
 Use Binaryen `version_129` as the main source oracle for this page, anchored by [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md).
 
-The 2026-04-24 refresh also spot-checked current `main` on the owner, registration, oracle, and dedicated lit-test surfaces and found no teaching-relevant drift from the tagged release.
+The 2026-05-05 refresh also spot-checked current `main` on the owner, registration, oracle, and dedicated lit-test surfaces and found no teaching-relevant drift from the tagged release.
 
 ## File map
 
@@ -230,6 +233,8 @@ A future Starshine port needs answers to at least these questions:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md)
+- [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
 - [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)

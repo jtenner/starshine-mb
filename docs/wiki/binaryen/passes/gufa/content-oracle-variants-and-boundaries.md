@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md
+  - ../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-gufa-primary-sources.md
   - ../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md
@@ -12,6 +14,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../gufa-optimizing/index.md
   - ../gufa-cast-all/index.md
   - ../type-refining/normal-vs-gufa-and-fixups.md
@@ -208,7 +211,7 @@ And in `gufa-cast-all`, it may insert new casts altogether.
 
 ## Connection to `type-refining-gufa`
 
-The existing `type-refining` dossier already explains that the GUFA-backed variant uses `ContentOracle` instead of the normal direct scanner.
+The existing `type-refining` dossier already explains that the GUFA-backed variant uses `ContentOracle` instead of the normal direct scanner, and the new Starshine port-readiness bridge keeps the missing owner/validation surface explicit for future work.
 
 This dedicated GUFA folder clarifies the division of labor:
 
@@ -244,6 +247,8 @@ If you want the correct beginner-to-intermediate mental model, remember:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-gufa-current-main-recheck.md)
+- [`../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md`](../../../raw/research/0471-2026-05-05-gufa-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-gufa-primary-sources.md`](../../../raw/binaryen/2026-04-24-gufa-primary-sources.md)
 - [`../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md`](../../../raw/research/0313-2026-04-24-gufa-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md`](../../../raw/research/0163-2026-04-21-gufa-binaryen-research.md)

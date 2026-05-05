@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `gufa` current-main bridge and add port-readiness bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-gufa-current-main-recheck.md` plus `docs/wiki/raw/research/0471-2026-05-05-gufa-current-main-recheck.md` after rechecking current `main` `pass.cpp`, `GUFA.cpp`, `possible-contents.h`, and the three dedicated lit surfaces against the existing `version_129` contract.
+- Added `docs/wiki/binaryen/passes/gufa/starshine-port-readiness-and-validation.md` and refreshed the `gufa` overview, Binaryen strategy, implementation/test-map, content-oracle boundaries, WAT-shape catalog, Starshine strategy, wiki index, pass index, and tracker entries so the new 2026-05-05 freshness layer and validation bridge are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same closed-world `ContentOracle` family split, and Starshine still keeps plain `gufa` boundary-only until a real module-wide oracle owner exists.
+
 ## [2026-05-05] health | refresh `signature-pruning` current-main bridge and source hygiene
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-signature-pruning-current-main-recheck.md` plus `docs/wiki/raw/research/0470-2026-05-05-signature-pruning-current-main-recheck.md` after rechecking current `main` `SignaturePruning.cpp`, `pass.cpp`, and `test/lit/passes/signature-pruning.wast` against the existing `version_129` contract.
