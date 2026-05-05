@@ -66,4 +66,4 @@ The 2026-05-05 recheck also confirmed that the local Starshine anchors used by t
 
 ## Source provenance
 
-- [`../../research/0480-2026-05-05-global-effects-current-main-recheck.md`](../../research/0480-2026-05-05-global-effects-current-main-recheck.md)
+- [`../research/0480-2026-05-05-global-effects-current-main-recheck.md`](../research/0480-2026-05-05-global-effects-current-main-recheck.md)
