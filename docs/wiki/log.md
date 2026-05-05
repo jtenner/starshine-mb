@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `optimize-added-constants` source anchors and Starshine code map
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md` plus `docs/wiki/raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md` after rechecking the shared `OptimizeAddedConstants.cpp` owner file, public registration, low-memory threshold, and plain-pass tests against the existing `version_129` contract.
+- Refreshed the plain `optimize-added-constants` dossier, its low-memory / offset-merge companion page, implementation/test-map, WAT-shape catalog, Starshine strategy, Starshine port-readiness bridge, shared catalogs, and the pass tracker so the new 2026-05-05 source-anchor digest and exact Starshine code locations are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same direct memory-address offset-folding half of the shared pass family, and Starshine still keeps both `optimize-added-constants` spellings removed while the first mutating slice remains future work.
+
 ## [2026-05-05] health | add `local-cse` port-readiness bridge and validation layer
 
 - Added `docs/wiki/raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md` after reviewing the existing Binaryen `local-cse` source/test bridge and the nearest Starshine cleanup/rewrite surfaces.

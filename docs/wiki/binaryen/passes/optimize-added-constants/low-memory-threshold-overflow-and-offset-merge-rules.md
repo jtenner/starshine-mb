@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
+  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
@@ -29,7 +31,7 @@ related:
 # `optimize-added-constants` low-memory threshold, overflow, and offset-merge rules
 
 This page isolates the part of Binaryen's plain `optimize-added-constants` contract that is easiest to mis-port.
-It is anchored to the 2026-04-24 raw primary-source manifest [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md) and the 2026-04-27 current-main / local-readiness recheck [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md).
+It is anchored to the 2026-04-24 raw primary-source manifest [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md), the 2026-05-05 current-main source-anchor digest [`../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md), and the 2026-04-27 current-main / local-readiness recheck [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md).
 
 The safety questions are:
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
+  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
@@ -38,6 +40,8 @@ It is asking a smaller question:
 The `after` snippets are **conceptual**.
 Real Binaryen output may preserve surrounding wrapper structure.
 What matters here is the direct memory-address contract.
+
+The 2026-05-05 source-anchor digest keeps the upstream owner, registration, and test locations easy to trace; this page stays focused on shapes.
 
 ## Quick glossary
 

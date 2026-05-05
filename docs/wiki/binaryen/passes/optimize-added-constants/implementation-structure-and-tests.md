@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
+  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
@@ -39,6 +41,17 @@ For the plain pass, the important thing is what **does not** get enabled:
 - and no iterate-after-propagation loop driven by changed local rewrites.
 
 The direct load/store-address fold and constant-pointer normalization are still the real core.
+
+## Source-anchor digest
+
+The 2026-05-05 capture keeps these exact upstream anchors easy to follow:
+
+- `OptimizeAddedConstants.cpp`: the owner file, direct-fold helpers, the low-memory gate, the propagated-add helper, and the plain-vs-propagate function split.
+- `pass.cpp`: the public registration strings.
+- `pass.h`: the fixed `LowMemoryBound` constant.
+- `test/passes/optimize-added-constants_low-memory-unused.{wast,txt}`: the direct-fold / threshold oracle.
+- `test/lit/passes/optimize-added-constants-memory64.wast`: the overflow oracle.
+- `test/lit/passes/optimize-added-constants-nomemory.wast`: the no-memory oracle.
 
 ## `src/passes/pass.cpp`
 

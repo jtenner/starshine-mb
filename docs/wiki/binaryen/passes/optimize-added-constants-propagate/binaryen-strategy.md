@@ -1,9 +1,11 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
+  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0330-2026-04-25-optimize-added-constants-propagate-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0165-2026-04-21-optimize-added-constants-propagate-binaryen-research.md
@@ -23,6 +25,7 @@ related:
 - Use Binaryen `version_129` as the current source oracle for this pass.
 - The sibling-specific raw source manifest is [`../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md`](../../../raw/binaryen/2026-04-25-optimize-added-constants-propagate-primary-sources.md).
 - The core implementation is `src/passes/OptimizeAddedConstants.cpp`.
+- The 2026-05-05 source-anchor digest for the plain sibling is still useful here because this sibling shares the same owner file and registration surface.
 - Public registration comes from `src/passes/pass.cpp`.
 - The low-memory threshold comes from `src/pass.h`.
 - The most useful shipped behavior examples are `test/passes/optimize-added-constants-propagate_low-memory-unused.{wast,txt}` plus the shared `memory64` and `nomemory` lit tests.

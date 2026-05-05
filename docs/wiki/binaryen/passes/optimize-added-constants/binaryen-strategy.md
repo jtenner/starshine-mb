@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
+  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
@@ -40,11 +42,20 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-added-constants-memory64.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/optimize-added-constants-nomemory.wast>
 
-Narrow freshness note: the 2026-04-27 current-`main` spot check recorded in the port-readiness manifest did not surface a teaching-relevant contract drift on the owner / registration / option / test surfaces. Treat `version_129` as the stable release oracle unless a later source ingest says otherwise.
+Exact upstream source anchors worth keeping in mind:
+
+- `OptimizeAddedConstants.cpp`: file header contract; `MemoryAccessOptimizer`; `optimizeConstantPointer`; `tryToOptimizeConstant`; `tryToOptimizePropagatedAdd`; `canOptimizeConstant`; `OptimizeAddedConstants::isFunctionParallel`; `OptimizeAddedConstants::doWalkFunction`; `createOptimizeAddedConstantsPass`; `createOptimizeAddedConstantsPropagatePass`.
+- `pass.cpp`: public registration strings for `optimize-added-constants` and `optimize-added-constants-propagate`.
+- `pass.h`: `PassOptions::LowMemoryBound`.
+- the `low-memory-unused`, `memory64`, and `nomemory` tests: the three visible safety and empty-module shapes.
+
+Narrow freshness note: the 2026-05-05 current-main source-anchor recheck and the earlier 2026-04-27 port-readiness spot check did not surface a teaching-relevant contract drift on the owner / registration / option / test surfaces. Treat `version_129` as the stable release oracle unless a later source ingest says otherwise.
 
 ## The pass in one sentence
 
 Binaryen `optimize-added-constants` is a function-parallel memory-address canonicalizer that pushes small added constants into load/store offsets and normalizes constant-pointer-plus-offset forms, but does **not** use the sibling pass's local-pair propagation machinery.
+
+The 2026-05-05 source-anchor digest keeps that contract easy to trace without changing it.
 
 ## Biggest naming fact
 

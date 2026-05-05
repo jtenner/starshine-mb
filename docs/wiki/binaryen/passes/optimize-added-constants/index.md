@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
+  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
@@ -32,7 +34,7 @@ related:
 
 - `optimize-added-constants` is an upstream Binaryen function pass.
 - It is currently **unimplemented** in Starshine and still lives in the removed-name registry in [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- The refreshed provenance chain is captured in [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md); the 2026-04-27 current-main / local-readiness recheck is [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md), and the Starshine status bridge is [`./starshine-strategy.md`](./starshine-strategy.md).
+- The refreshed provenance chain is captured in [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md); the 2026-05-05 current-main source-anchor digest is [`../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md) with the follow-up research note at [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md), the 2026-04-27 current-main / local-readiness recheck remains [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md), and the Starshine status bridge is [`./starshine-strategy.md`](./starshine-strategy.md).
 - Binaryen `version_129` also exposes a public sibling name, [`../optimize-added-constants-propagate/index.md`](../optimize-added-constants-propagate/index.md), backed by the same implementation file.
 - The real pass is a **memory-address to load/store-offset** canonicalizer, not a generic arithmetic-tree optimizer.
 
@@ -42,7 +44,7 @@ related:
 - `optimize-added-constants` and `optimize-added-constants-propagate` are both still real local removed-name registry entries.
 - `agent-todo.md` currently has **no dedicated slice** for plain `optimize-added-constants`.
 - The pass name is extremely easy to misread, so keeping the plain-vs-propagate split explicit is valuable for future port work.
-- The local code already carries `low_memory_unused` / `low_memory_bound` options, but there is still no owner file or active rewrite path for this pass.
+- The local code already carries `low_memory_unused` / `low_memory_bound` options, and the 2026-05-05 source-anchor digest now makes the exact upstream owner / registration / threshold / test lines easy to trace, but there is still no owner file or active rewrite path for this pass.
 
 ## Correction note
 
@@ -98,6 +100,8 @@ So the plain pass is best read as:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md)
+- [`../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md)
 - [`../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md`](../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md`](../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md)

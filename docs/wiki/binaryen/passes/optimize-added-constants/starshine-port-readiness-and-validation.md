@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
+  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
@@ -59,7 +61,7 @@ The plain pass should be read as the direct-address half of Binaryen's shared `O
 6. normalize `const-pointer + existing-offset` only when unsigned overflow is impossible,
 7. leave `local.set` / `local.get` propagation to [`../optimize-added-constants-propagate/index.md`](../optimize-added-constants-propagate/index.md).
 
-The key citation chain is the current-main source recheck in [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md), which points to official Binaryen `OptimizeAddedConstants.cpp`, `pass.cpp`, `pass.h`, and the plain `low-memory-unused`, memory64, and no-memory tests.
+The key citation chain is the 2026-05-05 source-anchor digest in [`../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md), plus the earlier current-main source recheck in [`../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md), which together point to official Binaryen `OptimizeAddedConstants.cpp`, `pass.cpp`, `pass.h`, and the plain `low-memory-unused`, memory64, and no-memory tests.
 
 ## Starshine code locations to connect
 
@@ -74,7 +76,7 @@ Implementation rule: keep the name removed until a mutating pass is wired with f
 - [`src/cli/cli.mbt`](../../../../../src/cli/cli.mbt): parses `--low-memory-unused`, `--no-low-memory-unused`, and `--low-memory-bound`.
 - [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt): `OptimizeOptions` stores `low_memory_unused` and `low_memory_bound`, defaults them to `false` and `1024`, and accepts config / environment values.
 
-Implementation rule: a faithful first port should reject or no-op when `low_memory_unused` is false. For Binaryen-oracle parity, compare with `1024` even if Starshine later chooses to expose custom bounds as a deliberate extension.
+Implementation rule: a faithful first port should reject or no-op when `low_memory_unused` is false. For Binaryen-oracle parity, compare with `1024` even if Starshine later chooses to expose custom bounds as a deliberate extension; the 2026-05-05 source-anchor digest makes the exact local option and memory-op surfaces easy to find before that decision is made.
 
 ### HOT memory-op landing zone
 

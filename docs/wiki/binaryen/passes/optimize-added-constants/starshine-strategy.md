@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-optimize-added-constants-current-main-recheck.md
+  - ../../../raw/research/0465-2026-05-05-optimize-added-constants-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-optimize-added-constants-port-readiness-primary-sources.md
   - ../../../raw/research/0418-2026-04-27-optimize-added-constants-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-optimize-added-constants-primary-sources.md
@@ -50,6 +52,20 @@ The exact local status is:
 
 So the current Starshine strategy is a **status and port map**, not an implementation description. The implementation-readiness and validation ladder now lives in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
+## Exact local code map
+
+The current repo already has the precise infrastructure a first direct-address slice would need:
+
+- [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt) `#L143-L147`, `#L310-L313`, `#L521-L525`: removed-name registration and honest rejection.
+- [`src/cli/cli.mbt`](../../../../../src/cli/cli.mbt) `#L255-L277`, `#L1033-L1043`, `#L1138-L1147`, `#L1346-L1351`: option parsing and environment plumbing for `low_memory_unused` / `low_memory_bound`.
+- [`src/cmd/cmd.mbt`](../../../../../src/cmd/cmd.mbt) `#L122-L155`, `#L250-L287`, `#L494-L497`, `#L1504-L1509`: default values and config merge for the same options.
+- [`src/ir/hot_core.mbt`](../../../../../src/ir/hot_core.mbt) `#L47-L48`, [`src/ir/hot_side_tables.mbt`](../../../../../src/ir/hot_side_tables.mbt) `#L247-L248`: `Load` / `Store` plus `MemArgTable` payload ownership.
+- [`src/ir/hot_builders.mbt`](../../../../../src/ir/hot_builders.mbt) `#L533-L550`, [`src/ir/hot_lift.mbt`](../../../../../src/ir/hot_lift.mbt) `#L741-L754`, `#L1369-L1379`, [`src/ir/hot_lower.mbt`](../../../../../src/ir/hot_lower.mbt) `#L1077-L1079`: lift/build/lower surfaces for rewritten memory offsets.
+- [`src/lib/types.mbt`](../../../../../src/lib/types.mbt) `#L475-L475`, `#L8192-L8193`: `MemArg` payload structure and constructor.
+- [`src/binary/decode.mbt`](../../../../../src/binary/decode.mbt), [`src/binary/encode.mbt`](../../../../../src/binary/encode.mbt), [`src/wast/lexer.mbt`](../../../../../src/wast/lexer.mbt), [`src/wast/keywords.mbt`](../../../../../src/wast/keywords.mbt), [`src/validate/typecheck.mbt`](../../../../../src/validate/typecheck.mbt): roundtrip and validation surfaces.
+
+These are the exact local surfaces a direct first slice should connect; none of them currently define a pass-owned implementation.
+
 ## What a faithful port would need to preserve
 
 A future Starshine pass should start with the plain variant, not the propagate sibling:
@@ -62,7 +78,7 @@ A future Starshine pass should start with the plain variant, not the propagate s
 6. normalize constant pointer plus offset only when unsigned overflow is impossible,
 7. leave local-pair propagation to the sibling [`../optimize-added-constants-propagate/index.md`](../optimize-added-constants-propagate/index.md).
 
-The last point matters: Starshine should not silently implement the propagate variant under the plain name.
+The last point matters: Starshine should not silently implement the propagate variant under the plain name. The new 2026-05-05 source-anchor digest now makes the exact local implementation surfaces easy to chase from this page.
 
 ## Existing local option plumbing
 
