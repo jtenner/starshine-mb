@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `remove-unused-non-function-elements` with current-main bridge and Binaryen strategy
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md` plus `docs/wiki/raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md` after rechecking current `main` `RemoveUnusedModuleElements.cpp`, `pass.cpp`, `passes.h`, `module-utils.h`, and the dedicated sibling fixture against the existing Binaryen `version_129` contract.
+- Added a new `docs/wiki/binaryen/passes/remove-unused-non-function-elements/binaryen-strategy.md` page and refreshed the folder overview, implementation map, shared-engine boundary guide, module-shape catalog, Starshine strategy, Starshine port-readiness bridge, and shared catalogs so the new 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still matches the same shared-engine sibling mode contract on the reviewed surfaces, while Starshine remains active module-pass sibling reuse with the same defined-vs-imported boundary.
+
 ## [2026-05-05] health | refresh `string-lifting` current-main bridge and freshness layer
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-string-lifting-current-main-recheck.md` plus `docs/wiki/raw/research/0457-2026-05-05-string-lifting-current-main-recheck.md` after rechecking current `main` `StringLifting.cpp`, `string-lifting.wast`, and `pass.cpp` against the existing Binaryen `version_129` source contract.

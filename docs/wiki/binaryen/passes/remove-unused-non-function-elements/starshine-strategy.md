@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
+  - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
@@ -32,8 +34,9 @@ related:
 ## Current status
 
 Starshine now implements the Binaryen sibling pass as an active module pass.
+The 2026-05-05 current-main recheck did not change that implementation story; it only added a fresh upstream source bridge.
 
-The local state on 2026-04-26 is:
+The local state on 2026-05-05 is:
 
 - active registry / CLI spelling: `remove-unused-nonfunction-module-elements`
 - historical dossier label: `remove-unused-non-function-elements`

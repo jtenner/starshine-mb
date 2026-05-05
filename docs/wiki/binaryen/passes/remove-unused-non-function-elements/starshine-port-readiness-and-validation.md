@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
+  - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
@@ -27,6 +29,8 @@ related:
 ## Current local truth
 
 Starshine implements this sibling as an active module pass.
+The 2026-05-05 current-main recheck preserved that implementation story.
+The upstream sibling strategy is summarized in [`./binaryen-strategy.md`](./binaryen-strategy.md).
 
 The current in-tree facts are:
 

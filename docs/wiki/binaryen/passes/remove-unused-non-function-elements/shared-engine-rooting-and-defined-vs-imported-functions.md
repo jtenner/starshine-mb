@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
+  - ../../../raw/research/0458-2026-05-05-remove-unused-non-function-elements-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md
   - ../../../raw/research/0408-2026-04-26-remove-unused-non-function-elements-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md
@@ -25,7 +27,7 @@ related:
 
 ## Why this page exists
 
-This page is anchored by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md) and the 2026-04-26 port-readiness recheck [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md). The local implementation ladder for this exact defined-vs-imported boundary is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
+This page is anchored by the 2026-04-24 raw manifest [`../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-non-function-elements-primary-sources.md), the 2026-04-26 port-readiness recheck [`../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-remove-unused-non-function-elements-port-readiness-primary-sources.md), and the 2026-05-05 current-main recheck [`../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-non-function-elements-current-main-recheck.md). The local implementation ladder for this exact defined-vs-imported boundary is in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 This is the easiest part of the sibling to misread.
 The pass name suggests one thing:
@@ -58,6 +60,7 @@ The sibling inherits all of that.
 The only teaching-important difference is:
 
 - defined functions are rooted up front through `ModuleUtils::iterDefinedFunctions(...)`
+- see [`./binaryen-strategy.md`](./binaryen-strategy.md) for the sibling-mode strategy summary
 
 So the sibling should be taught as a mode of RUME, not as a separate family.
 
