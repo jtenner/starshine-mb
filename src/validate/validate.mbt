@@ -3584,7 +3584,7 @@ pub fn validate_valid_feature_actual_count(
     SubtypingTopology => stats.subtyping_topology
     RichGcFieldPlans => stats.rich_gc_field_plans
     ImportExportTopology => stats.import_export_topology
-    ElementSegmentRange => 0
+    ElementSegmentRange => stats.element_segment_range
     DataSegmentRange => 0
     NameCustomSections => 0
     InvalidAstStrategies => 0
@@ -6954,6 +6954,28 @@ test "gen_valid coverage-forced emits import/export topology surface" {
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: ImportExportTopology, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+test "gen_valid coverage-forced emits element segment range surface" {
+  let config = GenValidConfig::coverage_forced_default()
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26021UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(
+    validate_valid_feature_actual_count(stats, ElementSegmentRange) > 0,
+  )
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: ElementSegmentRange, min_count: 1 },
     ]),
     [],
   )

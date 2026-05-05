@@ -394,6 +394,7 @@ pub struct GenValidFeatureFacts {
   has_subtyping_topology : Bool
   has_rich_gc_field_plans : Bool
   has_import_export_topology : Bool
+  has_element_segment_range : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -444,6 +445,7 @@ pub struct GenValidFeatureStats {
   subtyping_topology : Int
   rich_gc_field_plans : Int
   import_export_topology : Int
+  element_segment_range : Int
 } derive(Eq, Debug)
 
 ///|
@@ -540,6 +542,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.rich_gc_field_plans.output(logger)
   logger.write_string(", import_export_topology: ")
   self.import_export_topology.output(logger)
+  logger.write_string(", element_segment_range: ")
+  self.element_segment_range.output(logger)
   logger.write_char('}')
 }
 
@@ -592,6 +596,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     subtyping_topology: 0,
     rich_gc_field_plans: 0,
     import_export_topology: 0,
+    element_segment_range: 0,
   }
 }
 
@@ -668,6 +673,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_rich_gc_field_plans),
     import_export_topology: self.import_export_topology +
     gen_valid_bool_count(facts.has_import_export_topology),
+    element_segment_range: self.element_segment_range +
+    gen_valid_bool_count(facts.has_element_segment_range),
   }
 }
 
@@ -5361,6 +5368,10 @@ fn gen_valid_module_once_with_config(
       let func_idx = gen_valid_pick_func_idx(
         ctx, total_func_count, first_defined_func_idx,
       )
+      let FuncIdx(func_idx_u) = func_idx
+      let second_func_idx_u = ((func_idx_u.reinterpret_as_int() + 1) %
+      total_func_count).reinterpret_as_uint()
+      let second_func_idx = FuncIdx::new(second_func_idx_u)
       let gc_table_choice = if table_types.length() > 1 {
         Some(
           TableIdx::new(
@@ -5384,7 +5395,7 @@ fn gen_valid_module_once_with_config(
             TableIdx::new(0U),
             gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx),
           ),
-          ElemKind::funcs([func_idx]),
+          ElemKind::funcs([func_idx, second_func_idx]),
         )
       } else if ctx.config.mode == CoverageForced && i == 1 {
         Elem::new(
@@ -5399,27 +5410,31 @@ fn gen_valid_module_once_with_config(
           ElemKind::func_exprs([gen_valid_funcref_expr(ctx, func_idx)]),
         )
       } else if ctx.config.mode == CoverageForced && i == 3 {
-        match gc_type_plan.bulk_elem_ref_type {
-          Some(rt) =>
+        match (gc_table_choice, gc_table_ref_type) {
+          (Some(table_idx), Some(rt)) if ValType::ref_type(rt) !=
+            ValType::funcref() =>
             Elem::new(
-              ElemMode::passive(),
+              ElemMode::active(
+                table_idx,
+                gen_valid_active_i32_offset(
+                  ctx,
+                  global_idx=const_i32_global_idx,
+                ),
+              ),
               ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
             )
-          None =>
-            match (gc_table_choice, gc_table_ref_type) {
-              (Some(table_idx), Some(rt)) if ValType::ref_type(rt) !=
-                ValType::funcref() =>
+          _ =>
+            match gc_type_plan.bulk_elem_ref_type {
+              Some(rt) =>
                 Elem::new(
-                  ElemMode::active(
-                    table_idx,
-                    gen_valid_active_i32_offset(
-                      ctx,
-                      global_idx=const_i32_global_idx,
-                    ),
-                  ),
-                  ElemKind::typed_exprs(rt, [gen_valid_elem_ref_expr(ctx, rt)]),
+                  ElemMode::passive(),
+                  ElemKind::typed_exprs(rt, [
+                    gen_valid_elem_ref_expr(ctx, rt),
+                    gen_valid_elem_ref_expr(ctx, rt),
+                  ]),
                 )
-              _ => Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
+              None =>
+                Elem::new(ElemMode::passive(), ElemKind::funcs([func_idx]))
             }
         }
       } else if (match gc_type_plan.bulk_elem_ref_type {
@@ -6588,6 +6603,7 @@ pub fn gen_valid_feature_facts(
   let mut has_subtyping_topology = false
   let mut has_rich_gc_field_plans = false
   let mut has_import_export_topology = false
+  let mut has_element_segment_range = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -6817,7 +6833,11 @@ pub fn gen_valid_feature_facts(
         for elem in elems {
           let Elem(mode, kind) = elem
           match mode {
-            Active(_, expr) => {
+            Active(table_idx, expr) => {
+              let TableIdx(table_idx_u) = table_idx
+              has_element_segment_range = has_element_segment_range ||
+                table_idx_u.reinterpret_as_int() > 0
+
               has_const_expr_variants = has_const_expr_variants ||
                 gen_valid_const_expr_has_variant(expr)
               let facts = gen_valid_scan_expr(expr)
@@ -6857,8 +6877,12 @@ pub fn gen_valid_feature_facts(
             _ => ()
           }
           match kind {
-            FuncsElemKind(_) => ()
-            FuncExprsElemKind(exprs) =>
+            FuncsElemKind(funcs) =>
+              has_element_segment_range = has_element_segment_range ||
+                funcs.length() > 1
+            FuncExprsElemKind(exprs) => {
+              has_element_segment_range = has_element_segment_range ||
+                exprs.length() > 1
               for expr in exprs {
                 has_const_expr_variants = has_const_expr_variants ||
                   gen_valid_const_expr_has_variant(expr)
@@ -6896,8 +6920,11 @@ pub fn gen_valid_feature_facts(
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
+            }
             TypedExprsElemKind(rt, exprs) => {
-              ignore(rt)
+              has_element_segment_range = has_element_segment_range ||
+                exprs.length() > 1 ||
+                ValType::ref_type(rt) != ValType::funcref()
               uses_ref_types = true
               for expr in exprs {
                 has_const_expr_variants = has_const_expr_variants ||
@@ -7082,5 +7109,6 @@ pub fn gen_valid_feature_facts(
     has_subtyping_topology,
     has_rich_gc_field_plans,
     has_import_export_topology,
+    has_element_segment_range,
   }
 }
