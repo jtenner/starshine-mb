@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
+  - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
@@ -33,7 +35,7 @@ related:
 
 # Starshine Strategy For `avoid-reinterprets`
 
-Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md) and [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md).
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md), [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the current Starshine status, local code surfaces, and remaining parity boundary.
 
 ## Current status
@@ -44,10 +46,11 @@ The harder Binaryen family, indirect `reinterpret(local.get <- load)` helper-loc
 
 Current local facts:
 
-- implementation owner: [`src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt)
-- focused tests: [`src/passes/avoid_reinterprets_test.mbt`](../../../../../src/passes/avoid_reinterprets_test.mbt)
-- active module-pass registry entry: [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
-- dispatcher arm: [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt)
+- implementation owner: [`src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt#L1-L80)
+- focused tests: [`src/passes/avoid_reinterprets_test.mbt`](../../../../../src/passes/avoid_reinterprets_test.mbt#L1-L89)
+- active module-pass registry entry: [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt#L258-L261)
+- dispatcher arm: [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt#L8922-L8924)
+- CLI spelling coverage: [`src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt#L159-L165) and [`src/cli/cli_test.mbt`](../../../../../src/cli/cli_test.mbt#L297-L309)
 - no default `optimize` / `shrink` preset slot yet
 - no dedicated active `agent-todo.md` follow-up slice yet
 

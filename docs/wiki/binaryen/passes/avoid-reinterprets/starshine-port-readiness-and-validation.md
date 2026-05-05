@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
+  - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
@@ -37,10 +39,11 @@ related:
 This page turns the source-backed `avoid-reinterprets` dossier into an implementation-readiness map.
 It answers a narrower question than [`./starshine-strategy.md`](./starshine-strategy.md):
 
-> if Starshine later ports this removed pass, what should the first safe slice be, which local code should a developer read, and how should the port be validated without overgeneralizing Binaryen's contract?
+> if Starshine later finishes the remaining indirect family, what should the next safe slice be, which local code should a developer read, and how should the port be validated without overgeneralizing Binaryen's contract?
 
 The first direct-load slice is now implemented in Starshine as an active module pass.
 The remaining implementation debt is the indirect `reinterpret(local.get <- load)` helper-local family.
+The 2026-05-05 current-main bridge keeps this split current for the living dossier.
 
 ## Beginner mental model
 
@@ -56,10 +59,10 @@ Starshine has landed the direct case; a future slice should attempt the harder l
 
 ## Current local status
 
-- `avoid-reinterprets` is now an active module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt).
-- The dispatcher routes it through [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt).
-- The implementation lives in [`src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt).
-- Focused coverage lives in [`src/passes/avoid_reinterprets_test.mbt`](../../../../../src/passes/avoid_reinterprets_test.mbt).
+- `avoid-reinterprets` is now an active module pass in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt#L258-L261).
+- The dispatcher routes it through [`src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt#L8922-L8924).
+- The implementation lives in [`src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt#L1-L80).
+- Focused coverage lives in [`src/passes/avoid_reinterprets_test.mbt`](../../../../../src/passes/avoid_reinterprets_test.mbt#L1-L89).
 - It is intentionally not part of the default `optimize` / `shrink` presets yet.
 
 ## Landed first implementation slice: direct load flips
@@ -194,15 +197,14 @@ Preserve these Binaryen rules:
 
 ## Validation ladder
 
-### 0. Registry honesty
+### 0. Keep the landed direct slice honest
 
-Before the transform exists, keep removed-name rejection green.
-When the transform lands, change registry category and tests in the same change.
+The pass is already active-partial, so keep the active-module registry entry, dispatcher arm, and focused tests green together.
 
 ### 1. Direct-load fixtures
 
 Prove all four direct reinterpret/load pairs and partial-load no-ops.
-This is the first implementation slice.
+This guards the landed first implementation slice.
 
 ### 2. Single indirect user
 

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
+  - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
@@ -33,7 +35,7 @@ Read every example below as:
 - what Binaryen directly preserves,
 - and what a faithful port must not overgeneralize.
 
-For current local status, see [`./starshine-strategy.md`](./starshine-strategy.md): Starshine now implements the direct full-width load-flip shapes and still leaves local-get helper-local rewrites to future work.
+For current local status, see [`./starshine-strategy.md`](./starshine-strategy.md): Starshine now implements the direct full-width load-flip shapes in [`../../../../../src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt) and still leaves local-get helper-local rewrites to future work.
 For implementation order, see [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md): direct full-width load flips are the landed first slice; local-get helper-local rewrites need the single-load provenance proof first.
 
 ## Shape 1: direct full-width load flip
@@ -260,6 +262,8 @@ Any future port must preserve:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md)
+- [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)
 - [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)

@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `avoid-reinterprets` current-main bridge and direct-slice anchors
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md` plus `docs/wiki/raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md` after rechecking current `main` `AvoidReinterprets.cpp`, `pass.cpp`, `local-graph.h`, `properties.h`, and the two dedicated lit files against the existing Binaryen `version_129` source anchors.
+- Refreshed the `avoid-reinterprets` overview, Binaryen strategy, implementation/test-map, single-load-chain guide, WAT-shape catalog, Starshine strategy, Starshine port-readiness page, and shared catalogs so the 2026-05-05 freshness layer plus exact landed direct-slice code anchors are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still matches the same narrow full-width load/reinterpret contract on the reviewed surfaces, while Starshine remains active-partial with the direct `reinterpret(load)` slice landed and the indirect helper-local family still future work.
+
 ## [2026-05-05] health | refresh `pick-load-signs` strategy and current-main bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md` plus `docs/wiki/raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md` after rechecking current `main` `PickLoadSigns.cpp`, `pass.cpp`, `opt-utils.h`, `properties.h`, and `pick-load-signs_sign-ext.wast` against the existing Binaryen `version_129` source anchors.

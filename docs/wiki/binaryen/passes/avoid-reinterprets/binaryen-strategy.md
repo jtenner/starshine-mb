@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
+  - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
@@ -28,7 +30,7 @@ related:
 
 Upstream Binaryen publishes this pass as `avoid-reinterprets`.
 
-The 2026-04-24 primary-source capture is [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md), and the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md).
+The 2026-04-24 primary-source capture is [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md), the 2026-04-26 port-readiness recheck is [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md), and the 2026-05-05 current-main bridge is [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md).
 Together they confirm that the reviewed implementation is a **small function-parallel AST pass** whose real job is:
 
 - identify reinterpret users of a full-width load value,
@@ -48,7 +50,7 @@ That means the best mental model is:
 
 The local repo makes these scheduler facts explicit:
 
-- it is now an active Starshine module pass for direct full-width load flips in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
+- it is now an active Starshine module pass implemented in [`src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt) and registered in [`src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L42-L43) is now stale for this pass because it listed the name as removed-until-hot-implementation work
 - it is absent from `docs/wiki/binaryen/no-dwarf-default-optimize-path.md`
 - [`./starshine-strategy.md`](./starshine-strategy.md) records the active-partial local status and remaining indirect-analysis question
@@ -302,7 +304,7 @@ I compared:
 
 The original dossier found the files identical on 2026-04-21.
 The 2026-04-24 source-capture follow-up did not surface teaching-relevant drift in the main pass file, registration surface, helper headers, or dedicated lit files.
-The 2026-04-26 port-readiness follow-up rechecked the official `version_129` and current-main implementation, registration, and dedicated lit surfaces again and found no teaching-relevant drift from this contract.
+The 2026-05-05 current-main follow-up rechecked the official `version_129` and current-main implementation, registration, and dedicated lit surfaces again and found no teaching-relevant drift from this contract.
 
 That does not prove every neighboring helper file is frozen, but it does mean the reviewed implementation summary still matches the official sources checked for this dossier.
 
@@ -352,6 +354,8 @@ If someone remembers only one sentence, it should be this:
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md)
+- [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)
 - [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)

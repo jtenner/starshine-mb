@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md
+  - ../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md
   - ../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md
@@ -28,7 +30,7 @@ related:
 ## Role
 
 - `avoid-reinterprets` is a real public Binaryen pass.
-- Starshine now has an active first-slice module pass that rewrites direct full-width load-plus-reinterpret pairs; the harder indirect `reinterpret(local.get <- load)` helper-local family remains unimplemented follow-up.
+- Starshine now has an active first-slice module pass in [`../../../../../src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt) that rewrites direct full-width load-plus-reinterpret pairs; the harder indirect `reinterpret(local.get <- load)` helper-local family remains unimplemented follow-up.
 - It is **not** part of the repo's current canonical no-DWARF `-O` / `-Os` optimize path.
 - Its job is to replace certain `reinterpret(load(...))` or `reinterpret(local.get <- load)` shapes with extra same-address loads of the target reinterpret type.
 
@@ -37,7 +39,7 @@ related:
 - The original parity queue and the first tracker-expansion wave are already dossier-covered, so this folder is an explicit source-backed expansion for a real local pass that has now moved from removed to active-partial.
 - `agent-todo.md` currently has **no dedicated `avoid-reinterprets` slice**.
 - The 2026-04-24 follow-up added an immutable raw primary-source manifest and a dedicated Starshine status page, so future readers no longer need to infer local status from registry snippets alone.
-- The 2026-04-26 port-readiness follow-up added a focused current-main source bridge plus a first-slice / validation page, so future implementers can start from direct `reinterpret(load)` flips before designing a LocalGraph-equivalent proof.
+- The 2026-05-05 current-main follow-up refreshed the source bridge and exact local-code anchors, so future implementers can start from direct `reinterpret(load)` flips before designing a LocalGraph-equivalent proof.
 - The pass name sounds broader than the real contract.
 - A future port needs to preserve exact provenance and helper-local behavior, not just “remove reinterprets somehow.”
 
@@ -66,8 +68,9 @@ So this pass is best taught as:
 - Direct `reinterpret(load(...))` can be flipped immediately with no helper locals.
 - `reinterpret(local.get ...)` uses fresh helper locals and duplicates the load at the source site.
 - The pointer helper local uses the memory's `addressType`, so memory64 needs `i64` pointer temps.
-- The reviewed `version_129` and current `main` implementation file still showed no teaching-relevant drift in the 2026-04-24 source recheck.
-- The 2026-04-26 current-main / port-readiness recheck again found no teaching-relevant drift and narrowed the recommended first Starshine slice to direct full-width `reinterpret(load)` rewrites before indirect local-chain helper-local work.
+- The reviewed `version_129` and current `main` implementation file still showed no teaching-relevant drift in the 2026-05-05 source refresh.
+- The active local implementation is only the direct slice: [`../../../../../src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt#L1-L80) contains the adjacent-pair rewrite, [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt#L258-L261) registers the pass, and [`../../../../../src/passes/pass_manager.mbt`](../../../../../src/passes/pass_manager.mbt#L8922-L8924) dispatches it.
+- [`../../../../../src/passes/avoid_reinterprets_test.mbt`](../../../../../src/passes/avoid_reinterprets_test.mbt#L1-L89) covers the active direct slice with focused positive and bailout tests.
 - Current Starshine accepts the pass as an active module pass for direct full-width load flips, with no preset scheduling yet.
 
 ## Page map
@@ -89,13 +92,15 @@ So this pass is best taught as:
 
 - Treat this folder as the canonical home for future `avoid-reinterprets` research and port planning.
 - Keep it explicitly marked as **partial** until Starshine grows the indirect single-load-provenance helper-local family.
-- Cite the raw primary-source manifest when restating original Binaryen source provenance: [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md); cite the 2026-04-26 bridge when discussing port readiness or current local line anchors: [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md).
+- Cite the raw primary-source manifest when restating original Binaryen source provenance: [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md); cite the 2026-05-05 bridge when discussing current-main freshness or current local line anchors: [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md).
 - Keep the scheduler fact explicit too: this is a real public Binaryen pass, but it is outside the current no-DWARF default optimize path.
 - Keep the scope fact explicit: reviewed Binaryen duplicates eligible loads to serve reinterpret users; it does not retarget whole local webs or eliminate every reinterpret in sight.
 - Keep the implementation split explicit: direct `reinterpret(load)` flips are implemented in [`../../../../../src/passes/avoid_reinterprets.mbt`](../../../../../src/passes/avoid_reinterprets.mbt); indirect `reinterpret(local.get)` rewrites still require an explicit LocalGraph-equivalent proof decision first.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-avoid-reinterprets-current-main-recheck.md)
+- [`../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md`](../../../raw/research/0456-2026-05-05-avoid-reinterprets-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-avoid-reinterprets-port-readiness-primary-sources.md)
 - [`../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md`](../../../raw/research/0381-2026-04-26-avoid-reinterprets-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md`](../../../raw/binaryen/2026-04-24-avoid-reinterprets-primary-sources.md)
@@ -114,3 +119,8 @@ So this pass is best taught as:
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/avoid-reinterprets.wast>
   - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/avoid-reinterprets64.wast>
   - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/AvoidReinterprets.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp>
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/ir/local-graph.h>
+  - <https://github.com/WebAssembly/binaryen/blob/main/src/ir/properties.h>
+  - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/avoid-reinterprets.wast>
+  - <https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/avoid-reinterprets64.wast>
