@@ -1,13 +1,16 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-21
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md
+  - ../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md
+  - ../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
   - ./plain-vs-optimizing-and-safety.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-globals-optimizing/index.md
 ---
 
@@ -35,6 +38,7 @@ Real Binaryen output may still contain:
 - or type-repair scaffolding.
 
 That is especially important here because plain `simplify-globals` does **not** do the nested default-function cleanup rerun that `simplify-globals-optimizing` performs.
+The 2026-05-05 current-main recheck did not change the shape families below.
 
 ## Quick glossary
 

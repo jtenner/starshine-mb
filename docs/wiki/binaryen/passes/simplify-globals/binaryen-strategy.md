@@ -1,17 +1,20 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-23
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-23-simplify-globals-primary-sources.md
   - ../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md
   - ../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md
   - ../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md
+  - ../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md
 related:
   - ./index.md
   - ./implementation-structure-and-tests.md
   - ./plain-vs-optimizing-and-safety.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-globals-optimizing/index.md
 ---
 
@@ -55,6 +58,8 @@ Primary source URLs:
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/simplify-globals-single_use.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/simplify-globals_func-effects.wast>
 - <https://github.com/WebAssembly/binaryen/blob/version_129/test/lit/passes/propagate-globals-globally.wast>
+
+The 2026-05-05 current-main recheck kept the same shared-engine and public-pass split stable on the reviewed current-main `SimplifyGlobals.cpp` / `pass.cpp` surfaces.
 
 ## The pass in one sentence
 

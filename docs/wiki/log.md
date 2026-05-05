@@ -4093,3 +4093,10 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Recorded the implementation shape: reuse the landed `simplify_locals.mbt` local-sink/dead-cleanup cycles while disabling structure-result rewrites, plus sharing existing raw simplify-locals artifact gates for runtime.
 - Updated the pass tracker and Starshine strategy page with direct oracle evidence: `10000/10000` gen-valid matches, `9975/10000` mixed-generator comparable matches with no mismatches, and debug-artifact self-opt normalized/canonical-function parity.
 - Left public `optimize` / `shrink` preset placement as ordered-neighborhood follow-up until the tuple/no-structure/vacuum/reorder-local slot is replayed end to end.
+
+## [2026-05-05] maintain | refresh plain `simplify-globals` current-main bridge and port-readiness
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md` plus `docs/wiki/raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md` after rechecking official Binaryen current `main` `SimplifyGlobals.cpp`, `pass.cpp`, helper headers, and the clustered `simplify-globals*` / `propagate-globals-globally.wast` surfaces.
+- Created `docs/wiki/binaryen/passes/simplify-globals/starshine-port-readiness-and-validation.md` and refreshed the plain dossier overview, Binaryen strategy, implementation/test map, plain-vs-optimizing safety guide, WAT-shape catalog, and Starshine strategy page so the current-main freshness layer, port-readiness ladder, and exact local boundary-only status are visible from the living dossier.
+- Updated `docs/wiki/index.md`, `docs/wiki/binaryen/passes/tracker.md`, and the simplify-globals folder page maps so the new current-main bridge and port-readiness page are discoverable from the shared catalogs.
+- Recorded unchanged contract status: current `main` still uses the same shared `SimplifyGlobals.cpp` family split, while Starshine still has no plain `simplify-globals` owner file or dedicated backlog slice and continues to reject the boundary-only pass honestly.

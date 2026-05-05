@@ -1,12 +1,14 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-04-23
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-23-simplify-globals-primary-sources.md
   - ../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md
   - ../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md
   - ../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md
+  - ../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -17,6 +19,7 @@ related:
   - ./plain-vs-optimizing-and-safety.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../simplify-globals-optimizing/index.md
   - ../propagate-globals-globally/index.md
   - ../tracker.md
@@ -78,8 +81,9 @@ That final “then stop” is the big difference from `simplify-globals-optimizi
 - Removed writes preserve operand evaluation as `drop(value)`.
 - Some substitutions can force `ReFinalize()` because the replacement type is more refined than the original `global.get` type.
 - The plain pass does **not** own the nested cleanup rerun that the optimizing suffix adds.
-- The dossier now also has an immutable raw primary-source manifest and a dedicated Starshine status/port-strategy page, closing the biggest remaining provenance and local-status gaps in this folder.
-- On 2026-04-23 the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**, and a narrow current-`main` spot check on the shared implementation plus key tests did not surface a new teaching-relevant contract drift beyond the updated dossier claims.
+- The dossier now also has immutable raw primary-source and 2026-05-05 current-main recheck manifests plus a dedicated Starshine status/port-strategy page and port-readiness bridge, closing the biggest remaining provenance and local-status gaps in this folder.
+- On 2026-04-23 the reviewed official Binaryen `version_129` release page still showed publish date **2026-04-01**.
+- On 2026-05-05 the current-main recheck of the shared `SimplifyGlobals.cpp` family found no teaching-relevant drift on the reviewed plain-pass surfaces.
 
 ## Page map
 
@@ -95,6 +99,8 @@ That final “then stop” is the big difference from `simplify-globals-optimizi
   Beginner-friendly before/after shape catalog for the main positive, bailout, preserved, and easy-to-misread rewrite families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Exact current Starshine status and port map: boundary-only registry tracking, request-guard behavior, neighboring planning surfaces, and the practical local landing shape for a future module-pass port.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Practical first-slice and validation ladder for a future plain-pass port: fact-table analysis, startup propagation, runtime trace propagation, write cleanup, and late-neighborhood replay.
 
 ## Current maintenance rule
 
@@ -108,6 +114,8 @@ That final “then stop” is the big difference from `simplify-globals-optimizi
 - [`../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md`](../../../raw/research/0160-2026-04-21-simplify-globals-binaryen-research.md)
 - [`../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md`](../../../raw/research/0222-2026-04-21-simplify-globals-source-confirmation-followup.md)
 - [`../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md`](../../../raw/research/0275-2026-04-23-simplify-globals-primary-sources-and-starshine-followup.md)
+- [`../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-simplify-globals-current-main-recheck.md)
+- [`../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md`](../../../raw/research/0461-2026-05-05-simplify-globals-current-main-recheck.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)
