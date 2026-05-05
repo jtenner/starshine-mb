@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Wiki: refresh `type-generalizing` current-main bridge
+
+- **add a 2026-05-05 current-main recheck manifest, matching research note, and freshness-layer refresh for the `type-generalizing` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md), [`docs/wiki/raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md`](./docs/wiki/raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md), [`docs/wiki/binaryen/passes/type-generalizing/`](./docs/wiki/binaryen/passes/type-generalizing/), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-05 Proofs: extend PRV002 kernel
 
 - **complete PRV002 by adding a proved `rectype_suffix_member_index` helper for suffix-local rectype member recovery, with executable regressions and refreshed proof-boundary docs** by **@OpenAI**. Updated [`src/validate_proof/rectype_index.mbt`](./src/validate_proof/rectype_index.mbt), [`src/validate_proof/rectype_index_proof.mbtp`](./src/validate_proof/rectype_index_proof.mbtp), [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).

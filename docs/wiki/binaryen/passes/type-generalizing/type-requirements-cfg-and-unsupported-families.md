@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
+  - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
+  - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
 related:
   - ./index.md
   - ./binaryen-strategy.md
@@ -19,7 +21,7 @@ supersedes:
 
 ## Why this page exists
 
-The hard part of Binaryen `experimental-type-generalizing` is not a single WAT rewrite. It is the proof that a local declaration can become more general while every use still accepts the new type.
+The hard part of Binaryen `experimental-type-generalizing` is not a single WAT rewrite. It is the proof that a local declaration can become more general while every use still accepts the new type. A 2026-05-05 current-main recheck left that contract unchanged on the reviewed surfaces.
 
 The 2026-04-24 page `local-flow-type-floor-and-boundaries.md` framed the pass as local-set/local-tee evidence plus a drop-plus-zero `local.get` workaround. That model is superseded. The source-correct model is backward type-requirement analysis over a function CFG.
 

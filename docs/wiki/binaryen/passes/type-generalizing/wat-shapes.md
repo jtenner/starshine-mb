@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-27-type-generalizing-primary-source-correction.md
   - ../../../raw/research/0421-2026-04-27-type-generalizing-source-correction-and-port-readiness.md
+  - ../../../raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md
+  - ../../../raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-type-generalizing-primary-sources.md
 related:
   - ./index.md
@@ -21,7 +23,7 @@ supersedes:
 
 ## How to read this page
 
-These shapes are sketches of the source-confirmed Binaryen `experimental-type-generalizing` contract. They do not try to reproduce exact printer output. The durable idea is:
+These shapes are sketches of the source-confirmed Binaryen `experimental-type-generalizing` contract. They do not try to reproduce exact printer output. A 2026-05-05 current-main recheck left the shape families unchanged on the reviewed surfaces. The durable idea is:
 
 - uses impose type requirements;
 - the solver propagates requirements backward through a CFG;

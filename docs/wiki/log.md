@@ -12,6 +12,12 @@ Append new entries; do not rewrite prior history except to fix obvious formattin
 - Updated `validation/moonbit-prove-strategy.md` with the explicit PRV001 proof policy: `src/validate_proof` is the current committed proof boundary and safe CI/local proof target, while direct `src/validate` proving remains an opt-in local investigation until the historical `jtenner/starshine/lib` WhyML lowering blocker is cleared.
 - Kept broad root-level `moon prove` out of the required gate; `moon prove src/validate_proof` remains the current proof signoff command.
 
+## [2026-05-05] health | refresh `type-generalizing` current-main bridge and exact local anchors
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-type-generalizing-current-main-recheck.md` plus `docs/wiki/raw/research/0479-2026-05-05-type-generalizing-current-main-recheck.md` after rechecking Binaryen `main` `TypeGeneralizing.cpp`, `pass.cpp`, and `test/lit/passes/type-generalizing.wast` against the corrected contract.
+- Refreshed the `type-generalizing` dossier, Starshine strategy and port-readiness pages, the superseded local-flow bridge page, wiki index, pass catalog, and tracker so the 2026-05-05 freshness layer and exact local code anchors are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still matches the same hidden not-yet-sound CFG/backward-analysis contract, and Starshine still keeps `type-generalizing` boundary-only until a deliberate module/type-graph implementation lands.
+
 ## [2026-05-05] health | refresh `de-nan` current-main bridge and stale anchors
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-de-nan-current-main-recheck.md` plus `docs/wiki/raw/research/0478-2026-05-05-de-nan-current-main-recheck.md` after rechecking Binaryen `main` `DeNaN.cpp`, `pass.cpp`, `properties.h`, `names.h`, `wasm-builder.h`, `pass.h`, and `denan.wast` against the existing oracle.
