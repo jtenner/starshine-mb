@@ -779,8 +779,6 @@ Suggested Tests
    - [FZG]010 - I31 and Extern Conversion Generation - Generate `ref.i31`, `i31.get_s`, `i31.get_u`, `any.convert_extern`, and `extern.convert_any` with valid source/target stack typing.
      - Status: complete. Coverage-forced `gen-valid` modules now emit a deterministic i31/extern conversion prelude for `ref.i31`, signed and unsigned `i31.get`, and roundtrip extern/any conversions behind the existing `allow_ref_types` gate. `GenValidFeatureStats` now records `i31_extern_conversions`, and the `I31ExternConversions` ledger row can satisfy explicit floors.
      - Validation: `moon test --package jtenner/starshine/validate`, `moon info`, `moon fmt`, full `moon test`, and `bun scripts/pass-fuzz-compare.ts --pass remove-unused-module-elements --generator gen-valid --count 1000 --max-failures 20 --out-dir .tmp/pass-fuzz-genvalid-fzg010-rume` are green; focused coverage lives in `gen_valid coverage-forced emits i31 and extern conversion surface`.
-   - [FZG]012 - String Instruction Expansion - Add valid generation for string measurement, comparison, hash, view, and iterator instructions supported by the AST and validator.
-     - Invariants: string-view lifetimes and iterator operand/result types must match the validator's model.
    - [FZG]013 - Exception/Try-Table Matrix Expansion - Vary `try_table` block result types and catch lists beyond the current forced prelude shapes, including mixed catch/catch_ref/catch_all/catch_all_ref arrangements in natural mode.
 5. Add SIMD generation in phases.
    - [FZG]014 - SIMD Phase 1 Constants, Splat, Lane, and Bitwise Ops - Add type-directed generation for v128 splats, lane extract/replace, `v128.not/and/andnot/or/xor/bitselect/any_true`, and simple drops/results.

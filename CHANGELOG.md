@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: account gen-valid string operation surface
+
+- **complete FZG012 by wiring the supported string instruction surface (`string.const`, string array new/encode variants) into exact gen-valid feature accounting and feature-floor tests; measurement, comparison, hash, view, and iterator string forms remain out of scope until the AST/validator add them** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`src/validate/pkg.generated.mbti`](./src/validate/pkg.generated.mbti), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Wiki: refresh `constant-field-propagation` current-main bridge and port-readiness
 
 - **add a 2026-05-05 current-main recheck manifest, matching research note, and a new Starshine port-readiness bridge for the `constant-field-propagation` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-constant-field-propagation-current-main-recheck.md), [`docs/wiki/raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md`](./docs/wiki/raw/research/0474-2026-05-05-constant-field-propagation-current-main-recheck.md), [`docs/wiki/binaryen/passes/constant-field-propagation/`](./docs/wiki/binaryen/passes/constant-field-propagation/), [`docs/wiki/binaryen/passes/constant-field-null-test-folding/starshine-strategy.md`](./docs/wiki/binaryen/passes/constant-field-null-test-folding/starshine-strategy.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), and [`docs/wiki/log.md`](./docs/wiki/log.md).

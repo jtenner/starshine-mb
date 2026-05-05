@@ -3575,7 +3575,7 @@ pub fn validate_valid_feature_actual_count(
     I31ExternConversions => stats.i31_extern_conversions
     GcConstructors => stats.gc_constructors
     GcAccessors => stats.gc_accessors
-    StringOps => 0
+    StringOps => stats.string_ops
     ExceptionTryTableMatrix => 0
     SimdPhase1 => 0
     SimdPhase2 => 0
@@ -6339,10 +6339,12 @@ test "gen_valid coverage-forced emits gc constructor and accessor surface" {
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, GcConstructors) > 0)
   assert_true(validate_valid_feature_actual_count(stats, GcAccessors) > 0)
+  assert_true(validate_valid_feature_actual_count(stats, StringOps) > 0)
   assert_eq(
     check_validate_valid_feature_floors(stats, [
       { key: GcConstructors, min_count: 1 },
       { key: GcAccessors, min_count: 1 },
+      { key: StringOps, min_count: 1 },
     ]),
     [],
   )

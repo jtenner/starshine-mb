@@ -373,6 +373,7 @@ pub struct GenValidFeatureFacts {
   has_i31_extern_conversions : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
+  has_string_ops : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -414,6 +415,7 @@ pub struct GenValidFeatureStats {
   i31_extern_conversions : Int
   gc_constructors : Int
   gc_accessors : Int
+  string_ops : Int
 } derive(Eq, Debug)
 
 ///|
@@ -492,6 +494,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.gc_constructors.output(logger)
   logger.write_string(", gc_accessors: ")
   self.gc_accessors.output(logger)
+  logger.write_string(", string_ops: ")
+  self.string_ops.output(logger)
   logger.write_char('}')
 }
 
@@ -535,6 +539,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     i31_extern_conversions: 0,
     gc_constructors: 0,
     gc_accessors: 0,
+    string_ops: 0,
   }
 }
 
@@ -598,6 +603,7 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_gc_constructors),
     gc_accessors: self.gc_accessors +
     gen_valid_bool_count(facts.has_gc_accessors),
+    string_ops: self.string_ops + gen_valid_bool_count(facts.has_string_ops),
   }
 }
 
@@ -626,6 +632,7 @@ priv struct GenValidInstrFacts {
   has_i31_extern_conversions : Bool
   has_gc_constructors : Bool
   has_gc_accessors : Bool
+  has_string_ops : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -658,6 +665,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_i31_extern_conversions: false,
     has_gc_constructors: false,
     has_gc_accessors: false,
+    has_string_ops: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -5006,6 +5014,7 @@ fn gen_valid_merge_instr_facts(
     has_gc_constructors: left.has_gc_constructors ||
     right.has_gc_constructors,
     has_gc_accessors: left.has_gc_accessors || right.has_gc_accessors,
+    has_string_ops: left.has_string_ops || right.has_string_ops,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -5409,8 +5418,21 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
         uses_ref_types: true,
         has_i31_extern_conversions: true,
       }
+    StringConst(_)
+    | StringNewUtf8Array
+    | StringNewWtf16Array
+    | StringEncodeUtf8Array
+    | StringEncodeWtf16Array
+    | StringNewLossyUtf8Array
+    | StringNewWtf8Array
+    | StringEncodeLossyUtf8Array
+    | StringEncodeWtf8Array =>
+      GenValidInstrFacts::{
+        ..GenValidInstrFacts::empty(),
+        uses_ref_types: true,
+        has_string_ops: true,
+      }
     RefFunc(_)
-    | StringConst(_)
     | ThrowRef
     | RefGetDesc(_)
     | RefTestDesc(_, _)
@@ -5472,6 +5494,7 @@ pub fn gen_valid_feature_facts(
   let mut has_i31_extern_conversions = false
   let mut has_gc_constructors = false
   let mut has_gc_accessors = false
+  let mut has_string_ops = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -5585,6 +5608,7 @@ pub fn gen_valid_feature_facts(
           has_gc_constructors = has_gc_constructors ||
             expr_facts.has_gc_constructors
           has_gc_accessors = has_gc_accessors || expr_facts.has_gc_accessors
+          has_string_ops = has_string_ops || expr_facts.has_string_ops
           control_nodes += expr_facts.control_nodes
           branch_ops += expr_facts.branch_ops
         }
@@ -5644,6 +5668,7 @@ pub fn gen_valid_feature_facts(
               has_gc_constructors = has_gc_constructors ||
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
+              has_string_ops = has_string_ops || facts.has_string_ops
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -5679,6 +5704,7 @@ pub fn gen_valid_feature_facts(
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
+              has_string_ops = has_string_ops || facts.has_string_ops
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -5712,6 +5738,7 @@ pub fn gen_valid_feature_facts(
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
+              has_string_ops = has_string_ops || facts.has_string_ops
                 control_nodes += facts.control_nodes
                 branch_ops += facts.branch_ops
               }
@@ -5755,6 +5782,7 @@ pub fn gen_valid_feature_facts(
               has_gc_constructors = has_gc_constructors ||
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
+              has_string_ops = has_string_ops || facts.has_string_ops
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
@@ -5795,6 +5823,7 @@ pub fn gen_valid_feature_facts(
           facts.has_i31_extern_conversions
         has_gc_constructors = has_gc_constructors || facts.has_gc_constructors
         has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
+        has_string_ops = has_string_ops || facts.has_string_ops
         control_nodes += facts.control_nodes
         branch_ops += facts.branch_ops
       }
@@ -5838,5 +5867,6 @@ pub fn gen_valid_feature_facts(
     has_i31_extern_conversions,
     has_gc_constructors,
     has_gc_accessors,
+    has_string_ops,
   }
 }
