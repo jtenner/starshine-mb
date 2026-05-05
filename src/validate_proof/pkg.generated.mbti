@@ -18,6 +18,8 @@ pub fn label_stack_storage_index(Int, Int) -> Int?
 
 pub fn latest_stack_index(Int) -> Int?
 
+pub fn rectype_suffix_member_index(Int, Int, Int) -> Int?
+
 pub fn suffix_start_index(Int, Int) -> Int?
 
 // Errors

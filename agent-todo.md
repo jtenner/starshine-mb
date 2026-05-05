@@ -212,9 +212,6 @@ Suggested Tests
 - `moon test`
 - `moon info && moon fmt`
 
-- [PRV]002 - `Env` / `LabelStack` Proof Kernel
-  - Deliverables: extend the helper kernel to remaining stack-from-top label lookup and rectype-resolution invariants; keep `env_tests` green.
-
 - [PRV]003 - `match.mbt` Algebraic and Recursive-Proof Pilot
   - Deliverables: add `src/validate/match_proof.mbtp`; prove small high-value facts such as `descriptor_compatible` symmetry and equal-shape match properties; establish vocabulary for recursive match reasoning.
 

@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] maintain | extend PRV002 proof kernel
+
+- Completed `[PRV]002` by adding `rectype_suffix_member_index` to `src/validate_proof`, proving that a suffix-local rectype member maps to a bounded absolute type index.
+- Extended the proof kernel regression tests and refreshed the validation proof strategy so the active committed proof boundary now records ten helper goals.
+
 ## [2026-05-05] maintain | close PRV001 proof documentation policy
 
 - Updated `validation/moonbit-prove-strategy.md` with the explicit PRV001 proof policy: `src/validate_proof` is the current committed proof boundary and safe CI/local proof target, while direct `src/validate` proving remains an opt-in local investigation until the historical `jtenner/starshine/lib` WhyML lowering blocker is cleared.

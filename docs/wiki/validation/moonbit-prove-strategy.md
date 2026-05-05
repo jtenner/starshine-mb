@@ -30,7 +30,7 @@ related:
 - Starshine should start in `src/validate`, not in `src/binary`, `src/bitset`, `src/diff`, or the pass pipeline.
 - The validator proof rollout should stay incremental: prove one file or helper slice first, then widen only after the slice is stable.
 - The current in-tree bootstrap landed first in `src/validate_proof`, not directly in `src/validate`, because `src/validate` is not proof-enabled today (`proof-enabled` is absent from `src/validate/moon.pkg`) and historical prove-attempt output still records a `jtenner/starshine/lib` lowering failure: `unbound type symbol 'name'`.
-- The active proof kernel currently proves `9` helper goals in `src/validate_proof` and already covers label-stack lookup, current-frame/group index arithmetic, defined-function body/index translation, declared-function bounds checks, and suffix-base recovery used by validator diagnostics.
+- The active proof kernel currently proves `10` helper goals in `src/validate_proof` and already covers label-stack lookup, current-frame/group index arithmetic, defined-function body/index translation, declared-function bounds checks, suffix-base recovery used by validator diagnostics, and rectype-suffix member-to-absolute index recovery.
 - `LabelStack` is a persistent branchable stack: `LabelStack::copy` shares backing storage, so proved reverse-index arithmetic can be reused in `LabelStack::get`, but logical lookup still has to walk `head` / `parents` instead of indexing `values` directly.
 - `proof_axiomatized` should not become a permanent escape hatch in validator-critical code. Every such assumption expands the trusted surface and must stay temporary and explicit.
 
@@ -82,6 +82,7 @@ related:
   - `defined_body_func_index`
   - `bounded_index`
   - `suffix_start_index`
+  - `rectype_suffix_member_index`
 - Those helpers currently drive:
   - `LabelStack::get` parent-chain label lookup in `env.mbt`
   - `Env::get_label_types`
@@ -93,6 +94,7 @@ related:
   - code-body diagnostic function-index mapping
   - declared-function bitset bounds checks in the `ref.func` declaration pass
   - suffix-base recovery for current rectype groups and imported-function prefixes
+  - suffix-local rectype member recovery for resolving relative members to absolute type indices
 
 ## Sources
 

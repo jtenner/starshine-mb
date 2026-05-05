@@ -1,0 +1,16 @@
+predicate rectype_suffix_member_index_post(
+  total_len : Int,
+  suffix_len : Int,
+  relative_idx : Int,
+  result : Option[Int],
+) {
+  match result {
+    None => (suffix_len > total_len) || (relative_idx < 0) || (suffix_len <= relative_idx)
+    Some(abs_idx) =>
+      (abs_idx == total_len - suffix_len + relative_idx) &&
+      (0 <= relative_idx) &&
+      (relative_idx < suffix_len) &&
+      (0 <= abs_idx) &&
+      (abs_idx < total_len)
+  }
+}

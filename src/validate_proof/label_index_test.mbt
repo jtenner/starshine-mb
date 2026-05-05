@@ -73,3 +73,13 @@ test "suffix_start_index finds the start of a valid suffix" {
   assert_eq(suffix_start_index(2, 2), Some(0))
   assert_eq(suffix_start_index(2, 3), None)
 }
+
+///|
+test "rectype_suffix_member_index maps suffix-local members into absolute indices" {
+  assert_eq(rectype_suffix_member_index(4, 0, 0), None)
+  assert_eq(rectype_suffix_member_index(4, 2, -1), None)
+  assert_eq(rectype_suffix_member_index(4, 2, 0), Some(2))
+  assert_eq(rectype_suffix_member_index(4, 2, 1), Some(3))
+  assert_eq(rectype_suffix_member_index(4, 2, 2), None)
+  assert_eq(rectype_suffix_member_index(1, 2, 0), None)
+}

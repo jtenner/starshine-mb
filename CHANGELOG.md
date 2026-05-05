@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Proofs: extend PRV002 kernel
+
+- **complete PRV002 by adding a proved `rectype_suffix_member_index` helper for suffix-local rectype member recovery, with executable regressions and refreshed proof-boundary docs** by **@OpenAI**. Updated [`src/validate_proof/rectype_index.mbt`](./src/validate_proof/rectype_index.mbt), [`src/validate_proof/rectype_index_proof.mbtp`](./src/validate_proof/rectype_index_proof.mbtp), [`src/validate_proof/label_index_test.mbt`](./src/validate_proof/label_index_test.mbt), [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Proofs: close PRV001 policy docs
 
 - **complete PRV001 by documenting the current `src/validate_proof` proof boundary, bootstrap/Why3 assumptions, direct `src/validate` blocker, and CI/local invocation policy while keeping broad proof gates deferred** by **@OpenAI**. Updated [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
