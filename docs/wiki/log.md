@@ -2,11 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
-## [2026-05-05] health | refresh `optimize-instructions` navigation and freshness
+## [2026-05-05] health | refresh `asyncify` freshness bridge
 
-- Added `docs/wiki/raw/binaryen/2026-05-05-optimize-instructions-current-main-recheck.md` plus `docs/wiki/raw/research/0444-2026-05-05-optimize-instructions-current-main-recheck.md` after rechecking official Binaryen `main` `OptimizeInstructions.cpp`, `pass.cpp`, `opt-utils.h`, and representative default/sign-extension/bulk-memory/`call_ref`/GC/multivalue tests.
-- Added `docs/wiki/binaryen/passes/optimize-instructions/starshine-strategy.md` and refreshed the landing page, Binaryen strategy, implementation/test-map, GC/call_ref notes, WAT-shape catalog, exact Starshine code-map page, shared catalogs, and wiki index so the dossier now has a dedicated Starshine strategy overview and a fresh current-main bridge.
-- Recorded unchanged local status: Starshine still keeps `optimize-instructions` as an active HOT subset, with the deeper helper walk still split into `starshine-hot-ir-strategy.md`.
+- Added `docs/wiki/raw/binaryen/2026-05-05-asyncify-current-main-recheck.md` plus `docs/wiki/raw/research/0445-2026-05-05-asyncify-current-main-recheck.md` after rechecking official Binaryen `main` `Asyncify.cpp`, `pass.cpp`, `asyncify.wast`, and the Emscripten Asyncify docs.
+- Refreshed the `asyncify` landing page, Binaryen strategy, implementation/test-map, shape and boundary guides, Starshine strategy, port-readiness page, `docs/wiki/index.md`, and `docs/wiki/binaryen/passes/tracker.md` so the dossier now carries a 2026-05-05 freshness bridge and the living catalog points at the new raw sources.
+- Recorded unchanged local status: Starshine still rejects `asyncify` as unknown, with no owner file, no dispatcher case, no preset role, and no active backlog slice.
 
 ## [2026-05-05] implementation | implement `coalesce-locals`
 

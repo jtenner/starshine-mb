@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-26-asyncify-port-readiness-primary-sources.md
   - ../../../raw/research/0401-2026-04-26-asyncify-port-readiness.md
+  - ../../../raw/binaryen/2026-05-05-asyncify-current-main-recheck.md
+  - ../../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
   - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-25
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-asyncify-current-main-recheck.md
+  - ../../../raw/research/0445-2026-05-05-asyncify-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-asyncify-current-main-and-eh-options.md
   - ../../../raw/binaryen/2026-04-24-asyncify-primary-sources.md
   - ../../../raw/research/0371-2026-04-25-asyncify-current-main-and-eh-options.md
@@ -105,7 +107,7 @@ That makes `asyncify` adjacent to feature-lowering pages such as [`../memory64-l
 
 ## Exception/catch and tail-call boundaries
 
-The 2026-04-25 current-main/source bridge makes two boundaries explicit:
+The 2026-05-05 current-main/source bridge makes two boundaries explicit:
 
 - exception/catch paths have source-backed Asyncify behavior and option controls, so EH should have its own parity fixture rather than being hidden under generic validation;
 - the reviewed `version_129` source explicitly rejects tail calls in the Asyncify path.
