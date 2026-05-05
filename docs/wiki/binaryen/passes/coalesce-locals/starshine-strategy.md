@@ -3,8 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
+  - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md
@@ -34,7 +36,7 @@ related:
 
 # Starshine Strategy For `coalesce-locals`
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md), the current-`main` recheck in [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md), and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md), the current-`main` recheck in [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md), and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that track the pass, and the remaining validation/placement constraints.
 
 ## The honest current status
@@ -55,15 +57,18 @@ See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-
 The fastest read-along path through the current Starshine status is:
 
 - active pass owner
-  - `src/passes/coalesce_locals.mbt`
+  - `src/passes/coalesce_locals.mbt:2-5,347-574,576-850,851-1031,1032-1057`
     - value-aware local action scan, liveness/interference analysis, greedy slot coloring, local-index rewrite, redundant-copy cleanup, dead-set cleanup, and local-name-section invalidation
 - active pass-name status
-  - `src/passes/optimize.mbt`
+  - `src/passes/optimize.mbt:277`
     - `coalesce-locals` is an active module pass, not a removed-name entry
+- direct-pass tests
+  - `src/passes/coalesce_locals_test.mbt:14-155`
+    - registration, non-overlap merge, different-value overlap, later reread liveness, redundant-copy cleanup, and ineffective-write cleanup
 - dispatch and CLI surfaces
-  - `src/passes/pass_manager.mbt`
+  - `src/passes/pass_manager.mbt:8936`
     - explicit `coalesce-locals` module-pass dispatch
-  - `src/cmd/cmd_wbtest.mbt`
+  - `src/cmd/cmd_wbtest.mbt:4376-4407`
     - CLI adapter coverage for `--coalesce-locals`
 - backlog and delivery evidence
   - `agent-todo.md`
@@ -102,7 +107,7 @@ That code-and-doc map is the practical read-along path: readers can jump directl
 
 ## Freshness note
 
-The 2026-04-25 current-`main` recheck found no teaching-relevant drift in Binaryen's checked owner, scheduler, helper, and dedicated-test surfaces. The 2026-05-05 Starshine port should therefore be treated as a direct-pass implementation against that documented Binaryen contract, with ordered-pipeline placement still reserved for a separate neighborhood replay.
+The 2026-05-05 current-`main` recheck found no teaching-relevant drift in Binaryen's checked owner, scheduler, helper, and dedicated-test surfaces. The Starshine port should therefore be treated as a direct-pass implementation against that documented Binaryen contract, with ordered-pipeline placement still reserved for a separate neighborhood replay.
 
 ## What Starshine currently does for this pass name
 

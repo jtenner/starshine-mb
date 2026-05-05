@@ -3,8 +3,10 @@ kind: entity
 status: implemented
 last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
+  - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md
@@ -70,7 +72,7 @@ That is narrower than “merge any locals that look unused.”
 - Loop backedge copies get extra priority because removing them can avoid branch-only copy work.
 - Binaryen tries two greedy orders by default and has a separate `coalesce-locals-learning` variant, but the default optimize pipeline uses the normal greedy pass.
 - Post-coloring cleanup is part of the contract: redundant copies are deleted, dead sets are removed, and some dead tee rewrites require `ReFinalize()`.
-- A focused 2026-04-25 current-`main` recheck found no teaching-relevant drift on `CoalesceLocals.cpp`, `pass.cpp`, `opt-utils.h`, or `coalesce-locals.wast`; treat that as a narrow freshness bridge, not proof that every helper detail is byte-identical to `version_129`.
+- A focused 2026-05-05 current-`main` recheck found no teaching-relevant drift on `CoalesceLocals.cpp`, `pass.cpp`, `opt-utils.h`, or `coalesce-locals.wast`; treat that as a narrow freshness bridge, not proof that every helper detail is byte-identical to `version_129`.
 
 ## Page map
 
@@ -92,13 +94,15 @@ That is narrower than “merge any locals that look unused.”
 - Treat this folder as the canonical home for future `coalesce-locals` research, direct-pass validation, and ordered-pipeline follow-up.
 - Keep the Starshine pages aligned with the active implementation in `src/passes/coalesce_locals.mbt` and record any future divergence from Binaryen as explicit parity debt.
 - Treat [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md) as the immutable provenance anchor for the official release/source/test surfaces reviewed on 2026-04-22.
-- Treat [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md) as the narrow current-`main` freshness bridge added on 2026-04-25.
+- Treat [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md) as the narrow current-`main` freshness bridge added on 2026-05-05.
 - New `coalesce-locals` findings should update the Binaryen strategy page, the implementation/test map, the interference/order page, the Starshine strategy page, and the port-readiness matrix together so the algorithm explanation, example catalog, source map, local status story, and future validation ladder stay aligned.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md)
+- [`../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
 - [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md`](../../../raw/research/0118-2026-04-20-coalesce-locals-binaryen-research.md)

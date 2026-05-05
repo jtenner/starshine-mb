@@ -3,8 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
+  - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -27,7 +29,7 @@ This page maps the source and test files that define upstream Binaryen's `coales
 
 ## Source rule
 
-Use Binaryen `version_129` as the tagged source oracle and [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md) as the latest freshness bridge. The 2026-04-25 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces.
+Use Binaryen `version_129` as the tagged source oracle and [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md) as the latest freshness bridge. The 2026-05-05 recheck found no teaching-relevant current-`main` drift on the checked owner, scheduler, helper, and dedicated-test surfaces.
 
 Primary upstream sources:
 
@@ -109,10 +111,10 @@ Starshine now implements this pass as an active direct module pass. The relevant
 
 | Local file | Exact role today |
 | --- | --- |
-| `src/passes/coalesce_locals.mbt` | Active module-pass owner with action scan, value-aware interference, exact-type coloring, local-index rewrite, redundant-copy cleanup, dead-write cleanup, and local-name-section invalidation. |
-| `src/passes/coalesce_locals_test.mbt` | Focused direct-pass tests for registration, non-overlap merge, different-value overlap, later reread liveness, redundant-copy cleanup, and ineffective-write cleanup. |
-| `src/passes/optimize.mbt` | `coalesce-locals` is an active module pass spelling. |
-| `src/passes/pass_manager.mbt` | Dispatches `coalesce-locals` to `coalesce_locals_run_module_pass`. |
+| `src/passes/coalesce_locals.mbt:2-5,347-574,576-850,851-1031,1032-1057` | Active module-pass owner with action scan, value-aware interference, exact-type coloring, local-index rewrite, redundant-copy cleanup, dead-write cleanup, and local-name-section invalidation. |
+| `src/passes/coalesce_locals_test.mbt:14-155` | Focused direct-pass tests for registration, non-overlap merge, different-value overlap, later reread liveness, redundant-copy cleanup, and ineffective-write cleanup. |
+| `src/passes/optimize.mbt:277` | `coalesce-locals` is an active module pass spelling. |
+| `src/passes/pass_manager.mbt:8936` | Dispatches `coalesce-locals` to `coalesce_locals_run_module_pass`. |
 | `src/passes/reorder_locals.mbt:2`, `src/passes/reorder_locals.mbt:118`, `src/passes/reorder_locals.mbt:183`, `src/passes/reorder_locals.mbt:544` | Neighboring module pass with local-summary, access scan, in-place index rewrite, and module-pass entry logic the coalescer must compose with. |
 | `src/passes/simplify_locals.mbt:15`, `src/passes/simplify_locals.mbt:70`, `src/passes/simplify_locals.mbt:4126`, `src/passes/simplify_locals.mbt:4191`, `src/passes/simplify_locals.mbt:4245`, `src/passes/simplify_locals.mbt:4348` | Neighboring HOT local cleanup pass with local-traffic cleanup machinery, but not a slot-coalescing implementation. |
 | `docs/wiki/binaryen/no-dwarf-default-optimize-path.md:33` | Canonical no-DWARF pipeline still records both `coalesce-locals` slots. |

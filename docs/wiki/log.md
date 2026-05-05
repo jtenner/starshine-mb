@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `coalesce-locals` current-main bridge and exact Starshine code anchors
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md` plus `docs/wiki/raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md` after rechecking current `main` `CoalesceLocals.cpp`, `pass.cpp`, `opt-utils.h`, `liveness-traversal.h`, `numbering.h`, `utils.h`, and `test/lit/passes/coalesce-locals.wast` against the existing `version_129` contract.
+- Refreshed the `coalesce-locals` overview, Binaryen strategy, implementation/test-map, interference/order, WAT-shape, Starshine strategy, Starshine port-readiness/validation, top-level wiki index entry, and tracker entry so the new 2026-05-05 freshness bridge and exact Starshine code anchors are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same exact-type, value-aware slot-coalescing story, and Starshine still keeps the active direct pass honest about the remaining ordered-neighborhood and runtime follow-up.
+
 ## [2026-05-05] health | refresh `merge-blocks` current-main anchors
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md` plus `docs/wiki/raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md` after rechecking current-main Binaryen `MergeBlocks.cpp`, `pass.cpp`, `merge-blocks.wast`, and the shared helper surfaces against the existing `version_129` contract.

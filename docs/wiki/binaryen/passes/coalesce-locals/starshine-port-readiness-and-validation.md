@@ -3,8 +3,10 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md
+  - ../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md
   - ../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md
   - ../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md
   - ../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md
@@ -36,13 +38,13 @@ Instead, it answers: which Starshine surfaces are now active, which placement/ar
 
 | Area | Current Starshine state | Port implication |
 | --- | --- | --- |
-| Registry | `src/passes/optimize.mbt` tracks `coalesce-locals` as an active module pass. | Keep the public spelling stable and leave public preset placement for ordered-neighborhood replay. |
-| Dispatcher | `src/passes/pass_manager.mbt` dispatches to `coalesce_locals_run_module_pass`. | Direct `--coalesce-locals` requests are active and covered by registry/CLI tests. |
+| Registry | `src/passes/optimize.mbt:277` tracks `coalesce-locals` as an active module pass. | Keep the public spelling stable and leave public preset placement for ordered-neighborhood replay. |
+| Dispatcher | `src/passes/pass_manager.mbt:8936` dispatches to `coalesce_locals_run_module_pass`. | Direct `--coalesce-locals` requests are active and covered by registry/CLI tests. |
 | Presets | `src/passes/optimize_test.mbt` locks the current partial preset honesty rule around missing local-neighborhood passes. | Do not add `reorder-locals` / `coalesce-locals` late slots in isolation; preserve the Binaryen neighborhood order when the missing passes land. |
 | Backlog | `agent-todo.md:392-399` keeps slice `CL` with compatibility/lifetime analysis and dual-slot rewrite work. | Treat `CL` as the active planning home before coding. |
 | Local-index rewrite substrate | `src/passes/reorder_locals.mbt:118`, `:183`, and `:544` already scan and rewrite local users and rebuild declarations for a landed module pass. | Reuse the local-index and metadata-repair lessons; do not copy the exact reorder algorithm as the coalescing algorithm. |
 | Later cleanup substrate | `src/passes/simplify_locals.mbt:70`, `:4126`, `:4191`, `:4245`, and `:4348` already own HOT local-traffic cleanup phases. | Let later cleanup remain a consumer; do not grow `coalesce-locals` into generic simplify-locals. |
-| Core pass | `src/passes/coalesce_locals.mbt` implements action scanning, value-aware interference, exact-type greedy coloring, index rewrite, redundant-copy cleanup, ineffective-write cleanup, and name-section invalidation. | Keep future changes parity-driven and add focused fixtures before changing coloring or cleanup behavior. |
+| Core pass | `src/passes/coalesce_locals.mbt:2-5,347-574,576-850,851-1031,1032-1057` implements action scanning, value-aware interference, exact-type greedy coloring, index rewrite, redundant-copy cleanup, ineffective-write cleanup, and name-section invalidation. | Keep future changes parity-driven and add focused fixtures before changing coloring or cleanup behavior. |
 
 ## Landed direct-pass shape
 
@@ -98,13 +100,15 @@ If one of those steps fails, keep the pass out of public presets even if isolate
 ## Health-check outcome from this run
 
 The 2026-05-05 implementation run promoted `coalesce-locals` from removed-name planning to active direct module-pass status.
-No contradiction was found between the 2026-04-22 tagged source manifest and the 2026-04-25 current-main recheck for the teaching-level `coalesce-locals` contract.
+No contradiction was found between the 2026-04-22 tagged source manifest and the 2026-05-05 current-main recheck for the teaching-level `coalesce-locals` contract.
 The remaining uncertainty is placement-specific: direct fuzz parity, artifact-level Binaryen comparison, and direct-pass artifact timing are green with the compatible Binaryen 128 oracle, but public preset scheduling still needs ordered-neighborhood proof.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md`](../../../raw/binaryen/2026-04-25-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-coalesce-locals-primary-sources.md)
+- [`../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md`](../../../raw/research/0473-2026-05-05-coalesce-locals-current-main-recheck.md)
 - [`../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md`](../../../raw/research/0372-2026-04-25-coalesce-locals-port-readiness-health-check.md)
 - [`../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md`](../../../raw/research/0352-2026-04-25-coalesce-locals-current-main-and-test-map.md)
 - [`../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md`](../../../raw/research/0264-2026-04-22-coalesce-locals-primary-sources-and-starshine-followup.md)
