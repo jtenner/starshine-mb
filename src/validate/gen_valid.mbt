@@ -998,7 +998,6 @@ fn gen_valid_gc_type_defs(
       ),
     )
     plan = { ..plan, packed_struct_idx: Some(packed_struct_idx) }
-    plan.struct_type_idxs.push(packed_struct_idx)
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(packed_struct_idx))
     type_idx_cursor += 1
   }
@@ -1032,7 +1031,6 @@ fn gen_valid_gc_type_defs(
       ),
     )
     plan = { ..plan, packed_i8_array_idx: Some(packed_i8_array_idx) }
-    plan.array_type_idxs.push(packed_i8_array_idx)
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(packed_i8_array_idx))
     type_idx_cursor += 1
   }
@@ -1049,7 +1047,6 @@ fn gen_valid_gc_type_defs(
       ),
     )
     plan = { ..plan, packed_i16_array_idx: Some(packed_i16_array_idx) }
-    plan.array_type_idxs.push(packed_i16_array_idx)
     plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(packed_i16_array_idx))
     type_idx_cursor += 1
   }
@@ -5258,6 +5255,7 @@ fn gen_valid_scan_instr(instr : Instruction) -> GenValidInstrFacts {
     }
   }
   match instr {
+    Call(_) =>
       GenValidInstrFacts::{ ..GenValidInstrFacts::empty(), has_call: true }
     ReturnCall(_) =>
       GenValidInstrFacts::{
