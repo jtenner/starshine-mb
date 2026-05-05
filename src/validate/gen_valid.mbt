@@ -284,7 +284,7 @@ pub fn GenValidConfig::coverage_forced_default() -> GenValidConfig {
     max_globals: 4,
     max_tags: 2,
     max_elems: 3,
-    max_datas: 2,
+    max_datas: 4,
     max_locals: 6,
     section_bias: GenValidSectionBias::coverage_forced_default(),
     features: GenValidFeatureToggles::coverage_forced_default(),
@@ -395,6 +395,7 @@ pub struct GenValidFeatureFacts {
   has_rich_gc_field_plans : Bool
   has_import_export_topology : Bool
   has_element_segment_range : Bool
+  has_data_segment_range : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -446,6 +447,7 @@ pub struct GenValidFeatureStats {
   rich_gc_field_plans : Int
   import_export_topology : Int
   element_segment_range : Int
+  data_segment_range : Int
 } derive(Eq, Debug)
 
 ///|
@@ -544,6 +546,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.import_export_topology.output(logger)
   logger.write_string(", element_segment_range: ")
   self.element_segment_range.output(logger)
+  logger.write_string(", data_segment_range: ")
+  self.data_segment_range.output(logger)
   logger.write_char('}')
 }
 
@@ -597,6 +601,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     rich_gc_field_plans: 0,
     import_export_topology: 0,
     element_segment_range: 0,
+    data_segment_range: 0,
   }
 }
 
@@ -675,6 +680,8 @@ pub fn GenValidFeatureStats::record(
     gen_valid_bool_count(facts.has_import_export_topology),
     element_segment_range: self.element_segment_range +
     gen_valid_bool_count(facts.has_element_segment_range),
+    data_segment_range: self.data_segment_range +
+    gen_valid_bool_count(facts.has_data_segment_range),
   }
 }
 
@@ -5563,13 +5570,27 @@ fn gen_valid_module_once_with_config(
       let data = if ctx.config.mode == CoverageForced && i == 0 {
         Data::new(
           DataMode::active(
-            MemIdx::new(0U),
+            if total_mem_count > 1 {
+              MemIdx::new(1U)
+            } else {
+              MemIdx::new(0U)
+            },
             gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx),
           ),
-          b"gen-valid-active",
+          b"gen-valid-active-with-a-larger-payload",
         )
       } else if ctx.config.mode == CoverageForced && i == 1 {
-        Data::new(DataMode::passive(), b"gen-valid-passive")
+        Data::new(DataMode::passive(), b"")
+      } else if ctx.config.mode == CoverageForced && i == 2 {
+        Data::new(
+          DataMode::active(
+            MemIdx::new(0U),
+            Expr::new([Instruction::i32_const(0)]),
+          ),
+          b"",
+        )
+      } else if ctx.config.mode == CoverageForced && i == 3 {
+        Data::new(DataMode::passive(), b"\x00\x01\x02\x03\x04\x05\x06\x07")
       } else {
         let payload = match ctx.random_int(4) {
           0 => b""
@@ -5580,13 +5601,17 @@ fn gen_valid_module_once_with_config(
         if ctx.random_int(3) == 0 {
           Data::new(DataMode::passive(), payload)
         } else {
-          Data::new(
-            DataMode::active(
-              MemIdx::new(0U),
-              gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx),
-            ),
-            payload,
-          )
+          let mem_idx = if total_mem_count > 1 && ctx.random_int(4) == 0 {
+            MemIdx::new(1U)
+          } else {
+            MemIdx::new(0U)
+          }
+          let offset = if ctx.random_int(3) == 0 {
+            Expr::new([Instruction::i32_const(ctx.random_int(4))])
+          } else {
+            gen_valid_active_i32_offset(ctx, global_idx=const_i32_global_idx)
+          }
+          Data::new(DataMode::active(mem_idx, offset), payload)
         }
       }
       datas.push(data)
@@ -6604,6 +6629,7 @@ pub fn gen_valid_feature_facts(
   let mut has_rich_gc_field_plans = false
   let mut has_import_export_topology = false
   let mut has_element_segment_range = false
+  let mut has_data_segment_range = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -6973,10 +6999,21 @@ pub fn gen_valid_feature_facts(
     Some(DataSec(datas)) =>
       if !datas.is_empty() {
         has_datas = true
+        let mut saw_zero_length_data = false
+        let mut saw_large_data = false
+        let mut saw_nonzero_memory_data = false
+        let mut saw_passive_data = false
+        let mut saw_active_data = false
         for data in datas {
-          let Data(mode, _) = data
+          let Data(mode, payload) = data
+          saw_zero_length_data = saw_zero_length_data || payload.length() == 0
+          saw_large_data = saw_large_data || payload.length() > 16
           match mode {
-            Active(_, expr) => {
+            Active(mem_idx, expr) => {
+              saw_active_data = true
+              let MemIdx(mem_idx_u) = mem_idx
+              saw_nonzero_memory_data = saw_nonzero_memory_data ||
+                mem_idx_u.reinterpret_as_int() > 0
               has_const_expr_variants = has_const_expr_variants ||
                 gen_valid_const_expr_has_variant(expr)
               let facts = gen_valid_scan_expr(expr)
@@ -7013,9 +7050,12 @@ pub fn gen_valid_feature_facts(
               control_nodes += facts.control_nodes
               branch_ops += facts.branch_ops
             }
-            Passive => ()
+            Passive => saw_passive_data = true
           }
         }
+        has_data_segment_range = saw_large_data ||
+          saw_nonzero_memory_data ||
+          (saw_zero_length_data && saw_active_data && saw_passive_data)
       }
     None => ()
   }
@@ -7110,5 +7150,6 @@ pub fn gen_valid_feature_facts(
     has_rich_gc_field_plans,
     has_import_export_topology,
     has_element_segment_range,
+    has_data_segment_range,
   }
 }

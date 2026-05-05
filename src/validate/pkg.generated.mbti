@@ -329,6 +329,7 @@ pub struct GenValidFeatureFacts {
   has_rich_gc_field_plans : Bool
   has_import_export_topology : Bool
   has_element_segment_range : Bool
+  has_data_segment_range : Bool
 } derive(Eq, @debug.Debug)
 
 pub struct GenValidFeatureStats {
@@ -379,6 +380,7 @@ pub struct GenValidFeatureStats {
   rich_gc_field_plans : Int
   import_export_topology : Int
   element_segment_range : Int
+  data_segment_range : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
 pub fn GenValidFeatureStats::record(Self, GenValidFeatureFacts) -> Self

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: widen data segment range generation
+
+- **complete FZG022 by generating and accounting larger data payloads, zero-length active/passive data segments, active data against nonzero memories, and varied active offsets in gen-valid** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: widen element segment range accounting
 
 - **complete FZG021 by generating/recognizing multi-element segments, nonzero-table active element segments, and typed non-funcref element expression segments in gen-valid feature accounting** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
