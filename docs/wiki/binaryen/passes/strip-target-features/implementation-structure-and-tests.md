@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
+  - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
   - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
@@ -31,7 +33,7 @@ This is the whole owner for Binaryen `version_129` and current `main`. It is int
 - runs by assigning `module->hasFeaturesSection = !isStripped`;
 - exposes `createStripTargetFeaturesPass()` as the stripping constructor and `createEmitTargetFeaturesPass()` as the emitting constructor.
 
-There is no walker, no child localizer, no refinalization, no effect analysis, and no helper rewrite.
+There is no walker, no child localizer, no refinalization, no effect analysis, and no helper rewrite. The 2026-05-05 current-main recheck preserved that tiny owner shape.
 
 The 2026-04-26 source correction is important: older wiki text said this pass reported `modifiesBinaryenIR() == false` and toggled `runner->options.emitTargetFeatures`. That was wrong for the checked official tag and current head. The 2026-04-27 recheck keeps the correction but refines the wording: the pass reports mutation through the inherited base default, not through a local `modifiesBinaryenIR()` override.
 

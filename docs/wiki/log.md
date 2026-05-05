@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `strip-target-features` freshness layer and current-main recheck
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md` plus `docs/wiki/raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md` after rechecking current `main` `StripTargetFeatures.cpp`, `pass.cpp`, `passes.h`, `pass.h`, and the custom-section spec context against the corrected module-metadata contract.
+- Refreshed the `strip-target-features` overview, Binaryen strategy, implementation/test-map, WAT-shape catalog, Starshine strategy, Starshine readiness bridge, wiki index, pass catalog, and tracker so the 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same shared-owner target-feature metadata toggle, and Starshine still keeps both names unimplemented with explicit registry rejection plus the opaque-custom-section / first-class-metadata choice left open.
+
 ## [2026-05-05] health | refresh `remove-relaxed-simd` freshness layer and current-main recheck
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-remove-relaxed-simd-current-main-recheck.md` plus `docs/wiki/raw/research/0482-2026-05-05-remove-relaxed-simd-current-main-recheck.md` after rechecking current `main` `RemoveRelaxedSIMD.cpp`, `pass.cpp`, `child-localizer.h`, and `remove-relaxed-simd.wast` against the existing contract.

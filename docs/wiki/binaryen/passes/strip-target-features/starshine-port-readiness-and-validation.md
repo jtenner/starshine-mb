@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
+  - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
   - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
@@ -44,7 +46,7 @@ Binaryen `version_129` and current `main` use one small owner class for two publ
 - `requiresNonNullableLocalFixups()` is false;
 - `modifiesBinaryenIR()` is true through the base `Pass` default, not a local override in the checked owner file.
 
-That means the Starshine implementation should be taught as **module/output metadata work**, not a HOT instruction peephole.
+That means the Starshine implementation should be taught as **module/output metadata work**, not a HOT instruction peephole. The 2026-05-05 current-main recheck preserved that upstream contract.
 
 ## Exact local code surfaces
 

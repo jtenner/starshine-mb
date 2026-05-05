@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
+  - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
   - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
@@ -30,7 +32,7 @@ related:
 
 `strip-target-features` is a public Binaryen pass that removes the module-level target-features metadata from later output. It is **not** a code optimizer and **not** a feature-lowering pass.
 
-The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode.
+The 2026-04-26 source recheck corrected an important stale wiki claim: Binaryen does **not** implement this as `runner->options.emitTargetFeatures = false`, and it does **not** report `modifiesBinaryenIR() == false`. The 2026-04-27 recheck refined that correction: in `version_129` and current `main`, `strip-target-features` shares an owner with the sibling `emit-target-features` pass, inherits the base `Pass::modifiesBinaryenIR()` default of true, and clears `module->hasFeaturesSection` by constructing the shared owner in stripping mode. The 2026-05-05 current-main recheck preserved the same contract.
 
 It is currently **upstream-only** in Starshine:
 

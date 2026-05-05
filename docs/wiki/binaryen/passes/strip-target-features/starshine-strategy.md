@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-27
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-strip-target-features-current-main-recheck.md
+  - ../../../raw/research/0483-2026-05-05-strip-target-features-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-strip-target-features-port-readiness-primary-sources.md
   - ../../../raw/research/0429-2026-04-27-strip-target-features-port-readiness.md
   - ../../../raw/binaryen/2026-04-26-strip-target-features-source-correction.md
@@ -27,7 +29,7 @@ related:
 
 ## Current local status
 
-Starshine currently has **no `strip-target-features` implementation**. This page is therefore a status and future-port map, not a description of a shipped transform.
+Starshine currently has **no `strip-target-features` implementation**. This page is therefore a status and future-port map, not a description of a shipped transform. The 2026-05-05 current-main recheck preserved that status.
 
 The exact local status is:
 
