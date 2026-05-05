@@ -8480,6 +8480,9 @@ fn run_hot_pipeline_skip_invalid_lower_reason(
       ) {
       return Some("invalid-escape-carrier")
     }
+    if run_hot_pipeline_lowered_func_has_suspicious_escape_carrier(result.func) {
+      return Some("suspicious-escape-carrier")
+    }
     return match
       run_hot_pipeline_precompute_writeback_validation_error(
         validation_mod,

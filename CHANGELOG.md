@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Passes: harden post-SSA cleanup replay
+
+- **complete HOT001 by extending fail-closed suspicious escape-carrier lowering guards to simplify-locals family writeback, keeping the `dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals` ordered post-SSA cleanup chain protected against prefix-specific invalid lowers** by **@OpenAI**. Updated [`src/passes/pass_manager.mbt`](./src/passes/pass_manager.mbt), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: complete wide-generator signoff
 
 - **complete FZG030 by pruning the finished FZG backlog after a wide-generator signoff sweep over core MoonBit tests and focused validate/wast/wat/fuzz package tests; the requested pass-fuzz compare lane is explicitly deferred because `wasm-tools` is not installed in this environment** by **@OpenAI**. Updated [`CHANGELOG.md`](./CHANGELOG.md) and [`agent-todo.md`](./agent-todo.md).

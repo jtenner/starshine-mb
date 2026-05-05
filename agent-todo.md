@@ -43,10 +43,6 @@ Observed unique-pass order
 
 #### Ordered-prefix / hot-pipeline blockers
 
-- [HOT]001 - Post-SSA Hot-Pipeline Replay Hardening
-  - Deliverables: keep the ordered post-SSA cleanup chain (`DCE -> VQ -> OI -> SL`) re-liftable, Binaryen-parseable, and ready for parity/runtime work; reduce any remaining prefix-specific suspicious escape-carrier failures; keep large-artifact hot-pass wall time under control.
-  - Current blocker: direct DCE self-opt compare is canonically green, but `--dead-code-elimination --vacuum --optimize-instructions --simplify-locals` can still fail with `skip-invalid-lower` on suspicious escape carriers. Reduce those prefix-specific failures before claiming ordered-prefix proof.
-
 - [HOT]002 - Native Parallel Hot-Batch Queue
   - Deliverables: add a native-only worker queue over eligible defined functions for the current hot batch payload (`ssa-nomerge -> dead-code-elimination -> vacuum -> optimize-instructions -> simplify-locals`); keep final output byte-stable and deterministic; gate behind an explicit native-only option.
   - Dependencies: [HOT]001 replay hardening must stay green.
