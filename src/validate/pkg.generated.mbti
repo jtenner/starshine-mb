@@ -371,6 +371,7 @@ pub struct GenValidFeatureStats {
   gc_accessors : Int
   string_ops : Int
   exception_try_table_matrix : Int
+  subtyping_topology : Int
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureStats::empty(GenValidMode) -> Self
 pub fn GenValidFeatureStats::record(Self, GenValidFeatureFacts) -> Self
@@ -397,6 +398,7 @@ pub struct GenValidFeatureToggles {
   allow_shared_memories : Bool
   allow_memory64 : Bool
   allow_atomics : Bool
+  allow_subtyping_topology : Bool
 } derive(Eq, @debug.Debug)
 pub fn GenValidFeatureToggles::coverage_forced_default() -> Self
 pub fn GenValidFeatureToggles::natural_default() -> Self

@@ -3581,7 +3581,7 @@ pub fn validate_valid_feature_actual_count(
     SimdPhase2 => stats.simd_phase2
     SimdPhase3 => stats.simd_phase3
     Atomics => stats.atomics
-    SubtypingTopology => 0
+    SubtypingTopology => stats.subtyping_topology
     RichGcFieldPlans => 0
     ImportExportTopology => 0
     ElementSegmentRange => 0
@@ -6514,7 +6514,12 @@ priv struct ValidateTestSimdPhase3Forms {
 
 ///|
 fn validate_test_simd_phase3_forms_empty() -> ValidateTestSimdPhase3Forms {
-  { memory: false, shuffle_swizzle: false, narrow_widen_dot_pairwise: false, float_demote_promote: false }
+  {
+    memory: false,
+    shuffle_swizzle: false,
+    narrow_widen_dot_pairwise: false,
+    float_demote_promote: false,
+  }
 }
 
 ///|
@@ -6525,23 +6530,68 @@ fn validate_test_simd_phase3_forms_merge(
   {
     memory: left.memory || right.memory,
     shuffle_swizzle: left.shuffle_swizzle || right.shuffle_swizzle,
-    narrow_widen_dot_pairwise: left.narrow_widen_dot_pairwise || right.narrow_widen_dot_pairwise,
-    float_demote_promote: left.float_demote_promote || right.float_demote_promote,
+    narrow_widen_dot_pairwise: left.narrow_widen_dot_pairwise ||
+    right.narrow_widen_dot_pairwise,
+    float_demote_promote: left.float_demote_promote ||
+    right.float_demote_promote,
   }
 }
 
 ///|
-fn validate_test_simd_phase3_forms_instr(instr : Instruction) -> ValidateTestSimdPhase3Forms {
+fn validate_test_simd_phase3_forms_instr(
+  instr : Instruction,
+) -> ValidateTestSimdPhase3Forms {
   match instr {
-    V128Load(_) | V128Load8x8S(_) | V128Load8x8U(_) | V128Load16x4S(_) | V128Load16x4U(_) | V128Load32x2S(_) | V128Load32x2U(_) | V128Load8Splat(_) | V128Load16Splat(_) | V128Load32Splat(_) | V128Load64Splat(_) | V128Store(_) | V128Load8Lane(_, _) | V128Load16Lane(_, _) | V128Load32Lane(_, _) | V128Load64Lane(_, _) | V128Store8Lane(_, _) | V128Store16Lane(_, _) | V128Store32Lane(_, _) | V128Store64Lane(_, _) | V128Load32Zero(_) | V128Load64Zero(_) => { ..validate_test_simd_phase3_forms_empty(), memory: true }
-    I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _) | I8x16Swizzle => { ..validate_test_simd_phase3_forms_empty(), shuffle_swizzle: true }
-    I8x16NarrowI16x8S | I8x16NarrowI16x8U | I16x8NarrowI32x4S | I16x8NarrowI32x4U | I16x8ExtaddPairwiseI8x16S | I16x8ExtaddPairwiseI8x16U | I32x4ExtaddPairwiseI16x8S | I32x4ExtaddPairwiseI16x8U | I32x4DotI16x8S => { ..validate_test_simd_phase3_forms_empty(), narrow_widen_dot_pairwise: true }
-    F32x4DemoteF64x2Zero | F64x2PromoteLowF32x4 => { ..validate_test_simd_phase3_forms_empty(), float_demote_promote: true }
+    V128Load(_)
+    | V128Load8x8S(_)
+    | V128Load8x8U(_)
+    | V128Load16x4S(_)
+    | V128Load16x4U(_)
+    | V128Load32x2S(_)
+    | V128Load32x2U(_)
+    | V128Load8Splat(_)
+    | V128Load16Splat(_)
+    | V128Load32Splat(_)
+    | V128Load64Splat(_)
+    | V128Store(_)
+    | V128Load8Lane(_, _)
+    | V128Load16Lane(_, _)
+    | V128Load32Lane(_, _)
+    | V128Load64Lane(_, _)
+    | V128Store8Lane(_, _)
+    | V128Store16Lane(_, _)
+    | V128Store32Lane(_, _)
+    | V128Store64Lane(_, _)
+    | V128Load32Zero(_)
+    | V128Load64Zero(_) =>
+      { ..validate_test_simd_phase3_forms_empty(), memory: true }
+    I8x16Shuffle(_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _)
+    | I8x16Swizzle =>
+      { ..validate_test_simd_phase3_forms_empty(), shuffle_swizzle: true }
+    I8x16NarrowI16x8S
+    | I8x16NarrowI16x8U
+    | I16x8NarrowI32x4S
+    | I16x8NarrowI32x4U
+    | I16x8ExtaddPairwiseI8x16S
+    | I16x8ExtaddPairwiseI8x16U
+    | I32x4ExtaddPairwiseI16x8S
+    | I32x4ExtaddPairwiseI16x8U
+    | I32x4DotI16x8S =>
+      {
+        ..validate_test_simd_phase3_forms_empty(),
+        narrow_widen_dot_pairwise: true,
+      }
+    F32x4DemoteF64x2Zero | F64x2PromoteLowF32x4 =>
+      { ..validate_test_simd_phase3_forms_empty(), float_demote_promote: true }
     Block(_, body) | Loop(_, body) => validate_test_simd_phase3_forms_expr(body)
     If(_, then_body, else_body) => {
       let mut forms = validate_test_simd_phase3_forms_expr(Expr::new(then_body))
       match else_body {
-        Some(branch) => forms = validate_test_simd_phase3_forms_merge(forms, validate_test_simd_phase3_forms_expr(Expr::new(branch)))
+        Some(branch) =>
+          forms = validate_test_simd_phase3_forms_merge(
+            forms,
+            validate_test_simd_phase3_forms_expr(Expr::new(branch)),
+          )
         None => ()
       }
       forms
@@ -6552,23 +6602,34 @@ fn validate_test_simd_phase3_forms_instr(instr : Instruction) -> ValidateTestSim
 }
 
 ///|
-fn validate_test_simd_phase3_forms_expr(expr : Expr) -> ValidateTestSimdPhase3Forms {
+fn validate_test_simd_phase3_forms_expr(
+  expr : Expr,
+) -> ValidateTestSimdPhase3Forms {
   let Expr(instrs) = expr
   let mut forms = validate_test_simd_phase3_forms_empty()
   for instr in instrs {
-    forms = validate_test_simd_phase3_forms_merge(forms, validate_test_simd_phase3_forms_instr(instr))
+    forms = validate_test_simd_phase3_forms_merge(
+      forms,
+      validate_test_simd_phase3_forms_instr(instr),
+    )
   }
   forms
 }
 
 ///|
-fn validate_test_simd_phase3_forms_module(mod : Module) -> ValidateTestSimdPhase3Forms {
+fn validate_test_simd_phase3_forms_module(
+  mod : Module,
+) -> ValidateTestSimdPhase3Forms {
   let mut forms = validate_test_simd_phase3_forms_empty()
   match mod.code_sec {
-    Some(CodeSec(funcs)) => for func in funcs {
-      let Func(_, body) = func
-      forms = validate_test_simd_phase3_forms_merge(forms, validate_test_simd_phase3_forms_expr(body))
-    }
+    Some(CodeSec(funcs)) =>
+      for func in funcs {
+        let Func(_, body) = func
+        forms = validate_test_simd_phase3_forms_merge(
+          forms,
+          validate_test_simd_phase3_forms_expr(body),
+        )
+      }
     None => ()
   }
   forms
@@ -6580,13 +6641,17 @@ test "gen_valid coverage-forced emits atomic instruction surface" {
   let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26017UL), config)
   match validate_module(mod) {
     Ok(_) => ()
-    Err(msg) => fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
   }
   let facts = gen_valid_feature_facts(mod, config.mode)
   assert_true(facts.has_atomics)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, Atomics) > 0)
-  assert_eq(check_validate_valid_feature_floors(stats, [{ key: Atomics, min_count: 1 }]), [])
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [{ key: Atomics, min_count: 1 }]),
+    [],
+  )
 }
 
 ///|
@@ -6595,7 +6660,8 @@ test "gen_valid coverage-forced emits simd phase 3 surface" {
   let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26016UL), config)
   match validate_module(mod) {
     Ok(_) => ()
-    Err(msg) => fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
   }
   let forms = validate_test_simd_phase3_forms_module(mod)
   assert_true(forms.memory)
@@ -6606,7 +6672,12 @@ test "gen_valid coverage-forced emits simd phase 3 surface" {
   assert_true(facts.has_simd_phase3)
   let stats = GenValidFeatureStats::empty(config.mode).record(facts)
   assert_true(validate_valid_feature_actual_count(stats, SimdPhase3) > 0)
-  assert_eq(check_validate_valid_feature_floors(stats, [{ key: SimdPhase3, min_count: 1 }]), [])
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: SimdPhase3, min_count: 1 },
+    ]),
+    [],
+  )
 }
 
 ///|
@@ -6790,6 +6861,29 @@ test "gen_valid coverage-forced emits gc constructor and accessor surface" {
       { key: GcConstructors, min_count: 1 },
       { key: GcAccessors, min_count: 1 },
       { key: StringOps, min_count: 1 },
+    ]),
+    [],
+  )
+}
+
+///|
+test "gen_valid coverage-forced emits subtyping topology surface" {
+  let config = GenValidConfig::{
+    ..GenValidConfig::coverage_forced_default(),
+    max_type_defs: 24,
+  }
+  let mod = gen_valid_module_with_config(@splitmix.new(seed=0xf26018UL), config)
+  match validate_module(mod) {
+    Ok(_) => ()
+    Err(msg) =>
+      fail("expected coverage-forced gen-valid module to validate, got \{msg}")
+  }
+  let facts = gen_valid_feature_facts(mod, config.mode)
+  let stats = GenValidFeatureStats::empty(config.mode).record(facts)
+  assert_true(validate_valid_feature_actual_count(stats, SubtypingTopology) > 0)
+  assert_eq(
+    check_validate_valid_feature_floors(stats, [
+      { key: SubtypingTopology, min_count: 1 },
     ]),
     [],
   )

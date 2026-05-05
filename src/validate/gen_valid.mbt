@@ -95,6 +95,7 @@ pub struct GenValidFeatureToggles {
   allow_shared_memories : Bool
   allow_memory64 : Bool
   allow_atomics : Bool
+  allow_subtyping_topology : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -139,6 +140,8 @@ pub impl Show for GenValidFeatureToggles with output(self, logger) {
   self.allow_memory64.output(logger)
   logger.write_string(", allow_atomics:")
   self.allow_atomics.output(logger)
+  logger.write_string(", allow_subtyping_topology:")
+  self.allow_subtyping_topology.output(logger)
 }
 
 ///|
@@ -164,6 +167,7 @@ pub fn GenValidFeatureToggles::natural_default() -> GenValidFeatureToggles {
     allow_shared_memories: true,
     allow_memory64: true,
     allow_atomics: true,
+    allow_subtyping_topology: true,
   }
 }
 
@@ -181,6 +185,7 @@ pub fn GenValidFeatureToggles::coverage_forced_default() -> GenValidFeatureToggl
     allow_shared_memories: true,
     allow_memory64: true,
     allow_atomics: true,
+    allow_subtyping_topology: true,
   }
 }
 
@@ -332,6 +337,7 @@ pub fn GenValidConfig::binaryen_oracle_coverage_forced_default() -> GenValidConf
       allow_shared_memories: false,
       allow_memory64: false,
       allow_atomics: false,
+      allow_subtyping_topology: false,
     },
   }
 }
@@ -385,6 +391,7 @@ pub struct GenValidFeatureFacts {
   has_gc_accessors : Bool
   has_string_ops : Bool
   has_exception_try_table_matrix : Bool
+  has_subtyping_topology : Bool
 } derive(Eq, Debug)
 
 ///|
@@ -432,6 +439,7 @@ pub struct GenValidFeatureStats {
   gc_accessors : Int
   string_ops : Int
   exception_try_table_matrix : Int
+  subtyping_topology : Int
 } derive(Eq, Debug)
 
 ///|
@@ -522,6 +530,8 @@ pub impl Show for GenValidFeatureStats with output(self, logger) {
   self.string_ops.output(logger)
   logger.write_string(", exception_try_table_matrix: ")
   self.exception_try_table_matrix.output(logger)
+  logger.write_string(", subtyping_topology: ")
+  self.subtyping_topology.output(logger)
   logger.write_char('}')
 }
 
@@ -571,6 +581,7 @@ pub fn GenValidFeatureStats::empty(mode : GenValidMode) -> GenValidFeatureStats 
     gc_accessors: 0,
     string_ops: 0,
     exception_try_table_matrix: 0,
+    subtyping_topology: 0,
   }
 }
 
@@ -641,6 +652,8 @@ pub fn GenValidFeatureStats::record(
     string_ops: self.string_ops + gen_valid_bool_count(facts.has_string_ops),
     exception_try_table_matrix: self.exception_try_table_matrix +
     gen_valid_bool_count(facts.has_exception_try_table_matrix),
+    subtyping_topology: self.subtyping_topology +
+    gen_valid_bool_count(facts.has_subtyping_topology),
   }
 }
 
@@ -675,6 +688,7 @@ priv struct GenValidInstrFacts {
   has_gc_accessors : Bool
   has_string_ops : Bool
   has_exception_try_table_matrix : Bool
+  has_subtyping_topology : Bool
   control_nodes : Int
   branch_ops : Int
 }
@@ -713,6 +727,7 @@ fn GenValidInstrFacts::empty() -> GenValidInstrFacts {
     has_gc_accessors: false,
     has_string_ops: false,
     has_exception_try_table_matrix: false,
+    has_subtyping_topology: false,
     control_nodes: 0,
     branch_ops: 0,
   }
@@ -1017,6 +1032,50 @@ fn gen_valid_gc_type_defs(
     )
   let want_group = remaining_type_budget - defs.length() > 0 &&
     (ctx.config.mode == CoverageForced || ctx.random_int(4) == 0)
+
+  if ctx.config.features.allow_subtyping_topology &&
+    (ctx.config.mode == CoverageForced || ctx.random_int(5) == 0) &&
+    remaining_type_budget - defs.length() >= 5 {
+    let base_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    let child_idx = TypeIdx::new((type_idx_cursor + 1).reinterpret_as_uint())
+    let grandchild_idx = TypeIdx::new(
+      (type_idx_cursor + 2).reinterpret_as_uint(),
+    )
+    defs.push(
+      RecType::group([
+        SubType::new(true, [], CompType::struct_([])),
+        SubType::new(false, [], CompType::struct_([])),
+        SubType::new(false, [child_idx], CompType::struct_([])),
+      ]),
+    )
+    type_idx_cursor += 3
+    let cross_ref_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
+    defs.push(
+      RecType::new(SubType::new(false, [grandchild_idx], CompType::struct_([]))),
+    )
+    type_idx_cursor += 1
+    defs.push(
+      RecType::new(
+        SubType::comp_type(
+          CompType::struct_([
+            FieldType::new(
+              StorageType::val_type(gen_valid_gc_type_field_ref(cross_ref_idx)),
+              Const,
+            ),
+          ]),
+        ),
+      ),
+    )
+    plan = { ..plan, rec_group_count: plan.rec_group_count + 1 }
+    plan.struct_type_idxs.push(base_idx)
+    plan.struct_type_idxs.push(child_idx)
+    plan.struct_type_idxs.push(grandchild_idx)
+    plan.struct_type_idxs.push(cross_ref_idx)
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(base_idx))
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(child_idx))
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(grandchild_idx))
+    plan.concrete_ref_types.push(gen_valid_gc_type_field_ref(cross_ref_idx))
+  }
 
   if want_struct && defs.length() < remaining_type_budget {
     let struct_idx = TypeIdx::new(type_idx_cursor.reinterpret_as_uint())
@@ -3847,14 +3906,21 @@ fn gen_valid_append_simd_memory_store(
 }
 
 ///|
-fn gen_valid_append_atomic_load_drop(out : Array[Instruction], load : Instruction) -> Unit {
+fn gen_valid_append_atomic_load_drop(
+  out : Array[Instruction],
+  load : Instruction,
+) -> Unit {
   out.push(Instruction::i32_const(I32(0)))
   out.push(load)
   out.push(Instruction::drop())
 }
 
 ///|
-fn gen_valid_append_atomic_store(out : Array[Instruction], value64 : Bool, store : Instruction) -> Unit {
+fn gen_valid_append_atomic_store(
+  out : Array[Instruction],
+  value64 : Bool,
+  store : Instruction,
+) -> Unit {
   out.push(Instruction::i32_const(I32(0)))
   if value64 {
     out.push(Instruction::i64_const(I64(0L)))
@@ -3865,7 +3931,11 @@ fn gen_valid_append_atomic_store(out : Array[Instruction], value64 : Bool, store
 }
 
 ///|
-fn gen_valid_append_atomic_rmw_drop(out : Array[Instruction], value64 : Bool, instr : Instruction) -> Unit {
+fn gen_valid_append_atomic_rmw_drop(
+  out : Array[Instruction],
+  value64 : Bool,
+  instr : Instruction,
+) -> Unit {
   out.push(Instruction::i32_const(I32(0)))
   if value64 {
     out.push(Instruction::i64_const(I64(1L)))
@@ -3877,7 +3947,11 @@ fn gen_valid_append_atomic_rmw_drop(out : Array[Instruction], value64 : Bool, in
 }
 
 ///|
-fn gen_valid_append_atomic_cmpxchg_drop(out : Array[Instruction], value64 : Bool, instr : Instruction) -> Unit {
+fn gen_valid_append_atomic_cmpxchg_drop(
+  out : Array[Instruction],
+  value64 : Bool,
+  instr : Instruction,
+) -> Unit {
   out.push(Instruction::i32_const(I32(0)))
   if value64 {
     out.push(Instruction::i64_const(I64(1L)))
@@ -3895,83 +3969,289 @@ fn gen_valid_atomic_shared_mem_idx(env : GenValidBodyEnv) -> MemIdx? {
   for i = 0; i < env.mems.length(); i = i + 1 {
     let MemType(_, shared) = env.mems[i]
     if shared {
-      return Some(MemIdx::new(i))
+      return Some(MemIdx::new(i.reinterpret_as_uint()))
     }
   }
   None
 }
 
 ///|
-fn gen_valid_atomic_memarg(mem_idx : MemIdx, align_pow : UInt, offset : UInt64) -> MemArg {
+fn gen_valid_atomic_memarg(
+  mem_idx : MemIdx,
+  align_pow : UInt,
+  offset : UInt64,
+) -> MemArg {
   MemArg::new(U32(align_pow), Some(mem_idx), U64(offset))
 }
 
 ///|
-fn gen_valid_append_atomic_ops(out : Array[Instruction], mem_idx : MemIdx) -> Unit {
-  gen_valid_append_atomic_load_drop(out, Instruction::i32_atomic_load(gen_valid_atomic_memarg(mem_idx, 2U, 240UL)))
-  gen_valid_append_atomic_load_drop(out, Instruction::i64_atomic_load(gen_valid_atomic_memarg(mem_idx, 3U, 248UL)))
-  gen_valid_append_atomic_load_drop(out, Instruction::i32_atomic_load8_u(gen_valid_atomic_memarg(mem_idx, 0U, 256UL)))
-  gen_valid_append_atomic_load_drop(out, Instruction::i64_atomic_load32_u(gen_valid_atomic_memarg(mem_idx, 2U, 264UL)))
-  gen_valid_append_atomic_store(out, false, Instruction::i32_atomic_store(gen_valid_atomic_memarg(mem_idx, 2U, 272UL)))
-  gen_valid_append_atomic_store(out, true, Instruction::i64_atomic_store(gen_valid_atomic_memarg(mem_idx, 3U, 280UL)))
-  gen_valid_append_atomic_store(out, false, Instruction::i32_atomic_store8(gen_valid_atomic_memarg(mem_idx, 0U, 288UL)))
-  gen_valid_append_atomic_store(out, true, Instruction::i64_atomic_store32(gen_valid_atomic_memarg(mem_idx, 2U, 296UL)))
-  gen_valid_append_atomic_rmw_drop(out, false, Instruction::atomic_rmw(AtomicRmwOp::i32_add(), gen_valid_atomic_memarg(mem_idx, 2U, 304UL)))
-  gen_valid_append_atomic_rmw_drop(out, true, Instruction::atomic_rmw(AtomicRmwOp::i64_xchg(), gen_valid_atomic_memarg(mem_idx, 3U, 312UL)))
-  gen_valid_append_atomic_rmw_drop(out, false, Instruction::atomic_rmw(AtomicRmwOp::i32_8_or_u(), gen_valid_atomic_memarg(mem_idx, 0U, 320UL)))
-  gen_valid_append_atomic_cmpxchg_drop(out, false, Instruction::atomic_cmpxchg(AtomicCmpxchgOp::i32(), gen_valid_atomic_memarg(mem_idx, 2U, 328UL)))
-  gen_valid_append_atomic_cmpxchg_drop(out, true, Instruction::atomic_cmpxchg(AtomicCmpxchgOp::i64_32_u(), gen_valid_atomic_memarg(mem_idx, 2U, 336UL)))
+fn gen_valid_append_atomic_ops(
+  out : Array[Instruction],
+  mem_idx : MemIdx,
+) -> Unit {
+  gen_valid_append_atomic_load_drop(
+    out,
+    Instruction::i32_atomic_load(gen_valid_atomic_memarg(mem_idx, 2U, 240UL)),
+  )
+  gen_valid_append_atomic_load_drop(
+    out,
+    Instruction::i64_atomic_load(gen_valid_atomic_memarg(mem_idx, 3U, 248UL)),
+  )
+  gen_valid_append_atomic_load_drop(
+    out,
+    Instruction::i32_atomic_load8_u(gen_valid_atomic_memarg(mem_idx, 0U, 256UL)),
+  )
+  gen_valid_append_atomic_load_drop(
+    out,
+    Instruction::i64_atomic_load32_u(
+      gen_valid_atomic_memarg(mem_idx, 2U, 264UL),
+    ),
+  )
+  gen_valid_append_atomic_store(
+    out,
+    false,
+    Instruction::i32_atomic_store(gen_valid_atomic_memarg(mem_idx, 2U, 272UL)),
+  )
+  gen_valid_append_atomic_store(
+    out,
+    true,
+    Instruction::i64_atomic_store(gen_valid_atomic_memarg(mem_idx, 3U, 280UL)),
+  )
+  gen_valid_append_atomic_store(
+    out,
+    false,
+    Instruction::i32_atomic_store8(gen_valid_atomic_memarg(mem_idx, 0U, 288UL)),
+  )
+  gen_valid_append_atomic_store(
+    out,
+    true,
+    Instruction::i64_atomic_store32(gen_valid_atomic_memarg(mem_idx, 2U, 296UL)),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_add(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 304UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    true,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i64_xchg(),
+      gen_valid_atomic_memarg(mem_idx, 3U, 312UL),
+    ),
+  )
+  gen_valid_append_atomic_rmw_drop(
+    out,
+    false,
+    Instruction::atomic_rmw(
+      AtomicRmwOp::i32_8_or_u(),
+      gen_valid_atomic_memarg(mem_idx, 0U, 320UL),
+    ),
+  )
+  gen_valid_append_atomic_cmpxchg_drop(
+    out,
+    false,
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i32(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 328UL),
+    ),
+  )
+  gen_valid_append_atomic_cmpxchg_drop(
+    out,
+    true,
+    Instruction::atomic_cmpxchg(
+      AtomicCmpxchgOp::i64_32_u(),
+      gen_valid_atomic_memarg(mem_idx, 2U, 336UL),
+    ),
+  )
   out.push(Instruction::i32_const(I32(0)))
   out.push(Instruction::i32_const(I32(1)))
-  out.push(Instruction::memory_atomic_notify(gen_valid_atomic_memarg(mem_idx, 2U, 344UL)))
+  out.push(
+    Instruction::memory_atomic_notify(
+      gen_valid_atomic_memarg(mem_idx, 2U, 344UL),
+    ),
+  )
   out.push(Instruction::drop())
   out.push(Instruction::i32_const(I32(0)))
   out.push(Instruction::i32_const(I32(0)))
   out.push(Instruction::i64_const(I64(0L)))
-  out.push(Instruction::memory_atomic_wait32(gen_valid_atomic_memarg(mem_idx, 2U, 352UL)))
+  out.push(
+    Instruction::memory_atomic_wait32(
+      gen_valid_atomic_memarg(mem_idx, 2U, 352UL),
+    ),
+  )
   out.push(Instruction::drop())
   out.push(Instruction::i32_const(I32(0)))
   out.push(Instruction::i64_const(I64(0L)))
   out.push(Instruction::i64_const(I64(0L)))
-  out.push(Instruction::memory_atomic_wait64(gen_valid_atomic_memarg(mem_idx, 3U, 360UL)))
+  out.push(
+    Instruction::memory_atomic_wait64(
+      gen_valid_atomic_memarg(mem_idx, 3U, 360UL),
+    ),
+  )
   out.push(Instruction::drop())
   out.push(Instruction::atomic_fence())
 }
 
 ///|
 fn gen_valid_append_simd_phase3_ops(out : Array[Instruction]) -> Unit {
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load(gen_valid_memarg_varied(4U, 96UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load8x8s(gen_valid_memarg_varied(3U, 112UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load8x8u(gen_valid_memarg_varied(3U, 120UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load16x4s(gen_valid_memarg_varied(3U, 128UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load16x4u(gen_valid_memarg_varied(3U, 136UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load32x2s(gen_valid_memarg_varied(3U, 144UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load32x2u(gen_valid_memarg_varied(3U, 152UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load8_splat(gen_valid_memarg_varied(0U, 160UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load16_splat(gen_valid_memarg_varied(1U, 162UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load32_splat(gen_valid_memarg_varied(2U, 164UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load64_splat(gen_valid_memarg_varied(3U, 168UL)))
-  gen_valid_append_simd_memory_store(out, Instruction::v128_store(gen_valid_memarg_varied(4U, 176UL)))
-  gen_valid_append_simd_memory_lane_load_drop(out, Instruction::v128_load8_lane(gen_valid_memarg_varied(0U, 192UL), LaneIdx::new(3)))
-  gen_valid_append_simd_memory_lane_load_drop(out, Instruction::v128_load16_lane(gen_valid_memarg_varied(1U, 194UL), LaneIdx::new(2)))
-  gen_valid_append_simd_memory_lane_load_drop(out, Instruction::v128_load32_lane(gen_valid_memarg_varied(2U, 196UL), LaneIdx::new(1)))
-  gen_valid_append_simd_memory_lane_load_drop(out, Instruction::v128_load64_lane(gen_valid_memarg_varied(3U, 200UL), LaneIdx::new(0)))
-  gen_valid_append_simd_memory_store(out, Instruction::v128_store8_lane(gen_valid_memarg_varied(0U, 208UL), LaneIdx::new(4)))
-  gen_valid_append_simd_memory_store(out, Instruction::v128_store16_lane(gen_valid_memarg_varied(1U, 210UL), LaneIdx::new(5)))
-  gen_valid_append_simd_memory_store(out, Instruction::v128_store32_lane(gen_valid_memarg_varied(2U, 212UL), LaneIdx::new(2)))
-  gen_valid_append_simd_memory_store(out, Instruction::v128_store64_lane(gen_valid_memarg_varied(3U, 216UL), LaneIdx::new(1)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load32_zero(gen_valid_memarg_varied(2U, 224UL)))
-  gen_valid_append_simd_memory_load_drop(out, Instruction::v128_load64_zero(gen_valid_memarg_varied(3U, 232UL)))
-  gen_valid_append_v128_binary_op(out, Instruction::i8x16_shuffle(LaneIdx::new(0), LaneIdx::new(17), LaneIdx::new(2), LaneIdx::new(19), LaneIdx::new(4), LaneIdx::new(21), LaneIdx::new(6), LaneIdx::new(23), LaneIdx::new(8), LaneIdx::new(25), LaneIdx::new(10), LaneIdx::new(27), LaneIdx::new(12), LaneIdx::new(29), LaneIdx::new(14), LaneIdx::new(31)))
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load(gen_valid_memarg_varied(4U, 96UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load8x8s(gen_valid_memarg_varied(3U, 112UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load8x8u(gen_valid_memarg_varied(3U, 120UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load16x4s(gen_valid_memarg_varied(3U, 128UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load16x4u(gen_valid_memarg_varied(3U, 136UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load32x2s(gen_valid_memarg_varied(3U, 144UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load32x2u(gen_valid_memarg_varied(3U, 152UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load8_splat(gen_valid_memarg_varied(0U, 160UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load16_splat(gen_valid_memarg_varied(1U, 162UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load32_splat(gen_valid_memarg_varied(2U, 164UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load64_splat(gen_valid_memarg_varied(3U, 168UL)),
+  )
+  gen_valid_append_simd_memory_store(
+    out,
+    Instruction::v128_store(gen_valid_memarg_varied(4U, 176UL)),
+  )
+  gen_valid_append_simd_memory_lane_load_drop(
+    out,
+    Instruction::v128_load8_lane(
+      gen_valid_memarg_varied(0U, 192UL),
+      LaneIdx::new(3),
+    ),
+  )
+  gen_valid_append_simd_memory_lane_load_drop(
+    out,
+    Instruction::v128_load16_lane(
+      gen_valid_memarg_varied(1U, 194UL),
+      LaneIdx::new(2),
+    ),
+  )
+  gen_valid_append_simd_memory_lane_load_drop(
+    out,
+    Instruction::v128_load32_lane(
+      gen_valid_memarg_varied(2U, 196UL),
+      LaneIdx::new(1),
+    ),
+  )
+  gen_valid_append_simd_memory_lane_load_drop(
+    out,
+    Instruction::v128_load64_lane(
+      gen_valid_memarg_varied(3U, 200UL),
+      LaneIdx::new(0),
+    ),
+  )
+  gen_valid_append_simd_memory_store(
+    out,
+    Instruction::v128_store8_lane(
+      gen_valid_memarg_varied(0U, 208UL),
+      LaneIdx::new(4),
+    ),
+  )
+  gen_valid_append_simd_memory_store(
+    out,
+    Instruction::v128_store16_lane(
+      gen_valid_memarg_varied(1U, 210UL),
+      LaneIdx::new(5),
+    ),
+  )
+  gen_valid_append_simd_memory_store(
+    out,
+    Instruction::v128_store32_lane(
+      gen_valid_memarg_varied(2U, 212UL),
+      LaneIdx::new(2),
+    ),
+  )
+  gen_valid_append_simd_memory_store(
+    out,
+    Instruction::v128_store64_lane(
+      gen_valid_memarg_varied(3U, 216UL),
+      LaneIdx::new(1),
+    ),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load32_zero(gen_valid_memarg_varied(2U, 224UL)),
+  )
+  gen_valid_append_simd_memory_load_drop(
+    out,
+    Instruction::v128_load64_zero(gen_valid_memarg_varied(3U, 232UL)),
+  )
+  gen_valid_append_v128_binary_op(
+    out,
+    Instruction::i8x16_shuffle(
+      LaneIdx::new(0),
+      LaneIdx::new(17),
+      LaneIdx::new(2),
+      LaneIdx::new(19),
+      LaneIdx::new(4),
+      LaneIdx::new(21),
+      LaneIdx::new(6),
+      LaneIdx::new(23),
+      LaneIdx::new(8),
+      LaneIdx::new(25),
+      LaneIdx::new(10),
+      LaneIdx::new(27),
+      LaneIdx::new(12),
+      LaneIdx::new(29),
+      LaneIdx::new(14),
+      LaneIdx::new(31),
+    ),
+  )
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_swizzle())
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_narrow_i16x8s())
   gen_valid_append_v128_binary_op(out, Instruction::i8x16_narrow_i16x8u())
   gen_valid_append_v128_binary_op(out, Instruction::i16x8_narrow_i32x4s())
   gen_valid_append_v128_binary_op(out, Instruction::i16x8_narrow_i32x4u())
-  gen_valid_append_v128_unary_op(out, Instruction::i16x8_extadd_pairwise_i8x16s())
-  gen_valid_append_v128_unary_op(out, Instruction::i16x8_extadd_pairwise_i8x16u())
-  gen_valid_append_v128_unary_op(out, Instruction::i32x4_extadd_pairwise_i16x8s())
-  gen_valid_append_v128_unary_op(out, Instruction::i32x4_extadd_pairwise_i16x8u())
+  gen_valid_append_v128_unary_op(
+    out,
+    Instruction::i16x8_extadd_pairwise_i8x16s(),
+  )
+  gen_valid_append_v128_unary_op(
+    out,
+    Instruction::i16x8_extadd_pairwise_i8x16u(),
+  )
+  gen_valid_append_v128_unary_op(
+    out,
+    Instruction::i32x4_extadd_pairwise_i16x8s(),
+  )
+  gen_valid_append_v128_unary_op(
+    out,
+    Instruction::i32x4_extadd_pairwise_i16x8u(),
+  )
   gen_valid_append_v128_binary_op(out, Instruction::i32x4_dot_i16x8s())
   gen_valid_append_v128_unary_op(out, Instruction::f32x4_demote_f64x2_zero())
   gen_valid_append_v128_unary_op(out, Instruction::f64x2_promote_low_f32x4())
@@ -5475,6 +5755,32 @@ fn gen_valid_scan_sub_type(subtype : SubType) -> (Bool, Bool) {
 }
 
 ///|
+fn gen_valid_scan_sub_type_topology(subtype : SubType) -> Bool {
+  match subtype {
+    SubType(is_final, supers, _, _) => is_final || !supers.is_empty()
+    CompTypeSubType(_, _) => false
+  }
+}
+
+///|
+fn gen_valid_scan_rec_type_topology(rec_type : RecType) -> Bool {
+  match rec_type {
+    SingleRecType(subtype) => gen_valid_scan_sub_type_topology(subtype)
+    GroupRecType(group) => {
+      if group.length() >= 3 {
+        return true
+      }
+      for subtype in group {
+        if gen_valid_scan_sub_type_topology(subtype) {
+          return true
+        }
+      }
+      false
+    }
+  }
+}
+
+///|
 fn gen_valid_scan_rec_type(rec_type : RecType) -> (Bool, Bool) {
   match rec_type {
     SingleRecType(subtype) => gen_valid_scan_sub_type(subtype)
@@ -5527,6 +5833,8 @@ fn gen_valid_merge_instr_facts(
     has_string_ops: left.has_string_ops || right.has_string_ops,
     has_exception_try_table_matrix: left.has_exception_try_table_matrix ||
     right.has_exception_try_table_matrix,
+    has_subtyping_topology: left.has_subtyping_topology ||
+    right.has_subtyping_topology,
     control_nodes: left.control_nodes + right.control_nodes,
     branch_ops: left.branch_ops + right.branch_ops,
   }
@@ -6194,6 +6502,7 @@ pub fn gen_valid_feature_facts(
   let mut has_gc_accessors = false
   let mut has_string_ops = false
   let mut has_exception_try_table_matrix = false
+  let mut has_subtyping_topology = false
   let mut control_nodes = 0
   let mut branch_ops = 0
 
@@ -6203,6 +6512,8 @@ pub fn gen_valid_feature_facts(
         let (has_ref, has_v128_fact) = gen_valid_scan_rec_type(rec_type)
         uses_ref_types = uses_ref_types || has_ref
         uses_v128 = uses_v128 || has_v128_fact
+        has_subtyping_topology = has_subtyping_topology ||
+          gen_valid_scan_rec_type_topology(rec_type)
       }
     None => ()
   }
@@ -6373,7 +6684,7 @@ pub fn gen_valid_feature_facts(
               has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
               has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
               has_simd_phase3 = has_simd_phase3 || facts.has_simd_phase3
-          has_atomics = has_atomics || facts.has_atomics
+              has_atomics = has_atomics || facts.has_atomics
               has_gc_constructors = has_gc_constructors ||
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6415,7 +6726,7 @@ pub fn gen_valid_feature_facts(
                 has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
                 has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
                 has_simd_phase3 = has_simd_phase3 || facts.has_simd_phase3
-          has_atomics = has_atomics || facts.has_atomics
+                has_atomics = has_atomics || facts.has_atomics
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6455,7 +6766,7 @@ pub fn gen_valid_feature_facts(
                 has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
                 has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
                 has_simd_phase3 = has_simd_phase3 || facts.has_simd_phase3
-          has_atomics = has_atomics || facts.has_atomics
+                has_atomics = has_atomics || facts.has_atomics
                 has_gc_constructors = has_gc_constructors ||
                   facts.has_gc_constructors
                 has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6505,7 +6816,7 @@ pub fn gen_valid_feature_facts(
               has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
               has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
               has_simd_phase3 = has_simd_phase3 || facts.has_simd_phase3
-          has_atomics = has_atomics || facts.has_atomics
+              has_atomics = has_atomics || facts.has_atomics
               has_gc_constructors = has_gc_constructors ||
                 facts.has_gc_constructors
               has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
@@ -6553,7 +6864,7 @@ pub fn gen_valid_feature_facts(
         has_simd_phase1 = has_simd_phase1 || facts.has_simd_phase1
         has_simd_phase2 = has_simd_phase2 || facts.has_simd_phase2
         has_simd_phase3 = has_simd_phase3 || facts.has_simd_phase3
-          has_atomics = has_atomics || facts.has_atomics
+        has_atomics = has_atomics || facts.has_atomics
         has_gc_constructors = has_gc_constructors || facts.has_gc_constructors
         has_gc_accessors = has_gc_accessors || facts.has_gc_accessors
         has_string_ops = has_string_ops || facts.has_string_ops
@@ -6608,5 +6919,6 @@ pub fn gen_valid_feature_facts(
     has_gc_accessors,
     has_string_ops,
     has_exception_try_table_matrix,
+    has_subtyping_topology,
   }
 }

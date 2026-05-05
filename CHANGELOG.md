@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: widen subtyping topology generation
+
+- **complete FZG018 by adding coverage-forced subtype chains, final/open subtype topology, three-subtype rec groups, the `allow_subtyping_topology` gate, exact `SubtypingTopology` feature accounting, and ledger docs** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: widen atomic generation
 
 - **complete FZG017 by adding coverage-forced atomic generation for loads, stores, RMW, compare/exchange, wait/notify, and fence forms, with `allow_atomics`, exact `Atomics` feature accounting, and ledger docs** by **@OpenAI**. Updated [`src/validate/gen_valid.mbt`](./src/validate/gen_valid.mbt), [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
