@@ -1,10 +1,12 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
+  - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
+  - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
@@ -51,6 +53,7 @@ A good beginner summary is:
 
 So this pass is not just type-section garbage collection.
 It is **closed-world private heap-type cleanup plus whole-module heap-type rewriting**.
+A 2026-05-05 current-main recheck kept that contract intact.
 
 ## 2026-04-24 source correction
 
@@ -134,7 +137,7 @@ That means the changed surface can include:
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for future `remove-unused-types` research in this repo.
-- Cite the 2026-04-24 raw primary-source manifest for the corrected source reading and the 2026-04-26 port-readiness manifest when discussing future Starshine implementation sequencing.
+- Cite the 2026-04-24 raw primary-source manifest for the corrected source reading, the 2026-04-26 port-readiness manifest for implementation sequencing, and the 2026-05-05 current-main bridge for freshness wording.
 - Keep the 0149 research note as history only; do not reuse its superseded pass-local scanner / whole-old-rec-group explanation as the current algorithm.
 - Keep the page honest about scheduler scope:
   - closed-world GC/type cluster in Binaryen,

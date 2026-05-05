@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
   - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
+  - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
+  - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -35,8 +37,9 @@ related:
 
 # Starshine Strategy For `remove-unused-types`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md`](../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md) and the 2026-05-05 current-main recheck bridge in [`../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
+A 2026-05-05 current-main recheck left that local status unchanged.
 
 ## The honest current status
 

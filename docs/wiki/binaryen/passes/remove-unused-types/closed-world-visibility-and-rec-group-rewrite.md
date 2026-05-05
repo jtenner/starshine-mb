@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
+  - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
 related:
   - ./index.md
@@ -19,6 +21,7 @@ related:
 # `remove-unused-types`: closed-world visibility and private-group rewrite rules
 
 This page covers the part of `remove-unused-types` that is easiest to misunderstand.
+A 2026-05-05 current-main recheck kept this shape intact.
 
 The pass is not mainly asking:
 

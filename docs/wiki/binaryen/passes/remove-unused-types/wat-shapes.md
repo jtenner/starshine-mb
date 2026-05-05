@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
+  - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
 related:
   - ./index.md
@@ -17,6 +19,7 @@ related:
 # `remove-unused-types` WAT shapes
 
 This page is the beginner-friendly module-shape catalog for Binaryen `remove-unused-types`.
+A 2026-05-05 current-main recheck still teaches these same families.
 
 ## Read this page with one mental model
 

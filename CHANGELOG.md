@@ -1,8 +1,12 @@
 # Changelog
 
+## 2026-05-05 Wiki: refresh `remove-unused-types` current-main bridge
+
+- **add a 2026-05-05 current-main recheck manifest, matching research note, and freshness-layer refresh for the `remove-unused-types` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md), [`docs/wiki/raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md`](./docs/wiki/raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md), [`docs/wiki/binaryen/passes/remove-unused-types/`](./docs/wiki/binaryen/passes/remove-unused-types/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-05 Fuzz: widen invalid AST memory64/shared strategy
 
-- **complete the first FZG024 invalid-AST widening slice by adding a `shared-memory64-without-max` strategy seeded from valid modules and rejected by the memory-section validator family** by **@OpenAI**. Updated [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+- **complete FZG024 invalid-AST widening by adding `shared-memory64-without-max`, `invalid-subtype-super-index`, and `invalid-subtype-super-shape` strategies seeded from valid modules and rejected by the memory/type-section validator families** by **@OpenAI**. Updated [`src/validate/invalid_fuzzer.mbt`](./src/validate/invalid_fuzzer.mbt), [`src/validate/gen_invalid.mbt`](./src/validate/gen_invalid.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
 
 ## 2026-05-05 Fuzz: document WAST arbitrary parity plan
 

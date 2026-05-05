@@ -1,10 +1,12 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
+  - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
+  - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0149-2026-04-21-remove-unused-types-binaryen-research.md
 related:
   - ./index.md
@@ -30,8 +32,8 @@ Primary files:
 - `src/ir/module-utils.h`
 - `test/lit/passes/remove-unused-types.wast`
 
-A narrow current-`main` spot check on the same owner / registration / helper / test surfaces did not surface teaching-relevant drift from the corrected `version_129` story.
-That is not a whole-repo equivalence proof.
+A 2026-05-05 current-main recheck on the same owner / registration / helper / test surfaces again did not surface teaching-relevant drift from the corrected `version_129` story.
+That is still not a whole-repo equivalence proof.
 
 ## Correction from the older dossier
 

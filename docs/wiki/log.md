@@ -2,10 +2,16 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `remove-unused-types` current-main bridge
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md` plus `docs/wiki/raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md` after rechecking current `main` `RemoveUnusedTypes.cpp`, `pass.cpp`, `type-updating.h`, `module-utils.h`, and `remove-unused-types.wast` against the existing corrected contract.
+- Refreshed the `remove-unused-types` overview, Binaryen strategy, implementation/test-map, closed-world guide, WAT-shape catalog, Starshine strategy, Starshine port-readiness bridge, wiki index, pass index, tracker, and changelog so the new 2026-05-05 freshness layer is visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same helper-owned GC/type rewrite story, and Starshine still keeps `remove-unused-types` boundary-only until shared closed-world type-graph infrastructure exists.
+
 ## [2026-05-05] fuzz | widen invalid AST memory64/shared strategy
 
-- Added `shared-memory64-without-max` to the invalid-AST strategy registry for `[FZG]024`, reusing valid generated seeds and mutating them into an invalid shared memory64 without a maximum.
-- Recorded focused coverage in `docs/wiki/fuzzing/generator-coverage-ledger.md`; the new strategy rejects through `MemorySectionFamily` and participates in deterministic invalid-AST fuzz profiles.
+- Added `shared-memory64-without-max`, `invalid-subtype-super-index`, and `invalid-subtype-super-shape` to the invalid-AST strategy registry for `[FZG]024`, reusing valid generated seeds and mutating them into invalid memory/type-section shapes.
+- Recorded focused coverage in `docs/wiki/fuzzing/generator-coverage-ledger.md`; the new strategies reject through their expected validation families and participate in deterministic invalid-AST fuzz profiles.
 
 ## [2026-05-05] fuzz | document WAST arbitrary parity boundary
 

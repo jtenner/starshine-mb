@@ -1,11 +1,13 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-04-26-remove-unused-types-port-readiness-primary-sources.md
+  - ../../../raw/binaryen/2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-remove-unused-types-primary-sources.md
   - ../../../raw/research/0405-2026-04-26-remove-unused-types-port-readiness.md
+  - ../../../raw/research/0477-2026-05-05-remove-unused-types-current-main-recheck.md
   - ../../../raw/research/0298-2026-04-24-remove-unused-types-source-correction-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/lib/types.mbt
@@ -29,6 +31,7 @@ related:
 # Starshine Port Readiness And Validation For `remove-unused-types`
 
 This page turns the existing source-correct `remove-unused-types` dossier into an implementation-readiness checklist. The current Starshine status is still **boundary-only and unimplemented**; this page says how to move safely from that state to a faithful module pass when the repo chooses to build shared closed-world type-graph infrastructure.
+A 2026-05-05 current-main recheck left the slice plan unchanged.
 
 Use it with:
 
