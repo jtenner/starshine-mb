@@ -5,6 +5,7 @@ last_reviewed: 2026-05-05
 sources:
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
+  - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
@@ -28,6 +29,7 @@ related:
   - ./basic-block-windows-and-barriers.md
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../flatten/index.md
   - ../simplify-locals-notee-nostructure/index.md
   - ../coalesce-locals/index.md
@@ -37,7 +39,7 @@ related:
 
 # Starshine Strategy For `local-cse`
 
-Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), and the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md).
+Use this page together with the tagged raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md`](../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md), the source/test map in [`./implementation-structure-and-tests.md`](./implementation-structure-and-tests.md), and the implementation-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status

@@ -10,6 +10,7 @@ sources:
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
+  - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
   - ../../../../../src/passes/optimize.mbt
   - ../../no-dwarf-default-optimize-path.md
   - ../tracker.md
@@ -20,6 +21,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../coalesce-locals/index.md
   - ../simplify-locals/index.md
   - ../../no-dwarf-default-optimize-path.md
@@ -96,6 +98,8 @@ That is smaller and more local than “Binaryen does generic CSE here.”
   Beginner-friendly before/after shape catalog for the main positive, negative, bailout, and interaction families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   Dedicated Starshine status/port map for this still-unimplemented pass: exact registry/backlog/scheduler surfaces, concrete neighboring MoonBit files and test lanes, and the main honesty rule that preset placement should stay blocked until the missing Binaryen-neighbor equivalents land locally.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  Implementation-readiness bridge: the nearest local landing zone, conservative validation ladder, and the exact cluster-replay checks to defer until the missing neighbors exist.
 
 ## Current maintenance rule
 

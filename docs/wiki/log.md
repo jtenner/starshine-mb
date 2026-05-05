@@ -2,6 +2,13 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | add `local-cse` port-readiness bridge and validation layer
+
+- Added `docs/wiki/raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md` after reviewing the existing Binaryen `local-cse` source/test bridge and the nearest Starshine cleanup/rewrite surfaces.
+- Added `docs/wiki/binaryen/passes/local-cse/starshine-port-readiness-and-validation.md` and refreshed the `local-cse` index, Starshine strategy, implementation/test-map, and shared catalogs so the dossier now has a dedicated implementation-readiness bridge in addition to the existing strategy and shape pages.
+- Updated `docs/wiki/index.md` and `docs/wiki/binaryen/passes/index.md` so the new readiness bridge is discoverable from the shared catalogs.
+- Recorded unchanged contract status: `local-cse` remains removed-registry only in Starshine, and the new bridge stays conservative about validation ordering until the missing local neighbors exist.
+
 ## [2026-05-05] health | refresh `rse` current-main bridge and exact local code map
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-rse-current-main-recheck.md` plus `docs/wiki/raw/research/0463-2026-05-05-rse-current-main-recheck.md` after rechecking current `main` `RedundantSetElimination.cpp`, `pass.cpp`, `rse_all-features.wast`, and `rse-gc.wast` against the corrected `version_129` contract.

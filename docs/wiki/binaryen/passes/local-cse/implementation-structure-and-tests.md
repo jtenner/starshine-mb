@@ -8,6 +8,7 @@ sources:
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0358-2026-04-25-local-cse-current-main-and-test-map.md
+  - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
   - ../../../raw/research/0262-2026-04-22-local-cse-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/passes/pass_manager.mbt
@@ -19,6 +20,7 @@ related:
   - ./basic-block-windows-and-barriers.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../flatten/index.md
   - ../simplify-locals-notee-nostructure/index.md
   - ../coalesce-locals/index.md
