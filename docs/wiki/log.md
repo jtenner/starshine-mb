@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] maintain | close PRV005 proof gate and trust ledger
+
+- Completed `[PRV]005` by recording the current required proof gate policy: `moon prove src/validate_proof` is the committed proof target when Why3/Z3 are configured; root-level and direct `src/validate` proof gates remain deferred.
+- Added a trust-surface ledger to `validation/moonbit-prove-strategy.md` covering the current absence of committed `proof_axiomatized` uses plus deferred direct-validator, recursive match, and typechecker proof debts.
+
 ## [2026-05-05] maintain | extend PRV002 proof kernel
 
 - Completed `[PRV]002` by adding `rectype_suffix_member_index` to `src/validate_proof`, proving that a suffix-local rectype member maps to a bounded absolute type index.

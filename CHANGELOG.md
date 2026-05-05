@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Proofs: close PRV005 gate policy
+
+- **complete PRV005 by documenting the current proof gate policy and trust-surface ledger, keeping `moon prove src/validate_proof` as the only committed proof target when Why3/Z3 are configured while direct `src/validate` and root-level proof gates remain deferred** by **@OpenAI**. Updated [`docs/wiki/validation/moonbit-prove-strategy.md`](./docs/wiki/validation/moonbit-prove-strategy.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Passes: add repeated vacuum slot regressions
 
 - **complete VQ002 by adding a repeated-vacuum regression matrix for empty-structure cleanup byte stability and detached pure-residue deletion, then pruning the completed backlog slice** by **@OpenAI**. Updated [`src/passes/optimize_test.mbt`](./src/passes/optimize_test.mbt), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).

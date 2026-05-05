@@ -215,9 +215,6 @@ Suggested Tests
 - [PRV]004 - `TcState` Stack-Discipline Proof Slice
   - Deliverables: prove helper-layer facts around `push1`, `pop1`, `pop_expect`, `push_types`, `pop_types`, `validate_end_stack`, and `normalize_*_if_branch_exit`; extract a proof-friendly helper file first if needed.
 
-- [PRV]005 - CI Gate, Trust-Surface Ledger, and Follow-up Policy
-  - Deliverables: decide when proof runs become required; add a trust-surface ledger for temporary `proof_axiomatized` or deferred recursive assumptions; refresh docs/wiki and changelog/backlog as coverage grows.
-
 - [PRV]006 - Prove Everything In-Boundary That Should Be Proved
   - Deliverables: audit active `env`, `match`, and typecheck-helper candidates; land remaining high-value proofs; record explicit deferrals for blocked, low-value, or out-of-scope candidates.
 

@@ -1,7 +1,7 @@
 ---
 kind: concept
 status: working
-last_reviewed: 2026-04-11
+last_reviewed: 2026-05-05
 sources:
   - ../raw/research/0077-2026-04-10-moonbit-prove-strategy.md
   - ../../../src/validate/moon.pkg
@@ -33,6 +33,8 @@ related:
 - The active proof kernel currently proves `10` helper goals in `src/validate_proof` and already covers label-stack lookup, current-frame/group index arithmetic, defined-function body/index translation, declared-function bounds checks, suffix-base recovery used by validator diagnostics, and rectype-suffix member-to-absolute index recovery.
 - `LabelStack` is a persistent branchable stack: `LabelStack::copy` shares backing storage, so proved reverse-index arithmetic can be reused in `LabelStack::get`, but logical lookup still has to walk `head` / `parents` instead of indexing `values` directly.
 - `proof_axiomatized` should not become a permanent escape hatch in validator-critical code. Every such assumption expands the trusted surface and must stay temporary and explicit.
+- As of 2026-05-05, the committed proof gate is `moon prove src/validate_proof` only. It is safe to require in local/CI proof jobs once Why3/Z3 are installed, but broad root-level or direct `src/validate` proof gates remain deferred.
+- As of 2026-05-05, no committed source uses `proof_axiomatized`; deferred recursive-match facts are tracked below as design debt, not trusted assumptions.
 
 ## Staged Rollout
 
@@ -60,7 +62,7 @@ related:
     - `moon prove src/validate/match.mbt`
   - only later `moon prove src/validate`
 - Keep CI proof gating opt-in until the direct `src/validate` blocker is cleared. Required CI/local proof checks should be limited to proof-enabled packages or files that are expected to prove cleanly on the documented Why3/Z3 setup; broad root-level `moon prove` remains a future policy decision, not a current release gate.
-- Treat `src/validate_proof` as the current committed proof boundary: it is intentionally proof-enabled, contains standalone arithmetic/index lemmas, and is safe to run in CI or local signoff with `moon prove src/validate_proof`.
+- Treat `src/validate_proof` as the current committed proof boundary: it is intentionally proof-enabled, contains standalone arithmetic/index lemmas, and is safe to run in CI or local signoff with `moon prove src/validate_proof` when Why3/Z3 are available.
 - Treat direct `src/validate` proving as experimental only: enabling proof in `src/validate/moon.pkg` is a temporary local investigation step until the historical `jtenner/starshine/lib` WhyML lowering failure is removed or documented as obsolete by a fresh successful targeted run.
 - When the Why3 output is opaque, debug with compiler-level emission through `moonc prove -emit-only` and explicit WhyML/report output paths instead of turning the whole workflow inside out.
 - Keep `moon` commands serialized in normal developer workflows because this repo already treats `_build/.moon-lock` contention as real.
@@ -69,6 +71,21 @@ related:
   - [`../../../src/binary/decode.mbt`](../../../src/binary/decode.mbt)
   - [`../../../src/bitset/bitset.mbt`](../../../src/bitset/bitset.mbt)
   - pass and fuzz entrypoints
+
+## Current CI / Local Gate Policy
+
+- Required proof gate today: `moon prove src/validate_proof`, but only on machines with configured Why3/Z3. If no configured prover is available, record that exact environment limitation instead of treating the proof as failed semantic evidence.
+- Not required today: root-level `moon prove`, `moon prove src/validate`, or targeted direct-validator proving such as `moon prove src/validate/match.mbt`.
+- Graduation rule: before widening required gates, land the target as a proof-enabled package/file, document any new trusted assumptions in the ledger below, and keep `moon test` / fuzz / binary roundtrip gates unchanged.
+
+## Trust-Surface Ledger
+
+| Surface | Status | Required follow-up |
+| --- | --- | --- |
+| Committed `proof_axiomatized` usage | none found on 2026-05-05 outside docs/backlog mentions | Keep this row current whenever an axiom is introduced or removed. |
+| Direct `src/validate` proving | deferred | Recheck only after the historical `jtenner/starshine/lib` WhyML lowering blocker is cleared or proven obsolete by a fresh targeted run. |
+| Recursive `match.mbt` subtype/exactness facts | deferred design debt | Start with `descriptor_compatible` symmetry and equal-shape match facts; do not replace hard recursive proof obligations with permanent axioms. |
+| Typechecker stack-discipline facts | deferred design debt | Extract proof-friendly helpers if whole-file proving becomes noisy; keep executable stack tests as the oracle meanwhile. |
 
 ## Current Kernel
 
