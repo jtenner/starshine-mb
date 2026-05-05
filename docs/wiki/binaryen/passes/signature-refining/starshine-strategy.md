@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
+  - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
   - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
@@ -37,7 +39,7 @@ related:
 
 # Starshine Strategy For `signature-refining`
 
-Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md) and [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md).
+Use this page together with the raw primary-source manifests in [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md), [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md), and [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 For implementation sequencing, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md). That bridge spells out the safe no-rewrite analyzer, first direct-call param-refinement slice, later result/`call_ref`/`call.without.effects` slices, and validation ladder.
@@ -47,7 +49,7 @@ For implementation sequencing, use [`./starshine-port-readiness-and-validation.m
 `signature-refining` is still **unimplemented** in Starshine.
 There is no `src/passes/signature_refining.mbt`, `src/passes/signature-refining.mbt`, or similarly named owner file today.
 
-The 2026-04-26 port-readiness check did not find teaching-relevant current-main Binaryen drift from the 2026-04-24 `version_129` dossier, but it did make two local blockers more explicit: direct `call_ref` is present in library/binary/validator/HOT surfaces but not in the WAT parser surface beside `return_call_ref`, and `call.without.effects` has no local spelling under `src/`.
+The 2026-05-05 current-main recheck did not find teaching-relevant Binaryen drift from the `version_129` dossier, and it kept the two local blockers explicit: direct `call_ref` is present in library/binary/validator/HOT surfaces but not in the WAT parser surface beside `return_call_ref`, and `call.without.effects` has no local spelling under `src/`.
 
 The current Starshine strategy is deliberately limited:
 
@@ -65,22 +67,22 @@ This is a **status-and-port-planning** page, not an implementation page.
 The fastest read-along path through the current Starshine status is:
 
 - boundary-only pass-name tracking
-  - [`src/passes/optimize.mbt#L127-L139`](../../../../../src/passes/optimize.mbt#L127-L139)
+  - [`src/passes/optimize.mbt#L127-L135`](../../../../../src/passes/optimize.mbt#L127-L135)
     - `pass_registry_boundary_only_names()` includes `"signature-refining"` beside the neighboring `"signature-pruning"` spelling.
 - registry entry construction for boundary-only names
-  - [`src/passes/optimize.mbt#L264-L268`](../../../../../src/passes/optimize.mbt#L264-L268)
+  - [`src/passes/optimize.mbt#L307-L308`](../../../../../src/passes/optimize.mbt#L307-L308)
     - each boundary-only name becomes a boundary-only registry entry through `pass_registry_entry_boundary_only(...)`.
 - registry category lookup
-  - [`src/passes/optimize.mbt#L363-L368`](../../../../../src/passes/optimize.mbt#L363-L368)
+  - [`src/passes/optimize.mbt#L409-L411`](../../../../../src/passes/optimize.mbt#L409-L411)
     - `pass_registry_category(...)` reads the cached entry category for known names.
 - active request guard for boundary-only passes
-  - [`src/passes/optimize.mbt#L446-L462`](../../../../../src/passes/optimize.mbt#L446-L462)
+  - [`src/passes/optimize.mbt#L518-L520`](../../../../../src/passes/optimize.mbt#L518-L520)
     - `run_hot_pipeline_expand_passes(...)` returns `pass flag {name} is boundary-only and is not implemented in the hot pipeline`.
 - active preset absence
-  - [`src/passes/optimize.mbt#L240-L263`](../../../../../src/passes/optimize.mbt#L240-L263)
+  - [`src/passes/optimize.mbt#L434-L449`](../../../../../src/passes/optimize.mbt#L434-L449)
     - the built-in `optimize` and `shrink` presets expand only the currently implemented module/HOT sequence and do not include `signature-refining`.
-  - [`src/passes/registry_test.mbt#L129-L158`](../../../../../src/passes/registry_test.mbt#L129-L158)
-    - the preset test asserts every expanded preset name is `HotPass` or `ModulePass`, which keeps boundary-only names out of the active default path.
+  - [`src/passes/registry_test.mbt#L2-L20`](../../../../../src/passes/registry_test.mbt#L2-L20)
+    - the registry classification test keeps the active / boundary-only / removed split explicit, which is the local guard the preset-path relies on.
 - boundary-only planning provenance
   - [`docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60`](../../../../../docs/0063-2026-03-24-pass-port-batches-and-registry-map.md#L54-L60)
     - the pass-port map groups `signature-refining` with type, global, and signature shaping names rather than HOT cleanup names.
@@ -264,6 +266,8 @@ Keep the scheduler relationship explicit instead of folding the passes together.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
+- [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
 - [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)

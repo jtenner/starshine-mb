@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
+  - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
   - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
@@ -218,8 +220,8 @@ The dedicated late-file tests show it matters for both param and result refineme
 
 ## Freshness note
 
-The 2026-04-24 raw manifest in [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md) captures the official source and test URLs used for this dossier.
-I did a narrow current-`main` check on:
+The 2026-05-05 raw manifest in [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md) refreshes the official source and test URLs used for this dossier.
+I did a 2026-05-05 current-`main` recheck on:
 
 - `src/passes/SignatureRefining.cpp`
 - `src/passes/pass.cpp`
@@ -229,6 +231,7 @@ Durable result:
 
 - the checked core pass structure still matches `version_129` on the important reviewed surfaces
 - the dedicated lit file still matches exactly on the reviewed surface
+- the new freshness manifest records the no-drift result on the reviewed surfaces
 
 That is a narrow freshness note, not a proof that every neighboring helper file is identical.
 
@@ -260,6 +263,8 @@ That is exactly why this pass is easy to underestimate from the name alone.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
+- [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
 - [`../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md`](../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md)
 - [`../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md`](../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md)

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
+  - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
   - ../../../raw/research/0307-2026-04-24-signature-refining-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0152-2026-04-21-signature-refining-binaryen-research.md
@@ -40,11 +42,12 @@ Primary files:
 
 This dossier also has a dedicated Starshine status bridge in [`./starshine-strategy.md`](./starshine-strategy.md).
 
-I also did a narrow current-`main` check on the same surfaces.
+I also did a 2026-05-05 current-`main` recheck on the same surfaces.
 Durable result:
 
 - the checked `main` pass logic still matches the reviewed `version_129` algorithm on the important gates, phase split, and helper usage
 - the checked dedicated lit file still matches the reviewed `version_129` surface exactly
+- the new freshness manifest in [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md) captures that no-drift result on the reviewed surfaces
 
 So this dossier treats `version_129` as the normative algorithm oracle.
 
@@ -459,7 +462,9 @@ That is the strategy a future strict-parity port must preserve.
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/intrinsics.h>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/src/ir/intrinsics.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/version_129/test/lit/passes/signature-refining.wast>
-- Narrow freshness check:
+- 2026-05-05 current-main recheck:
+  - [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
+  - [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/SignatureRefining.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/src/passes/pass.cpp>
   - <https://raw.githubusercontent.com/WebAssembly/binaryen/main/test/lit/passes/signature-refining.wast>

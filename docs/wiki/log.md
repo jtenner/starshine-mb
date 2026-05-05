@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] health | refresh `signature-refining` current-main bridge and stale-anchor cleanup
+
+- Added `docs/wiki/raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md` plus `docs/wiki/raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md` after rechecking current `main` `SignatureRefining.cpp`, `pass.cpp`, and the dedicated `signature-refining.wast` surface.
+- Refreshed the `signature-refining` overview, Binaryen strategy, implementation/test-map, params/results/publicity guide, WAT-shape catalog, Starshine strategy, Starshine port-readiness page, and shared catalog entries so the fresh provenance and the corrected local code anchors are visible from the living dossier.
+- Recorded unchanged contract status: current `main` still teaches the same heap-type-wide param-LUB / result-LUB contract plus `call.without.effects` repair, and no teaching-relevant drift was found.
+
 ## [2026-05-05] health | refresh `minify-imports` current-main bridge and stale-anchor cleanup
 
 - Added `docs/wiki/raw/binaryen/2026-05-05-minify-imports-current-main-recheck.md` plus `docs/wiki/raw/research/0450-2026-05-05-minify-imports-current-main-recheck.md` after rechecking current `main` `MinifyImportsAndExports.cpp`, `pass.cpp`, and the shared pass-family registration surface.

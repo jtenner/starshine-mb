@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-26
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md
+  - ../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md
   - ../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md
   - ../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md
@@ -43,9 +45,9 @@ The rest of the folder explains the upstream Binaryen contract; this page turns 
 
 Relevant local anchors:
 
-- [`src/passes/optimize.mbt#L123-L137`](../../../../../src/passes/optimize.mbt#L123-L137) keeps `signature-refining` in `pass_registry_boundary_only_names()`.
-- [`src/passes/optimize.mbt#L445-L462`](../../../../../src/passes/optimize.mbt#L445-L462) rejects active boundary-only requests.
-- [`src/passes/optimize.mbt#L240-L263`](../../../../../src/passes/optimize.mbt#L240-L263) keeps the active `optimize` / `shrink` presets free of boundary-only names.
+- [`src/passes/optimize.mbt#L127-L135`](../../../../../src/passes/optimize.mbt#L127-L135) keeps `signature-refining` in `pass_registry_boundary_only_names()`.
+- [`src/passes/optimize.mbt#L518-L520`](../../../../../src/passes/optimize.mbt#L518-L520) rejects active boundary-only requests.
+- [`src/passes/optimize.mbt#L434-L449`](../../../../../src/passes/optimize.mbt#L434-L449) keeps the active `optimize` / `shrink` presets free of boundary-only names.
 - No `src/passes/signature_refining.mbt` owner file exists today.
 
 ## Binaryen behavior a future port must preserve
@@ -191,14 +193,16 @@ When it lands, test both:
 - Do not claim `call.without.effects` parity while the local IR has no such spelling.
 - Do not add the pass to `optimize` / `shrink` merely because the explicit pass flag works.
 
-## Health notes from the 2026-04-26 check
+## Health notes from the 2026-05-05 check
 
-- The existing folder was internally source-correct, so this follow-up adds a port-readiness bridge rather than superseding the Binaryen strategy.
-- The current-main source recheck found no teaching-relevant drift from the 2026-04-24 `version_129` dossier.
-- The most actionable local hygiene issue is the direct `call_ref` text-surface gap: future tests should not assume WAT can express every Binaryen proof family until that gap is closed.
+- The existing folder was internally source-correct, so this follow-up adds a freshness bridge rather than superseding the Binaryen strategy.
+- The current-main source recheck again found no teaching-relevant drift from the `version_129` dossier.
+- The most actionable local hygiene issue is still the direct `call_ref` text-surface gap: future tests should not assume WAT can express every Binaryen proof family until that gap is closed.
 
 ## Sources
 
+- [`../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signature-refining-current-main-recheck.md)
+- [`../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md`](../../../raw/research/0451-2026-05-05-signature-refining-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md`](../../../raw/binaryen/2026-04-26-signature-refining-port-readiness-primary-sources.md)
 - [`../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md`](../../../raw/research/0398-2026-04-26-signature-refining-port-readiness.md)
 - [`../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md`](../../../raw/binaryen/2026-04-24-signature-refining-primary-sources.md)
