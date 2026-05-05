@@ -1,8 +1,10 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md
+  - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
   - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
@@ -18,6 +20,7 @@ related:
   - ./field-removal-subtyping-js-interop-and-traps.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
   - ../tracker.md
   - ../index.md
   - ../global-refining/index.md
@@ -78,7 +81,7 @@ It is **closed-world private-struct mutability and layout cleanup**.
 - Field removal is hierarchy-aware and may reorder parent fields so children can still append compatible layouts.
 - Instruction rewrite happens before type rewrite.
 - Removed writes preserve value side effects and null-trap ordering, and removed trapping module-initializer operands become fresh globals.
-- A narrow 2026-04-24 freshness check, captured in [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md), found no teaching-relevant current-`main` drift in the reviewed owner, registration, helper, or lit surfaces beyond the existing `version_129` contract.
+- A 2026-05-05 current-main recheck, captured in [`../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md), plus the earlier 2026-04-24 primary-source manifest, found no teaching-relevant drift in the reviewed owner, registration, helper, or lit surfaces beyond the existing `version_129` contract.
 
 ## Beginner warning: what the name hides
 
@@ -124,6 +127,8 @@ What it actually is in `version_129`:
   - Beginner-friendly WAT-shape catalog covering immutability positives, unread-field removals, subtype reordering, JS-descriptor keepalive cases, and the main bailout families.
 - [`./starshine-strategy.md`](./starshine-strategy.md)
   - Current Starshine status and future-port map: boundary-only local registry entry, no `gto` alias, no owner file, active request rejection, preset omission, reusable GC/type/parser/validator/binary surfaces, and the module/type-graph infrastructure a faithful port would need.
+- [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md)
+  - Future-port bridge for the exact local code map, validation ladder, and Binaryen oracle lanes a real module/type-graph implementation would need.
 
 ## Current maintenance rule
 

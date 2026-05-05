@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md
+  - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
   - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
   - ../../../../../src/passes/optimize.mbt
@@ -28,6 +30,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./field-removal-subtyping-js-interop-and-traps.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../global-refining/index.md
   - ../global-struct-inference/index.md
   - ../remove-unused-types/index.md
@@ -39,7 +42,7 @@ related:
 
 # Starshine Strategy For `global-type-optimization`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md) and the older 2026-04-24 manifest in [`../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md`](../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the main infrastructure gaps a future parity port must resolve.
 
 ## The honest current status

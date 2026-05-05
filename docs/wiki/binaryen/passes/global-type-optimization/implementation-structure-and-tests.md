@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-04-24
+last_reviewed: 2026-05-05
 sources:
+  - ../../../raw/binaryen/2026-05-05-global-type-optimization-current-main-recheck.md
+  - ../../../raw/research/0467-2026-05-05-global-type-optimization-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-24-global-type-optimization-primary-sources.md
   - ../../../raw/research/0306-2026-04-24-global-type-optimization-primary-sources-and-starshine-followup.md
   - ../../../raw/research/0153-2026-04-21-global-type-optimization-binaryen-research.md
@@ -12,12 +14,14 @@ related:
   - ./field-removal-subtyping-js-interop-and-traps.md
   - ./wat-shapes.md
   - ./starshine-strategy.md
+  - ./starshine-port-readiness-and-validation.md
 ---
 
 # `global-type-optimization`: implementation structure and tests
 
 This page exists because `GlobalTypeOptimization.cpp` is not a self-contained algorithm.
 If you read only that one file, you will miss where several of the real rules come from.
+A 2026-05-05 current-main recheck found the same owner/helper/lit split on the reviewed surfaces.
 
 ## File map
 
