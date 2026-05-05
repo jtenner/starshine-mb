@@ -25,6 +25,7 @@ related:
 
 This page replaces an older wrong summary.
 The earlier dossier talked about broad typed-control **voidification**.
+The 2026-05-05 current-main recheck kept the narrower source-backed contract unchanged.
 The source-confirmed `version_129` pass does something narrower:
 
 - it sometimes changes a control-flow node's type to `unreachable`, and
