@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-05 Fuzz: retune gen-valid feature floors
+
+- **complete FZG028 by adding smoke/ci/stress feature-floor entries for every completed gen-valid widening family, with cheap smoke floors and stricter ci/stress floors** by **@OpenAI**. Updated [`src/validate/validate.mbt`](./src/validate/validate.mbt), [`docs/wiki/fuzzing/generator-coverage-ledger.md`](./docs/wiki/fuzzing/generator-coverage-ledger.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).
+
 ## 2026-05-05 Fuzz: widen WAST arbitrary surface
 
 - **complete FZG027 by adding a deterministic WAST arbitrary prelude for GC types, tags/try_table/throw, memory/table bulk ops, ref casts, tail-call/call-ref forms, richer inline exports, and representative SIMD text syntax** by **@OpenAI**. Updated [`src/wast/arbitrary.mbt`](./src/wast/arbitrary.mbt), [`docs/wiki/fuzzing/wast-arbitrary-parity-plan.md`](./docs/wiki/fuzzing/wast-arbitrary-parity-plan.md), [`CHANGELOG.md`](./CHANGELOG.md), and [`agent-todo.md`](./agent-todo.md).

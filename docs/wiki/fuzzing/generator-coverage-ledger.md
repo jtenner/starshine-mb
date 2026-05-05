@@ -42,6 +42,7 @@ Starshine's fuzzer generator widening work uses a durable coverage ledger so gen
 - `[FZG]023` attaches the name/custom-section counter: `NameCustomSections` reports nonzero coverage when generated modules contain a structured name section or a non-`name` custom section. Coverage-forced modules now emit a valid structured name section for available module/type/function/table/memory/global/elem/data/tag spaces plus a non-name custom section behind `allow_name_custom_sections`.
 - `[FZG]024` expands invalid-AST coverage for newly widened surfaces. The invalid AST registry now includes `shared-memory64-without-max`, seeded from a valid module and mutated to an invalid shared memory64 with no maximum so the validator reports the memory-section family through the same fuzzer path as the existing i32 shared-memory-max strategy. It also includes `invalid-subtype-super-index` and `invalid-subtype-super-shape`, which mutate valid seeds with out-of-range and incompatible subtype supertype clauses and reject through the type-section family.
 - `[FZG]026` is documented separately in [`wast-arbitrary-parity-plan.md`](wast-arbitrary-parity-plan.md): WAST arbitrary generation remains a text-roundtrip generator instead of calling `gen_valid` directly, but duplicated opcode pickers must stay tied to the FZG ledger vocabulary.
+- `[FZG]028` retunes `validate-valid` smoke/ci/stress feature floors for the completed gen-valid widening rows. These profiles now use coverage-forced gen-valid configs so smoke requires at least one observation for every `[FZG]002`-`[FZG]023` family, while ci and stress require minimums of `10` and `100` respectively.
 
 ## Ledger status meanings
 
@@ -64,6 +65,7 @@ The coarse pre-existing counters still cover current smoke/CI/stress floors for 
 ## Validation anchors
 
 - `validate_valid_feature_ledger reports optional missing FZG surfaces` proves the ledger reports both covered existing rows and optional zero-count future rows.
+- `validate_valid_run_config retunes FZG feature floors by profile` proves smoke/ci/stress now require every completed gen-valid FZG family at the intended `1`/`10`/`100` levels.
 - `check_validate_valid_feature_floors fails future FZG surfaces only when required` proves missing future rows remain non-fatal unless a caller adds an explicit floor.
 - `gen_valid coverage-forced emits expanded scalar numeric surface` proves the `[FZG]002` prelude validates and satisfies an explicit `NumericFullOps` floor.
 - `gen_valid coverage-forced emits core control surface` proves the `[FZG]003` prelude validates and satisfies explicit `BrTable`, `StandaloneUnreachable`, `LocalTee`, and `TypedSelect` floors.

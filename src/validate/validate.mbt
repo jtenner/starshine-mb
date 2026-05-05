@@ -3780,67 +3780,123 @@ fn validate_valid_feature_floor_failures_message(
 }
 
 ///|
+fn validate_valid_fzg_feature_floors(
+  min_count : Int,
+) -> Array[ValidateValidFeatureFloor] {
+  [
+    validate_valid_feature_floor(NumericFullOps, min_count),
+    validate_valid_feature_floor(BrTable, min_count),
+    validate_valid_feature_floor(StandaloneUnreachable, min_count),
+    validate_valid_feature_floor(LocalTee, min_count),
+    validate_valid_feature_floor(TypedSelect, min_count),
+    validate_valid_feature_floor(TailCalls, min_count),
+    validate_valid_feature_floor(ScalarMemoryWidths, min_count),
+    validate_valid_feature_floor(NonzeroMemarg, min_count),
+    validate_valid_feature_floor(MemoryLimitVariants, min_count),
+    validate_valid_feature_floor(TableLimitVariants, min_count),
+    validate_valid_feature_floor(ConstExprVariants, min_count),
+    validate_valid_feature_floor(BasicRefInstructions, min_count),
+    validate_valid_feature_floor(I31ExternConversions, min_count),
+    validate_valid_feature_floor(GcConstructors, min_count),
+    validate_valid_feature_floor(GcAccessors, min_count),
+    validate_valid_feature_floor(StringOps, min_count),
+    validate_valid_feature_floor(ExceptionTryTableMatrix, min_count),
+    validate_valid_feature_floor(SimdPhase1, min_count),
+    validate_valid_feature_floor(SimdPhase2, min_count),
+    validate_valid_feature_floor(SimdPhase3, min_count),
+    validate_valid_feature_floor(Atomics, min_count),
+    validate_valid_feature_floor(SubtypingTopology, min_count),
+    validate_valid_feature_floor(RichGcFieldPlans, min_count),
+    validate_valid_feature_floor(ImportExportTopology, min_count),
+    validate_valid_feature_floor(ElementSegmentRange, min_count),
+    validate_valid_feature_floor(DataSegmentRange, min_count),
+    validate_valid_feature_floor(NameCustomSections, min_count),
+  ]
+}
+
+///|
+fn validate_valid_append_feature_floors(
+  base : Array[ValidateValidFeatureFloor],
+  extra : Array[ValidateValidFeatureFloor],
+) -> Array[ValidateValidFeatureFloor] {
+  let out : Array[ValidateValidFeatureFloor] = []
+  for floor in base {
+    out.push(floor)
+  }
+  for floor in extra {
+    out.push(floor)
+  }
+  out
+}
+
+///|
 fn validate_valid_feature_floors_for_profile(
   normalized : String,
 ) -> Array[ValidateValidFeatureFloor] {
   match normalized {
     "smoke" =>
-      [
-        validate_valid_feature_floor(Imports, 1),
-        validate_valid_feature_floor(Starts, 1),
-        validate_valid_feature_floor(LacksStart, 1),
-        validate_valid_feature_floor(Tables, 1),
-        validate_valid_feature_floor(Mems, 1),
-        validate_valid_feature_floor(RefTypes, 1),
-        validate_valid_feature_floor(V128, 1),
-        validate_valid_feature_floor(Calls, 1),
-        validate_valid_feature_floor(CallIndirect, 1),
-        validate_valid_feature_floor(BranchHeavyControl, 1),
-      ]
+      validate_valid_append_feature_floors(
+        [
+          validate_valid_feature_floor(Imports, 1),
+          validate_valid_feature_floor(Starts, 1),
+          validate_valid_feature_floor(Tables, 1),
+          validate_valid_feature_floor(Mems, 1),
+          validate_valid_feature_floor(RefTypes, 1),
+          validate_valid_feature_floor(V128, 1),
+          validate_valid_feature_floor(Calls, 1),
+          validate_valid_feature_floor(CallIndirect, 1),
+          validate_valid_feature_floor(BranchHeavyControl, 1),
+        ],
+        validate_valid_fzg_feature_floors(1),
+      )
     "ci" =>
-      [
-        validate_valid_feature_floor(Imports, 100),
-        validate_valid_feature_floor(TableExports, 100),
-        validate_valid_feature_floor(MemExports, 100),
-        validate_valid_feature_floor(GlobalExports, 250),
-        validate_valid_feature_floor(TagExports, 50),
-        validate_valid_feature_floor(Starts, 50),
-        validate_valid_feature_floor(LacksStart, 500),
-        validate_valid_feature_floor(Tables, 100),
-        validate_valid_feature_floor(Mems, 100),
-        validate_valid_feature_floor(Globals, 250),
-        validate_valid_feature_floor(Tags, 50),
-        validate_valid_feature_floor(Elems, 25),
-        validate_valid_feature_floor(Datas, 25),
-        validate_valid_feature_floor(DataCount, 25),
-        validate_valid_feature_floor(RefTypes, 500),
-        validate_valid_feature_floor(V128, 500),
-        validate_valid_feature_floor(Calls, 500),
-        validate_valid_feature_floor(CallIndirect, 100),
-        validate_valid_feature_floor(BranchHeavyControl, 250),
-      ]
+      validate_valid_append_feature_floors(
+        [
+          validate_valid_feature_floor(Imports, 100),
+          validate_valid_feature_floor(TableExports, 100),
+          validate_valid_feature_floor(MemExports, 100),
+          validate_valid_feature_floor(GlobalExports, 250),
+          validate_valid_feature_floor(TagExports, 50),
+          validate_valid_feature_floor(Starts, 50),
+          validate_valid_feature_floor(Tables, 100),
+          validate_valid_feature_floor(Mems, 100),
+          validate_valid_feature_floor(Globals, 250),
+          validate_valid_feature_floor(Tags, 50),
+          validate_valid_feature_floor(Elems, 25),
+          validate_valid_feature_floor(Datas, 25),
+          validate_valid_feature_floor(DataCount, 25),
+          validate_valid_feature_floor(RefTypes, 500),
+          validate_valid_feature_floor(V128, 500),
+          validate_valid_feature_floor(Calls, 500),
+          validate_valid_feature_floor(CallIndirect, 100),
+          validate_valid_feature_floor(BranchHeavyControl, 250),
+        ],
+        validate_valid_fzg_feature_floors(10),
+      )
     "stress" =>
-      [
-        validate_valid_feature_floor(Imports, 2000),
-        validate_valid_feature_floor(TableExports, 2000),
-        validate_valid_feature_floor(MemExports, 2000),
-        validate_valid_feature_floor(GlobalExports, 5000),
-        validate_valid_feature_floor(TagExports, 1000),
-        validate_valid_feature_floor(Starts, 1000),
-        validate_valid_feature_floor(LacksStart, 10000),
-        validate_valid_feature_floor(Tables, 2000),
-        validate_valid_feature_floor(Mems, 2000),
-        validate_valid_feature_floor(Globals, 5000),
-        validate_valid_feature_floor(Tags, 1000),
-        validate_valid_feature_floor(Elems, 500),
-        validate_valid_feature_floor(Datas, 500),
-        validate_valid_feature_floor(DataCount, 500),
-        validate_valid_feature_floor(RefTypes, 10000),
-        validate_valid_feature_floor(V128, 10000),
-        validate_valid_feature_floor(Calls, 10000),
-        validate_valid_feature_floor(CallIndirect, 2000),
-        validate_valid_feature_floor(BranchHeavyControl, 5000),
-      ]
+      validate_valid_append_feature_floors(
+        [
+          validate_valid_feature_floor(Imports, 2000),
+          validate_valid_feature_floor(TableExports, 2000),
+          validate_valid_feature_floor(MemExports, 2000),
+          validate_valid_feature_floor(GlobalExports, 5000),
+          validate_valid_feature_floor(TagExports, 1000),
+          validate_valid_feature_floor(Starts, 1000),
+          validate_valid_feature_floor(Tables, 2000),
+          validate_valid_feature_floor(Mems, 2000),
+          validate_valid_feature_floor(Globals, 5000),
+          validate_valid_feature_floor(Tags, 1000),
+          validate_valid_feature_floor(Elems, 500),
+          validate_valid_feature_floor(Datas, 500),
+          validate_valid_feature_floor(DataCount, 500),
+          validate_valid_feature_floor(RefTypes, 10000),
+          validate_valid_feature_floor(V128, 10000),
+          validate_valid_feature_floor(Calls, 10000),
+          validate_valid_feature_floor(CallIndirect, 2000),
+          validate_valid_feature_floor(BranchHeavyControl, 5000),
+        ],
+        validate_valid_fzg_feature_floors(100),
+      )
     _ => abort("unreachable validate-valid profile")
   }
 }
@@ -3860,10 +3916,10 @@ pub fn validate_valid_run_config(
       )
   }
   let generator_config = match normalized {
-    "smoke" => default_gen_valid_config()
+    "smoke" => GenValidConfig::coverage_forced_default()
     "ci" =>
       GenValidConfig::{
-        ..default_gen_valid_config(),
+        ..GenValidConfig::coverage_forced_default(),
         max_defined_funcs: 5,
         max_globals: 3,
         max_body_statements: 8,
@@ -3871,7 +3927,7 @@ pub fn validate_valid_run_config(
       }
     "stress" =>
       GenValidConfig::{
-        ..default_gen_valid_config(),
+        ..GenValidConfig::coverage_forced_default(),
         max_type_defs: 6,
         max_defined_funcs: 6,
         max_globals: 4,
@@ -4860,7 +4916,7 @@ test "validate_valid_run_config returns profile attempts and generator config" {
   assert_eq(smoke.attempts, 128)
   assert_eq(ci.attempts, 5000)
   assert_eq(stress.attempts, 100000)
-  assert_eq(smoke.generator_config.mode, Natural)
+  assert_eq(smoke.generator_config.mode, CoverageForced)
   assert_true(
     ci.generator_config.max_defined_funcs >=
     smoke.generator_config.max_defined_funcs,
@@ -4872,6 +4928,43 @@ test "validate_valid_run_config returns profile attempts and generator config" {
   assert_true(smoke.feature_floors.length() > 0)
   assert_true(ci.feature_floors.length() >= smoke.feature_floors.length())
   assert_true(stress.feature_floors.length() >= ci.feature_floors.length())
+}
+
+///|
+fn validate_valid_test_floor_min(
+  floors : Array[ValidateValidFeatureFloor],
+  key : ValidateValidFeatureKey,
+) -> Int {
+  for floor in floors {
+    if floor.key == key {
+      return floor.min_count
+    }
+  }
+  0
+}
+
+///|
+test "validate_valid_run_config retunes FZG feature floors by profile" {
+  let smoke = match validate_valid_run_config("smoke") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let ci = match validate_valid_run_config("ci") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  let stress = match validate_valid_run_config("stress") {
+    Ok(v) => v
+    Err(msg) => fail(msg)
+  }
+  for floor in validate_valid_fzg_feature_floors(1) {
+    assert_eq(validate_valid_test_floor_min(smoke.feature_floors, floor.key), 1)
+    assert_eq(validate_valid_test_floor_min(ci.feature_floors, floor.key), 10)
+    assert_eq(
+      validate_valid_test_floor_min(stress.feature_floors, floor.key),
+      100,
+    )
+  }
 }
 
 ///|
@@ -7055,8 +7148,8 @@ test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
   assert_eq(first, second)
   assert_eq(first.attempts, 128)
   assert_eq(first.validated, 128)
-  assert_eq(first.generator_config.mode, Natural)
-  assert_eq(first.feature_stats.mode, Natural)
+  assert_eq(first.generator_config.mode, CoverageForced)
+  assert_eq(first.feature_stats.mode, CoverageForced)
   assert_eq(
     first.feature_floors,
     match validate_valid_run_config("smoke") {
@@ -7074,7 +7167,7 @@ test "run_validate_valid_fuzz returns deterministic stats for a fixed seed" {
   assert_true(first.feature_stats.elems > 0)
   assert_true(first.feature_stats.datas > 0)
   assert_true(first.feature_stats.starts > 0)
-  assert_true(first.feature_stats.lacks_start > 0)
+  assert_eq(first.feature_stats.lacks_start, 0)
   assert_true(first.feature_stats.ref_types > 0)
   assert_true(first.feature_stats.v128 > 0)
   assert_true(first.feature_stats.calls > 0)

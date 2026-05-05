@@ -2,6 +2,11 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-05] fuzz | retune gen-valid feature floors
+
+- Completed `[FZG]028` by adding explicit smoke/ci/stress floors for every completed gen-valid widening family from `[FZG]002` through `[FZG]023`.
+- Switched validate-valid profiles to coverage-forced gen-valid configs, keeping smoke cheap with minimum `1` per widened family while ci/stress require progressively higher nonzero floors (`10`/`100`).
+
 ## [2026-05-05] fuzz | widen WAST arbitrary surface
 
 - Completed `[FZG]027` by adding a deterministic wide-surface prelude to `src/wast/arbitrary.mbt` for GC struct types, tags, `try_table`/`throw`, memory/table bulk ops, descriptor ref test/cast forms, tail-call/call-ref forms, inline exports, and representative SIMD text syntax.
