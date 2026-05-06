@@ -7,6 +7,7 @@ sources:
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
   - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
@@ -52,6 +53,8 @@ The goal here is not to re-explain upstream Binaryen, but to show the exact curr
 ## The honest current status
 
 `local-cse` is now implemented in Starshine with a dedicated owner file, tests, registry entry, dispatcher route, fuzz-harness support, and direct debug-artifact self-optimize evidence.
+
+The 2026-05-06 refreshed direct-pass lane is green: `.tmp/pass-fuzz-local-cse` reported 6759/10000 compared cases, 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures.
 
 The active local strategy is still deliberately slot-honest:
 

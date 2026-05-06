@@ -7,6 +7,7 @@ sources:
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md
   - ../../../raw/binaryen/2026-04-25-local-cse-current-main-code-map.md
   - ../../../raw/binaryen/2026-04-22-local-cse-primary-sources.md
   - ../../../raw/research/0119-2026-04-20-local-cse-binaryen-research.md
@@ -83,6 +84,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - A focused 2026-05-05 current-`main` recheck at [`../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md) refreshed `LocalCSE.cpp`, `pass.cpp`, `opt-utils.h`, and `local-cse.wast`; it found no teaching-relevant drift and kept the upstream/test plus Starshine code map current.
 - A 2026-05-06 line-anchor refresh at [`../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md) pinned the exact current local code anchors now used in the Starshine pages and confirmed the same source-backed contract.
 - A repo-authored 2026-05-05 correction note at [`../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md`](../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md) records that older Starshine-status wording in the raw upstream bridge is stale now that the direct Starshine pass has landed.
+- A 2026-05-06 direct revalidation at [`../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md`](../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md) reran the refreshed harness with `--count 10000 --seed 0x5eed --pass local-cse`, reached 6759 compared cases, and found 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures.
 - The pass really is a three-stage algorithm:
   - `scan`
   - `check`
@@ -130,6 +132,7 @@ That is smaller and more local than “Binaryen does generic CSE here.”
 - [`../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md`](../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md)
 - [`../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md`](../../../raw/research/0453-2026-05-05-local-cse-current-main-recheck.md)
 - [`../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md`](../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md)
+- [`../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md`](../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md)
 - [`../../../../../src/passes/optimize.mbt`](../../../../../src/passes/optimize.mbt)
 - [`../../no-dwarf-default-optimize-path.md`](../../no-dwarf-default-optimize-path.md)
 - [`../tracker.md`](../tracker.md)

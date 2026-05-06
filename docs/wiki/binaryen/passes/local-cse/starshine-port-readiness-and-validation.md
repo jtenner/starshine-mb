@@ -5,6 +5,7 @@ last_reviewed: 2026-05-06
 sources:
   - ../../../raw/research/0464-2026-05-05-local-cse-port-readiness-and-validation.md
   - ../../../raw/research/0495-2026-05-06-local-cse-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0533-2026-05-06-local-cse-direct-revalidation.md
   - ../../../raw/research/0491-2026-05-05-local-cse-starshine-active-direct-pass-correction.md
   - ../../../raw/binaryen/2026-05-06-local-cse-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-local-cse-current-main-recheck.md
@@ -54,7 +55,9 @@ For the exact upstream algorithm and source/test map, read:
 ## Current readiness status
 
 Starshine now treats `local-cse` as an active direct pass.
-The owner file, direct tests, registry entry, dispatcher route, and debug-artifact evidence have landed.
+The owner file, direct tests, registry entry, dispatcher route, debug-artifact evidence, and 2026-05-06 refreshed direct-pass fuzz evidence have landed.
+
+The refreshed direct lane in `.tmp/pass-fuzz-local-cse` reached 6759/10000 compared cases with 6759 normalized matches, 0 mismatches, and 20 known Binaryen empty-recursion-group command failures.
 
 The honest remaining state is preset-slot restraint until the missing ordered neighborhoods are representable.
 
