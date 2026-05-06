@@ -5,6 +5,7 @@ last_reviewed: 2026-05-06
 sources:
   - ../../../raw/binaryen/2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-global-struct-inference-primary-sources.md
+  - ../../../raw/research/0529-2026-05-06-global-struct-inference-direct-revalidation.md
   - ../../../raw/research/0506-2026-05-06-global-struct-inference-current-main-recheck.md
   - ../../../raw/research/0344-2026-04-25-global-struct-inference-primary-sources-and-code-map-followup.md
   - ../../../raw/research/0234-2026-04-21-global-struct-inference-starshine-strategy-followup.md
@@ -75,6 +76,7 @@ So this is **not** generic whole-program struct analysis and **not** just the re
   - Binaryen wall/runtime: `197.827 ms`
   - Starshine in-pass time: `0.002 ms`
   - Binaryen in-pass time: `2.008 ms`
+- The 2026-05-06 post-fuzzer-change direct revalidation is also green: 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
 ## Most important durable takeaways
 
