@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Backlog: complete AUD002 direct-pass revalidation queue
+
+- **close the AUD002 smoke-green direct-pass revalidation queue after all listed passes were re-proven and documented** by **@OpenAI**. Updated [`agent-todo.md`](./agent-todo.md) and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate remove-unused-module-elements
 
 - **fix `remove-unused-module-elements` active-segment parity drift and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`src/passes/remove_unused_module_elements.mbt`](./src/passes/remove_unused_module_elements.mbt), [`src/passes/remove_unused_module_elements_test.mbt`](./src/passes/remove_unused_module_elements_test.mbt), [`docs/wiki/raw/research/0545-2026-05-06-rume-direct-revalidation.md`](./docs/wiki/raw/research/0545-2026-05-06-rume-direct-revalidation.md), [`docs/wiki/binaryen/passes/remove-unused-module-elements/index.md`](./docs/wiki/binaryen/passes/remove-unused-module-elements/index.md), [`docs/wiki/binaryen/passes/remove-unused-module-elements/parity.md`](./docs/wiki/binaryen/passes/remove-unused-module-elements/parity.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
