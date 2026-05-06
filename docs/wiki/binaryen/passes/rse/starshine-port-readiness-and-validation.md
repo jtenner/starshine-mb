@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
@@ -112,7 +113,7 @@ Only then should the pass enter public preset scheduling.
 - [x] Same-block repeated `local.tee` positive.
 - [x] Different overwritten value negative.
 - [x] RHS trap/effect preservation by replacing the shell, not the value expression.
-- [x] Direct Binaryen `--rse` compare-pass lane: `.tmp/pass-fuzz-rse-genvalid-10000-raw` (`10000/10000`) and `.tmp/pass-fuzz-rse-10000-raw` (`6759` comparable matches, `0` mismatches, `20` Binaryen-side command failures).
+- [x] Direct Binaryen `--rse` compare-pass lane: refreshed 2026-05-06 lane `.tmp/pass-fuzz-redundant-set-elimination` (`6759` comparable matches, `0` mismatches, `20` Binaryen-side empty-recursion-group command failures); older lanes `.tmp/pass-fuzz-rse-genvalid-10000-raw` (`10000/10000`) and `.tmp/pass-fuzz-rse-10000-raw` (`6759` comparable matches, `0` mismatches, `20` Binaryen-side command failures) remain historical evidence.
 - [x] Generated-artifact direct replay: `.tmp/self-opt-rse-native-20260426b` has normalized WAT equality via fallback and canonical function equality.
 - [x] 2026-05-05 current-main recheck stayed aligned with the same CFG/value-flow and refined-get split.
 - [ ] Branch-join same-value positive beyond the simple structured raw/HOT cases.

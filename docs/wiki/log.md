@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `redundant-set-elimination` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `redundant-set-elimination`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass redundant-set-elimination --out-dir .tmp/pass-fuzz-redundant-set-elimination`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0538-2026-05-06-rse-direct-revalidation.md` and refreshed the RSE living pages.
+- Pruned `redundant-set-elimination` from the AUD002 remaining revalidation list while keeping `[RSE]002` as the CFG value-flow, refined local-get, and late `rse -> vacuum` cleanup-slot blocker.
+
 ## [2026-05-06] validation | revalidate `optimize-casts` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `optimize-casts`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass optimize-casts --out-dir .tmp/pass-fuzz-optimize-casts`.

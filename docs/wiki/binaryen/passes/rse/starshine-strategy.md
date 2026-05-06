@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0538-2026-05-06-rse-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-rse-current-main-recheck.md
   - ../../../raw/research/0463-2026-05-05-rse-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-rse-cfg-source-correction.md
@@ -152,7 +153,7 @@ If the project wants them later, document them as separate Starshine-local exten
 3. Negative WAT tests for different overwritten writes.
 4. RHS trap/effect preservation tests.
 5. GC/ref-type local-get retargeting tests modeled on Binaryen `rse-gc.wast`.
-6. Direct `bun fuzz compare-pass ... --pass redundant-set-elimination`; current evidence is `.tmp/pass-fuzz-rse-genvalid-10000-raw` and `.tmp/pass-fuzz-rse-10000-raw` with zero mismatches on comparable cases.
+6. Direct `bun fuzz compare-pass ... --pass redundant-set-elimination`; current evidence includes `.tmp/pass-fuzz-redundant-set-elimination` from 2026-05-06 with 6759 comparable matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures.
 7. Direct debug-artifact replay; current evidence is `.tmp/self-opt-rse-native-20260426b` with normalized WAT equality via fallback and canonical function equality.
 8. Late-cluster replay with `rse -> vacuum`.
 9. Saved generated-artifact prefix replay around the historical slot `46` before declaring preset parity.
