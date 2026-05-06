@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate simplify-locals-nostructure
+
+- **refresh `simplify-locals-nostructure` and `simplify-locals-no-structure` alias direct parity evidence after fuzzer changes and prune both spellings from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0543-2026-05-06-slns-direct-revalidation.md`](./docs/wiki/raw/research/0543-2026-05-06-slns-direct-revalidation.md), [`docs/wiki/binaryen/passes/simplify-locals-nostructure/index.md`](./docs/wiki/binaryen/passes/simplify-locals-nostructure/index.md), [`docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-strategy.md`](./docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-strategy.md), [`docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/simplify-locals-nostructure/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate tuple-optimization
 
 - **refresh `tuple-optimization` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md`](./docs/wiki/raw/research/0542-2026-05-06-tuple-optimization-direct-revalidation.md), [`docs/wiki/binaryen/passes/tuple-optimization/index.md`](./docs/wiki/binaryen/passes/tuple-optimization/index.md), [`docs/wiki/binaryen/passes/tuple-optimization/parity.md`](./docs/wiki/binaryen/passes/tuple-optimization/parity.md), [`docs/wiki/binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md`](./docs/wiki/binaryen/passes/tuple-optimization/reduced-repros-and-evidence.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

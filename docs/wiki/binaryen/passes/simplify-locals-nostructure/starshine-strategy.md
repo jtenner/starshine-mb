@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
@@ -46,8 +47,10 @@ The implementation lives in `src/passes/simplify_locals.mbt` as a no-structure v
 
 Current direct evidence:
 
-- `.tmp/pass-fuzz-slns-genvalid-10000-after-raw`: `10000/10000` gen-valid comparisons, `0` mismatches, `0` command failures.
-- `.tmp/pass-fuzz-slns-10000-keepgoing-after-raw`: `9975/10000` mixed-generator comparable cases, `9975` matches, `0` mismatches; the `25` command failures are Binaryen-side parser/canonicalization families.
+- `.tmp/pass-fuzz-simplify-locals-nostructure`: refreshed 2026-05-06 mixed-generator canonical-spelling run, `6759/10000` comparable cases, `6759` matches, `0` mismatches, `20` Binaryen empty-recursion-group parser/canonicalization command failures.
+- `.tmp/pass-fuzz-simplify-locals-no-structure`: refreshed 2026-05-06 mixed-generator alias-spelling run, `6759/10000` comparable cases, `6759` matches, `0` mismatches, `20` Binaryen empty-recursion-group parser/canonicalization command failures.
+- `.tmp/pass-fuzz-slns-genvalid-10000-after-raw`: earlier `10000/10000` gen-valid comparisons, `0` mismatches, `0` command failures.
+- `.tmp/pass-fuzz-slns-10000-keepgoing-after-raw`: earlier `9975/10000` mixed-generator comparable cases, `9975` matches, `0` mismatches; the `25` command failures are Binaryen-side parser/canonicalization families.
 - `.tmp/self-opt-slns-direct-rerun`: debug-artifact direct compare is normalized-WAT and canonical-function equal; Starshine pass time `325.166ms` vs Binaryen pass time `509466.000ms` in that run.
 
 Preset placement remains conservative: the direct pass is runnable and oracle-checked, but the public `optimize` / `shrink` presets still avoid claiming the full ordered local-neighborhood slot until neighboring ordered replay is refreshed.
@@ -196,5 +199,5 @@ Current Starshine `simplify-locals-nostructure` status:
 - implemented in `src/passes/simplify_locals.mbt`
 - dispatcher and harness wiring complete
 - focused no-structure tests complete
-- direct 10k gen-valid, mixed-generator comparable, and debug-artifact self-opt oracle evidence recorded
+- refreshed 2026-05-06 direct mixed-generator evidence for both canonical spelling and alias, plus earlier direct 10k gen-valid, mixed-generator comparable, and debug-artifact self-opt oracle evidence recorded
 - public preset scheduling still deferred until ordered-neighborhood replay is proven

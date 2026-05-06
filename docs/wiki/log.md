@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `simplify-locals-nostructure` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for canonical `simplify-locals-nostructure` and alias `simplify-locals-no-structure`: `moon info`, `moon fmt`, `moon test`, then `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass <spelling> --out-dir .tmp/pass-fuzz-<spelling>`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures for each spelling; added `docs/wiki/raw/research/0543-2026-05-06-slns-direct-revalidation.md` and refreshed the `simplify-locals-nostructure` living pages.
+- Pruned both `simplify-locals-nostructure` and `simplify-locals-no-structure` from the AUD002 remaining revalidation list while keeping `[SLNS]003` as the ordered-slot and preset-readiness blocker.
+
 ## [2026-05-06] validation | revalidate `tuple-optimization` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `tuple-optimization`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass tuple-optimization --out-dir .tmp/pass-fuzz-tuple-optimization`.

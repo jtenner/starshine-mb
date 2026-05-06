@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
@@ -84,21 +85,37 @@ Current state:
 
 Direct-pass validation on the landed slice:
 
-1. `moon test src/passes`
-2. `moon test src/cmd`
-3. `bun scripts/pass-fuzz-compare.ts --starshine-bin _build/native/release/build/cmd/cmd.exe --pass simplify-locals-nostructure --generator gen-valid --count 10000 --seed 0x5eed --min-compared 10000 --max-failures 20 --out-dir .tmp/pass-fuzz-slns-genvalid-10000-after-raw`
-   - `10000/10000` compared
-   - `10000` normalized matches
-   - `0` mismatches, validation failures, generator failures, or command failures
-4. `bun scripts/pass-fuzz-compare.ts --starshine-bin _build/native/release/build/cmd/cmd.exe --pass simplify-locals-nostructure --count 10000 --seed 0x5eed --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-slns-10000-keepgoing-after-raw`
-   - `9975/10000` comparable mixed-generator cases
-   - `9975` normalized matches
-   - `0` mismatches
-   - `25` Binaryen-side command failures (`binaryen-rec-group-zero`, `binaryen-bad-section-size`, `binaryen-table-index-out-of-range`, `binaryen-invalid-tag-index`)
-5. `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-slns-direct-rerun --simplify-locals-nostructure`
-   - normalized WAT equal through fallback
-   - canonical function compare equal
-   - Starshine pass time `325.166ms`; Binaryen pass time `509466.000ms` in this run
+1. 2026-05-06 refreshed standard signoff:
+   - `moon info`
+   - `moon fmt`
+   - `moon test`
+   - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass simplify-locals-nostructure --out-dir .tmp/pass-fuzz-simplify-locals-nostructure`
+     - `6759/10000` comparable mixed-generator cases
+     - `6759` normalized matches
+     - `0` mismatches, validation failures, or generator failures
+     - `20` Binaryen empty-recursion-group parser/canonicalization command failures
+   - `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass simplify-locals-no-structure --out-dir .tmp/pass-fuzz-simplify-locals-no-structure`
+     - `6759/10000` comparable mixed-generator cases
+     - `6759` normalized matches
+     - `0` mismatches, validation failures, or generator failures
+     - `20` Binaryen empty-recursion-group parser/canonicalization command failures
+2. Earlier landed-slice focused evidence:
+   - `moon test src/passes`
+   - `moon test src/cmd`
+   - `bun scripts/pass-fuzz-compare.ts --starshine-bin _build/native/release/build/cmd/cmd.exe --pass simplify-locals-nostructure --generator gen-valid --count 10000 --seed 0x5eed --min-compared 10000 --max-failures 20 --out-dir .tmp/pass-fuzz-slns-genvalid-10000-after-raw`
+     - `10000/10000` compared
+     - `10000` normalized matches
+     - `0` mismatches, validation failures, generator failures, or command failures
+   - `bun scripts/pass-fuzz-compare.ts --starshine-bin _build/native/release/build/cmd/cmd.exe --pass simplify-locals-nostructure --count 10000 --seed 0x5eed --max-failures 20 --keep-going-after-command-failures --out-dir .tmp/pass-fuzz-slns-10000-keepgoing-after-raw`
+     - `9975/10000` comparable mixed-generator cases
+     - `9975` normalized matches
+     - `0` mismatches
+     - `25` Binaryen-side command failures (`binaryen-rec-group-zero`, `binaryen-bad-section-size`, `binaryen-table-index-out-of-range`, `binaryen-invalid-tag-index`)
+3. Earlier artifact evidence:
+   - `bun scripts/self-optimize-compare.ts tests/node/dist/starshine-debug-wasi.wasm --out-dir .tmp/self-opt-slns-direct-rerun --simplify-locals-nostructure`
+     - normalized WAT equal through fallback
+     - canonical function compare equal
+     - Starshine pass time `325.166ms`; Binaryen pass time `509466.000ms` in this run
 
 ## Remaining validation before preset placement
 
@@ -113,6 +130,7 @@ Keep those preset claims separate from direct-pass signoff so the tracker can sa
 
 ## Sources
 
+- [`../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md`](../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md`](../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md)

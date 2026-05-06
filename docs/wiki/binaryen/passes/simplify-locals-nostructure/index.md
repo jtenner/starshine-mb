@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: working
-last_reviewed: 2026-05-04
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-04-simplify-locals-nostructure-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md
   - ../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md
@@ -75,7 +76,7 @@ That is narrower than “full simplify-locals.”
   - one-armed `if` speculative else-side `local.get` insertion
 - The first fixpoint cycle is still stricter than later ones: it only sinks easy single-use locals.
 - The main analysis is deliberately linear-trace based and uses directional effect invalidation instead of whole-function CFG reasoning.
-- Current Starshine has a direct transform for this pass: it reuses the existing local-sink/dead-cleanup cycles from full `simplify-locals` while disabling structure-result rewrites, and its direct oracle evidence is recorded in the strategy page.
+- Current Starshine has a direct transform for this pass: it reuses the existing local-sink/dead-cleanup cycles from full `simplify-locals` while disabling structure-result rewrites. The 2026-05-06 refreshed harness revalidation recorded 6759 compared canonical-spelling cases plus 6759 compared alias-spelling cases with 0 mismatches; direct oracle evidence is recorded in the strategy and validation pages.
 
 ## Page map
 
@@ -95,11 +96,12 @@ That is narrower than “full simplify-locals.”
 ## Current maintenance rule
 
 - Treat this folder as the canonical home for `simplify-locals-nostructure` research, direct-pass validation, and preset-neighborhood planning.
-- Keep direct-pass evidence and ordered-preset status separate: the pass is active, but public `optimize` / `shrink` placement still needs ordered replay.
+- Keep direct-pass evidence and ordered-preset status separate: the pass and its `simplify-locals-no-structure` alias are active and revalidated after the 2026-05-06 harness changes, but public `optimize` / `shrink` placement still needs ordered replay.
 - New `simplify-locals-nostructure` findings should update the strategy, implementation/test-map, variant-surface, and Starshine pages together so the upstream algorithm, source proof surface, variant boundary, and local port story stay aligned.
 
 ## Sources
 
+- [`../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md`](../../../raw/research/0543-2026-05-06-slns-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
 - [`../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md`](../../../raw/binaryen/2026-04-22-simplify-locals-nostructure-primary-sources.md)
 - [`../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md`](../../../raw/research/0368-2026-04-25-simplify-locals-nostructure-current-main-and-test-map.md)
