@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md
   - ../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -113,7 +114,9 @@ Current shipped coverage proves:
 - the CLI path accepts `--local-subtyping`;
 - the default optimize preset keeps the pass in the `heap2local -> local-subtyping -> coalesce-locals -> local-cse -> simplify-locals` neighborhood.
 
-The next parity tests should cover:
+The 2026-05-06 refreshed direct pass signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`. The fuzz lane reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
+
+The next full-contract parity tests should cover:
 
 1. nullable-to-non-null behavior;
 2. `local.tee` retagging;

@@ -3,6 +3,7 @@ kind: concept
 status: supported
 last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md
   - ../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -96,6 +97,8 @@ Current coverage should stay green first:
 3. mixed-sibling common-parent narrowing;
 4. CLI `--local-subtyping` end-to-end replay;
 5. optimize-preset slot coverage.
+
+Refreshed direct signoff on 2026-05-06 ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass local-subtyping --out-dir .tmp/pass-fuzz-local-subtyping`. The fuzz lane reported 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
 
 Then grow coverage in this order:
 

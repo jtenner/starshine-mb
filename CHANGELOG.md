@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate local-subtyping
+
+- **refresh `local-subtyping` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md`](./docs/wiki/raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md), [`docs/wiki/binaryen/passes/local-subtyping/index.md`](./docs/wiki/binaryen/passes/local-subtyping/index.md), [`docs/wiki/binaryen/passes/local-subtyping/starshine-strategy.md`](./docs/wiki/binaryen/passes/local-subtyping/starshine-strategy.md), [`docs/wiki/binaryen/passes/local-subtyping/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/local-subtyping/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate local-cse
 
 - **refresh `local-cse` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0533-2026-05-06-local-cse-direct-revalidation.md`](./docs/wiki/raw/research/0533-2026-05-06-local-cse-direct-revalidation.md), [`docs/wiki/binaryen/passes/local-cse/index.md`](./docs/wiki/binaryen/passes/local-cse/index.md), [`docs/wiki/binaryen/passes/local-cse/starshine-strategy.md`](./docs/wiki/binaryen/passes/local-cse/starshine-strategy.md), [`docs/wiki/binaryen/passes/local-cse/starshine-port-readiness-and-validation.md`](./docs/wiki/binaryen/passes/local-cse/starshine-port-readiness-and-validation.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

@@ -3,6 +3,7 @@ kind: entity
 status: supported
 last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md
   - ../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md
   - ../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md
@@ -68,7 +69,8 @@ That is enough to explain current Starshine behavior without pretending it alrea
 - `src/cmd/cmd_wbtest.mbt` proves the `--local-subtyping` CLI path works on wasm inputs.
 - `src/passes/optimize.mbt`, `src/passes/pass_manager.mbt`, `src/passes/registry_test.mbt`, and `src/passes/optimize_test.mbt` prove registry, dispatcher, and preset-slot wiring.
 - The current implementation only looks at write-site evidence; it does not yet inspect gets for dominance or repair.
-- The tracked parity gap is explicit, not accidental, so the active implementation can keep moving while the Binaryen delta stays visible.
+- The 2026-05-06 direct revalidation lane for `--local-subtyping` reached 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures under seed `0x5eed`.
+- The tracked full-contract parity gap is explicit, not accidental, so the active implementation can keep moving while the Binaryen delta stays visible.
 
 ## Page map
 
@@ -93,6 +95,7 @@ That is enough to explain current Starshine behavior without pretending it alrea
 
 ## Sources
 
+- [`../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md`](../../../raw/research/0534-2026-05-06-local-subtyping-direct-revalidation.md)
 - [`../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md`](../../../raw/research/0507-2026-05-06-local-subtyping-starshine-active-implementation-correction.md)
 - [`../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-local-subtyping-current-main-recheck.md)
 - [`../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md`](../../../raw/binaryen/2026-04-25-local-subtyping-implementation-test-map-source-correction.md)
