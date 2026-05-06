@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `pick-load-signs` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `pick-load-signs`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass pick-load-signs --out-dir .tmp/pass-fuzz-pick-load-signs`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md` and refreshed the pick-load-signs living pages.
+- Pruned `pick-load-signs` from the AUD002 remaining revalidation list while keeping the documented Starshine-vs-upstream i64 scope difference explicit.
+
 ## [2026-05-06] validation | revalidate `heap2local` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `heap2local`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass heap2local --out-dir .tmp/pass-fuzz-heap2local`.

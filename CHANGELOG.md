@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate pick-load-signs
+
+- **refresh `pick-load-signs` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md`](./docs/wiki/raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md), [`docs/wiki/binaryen/passes/pick-load-signs/index.md`](./docs/wiki/binaryen/passes/pick-load-signs/index.md), [`docs/wiki/binaryen/passes/pick-load-signs/parity.md`](./docs/wiki/binaryen/passes/pick-load-signs/parity.md), [`docs/wiki/binaryen/passes/pick-load-signs/starshine-strategy.md`](./docs/wiki/binaryen/passes/pick-load-signs/starshine-strategy.md), [`docs/wiki/binaryen/passes/pick-load-signs/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/pick-load-signs/starshine-hot-ir-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Passes: revalidate heap2local
 
 - **refresh `heap2local` direct parity evidence after fuzzer changes and prune it from the AUD002 revalidation queue** by **@OpenAI**. Updated [`docs/wiki/raw/research/0531-2026-05-06-heap2local-direct-revalidation.md`](./docs/wiki/raw/research/0531-2026-05-06-heap2local-direct-revalidation.md), [`docs/wiki/binaryen/passes/heap2local/index.md`](./docs/wiki/binaryen/passes/heap2local/index.md), [`docs/wiki/binaryen/passes/heap2local/parity.md`](./docs/wiki/binaryen/passes/heap2local/parity.md), [`docs/wiki/binaryen/passes/heap2local/starshine-hot-ir-strategy.md`](./docs/wiki/binaryen/passes/heap2local/starshine-hot-ir-strategy.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

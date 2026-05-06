@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0532-2026-05-06-pick-load-signs-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/research/0455-2026-05-05-pick-load-signs-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-22-pick-load-signs-primary-sources.md
@@ -44,7 +45,7 @@ The registry surface in [`../../../../../src/passes/optimize.mbt`](../../../../.
 
 The active descriptor in [`../../../../../src/passes/pick_load_signs.mbt`](../../../../../src/passes/pick_load_signs.mbt) requires `use_def` and invalidates the same broad hot analyses the pass rewrites can disturb.
 
-A 2026-05-05 current-main bridge recheck of upstream Binaryen found no teaching-relevant drift on the reviewed surfaces, so the only standing divergence to keep explicit here is the broader local i64 HOT surface.
+A 2026-05-05 current-main bridge recheck of upstream Binaryen found no teaching-relevant drift on the reviewed surfaces, and a 2026-05-06 refreshed direct signoff reached 6759 compared cases with 0 semantic mismatches. The only standing divergence to keep explicit here is the broader local i64 HOT surface.
 
 That means the local pass is not a stub or removed-name alias.
 It is a real HOT pass with a dedicated MoonBit owner file, tests, and replay lanes.
