@@ -1,8 +1,9 @@
 ---
 kind: comparison
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
@@ -50,9 +51,16 @@ related:
 - It stays out of the `optimize` and `shrink` presets until `simplify-locals-nostructure`, `local-subtyping`, and `coalesce-locals` land and the neighboring Binaryen slots can be modeled honestly.
 - Representation-stable comparison, local-name rewrite correctness, and explicit module-pass coverage are the current honest signoff targets.
 
-## Remaining Parity Gap
+## Refreshed Direct Signoff
 
-- The remaining raw mismatch is still not the sort comparator itself.
+- The 2026-05-06 post-fuzzer-change direct signoff ran `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass reorder-locals --out-dir .tmp/pass-fuzz-reorder-locals`.
+- The compare lane reached 6759 / 10000 compared cases, 6759 normalized matches, 0 semantic mismatches, 0 validation failures, 0 generator failures, and 20 Binaryen empty-recursion-group parser/canonicalization command failures.
+- Those command failures are the same Binaryen-side empty-recursion-group failure class seen across the refreshed direct-pass lanes, not Starshine/Binaryen semantic output drift.
+
+## Historical Parity Gap
+
+- Older raw mismatch evidence below is superseded for direct AUD002 purposes by the 2026-05-06 zero-mismatch run, but remains useful background for Binaryen boundary controls.
+- The remaining historical raw mismatch was not the sort comparator itself.
 - `2026-04-11` `--pass reorder-locals` smoke evidence on `version_129` from `both` generator:
   - `199 / 200` compared
   - `198` normalized matches

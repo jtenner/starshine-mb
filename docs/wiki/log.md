@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] validation | revalidate `reorder-locals` direct pass
+
+- Ran the post-fuzzer-change direct signoff lane for `reorder-locals`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass reorder-locals --out-dir .tmp/pass-fuzz-reorder-locals`.
+- Recorded 6759 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group parser/canonicalization command failures; added `docs/wiki/raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md` and refreshed the reorder-locals living pages.
+- Pruned `reorder-locals` from the AUD002 remaining revalidation list while keeping `[RL]003` as the boundary-policy and artifact-compare blocker for preset readiness.
+
 ## [2026-05-06] validation | revalidate `remove-unused-nonfunction-module-elements` direct pass
 
 - Ran the post-fuzzer-change direct signoff lane for `remove-unused-nonfunction-module-elements`: `moon info`, `moon fmt`, `moon test`, and `bun scripts/pass-fuzz-compare.ts --count 10000 --seed 0x5eed --pass remove-unused-nonfunction-module-elements --out-dir .tmp/pass-fuzz-remove-unused-nonfunction-module-elements`.

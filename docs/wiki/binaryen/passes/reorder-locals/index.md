@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
@@ -54,6 +55,7 @@ related:
 ## Role
 
 - `reorder-locals` is an active implemented **module pass** in Starshine.
+- A 2026-05-06 refreshed direct signoff reached 6759/10000 compared cases with 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures; see [`../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md`](../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md).
 - In upstream Binaryen `version_129`, `pass.cpp` describes it as:
   - sorts locals by access frequency
 

@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/research/0472-2026-05-05-reorder-locals-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-27-reorder-locals-validation-primary-sources.md
@@ -36,6 +37,7 @@ related:
 This page describes the **current local MoonBit implementation**, not the full upstream Binaryen `ReorderLocals.cpp` contract. For signoff sequencing and the distinction between explicit-pass correctness and preset-readiness, use [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 
 The 2026-05-05 current-main recheck keeps the current policy explicit: the standalone module pass is active, while public `optimize` / `shrink` scheduling remains guarded by `src/passes/optimize_test.mbt:390` until neighboring local-pass coverage and ordered no-DWARF replay evidence are ready.
+The 2026-05-06 refreshed direct signoff then re-proved the explicit pass with 6759/10000 compared cases, 6759 normalized matches, 0 semantic mismatches, and 20 Binaryen empty-recursion-group command failures; see [`../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md`](../../../raw/research/0540-2026-05-06-reorder-locals-direct-revalidation.md).
 For the immutable manifests of the reviewed official Binaryen release, source, and dedicated test URLs behind the comparison on this page, see [`../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md`](../../../raw/binaryen/2026-04-22-reorder-locals-primary-sources.md) and [`../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-reorder-locals-current-main-recheck.md).
 
 ## Current local surface
