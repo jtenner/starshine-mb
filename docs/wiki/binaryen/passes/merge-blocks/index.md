@@ -1,8 +1,9 @@
 ---
 kind: entity
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md
@@ -136,7 +137,9 @@ Those are related strategies, but not the same implementation.
 ## Current local status summary
 
 - The explicit Starshine pass exists and is wired into the pass manager and CLI.
-- The 2026-05-05 anchor recheck only corrected local line-map references; the upstream helper-driven contract stayed the same.
+- The 2026-05-06 direct revalidation closed the post-fuzzer-change `merge-blocks` backlog slice: `.tmp/pass-fuzz-merge-blocks` compared `9975/10000` cases with `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures, all from wasm-smith lanes.
+- The same run kept all `5000` `gen-valid` cases comparable and matching.
+- The 2026-05-06 debug-artifact `--merge-blocks` compare on `tests/node/dist/starshine-debug-wasi.wasm` had normalized WAT equality and canonical function equality; raw/canonical wasm and normalized WAT text still differ, but not at the normalized/function compare level used for this direct pass.
 - `src/passes/registry_test.mbt` classifies it as an active hot pass.
 - `src/passes/optimize_test.mbt` proves that both public presets replay it twice in the late cleanup cluster.
 - `src/passes/merge_blocks_test.mbt` is a substantial direct proof surface for live-label gating, typed carriers, `unreachable` suffix repair, and Binaryen-stable lowering families.
@@ -155,10 +158,11 @@ For documentation work, validate by cross-reading:
 7. [`./starshine-strategy.md`](./starshine-strategy.md)
 8. [`./starshine-hot-ir-strategy.md`](./starshine-hot-ir-strategy.md)
 
-For implementation work, run at minimum the pass and command test lanes, then a pass-targeted Binaryen comparison if behavior changes.
+For implementation work, run at minimum the pass and command test lanes, then a pass-targeted Binaryen comparison if behavior changes. The latest full direct evidence is captured in [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md).
 
 ## Sources
 
+- [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md)
 - [`../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)

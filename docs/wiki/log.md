@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | revalidate `merge-blocks` direct parity after fuzzer changes
+
+- Added `docs/wiki/raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md` after rerunning `moon info`, `moon fmt`, `moon test`, mixed-generator direct `pass-fuzz-compare` for `--merge-blocks`, and debug-artifact `self-optimize-compare` for `--merge-blocks`.
+- Recorded fresh parity evidence: `.tmp/pass-fuzz-merge-blocks` compared `9975/10000` cases with `9975` normalized matches, `0` mismatches, and `25` Binaryen/tool command failures confined to wasm-smith lanes; all `5000` gen-valid cases compared and matched.
+- Refreshed the `merge-blocks` landing and Starshine strategy pages plus the shared wiki/pass tracker entries, then pruned `[MB]003` and removed `merge-blocks` from `[AUD]002` because no active direct Starshine-side `merge-blocks` bug remains.
+
 ## [2026-05-06] audit | run full pass-surface smoke audit against registry and wiki
 
 - Added `docs/wiki/raw/research/0513-2026-05-06-starshine-pass-audit.md` after enumerating the current pass registry from `src/passes/optimize.mbt`, checking dispatcher surfaces in `src/passes/pass_manager.mbt`, confirming dossier coverage for every tracked pass spelling, cross-checking the top-level pass catalogs, and adding temporary audit-warning notes to `docs/wiki/binaryen/passes/tracker.md` and `docs/wiki/binaryen/passes/index.md`.

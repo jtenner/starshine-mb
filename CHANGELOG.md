@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Passes: revalidate merge-blocks
+
+- **refresh `merge-blocks` direct parity evidence after fuzzer changes, prove debug-artifact normalized/function equality, and prune the completed backlog items** by **@OpenAI**. Updated [`docs/wiki/raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](./docs/wiki/raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md), [`docs/wiki/binaryen/passes/merge-blocks/index.md`](./docs/wiki/binaryen/passes/merge-blocks/index.md), [`docs/wiki/binaryen/passes/merge-blocks/starshine-strategy.md`](./docs/wiki/binaryen/passes/merge-blocks/starshine-strategy.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Audit: record pass-surface findings and revalidation backlog
 
 - **audit the live Starshine pass registry against the wiki, run a direct compare-pass smoke sweep over all active direct pass spellings, record fresh mismatch families, and add explicit backlog items for post-fuzzer-change revalidation** by **@OpenAI**. Updated [`docs/wiki/raw/research/0513-2026-05-06-starshine-pass-audit.md`](./docs/wiki/raw/research/0513-2026-05-06-starshine-pass-audit.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), [`agent-todo.md`](./agent-todo.md), and [`CHANGELOG.md`](./CHANGELOG.md).

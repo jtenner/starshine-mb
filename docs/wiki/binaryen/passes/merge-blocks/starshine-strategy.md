@@ -1,8 +1,9 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md
   - ../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md
   - ../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md
@@ -91,6 +92,18 @@ That makes Starshine intentionally narrower in one direction and broader in anot
 | `src/cmd/cmd_wbtest.mbt` | `1959-1993` | direct `--merge-blocks` CLI surface. |
 | `src/ir/hot_lower_test.mbt` | `1861-2506` | neighboring lower/writeback tests for Binaryen-stable typed carrier output. |
 
+## Latest validation evidence
+
+The 2026-05-06 direct revalidation ran `moon info`, `moon fmt`, `moon test`, mixed-generator `pass-fuzz-compare` for `--merge-blocks`, and debug-artifact `self-optimize-compare` for `--merge-blocks`.
+
+Key outcomes:
+
+- `moon test`: `2798` passed, `0` failed.
+- `.tmp/pass-fuzz-merge-blocks`: `9975/10000` comparable cases, `9975` normalized matches, `0` mismatches, `25` Binaryen/tool command failures in wasm-smith lanes.
+- debug artifact: normalized WAT equality and canonical function equality; Starshine pass runtime `214.434 ms` versus Binaryen pass runtime `1526.350 ms`.
+
+See [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md).
+
 ## Reading order
 
 1. [`./index.md`](./index.md)
@@ -101,6 +114,7 @@ That makes Starshine intentionally narrower in one direction and broader in anot
 
 ## Sources
 
+- [`../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md`](../../../raw/research/0514-2026-05-06-merge-blocks-direct-revalidation.md)
 - [`../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/binaryen/2026-05-05-merge-blocks-current-main-anchor-recheck.md)
 - [`../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md`](../../../raw/research/0472-2026-05-05-merge-blocks-current-main-anchor-recheck.md)
 - [`../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md`](../../../raw/binaryen/2026-05-04-merge-blocks-current-main-refresh.md)
