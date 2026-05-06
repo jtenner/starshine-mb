@@ -1,8 +1,10 @@
 ---
 kind: pass
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
   - ../../../raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
@@ -14,6 +16,8 @@ sources:
   - ../../../../../src/passes/optimize.mbt
   - ../../../../../src/wast/types.mbt
   - ../../../../../src/validate/typecheck.mbt
+  - ../../../../../src/binary/decode.mbt
+  - ../../../../../src/lib/show.mbt
 related:
   - ./binaryen-strategy.md
   - ./implementation-structure-and-tests.md
@@ -36,7 +40,7 @@ The pass takes the five sign-extension opcodes:
 - `i64.extend16_s`
 - `i64.extend32_s`
 
-and rewrites them to older same-width shift pairs. After that rewrite, Binaryen clears its `SignExt` feature bit for the module. The goal is not to make code smaller or faster. The goal is to make a module that uses sign-extension opcodes representable on targets that do not support the sign-extension feature directly. See the raw source capture in [`../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md) and the 2026-05-05 current-main bridge in [`../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md).
+and rewrites them to older same-width shift pairs. After that rewrite, Binaryen clears its `SignExt` feature bit for the module. The goal is not to make code smaller or faster. The goal is to make a module that uses sign-extension opcodes representable on targets that do not support the sign-extension feature directly. See the raw source capture in [`../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md), the 2026-05-05 current-main bridge in [`../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md), and the 2026-05-06 line-anchor refresh in [`../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md). The same opcode family also roundtrips through the local binary decoder and pretty-printer, though the printer still uses underscoreless spellings today.
 
 ## Current Starshine status
 

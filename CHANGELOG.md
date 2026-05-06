@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-05-06 Wiki: tighten `signext-lowering` line anchors
+
+- **add a 2026-05-06 current-main line-anchor refresh manifest and matching research note for the `signext-lowering` dossier, plus decode/show caveat updates across the living pages** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md`](./docs/wiki/raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md), [`docs/wiki/raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md`](./docs/wiki/raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md), [`docs/wiki/binaryen/passes/signext-lowering/`](./docs/wiki/binaryen/passes/signext-lowering/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).
+
 ## 2026-05-06 Wiki: refresh `const-hoisting` current-main bridge
 
 - **add a 2026-05-06 current-main recheck manifest, matching research note, and freshness-layer refresh for the `const-hoisting` dossier** by **@OpenAI**. Updated [`docs/wiki/raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md`](./docs/wiki/raw/binaryen/2026-05-06-const-hoisting-current-main-recheck.md), [`docs/wiki/raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md`](./docs/wiki/raw/research/0508-2026-05-06-const-hoisting-current-main-recheck.md), [`docs/wiki/binaryen/passes/const-hoisting/`](./docs/wiki/binaryen/passes/const-hoisting/), [`docs/wiki/index.md`](./docs/wiki/index.md), [`docs/wiki/binaryen/passes/index.md`](./docs/wiki/binaryen/passes/index.md), [`docs/wiki/binaryen/passes/tracker.md`](./docs/wiki/binaryen/passes/tracker.md), [`docs/wiki/log.md`](./docs/wiki/log.md), and [`CHANGELOG.md`](./CHANGELOG.md).

@@ -1,8 +1,10 @@
 ---
 kind: concept
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
   - ../../../raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
@@ -19,6 +21,7 @@ sources:
   - ../../../../../src/wast/lower_to_lib.mbt
   - ../../../../../src/lib/types.mbt
   - ../../../../../src/binary/encode.mbt
+  - ../../../../../src/binary/decode.mbt
   - ../../../../../src/validate/typecheck.mbt
   - ../../../../../src/ir/hot_lift.mbt
   - ../../../../../src/passes/pick_load_signs.mbt
@@ -82,10 +85,11 @@ Starshine currently has prerequisite instruction support, not a `signext-lowerin
 | [`src/wast/lower_to_lib.mbt:1284-1288`](../../../../../src/wast/lower_to_lib.mbt) | WAT opcodes lower to library instructions. | Bridge from parsed WAT to lib IR. |
 | [`src/lib/types.mbt:715-719`](../../../../../src/lib/types.mbt), [`src/lib/types.mbt:3940-3961`](../../../../../src/lib/types.mbt), [`src/lib/types.mbt:5882-5903`](../../../../../src/lib/types.mbt) | Lib instruction and unary-op cases plus constructors exist. | Likely transform-building surface. |
 | [`src/binary/encode.mbt:2561-2565`](../../../../../src/binary/encode.mbt) | Binary encoder emits opcode bytes `0xC0` through `0xC4`. | Confirms current binaries can still contain direct sign-extension opcodes. |
+| [`src/binary/decode.mbt:2901-2905`](../../../../../src/binary/decode.mbt) | Binary decoder maps bytes `0xC0` through `0xC4` back to the five sign-extension constructors. | Confirms binary roundtrip for the direct opcodes. |
+| [`src/lib/show.mbt:1317-1321`](../../../../../src/lib/show.mbt) | Pretty-printer emits underscoreless spellings like `i32.extend8s`. | WAT-golden tests should normalize or intentionally assert the hygiene gap. |
 | [`src/validate/typecheck.mbt:3464-3468`](../../../../../src/validate/typecheck.mbt), [`src/validate/typecheck.mbt:5482-5521`](../../../../../src/validate/typecheck.mbt) | Typechecker handles and tests the unary same-type stack behavior. | Validation baseline for before/after tests. |
 | [`src/ir/hot_lift.mbt:847-851`](../../../../../src/ir/hot_lift.mbt) | HOT lifting classifies all five as unary HOT ops. | Makes a HOT rewrite feasible if feature cleanup is separate. |
 | [`src/passes/pick_load_signs.mbt:437-441`](../../../../../src/passes/pick_load_signs.mbt) | Neighboring pass recognizes sign-extension consumers for load-sign selection. | Confirms this should stay separate from `pick-load-signs`. |
-| [`src/lib/show.mbt:1317-1321`](../../../../../src/lib/show.mbt) | Pretty-printer currently emits no-underscore spellings like `i32.extend8s`. | Future WAT-golden tests should handle or fix this hygiene issue. |
 
 ## Future Starshine test plan
 

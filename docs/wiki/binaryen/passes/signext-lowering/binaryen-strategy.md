@@ -1,8 +1,10 @@
 ---
 kind: strategy
 status: supported
-last_reviewed: 2026-05-05
+last_reviewed: 2026-05-06
 sources:
+  - ../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
+  - ../../../raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md
   - ../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md
   - ../../../raw/research/0466-2026-05-05-signext-lowering-current-main-recheck.md
   - ../../../raw/binaryen/2026-04-26-signext-lowering-port-readiness-primary-sources.md
@@ -21,7 +23,15 @@ related:
 
 # Binaryen strategy for `signext-lowering`
 
-Binaryen implements `signext-lowering` as a small feature-lowering pass, not as a broad optimizer. The reviewed `version_129` implementation lives in `src/passes/SignExtLowering.cpp`; registration and factory plumbing live in `src/passes/pass.cpp` and `src/passes/passes.h`; the dedicated instruction-shape proof is `test/lit/passes/signext-lowering.wast`. The primary-source manifests are [`../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md), [`../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md`](../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md), and the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md).
+Binaryen implements `signext-lowering` as a small feature-lowering pass, not as a broad optimizer. The reviewed `version_129` implementation lives in `src/passes/SignExtLowering.cpp`; registration and factory plumbing live in `src/passes/pass.cpp` and `src/passes/passes.h`; the dedicated instruction-shape proof is `test/lit/passes/signext-lowering.wast`. The primary-source manifests are [`../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md`](../../../raw/binaryen/2026-04-25-signext-lowering-primary-sources.md), [`../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md`](../../../raw/binaryen/2026-04-25-signext-lowering-implementation-test-map-source-correction.md), the 2026-05-05 current-main recheck in [`../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-signext-lowering-current-main-recheck.md), and the 2026-05-06 line-anchor refresh in [`../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md`](../../../raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md).
+
+## Primary-source line map
+
+| Source | Current main line anchors | What they show |
+| --- | --- | --- |
+| `src/passes/SignExtLowering.cpp` | [`main#L437-L540`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/SignExtLowering.cpp#L437-L540) | The function-parallel postwalk, five opcode cases, child reuse, root replacement, and `FeatureSet::SignExt` clearing. |
+| `src/passes/pass.cpp` | [`main#L3110-L3116`](https://github.com/WebAssembly/binaryen/blob/main/src/passes/pass.cpp#L3110-L3116) | Public `signext-lowering` registration and help text. |
+| `test/lit/passes/signext-lowering.wast` | [`main#L374-L493`](https://github.com/WebAssembly/binaryen/blob/main/test/lit/passes/signext-lowering.wast#L374-L493) | The five-opcode output proof surface. |
 
 ## Execution shape
 

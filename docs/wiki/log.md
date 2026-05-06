@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | tighten `signext-lowering` source anchors and decode/show caveat
+
+- Added `docs/wiki/raw/binaryen/2026-05-06-signext-lowering-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0510-2026-05-06-signext-lowering-current-main-line-anchor-refresh.md` after checking the official Binaryen `main` line anchors for `SignExtLowering.cpp`, `pass.cpp`, and `signext-lowering.wast`.
+- Refreshed the `signext-lowering` index, Binaryen strategy, implementation/test-map, WAT-shape catalog, Starshine strategy, Starshine port-readiness page, and the shared wiki/pass catalogs so the folder now names the exact current-main line anchors and the local binary decode / pretty-printer caveat explicitly.
+- Recorded unchanged contract status: Binaryen still uses the same five-opcode shift-pair + feature-clear contract, and Starshine still keeps the pass unimplemented.
+
 ## [2026-05-06] health | refresh `remove-unused-non-function-elements` line anchors and source bridge
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md` plus `docs/wiki/raw/research/0509-2026-05-06-remove-unused-non-function-elements-current-main-line-anchor-refresh.md` after rechecking current Binaryen `RemoveUnusedModuleElements.cpp`, `pass.cpp`, `passes.h`, `module-utils.h`, and `remove-unused-nonfunction-module-elements_all-features.wast` against the existing contract.
