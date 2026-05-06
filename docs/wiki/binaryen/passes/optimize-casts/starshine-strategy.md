@@ -31,6 +31,7 @@ related:
   - ./implementation-structure-and-tests.md
   - ./two-phase-dataflow.md
   - ./wat-shapes.md
+  - ./starshine-port-readiness-and-validation.md
   - ../heap2local/index.md
   - ../local-subtyping/index.md
   - ../coalesce-locals/index.md
@@ -39,7 +40,7 @@ related:
 
 # Starshine Strategy For `optimize-casts`
 
-Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md), the current-main implementation/test bridge in [`../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md), and the 2026-05-05 freshness recheck in [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md).
+Use this page together with the raw primary-source manifest in [`../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md`](../../../raw/binaryen/2026-04-22-optimize-casts-primary-sources.md), the current-main implementation/test bridge in [`../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md`](../../../raw/binaryen/2026-04-25-optimize-casts-current-main-and-test-map.md), the 2026-05-05 freshness recheck in [`../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md`](../../../raw/binaryen/2026-05-05-optimize-casts-current-main-recheck.md), and the dedicated port-readiness bridge in [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md).
 The goal here is not to re-explain upstream Binaryen, but to show the exact current Starshine status, the local code and doc surfaces that already track the pass, and the concrete neighboring implementation areas a future port would have to hook into.
 
 ## The honest current status
@@ -84,7 +85,7 @@ The fastest read-along path through the current Starshine status is:
 
 The implementation/test-map page adds the exact reusable local primitive map for a future port: `src/lib/types.mbt:723-764`, `src/lib/types.mbt:3995-3996`, `src/lib/types.mbt:4170-4171`, `src/wast/lower_to_lib.mbt:1297-1298`, `src/binary/encode.mbt:2580`, `src/binary/encode.mbt:2897-2912`, `src/binary/decode.mbt:3116-3124`, `src/validate/typecheck.mbt:3228`, `src/validate/typecheck.mbt:3265`, `src/ir/hot_core.mbt:70-73`, `src/ir/hot_flags.mbt:81`, `src/ir/hot_lift.mbt:612-625`, `src/ir/hot_lift.mbt:764-818`, and `src/ir/hot_lower.mbt:1080-1084`.
 
-That code-and-doc map is the practical addition in this follow-up: readers can now jump directly from the upstream algorithm to the exact local status and future landing zone.
+The readiness bridge now owns the implementation ladder and validation order so this page can stay focused on current status, scope honesty, and exact local code-map pointers.
 
 ## What Starshine currently does for this pass name
 
@@ -219,30 +220,9 @@ So the current repo status is best summarized as:
 - neighboring GC/local passes documented
 - transform itself not yet landed
 
-## Validation plan for the eventual port
+## Validation bridge
 
-The existing backlog plus neighboring pass docs imply the right validation ladder.
-A future real implementation should validate in this order:
-
-1. reduced shape tests for the real upstream families
-   - earlier `ref.cast` duplication in strict linear windows
-   - earlier `ref.as_non_null` duplication only when the target local is nullable
-   - later refined-local reuse via fresh carrier locals
-2. negative correctness tests
-   - same-index `local.set` barriers
-   - side-effect and call barriers for earlier motion
-   - non-linear-window bailouts
-   - unsupported `ref.test` and other wider cast-family negatives
-3. cluster interaction tests
-   - `heap2local -> optimize-casts`
-   - `optimize-casts -> local-subtyping`
-   - `local-subtyping -> coalesce-locals`
-   - `coalesce-locals -> local-cse`
-4. artifact and oracle comparison
-   - the `OC` slice in `agent-todo.md`
-   - the canonical no-DWARF debug-artifact replay path
-
-That is more useful locally than a generic “compare with Binaryen later” note because it points directly at the in-repo workflow and keeps the pass-scope warning explicit.
+See [`./starshine-port-readiness-and-validation.md`](./starshine-port-readiness-and-validation.md) for the implementation ladder, negative families, neighborhood order, and oracle comparison plan.
 
 ## Bottom line
 

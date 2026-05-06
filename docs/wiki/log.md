@@ -2,6 +2,12 @@
 
 Append new entries; do not rewrite prior history except to fix obvious formatting mistakes or redact sensitive data.
 
+## [2026-05-06] health | add `optimize-casts` port-readiness bridge and source note
+
+- Added raw research note `docs/wiki/raw/research/0500-2026-05-06-optimize-casts-starshine-port-readiness.md` plus `docs/wiki/binaryen/passes/optimize-casts/starshine-port-readiness-and-validation.md` after rechecking current Binaryen `OptimizeCasts.cpp`, `pass.cpp`, and `optimize-casts.wast` anchors against the existing contract.
+- Refreshed the `optimize-casts` landing page, Starshine strategy, implementation/test-map, and shared wiki/pass catalogs so the dossier now has an explicit implementation-readiness bridge and keeps the upstream scope mismatch around `ref.test` visible.
+- Recorded unchanged contract status: Binaryen still teaches the same GC-gated `ref.cast` / `ref.as_non_null` cast-reuse story, and Starshine still keeps the pass removed-registry only.
+
 ## [2026-05-06] health | refresh `instrument-locals` current-main bridge and source anchors
 
 - Added `docs/wiki/raw/binaryen/2026-05-06-instrument-locals-current-main-recheck.md` plus `docs/wiki/raw/research/0499-2026-05-06-instrument-locals-current-main-recheck.md` after rechecking current Binaryen `InstrumentLocals.cpp`, `pass.cpp`, and the dedicated lit files against the existing local contract.
